@@ -1,0 +1,99 @@
+# ===========================================
+# PRODUCTION EXCLUSIONS
+# ===========================================
+
+# Node modules and build outputs
+node_modules/
+.npm/
+apps/frontend/node_modules/
+apps/backend/node_modules/
+apps/frontend/dist/
+apps/backend/dist/
+.vite/
+dist/
+
+# Environment files (CRITICAL - Never commit)
+.env
+.env.local
+.env.*.local
+apps/backend/.env
+apps/frontend/.env
+apps/admin-panel/.env
+*.env
+
+# Uploads and exports
+uploads/
+exports/
+apps/backend/uploads/
+apps/backend/exports/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# ===========================================
+# DEVELOPMENT ONLY - NEVER DEPLOY
+# ===========================================
+
+# Documentation files (analysis, reports, audits)
+docs/
+
+# Database files and archives
+*.zip
+*.sql.gz
+Database.zip
+data/
+!apps/backend/src/data/
+apps/backend/src/data/*
+*.db
+*.sqlite
+
+# Test and debug scripts (if any remain outside _dev)
+test-*.js
+check-*.js
+fix-*.js
+run-*.js
+*-test.js
+*.test.js
+*.spec.js
+
+# ===========================================
+# IDE AND EDITOR
+# ===========================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ===========================================
+# LOGS AND CACHE
+# ===========================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.cache/
+.parcel-cache/
+.turbo/
+.qoder/
+
+# ===========================================
+# BUILD ARTIFACTS
+# ===========================================
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# ===========================================
+# LOCAL DEVELOPMENT FILES (Added by audit)
+# ===========================================
+# Local scripts that shouldn't be committed
+*.cjs
+
+# Sensitive backup files
+dev-tools/backups/
+dev-tools/*.backup
+
+# QMS file (misplaced)
+qms.jsx

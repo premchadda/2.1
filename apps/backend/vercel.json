@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/app-port5001.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/app-port5001.js"
+    }
+  ],
+  "excludeFiles": [
+    "**/_dev/**",
+    "**/test-*.js",
+    "**/check-*.js",
+    "**/fix-*.js",
+    "**/run-*.js",
+    "**/data/**",
+    "**/*.zip",
+    "**/exports/**",
+    "**/*.test.js",
+    "**/*.spec.js"
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}

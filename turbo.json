@@ -1,0 +1,53 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", ".next/**"]
+    },
+    "trstprep-backend#build": {
+      "outputs": ["dist/**"]
+    },
+    "trstprep-frontend#build": {
+      "outputs": ["dist/**"]
+    },
+    "trstprep-admin#build": {
+      "outputs": ["dist/**"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "inputs": ["src/**/*.js", "src/**/*.jsx", "test/**/*.js"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "clean": {
+      "cache": false
+    },
+    "docs": {
+      "cache": false,
+      "outputs": ["docs/**"]
+    }
+  },
+  "globalEnv": [
+    "NODE_ENV",
+    "PORT",
+    "DATABASE_URL",
+    "JWT_SECRET",
+    "FRONTEND_URL",
+    "ADMIN_PANEL_URL",
+    "VITE_API_URL",
+    "VITE_SOCKET_URL",
+    "VITE_FRONTEND_URL",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASS"
+  ]
+}

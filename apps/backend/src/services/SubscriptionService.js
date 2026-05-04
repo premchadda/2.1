@@ -1,0 +1,362 @@
+import { pool } from '../infrastructure/database/postgres-helpers.js'
+
+// Get the shared pool directly
+const getPool = () => pool
+
+export const SUBSCRIPTION_PLANS = {
+  PRO_PASS_MONTHLY: 'pro_pass_monthly',
+  PRO_PASS_YEARLY: 'pro_pass_yearly'
+}
+
+export const FEATURES = {
+  // Test Access
+  ACCESS_ALL_TESTS: 'access_all_tests',
+  UNLIMITED_ATTEMPTS: 'unlimited_attempts',
+  CHAPTER_WISE_TESTS: 'chapter_wise_tests',
+  SECTIONAL_TESTS: 'sectional_tests',
+  PREVIOUS_YEAR_PAPERS: 'previous_year_papers',
+  LIVE_TESTS: 'live_tests',
+  
+  // Reattempt Features
+  REATTEMPT_FULL: 'reattempt_full',
+  REATTEMPT_WRONG: 'reattempt_wrong',
+  REATTEMPT_UNATTEMPTED: 'reattempt_unattempted',
+  REATTEMPT_SLOW: 'reattempt_slow',
+  SMART_IMPROVEMENT: 'smart_improvement',
+  
+  // Analytics Features
+  ANALYTICS_DETAILED: 'analytics_detailed',
+  ANALYTICS_ACCURACY: 'analytics_accuracy',
+  ANALYTICS_TIME_SPENT: 'analytics_time_spent',
+  ANALYTICS_WEAK_TOPICS: 'analytics_weak_topics',
+  ANALYTICS_STRONG_TOPICS: 'analytics_strong_topics',
+  ANALYTICS_PERCENTILE: 'analytics_percentile',
+  ANALYTICS_PROGRESS: 'analytics_progress',
+  ANALYTICS_COMPARISON: 'analytics_comparison',
+  
+  // Learning Features
+  SOLUTIONS_DETAILED: 'solutions_detailed',
+  PRACTICE_MODE: 'practice_mode',
+  PDF_DOWNLOADS: 'pdf_downloads',
+  OFFLINE_ACCESS: 'offline_access',
+  
+  // Support Features
+  PRIORITY_SUPPORT: 'priority_support',
+  EARLY_ACCESS: 'early_access'
+}
+
+export const FREE_LIMITS = {
+  MAX_FREE_ATTEMPTS: 3,
+  MAX_FREE_TEST_SERIES: 1
+}
+
+class SubscriptionService {
+  async getUserSubscription(userId) {
+    const result = await getPool().query(
+      `SELECT * FROM subscriptions 
+       WHERE user_id = $1 AND status = 'active' AND expiry_date > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [userId]
+    )
+    return result.rows[0] || null
+  }
+
+  async hasActiveProPass(userId) {
+    const sub = await this.getUserSubscription(userId)
+    if (!sub) {
+      // Also check legacy pro_expiry field
+      const userResult = await getPool().query(
+        'SELECT pro_expiry, is_pro_user FROM users WHERE id = $1',
+        [userId]
+      )
+      if (userResult.rows[0]?.is_pro_user && userResult.rows[0]?.pro_expiry) {
+        return new Date(userResult.rows[0].pro_expiry) > new Date()
+      }
+      return false
+    }
+    return sub.plan_type.includes('pro_pass')
+  }
+
+  async hasFeature(userId, feature) {
+    const sub = await this.getUserSubscription(userId)
+    if (!sub) {
+      return false
+    }
+    
+    const featureResult = await getPool().query(
+      `SELECT is_enabled FROM subscription_features 
+       WHERE plan_type = $1 AND feature_key = $2`,
+      [sub.plan_type, feature]
+    )
+    
+    return featureResult.rows[0]?.is_enabled || false
+  }
+
+  async getUserFeatures(userId) {
+    const sub = await this.getUserSubscription(userId)
+    if (!sub) {
+      return {}
+    }
+    
+    const featuresResult = await getPool().query(
+      `SELECT feature_key, is_enabled, limit_value 
+       FROM subscription_features WHERE plan_type = $1`,
+      [sub.plan_type]
+    )
+    
+    const features = {}
+    featuresResult.rows.forEach(f => {
+      features[f.feature_key] = f.is_enabled
+    })
+    
+    return features
+  }
+
+  async getAttemptCount(userId, testId) {
+    const result = await getPool().query(
+      `SELECT COUNT(*) as count FROM attempts 
+       WHERE user_id = $1 AND (test_id = $2 OR test_id::text = $2::text)`,
+      [userId, testId]
+    )
+    return parseInt(result.rows[0].count)
+  }
+
+  async canAttemptTest(userId, testId) {
+    const isPro = await this.hasActiveProPass(userId)
+    
+    if (isPro) {
+      return { allowed: true, reason: 'pro_user', unlimited: true }
+    }
+    
+    const attemptCount = await this.getAttemptCount(userId, testId)
+    
+    if (attemptCount >= FREE_LIMITS.MAX_FREE_ATTEMPTS) {
+      return { 
+        allowed: false, 
+        reason: 'limit_exceeded',
+        currentAttempts: attemptCount,
+        maxAttempts: FREE_LIMITS.MAX_FREE_ATTEMPTS,
+        upgradeUrl: '/pro-pass'
+      }
+    }
+    
+    return { allowed: true, reason: 'free_user', remaining: FREE_LIMITS.MAX_FREE_ATTEMPTS - attemptCount }
+  }
+
+  async createSubscription(userId, planType, expiryDate, paymentDetails = {}) {
+    const result = await getPool().query(
+      `INSERT INTO subscriptions (user_id, plan_type, start_date, expiry_date, status, auto_renew, payment_method, transaction_id, amount_paid)
+       VALUES ($1, $2, NOW(), $3, 'active', $4, $5, $6, $7)
+       RETURNING *`,
+      [
+        userId,
+        planType,
+        expiryDate,
+        paymentDetails.auto_renew || false,
+        paymentDetails.payment_method,
+        paymentDetails.transaction_id,
+        paymentDetails.amount_paid
+      ]
+    )
+    
+    // Update user pro status
+    await getPool().query(
+      `UPDATE users SET is_pro_user = true, pro_expiry = $1, pass_type = $2 WHERE id = $3`,
+      [expiryDate, planType, userId]
+    )
+    
+    return result.rows[0]
+  }
+
+  async cancelSubscription(subscriptionId) {
+    await getPool().query(
+      `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+      [subscriptionId]
+    )
+  }
+
+  async getSubscriptionPlans() {
+    const result = await getPool().query(
+      `SELECT * FROM subscription_plans WHERE is_active = true ORDER BY sort_order`
+    )
+    return result.rows
+  }
+
+  // Reattempt logic
+  async getWrongQuestions(attemptId) {
+    const result = await getPool().query(
+      `SELECT aa.question_id, q.*
+       FROM attempt_answers aa
+       JOIN questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = $1 AND aa.is_correct = false`,
+      [attemptId]
+    )
+    return result.rows
+  }
+
+  async getUnattemptedQuestions(attemptId) {
+    const result = await getPool().query(
+      `SELECT aa.question_id, q.*
+       FROM attempt_answers aa
+       JOIN questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = $1 AND (aa.selected_option_id IS NULL OR aa.is_unattempted = true)`,
+      [attemptId]
+    )
+    return result.rows
+  }
+
+  async getSlowQuestions(attemptId, avgTimePerQuestion = 60) {
+    const result = await getPool().query(
+      `SELECT aa.question_id, q.*
+       FROM attempt_answers aa
+       JOIN questions q ON q.id = aa.question_id
+       WHERE aa.attempt_id = $1 AND aa.time_spent_seconds > $2`,
+      [attemptId, avgTimePerQuestion]
+    )
+    return result.rows
+  }
+
+  async getWeakTopics(userId, testId = null) {
+    let query = `
+      SELECT q.topic, q.subject, 
+             COUNT(*) as total,
+             SUM(CASE WHEN aa.is_correct = false THEN 1 ELSE 0 END) as wrong_count,
+             ROUND(SUM(CASE WHEN aa.is_correct = false THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric * 100, 2) as wrong_percentage
+      FROM attempt_answers aa
+      JOIN attempts ta ON ta.id = aa.attempt_id
+      JOIN questions q ON q.id = aa.question_id
+      WHERE ta.user_id = $1
+    `
+    const params = [userId]
+    
+    if (testId) {
+      query += ` AND ta.test_id = $2`
+      params.push(testId)
+    }
+    
+    query += ` GROUP BY q.topic, q.subject
+               HAVING SUM(CASE WHEN aa.is_correct = false THEN 1 ELSE 0 END)::numeric / COUNT(*)::numeric > 0.5
+               ORDER BY wrong_percentage DESC`
+    
+    const result = await getPool().query(query, params)
+    return result.rows
+  }
+
+  async createReattempt(parentAttemptId, reattemptType) {
+    // Validate inputs
+    if (!parentAttemptId) {
+      throw new Error('Parent attempt ID is required')
+    }
+
+    // Validate reattempt type
+    const validTypes = ['full', 'wrong', 'smart']
+    if (!validTypes.includes(reattemptType)) {
+      throw new Error(`Invalid reattempt type: ${reattemptType}. Valid types: ${validTypes.join(', ')}`)
+    }
+
+    // Get parent attempt details
+    const parentAttempt = await getPool().query(
+      `SELECT * FROM attempts WHERE id = $1`,
+      [parentAttemptId]
+    )
+    
+    if (!parentAttempt.rows[0]) {
+      throw new Error(`Parent attempt not found with ID: ${parentAttemptId}. Please ensure the attempt exists and try again.`)
+    }
+    
+    const parent = parentAttempt.rows[0]
+    
+    let questions = []
+    let testTitle = parent.test_title || 'Practice Test'
+    
+switch (reattemptType) {
+      case 'full': {
+        const allQuestions = await getPool().query(
+          `SELECT q.* FROM questions q WHERE q.test_id = $1`,
+          [parent.test_id]
+        )
+        questions = allQuestions.rows
+        testTitle = `${testTitle} - Reattempt`
+break;
+      }
+        
+      case 'wrong':
+        questions = await this.getWrongQuestions(parentAttemptId)
+        testTitle = `${testTitle} - Wrong Questions`
+        break
+        
+      case 'unattempted':
+        questions = await this.getUnattemptedQuestions(parentAttemptId)
+        testTitle = `${testTitle} - Unattempted Questions`
+        break
+        
+      case 'slow':
+        questions = await this.getSlowQuestions(parentAttemptId)
+        testTitle = `${testTitle} - Slow Questions`
+        break
+        
+      case 'smart_improvement': {
+        const wrong = await this.getWrongQuestions(parentAttemptId)
+        const unattempted = await this.getUnattemptedQuestions(parentAttemptId)
+        const slow = await this.getSlowQuestions(parentAttemptId)
+        
+        // Combine and dedupe
+        const combined = [...wrong, ...unattempted, ...slow]
+        const seen = new Set()
+        questions = combined.filter(q => {
+          if (seen.has(q.id)) return false
+          seen.add(q.id)
+          return true
+        })
+        testTitle = `${testTitle} - Smart Improvement`
+        break
+        }
+        
+      default:
+        throw new Error('Invalid reattempt type')
+    }
+    
+    if (questions.length === 0) {
+      throw new Error('No questions available for this reattempt type')
+    }
+    
+    // Shuffle questions
+    questions = questions.sort(() => Math.random() - 0.5)
+    
+    // Create new attempt in attempts
+    const newAttempt = await getPool().query(
+      `INSERT INTO attempts (user_id, test_id, test_title, attempt_number, is_reattempt, reattempt_type, parent_attempt_id, started_at)
+       VALUES ($1, $2, $3, $4, true, $5, $6, NOW())
+       RETURNING *`,
+      [parent.user_id, parent.test_id, testTitle, parent.attempt_number + 1, reattemptType, parentAttemptId]
+    )
+    
+    // Also create entry in attempts table for tracking (for user progress)
+    const seriesId = parent.series_id || parent.test?.series_id
+    const newMainAttempt = await getPool().query(
+      `INSERT INTO attempts (user_id, test_id, series_id, test_title, status, is_reattempt, reattempt_type, parent_attempt_id, created_at)
+       VALUES ($1, $2, $3, $4, 'in_progress', true, $5, $6, NOW())
+       RETURNING *`,
+      [parent.user_id, parent.test_id, seriesId, testTitle, reattemptType, parentAttemptId]
+    )
+    
+    return {
+      attempt: newAttempt.rows[0],
+      mainAttempt: newMainAttempt.rows[0],
+      questions: questions
+    }
+  }
+
+  async getAttemptHistory(userId, testId) {
+    const result = await getPool().query(
+      `SELECT id, attempt_number, score, total_marks, percentage, accuracy, correct_count, wrong_count, unattempted_count, total_time_spent, started_at, submitted_at, is_reattempt, reattempt_type
+       FROM attempts 
+       WHERE user_id = $1 AND test_id = $2
+       ORDER BY attempt_number DESC`,
+      [userId, testId]
+    )
+    return result.rows
+  }
+}
+
+export default new SubscriptionService()

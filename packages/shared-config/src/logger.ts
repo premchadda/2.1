@@ -1,0 +1,68 @@
+/**
+ * Logger Utility
+ *
+ * Provides environment-aware logging that can be silenced in production.
+ * In development, logs to console. In production, logs can be collected and sent to monitoring service.
+ */
+
+const isDevelopment: boolean = import.meta.env.DEV
+
+enum LogLevel {
+  ERROR = 0,
+  WARN = 1,
+  INFO = 2,
+  DEBUG = 3
+}
+
+const currentLevel: LogLevel = isDevelopment ? LogLevel.DEBUG : LogLevel.ERROR
+
+function shouldLog(level: LogLevel): boolean {
+  return currentLevel >= level
+}
+
+export interface Logger {
+  debug: (...args: any[]) => void
+  info: (...args: any[]) => void
+  warn: (...args: any[]) => void
+  error: (...args: any[]) => void
+  log: (...args: any[]) => void
+}
+
+const logger: Logger = {
+  debug: (...args: any[]): void => {
+    if (shouldLog(LogLevel.DEBUG)) {
+      // eslint-disable-next-line no-console
+      console.debug(...args)
+    }
+  },
+
+  info: (...args: any[]): void => {
+    if (shouldLog(LogLevel.INFO)) {
+      // eslint-disable-next-line no-console
+      console.log(...args)
+    }
+  },
+
+  warn: (...args: any[]): void => {
+    if (shouldLog(LogLevel.WARN)) {
+      // eslint-disable-next-line no-console
+      console.warn(...args)
+    }
+  },
+
+  error: (...args: any[]): void => {
+    if (shouldLog(LogLevel.ERROR)) {
+      // eslint-disable-next-line no-console
+      console.error(...args)
+    }
+  },
+
+  log: (...args: any[]): void => {
+    if (shouldLog(LogLevel.INFO)) {
+      // eslint-disable-next-line no-console
+      console.log(...args)
+    }
+  }
+}
+
+export { logger }

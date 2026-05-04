@@ -1,0 +1,50 @@
+{
+  "name": "trstprep-monorepo",
+  "version": "2.0.0",
+  "description": "Trstprep - India's #1 Platform for SSC & Railway Exam Preparation",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "clean": "turbo clean",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\"",
+    "dev:backend": "turbo dev --filter=trstprep-backend",
+    "dev:frontend": "turbo dev --filter=trstprep-frontend",
+    "dev:admin": "turbo dev --filter=trstprep-admin",
+    "build:backend": "turbo build --filter=trstprep-backend",
+    "build:frontend": "turbo build --filter=trstprep-frontend",
+    "build:admin": "turbo build --filter=trstprep-admin",
+    "docs": "node dev-tools/scripts/update-docs.mjs",
+    "watch-docs": "node dev-tools/scripts/watch-docs.mjs",
+    "upgrade": "ncu -u",
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "chokidar": "^3.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "npm-check-updates": "^22.1.0",
+    "prettier": "^3.5.3",
+    "turbo": "^2.8.16"
+  },
+  "overrides": {
+    "qs": "6.15.0",
+    "minimatch": "10.2.5",
+    "tar": "^7.5.11",
+    "@tootallnate/once": "^3.0.0",
+    "fast-xml-parser": "^4.4.1",
+    "flatted": "^3.3.1",
+    "lodash": "^4.17.21",
+    "vite": "^6.4.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "packageManager": "npm@9.0.0"
+}

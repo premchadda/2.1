@@ -1,0 +1,10 @@
+// Dashboard Pages - Protected user dashboard pages
+export { default as Dashboard } from './Dashboard'
+export { default as Profile } from './Profile'
+export { default as Analysis } from './Analysis'
+export { default as Bookmarks } from './Bookmarks'
+export { default as AttemptedTests } from './AttemptedTests'
+export { default as Notifications } from './Notifications'
+export { default as Achievements } from './Achievements'
+export { default as ReferAndEarn } from './ReferAndEarn'
+export { default as Settings } from './Settings'

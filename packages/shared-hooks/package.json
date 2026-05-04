@@ -1,0 +1,8 @@
+{
+  "name": "@trstprep/shared-hooks",
+  "version": "1.0.0",
+  "description": "Shared React hooks for Trstprep apps",
+  "main": "index.js",
+  "type": "module",
+  "files": ["*.js"]
+}

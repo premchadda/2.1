@@ -1,0 +1,52 @@
+# MED-04 FIX: 'version' field removed — deprecated in Docker Compose V2
+
+services:
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - NODE_ENV=development
+      - PORT=5001
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - FRONTEND_URL=http://localhost:3000
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5001/api
+      - VITE_SOCKET_URL=http://localhost:5001
+      - VITE_ADMIN_URL=http://localhost:3002
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev
+
+  admin-panel:
+    build:
+      context: ./apps/admin-panel
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - VITE_API_URL=http://localhost:5001/api
+      - VITE_MAIN_SITE_URL=http://localhost:3000
+    volumes:
+      - ./apps/admin-panel:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev

@@ -1,0 +1,25 @@
+{
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "module"
+  },
+  "rules": {
+    "camelcase": [
+      "warn",
+      {
+        "properties": "always",
+        "ignoreDestructuring": false,
+        "ignoreGlobals": false,
+        "ignoreImports": false
+      }
+    ],
+    "no-var": "error",
+    "prefer-const": "error",
+    "eqeqeq": ["error", "always"],
+    "no-console": ["warn", { "allow": ["warn", "error"] }]
+  }
+}

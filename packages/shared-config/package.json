@@ -1,0 +1,9 @@
+{
+  "name": "@trstprep/shared-config",
+  "version": "1.0.0",
+  "description": "Shared asset configuration utilities for Trstprep apps",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
+  "files": ["src/"]
+}

@@ -1,0 +1,10 @@
+// Exam Pages - Exam information pages
+export { default as Exams } from './Exams'
+export { default as ExamsNew } from './ExamsNew'
+export { default as ExamDetails } from './ExamDetails'
+export { default as ExamInfoNew } from './ExamInfoNew'
+export { default as ExamCategory } from './ExamCategory'
+export { default as ExamYear } from './ExamYear'
+export { default as ExamCompare } from './ExamCompare'
+export { default as ExamUpdates } from './ExamUpdates'
+export { default as ExamMasterPage } from './ExamMasterPage'
