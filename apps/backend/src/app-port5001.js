@@ -109,7 +109,6 @@ if (!jwtSecret || jwtSecret.length < 32 || !/[A-Z]/.test(jwtSecret) || !/[a-z]/.
 
 const app = express();
 const PORT = process.env.PORT || 5001;
-global.dbHelpers = dbHelpers;
 
 const helmetOptions = {
   crossOriginEmbedderPolicy: true,
