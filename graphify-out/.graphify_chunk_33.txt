@@ -1,5 +1,0 @@
-E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\AI_INFRASTRUCTURE_SETUP.md
-E:\Tech\Testprep\Trstprep V2.1\docs\development\Bulk Upload - Functions.txt
-E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Admin Panel doc.txt
-E:\Tech\Testprep\Trstprep V2.1\docs\phase1-workflow.md
-E:\Tech\Testprep\Trstprep V2.1\docs\development\Admin Panel doc.txt

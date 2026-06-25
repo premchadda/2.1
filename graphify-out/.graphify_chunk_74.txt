@@ -1,2 +1,0 @@
-E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamDetails.jsx
-E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\stages.js
