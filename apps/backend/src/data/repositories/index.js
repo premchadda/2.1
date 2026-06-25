@@ -1,0 +1,5 @@
+export { UserRepository } from './UserRepository.js'
+export { TestSeriesRepository } from './TestSeriesRepository.js'
+export { TestRepository } from './TestRepository.js'
+export { QuestionRepository } from './QuestionRepository.js'
+export { TestAttemptRepository } from './TestAttemptRepository.js'

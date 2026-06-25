@@ -1,0 +1,154 @@
+2026-03-05T02:39:41.335498Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:39:41.386617Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:39:41.386661Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:40:16.197674Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\api\\routes\\series.js")}
+2026-03-05T02:40:16.197983Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:40:37.185448Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\api\\routes\\series.js")}
+2026-03-05T02:40:37.185483Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:42:53.473715Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:42:53.491478Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:42:53.491552Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:08.295762Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:43:08.295816Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:08.596551Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:43:08.596579Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:08.989197Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:43:08.989225Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:09.287233Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:43:09.287262Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:48.800280Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:43:48.800299Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:43:48.894207Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:43:48.894232Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:44:09.520858Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:44:09.520901Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:44:09.524635Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:44:15.831761Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:44:15.831798Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:44:16.132721Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:44:16.132756Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:44:59.156233Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:44:59.156303Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:44:59.383329Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:45:27.755158Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:45:27.755203Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:45:28.052480Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:45:28.052561Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:46:10.161967Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("turbo_dry.json"), AnchoredSystemPathBuf("")}
+2026-03-05T02:46:10.161993Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:46:12.165849Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("turbo_dry.json")}
+2026-03-05T02:46:12.165887Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:46:32.854266Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:46:32.854333Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:46:33.152064Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:46:33.152181Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:48:15.979511Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:48:15.979808Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:48:16.097688Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:48:16.097734Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:48:16.175777Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:48:16.485504Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:48:16.485552Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:49:25.782229Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\frontend\\vite.config.js")}
+2026-03-05T02:49:25.782253Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-frontend"), path: AnchoredSystemPathBuf("apps\\frontend") }}))
+2026-03-05T02:50:20.975533Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:50:20.975568Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:50:21.057360Z  WARN daemon_server: turborepo_lib::commands::daemon: daemon already running
+2026-03-05T02:50:21.076966Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:50:21.076991Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:01.187409Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:51:01.187451Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:01.377368Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:51:01.377403Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:01.579172Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:01.579208Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:29.181663Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:29.181712Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:29.479470Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:29.479562Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:37.487954Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:37.488042Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:37.881006Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:37.881076Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:46.271897Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:51:46.271944Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:51:46.681107Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:51:46.681177Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:02.483918Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:52:02.483956Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:02.673358Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:52:02.673398Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:19.877190Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:52:19.877238Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:20.174926Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:52:20.174946Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:28.483831Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:52:28.483850Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:28.672799Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:52:28.672820Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:40.473355Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:52:40.473402Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:40.787165Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:52:40.787195Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:52:59.671810Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\infrastructure\\database\\postgres-helpers.js")}
+2026-03-05T02:52:59.671854Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:53:04.172383Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:53:04.172413Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:04.484817Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:53:04.484836Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:23.684216Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\infrastructure\\email\\emailService.js")}
+2026-03-05T02:53:23.684238Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:53:29.284669Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:53:29.284698Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:29.585643Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:53:29.585663Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:45.780488Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:53:45.780521Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:46.080924Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:53:46.080957Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:53:50.476554Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package.json")}
+2026-03-05T02:53:50.476585Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-05T02:54:06.481100Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:54:06.481137Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:54:06.783335Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:54:06.783368Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:54:07.478810Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package.json")}
+2026-03-05T02:54:07.478826Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-05T02:54:07.577681Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package.json")}
+2026-03-05T02:54:07.577720Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-05T02:54:21.574689Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:54:21.574729Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:54:21.877264Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:54:21.877295Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:55:00.983223Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:55:00.983478Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:55:01.279628Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:55:01.279675Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:56:07.775937Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\app-port5001.js")}
+2026-03-05T02:56:07.776136Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:56:13.276152Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling\\.git_disabled"), AnchoredSystemPathBuf("Scrapling")}
+2026-03-05T02:56:13.276205Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:56:13.775081Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:56:13.775127Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:56:22.685432Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package.json")}
+2026-03-05T02:56:22.685467Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-05T02:57:03.577618Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("node_modules")}
+2026-03-05T02:57:03.577654Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:05.076332Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("package-lock.json")}
+2026-03-05T02:57:05.076384Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:05.187214Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("node_modules"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:57:05.187250Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:05.584654Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:57:05.584697Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:16.376872Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo")}
+2026-03-05T02:57:16.376913Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:21.978256Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("turbo.json")}
+2026-03-05T02:57:21.978279Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(All)
+2026-03-05T02:57:31.285269Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\infrastructure\\database\\postgres-helpers.js")}
+2026-03-05T02:57:31.285301Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
+2026-03-05T02:57:32.881063Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:57:32.881143Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:33.278060Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Scrapling"), AnchoredSystemPathBuf("Scrapling\\.git_disabled")}
+2026-03-05T02:57:33.278090Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-03-05T02:57:45.778805Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\backend\\src\\api\\routes\\stages.js"), AnchoredSystemPathBuf("apps\\backend\\src\\api\\routes")}
+2026-03-05T02:57:45.778824Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-backend"), path: AnchoredSystemPathBuf("apps\\backend") }}))
