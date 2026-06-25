@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { auth } from '../../middleware/auth.middleware.js'
 import { asyncHandler } from '../../middleware/asyncHandler.js'
 import { executePaginatedQuery } from '../../utils/queryBuilder.js'
@@ -25,7 +26,7 @@ router.get('/questions', asyncHandler(async (req, res) => {
   const allowedFields = ['subject', 'topic', 'difficulty']
 
   const result = await executePaginatedQuery(
-    global.dbHelpers,
+    dbHelpers,
     'practice_questions',
     ['id', 'question_text', 'options', 'subject', 'topic', 'difficulty', 'language'],
     filters,
@@ -48,7 +49,7 @@ router.get('/questions/:id', async (req, res) => {
   try {
     const { id } = req.params
     
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `SELECT id, question_text, options, subject, topic, difficulty, language, explanation FROM practice_questions WHERE id = $1 AND is_active = true`,
       [id]
     )
@@ -73,7 +74,7 @@ router.post('/answer', auth, async (req, res) => {
     const { questionId, selectedAnswer, timeSpent } = req.body
 
     // Get question
-    const questionResult = await global.dbHelpers.query(
+    const questionResult = await dbHelpers.query(
       `SELECT correct_answer, difficulty FROM practice_questions WHERE id = $1`,
       [questionId]
     )
@@ -85,7 +86,7 @@ router.post('/answer', auth, async (req, res) => {
     const isCorrect = selectedAnswer === questionResult.rows[0].correct_answer
 
     // Save answer
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `INSERT INTO practice_answers (user_id, question_id, selected_answer, is_correct, time_spent, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING id, is_correct, time_spent`,
@@ -93,7 +94,7 @@ router.post('/answer', auth, async (req, res) => {
     )
 
     // Get user's accuracy for this topic
-    const topicResult = await global.dbHelpers.query(
+    const topicResult = await dbHelpers.query(
       `SELECT pq.topic, COUNT(*) as total, SUM(CASE WHEN pa.is_correct THEN 1 ELSE 0 END) as correct
        FROM practice_answers pa
        JOIN practice_questions pq ON pa.question_id = pq.id
@@ -134,7 +135,7 @@ router.get('/history', auth, async (req, res) => {
     const userId = req.user.id
     const { limit = 50 } = req.query
 
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `SELECT pa.id, pa.question_id, pa.selected_answer, pa.is_correct, 
               pa.time_spent, pa.created_at, pq.question_text, pq.subject, pq.topic
        FROM practice_answers pa
@@ -160,7 +161,7 @@ router.get('/stats', auth, async (req, res) => {
     const userId = req.user.id
 
     // Overall stats
-    const overallStats = await global.dbHelpers.query(
+    const overallStats = await dbHelpers.query(
       `SELECT COUNT(*) as total, 
               SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) as correct,
               AVG(CASE WHEN is_correct THEN 100 ELSE 0 END) as accuracy,
@@ -170,7 +171,7 @@ router.get('/stats', auth, async (req, res) => {
     )
 
     // Topic-wise stats
-    const topicStats = await global.dbHelpers.query(
+    const topicStats = await dbHelpers.query(
       `SELECT pq.topic, 
               COUNT(*) as attempts,
               SUM(CASE WHEN pa.is_correct THEN 1 ELSE 0 END) as correct,

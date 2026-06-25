@@ -931,15 +931,30 @@ function Dashboard() {
                   <h2 className="text-lg font-bold text-gray-900 dark:text-white">Recommended</h2>
                 </div>
               </div>
-              <div className="space-y-3">
-                {testSeries.slice(0, 3).map(series => (
-                  <TestSeriesCard 
-                    key={series._id}
-                    series={series}
-                    enrolled={isSeriesEnrolled(series)}
-                    compact
-                  />
-                ))}
+              <div className="space-y-2">
+                {testSeries.slice(0, 4).map(series => {
+                  const seriesId = series.slug || series.id || series._id
+                  const emoji = getCategoryEmojiForDashboard(series.categoryName || series.category)
+                  const enrolled = isSeriesEnrolled(series)
+                  return (
+                    <Link
+                      key={series._id || series.id}
+                      to={`/test-series/${seriesId}`}
+                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
+                    >
+                      <span className="text-lg leading-none">{emoji}</span>
+                      <span className="flex-1 text-xs font-medium text-gray-800 dark:text-gray-200 truncate group-hover:text-brand-start dark:group-hover:text-indigo-400">
+                        {series.title}
+                      </span>
+                      <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                        {series.totalTests || 0}
+                      </span>
+                      {enrolled && (
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 dark:text-green-400">Enrolled</span>
+                      )}
+                    </Link>
+                  )
+                })}
               </div>
               <Link 
                 to="/test-series"

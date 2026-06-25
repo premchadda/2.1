@@ -12,7 +12,7 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/test-categories`)
+      const response = await fetch(`${API_URL}/api/test-categories`)
       const data = await response.json()
       if (data.success) {
         setCategories(data.data)
@@ -30,7 +30,7 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/test-categories/tree`)
+      const response = await fetch(`${API_URL}/api/test-categories/tree`)
       const data = await response.json()
       if (data.success) {
         setTree(data.data)
@@ -48,7 +48,7 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/test-categories/roots`)
+      const response = await fetch(`${API_URL}/api/test-categories/roots`)
       const data = await response.json()
       if (data.success) {
         setRoots(data.data)

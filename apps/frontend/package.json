@@ -1,7 +1,7 @@
 {
   "name": "trstprep-frontend",
   "private": true,
-  "version": "2.0.0",
+  "version": "2.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -18,17 +18,20 @@
     "@tanstack/react-query": "^5.90.21",
     "@trstprep/shared-config": "file:../../packages/shared-config",
     "@trstprep/shared-hooks": "file:../../packages/shared-hooks",
-    "axios": "^1.15.0",
+    "axios": "^1.18.0",
     "chart.js": "^4.4.1",
     "dompurify": "^3.4.2",
     "lucide-react": "^0.294.0",
     "react": "^18.3.1",
     "react-chartjs-2": "^5.2.0",
+    "react-confetti": "^6.4.0",
     "react-dom": "^18.3.1",
     "react-easy-crop": "^5.5.7",
     "react-hot-toast": "^2.6.0",
+    "framer-motion": "^11.15.0",
     "react-router-dom": "^6.21.0",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -42,7 +45,7 @@
     "autoprefixer": "^10.4.16",
     "eslint": "^10.0.0",
     "globals": "^15.14.0",
-    "happy-dom": "^12.10.3",
+    "happy-dom": "^20.10.6",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "vite": "^6.4.1",

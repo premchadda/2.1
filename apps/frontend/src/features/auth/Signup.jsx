@@ -1,17 +1,18 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext.jsx'
 import { GoogleLogin } from '@react-oauth/google'
 import AnimatedHero from '../../shared/components/common/AnimatedHero'
 import { Logo } from '../../shared/components'
 import { getPublicStats } from '../../shared/lib/dataService'
-import { useEffect } from 'react'
 
 function Signup() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { signup, googleLogin, loading, error } = useAuth()
-  
+
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [mobile, setMobile] = useState('')
@@ -39,10 +40,29 @@ function Signup() {
     fetchStats()
   }, [])
 
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    const onKey = (e) => { if (e.key === 'Escape') handleClose() }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', onKey)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleClose = () => {
+    if (location.state?.from?.pathname) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }
+
   // Password strength checker
   const getPasswordStrength = () => {
     if (!password) return { level: 0, text: '', color: '' }
-    
+
     let strength = 0
     if (password.length >= 8) strength++
     if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++
@@ -92,7 +112,7 @@ function Signup() {
     }
 
     const result = await signup(name, email, password, mobile)
-    
+
     if (result.success) {
       if (result.requiresVerification) {
         const targetEmail = result.email || email
@@ -105,246 +125,265 @@ function Signup() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Left Side - Animated Hero (Desktop only) */}
-      <AnimatedHero pageType="signup" className="hidden lg:flex flex-1 items-center justify-center !rounded-none">
-        <div className="max-w-lg text-center">
-          <div className="text-8xl mb-8 animate-float">🚀</div>
-          <h2 className="text-3xl font-bold text-white mb-4 animate-slide-up">Join {platformStats.activeLearners} Students</h2>
-          <p className="text-white/80 text-lg mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-            Create your free account and start preparing for your dream government job today.
-          </p>
-          
-          {/* Benefits */}
-          <div className="text-left space-y-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            {[
-              `${platformStats.mockTests} Free Mock Tests`,
-              'Detailed Performance Analysis',
-              'All India Ranking',
-              'Free Study Materials',
-            ].map((benefit, i) => (
-              <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-xl hover:bg-white/15 transition-colors">
-                <CheckCircle className="w-5 h-5 text-green-300" />
-                <span className="text-white">{benefit}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </AnimatedHero>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in"
+      onClick={handleClose}
+    >
+      <div
+        className="relative w-full max-w-5xl max-h-[95vh] overflow-hidden bg-white rounded-2xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          type="button"
+          onClick={handleClose}
+          aria-label="Close signup"
+          className="absolute top-3 right-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 shadow-sm transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
-      {/* Right Side - Form */}
-      <div className="flex-1 flex items-center justify-center p-8 overflow-y-auto">
-        <div className="w-full max-w-md py-8">
-          {/* Logo */}
-          <div className="mb-8">
-            <Logo />
-          </div>
-
-          {/* Heading */}
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
-          <p className="text-gray-500 mb-8">
-            Start your free trial today. No credit card required.
-          </p>
-
-          {/* Error Message */}
-          {(formError || error) && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-700">
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <p className="text-sm">{formError || error}</p>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Full Name *
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-brand-start focus:ring-0 outline-none transition-all"
-                />
-              </div>
+        {/* Left Side - Form */}
+        <div className="flex-1 flex justify-center p-5 sm:p-6 overflow-y-auto">
+          <div className="w-full max-w-sm py-1">
+            {/* Logo */}
+            <div className="mb-4 sm:mb-5">
+              <Logo />
             </div>
 
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address *
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-brand-start focus:ring-0 outline-none transition-all"
-                />
-              </div>
-            </div>
+            {/* Heading */}
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-1">Create Account</h1>
+            <p className="text-gray-500 text-sm mb-4 sm:mb-5">
+              Start your free trial today. No credit card required.
+            </p>
 
-            {/* Mobile (Optional) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Mobile Number <span className="text-gray-400">(Optional)</span>
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="tel"
-                  value={mobile}
-                  onChange={(e) => setMobile(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-brand-start focus:ring-0 outline-none transition-all"
-                />
+            {/* Error Message */}
+            {(formError || error) && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2 text-red-700">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <p className="text-xs">{formError || error}</p>
               </div>
-            </div>
+            )}
 
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 characters"
-                  className="w-full pl-12 pr-12 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-brand-start focus:ring-0 outline-none transition-all"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {/* Password Strength */}
-              {password && (
-                <div className="mt-2">
-                  <div className="flex gap-1 mb-1">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div 
-                        key={i}
-                        className={`h-1 flex-1 rounded-full ${
-                          i <= passwordStrength.level ? passwordStrength.color : 'bg-gray-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className={`text-xs ${passwordStrength.color.replace('bg-', 'text-')}`}>
-                    {passwordStrength.text}
-                  </p>
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Full Name *
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:border-brand-start focus:ring-0 outline-none transition-all"
+                  />
                 </div>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password *
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter your password"
-                  className={`w-full pl-12 pr-4 py-3 bg-white border-2 rounded-xl focus:ring-0 outline-none transition-all ${
-                    confirmPassword && confirmPassword !== password 
-                      ? 'border-red-300 focus:border-red-500' 
-                      : 'border-gray-200 focus:border-brand-start'
-                  }`}
-                />
               </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Email Address *
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:border-brand-start focus:ring-0 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Mobile (Optional) */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Mobile Number <span className="text-gray-400">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="tel"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:border-brand-start focus:ring-0 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    className="w-full pl-9 pr-9 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:border-brand-start focus:ring-0 outline-none transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {/* Password Strength */}
+                {password && (
+                  <div className="mt-1.5">
+                    <div className="flex gap-1 mb-0.5">
+                      {[1, 2, 3, 4].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full ${
+                            i <= passwordStrength.level ? passwordStrength.color : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <p className={`text-xs ${passwordStrength.color.replace('bg-', 'text-')}`}>
+                      {passwordStrength.text}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Confirm Password *
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your password"
+                    className={`w-full pl-9 pr-3 py-2 text-sm bg-white border rounded-lg focus:ring-0 outline-none transition-all ${
+                      confirmPassword && confirmPassword !== password
+                        ? 'border-red-300 focus:border-red-500'
+                        : 'border-gray-200 focus:border-brand-start'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              {/* Terms */}
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-gray-300 text-brand-start focus:ring-brand-start mt-0.5"
+                />
+                <span className="text-xs text-gray-600">
+                  I agree to the{' '}
+                  <Link to="/terms" className="text-brand-start hover:underline">Terms of Service</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy" className="text-brand-start hover:underline">Privacy Policy</Link>
+                </span>
+              </label>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    Create Free Account
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Divider */}
+            <div className="my-4 flex items-center gap-3">
+              <div className="flex-1 h-px bg-gray-200" />
+              <span className="text-xs text-gray-500">or sign up with</span>
+              <div className="flex-1 h-px bg-gray-200" />
             </div>
 
-            {/* Terms */}
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={agreedToTerms}
-                onChange={(e) => setAgreedToTerms(e.target.checked)}
-                className="w-5 h-5 rounded border-gray-300 text-brand-start focus:ring-brand-start mt-0.5"
+            {/* Social Login */}
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={async (credentialResponse) => {
+                  const result = await googleLogin(credentialResponse.credential)
+                  if (result.success) {
+                    navigate('/', { replace: true })
+                  } else {
+                    setFormError(result.error)
+                  }
+                }}
+                onError={() => {
+                  setFormError('Google Sign-In failed. Please try again.')
+                }}
+                theme="filled_blue"
+                shape="pill"
+                text="signup_with"
+                width="100%"
               />
-              <span className="text-sm text-gray-600">
-                I agree to the{' '}
-                <Link to="/terms" className="text-brand-start hover:underline">Terms of Service</Link>
-                {' '}and{' '}
-                <Link to="/privacy" className="text-brand-start hover:underline">Privacy Policy</Link>
-              </span>
-            </label>
+            </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 bg-gradient-to-r from-brand-start to-brand-end text-white font-bold rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Creating account...
-                </>
-              ) : (
-                <>
-                  Create Free Account
-                  <ArrowRight className="w-5 h-5" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Divider */}
-          <div className="my-6 sm:my-8 flex items-center gap-4">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-sm text-gray-500">or sign up with</span>
-            <div className="flex-1 h-px bg-gray-200" />
+            {/* Sign In Link */}
+            <p className="mt-4 text-center text-xs text-gray-500">
+              Already have an account?{' '}
+              <Link to="/login" className="text-brand-start font-semibold hover:underline">
+                Sign In
+              </Link>
+            </p>
           </div>
-
-          {/* Social Login */}
-          <div className="flex justify-center">
-            <GoogleLogin
-              onSuccess={async (credentialResponse) => {
-                const result = await googleLogin(credentialResponse.credential)
-                if (result.success) {
-                  navigate('/', { replace: true })
-                } else {
-                  setFormError(result.error)
-                }
-              }}
-              onError={() => {
-                setFormError('Google Sign-In failed. Please try again.')
-              }}
-              theme="filled_blue"
-              shape="pill"
-              text="signup_with"
-              width="100%"
-            />
-          </div>
-
-          {/* Sign In Link */}
-          <p className="mt-8 text-center text-gray-500">
-            Already have an account?{' '}
-            <Link to="/login" className="text-brand-start font-semibold hover:underline">
-              Sign In
-            </Link>
-          </p>
         </div>
+
+        {/* Right Side - Animated Hero (Desktop only) */}
+        <AnimatedHero pageType="signup" className="hidden lg:flex flex-1 items-center justify-center !rounded-none">
+          <div className="max-w-lg text-center p-8">
+            <div className="text-8xl mb-8 animate-float">🚀</div>
+            <h2 className="text-3xl font-bold text-white mb-4 animate-slide-up">Join {platformStats.activeLearners} Students</h2>
+            <p className="text-white/80 text-lg mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              Create your free account and start preparing for your dream government job today.
+            </p>
+
+            {/* Benefits */}
+            <div className="text-left space-y-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              {[
+                `${platformStats.mockTests} Free Mock Tests`,
+                'Detailed Performance Analysis',
+                'All India Ranking',
+                'Free Study Materials',
+              ].map((benefit, i) => (
+                <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-xl hover:bg-white/15 transition-colors">
+                  <CheckCircle className="w-5 h-5 text-green-300" />
+                  <span className="text-white">{benefit}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </AnimatedHero>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

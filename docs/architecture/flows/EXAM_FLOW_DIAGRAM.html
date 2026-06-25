@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>[ARCHIVED] Exam Pages Flow - Trstprep V2.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --brand: #667eea;
+            --brand2: #764ba2;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --bg-dark: #1a1a2e;
+            --bg-darker: #16213e;
+            --text: #e9ecef;
+            --text-muted: #8892b0;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+            min-height: 100vh;
+            color: var(--text);
+            line-height: 1.7;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            border-radius: 20px;
+            margin-bottom: 30px;
+        }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { opacity: 0.9; font-size: 1.1rem; }
+        .badges { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .badge {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .nav {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 25px;
+            position: sticky;
+            top: 15px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        .nav ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; justify-content: center; }
+        .nav a {
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 8px 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            display: block;
+        }
+        .nav a:hover { background: linear-gradient(var(--brand), var(--brand2)); color: white; }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--brand);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h3 { font-size: 1.2rem; margin: 25px 0 15px; color: var(--brand); }
+        .card h4 { color: var(--success); margin: 20px 0 10px; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin: 20px 0; }
+        
+        .flow-container { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .flow-level { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        .flow-box {
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 200px;
+            max-width: 280px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        .flow-box:hover { transform: translateY(-5px); box-shadow: 0 10px 40px rgba(102,126,234,0.4); }
+        .flow-box.frontend { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .flow-box.backend { background: linear-gradient(135deg, #eb3349, #f45c43); }
+        .flow-box.database { background: linear-gradient(135deg, #4776E6, #8E54E9); }
+        .flow-box h4 { font-size: 1rem; margin-bottom: 8px; color: white; }
+        .flow-box p { font-size: 0.85rem; opacity: 0.9; margin-bottom: 8px; }
+        .flow-box .route {
+            font-family: 'Consolas', monospace;
+            background: rgba(0,0,0,0.2);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: inline-block;
+        }
+        .arrow-down { font-size: 1.5rem; color: var(--success); margin: 5px 0; }
+        .arrow-side { font-size: 1.5rem; color: var(--brand); }
+        
+        .hierarchy-tree { display: flex; flex-direction: column; gap: 8px; }
+        .tree-node {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            background: rgba(30,40,60,0.8);
+            border-radius: 10px;
+            border-left: 3px solid var(--brand);
+        }
+        .tree-node.level-2 { margin-left: 30px; border-left-color: var(--success); }
+        .tree-node.level-3 { margin-left: 60px; border-left-color: var(--warning); }
+        .node-icon {
+            width: 35px;
+            height: 35px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+        .node-icon.page { background: linear-gradient(var(--brand), var(--brand2)); }
+        .node-icon.component { background: linear-gradient(135deg, #11998e, #38ef7d); }
+        .node-icon.api { background: linear-gradient(135deg, #eb3349, #f45c43); }
+        .node-info h5 { font-size: 0.9rem; margin-bottom: 2px; }
+        .node-info p { font-size: 0.8rem; color: var(--text-muted); }
+        
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9rem; }
+        th { background: linear-gradient(var(--brand), var(--brand2)); color: white; padding: 12px 15px; text-align: left; }
+        td { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        tr:hover td { background: rgba(255,255,255,0.05); }
+        
+        .method { padding: 4px 10px; border-radius: 4px; font-weight: bold; font-size: 0.75rem; }
+        .method.get { background: rgba(16,185,129,0.2); color: #10b981; }
+        .method.post { background: rgba(59,130,246,0.2); color: #3b82f6; }
+        .method.put { background: rgba(245,158,11,0.2); color: #f59e0b; }
+        .method.delete { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .endpoint { font-family: 'Consolas', monospace; color: #00d9ff; }
+        
+        .data-card {
+            background: rgba(30,40,60,0.8);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .data-card h4 { color: var(--brand); margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px dashed rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+        }
+        .data-item:last-child { border-bottom: none; }
+        .data-key { color: #f093fb; font-family: 'Consolas', monospace; }
+        .data-value { color: var(--text-muted); }
+        
+        .breadcrumb-flow {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+        }
+        .crumb-item {
+            background: linear-gradient(var(--brand), var(--brand2));
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .crumb-arrow { color: var(--brand); font-size: 1.2rem; }
+        
+        .route-map { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .route-group {
+            background: rgba(30,40,60,0.8);
+            border-radius: 12px;
+            padding: 20px;
+        }
+        .route-group h4 { color: var(--warning); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid rgba(245,158,11,0.3); }
+        .route-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .route-path { font-family: 'Consolas', monospace; color: #00d9ff; font-size: 0.85rem; }
+        .route-component { color: var(--success); font-size: 0.85rem; }
+        
+        .state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; }
+        .state-item {
+            background: rgba(30,40,60,0.8);
+            border-radius: 10px;
+            padding: 15px;
+        }
+        .state-item h5 { color: #f093fb; margin-bottom: 10px; font-size: 0.9rem; }
+        .state-var { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 5px 0; }
+        .var-name { font-family: 'Consolas', monospace; color: #00d9ff; }
+        .var-type { color: var(--text-muted); }
+        
+        .fallback-step {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(30,40,60,0.8);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .step-number {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(var(--brand), var(--brand2));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        .step-content h4 { color: var(--success); margin-bottom: 3px; }
+        .step-content p { color: var(--text-muted); font-size: 0.85rem; }
+        
+        pre {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            margin: 15px 0;
+        }
+        code { color: #00ff88; }
+        .comment { color: var(--text-muted); }
+        .keyword { color: #ff79c6; }
+        .string { color: #f1fa8c; }
+        
+        footer { text-align: center; padding: 40px; color: var(--text-muted); margin-top: 40px; }
+        
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .flow-level { flex-direction: column; }
+            .route-map { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+    <!-- ARCHIVE WARNING BANNER -->
+    <div style="max-width: 1600px; margin: 20px auto 0; padding: 15px 20px; background: rgba(245, 158, 11, 0.15); border: 1px solid #f59e0b; border-radius: 12px; border-left: 5px solid #f59e0b; font-family: 'Segoe UI', system-ui, sans-serif; color: #fcd34d; display: flex; align-items: center; gap: 15px; box-sizing: border-box; position: relative; z-index: 1000;">
+        <span style="font-size: 1.5rem; line-height: 1;">⚠️</span>
+        <div>
+            <strong style="display: block; font-size: 1.1rem; margin-bottom: 3px;">ARCHIVED LEGACY DOCUMENT</strong>
+            <span style="font-size: 0.9rem; opacity: 0.9;">This file contains outdated planning models or legacy V1.53 logic. Please refer to the <a href="../Trstprep_Documentation_Hub.html" style="color: #60a5fa; text-decoration: underline;">Central Documentation Hub</a> for active blueprints.</span>
+        </div>
+    </div>
+
+        <header>
+            <h1>📋 Exam Pages Flow Diagram</h1>
+            <p>Complete documentation of exam information flow from category selection to individual exam details</p>
+            <div class="badges">
+                <span class="badge">🗄️ PostgreSQL</span>
+                <span class="badge">🔌 REST API</span>
+                <span class="badge">⚛️ React</span>
+            </div>
+        </header>
+        
+        <nav class="nav">
+            <ul>
+                <li><a href="#flow">🔄 User Flow</a></li>
+                <li><a href="#hierarchy">🏗️ Components</a></li>
+                <li><a href="#api">🔌 API Endpoints</a></li>
+                <li><a href="#data">📦 Data Structures</a></li>
+                <li><a href="#routes">🛤️ Routes</a></li>
+            </ul>
+        </nav>
+        
+        <!-- Main User Flow -->
+        <section class="card" id="flow">
+            <h2>🔄 1. Main User Flow Diagram</h2>
+            <div class="flow-container">
+                <div class="flow-level">
+                    <div class="flow-box frontend">
+                        <h4>🏠 Home Page</h4>
+                        <p>Entry point with exam category links</p>
+                        <span class="route">/</span>
+                    </div>
+                    <span class="arrow-side">→</span>
+                    <div class="flow-box frontend">
+                        <h4>📚 Exams Page</h4>
+                        <p>All exam categories overview</p>
+                        <span class="route">/exams</span>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="flow-level">
+                    <div class="flow-box frontend">
+                        <h4>📁 Exam Category</h4>
+                        <p>Exams within a category (SSC, Railways)</p>
+                        <span class="route">/exams/category/:categoryId</span>
+                    </div>
+                    <span class="arrow-side">→</span>
+                    <div class="flow-box frontend">
+                        <h4>📄 Exam SubCategory</h4>
+                        <p>Subcategory test series & tests</p>
+                        <span class="route">/exams/.../subcategory/:subId</span>
+                    </div>
+                </div>
+                
+                <div class="arrow-down">⬇️</div>
+                
+                <div class="flow-level">
+                    <div class="flow-box frontend">
+                        <h4>📝 Exam Details</h4>
+                        <p>Individual exam information</p>
+                        <span class="route">/exam/:examId</span>
+                    </div>
+                    <span class="arrow-side">→</span>
+                    <div class="flow-box frontend">
+                        <h4>📅 Exam Year</h4>
+                        <p>Year-specific exam data</p>
+                        <span class="route">/exam/:examId/year/:year</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Component Hierarchy -->
+        <section class="card" id="hierarchy">
+            <h2>🏗️ 2. Component Hierarchy</h2>
+            <div class="hierarchy-tree">
+                <div class="tree-node">
+                    <div class="node-icon page">📄</div>
+                    <div class="node-info"><h5>Exams.jsx</h5><p>Main exam categories page - displays all categories with exam counts</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon component">🧩</div>
+                    <div class="node-info"><h5>Breadcrumb</h5><p>Navigation: Home → Exam Categories</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon component">🧩</div>
+                    <div class="node-info"><h5>AnimatedHero</h5><p>Page header with animated background</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon api">🔌</div>
+                    <div class="node-info"><h5>api.get('/api/exam-categories')</h5><p>Fetches categories with attached exams</p></div>
+                </div>
+                
+                <div class="tree-node">
+                    <div class="node-icon page">📄</div>
+                    <div class="node-info"><h5>ExamCategory.jsx</h5><p>Shows exams within selected category with year expansion</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon api">🔌</div>
+                    <div class="node-info"><h5>getExamCategories(), getTests(), getTestSeries()</h5><p>Fetches category data with test counts via dataService</p></div>
+                </div>
+                
+                <div class="tree-node">
+                    <div class="node-icon page">📄</div>
+                    <div class="node-info"><h5>ExamDetails.jsx</h5><p>Comprehensive exam info with year selector & comparison</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon component">🧩</div>
+                    <div class="node-info"><h5>Year Selector</h5><p>Switch between exam years (2026, 2025, 2024)</p></div>
+                </div>
+                <div class="tree-node level-2">
+                    <div class="node-icon component">🧩</div>
+                    <div class="node-info"><h5>Tab Navigation</h5><p>Overview, Updates, Comparison, Previous Year Papers</p></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- API Endpoints -->
+        <section class="card" id="api">
+            <h2>🔌 3. API Endpoints</h2>
+            
+            <h3>Exam Categories Routes</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Source</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-categories</span></td><td>Get all categories</td><td>DB → JSON</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-categories/:id</span></td><td>Get category by ID</td><td>DB → JSON</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-categories/:id/subcategories</span></td><td>Get subcategories</td><td>DB → JSON</td></tr>
+                </tbody>
+            </table>
+            
+            <h3>Exam Info Routes</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Source</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-info</span></td><td>Get all exam info</td><td>DB → JSON</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-info/:id</span></td><td>Get exam by ID</td><td>DB → JSON</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exam-info/category/:categoryId</span></td><td>Get by category</td><td>DB → JSON</td></tr>
+                </tbody>
+            </table>
+            
+            <h3>Exams Routes</h3>
+            <table>
+                <thead><tr><th>Method</th><th>Endpoint</th><th>Description</th><th>Source</th></tr></thead>
+                <tbody>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exams</span></td><td>Get all exams</td><td>Database</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exams/:id</span></td><td>Get exam by ID/slug</td><td>Database</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exams/:id/year/:year</span></td><td>Get year-specific data</td><td>Database</td></tr>
+                    <tr><td><span class="method get">GET</span></td><td><span class="endpoint">/api/exams/:id/compare</span></td><td>Get comparison data</td><td>Database</td></tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <!-- Data Structures -->
+        <section class="card" id="data">
+            <h2>📦 4. Data Structures</h2>
+            <div class="grid">
+                <div class="data-card">
+                    <h4>📁 examCategories</h4>
+                    <div class="data-item"><span class="data-key">id</span><span class="data-value">"ssc", "railways", "banking"</span></div>
+                    <div class="data-item"><span class="data-key">label</span><span class="data-value">Display name</span></div>
+                    <div class="data-item"><span class="data-key">icon</span><span class="data-value">Emoji icon</span></div>
+                    <div class="data-item"><span class="data-key">slug</span><span class="data-value">URL-friendly slug</span></div>
+                    <div class="data-item"><span class="data-key">order</span><span class="data-value">Display order</span></div>
+                    <div class="data-item"><span class="data-key">isActive</span><span class="data-value">Boolean</span></div>
+                </div>
+                
+                <div class="data-card">
+                    <h4>📋 examInfo</h4>
+                    <div class="data-item"><span class="data-key">categoryId</span><span class="data-value">Parent category reference</span></div>
+                    <div class="data-item"><span class="data-key">examId</span><span class="data-value">"cgl", "chsl", "ntpc"</span></div>
+                    <div class="data-item"><span class="data-key">title</span><span class="data-value">Short title</span></div>
+                    <div class="data-item"><span class="data-key">fullName</span><span class="data-value">Full exam name</span></div>
+                    <div class="data-item"><span class="data-key">description</span><span class="data-value">Exam description</span></div>
+                    <div class="data-item"><span class="data-key">eligibility</span><span class="data-value">Eligibility criteria</span></div>
+                    <div class="data-item"><span class="data-key">syllabus</span><span class="data-value">Syllabus overview</span></div>
+                </div>
+                
+                <div class="data-card">
+                    <h4>📂 examSubCategories</h4>
+                    <div class="data-item"><span class="data-key">id</span><span class="data-value">Subcategory ID</span></div>
+                    <div class="data-item"><span class="data-key">name</span><span class="data-value">Display name</span></div>
+                    <div class="data-item"><span class="data-key">slug</span><span class="data-value">URL slug</span></div>
+                    <div class="data-item"><span class="data-key">parentCategoryId</span><span class="data-value">Parent category ID</span></div>
+                    <div class="data-item"><span class="data-key">description</span><span class="data-value">Subcategory description</span></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Breadcrumb Navigation -->
+        <section class="card">
+            <h2>🧭 5. Breadcrumb Navigation Flow</h2>
+            
+            <h4>Exam Category Page</h4>
+            <div class="breadcrumb-flow">
+                <span class="crumb-item">Home</span>
+                <span class="crumb-arrow">→</span>
+                <span class="crumb-item">Exams</span>
+                <span class="crumb-arrow">→</span>
+                <span class="crumb-item">SSC / Railways / Banking...</span>
+            </div>
+            
+            <h4>Exam Details Page</h4>
+            <div class="breadcrumb-flow">
+                <span class="crumb-item">Home</span>
+                <span class="crumb-arrow">→</span>
+                <span class="crumb-item">Exams</span>
+                <span class="crumb-arrow">→</span>
+                <span class="crumb-item">SSC</span>
+                <span class="crumb-arrow">→</span>
+                <span class="crumb-item">SSC CGL</span>
+            </div>
+        </section>
+        
+        <!-- Routing Structure -->
+        <section class="card" id="routes">
+            <h2>🛤️ 6. Routing Structure (App.jsx)</h2>
+            <div class="route-map">
+                <div class="route-group">
+                    <h4>Exam Listing Routes</h4>
+                    <div class="route-item"><span class="route-path">/exams</span><span class="route-component">Exams.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/exams/category/:categoryId</span><span class="route-component">ExamCategory.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/exams/.../subcategory/:subId</span><span class="route-component">ExamSubCategory.jsx</span></div>
+                </div>
+                
+                <div class="route-group">
+                    <h4>Exam Detail Routes</h4>
+                    <div class="route-item"><span class="route-path">/exam/:examId</span><span class="route-component">ExamDetails.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/exam/:examId/updates</span><span class="route-component">ExamUpdates.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/exam/:examId/year/:year</span><span class="route-component">ExamYear.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/exam/:examId/compare</span><span class="route-component">ExamCompare.jsx</span></div>
+                </div>
+                
+                <div class="route-group">
+                    <h4>Admin Routes</h4>
+                    <div class="route-item"><span class="route-path">/admin/exam-categories</span><span class="route-component">ExamCategoriesManager.jsx</span></div>
+                    <div class="route-item"><span class="route-path">/admin/exam-info</span><span class="route-component">ExamInfoManager.jsx</span></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- State Management -->
+        <section class="card">
+            <h2>🎯 7. State Management Patterns</h2>
+            <div class="state-grid">
+                <div class="state-item">
+                    <h5>Exams.jsx State</h5>
+                    <div class="state-var"><span class="var-name">examCategories</span><span class="var-type">useState([])</span></div>
+                    <div class="state-var"><span class="var-name">loading</span><span class="var-type">useState(true)</span></div>
+                    <div class="state-var"><span class="var-name">error</span><span class="var-type">useState(null)</span></div>
+                    <div class="state-var"><span class="var-name">searchQuery</span><span class="var-type">useState('')</span></div>
+                </div>
+                
+                <div class="state-item">
+                    <h5>ExamCategory.jsx State</h5>
+                    <div class="state-var"><span class="var-name">categoryData</span><span class="var-type">useState(null)</span></div>
+                    <div class="state-var"><span class="var-name">expandedExams</span><span class="var-type">useState({})</span></div>
+                    <div class="state-var"><span class="var-name">examTestCounts</span><span class="var-type">useState({})</span></div>
+                </div>
+                
+                <div class="state-item">
+                    <h5>ExamDetails.jsx State</h5>
+                    <div class="state-var"><span class="var-name">examData</span><span class="var-type">useState(null)</span></div>
+                    <div class="state-var"><span class="var-name">selectedYear</span><span class="var-type">useState('2026')</span></div>
+                    <div class="state-var"><span class="var-name">yearlyData</span><span class="var-type">useState(null)</span></div>
+                    <div class="state-var"><span class="var-name">activeTab</span><span class="var-type">'overview' | 'updates'</span></div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Fallback Mechanisms -->
+        <section class="card">
+            <h2>⚡ 8. Fallback Mechanisms</h2>
+            <div class="fallback-step">
+                <div class="step-number">1</div>
+                <div class="step-content"><h4>Database First</h4><p>All API routes try to fetch from PostgreSQL database first using global.dbHelpers</p></div>
+            </div>
+            <div class="fallback-step">
+                <div class="step-number">2</div>
+                <div class="step-content"><h4>JSON Fallback</h4><p>If database returns empty or errors, routes fallback to JSON files in /data/collections/</p></div>
+            </div>
+            <div class="fallback-step">
+                <div class="step-number">3</div>
+                <div class="step-content"><h4>Sample Data</h4><p>ExamDetails.jsx has hardcoded SAMPLE_YEARLY_DATA as ultimate fallback</p></div>
+            </div>
+            <div class="fallback-step">
+                <div class="step-number">4</div>
+                <div class="step-content"><h4>Coming Soon Page</h4><p>If exam has minimal content, shows ComingSoon.jsx</p></div>
+            </div>
+            
+            <pre><code><span class="comment">// Backend fallback pattern</span>
+<span class="keyword">let</span> categories = <span class="keyword">await</span> global.dbHelpers.find(<span class="string">'examCategories'</span>, { isActive: <span class="keyword">true</span> });
+
+<span class="comment">// Fallback to JSON if database is empty</span>
+<span class="keyword">if</span> (!categories || categories.length === <span class="keyword">0</span>) {
+    categories = loadJsonData(<span class="string">'examCategories'</span>);
+}</code></pre>
+        </section>
+        
+        <footer>
+            <p>📋 Exam Pages Flow Diagram | Trstprep V2.0</p>
+            <p>PostgreSQL • Express.js • React | Last Updated: February 2026</p>
+        </footer>
+    </div>
+</body>
+</html>

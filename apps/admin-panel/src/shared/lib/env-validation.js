@@ -11,11 +11,17 @@ export function validateEnvVars() {
     const value = import.meta.env[key]
     return !value || value === 'undefined'
   })
-  
+
   if (missing.length > 0) {
     console.error('[Admin Env Validation] Missing:', missing.join(', '))
-    throw new Error('Missing required env vars: ' + missing.join(', '))
+    if (import.meta.env.PROD) {
+      // In production, missing env vars are a hard error
+      throw new Error('Missing required env vars: ' + missing.join(', '))
+    }
+    // In dev, warn only — return false so the caller can decide
+    console.warn('[Admin Env Validation] Continuing in dev mode with missing vars:', missing.join(', '))
+    return false
   }
-  
+
   return true
 }

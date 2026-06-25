@@ -1,6 +1,6 @@
 {
   "name": "trstprep-monorepo",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Trstprep - India's #1 Platform for SSC & Railway Exam Preparation",
   "private": true,
   "type": "module",
@@ -41,10 +41,14 @@
     "fast-xml-parser": "^4.4.1",
     "flatted": "^3.3.1",
     "lodash": "^4.17.21",
-    "vite": "^6.4.2"
+    "vite": "^6.4.2",
+    "axios": "^1.18.0",
+    "happy-dom": "^20.10.6",
+    "ws": "^8.20.2",
+    "nodemailer": "^9.0.1"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "packageManager": "npm@9.0.0"
 }

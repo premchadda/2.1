@@ -1,0 +1,95 @@
+name: Data Guard
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  data-guard:
+    name: Schema / Seed / Migration integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail if supabase_data/ is committed
+        run: |
+          if [ -d "supabase_data" ]; then
+            echo "\u274c supabase_data/ is in the working tree."
+            echo "    This directory holds PII (full_name, avatar_url) and"
+            echo "    stale demo seeds. It is gitignored; do not commit it."
+            exit 1
+          fi
+          echo "\u2705 supabase_data/ is absent (gitignore working)."
+
+      - name: Fail if any committed JSON contains PII keys
+        run: |
+          # The 2026-06-15 PII incident committed 528 test_attempts
+          # records with these fields. Any JSON file in the repo
+          # that contains them is treated as a data-handling bug.
+          PII_KEYS='full_name|avatar_url|answer_map|time_map|password_hash|phone_number|aadhaar|pan_card'
+          HITS=$(git ls-files '*.json' | xargs -I{} grep -lE "\"($PII_KEYS)\"" {} 2>/dev/null || true)
+          if [ -n "$HITS" ]; then
+            echo "\u274c PII keys found in committed JSON files:"
+            echo "$HITS"
+            exit 1
+          fi
+          echo "\u2705 No PII keys found in committed JSON."
+
+      - name: Fail if two migrations share a numeric prefix
+        run: |
+          cd apps/backend/src/infrastructure/database/migrations
+          DUPES=$(ls | awk -F'_' '/^[0-9]/{print $1}' | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "\u274c Duplicate numeric prefixes in migration filenames:"
+            echo "$DUPES"
+            ls | grep -E "^($DUPES)_" || true
+            exit 1
+          fi
+          echo "\u2705 No duplicate numeric prefixes."
+
+      - name: Fail on hardcoded demo INSERTs in migrations
+        run: |
+          # We allow INSERTs into the well-known RBAC reference tables
+          # (permissions, roles) in migration 001, but nothing else.
+          if grep -rE "^INSERT INTO (app_settings|navigation_menu|subjects|tests|questions|users|exams)" \
+                apps/backend/src/infrastructure/database/migrations/ \
+                --include="*.sql" 2>/dev/null; then
+            echo ""
+            echo "\u274c Hardcoded demo INSERTs found in migrations."
+            echo "    Demo/seed data must live in apps/backend/src/infrastructure/database/seeders/,"
+            echo "    not in SQL migrations. Migrations should only ALTER schema."
+            exit 1
+          fi
+          echo "\u2705 No hardcoded demo INSERTs in migrations."
+
+      - name: Fail if migration sequence has gaps
+        run: |
+          cd apps/backend/src/infrastructure/database/migrations
+          # Skip leading 000s (init scripts) when checking for gaps.
+          PREFIXES=$(ls | awk -F'_' '/^[0-9]/{print $1}' | sort -u)
+          PREV=""
+          for P in $PREFIXES; do
+            if [ -z "$PREV" ]; then PREV=$P; continue; fi
+            GAP=$((10#$P - 10#$PREV))
+            if [ $GAP -gt 1 ] && [ "$PREV" != "000" ] && [ "$P" != "000" ]; then
+              # Allow the historic 002 -> 018 jump (pre-refactor),
+              # but flag any NEW gap.
+              if [ "$PREV" != "002" ] || [ "$P" != "018" ]; then
+                echo "\u26a0\ufe0f  Gap detected: ${PREV} -> ${P}"
+                # Don't fail on historic gaps; surface them as warnings.
+                echo "::warning::Migration gap ${PREV} -> ${P}. Consider backfilling."
+              fi
+            fi
+            PREV=$P
+          done
+          echo "\u2705 Migration sequence check complete."
+
+      - name: Run seeder fixtures through JSON parse
+        run: |
+          # Each fixture must be valid JSON and (where present) an array.
+          for f in apps/backend/src/infrastructure/database/seeders/_fixtures/*.json; do
+            node -e "const d=require('$f'); if(d===null)throw new Error('null fixture'); if(typeof d!=='object')throw new Error('not an object/array'); console.log('\u2705 $f')" || exit 1
+          done

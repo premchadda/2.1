@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 
 const router = express.Router()
@@ -144,7 +145,7 @@ const ACHIEVEMENT_DEFINITIONS = [
 router.get('/', async (req, res) => {
   try {
     // Get user's earned achievements
-    const userAchievements = await global.dbHelpers.find('userAchievements', {
+    const userAchievements = await dbHelpers.find('userAchievements', {
       userId: req.user.id,
       isActive: true
     })
@@ -224,7 +225,7 @@ router.get('/leaderboard', async (req, res) => {
     const { limit = 10 } = req.query
     
     // Get all user achievements
-    const allAchievements = await global.dbHelpers.find('userAchievements', {
+    const allAchievements = await dbHelpers.find('userAchievements', {
       isActive: true
     })
     
@@ -244,7 +245,7 @@ router.get('/leaderboard', async (req, res) => {
         .sort((a, b) => b[1].count - a[1].count)
         .slice(0, limit)
         .map(async ([userId, data]) => {
-          const user = await global.dbHelpers.findById('users', userId)
+          const user = await dbHelpers.findById('users', userId)
           return {
             userId,
             name: user?.name || 'Anonymous',
@@ -286,7 +287,7 @@ async function calculateUserStats(userId) {
   
   try {
     // Get test results
-    const results = await global.dbHelpers.find('results', {
+    const results = await dbHelpers.find('results', {
       userId,
       isCompleted: true,
       isActive: true
@@ -323,7 +324,7 @@ async function calculateUserStats(userId) {
     }
     
     // Get bookmarks count
-    const bookmarks = await global.dbHelpers.find('bookmarks', {
+    const bookmarks = await dbHelpers.find('bookmarks', {
       userId,
       isActive: true
     })
@@ -415,7 +416,7 @@ async function checkAndAwardAchievements(userId) {
   
   try {
     const stats = await calculateUserStats(userId)
-    const existingAchievements = await global.dbHelpers.find('userAchievements', {
+    const existingAchievements = await dbHelpers.find('userAchievements', {
       userId,
       isActive: true
     })
@@ -429,7 +430,7 @@ async function checkAndAwardAchievements(userId) {
       
       if (progress >= 100) {
         // Award achievement
-        await global.dbHelpers.insertOne('userAchievements', {
+        await dbHelpers.insertOne('userAchievements', {
           userId,
           achievementId: def.id,
           earnedAt: new Date().toISOString(),

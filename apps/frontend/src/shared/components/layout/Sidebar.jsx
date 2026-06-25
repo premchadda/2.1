@@ -116,13 +116,9 @@ function Sidebar({ isOpen, onClose }) {
                 <Trophy className="w-4 h-4 text-yellow-500" />
                 <span className="text-sm font-medium">Leaderboard</span>
               </Link>
-              <Link to="/doubts" onClick={handleNavClick} className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
-                <MessageCircle className="w-4 h-4 text-cyan-500" />
-                <span className="text-sm font-medium">Doubts & Q&A</span>
-              </Link>
-              <Link to="/study-groups" onClick={handleNavClick} className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+              <Link to="/community" onClick={handleNavClick} className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
                 <Users className="w-4 h-4 text-violet-500" />
-                <span className="text-sm font-medium">Study Groups</span>
+                <span className="text-sm font-medium">Community</span>
               </Link>
             </div>
           </div>
@@ -169,6 +165,7 @@ function Sidebar({ isOpen, onClose }) {
               </Link>
               <Link 
                 to="/login" 
+                state={{ backgroundLocation: location }}
                 onClick={handleNavClick}
                 className="block w-full py-2.5 text-center bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition"
               >

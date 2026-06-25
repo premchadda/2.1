@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, getPublicResponseId, mapLookupId } from '../../shared/utils/public-id-response.js'
@@ -30,7 +31,7 @@ const EVENT_TYPES = {
 // Helper to log attempt event
 async function logAttemptEvent(attemptId, eventType, questionId = null, eventData = {}) {
   try {
-    await global.dbHelpers.insertOne('attemptEvents', {
+    await dbHelpers.insertOne('attemptEvents', {
       attemptId,
       eventType,
       questionId,
@@ -43,16 +44,16 @@ async function logAttemptEvent(attemptId, eventType, questionId = null, eventDat
 }
 
 const findAttemptByIdentifier = (attemptId) =>
-  findEntityByIdentifier(global.dbHelpers, 'attempts', attemptId)
+  findEntityByIdentifier(dbHelpers, 'attempts', attemptId)
 
 const findTestRecordByIdentifier = (testId) =>
-  findEntityByIdentifier(global.dbHelpers, 'tests', testId, { slugFields: ['slug'] })
+  findEntityByIdentifier(dbHelpers, 'tests', testId, { slugFields: ['slug'] })
 
 const findSeriesByIdentifier = (seriesId) =>
-  findEntityByIdentifier(global.dbHelpers, 'testSeries', seriesId, { slugFields: ['slug'] })
+  findEntityByIdentifier(dbHelpers, 'testSeries', seriesId, { slugFields: ['slug'] })
 
 const findQuestionByIdentifier = (questionId) =>
-  findEntityByIdentifier(global.dbHelpers, 'questions', questionId)
+  findEntityByIdentifier(dbHelpers, 'questions', questionId)
 
 const normalizeAttemptAnswers = async (answers) => {
   if (!Array.isArray(answers)) {
@@ -141,7 +142,7 @@ router.post('/start', protect, async (req, res) => {
     const internalSeriesId = getInternalId(series) ?? test.seriesId ?? test.series_id
 
     // Check for existing in-progress or paused attempt
-    const existingAttempts = await global.dbHelpers.find('attempts', {
+    const existingAttempts = await dbHelpers.find('attempts', {
       userId,
       testId: internalTestId
     })
@@ -155,7 +156,7 @@ router.post('/start', protect, async (req, res) => {
       return res.json({
         success: true,
         data: {
-          attemptId: getPublicResponseId(global.dbHelpers, 'attempts', activeAttempt, activeAttempt.id),
+          attemptId: getPublicResponseId(dbHelpers, 'attempts', activeAttempt, activeAttempt.id),
           status: activeAttempt.status,
           remainingTime: activeAttempt.remainingTimeSeconds || activeAttempt.duration * 60,
           lastQuestionIndex: activeAttempt.lastQuestionIndex || 0
@@ -166,7 +167,7 @@ router.post('/start', protect, async (req, res) => {
 
     // Create new attempt
     const duration = test.duration || 60
-    const attempt = await global.dbHelpers.insertOne('attempts', {
+    const attempt = await dbHelpers.insertOne('attempts', {
       userId,
       testId: internalTestId,
       seriesId: internalSeriesId,
@@ -185,7 +186,7 @@ router.post('/start', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', attempt, attempt.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt.id),
         status: ATTEMPT_STATUS.IN_PROGRESS,
         remainingTime: attempt.remainingTimeSeconds,
         totalTime: duration * 60
@@ -222,7 +223,7 @@ router.post('/pause', protect, async (req, res) => {
     }
 
     // Update attempt with paused state
-    const updated = await global.dbHelpers.updateById('attempts', internalAttemptId, {
+    const updated = await dbHelpers.updateById('attempts', internalAttemptId, {
       status: ATTEMPT_STATUS.PAUSED,
       pausedAt: new Date().toISOString(),
       remainingTimeSeconds: remainingTime,
@@ -234,7 +235,7 @@ router.post('/pause', protect, async (req, res) => {
 
     if (normalizedQuestionTimers.length > 0) {
       for (const qt of normalizedQuestionTimers) {
-        await global.dbHelpers.insertOne('questionAttempts', {
+        await dbHelpers.insertOne('questionAttempts', {
           attemptId: internalAttemptId,
           questionId: qt.questionId,
           timeSpentSeconds: qt.timeSpent || 0,
@@ -250,7 +251,7 @@ router.post('/pause', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', updated, updated.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', updated, updated.id),
         status: ATTEMPT_STATUS.PAUSED,
         pausedAt: updated.pausedAt
       }
@@ -294,16 +295,16 @@ router.post('/resume', protect, async (req, res) => {
       Math.floor((new Date() - new Date(attempt.pausedAt)) / 1000) : 0
 
     // Update attempt with resumed state
-    const updated = await global.dbHelpers.updateById('attempts', internalAttemptId, {
+    const updated = await dbHelpers.updateById('attempts', internalAttemptId, {
       status: ATTEMPT_STATUS.IN_PROGRESS,
       resumedAt: new Date().toISOString(),
       lastActivityAt: new Date().toISOString()
     })
 
     // Get question attempts for this attempt
-    const questionAttempts = await global.dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
+    const questionAttempts = await dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
     const questionIdLookup = await buildPublicIdLookup(
-      global.dbHelpers,
+      dbHelpers,
       'questions',
       questionAttempts.map((entry) => entry.questionId)
     )
@@ -328,7 +329,7 @@ router.post('/resume', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', updated, updated.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', updated, updated.id),
         status: ATTEMPT_STATUS.IN_PROGRESS,
         remainingTime: updated.remainingTimeSeconds,
         questionAttempts: serializedQuestionAttempts
@@ -388,12 +389,12 @@ router.post('/save-progress', protect, async (req, res) => {
       lastActivityAt: new Date().toISOString()
     }
 
-    const updated = await global.dbHelpers.updateById('attempts', internalAttemptId, updateData)
+    const updated = await dbHelpers.updateById('attempts', internalAttemptId, updateData)
 
     // Save question-level time tracking
     if (normalizedQuestionTimers.length > 0) {
       for (const qt of normalizedQuestionTimers) {
-        const existing = await global.dbHelpers.find('questionAttempts', { 
+        const existing = await dbHelpers.find('questionAttempts', { 
           attemptId: internalAttemptId,
           questionId: qt.questionId 
         })
@@ -401,7 +402,7 @@ router.post('/save-progress', protect, async (req, res) => {
         if (existing.length > 0) {
           // Update existing
           const qa = existing[0]
-          await global.dbHelpers.updateById('questionAttempts', qa.id, {
+          await dbHelpers.updateById('questionAttempts', qa.id, {
             selectedOption: qt.selectedOption,
             isMarkedForReview: qt.isMarked || false,
             timeSpentSeconds: (qa.timeSpentSeconds || 0) + (qt.timeSpentDelta || 0),
@@ -410,7 +411,7 @@ router.post('/save-progress', protect, async (req, res) => {
           })
         } else {
           // Insert new
-          await global.dbHelpers.insertOne('questionAttempts', {
+          await dbHelpers.insertOne('questionAttempts', {
             attemptId: internalAttemptId,
             questionId: qt.questionId,
             selectedOption: qt.selectedOption,
@@ -432,7 +433,7 @@ router.post('/save-progress', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', updated, updated.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', updated, updated.id),
         savedAt: updated.lastActivityAt,
         remainingTime: updated.remainingTimeSeconds
       }
@@ -468,9 +469,9 @@ router.get('/:attemptId/state', protect, async (req, res) => {
     }
 
     // Get question attempts
-    const questionAttempts = await global.dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
+    const questionAttempts = await dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
     const questionIdLookup = await buildPublicIdLookup(
-      global.dbHelpers,
+      dbHelpers,
       'questions',
       questionAttempts.map((entry) => entry.questionId)
     )
@@ -487,10 +488,10 @@ router.get('/:attemptId/state', protect, async (req, res) => {
     }, {})
 
     // Get test details
-    const test = await global.dbHelpers.findById('tests', attempt.testId)
+    const test = await dbHelpers.findById('tests', attempt.testId)
 
     // Get recent events for anti-cheat
-    const recentEvents = await global.dbHelpers.find('attempt_events', { attemptId: internalAttemptId })
+    const recentEvents = await dbHelpers.find('attempt_events', { attemptId: internalAttemptId })
     const suspiciousEvents = recentEvents.filter(e => 
       e.eventType === EVENT_TYPES.TAB_SWITCH || 
       e.eventType === EVENT_TYPES.WINDOW_BLUR
@@ -499,9 +500,9 @@ router.get('/:attemptId/state', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', attempt, attempt.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt.id),
         status: attempt.status,
-        testId: getPublicResponseId(global.dbHelpers, 'tests', test, attempt.testId),
+        testId: getPublicResponseId(dbHelpers, 'tests', test, attempt.testId),
         testTitle: test?.title,
         remainingTime: attempt.remainingTimeSeconds,
         totalTimeSpent: attempt.totalTimeSpent,
@@ -554,7 +555,7 @@ router.post('/:attemptId/event', protect, async (req, res) => {
     await logAttemptEvent(internalAttemptId, eventType, getInternalId(question) ?? questionId, eventData)
 
     // Update last activity
-    await global.dbHelpers.updateById('attempts', internalAttemptId, {
+    await dbHelpers.updateById('attempts', internalAttemptId, {
       lastActivityAt: new Date().toISOString()
     })
 
@@ -581,9 +582,9 @@ router.get('/:attemptId/analytics', protect, async (req, res) => {
     const internalAttemptId = getInternalId(attempt)
 
     // Get question attempts
-    const questionAttempts = await global.dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
+    const questionAttempts = await dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
     const questionIdLookup = await buildPublicIdLookup(
-      global.dbHelpers,
+      dbHelpers,
       'questions',
       questionAttempts.map((entry) => entry.questionId)
     )

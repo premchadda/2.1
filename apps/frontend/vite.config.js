@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => {
   return {
     clearScreen: false,
     plugins: [react()],
+    optimizeDeps: {
+      exclude: ['@trstprep/shared-config', '@trstprep/shared-hooks']
+    },
     resolve: {
       extensions: ['.js', '.jsx', '.json']
     },
@@ -20,25 +23,49 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: backendUrl,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
         '/socket.io': {
           target: backendUrl,
           ws: true,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
         '/assets': {
           target: backendUrl,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
         '/uploads': {
           target: backendUrl,
           changeOrigin: true,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
       },
     },
     build: {
       outDir: 'dist',
-      sourcemap: true,
+      sourcemap: mode !== 'production',
       // Drop console statements in production to reduce bundle size and avoid info leakage
       esbuildOptions: mode === 'production' ? { dropConsole: true } : undefined,
       rollupOptions: {

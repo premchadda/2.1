@@ -1,0 +1,613 @@
+E:\Tech\Testprep\Trstprep V2.1\run_semantic.py
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\eslint.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\postcss.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\tailwind.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\vite.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\App.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\main.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\analytics-insights\AdminAnalytics.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\analytics-insights\DeepAnalytics.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\analytics-insights\LeaderboardResultsUnified.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\PracticeQuestionsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\QuestionsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\QuizzesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\SectionsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\TestSeriesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\TestsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\Badge.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\BulkImportModal.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\CascadingCategorySelect.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\CategoryTabBar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\EmptyState.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\LoadingSpinner.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\OptionEditor.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\QuestionRow.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\StatsCard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\TestFormModal.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\TestsBadge.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\TestsBulkUploadModal.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\TestsEmptyState.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\assessments-quizzes\components\TestsStatCard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\audit-compliance\AuditTrailManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\audit-compliance\ResultsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\auth\Login.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\dashboard\AdminDashboard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\exams-categories\CategoriesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\exams-categories\ExamCategoriesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\exams-categories\ExamInfoManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\exams-categories\StagesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\exams-categories\TagConfigsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\notifications-comms\BannerManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\notifications-comms\EmailTemplatesManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\notifications-comms\FaqManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\notifications-comms\NotificationsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\ContentManagement.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\CurrentAffairsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\CurriculumBuilder.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\MediaLibrary.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\StudyMaterialsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\SubjectRelationsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\SubjectsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\TopicsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\study-materials\VideosManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\subscriptions-monetization\CouponsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\subscriptions-monetization\PromotionManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\subscriptions-monetization\SubscriptionPlansManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\ActiveSessionsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\AdminSettings.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\BackupsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\ComingSoonManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\NavigationManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\RecycleBin.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\system-settings\SystemHealthMonitor.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\users-enrollments\EnrollmentsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\users-enrollments\RolePermissionsManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\users-enrollments\UserActivityLog.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\features\admin\users-enrollments\UsersManager.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\api\adminApi.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\AdminLayout.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\ErrorBoundary.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\HierarchyOperations.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\index.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\ProtectedRoute.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\VirtualizedTree.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\admin\AdminPageHeader.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\AdminTable.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\Breadcrumb.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\ComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\CompactFilterBar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\CompactStatsCards.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\ContentReader.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\ErrorBoundary.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\ErrorMessage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\FormField.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\FormModal.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\HorizontalScroll.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\LoadingSkeleton.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\LoadingSpinner.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\Logo.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\PageComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\PDFViewer.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\ScrollToTop.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\SearchBox.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\SuccessMessage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\components\common\VideoPlayer.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\adminNavConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\assetConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\comingSoonConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\emojiConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\questionCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\context\ThemeContext.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useDraggableScroll.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useExamCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useFormManager.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useGenericCRUD.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useProPass.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useStages.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useTestCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\hooks\useWebSocket.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\api.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\apiBase.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\dataService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\enrollment.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\env-validation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\logger.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\queryClientRegistry.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\lib\sanitizeHtml.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\providers\AuthContext.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\types\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\tests\App.test.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\eslint.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\run_migration.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\scripts\audit-schema.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\scripts\run-database-audit.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\scripts\run-deep-analysis.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\scripts\run-full-audit.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\scripts\run-migration.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\app-port5001.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\controllers\AuthController.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\controllers\BaseController.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\controllers\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\middleware\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\middleware\error\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\achievements.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-analytics.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-audit.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-coming-soon.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-email-templates.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-navigation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-questions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-roles.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-sections.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-test-series.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin-tests.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\admin.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\analytics.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\blog.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\bookmarks.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\community.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\currentAffairs.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\discussions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\doubts.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\enrollments-admin.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\intelligence.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\leaderboards-admin.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\notifications.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\notificationsPref.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\payments.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\phoneAuth.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\practice.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\promotions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\questions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\referrals.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\series.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\stages.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\study.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\studyGroups.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\subscriptions-admin.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\subscriptions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\tagConfigs.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\routes\testCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\validators\auth.validator.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\validators\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\validators\test.validator.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\api\validators\upload.validator.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\assets\config\emoji.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\CurrentAffair.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\ExamUpdate.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\Leaderboard.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\LiveTest.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\Notification.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\Stage.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\StudyMaterial.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\Video.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\attempt\Enrollment.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\attempt\Result.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\attempt\SectionAttempt.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\exam\Exam.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\exam\ExamCategory.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\exam\ExamYearlyData.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\question\Passage.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\question\Question.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\subscription\Coupon.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\subscription\SubscriptionPlan.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\syllabus\Chapter.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\syllabus\Subject.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\syllabus\Topic.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\test\Test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\test\TestCategory.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\test\TestCategory.sql
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\test\TestSeries.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\models\user\User.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\BaseRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\QuestionRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\test-engine-repos.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\TestAttemptRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\TestRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\TestSeriesRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\data\repositories\UserRepository.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\database\migrations\010-fix-all-schema-issues.sql
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\cache\cacheService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\cache\redisClient.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\database\auditTrailManager.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\database\postgres-helpers.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\database\migrations\001_create_admin_feature_tables.sql
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\database\migrations\002_extend_audit_logs.sql
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\email\emailService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\events\eventBus.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\queue\queueManager.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\storage\storageProvider.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\storage\upload.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\websocket\websocketManager.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\asyncHandler.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\audit.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\auth.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\cacheControl.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\csrf.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\error.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\lockout.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\monitoring.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\normalize-fields.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\origin.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\public-id-response.middleware.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\upload-validation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\middleware\validation\inputValidation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\attempts\attempt.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\auth\auth.controller.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\auth\auth.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\auth\auth.service.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\exams\exam-seasons.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\exams\exam.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\exams\examCategory.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\exams\examInfo.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\exams\examYearly.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\sessions\session.controller.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\tests\test.engine.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\tests\test.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\users\exam-enrollment.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\users\study-material-enrollment.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\modules\users\user.routes.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\EmailService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\EnrollmentService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\SessionCaptureService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\SmsService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\SubscriptionService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\ai\recommendations.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\analyticsService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\common.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\leaderboardService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\learningService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\notificationService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\rankPredictionService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\recommendationService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\TestAttemptController.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\services\core\testEngineService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\config\emojiConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\attempt-limits.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\attempt-utils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\db-utils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\identifier-utils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\public-id-response.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\stats-validation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\test-utils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\utils\user-utils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\shared\validation\schemas.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\utils\db-config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\utils\env-validation.mjs
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\utils\naming-conventions.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\utils\queryBuilder.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\utils\tempFileCleanup.mjs
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\worker\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\worker\jobHandlers.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\__tests__\auth-flows.test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\__tests__\csrf-lifecycle.test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\__tests__\csrf.middleware.test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\__tests__\payment-webhooks.test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\__tests__\validation.test.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\eslint.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\postcss.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\tailwind.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\vite.config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\main.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\app\config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\assets\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\assets\config\emoji.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\DynamicContent.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\ExamHero.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\LatestUpdates.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\QuickStats.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\RelatedExams.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\StaticContent.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\Timeline.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\YearComparison.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\components\exams\YearSelector.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\features\auth\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\features\auth\Login.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\features\auth\Signup.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\auth\EmailVerification.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\auth\ForgotPassword.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\auth\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\auth\ResetPassword.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\community\DoubtForum.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\community\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\community\StudyGroups.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Achievements.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Analysis.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\AttemptedTests.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Bookmarks.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Dashboard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Notifications.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Profile.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\ReferAndEarn.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\dashboard\Settings.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\errors\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\errors\NotFound.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\errors\ServerError.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamCategory.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamCompare.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamDetails.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamInfoNew.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamMasterPage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\Exams.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamsNew.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamUpdates.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\ExamYear.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\exams\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\About.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Blog.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\BlogDetail.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\ComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Contact.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\CurrentAffairsDetail.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Faq.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Home.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Pass.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Privacy.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Refund.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\SearchPage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\TagPage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Terms.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\CurrentAffairs.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\StudyMaterial.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\StudyMaterialChapter.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\StudyMaterialDetail.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\studyMaterialUtils.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\Videos.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\ComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\Leaderboard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\LiveTestInterface.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\LiveTestLeaderboard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\LiveTestResults.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\LiveTestReview.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\LiveTests.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\MockTests.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\PracticeQuestions.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\PreviousYearPapers.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\PYPTest.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\SeriesLeaderboard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestDetails.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestInstructions.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestInterface.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestResult.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestReview.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestSeries.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\api\adminApi.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\ProPass.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\ReattemptOptions.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\SimpleStats.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\admin\AdminLayout.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\auth\ProtectedRoute.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\AdminTable.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\AnimatedHero.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\Breadcrumb.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\CompactFilterBar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\CompactStatsCards.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ContentReader.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorMessage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\HorizontalScroll.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ImageCropperModal.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\LoadingSkeleton.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\LoadingSpinner.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\Logo.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\PageComingSoon.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\PDFViewer.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ScrollToTop.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\SearchBox.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\SuccessMessage.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\VideoPlayer.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\BottomNav.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\LeftSidebar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Navbar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Sidebar.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\test\TestCard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\test\TestSeriesCard.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\adminNavConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\assetConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\assets-config.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\comingSoonConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\emojiConfig.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\context\ThemeContext.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useDraggableScroll.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useExamCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useFormManager.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useGenericCRUD.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useLiveTestMonitor.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useProPass.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useStages.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useTestCategories.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\hooks\useWebSocket.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\api-client.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\api.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\apiBase.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\cache.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\data-fetcher.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\data-fetchers.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\dataService.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\enrollment.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\env-validation.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\errors.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\sanitizeHtml.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\lib\websocket.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\providers\AuthContext.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\providers\WebSocketProvider.jsx
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\types\index.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\utils\pass-helpers.js
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\tests\App.test.jsx
+E:\Tech\Testprep\Trstprep V2.1\dev-tools\scripts\update-docs.mjs
+E:\Tech\Testprep\Trstprep V2.1\dev-tools\scripts\watch-docs.mjs
+E:\Tech\Testprep\Trstprep V2.1\docs\database\exports\export-db.js
+E:\Tech\Testprep\Trstprep V2.1\docs\database\exports\exports\database_export.sql
+E:\Tech\Testprep\Trstprep V2.1\docs\database\Test\testbook-api-all-tests.js
+E:\Tech\Testprep\Trstprep V2.1\docs\database\Test\testbook-api-analysis.js
+E:\Tech\Testprep\Trstprep V2.1\docs\database\Test\testsData.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-config\src\index.d.ts
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-config\src\index.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-config\src\logger.d.ts
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-config\src\logger.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-config\src\logger.ts
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\index.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useDraggableScroll.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useExamCategories.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useFormManager.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useGenericCRUD.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useProPass.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useStages.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useTestCategories.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useUndoRedo.js
+E:\Tech\Testprep\Trstprep V2.1\packages\shared-hooks\useWebSocket.js
+E:\Tech\Testprep\Trstprep V2.1\scripts\debug-user.js
+E:\Tech\Testprep\Trstprep V2.1\scripts\reset-admin.js
+E:\Tech\Testprep\Trstprep V2.1\scripts\seed-admin.js
+E:\Tech\Testprep\Trstprep V2.1\CHANGELOG.md
+E:\Tech\Testprep\Trstprep V2.1\CONTRIBUTING.md
+E:\Tech\Testprep\Trstprep V2.1\docker-compose.yml
+E:\Tech\Testprep\Trstprep V2.1\FULL_REPO_AUDIT.md
+E:\Tech\Testprep\Trstprep V2.1\README.md
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\AI_INFRASTRUCTURE_SETUP.md
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\AI_INTEGRATION_ARCHITECTURE.md
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\index.html
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\src\shared\config\README.md
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\README.md
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\index.html
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\config\routingUpdates.md
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\config\README.md
+E:\Tech\Testprep\Trstprep V2.1\docs\MISSING_BACKEND_ENDPOINTS.md
+E:\Tech\Testprep\Trstprep V2.1\docs\unused-imports-integration-plan.md
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\DEPLOYMENT.md
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\NODE_ENGINE_ARCHITECTURE.md
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\platform_hierarchy_docs.md
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\PROJECT_STRUCTURE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\PROJECT_STRUCTURE.md
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\study_hierarchy_dashboard.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\ENTITY_RELATIONSHIP_FLOWMAP.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\EXAM_FLOW_DIAGRAM.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_ADMIN.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_ADMIN_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_AUTH_PUBLIC_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_DASHBOARD.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_DASHBOARD_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_EXAMS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_EXAMS_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_PUBLIC_AUTH.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_STUDY_MATERIALS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_STUDY_MATERIALS_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_TESTS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\FLOW_TESTS_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\STUDY_MATERIALS_FLOWCHART.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\USER_JOURNEY_COMPREHENSIVE.html
+E:\Tech\Testprep\Trstprep V2.1\docs\architecture\flows\WORKFLOW_ARCHITECTURE_VISUALIZATION.html
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\DOCUMENTATION_AUDIT_REPORT_2026.html
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\home.html
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Deployment & DevOps.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Development Guidelines.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Getting Started.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Project Overview.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\REPO_CONNECTIONS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\REPO_TREE.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Testing & Quality Assurance.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Troubleshooting & FAQ.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Admin Dashboard Overview.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Admin Navigation & Layout.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Admin Panel.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Media Library.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\User Administration.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Content Management\Content Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Content Management\Question Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Content Management\Study Materials Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Admin Panel\Content Management\Test Series Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\Admin API.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\API Documentation.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\Authentication API.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\Test Administration API.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\Test Series API.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\API Documentation\User Management API.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\Architecture Overview.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\Backend Architecture.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\Data Flow Architecture.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\Design Patterns.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\Frontend Architecture.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Architecture Overview\System Design.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Core Features.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Result Analysis & Performance Tracking.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Study Materials & Content Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\User Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\Admin Dashboard Overview.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\Admin Panel & Content Administration.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\Categories & Content Organization.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\Content Management Workflows.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\Media Library Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Admin Panel & Content Administration\User Management System.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Test Preparation System\Progress Tracking & Analytics.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Test Preparation System\Question Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Test Preparation System\Test Interface System.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Test Preparation System\Test Preparation System.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Core Features\Test Preparation System\Test Series Management.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\Data Seeding and Migration.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\Database Abstraction Layer.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\Database Design.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\Question Model.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\Test Model.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\TestSeries Model.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Database Design\User Model.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Frontend Components\Common UI Components.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Frontend Components\Frontend Components.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Frontend Components\Layout Components.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Frontend Components\Specialized Functional Components.md
+E:\Tech\Testprep\Trstprep V2.1\docs\archive\repowiki\Frontend Components\Test-Related Components.md
+E:\Tech\Testprep\Trstprep V2.1\docs\database\DATABASE_SCHEMA.html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\database_schema_visualizer.html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\database_visualization (2).html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\database_visualization.html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\database_visualization_backup.html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\Open router key.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\database\exports\export-log.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\database\exports\README.md
+E:\Tech\Testprep\Trstprep V2.1\docs\development\Admin Panel doc.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\development\Bulk Upload - Functions.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\development\Docs Check.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\development\Evolve Plan.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\development\New Text Document.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\features\ADMIN_PANEL ANALYSIS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\features\CARD_ORDERING_BEHAVIOR_REPORT.html
+E:\Tech\Testprep\Trstprep V2.1\docs\features\FEATURE_RECOMMENDATIONS.html
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Admin Panel doc.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Bulk Upload - Functions.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Docs Check.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Evolve Plan.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\New Text Document.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Openrouter API Key.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Realtime updates.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Security, Ui Scan.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\security\TECHNICAL_ANALYSIS_REPORT.html
+E:\Tech\Testprep\Trstprep V2.1\scripts\README.md
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\uploads\pdfs\451c2d8f-77bf-487e-8c8e-8bb81081b84e.pdf
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\avatar_1_1774230400429.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\avatar_1_1774230597112.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\avatar_1_1774234894872.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\avatar_1_1775283780781.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\avatar_1_1777783891845.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\banner_1_1775283818737.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\backend\uploads\avatars\banner_1_1777783953044.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\assets\avatar\avatar_1_1774230400429.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\assets\avatar\avatar_1_1774230597112.jpeg
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\assets\avatar\avatar_1_1774234894872.jpeg

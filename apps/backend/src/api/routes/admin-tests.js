@@ -4,7 +4,8 @@ import * as XLSX from "xlsx";
 import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
 import { Test } from "../../data/models/index.js";
 import { createSchema, validateBody } from "../../middleware/validation/inputValidation.js";
-import { upload as bulkQuestionUpload } from "../../infrastructure/storage/upload.js";
+import { memoryUpload as bulkQuestionUpload } from "../../infrastructure/storage/upload.js";
+import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 
 const router = express.Router();
 
@@ -54,13 +55,7 @@ const testSchema = createSchema()
   .field("promotionBannerAssetId", optionalIdField)
   .field("status", { type: "string", required: false, maxLength: 50 });
 
-// Helper to parse asset IDs
-const parseAssetId = (id) => {
-  if (!id) return null;
-  const str = String(id).trim();
-  if (!str || str === "null" || str === "undefined") return null;
-  return str;
-};
+// Helper to parse asset IDs is imported from shared utils
 
 const getTestSeriesId = (source = {}) =>
   source.testSeriesId ?? source.test_series_id ?? source.seriesId ?? source.series_id ?? null;
@@ -169,6 +164,29 @@ const mapBulkRowToTestPayload = (row, config) => {
 
 // ===== TESTS MANAGEMENT =====
 
+// GET /api/admin/tests/orphaned - List orphaned tests
+// NOTE: Must be defined BEFORE /tests/:id to avoid being matched by the param route
+router.get("/tests/orphaned", async (req, res) => {
+  try {
+    const rawLimit = Number(req.query.limit);
+    const rawOffset = Number(req.query.offset);
+    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
+    const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
+
+    const countRows = await pool.query(
+      "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
+    );
+    const total = countRows.rows[0]?.c ?? 0;
+
+    const tests = await dbHelpers.find("tests", { _orphaned: true, isActive: true });
+    const normalized = tests.slice(offset, offset + limit).map(withTestSeriesAliases);
+
+    res.json({ success: true, data: normalized, total, limit, offset });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/admin/tests - List all tests
 router.get("/tests", async (req, res) => {
   try {
@@ -204,6 +222,74 @@ router.get("/tests", async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/admin/tests/export - Export tests to CSV
+// NOTE: Must be defined BEFORE /tests/:id to avoid being matched by the param route
+router.get("/tests/export", async (req, res) => {
+  try {
+    const BOM = "\uFEFF";
+    const headers = ["id", "title", "slug", "test_series_id", "category", "sub_category", "type", "duration", "total_questions", "total_marks", "negative_marking", "difficulty", "is_pro", "is_coming_soon", "is_live", "tags", "created_at"];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="tests_export_${Date.now()}.csv"`);
+    res.write(BOM + headers.join(",") + "\n");
+
+    const series = await dbHelpers.find("testSeries", { isActive: true });
+    const seriesById = new Map();
+    const seriesByUuid = new Map();
+    series.forEach((s) => {
+      seriesById.set(String(s.id), s);
+      if (s._id) seriesByUuid.set(String(s._id), s);
+    });
+
+    const BATCH_SIZE = 1000;
+    let offset = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+      const tests = await dbHelpers.find("tests", { isActive: true }, BATCH_SIZE, offset);
+      if (tests.length === 0) { hasMore = false; break; }
+
+      const csvRows = [];
+      for (const t of tests) {
+        const tSeriesId = String(getTestSeriesId(t) || "");
+        const seriesItem = seriesById.get(tSeriesId) || seriesByUuid.get(tSeriesId) || series.find((s) => String(s._id || s.id) === tSeriesId);
+        const row = [
+          t.id || t._id || "",
+          `"${(t.title || "").replace(/"/g, '""')}"`,
+          (t.slug || "").replace(/"/g, '""'),
+          seriesItem ? seriesItem.id || seriesItem._id || "" : getTestSeriesId(t) || "",
+          (t.category || "").replace(/"/g, '""'),
+          (t.subCategory || t.sub_category || "").replace(/"/g, '""'),
+          t.type || "mock",
+          t.duration || "",
+          t.totalQuestions || t.total_questions || 0,
+          t.totalMarks || t.total_marks || 0,
+          t.negativeMarking || t.negative_marking || 0,
+          (t.difficulty || "").replace(/"/g, '""'),
+          t.isPro || t.is_pro || false,
+          t.isComingSoon || t.is_coming_soon || false,
+          t.isLive || t.is_live || false,
+          Array.isArray(t.tags) ? t.tags.join("+").replace(/"/g, '""') : typeof t.tags === "string" ? t.tags : "",
+          t.createdAt || t.created_at || "",
+        ];
+        csvRows.push(row.join(","));
+      }
+
+      res.write(csvRows.join("\n") + "\n");
+      offset += BATCH_SIZE;
+    }
+
+    res.end();
+  } catch (error) {
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, message: error.message });
+    } else {
+      console.error("Export tests error during stream:", error);
+      res.end();
+    }
   }
 });
 
@@ -555,28 +641,6 @@ router.delete("/tests/:id", async (req, res) => {
   }
 });
 
-// GET /api/admin/tests/orphaned - List orphaned tests
-router.get("/tests/orphaned", async (req, res) => {
-  try {
-    const rawLimit = Number(req.query.limit);
-    const rawOffset = Number(req.query.offset);
-    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
-    const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
-
-    const countRows = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
-    );
-    const total = countRows.rows[0]?.c ?? 0;
-
-    const tests = await dbHelpers.find("tests", { _orphaned: true, isActive: true });
-    const normalized = tests.slice(offset, offset + limit).map(withTestSeriesAliases);
-
-    res.json({ success: true, data: normalized, total, limit, offset });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 // PUT /api/admin/tests/:id/reassign - Reassign orphaned test
 router.put("/tests/:id/reassign", async (req, res) => {
   try {
@@ -723,73 +787,6 @@ router.post("/tests/bulk", bulkQuestionUpload.single("file"), async (req, res) =
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// GET /api/admin/tests/export - Export tests to CSV
-router.get("/tests/export", async (req, res) => {
-  try {
-    const BOM = "\uFEFF";
-    const headers = ["id", "title", "slug", "test_series_id", "category", "sub_category", "type", "duration", "total_questions", "total_marks", "negative_marking", "difficulty", "is_pro", "is_coming_soon", "is_live", "tags", "created_at"];
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="tests_export_${Date.now()}.csv"`);
-    res.write(BOM + headers.join(",") + "\n");
-
-    const series = await dbHelpers.find("testSeries", { isActive: true });
-    const seriesById = new Map();
-    const seriesByUuid = new Map();
-    series.forEach((s) => {
-      seriesById.set(String(s.id), s);
-      if (s._id) seriesByUuid.set(String(s._id), s);
-    });
-
-    const BATCH_SIZE = 1000;
-    let offset = 0;
-    let hasMore = true;
-
-    while (hasMore) {
-      const tests = await dbHelpers.find("tests", { isActive: true }, BATCH_SIZE, offset);
-      if (tests.length === 0) { hasMore = false; break; }
-
-      const csvRows = [];
-      for (const t of tests) {
-        const tSeriesId = String(getTestSeriesId(t) || "");
-        const seriesItem = seriesById.get(tSeriesId) || seriesByUuid.get(tSeriesId) || series.find((s) => String(s._id || s.id) === tSeriesId);
-        const row = [
-          t.id || t._id || "",
-          `"${(t.title || "").replace(/"/g, '""')}"`,
-          (t.slug || "").replace(/"/g, '""'),
-          seriesItem ? seriesItem.id || seriesItem._id || "" : getTestSeriesId(t) || "",
-          (t.category || "").replace(/"/g, '""'),
-          (t.subCategory || t.sub_category || "").replace(/"/g, '""'),
-          t.type || "mock",
-          t.duration || "",
-          t.totalQuestions || t.total_questions || 0,
-          t.totalMarks || t.total_marks || 0,
-          t.negativeMarking || t.negative_marking || 0,
-          (t.difficulty || "").replace(/"/g, '""'),
-          t.isPro || t.is_pro || false,
-          t.isComingSoon || t.is_coming_soon || false,
-          t.isLive || t.is_live || false,
-          Array.isArray(t.tags) ? t.tags.join("+").replace(/"/g, '""') : typeof t.tags === "string" ? t.tags : "",
-          t.createdAt || t.created_at || "",
-        ];
-        csvRows.push(row.join(","));
-      }
-
-      res.write(csvRows.join("\n") + "\n");
-      offset += BATCH_SIZE;
-    }
-
-    res.end();
-  } catch (error) {
-    if (!res.headersSent) {
-      res.status(500).json({ success: false, message: error.message });
-    } else {
-      console.error("Export tests error during stream:", error);
-      res.end();
-    }
   }
 });
 

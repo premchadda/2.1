@@ -45,33 +45,47 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null)
 
   // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
+  // Retries on transient failures (e.g. backend restart during HMR)
   useEffect(() => {
-    const checkAuth = async () => {
+    let cancelled = false
+    const MAX_RETRIES = 3
+    const RETRY_DELAY = 1000 // ms
+
+    const checkAuth = async (attempt = 0) => {
       try {
-        // Try to fetch current user - httpOnly cookie sent automatically
         const response = await authAPI.getMe()
+        if (cancelled) return
         const userData = response.data.data
         
         if (userData) {
           const frontendUser = mapUserToFrontend(userData)
           setUser(frontendUser)
           
-          // Store only non-sensitive metadata in sessionStorage
           const meta = {
             lastActivity: Date.now(),
             expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
           }
           sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        } else {
+          setUser(null)
         }
       } catch (err) {
+        if (cancelled) return
+        // Retry on transient failures (network error, backend restarting during HMR)
+        if (attempt < MAX_RETRIES && (!err.response || err.response?.status >= 500)) {
+          setTimeout(() => checkAuth(attempt + 1), RETRY_DELAY * (attempt + 1))
+          return
+        }
         logger.error('Auth check failed:', err)
         sessionStorage.removeItem(SESSION_META_KEY)
         setUser(null)
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
-    checkAuth()
+    // Small delay to let backend stabilize during HMR
+    const timer = setTimeout(() => checkAuth(), 300)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [])
 
   // Listen for unauthorized events

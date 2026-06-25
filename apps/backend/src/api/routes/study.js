@@ -32,19 +32,37 @@
  */
 import express from 'express'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 
 const router = express.Router()
 
 // Helper function to calculate subject counts
 async function calculateStudyMaterialCounts(dbHelpers, subject) {
   try {
-    // Count chapters (topics where parentTopic is null)
-    const allTopics = await dbHelpers.find('topics', { subject: subject.name || subject, isActive: true })
-    const chapters = allTopics.filter(t => !t.parentTopicId)
-    const topics = allTopics.filter(t => t.parentTopicId)
+    const subjectId = subject?.id ?? subject?._id
+    
+    let chaptersCount = 0
+    let topicsCount = 0
 
-    // Count media by studyMaterialId (the subject column does not exist on these tables)
-    const smId = subject?.id ?? subject?._id
+    if (subjectId != null) {
+      // Modern robust counts from chapters and topics tables
+      const chapters = await dbHelpers.find('chapters', { subjectId, isActive: true })
+      chaptersCount = chapters.length
+      
+      if (chapters.length > 0) {
+        const chapterIds = chapters.map(c => c.id ?? c._id).filter(id => id != null)
+        const topics = await dbHelpers.find('topics', { chapterId: { $in: chapterIds }, isActive: true })
+        topicsCount = topics.length
+      }
+    } else {
+      // Legacy subjects fallback (very old data without IDs)
+      const allTopics = await dbHelpers.find('topics', { subject: subject.name || subject, isActive: true })
+      chaptersCount = allTopics.filter(t => !t.parentTopicId).length
+      topicsCount = allTopics.filter(t => t.parentTopicId).length
+    }
+
+    // Count media by studyMaterialId
+    const smId = subjectId || subject.name // Fallback to name if id missing (rare)
     let videos = []
     let pdfs = []
     let topicTests = []
@@ -57,8 +75,8 @@ async function calculateStudyMaterialCounts(dbHelpers, subject) {
     }
 
     return {
-      topics: topics.length,
-      chapters: chapters.length,
+      topics: topicsCount,
+      chapters: chaptersCount,
       videos: videos.length,
       pdf: pdfs.length,
       tests: topicTests.length
@@ -74,13 +92,13 @@ async function calculateStudyMaterialCounts(dbHelpers, subject) {
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const subjects = await global.dbHelpers.find('subjects', { isActive: true })
+    const subjects = await dbHelpers.find('subjects', { isActive: true })
     
     // Calculate actual counts for each material
     const materialsWithCounts = await Promise.all(
       subjects.map(async (subject) => {
-        const counts = await calculateStudyMaterialCounts(global.dbHelpers, subject)
-        const resolvedContent = await resolveSubjectContent(global.dbHelpers, subject)
+        const counts = await calculateStudyMaterialCounts(dbHelpers, subject)
+        const resolvedContent = await resolveSubjectContent(dbHelpers, subject)
         return {
           _id: subject._id,
           slug: subject.slug,
@@ -505,26 +523,122 @@ async function findInheritedParts(dbHelpers, subject) {
 }
 
 async function resolveSubjectContent(dbHelpers, subject) {
-  let parts = await dbHelpers.find('subjectParts', {
-    subjectId: subject.id,
-    isActive: true
-  })
-
-  if (parts.length === 0) {
-    parts = await findInheritedParts(dbHelpers, subject)
+  const subjectId = subject?.id ?? subject?._id
+  if (subjectId == null) {
+    return { parts: [], chapters: [] }
   }
 
-  const hierarchy = await buildHierarchyFromParts(dbHelpers, parts, subject)
-  const hierarchyChapters = flattenHierarchyChapters(hierarchy)
-
-  if (hierarchyChapters.length > 0) {
-    return { parts: hierarchy, chapters: hierarchyChapters }
+  // 1. Fetch parts directly
+  let parts = await dbHelpers.find('subjectParts', { subjectId, isActive: true })
+  
+  // Try inherited parts if empty
+  if (parts.length === 0 && subject.subjectGroup) {
+    const allSubjects = await dbHelpers.find('subjects', {})
+    const targetGroup = normalizeText(subject.subjectGroup)
+    const candidates = allSubjects.filter(c => c.id !== subjectId && (normalizeText(c.name) === targetGroup || c.slug === toSlug(subject.subjectGroup)))
+    
+    for (const candidate of candidates) {
+      const candidateParts = await dbHelpers.find('subjectParts', { subjectId: candidate.id, isActive: true })
+      if (candidateParts.length > 0) {
+        const keywords = getPartKeywords(subject)
+        const matched = candidateParts.filter(p => {
+          const pn = normalizeText(p.name)
+          return keywords.some(k => pn.includes(k) || k.includes(pn))
+        })
+        parts = matched.length > 0 ? matched : candidateParts
+        break
+      }
+    }
   }
 
-  const legacyChapters = await buildLegacySubjectChapters(dbHelpers, subject)
+  const units = await dbHelpers.find('units', { subjectId, isActive: true })
+  const chapters = await dbHelpers.find('chapters', { subjectId, isActive: true })
+  
+  const chapterIdCandidates = [...new Set(chapters.flatMap(c => [c.id, c._id].filter(v => v != null && v !== '')))]
+  const topics = chapterIdCandidates.length > 0 
+    ? await dbHelpers.find('topics', { chapterId: { $in: chapterIdCandidates }, isActive: true })
+    : []
+
+  const { allVideos, allPdfs, allTests } = await loadSubjectMediaBundle(dbHelpers, subject)
+
+  // 2. Build Chapters
+  const enrichedChapters = chapters.map(chapter => {
+    const chapterTopics = topics.filter(t => looseIdEquals(t.chapterId, chapter.id) || looseIdEquals(t.chapterId, chapter._id)).sort(sortByOrderAndId)
+    
+    const chapterKeySet = collectKeySet(chapter)
+    const topicKeySet = new Set()
+    for (const t of chapterTopics) {
+      for (const k of collectKeySet(t)) topicKeySet.add(k)
+    }
+
+    const videos = allVideos.filter(v => assetBelongsToChapter(v, chapterKeySet, topicKeySet)).sort(sortByOrderAndId).map(mapVideoForClient)
+    const pdfs = allPdfs.filter(p => assetBelongsToChapter(p, chapterKeySet, topicKeySet)).sort(sortByOrderAndId).map(mapPdfForClient)
+    const tests = allTests.filter(t => assetBelongsToChapter(t, chapterKeySet, topicKeySet)).sort(sortByOrderAndId)
+
+    return {
+      ...chapter,
+      title: chapter.title || chapter.name,
+      topics: chapterTopics,
+      topicCount: chapterTopics.length,
+      videoCount: videos.length,
+      pdfCount: pdfs.length,
+      testCount: tests.length,
+      videosList: videos,
+      pdfsList: pdfs,
+      testsList: tests,
+    }
+  }).sort(sortByOrderAndId)
+
+  // 3. Build Units
+  const enrichedUnits = units.map(unit => {
+    const unitChapters = enrichedChapters.filter(c => looseIdEquals(c.unitId, unit.id) || looseIdEquals(c.unitId, unit._id))
+    return {
+      ...unit,
+      chapters: unitChapters
+    }
+  }).sort(sortByOrderAndId)
+
+  // 4. Handle orphaned chapters (no unit match)
+  const chaptersWithUnit = new Set(enrichedUnits.flatMap(u => u.chapters).map(c => c.id))
+  const orphanedChapters = enrichedChapters.filter(c => !chaptersWithUnit.has(c.id))
+  
+  if (orphanedChapters.length > 0) {
+    enrichedUnits.push({
+      id: 'general-unit',
+      _id: 'general-unit',
+      name: 'Additional Topics',
+      slug: 'additional-topics',
+      chapters: orphanedChapters,
+      partId: null // Mark for general part
+    })
+  }
+
+  // 5. Build Parts
+  const enrichedParts = parts.map(part => {
+    const partUnits = enrichedUnits.filter(u => looseIdEquals(u.partId, part.id) || looseIdEquals(u.partId, part._id))
+    return {
+      ...part,
+      units: partUnits
+    }
+  }).sort(sortByOrderAndId)
+
+  // 6. Handle orphaned units (no part match)
+  const unitsWithPart = new Set(enrichedParts.flatMap(p => p.units).map(u => u.id))
+  const orphanedUnits = enrichedUnits.filter(u => !unitsWithPart.has(u.id))
+  
+  if (orphanedUnits.length > 0) {
+    enrichedParts.push({
+      id: 'general-part',
+      _id: 'general-part',
+      name: 'Additional Contents',
+      slug: 'additional-contents',
+      units: orphanedUnits
+    })
+  }
+
   return {
-    parts: [],
-    chapters: legacyChapters
+    parts: enrichedParts,
+    chapters: enrichedChapters
   }
 }
 
@@ -550,7 +664,7 @@ function mapChapterSummary(chapter) {
 router.get('/:slugOrId', async (req, res) => {
   try {
     const { slugOrId } = req.params
-    const material = await findSubjectBySlugOrId(global.dbHelpers, slugOrId)
+    const material = await findSubjectBySlugOrId(dbHelpers, slugOrId)
 
     if (!material) {
       return res.status(404).json({
@@ -559,12 +673,12 @@ router.get('/:slugOrId', async (req, res) => {
       })
     }
 
-    const counts = await calculateStudyMaterialCounts(global.dbHelpers, material)
-    const resolvedContent = await resolveSubjectContent(global.dbHelpers, material)
+    const counts = await calculateStudyMaterialCounts(dbHelpers, material)
+    const resolvedContent = await resolveSubjectContent(dbHelpers, material)
     const allChapters = resolvedContent.chapters
 
     // Load ALL media for this subject (including admin-uploaded PDFs/videos)
-    const { allVideos, allPdfs, allTests } = await loadSubjectMediaBundle(global.dbHelpers, material)
+    const { allVideos, allPdfs, allTests } = await loadSubjectMediaBundle(dbHelpers, material)
 
     // Find media not matched to any chapter in the resolved hierarchy
     const matchedVideoIds = new Set(allChapters.flatMap(c => (c.videosList || []).map(v => String(v.id ?? v._id))))
@@ -648,13 +762,13 @@ router.get('/:slugOrId', async (req, res) => {
 router.get('/videos/hierarchical', async (req, res) => {
   try {
     // Get all active subjects
-    const subjects = await global.dbHelpers.find('subjects', { isActive: true })
+    const subjects = await dbHelpers.find('subjects', { isActive: true })
     
     // Get all videos from subjectVideos collection
-    const allVideos = await global.dbHelpers.find('subjectVideos', { isActive: true })
+    const allVideos = await dbHelpers.find('subjectVideos', { isActive: true })
     
     // Get all topics (chapters)
-    const allTopics = await global.dbHelpers.find('topics', { isActive: true })
+    const allTopics = await dbHelpers.find('topics', { isActive: true })
     
     // Build hierarchical structure
     const hierarchicalData = subjects.map(subject => {
@@ -791,7 +905,7 @@ router.get('/videos/hierarchical', async (req, res) => {
 router.get('/:slugOrId/chapters', async (req, res) => {
   try {
     const { slugOrId } = req.params
-    const material = await findSubjectBySlugOrId(global.dbHelpers, slugOrId)
+    const material = await findSubjectBySlugOrId(dbHelpers, slugOrId)
 
     if (!material) {
       return res.status(404).json({
@@ -800,7 +914,7 @@ router.get('/:slugOrId/chapters', async (req, res) => {
       })
     }
 
-    const resolvedContent = await resolveSubjectContent(global.dbHelpers, material)
+    const resolvedContent = await resolveSubjectContent(dbHelpers, material)
     const chapters = resolvedContent.chapters
 
     res.json({

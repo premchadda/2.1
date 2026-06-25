@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import AdminLayout from './shared/components/AdminLayout'
 import ProtectedRoute from './shared/components/ProtectedRoute'
@@ -24,8 +24,6 @@ import SubjectRelationsManager from './features/admin/study-materials/SubjectRel
 import TopicsManager from './features/admin/study-materials/TopicsManager'
 import CurriculumBuilder from './features/admin/study-materials/CurriculumBuilder'
 import ContentManagement from './features/admin/study-materials/ContentManagement'
-import MediaLibrary from './features/admin/study-materials/MediaLibrary'
-import VideosManager from './features/admin/study-materials/VideosManager'
 import CurrentAffairsManager from './features/admin/study-materials/CurrentAffairsManager'
 import CategoriesManager from './features/admin/exams-categories/CategoriesManager'
 
@@ -79,6 +77,9 @@ function App() {
   
   return (
     <Routes>
+      {/* Root redirect to admin dashboard */}
+      <Route path="/" element={<Navigate to="/admin" replace />} />
+
       {/* Login Route - No ThemeProvider needed */}
       <Route path="/login" element={<Login />} />
     
@@ -95,6 +96,7 @@ function App() {
         <Route path="tests" element={<TestsManager />} />
         <Route path="questions" element={<QuestionsManager />} />
         <Route path="sections" element={<SectionsManager />} />
+        <Route path="section" element={<Navigate to="/admin/sections" replace />} />
         <Route path="quizzes" element={<QuizzesManager />} />
         <Route path="categories" element={<CategoriesManager />} />
         
@@ -122,10 +124,8 @@ function App() {
         <Route path="results" element={<ResultsManager />} />
         
         {/* Media */}
-        <Route path="media" element={<MediaLibrary />} />
         <Route path="banners" element={<BannerManager />} />
         <Route path="faqs" element={<FaqManager />} />
-        <Route path="videos" element={<VideosManager />} />
         
         {/* Communication */}
         <Route path="notifications" element={<NotificationsManager />} />

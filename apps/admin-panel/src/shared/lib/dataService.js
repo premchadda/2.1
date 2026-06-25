@@ -66,7 +66,7 @@ export class NotFoundError extends DataError {
   }
 }
 
-const apiUrl = API_BASE_URL
+const apiUrl = `${API_BASE_URL}/api`
 const ADMIN_API_KEY = import.meta.env.VITE_ADMIN_API_KEY || ''
 
 const apiClient = axios.create({
@@ -255,7 +255,7 @@ export const seriesAPI = {
 
 // ===== TESTS API =====
 export const testsAPI = {
-  getAll: () => apiClient.get('/tests'), // Changed to public endpoint
+  getAll: () => apiClient.get('/admin/tests'), // Admin endpoint
   getById: (id) => {
     if (!id) throw new ValidationError('Test ID is required')
     return apiClient.get(`/tests/${id}`)
@@ -475,9 +475,9 @@ export const questionsAPI = {
 
 // ===== EXAM DATA API =====
 export const examAPI = {
-  getCategories: () => apiClient.get('/exam-categories'),
+  getCategories: () => apiClient.get('/admin/exam-categories'),
   getExams: () => apiClient.get('/exams'),
-  getExamInfo: () => apiClient.get('/exam-info'),
+  getExamInfo: () => apiClient.get('/admin/exam-info'),
   getExamUpdates: (examId) => apiClient.get(`/exam-info/${examId}/updates`),
   getExamYearlyData: (examId) => apiClient.get(`/exam-info/${examId}/yearly-data`),
   getPublicStats: () => apiClient.get('/public-stats'),
@@ -526,11 +526,42 @@ export const adminAPI = {
   updateTestCategory: (id, data) => apiClient.put(`/admin/test-categories/${id}`, data),
   deleteTestCategory: (id) => apiClient.delete(`/admin/test-categories/${id}`),
   
+  // Exams
+  getExamCategories: () => apiClient.get('/admin/exam-categories'),
+  getExams: () => apiClient.get('/exams'),
+
   // Test Sections
-  getSections: () => apiClient.get('/admin/sections'),
+  getSections: (params = {}) => {
+    const query = new URLSearchParams()
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, value)
+      }
+    })
+    const qs = query.toString()
+    return apiClient.get(`/admin/sections${qs ? `?${qs}` : ''}`)
+  },
+  getSectionsForTest: (params = {}) => {
+    const query = new URLSearchParams()
+    Object.entries(params || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        query.append(key, value)
+      }
+    })
+    const qs = query.toString()
+    return apiClient.get(`/admin/sections/for-test${qs ? `?${qs}` : ''}`)
+  },
   createSection: (data) => apiClient.post('/admin/sections', data),
   updateSection: (id, data) => apiClient.put(`/admin/sections/${id}`, data),
   deleteSection: (id) => apiClient.delete(`/admin/sections/${id}`),
+  applySectionPreset: (data) => apiClient.post('/admin/sections/preset', data),
+  dedupSections: () => apiClient.post('/admin/sections/dedup'),
+  getSectionAliases: () => apiClient.get('/admin/sections/aliases'),
+  createSectionAlias: (data) => apiClient.post('/admin/sections/aliases', data),
+  updateSectionAlias: (id, data) => apiClient.put(`/admin/sections/aliases/${id}`, data),
+  deleteSectionAlias: (id) => apiClient.delete(`/admin/sections/aliases/${id}`),
+  resolveSectionAlias: (name) => apiClient.get(`/admin/sections/resolve/${encodeURIComponent(name)}`),
+  seedTemplates: () => apiClient.post('/admin/sections/seed-templates'),
   
   // Study Materials
   getStudyMaterials: (deleted = false) => apiClient.get(`/admin/study-materials${deleted ? '?deleted=true' : ''}`),
@@ -913,7 +944,7 @@ class DataService {
 
   // Get exam categories with caching
   async getExamCategories(options = {}) {
-    const key = this.cache.generateKey('/exam-categories')
+    const key = this.cache.generateKey('/admin/exam-categories')
     return this.fetchWithCache(key, async () => {
       const response = await examAPI.getCategories()
       return response.data?.data || response.data || []
@@ -937,9 +968,9 @@ class DataService {
 
   // Get test categories (Mock, PYP, etc.) with caching
   async getTestCategories(options = {}) {
-    const key = this.cache.generateKey('/test-categories')
+    const key = this.cache.generateKey('/admin/test-categories')
     return this.fetchWithCache(key, async () => {
-      const response = await apiClient.get('/test-categories')
+      const response = await apiClient.get('/admin/test-categories')
       return response.data?.data || response.data || []
     }, { 
       ttl: this.cache.longTTL,

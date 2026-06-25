@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
 
 const router = express.Router()
@@ -10,7 +11,7 @@ router.get('/', async (req, res) => {
   try {
     // Query the exams table directly with snake_case columns via raw query
     // to avoid toCamel transformation that loses snake_case fields
-    const result = await global.dbHelpers.query(
+    const result = await pool.query(
       'SELECT * FROM exams WHERE is_active = true OR is_active IS NULL ORDER BY display_order ASC, id ASC'
     )
     const exams = result.rows
@@ -36,7 +37,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const exam = await findEntityByIdentifier(global.dbHelpers, 'exams', req.params.id, {
+    const exam = await findEntityByIdentifier(dbHelpers, 'exams', req.params.id, {
       slugFields: ['slug', 'exam_id']
     })
     if (!exam || !exam.isActive) {
@@ -53,7 +54,7 @@ router.get('/:id', async (req, res) => {
 // @access  Public
 router.get('/category/:categoryId', async (req, res) => {
   try {
-    const exams = await global.dbHelpers.find('exams', {
+    const exams = await dbHelpers.find('exams', {
       categoryId: req.params.categoryId,
       isActive: true
     })
@@ -70,7 +71,7 @@ router.get('/category/:categoryId', async (req, res) => {
 router.get('/../exams/category/:categoryId', async (req, res) => {
   try {
     const categoryId = req.params.categoryId
-    const categories = await global.dbHelpers.find('examCategories', {
+    const categories = await dbHelpers.find('examCategories', {
       id: categoryId,
       isActive: true
     })
@@ -78,7 +79,7 @@ router.get('/../exams/category/:categoryId', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Category not found' })
     }
     const category = categories[0]
-    const exams = await global.dbHelpers.find('exams', {
+    const exams = await dbHelpers.find('exams', {
       categoryId,
       isActive: true
     })
@@ -113,7 +114,7 @@ router.get('/../exams/category/:categoryId', async (req, res) => {
 // @access  Public
 router.get('/:examId/updates', async (req, res) => {
   try {
-    const updates = await global.dbHelpers.find('exam_updates', {
+    const updates = await dbHelpers.find('exam_updates', {
       exam_id: req.params.examId,
       is_active: true
     }, { order: 'update_date DESC' })
@@ -139,7 +140,7 @@ router.get('/:examId/updates', async (req, res) => {
 // @access  Public
 router.get('/:examId/yearly-data', async (req, res) => {
   try {
-    const yearlyData = await global.dbHelpers.find('exam_yearly_data', {
+    const yearlyData = await dbHelpers.find('exam_yearly_data', {
       exam_id: req.params.examId,
       is_active: true
     }, { order: 'year DESC' })

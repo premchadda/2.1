@@ -28,10 +28,10 @@ export default function SubscriptionPlansManager() {
   useEffect(() => {
     fetchPlans()
 
-    // Auto-update plans in the background every 5 seconds
+    // Auto-update plans in the background every 60 seconds
     const interval = setInterval(() => {
       fetchPlans(true)
-    }, 5000)
+    }, 60000)
 
     return () => clearInterval(interval)
   }, [])

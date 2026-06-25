@@ -1,0 +1,3261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test System Architecture - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-secondary: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1);
+            --border-active: rgba(16, 185, 129, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-indigo: #6366f1;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --accent-violet: #8b5cf6;
+            --gradient-primary: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            --gradient-secondary: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            --shadow-glow: 0 0 40px rgba(16, 185, 129, 0.3);
+            --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(6, 182, 212, 0.1), transparent),
+                radial-gradient(ellipse 50% 30% at 0% 100%, rgba(99, 102, 241, 0.1), transparent);
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(60px, 60px);
+            }
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent-emerald);
+            bottom: -100px;
+            left: -100px;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--accent-cyan);
+            top: 10%;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+
+            50% {
+                transform: translate(-20px, 20px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(20px, 30px) scale(1.05);
+            }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 4rem 0 6rem;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 1px;
+            background: var(--gradient-primary);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #6ee7b7;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+        }
+
+        .badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem 0 4rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            text-decoration: none;
+        }
+
+        .nav-tab:hover,
+        .nav-tab.active {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: var(--accent-emerald);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-primary);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(16, 185, 129, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .glass-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
+            background: rgba(16, 185, 129, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .span-4 {
+            grid-column: span 4;
+        }
+
+        .span-6 {
+            grid-column: span 6;
+        }
+
+        .span-8 {
+            grid-column: span 8;
+        }
+
+        .span-12 {
+            grid-column: span 12;
+        }
+
+        .page-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .page-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .page-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateX(8px);
+        }
+
+        .page-number {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-primary);
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .page-info {
+            flex: 1;
+        }
+
+        .page-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .page-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .page-status {
+            padding: 0.3rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-critical {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .api-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .api-item:hover {
+            background: rgba(16, 185, 129, 0.05);
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        .method-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .method-get {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .method-post {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .method-put {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .api-content {
+            flex: 1;
+        }
+
+        .api-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #6ee7b7;
+            margin-bottom: 0.5rem;
+        }
+
+        .api-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 3rem;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .flow-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem 2rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border-glass);
+            border-radius: 16px;
+            min-width: 180px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .flow-node:hover {
+            transform: translateY(-5px) scale(1.02);
+            border-color: var(--accent-emerald);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .flow-node-icon {
+            font-size: 2rem;
+        }
+
+        .flow-node-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .flow-node-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .flow-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 50%;
+            color: var(--accent-emerald);
+            animation: arrowPulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes arrowPulse {
+
+            0%,
+            100% {
+                transform: translateX(0);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: translateX(5px);
+                opacity: 1;
+            }
+        }
+
+        .schema-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .schema-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .schema-card:hover {
+            border-color: rgba(16, 185, 129, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .schema-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: rgba(16, 185, 129, 0.1);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .schema-name {
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .schema-body {
+            padding: 1rem;
+        }
+
+        .schema-field {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.9rem;
+        }
+
+        .schema-field:last-child {
+            border-bottom: none;
+        }
+
+        .field-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: #6ee7b7;
+        }
+
+        .field-type {
+            color: var(--accent-cyan);
+            font-size: 0.8rem;
+        }
+
+        .field-key {
+            padding: 0.2rem 0.5rem;
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red {
+            background: #ef4444;
+        }
+
+        .code-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .code-dot.green {
+            background: #34d399;
+        }
+
+        .code-title {
+            margin-left: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        pre {
+            padding: 1.5rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .string {
+            color: #fde047;
+        }
+
+        .property {
+            color: #93c5fd;
+        }
+
+        .number {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #64748b;
+        }
+
+        .state-flow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .state-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .state-card:hover {
+            border-color: var(--accent-emerald);
+        }
+
+        .state-title {
+            font-weight: 700;
+            color: var(--accent-emerald);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .state-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .state-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .state-bullet {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-emerald);
+            border-radius: 50%;
+        }
+
+        .flow-section {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .flow-section-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--accent-emerald);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .flow-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .flow-step {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(16, 185, 129, 0.05);
+            border-radius: 12px;
+            border-left: 3px solid var(--accent-emerald);
+        }
+
+        .flow-step-number {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-primary);
+            border-radius: 8px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .flow-step-content {
+            flex: 1;
+        }
+
+        .flow-step-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .flow-step-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .conditional-box {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .conditional-title {
+            font-weight: 700;
+            color: #a5b4fc;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .conditional-content {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .warning-box {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .warning-title {
+            font-weight: 700;
+            color: #f87171;
+            margin-bottom: 0.5rem;
+        }
+
+        @media (max-width: 1200px) {
+
+            .span-4,
+            .span-6,
+            .span-8 {
+                grid-column: span 6;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .span-4,
+            .span-6,
+            .span-8,
+            .span-12 {
+                grid-column: span 12;
+            }
+
+            .glass-card {
+                padding: 1.5rem;
+            }
+
+            .flow-diagram {
+                padding: 1.5rem;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stagger-1 {
+            animation-delay: 0.1s;
+        }
+
+        .stagger-2 {
+            animation-delay: 0.2s;
+        }
+
+        .stagger-3 {
+            animation-delay: 0.3s;
+        }
+
+        .stagger-4 {
+            animation-delay: 0.4s;
+        }
+
+        .stagger-5 {
+            animation-delay: 0.5s;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-pattern">
+        <div class="grid-lines"></div>
+    </div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header fade-in">
+            <div class="badge"><span>Architecture Documentation</span></div>
+            <h1>CBT Test Engine Flow Map</h1>
+            <p class="subtitle">
+                Complete architecture documentation for the real-time Computer Based Test (CBT) engine,
+                detailing test execution state, timer logic, API submissions, attempt tracking, and anti-cheat
+                mechanisms.
+                <br><br>
+                <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong>
+                PostgreSQL (Supabase)
+            </p>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="nav-tabs fade-in stagger-1">
+            <a href="#flows" class="nav-tab active">🌊 CBT Event Flow</a>
+            <a href="#pages" class="nav-tab">📄 Engine Pages</a>
+            <a href="#api" class="nav-tab">📡 API Endpoints</a>
+            <a href="#database" class="nav-tab">🗄️ Database Schema</a>
+            <a href="#enrollment" class="nav-tab">🔐 Enrollment Flow</a>
+            <a href="#state" class="nav-tab">📊 Timer State</a>
+            <a href="#security" class="nav-tab">🛡️ Security</a>
+        </nav>
+
+        <!-- User Flow Diagram -->
+        <section id="flows" class="glass-card span-12 fade-in stagger-2" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <div class="card-icon">🌊</div>
+                <div>
+                    <div class="card-title">CBT Execution Journey</div>
+                    <div class="card-subtitle">Interactive flow from test series discovery to final analytical report
+                    </div>
+                </div>
+            </div>
+            <div class="flow-diagram">
+                <div class="flow-node">
+                    <div class="flow-node-icon">📚</div>
+                    <div class="flow-node-title">/test-series</div>
+                    <div class="flow-node-desc">Browse All Series</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">📖</div>
+                    <div class="flow-node-title">/test-series/:slug</div>
+                    <div class="flow-node-desc">Series Details & Tests</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">✋</div>
+                    <div class="flow-node-title">/test/:id/instructions</div>
+                    <div class="flow-node-desc">Accept Terms</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">⏱️</div>
+                    <div class="flow-node-title">/test-interface/:attemptId</div>
+                    <div class="flow-node-desc">Real-time CBT</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">📊</div>
+                    <div class="flow-node-title">/test-result/:attemptId</div>
+                    <div class="flow-node-desc">Analytics & Report</div>
+                </div>
+            </div>
+
+            <!-- Conditional Flows -->
+            <div class="flow-section" style="margin-top: 2rem;">
+                <div class="flow-section-title">🔀 Conditional User Paths</div>
+                <div class="flow-steps">
+                    <div class="flow-step">
+                        <div class="flow-step-number">1</div>
+                        <div class="flow-step-content">
+                            <div class="flow-step-title">Guest User Visits Test Series</div>
+                            <div class="flow-step-desc">Shows series details with tests list. Free tests show "Start
+                                Free Test", PRO tests show "🔒 Unlock with Pro Pass"</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">2</div>
+                        <div class="flow-step-content">
+                            <div class="flow-step-title">Logged-in User (Not Enrolled)</div>
+                            <div class="flow-step-desc">Shows "Enroll Now" button. Clicking redirects to enrollment API,
+                                then back to series.</div>
+                            <div class="conditional-box">
+                                <div class="conditional-title">⚡ Auto-Enrollment</div>
+                                <div class="conditional-content">POST /api/users/enroll/:seriesId auto-enrolls user and
+                                    returns updated user object with enrolledSeries array.</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">3</div>
+                        <div class="flow-step-content">
+                            <div class="flow-step-title">Enrolled User Starts Test</div>
+                            <div class="flow-step-desc">Creates attempt record via POST /api/tests/:id/attempt. Returns
+                                attemptId for test interface.</div>
+                        </div>
+                    </div>
+                    <div class="flow-step">
+                        <div class="flow-step-number">4</div>
+                        <div class="flow-step-content">
+                            <div class="flow-step-title">PRO User Access</div>
+                            <div class="flow-step-desc">User with hasProPass: true can access all PRO tests. Regular
+                                users see paywall.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Grid -->
+        <div class="main-grid">
+            <!-- Pages Section -->
+            <section id="pages" class="glass-card span-4 fade-in stagger-2">
+                <div class="card-header">
+                    <div class="card-icon">📄</div>
+                    <div>
+                        <div class="card-title">Test Engine Files</div>
+                        <div class="card-subtitle">Core test execution modules</div>
+                    </div>
+                </div>
+                <div class="page-list">
+                    <div class="page-item">
+                        <div class="page-number">1</div>
+                        <div class="page-info">
+                            <div class="page-name">TestSeries</div>
+                            <div class="page-path">src/pages/tests/TestSeries.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">2</div>
+                        <div class="page-info">
+                            <div class="page-name">TestDetails</div>
+                            <div class="page-path">src/pages/tests/TestDetails.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">3</div>
+                        <div class="page-info">
+                            <div class="page-name">TestInstructions</div>
+                            <div class="page-path">src/pages/tests/TestInstructions.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">4</div>
+                        <div class="page-info">
+                            <div class="page-name">TestInterface</div>
+                            <div class="page-path">src/pages/tests/TestInterface.jsx</div>
+                        </div>
+                        <span class="page-status status-critical">Critical</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">5</div>
+                        <div class="page-info">
+                            <div class="page-name">TestResult</div>
+                            <div class="page-path">src/pages/tests/TestResult.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">6</div>
+                        <div class="page-info">
+                            <div class="page-name">TestReview</div>
+                            <div class="page-path">src/pages/tests/TestReview.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">7</div>
+                        <div class="page-info">
+                            <div class="page-name">Leaderboard</div>
+                            <div class="page-path">src/pages/tests/Leaderboard.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">8</div>
+                        <div class="page-info">
+                            <div class="page-name">LiveTests</div>
+                            <div class="page-path">src/pages/tests/LiveTests.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Endpoints Section -->
+            <section id="api" class="glass-card span-4 fade-in stagger-3">
+                <div class="card-header">
+                    <div class="card-icon">📡</div>
+                    <div>
+                        <div class="card-title">Test API Endpoints</div>
+                        <div class="card-subtitle">Backend routes from tests-engine.js & series.js</div>
+                    </div>
+                </div>
+                <div class="api-grid">
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/series</div>
+                            <div class="api-desc">Get all test series with test counts</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/series/:slug</div>
+                            <div class="api-desc">Get series by slug, check enrollment status</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/series/:slug/tests</div>
+                            <div class="api-desc">Get all tests in a series</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:id</div>
+                            <div class="api-desc">Get test with questions (answers stripped)</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-post">POST</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:id/attempt</div>
+                            <div class="api-desc">Start test attempt, create attempt record</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-post">POST</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/attempts/:id/submit</div>
+                            <div class="api-desc">Submit answers, server-side grading</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/attempts/user/:userId</div>
+                            <div class="api-desc">Get user's test attempt history</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Enrollment Flow -->
+            <section id="enrollment" class="glass-card span-4 fade-in stagger-4">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <div>
+                        <div class="card-title">Enrollment Flow</div>
+                        <div class="card-subtitle">User enrollment & access control</div>
+                    </div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header">
+                        <div class="code-dot red"></div>
+                        <div class="code-dot yellow"></div>
+                        <div class="code-dot green"></div>
+                        <span class="code-title">Enrollment Check Logic</span>
+                    </div>
+                    <pre><code><span class="comment">// Check if user is enrolled</span>
+<span class="keyword">const</span> enrollments = <span class="keyword">await</span> dbHelpers.find(<span class="string">'enrollments'</span>, {
+  userId: req.user.id,
+  isActive: { $ne: false }
+});
+
+<span class="comment">// Also check legacy enrolledSeries array</span>
+<span class="keyword">const</span> userSeries = req.user.enrolledSeries || [];
+<span class="keyword">const</span> isEnrolled = enrollments.length > 0 || 
+  userSeries.includes(series._id);
+
+<span class="comment">// Access control</span>
+<span class="keyword">if</span> (test.isPro && !user.hasProPass) {
+  <span class="keyword">return</span> res.status(403).json({
+    message: <span class="string">'PRO subscription required'</span>
+  });
+}</code></pre>
+                </div>
+                <div class="state-flow" style="margin-top: 1rem;">
+                    <div class="state-card">
+                        <div class="state-title"><span>👤</span> User States</div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>Guest → Redirect to Login</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>Logged-in + Not Enrolled → Enroll CTA</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>Enrolled → Start Test</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>PRO User → All Tests Unlocked</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Database Schema -->
+            <section id="database" class="glass-card span-12 fade-in stagger-5">
+                <div class="card-header">
+                    <div class="card-icon">🗄️</div>
+                    <div>
+                        <div class="card-title">Test Engine Database Schema</div>
+                        <div class="card-subtitle">PostgreSQL tables with relationships (from postgres-helpers.js
+                            whitelist)</div>
+                    </div>
+                </div>
+                <div class="schema-grid">
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📚</span>
+                            <span class="schema-name">test_series</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">slug</span><span
+                                    class="field-type">VARCHAR (unique)</span></div>
+                            <div class="schema-field"><span class="field-name">title</span><span
+                                    class="field-type">VARCHAR</span></div>
+                            <div class="schema-field"><span class="field-name">category</span><span
+                                    class="field-type">VARCHAR</span></div>
+                            <div class="schema-field"><span class="field-name">total_tests</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">is_pro</span><span
+                                    class="field-type">BOOLEAN</span></div>
+                            <div class="schema-field"><span class="field-name">users</span><span
+                                    class="field-type">VARCHAR (count)</span></div>
+                            <div class="schema-field"><span class="field-name">is_active</span><span
+                                    class="field-type">BOOLEAN</span></div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📋</span>
+                            <span class="schema-name">tests</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">series_id</span><span
+                                    class="field-type">FK → test_series.id</span></div>
+                            <div class="schema-field"><span class="field-name">title</span><span
+                                    class="field-type">VARCHAR</span></div>
+                            <div class="schema-field"><span class="field-name">duration_minutes</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">total_questions</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">total_marks</span><span
+                                    class="field-type">DECIMAL</span></div>
+                            <div class="schema-field"><span class="field-name">is_pro</span><span
+                                    class="field-type">BOOLEAN</span></div>
+                            <div class="schema-field"><span class="field-name">type</span><span
+                                    class="field-type">VARCHAR</span></div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>❓</span>
+                            <span class="schema-name">questions</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">test_id</span><span class="field-type">FK
+                                    → tests.id</span></div>
+                            <div class="schema-field"><span class="field-name">question_html</span><span
+                                    class="field-type">TEXT</span></div>
+                            <div class="schema-field"><span class="field-name">options_array</span><span
+                                    class="field-type">JSONB</span></div>
+                            <div class="schema-field"><span class="field-name">correct_option</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">positive_marks</span><span
+                                    class="field-type">DECIMAL</span></div>
+                            <div class="schema-field"><span class="field-name">negative_marks</span><span
+                                    class="field-type">DECIMAL</span></div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>⏱️</span>
+                            <span class="schema-name">attempts</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">user_id</span><span class="field-type">FK
+                                    → users.id</span></div>
+                            <div class="schema-field"><span class="field-name">test_id</span><span class="field-type">FK
+                                    → tests.id</span></div>
+                            <div class="schema-field"><span class="field-name">status</span><span
+                                    class="field-type">VARCHAR</span></div>
+                            <div class="schema-field"><span class="field-name">score</span><span
+                                    class="field-type">DECIMAL</span></div>
+                            <div class="schema-field"><span class="field-name">responses</span><span
+                                    class="field-type">JSONB</span></div>
+                            <div class="schema-field"><span class="field-name">time_spent</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">started_at</span><span
+                                    class="field-type">TIMESTAMP</span></div>
+                            <div class="schema-field"><span class="field-name">submitted_at</span><span
+                                    class="field-type">TIMESTAMP</span></div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📝</span>
+                            <span class="schema-name">enrollments</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">user_id</span><span class="field-type">FK
+                                    → users.id</span></div>
+                            <div class="schema-field"><span class="field-name">series_id</span><span
+                                    class="field-type">FK → test_series.id</span></div>
+                            <div class="schema-field"><span class="field-name">enrolled_at</span><span
+                                    class="field-type">TIMESTAMP</span></div>
+                            <div class="schema-field"><span class="field-name">is_active</span><span
+                                    class="field-type">BOOLEAN</span></div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📊</span>
+                            <span class="schema-name">results</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">id</span><span
+                                    class="field-key">PK</span></div>
+                            <div class="schema-field"><span class="field-name">user_id</span><span class="field-type">FK
+                                    → users.id</span></div>
+                            <div class="schema-field"><span class="field-name">test_id</span><span class="field-type">FK
+                                    → tests.id</span></div>
+                            <div class="schema-field"><span class="field-name">attempt_id</span><span
+                                    class="field-type">FK → attempts.id</span></div>
+                            <div class="schema-field"><span class="field-name">score</span><span
+                                    class="field-type">DECIMAL</span></div>
+                            <div class="schema-field"><span class="field-name">rank</span><span
+                                    class="field-type">INTEGER</span></div>
+                            <div class="schema-field"><span class="field-name">accuracy</span><span
+                                    class="field-type">DECIMAL</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Full Table List -->
+                <div class="flow-section" style="margin-top: 2rem;">
+                    <div class="flow-section-title">📋 Complete Database Tables (40+ Tables)</div>
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem;">
+                        <div style="color: #6ee7b7;">users</div>
+                        <div style="color: #6ee7b7;">test_series</div>
+                        <div style="color: #6ee7b7;">tests</div>
+                        <div style="color: #6ee7b7;">questions</div>
+                        <div style="color: #6ee7b7;">attempts</div>
+                        <div style="color: #6ee7b7;">results</div>
+                        <div style="color: #6ee7b7;">enrollments</div>
+                        <div style="color: #6ee7b7;">exam_categories</div>
+                        <div style="color: #6ee7b7;">exam_sub_categories</div>
+                        <div style="color: #6ee7b7;">exam_info</div>
+                        <div style="color: #6ee7b7;">exam_yearly_data</div>
+                        <div style="color: #6ee7b7;">exam_updates</div>
+                        <div style="color: #6ee7b7;">study_materials</div>
+                        <div style="color: #6ee7b7;">chapters</div>
+                        <div style="color: #6ee7b7;">subjects</div>
+                        <div style="color: #6ee7b7;">topics</div>
+                        <div style="color: #6ee7b7;">passages</div>
+                        <div style="color: #6ee7b7;">live_tests</div>
+                        <div style="color: #6ee7b7;">leaderboards</div>
+                        <div style="color: #6ee7b7;">bookmarks</div>
+                        <div style="color: #6ee7b7;">user_achievements</div>
+                        <div style="color: #6ee7b7;">activity_logs</div>
+                        <div style="color: #6ee7b7;">blogs</div>
+                        <div style="color: #6ee7b7;">referrals</div>
+                        <div style="color: #6ee7b7;">doubts</div>
+                        <div style="color: #6ee7b7;">doubt_replies</div>
+                        <div style="color: #6ee7b7;">study_groups</div>
+                        <div style="color: #6ee7b7;">study_group_members</div>
+                        <div style="color: #6ee7b7;">notifications</div>
+                        <div style="color: #6ee7b7;">coupons</div>
+                        <div style="color: #6ee7b7;">subscription_plans</div>
+                        <div style="color: #6ee7b7;">test_categories</div>
+                        <div style="color: #6ee7b7;">media</div>
+                        <div style="color: #6ee7b7;">navigation_menu</div>
+                        <div style="color: #6ee7b7;">tag_configs</div>
+                        <div style="color: #6ee7b7;">app_settings</div>
+                        <div style="color: #6ee7b7;">csrf_tokens</div>
+                        <div style="color: #6ee7b7;">backups</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- State Management -->
+            <section id="state" class="glass-card span-6 fade-in">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div>
+                        <div class="card-title">Timer & Submission State</div>
+                        <div class="card-subtitle">Critical real-time variables in TestInterface.jsx</div>
+                    </div>
+                </div>
+                <div class="state-flow">
+                    <div class="state-card">
+                        <div class="state-title"><span>⏱️</span> Timer State</div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>timeLeft: Integer (seconds)</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>setInterval(-1) every second</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>autoSubmit when timeLeft === 0</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="state-card">
+                        <div class="state-title"><span>✅</span> Response Matrix</div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>responses: { q_id: optionIndex }</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>statusMap: answered|review|skip</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div><span>currentQuestion: Index</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="code-block" style="margin-top: 1rem;">
+                    <div class="code-header">
+                        <div class="code-dot red"></div>
+                        <div class="code-dot yellow"></div>
+                        <div class="code-dot green"></div>
+                        <span class="code-title">Submission Payload</span>
+                    </div>
+                    <pre><code>{
+  <span class="property">"attemptId"</span>: <span class="string">"12345"</span>,
+  <span class="property">"answers"</span>: [
+    { <span class="property">"questionId"</span>: <span class="number">1</span>, <span class="property">"selected"</span>: <span class="number">2</span> },
+    { <span class="property">"questionId"</span>: <span class="number">2</span>, <span class="property">"selected"</span>: <span class="number">0</span> }
+  ],
+  <span class="property">"timeSpent"</span>: <span class="number">3420</span>
+}</code></pre>
+                </div>
+            </section>
+
+            <!-- Security Section -->
+            <section id="security" class="glass-card span-6 fade-in">
+                <div class="card-header">
+                    <div class="card-icon">🛡️</div>
+                    <div>
+                        <div class="card-title">Security & Anti-Cheat</div>
+                        <div class="card-subtitle">Test integrity mechanisms</div>
+                    </div>
+                </div>
+                <div class="schema-grid">
+                    <div class="schema-card">
+                        <div class="schema-header"><span>🔒</span><span class="schema-name">Answer Protection</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">Server Stripping</span><span
+                                    class="field-type">correct_option removed</span></div>
+                            <div class="schema-field"><span class="field-name">Server Evaluation</span><span
+                                    class="field-type">Score calculated backend</span></div>
+                            <div class="schema-field"><span class="field-name">CSRF Protection</span><span
+                                    class="field-type">Token validation</span></div>
+                        </div>
+                    </div>
+                    <div class="schema-card">
+                        <div class="schema-header"><span>🔄</span><span class="schema-name">Fail-safes</span></div>
+                        <div class="schema-body">
+                            <div class="schema-field"><span class="field-name">Network Outage</span><span
+                                    class="field-type">Local state holds</span></div>
+                            <div class="schema-field"><span class="field-name">Submit Retry</span><span
+                                    class="field-type">10s retry loop</span></div>
+                            <div class="schema-field"><span class="field-name">Browser Back</span><span
+                                    class="field-type">Route blocking</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="warning-box">
+                    <div class="warning-title">⚠️ Known Issue: Hardcoded Data</div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                        PracticeQuestions.jsx contains fallback demo questions with exposed answers (line 47-57).
+                        This is a security vulnerability - answers should only be verified server-side.
+                        See <a href="Hardcoded Data Migration Plan.html" style="color: #f87171;">Hardcoded Data
+                            Migration Plan</a> for details.
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Smooth scroll
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                const target = document.querySelector(tab.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+            });
+        });
+
+        // Intersection Observer
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Pages Architecture - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-secondary: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1);
+            --border-active: rgba(99, 102, 241, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-indigo: #6366f1;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --accent-violet: #8b5cf6;
+            --accent-red: #ef4444;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+            --gradient-secondary: linear-gradient(135deg, #06b6d4 0%, #10b981 100%);
+            --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+            --gradient-test: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.3);
+            --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse 80% 50% at 20% 0%, rgba(139, 92, 246, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(6, 182, 212, 0.1), transparent),
+                radial-gradient(ellipse 50% 30% at 50% 50%, rgba(99, 102, 241, 0.05), transparent);
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(60px, 60px);
+            }
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.5;
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--accent-violet);
+            top: -100px;
+            left: -100px;
+            animation-delay: 0s;
+        }
+
+        .orb-2 {
+            width: 300px;
+            height: 300px;
+            background: var(--accent-cyan);
+            bottom: 10%;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        .orb-3 {
+            width: 250px;
+            height: 250px;
+            background: var(--accent-indigo);
+            top: 50%;
+            left: 10%;
+            animation-delay: -10s;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+
+            50% {
+                transform: translate(-20px, 20px) scale(0.95);
+            }
+
+            75% {
+                transform: translate(20px, 30px) scale(1.05);
+            }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 4rem 0 6rem;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 200px;
+            height: 1px;
+            background: var(--gradient-test);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.5rem;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #c4b5fd;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            animation: badgePulse 3s ease-in-out infinite;
+        }
+
+        .badge::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes badgePulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 0 10px rgba(139, 92, 246, 0);
+            }
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-test);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem 0 4rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.95rem;
+        }
+
+        .nav-tab:hover,
+        .nav-tab.active {
+            background: rgba(139, 92, 246, 0.15);
+            border-color: var(--accent-violet);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 2rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-test);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(139, 92, 246, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .glass-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(139, 92, 246, 0.1);
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .glass-card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
+            background: rgba(139, 92, 246, 0.2);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .span-4 {
+            grid-column: span 4;
+        }
+
+        .span-6 {
+            grid-column: span 6;
+        }
+
+        .span-8 {
+            grid-column: span 8;
+        }
+
+        .span-12 {
+            grid-column: span 12;
+        }
+
+        .page-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .page-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .page-item:hover {
+            background: rgba(139, 92, 246, 0.1);
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: translateX(8px);
+        }
+
+        .page-number {
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-test);
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .page-info {
+            flex: 1;
+        }
+
+        .page-name {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .page-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .page-status {
+            padding: 0.3rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .status-protected {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .api-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .api-item:hover {
+            background: rgba(139, 92, 246, 0.05);
+            border-color: rgba(139, 92, 246, 0.2);
+        }
+
+        .method-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .method-get {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .method-post {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .method-put {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .api-content {
+            flex: 1;
+        }
+
+        .api-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+            color: #a5b4fc;
+            margin-bottom: 0.5rem;
+        }
+
+        .api-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .flow-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 3rem;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .flow-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1.25rem 1.5rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border-glass);
+            border-radius: 16px;
+            min-width: 150px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .flow-node:hover {
+            transform: translateY(-5px) scale(1.02);
+            border-color: var(--accent-violet);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .flow-node-icon {
+            font-size: 1.75rem;
+        }
+
+        .flow-node-title {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        .flow-node-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .flow-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 50%;
+            color: var(--accent-violet);
+            animation: arrowPulse 1.5s ease-in-out infinite;
+            font-size: 0.9rem;
+        }
+
+        @keyframes arrowPulse {
+
+            0%,
+            100% {
+                transform: translateX(0);
+                opacity: 0.5;
+            }
+
+            50% {
+                transform: translateX(3px);
+                opacity: 1;
+            }
+        }
+
+        .schema-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .schema-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .schema-card:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .schema-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            background: rgba(139, 92, 246, 0.1);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .schema-name {
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .schema-body {
+            padding: 1rem;
+        }
+
+        .schema-field {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.9rem;
+        }
+
+        .schema-field:last-child {
+            border-bottom: none;
+        }
+
+        .field-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: #a5b4fc;
+        }
+
+        .field-type {
+            color: var(--accent-pink);
+            font-size: 0.8rem;
+        }
+
+        .field-key {
+            padding: 0.2rem 0.5rem;
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red {
+            background: #ef4444;
+        }
+
+        .code-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .code-dot.green {
+            background: #34d399;
+        }
+
+        .code-title {
+            margin-left: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        pre {
+            padding: 1.5rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .string {
+            color: #fde047;
+        }
+
+        .property {
+            color: #a5b4fc;
+        }
+
+        .number {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #64748b;
+        }
+
+        .state-flow {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .state-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .state-card:hover {
+            border-color: var(--accent-cyan);
+        }
+
+        .state-title {
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .state-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .state-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem;
+            background: rgba(6, 182, 212, 0.05);
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .state-bullet {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+        }
+
+        /* Test Interface Specific */
+        .test-flow-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding: 1rem;
+        }
+
+        .test-flow-step {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            border-left: 4px solid var(--accent-violet);
+            transition: all 0.3s ease;
+        }
+
+        .test-flow-step:hover {
+            background: rgba(139, 92, 246, 0.1);
+            transform: translateX(8px);
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-test);
+            border-radius: 50%;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .step-content {
+            flex: 1;
+        }
+
+        .step-title {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .pro-badge {
+            padding: 0.25rem 0.5rem;
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 1200px) {
+
+            .span-4,
+            .span-6,
+            .span-8 {
+                grid-column: span 6;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .span-4,
+            .span-6,
+            .span-8,
+            .span-12 {
+                grid-column: span 12;
+            }
+
+            .glass-card {
+                padding: 1.5rem;
+            }
+
+            .flow-diagram {
+                padding: 1.5rem;
+            }
+
+            .nav-tabs {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .stagger-1 {
+            animation-delay: 0.1s;
+        }
+
+        .stagger-2 {
+            animation-delay: 0.2s;
+        }
+
+        .stagger-3 {
+            animation-delay: 0.3s;
+        }
+
+        .stagger-4 {
+            animation-delay: 0.4s;
+        }
+
+        .stagger-5 {
+            animation-delay: 0.5s;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-pattern">
+        <div class="grid-lines"></div>
+    </div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="container">
+        <header class="header fade-in">
+            <div class="badge">
+                <span>Architecture Documentation</span>
+            </div>
+            <h1>Test Pages Flow Map</h1>
+            <p class="subtitle">
+                Complete architecture documentation for test-related pages including test series, test interface,
+                results, leaderboard, and the complete test-taking journey with database schema and API mappings.
+            </p>
+            <p style="text-align: center; color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
+                <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong>
+                PostgreSQL (Supabase) | <strong>Tables:</strong> 40+
+            </p>
+        </header>
+
+        <nav class="nav-tabs fade-in stagger-1">
+            <button class="nav-tab active" onclick="scrollToSection('pages')">📄 Pages</button>
+            <button class="nav-tab" onclick="scrollToSection('journey')">🛤️ Test Journey</button>
+            <button class="nav-tab" onclick="scrollToSection('api')">📡 API Endpoints</button>
+            <button class="nav-tab" onclick="scrollToSection('database')">🗄️ Database</button>
+            <button class="nav-tab" onclick="scrollToSection('interface')">💻 Test Interface</button>
+            <button class="nav-tab" onclick="scrollToSection('state')">📊 State</button>
+        </nav>
+
+        <!-- Test Taking Journey -->
+        <section id="journey" class="glass-card span-12 fade-in stagger-2" style="margin-bottom: 2rem;">
+            <div class="card-header">
+                <div class="card-icon">🛤️</div>
+                <div>
+                    <div class="card-title">Test Taking Journey</div>
+                    <div class="card-subtitle">Complete user flow from series discovery to result analysis</div>
+                </div>
+            </div>
+            <div class="flow-diagram">
+                <div class="flow-node">
+                    <div class="flow-node-icon">📚</div>
+                    <div class="flow-node-title">/test-series</div>
+                    <div class="flow-node-desc">Browse Series</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">📋</div>
+                    <div class="flow-node-title">/test-series/:id</div>
+                    <div class="flow-node-desc">View Tests</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">📖</div>
+                    <div class="flow-node-title">/instructions</div>
+                    <div class="flow-node-desc">Read Rules</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">✍️</div>
+                    <div class="flow-node-title">/test/:id</div>
+                    <div class="flow-node-desc">Take Test</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">📊</div>
+                    <div class="flow-node-title">/result</div>
+                    <div class="flow-node-desc">View Score</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-node">
+                    <div class="flow-node-icon">🔍</div>
+                    <div class="flow-node-title">/review</div>
+                    <div class="flow-node-desc">Analyze</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="main-grid">
+            <!-- Pages Section -->
+            <section id="pages" class="glass-card span-4 fade-in stagger-2">
+                <div class="card-header">
+                    <div class="card-icon">📄</div>
+                    <div>
+                        <div class="card-title">Test Pages</div>
+                        <div class="card-subtitle">14 page components</div>
+                    </div>
+                </div>
+                <div class="page-list">
+                    <div class="page-item">
+                        <div class="page-number">1</div>
+                        <div class="page-info">
+                            <div class="page-name">TestSeries</div>
+                            <div class="page-path">src/pages/tests/TestSeries.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">2</div>
+                        <div class="page-info">
+                            <div class="page-name">TestDetails</div>
+                            <div class="page-path">src/pages/tests/TestDetails.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">3</div>
+                        <div class="page-info">
+                            <div class="page-name">TestInstructions</div>
+                            <div class="page-path">src/pages/tests/TestInstructions.jsx</div>
+                        </div>
+                        <span class="page-status status-protected">Protected</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">4</div>
+                        <div class="page-info">
+                            <div class="page-name">TestInterface</div>
+                            <div class="page-path">src/pages/tests/TestInterface.jsx</div>
+                        </div>
+                        <span class="page-status status-protected">Protected</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">5</div>
+                        <div class="page-info">
+                            <div class="page-name">TestResult</div>
+                            <div class="page-path">src/pages/tests/TestResult.jsx</div>
+                        </div>
+                        <span class="page-status status-protected">Protected</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">6</div>
+                        <div class="page-info">
+                            <div class="page-name">TestReview</div>
+                            <div class="page-path">src/pages/tests/TestReview.jsx</div>
+                        </div>
+                        <span class="page-status status-protected">Protected</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">7</div>
+                        <div class="page-info">
+                            <div class="page-name">LiveTests</div>
+                            <div class="page-path">src/pages/tests/LiveTests.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">8</div>
+                        <div class="page-info">
+                            <div class="page-name">Leaderboard</div>
+                            <div class="page-path">src/pages/tests/Leaderboard.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">9</div>
+                        <div class="page-info">
+                            <div class="page-name">SeriesLeaderboard</div>
+                            <div class="page-path">src/pages/tests/SeriesLeaderboard.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">10</div>
+                        <div class="page-info">
+                            <div class="page-name">PreviousYearPapers</div>
+                            <div class="page-path">src/pages/tests/PreviousYearPapers.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                    <div class="page-item">
+                        <div class="page-number">11</div>
+                        <div class="page-info">
+                            <div class="page-name">PracticeQuestions</div>
+                            <div class="page-path">src/pages/tests/PracticeQuestions.jsx</div>
+                        </div>
+                        <span class="page-status status-active">Active</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Endpoints Section -->
+            <section id="api" class="glass-card span-4 fade-in stagger-3">
+                <div class="card-header">
+                    <div class="card-icon">📡</div>
+                    <div>
+                        <div class="card-title">API Endpoints</div>
+                        <div class="card-subtitle">Test routes (tests.js)</div>
+                    </div>
+                </div>
+                <div class="api-grid">
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests</div>
+                            <div class="api-desc">Get all active tests</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/series/:seriesId</div>
+                            <div class="api-desc">Get tests by series ID</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/tag/:tag</div>
+                            <div class="api-desc">Get tests by tag (live-tests, pyps, quizzes)</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:testId</div>
+                            <div class="api-desc">Get test details with access check</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:testId/questions</div>
+                            <div class="api-desc">Get test questions (protected)</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-post">POST</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:testId/start</div>
+                            <div class="api-desc">Start test attempt, create attempt record</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-put">PUT</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:testId/submit</div>
+                            <div class="api-desc">Submit test, calculate score</div>
+                        </div>
+                    </div>
+                    <div class="api-item">
+                        <span class="method-badge method-get">GET</span>
+                        <div class="api-content">
+                            <div class="api-path">/api/tests/:testId/result/:attemptId</div>
+                            <div class="api-desc">Get test result by attempt ID</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Test Interface Flow -->
+            <section id="interface" class="glass-card span-4 fade-in stagger-4">
+                <div class="card-header">
+                    <div class="card-icon">💻</div>
+                    <div>
+                        <div class="card-title">Test Interface Flow</div>
+                        <div class="card-subtitle">Step-by-step process</div>
+                    </div>
+                </div>
+                <div class="test-flow-vertical">
+                    <div class="test-flow-step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <div class="step-title">Authentication Check</div>
+                            <div class="step-desc">Verify user is logged in via ProtectedRoute</div>
+                        </div>
+                    </div>
+                    <div class="test-flow-step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <div class="step-title">Pro Access Check</div>
+                            <div class="step-desc">Check if test requires Pro subscription</div>
+                        </div>
+                        <span class="pro-badge">Pro</span>
+                    </div>
+                    <div class="test-flow-step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <div class="step-title">Load Questions</div>
+                            <div class="step-desc">Fetch and sanitize questions (hide answers)</div>
+                        </div>
+                    </div>
+                    <div class="test-flow-step">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <div class="step-title">Timer & State</div>
+                            <div class="step-desc">Initialize timer, answers array, marked questions</div>
+                        </div>
+                    </div>
+                    <div class="test-flow-step">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <div class="step-title">Submit & Calculate</div>
+                            <div class="step-desc">Score: correct × marks - wrong × negative</div>
+                        </div>
+                    </div>
+                    <div class="test-flow-step">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <div class="step-title">Store Result</div>
+                            <div class="step-desc">Save to attempts table with all metadata</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Database Schema -->
+            <section id="database" class="glass-card span-12 fade-in stagger-5">
+                <div class="card-header">
+                    <div class="card-icon">🗄️</div>
+                    <div>
+                        <div class="card-title">Database Schema</div>
+                        <div class="card-subtitle">PostgreSQL tables for test system</div>
+                    </div>
+                </div>
+                <div class="schema-grid">
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📚</span>
+                            <span class="schema-name">test_series</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">title</span>
+                                <span class="field-type">VARCHAR</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">description</span>
+                                <span class="field-type">TEXT</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">examId</span>
+                                <span class="field-type">FK → exams</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">isPro</span>
+                                <span class="field-type">BOOLEAN</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">price</span>
+                                <span class="field-type">DECIMAL</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">totalTests</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📝</span>
+                            <span class="schema-name">tests</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">seriesId</span>
+                                <span class="field-type">FK → test_series</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">title</span>
+                                <span class="field-type">VARCHAR</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">duration</span>
+                                <span class="field-type">INTEGER (mins)</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">totalMarks</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">questions</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">negativeMarking</span>
+                                <span class="field-type">DECIMAL</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">isPro</span>
+                                <span class="field-type">BOOLEAN</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">isLive</span>
+                                <span class="field-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>❓</span>
+                            <span class="schema-name">questions</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">testId</span>
+                                <span class="field-type">FK → tests</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">questionText</span>
+                                <span class="field-type">TEXT</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">options</span>
+                                <span class="field-type">JSONB</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">correctAnswer</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">explanation</span>
+                                <span class="field-type">TEXT</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">subject</span>
+                                <span class="field-type">VARCHAR</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">difficulty</span>
+                                <span class="field-type">VARCHAR</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📊</span>
+                            <span class="schema-name">attempts</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">userId</span>
+                                <span class="field-type">FK → users</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">testId</span>
+                                <span class="field-type">FK → tests</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">seriesId</span>
+                                <span class="field-type">FK → test_series</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">score</span>
+                                <span class="field-type">DECIMAL</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">correct</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">wrong</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">answers</span>
+                                <span class="field-type">JSONB</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">timeSpent</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">isCompleted</span>
+                                <span class="field-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>🏆</span>
+                            <span class="schema-name">leaderboards</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">testId</span>
+                                <span class="field-type">FK → tests</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">rankings</span>
+                                <span class="field-type">JSONB</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">isPublished</span>
+                                <span class="field-type">BOOLEAN</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">totalParticipants</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="schema-card">
+                        <div class="schema-header">
+                            <span>📱</span>
+                            <span class="schema-name">live_tests</span>
+                        </div>
+                        <div class="schema-body">
+                            <div class="schema-field">
+                                <span class="field-name">id</span>
+                                <span class="field-key">PK</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">testId</span>
+                                <span class="field-type">FK → tests</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">startTime</span>
+                                <span class="field-type">TIMESTAMP</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">endTime</span>
+                                <span class="field-type">TIMESTAMP</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">status</span>
+                                <span class="field-type">VARCHAR</span>
+                            </div>
+                            <div class="schema-field">
+                                <span class="field-name">participants</span>
+                                <span class="field-type">INTEGER</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- State Management -->
+            <section id="state" class="glass-card span-6 fade-in">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div>
+                        <div class="card-title">State Management</div>
+                        <div class="card-subtitle">Test interface state structure</div>
+                    </div>
+                </div>
+                <div class="state-flow">
+                    <div class="state-card">
+                        <div class="state-title">
+                            <span>⏱️</span> Timer State
+                        </div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>timeRemaining - Countdown seconds</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>isPaused - Pause flag</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>warnings - 5min, 1min alerts</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="state-card">
+                        <div class="state-title">
+                            <span>📝</span> Answer State
+                        </div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>answers[] - Selected options</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>markedForReview[] - Flagged questions</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>currentQuestion - Active index</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="state-card">
+                        <div class="state-title">
+                            <span>🔐</span> Attempt State
+                        </div>
+                        <div class="state-items">
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>attemptId - Attempt reference</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>startTime - Begin timestamp</span>
+                            </div>
+                            <div class="state-item">
+                                <div class="state-bullet"></div>
+                                <span>isSubmitted - Completion flag</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Routing & Protection -->
+            <section class="glass-card span-6 fade-in">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <div>
+                        <div class="card-title">Routes & Protection</div>
+                        <div class="card-subtitle">React Router configuration</div>
+                    </div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header">
+                        <div class="code-dot red"></div>
+                        <div class="code-dot yellow"></div>
+                        <div class="code-dot green"></div>
+                        <span class="code-title">App.jsx - Test Routes</span>
+                    </div>
+                    <pre><code><span class="comment">// Public Routes</span>
+<Route path="/test-series" 
+  element={<span class="property"><TestSeries /></span>} />
+<Route path="/test-series/:seriesId" 
+  element={<span class="property"><TestDetails /></span>} />
+<Route path="/live-tests" 
+  element={<span class="property"><LiveTests /></span>} />
+<Route path="/leaderboard" 
+  element={<span class="property"><Leaderboard /></span>} />
+
+<span class="comment">// Protected Test Routes</span>
+<Route path="/test/:seriesId/:testId/instructions" 
+  element={<span class="keyword"><ProtectedRoute></span>
+    <span class="property"><TestInstructions /></span>
+  <span class="keyword"></ProtectedRoute></span>} />
+
+<Route path="/test/:seriesId/:testId" 
+  element={<span class="keyword"><ProtectedRoute></span>
+    <span class="property"><TestInterface /></span>
+  <span class="keyword"></ProtectedRoute></span>} />
+
+<Route path="/test-result/:seriesId/:testId" 
+  element={<span class="keyword"><ProtectedRoute></span>
+    <span class="property"><TestResult /></span>
+  <span class="keyword"></ProtectedRoute></span>} />
+
+<Route path="/test-review/:seriesId/:testId" 
+  element={<span class="keyword"><ProtectedRoute></span>
+    <span class="property"><TestReview /></span>
+  <span class="keyword"></ProtectedRoute></span>} /></code></pre>
+                </div>
+            </section>
+
+            <!-- Score Calculation -->
+            <section class="glass-card span-12 fade-in">
+                <div class="card-header">
+                    <div class="card-icon">🧮</div>
+                    <div>
+                        <div class="card-title">Score Calculation Logic</div>
+                        <div class="card-subtitle">Backend scoring algorithm</div>
+                    </div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header">
+                        <div class="code-dot red"></div>
+                        <div class="code-dot yellow"></div>
+                        <div class="code-dot green"></div>
+                        <span class="code-title">tests.js - Submit Handler</span>
+                    </div>
+                    <pre><code><span class="comment">// Score Calculation Algorithm</span>
+<span class="keyword">const</span> totalQuestions = test.questions ?? questions.length;
+<span class="keyword">const</span> totalMarks = test.marks ?? (totalQuestions * <span class="number">2</span>);
+<span class="keyword">const</span> marksPerQuestion = totalQuestions > <span class="number">0</span> ? totalMarks / totalQuestions : <span class="number">0</span>;
+<span class="keyword">const</span> negativeMarks = test.negativeMarking ?? <span class="number">0</span>;
+
+questions.forEach((question) => {
+  <span class="keyword">const</span> selectedOption = answer?.selectedOption;
+  <span class="keyword">const</span> correctOption = question.correctAnswer;
+  
+  <span class="keyword">if</span> (selectedOption === <span class="keyword">null</span>) {
+    unattempted++;
+  } <span class="keyword">else if</span> (selectedOption === correctOption) {
+    correct++;
+  } <span class="keyword">else</span> {
+    wrong++;
+  }
+});
+
+<span class="comment">// Final Score = (Correct × Marks) - (Wrong × Negative)</span>
+<span class="keyword">const</span> score = (correct * marksPerQuestion) - (wrong * negativeMarks);
+<span class="keyword">const</span> accuracy = correct + wrong > <span class="number">0</span> 
+  ? (correct / (correct + wrong)) * <span class="number">100</span> 
+  : <span class="number">0</span>;
+
+<span class="comment">// Response Payload</span>
+{
+  attemptId, testId, seriesId, testTitle,
+  score: Math.max(<span class="number">0</span>, score),
+  totalMarks, totalQuestions,
+  correct, wrong, unattempted,
+  accuracy, timeSpent,
+  rank, percentile, totalParticipants
+}</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        function scrollToSection(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+
+        document.querySelectorAll('.flow-node').forEach(node => {
+            node.addEventListener('mouseenter', () => {
+                node.style.transform = 'translateY(-10px) scale(1.05)';
+            });
+            node.addEventListener('mouseleave', () => {
+                node.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -6,6 +6,7 @@ import {
   getInternalId,
 } from "../../shared/utils/identifier-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
 
   if (seriesIds.length > 0) {
     try {
-      testsResult = await global.dbHelpers.pool.query(
+      testsResult = await dbHelpers.pool.query(
         `SELECT series_id, COUNT(*) as actual_count, 
                 SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count
          FROM tests 
@@ -52,7 +53,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
         [seriesIds.map(String)],
       );
 
-      enrollmentsResult = await global.dbHelpers.pool.query(
+      enrollmentsResult = await dbHelpers.pool.query(
         `SELECT series_id, COUNT(*) as count 
          FROM enrollments 
          WHERE series_id::text = ANY($1::text[])
@@ -61,17 +62,17 @@ async function enrichSeriesWithTestCounts(seriesList) {
       );
 
       // Fetch stages to get stage names
-      stagesResult = await global.dbHelpers.pool.query(
+      stagesResult = await dbHelpers.pool.query(
         `SELECT id, name FROM stages WHERE is_active = true`,
       );
 
       // Fetch exam categories to get category names
-      categoriesResult = await global.dbHelpers.pool.query(
+      categoriesResult = await dbHelpers.pool.query(
         `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
       );
 
       // Fetch exams to get exam names
-      examsResult = await global.dbHelpers.pool.query(
+      examsResult = await dbHelpers.pool.query(
         `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
       );
     } catch (e) {
@@ -168,7 +169,7 @@ router.get("/", async (req, res) => {
 
     if (search) {
       // For lowdb we needed find then filter, but let's stick to what was there and fix slowly
-      const allSeries = await global.dbHelpers.find("testSeries", query);
+      const allSeries = await dbHelpers.find("testSeries", query);
       const filtered = allSeries.filter(
         (series) =>
           series.title &&
@@ -182,7 +183,7 @@ router.get("/", async (req, res) => {
       });
     }
 
-    const series = await global.dbHelpers.find("testSeries", query);
+    const series = await dbHelpers.find("testSeries", query);
 
     // Enrich with actual test counts
     const enrichedSeries = await enrichSeriesWithTestCounts(series);
@@ -234,7 +235,7 @@ switch (sort) {
 router.get("/:slug", optionalAuth, async (req, res) => {
   try {
     const series = await findEntityByIdentifier(
-      global.dbHelpers,
+      dbHelpers,
       "testSeries",
       req.params.slug,
       {
@@ -255,7 +256,7 @@ router.get("/:slug", optionalAuth, async (req, res) => {
     let actualTestCount = 0;
     let freeTestCount = 0;
     try {
-      const testsResult = await global.dbHelpers.pool.query(
+      const testsResult = await dbHelpers.pool.query(
         `SELECT COUNT(*) as actual_count, 
                 SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count
          FROM tests 
@@ -274,7 +275,7 @@ router.get("/:slug", optionalAuth, async (req, res) => {
     let isEnrolled = false;
     if (req.user) {
       isEnrolled = await EnrollmentService.isEnrolledInSeries(
-        global.dbHelpers,
+        dbHelpers,
         req.user.id,
         getInternalId(series),
       );
@@ -297,10 +298,10 @@ router.get("/:slug", optionalAuth, async (req, res) => {
     let categoryName = null;
     let examName = null;
     try {
-      const categoriesResult = await global.dbHelpers.pool.query(
+      const categoriesResult = await dbHelpers.pool.query(
         `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
       );
-      const examsResult = await global.dbHelpers.pool.query(
+      const examsResult = await dbHelpers.pool.query(
         `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
       );
 
@@ -354,7 +355,7 @@ router.get("/:slug", optionalAuth, async (req, res) => {
 router.get("/:slug/tests", optionalAuth, async (req, res) => {
   try {
     const series = await findEntityByIdentifier(
-      global.dbHelpers,
+      dbHelpers,
       "testSeries",
       req.params.slug,
       {
@@ -375,12 +376,12 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
     // Get tests strictly for this series via DB match and avoids fetch-all
     let tests = [];
     try {
-      const result = await global.dbHelpers.pool.query(
+      const result = await dbHelpers.pool.query(
         `SELECT * FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2)`,
         [Number(sId) || -1, String(sId)],
       );
       tests = result.rows.map((row) => {
-        const test = global.dbHelpers.toCamel(row);
+        const test = dbHelpers.toCamel(row);
         return {
           ...test,
           testSeriesId: getTestSeriesId(test),
@@ -431,7 +432,7 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
 router.get("/category/:category", async (req, res) => {
   try {
     const series = (
-      await global.dbHelpers.find("testSeries", {
+      await dbHelpers.find("testSeries", {
         category: req.params.category,
         isActive: true,
       })

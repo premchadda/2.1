@@ -125,14 +125,9 @@ function LeftSidebar() {
               <span className="text-sm">Leaderboard</span>
             </Link>
             
-            <Link to="/doubts" className={navItemClass('/doubts')}>
-              <MessageCircle className={iconClass('/doubts', 'text-cyan-500')} />
-              <span className="text-sm">Doubts & Q&A</span>
-            </Link>
-            
-            <Link to="/study-groups" className={navItemClass('/study-groups')}>
-              <Users className={iconClass('/study-groups', 'text-violet-500')} />
-              <span className="text-sm">Study Groups</span>
+            <Link to="/community" className={navItemClass('/community')}>
+              <Users className={iconClass('/community', 'text-violet-500')} />
+              <span className="text-sm">Community</span>
             </Link>
           </div>
         </div>

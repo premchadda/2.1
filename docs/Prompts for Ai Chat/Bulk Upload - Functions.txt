@@ -1,0 +1,14 @@
+Check the bulk creation/upload functionality for tests and questions, ensuring proper handling of the hierarchical linking from test series to tests. Specifically verify that:
+
+1. When creating tests in bulk via upload, the system properly links tests to their corresponding test series using the seriesId field
+2. When creating questions in bulk via upload, the system properly links questions to both tests (via testId) and test series (via seriesId) as appropriate
+3. The dropdown fields in the bulk upload forms show proper data fetched from the backend, including:
+   - Test series dropdown showing all available test series
+   - Test dropdown showing tests filtered by selected series
+   - Category and subcategory dropdowns showing proper hierarchical data
+   - Stage dropdown showing stages filtered by selected series
+4. The bulk upload process correctly handles the linking hierarchy where questions can be linked to either a specific test or directly to a series
+5. The validation and mapping functions properly maintain the relationships during bulk operations
+6. The UI components properly display and handle the hierarchical relationships in both individual and bulk operations
+
+Focus on the QuestionsManager.jsx component's bulk upload modal and the corresponding backend routes in admin.js for bulk test and question creation.

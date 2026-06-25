@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { auth } from '../../middleware/auth.middleware.js'
 import crypto from 'crypto'
 import SmsService from '../../services/SmsService.js'
@@ -118,7 +119,7 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     // OTP is valid, find or create user
-    let userResult = await global.dbHelpers.query(
+    let userResult = await dbHelpers.query(
       'SELECT id, email, name, phone_verified FROM users WHERE phone = $1',
       [phoneNumber]
     )
@@ -126,7 +127,7 @@ router.post('/verify-otp', async (req, res) => {
     let userId, isNewUser = false
     if (userResult.rows.length === 0) {
       // Create new user
-      const createResult = await global.dbHelpers.query(
+      const createResult = await dbHelpers.query(
         `INSERT INTO users (phone, email, name, auth_type, phone_verified, last_login, created_at)
          VALUES ($1, $2, $3, 'phone', true, NOW(), NOW())
          RETURNING id, email, name`,
@@ -137,7 +138,7 @@ router.post('/verify-otp', async (req, res) => {
     } else {
       userId = userResult.rows[0].id
       // Update last login
-      await global.dbHelpers.query(
+      await dbHelpers.query(
         'UPDATE users SET last_login = NOW(), phone_verified = true WHERE id = $1',
         [userId]
       )
@@ -206,7 +207,7 @@ router.post('/link-phone', auth, async (req, res) => {
     }
 
     // Check if phone already linked to another user
-    const existingUser = await global.dbHelpers.query(
+    const existingUser = await dbHelpers.query(
       'SELECT id FROM users WHERE phone = $1 AND id != $2',
       [phoneNumber, userId]
     )
@@ -216,7 +217,7 @@ router.post('/link-phone', auth, async (req, res) => {
     }
 
     // Update user with phone
-    await global.dbHelpers.query(
+    await dbHelpers.query(
       'UPDATE users SET phone = $1, phone_verified = true, updated_at = NOW() WHERE id = $2',
       [phoneNumber, userId]
     )

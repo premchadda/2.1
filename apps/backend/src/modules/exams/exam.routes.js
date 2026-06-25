@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
 
 const router = express.Router()
@@ -8,7 +9,7 @@ const router = express.Router()
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const exams = await global.dbHelpers.find('exams', { isActive: true })
+    const exams = await dbHelpers.find('exams', { isActive: true })
     
     // Manually sort by createdAt if needed, Postgres might default to insertion order but better to sort
     exams.sort((a, b) => (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0))
@@ -34,7 +35,7 @@ router.get('/slug/:slug', async (req, res) => {
     const { slug } = req.params
     
     // Find by slug
-    const exams = await global.dbHelpers.find('exams', { isActive: true })
+    const exams = await dbHelpers.find('exams', { isActive: true })
     const exam = exams.find(e => e.slug === slug)
     
     if (!exam) {
@@ -64,7 +65,7 @@ router.get('/:slug', async (req, res) => {
     const { slug } = req.params
     
     // Use unified identifier resolver (supports slug, public_id, and numeric ID)
-    const exam = await findEntityByIdentifier(global.dbHelpers, 'exams', slug, {
+    const exam = await findEntityByIdentifier(dbHelpers, 'exams', slug, {
       slugFields: ['slug']
     })
     
@@ -92,7 +93,7 @@ router.get('/:slug', async (req, res) => {
 // @access  Public
 router.get('/category/:categoryId', async (req, res) => {
   try {
-    const exams = await global.dbHelpers.find('exams', { 
+    const exams = await dbHelpers.find('exams', { 
       categoryId: req.params.categoryId,
       isActive: true 
     })
@@ -121,12 +122,12 @@ router.get('/:slug/compare', async (req, res) => {
     const years = req.query.years ? req.query.years.split(',') : ['2026', '2025', '2024']
     
     // Primary lookup: find by slug
-    const allExams = await global.dbHelpers.find('exams', { isActive: true })
+    const allExams = await dbHelpers.find('exams', { isActive: true })
     let exam = allExams.find(e => e.slug === slug)
     
     // Fallback: try numeric ID lookup for backwards compatibility
     if (!exam) {
-      exam = await global.dbHelpers.findById('exams', slug)
+      exam = await dbHelpers.findById('exams', slug)
     }
     
     if (!exam) {
@@ -137,7 +138,7 @@ router.get('/:slug/compare', async (req, res) => {
     }
     
     // Get exam info for comparison across years
-    const examInfos = await global.dbHelpers.find('examInfo', { 
+    const examInfos = await dbHelpers.find('examInfo', { 
       examId: exam.id || exam._id,
       isActive: true 
     })
@@ -195,12 +196,12 @@ router.get('/:slug/year', async (req, res) => {
     const { year } = req.query
     
     // Primary lookup: find by slug
-    const allExams = await global.dbHelpers.find('exams', { isActive: true })
+    const allExams = await dbHelpers.find('exams', { isActive: true })
     let exam = allExams.find(e => e.slug === slug)
     
     // Fallback: try numeric ID lookup for backwards compatibility
     if (!exam) {
-      exam = await global.dbHelpers.findById('exams', slug)
+      exam = await dbHelpers.findById('exams', slug)
     }
     
     if (!exam) {
@@ -211,7 +212,7 @@ router.get('/:slug/year', async (req, res) => {
     }
     
     // Get exam info for specific year
-    const examInfos = await global.dbHelpers.find('examInfo', { 
+    const examInfos = await dbHelpers.find('examInfo', { 
       examId: exam.id || exam._id,
       isActive: true 
     })
@@ -220,7 +221,7 @@ router.get('/:slug/year', async (req, res) => {
     const yearInt = parseInt(year)
     
     // Get previous year papers
-    const tests = await global.dbHelpers.find('tests', { 
+    const tests = await dbHelpers.find('tests', { 
       examId: exam.id || exam._id,
       year: yearInt,
       isActive: true 

@@ -496,6 +496,7 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                   {/* Combined Login/Sign Up button for tablet space efficiency */}
                   <Link 
                     to="/login"
+                    state={{ backgroundLocation: location }}
                     className="px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all duration-300 hover:-translate-y-0.5 btn-animated"
                   >
                     Sign In

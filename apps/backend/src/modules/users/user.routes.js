@@ -3,6 +3,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -94,7 +95,7 @@ const saveProfileAsset = (imageData, userId, prefix, oldPath = null) => {
 // @access  Private
 router.get('/profile', protect, async (req, res) => {
   try {
-    const user = await global.dbHelpers.findById('users', req.user.id)
+    const user = await dbHelpers.findById('users', req.user.id)
 
     if (!user) {
       return res.status(404).json({
@@ -104,14 +105,14 @@ router.get('/profile', protect, async (req, res) => {
     }
     
     // Fetch enrolled series from enrollments table
-    const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(global.dbHelpers, req.user.id)
-    const allSeries = await global.dbHelpers.find('testSeries')
+    const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(dbHelpers, req.user.id)
+    const allSeries = await dbHelpers.find('testSeries')
     const populatedSeries = allSeries.filter(s =>
       enrolledSeriesIds.some(id => String(id) === String(s.id || s._id))
     )
 
     // Fetch user's completed test attempts to calculate progress and provide attempted tests info
-    const userAttempts = await getUserAttempts(req.user.id, global.dbHelpers, { completedOnly: true })
+    const userAttempts = await getUserAttempts(req.user.id, dbHelpers, { completedOnly: true })
     
     const attemptedTestsBySeries = new Map()
     const attemptedTestIds = new Set()
@@ -138,12 +139,12 @@ router.get('/profile', protect, async (req, res) => {
     })
 
     const attemptedSeriesLookup = await buildPublicIdLookup(
-      global.dbHelpers,
+      dbHelpers,
       'testSeries',
       Array.from(attemptedTestsBySeries.keys())
     )
     const attemptedTestsLookup = await buildPublicIdLookup(
-      global.dbHelpers,
+      dbHelpers,
       'tests',
       Array.from(attemptedTestIds)
     )
@@ -206,7 +207,7 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
     if (bio !== undefined) sanitizedData.bio = String(bio).trim().substring(0, 500)
 
     // Fetch current user data to get old file paths
-    const currentUser = await global.dbHelpers.findById('users', req.user.id)
+    const currentUser = await dbHelpers.findById('users', req.user.id)
     const oldAvatar = currentUser?.avatar || null
     const oldBanner = currentUser?.banner || null
 
@@ -261,14 +262,14 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
       sanitizedData.deactivatedAt = isActive ? null : new Date().toISOString()
     }
 
-    const user = await global.dbHelpers.updateById(
+    const user = await dbHelpers.updateById(
       'users',
       req.user.id,
       sanitizedData
     )
     const enrolledSeries = await mapEnrolledSeriesIdsForResponse(
       user.enrolledSeries ?? user.enrolled_series ?? [],
-      global.dbHelpers
+      dbHelpers
     )
 
     res.json({
@@ -293,7 +294,7 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
 router.delete('/profile', protect, async (req, res) => {
   try {
     // Soft delete by deactivating the account
-    await global.dbHelpers.updateById('users', req.user.id, {
+    await dbHelpers.updateById('users', req.user.id, {
       isActive: false,
       deactivatedAt: new Date().toISOString(),
       deletionRequested: true,
@@ -322,7 +323,7 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     const { seriesId } = req.params
     console.log('[Enroll] Request received for seriesId:', seriesId, 'userId:', req.user.id)
 
-    const series = await findEntityByIdentifier(global.dbHelpers, 'testSeries', seriesId, {
+    const series = await findEntityByIdentifier(dbHelpers, 'testSeries', seriesId, {
       slugFields: ['slug']
     })
 
@@ -339,7 +340,7 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
 
     // Use EnrollmentService - primary source is enrollments table
     const result = await EnrollmentService.enrollInSeries(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalSeriesId
     )
@@ -347,12 +348,12 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     if (result.alreadyEnrolled) {
       console.log('[Enroll] User already enrolled')
       const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
-        global.dbHelpers,
+        dbHelpers,
         req.user.id
       )
       const enrolledSeriesResponse = await mapEnrolledSeriesIdsForResponse(
         enrolledSeriesIds,
-        global.dbHelpers
+        dbHelpers
       )
       return res.json({
         success: true,
@@ -368,18 +369,18 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     try {
       console.log('[Enroll] Starting auto-enrollment in related exams...')
       
-      const seriesData = await global.dbHelpers.findById('testSeries', canonicalSeriesId)
+      const seriesData = await dbHelpers.findById('testSeries', canonicalSeriesId)
       if (seriesData && seriesData.stages && seriesData.stages.length > 0) {
         console.log('[Enroll] Series has stages:', seriesData.stages)
         
         const currentEnrolledExamIds = await EnrollmentService.getEnrolledExamIds(
-          global.dbHelpers,
+          dbHelpers,
           req.user.id
         )
         
         const examIdsToAdd = []
         for (const stageId of seriesData.stages) {
-          const stage = await global.dbHelpers.findById('stages', stageId)
+          const stage = await dbHelpers.findById('stages', stageId)
           if (stage && stage.examIds && Array.isArray(stage.examIds)) {
             for (const examId of stage.examIds) {
               const examIdNum = parseInt(examId)
@@ -394,7 +395,7 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
         
         for (const examId of examIdsToAdd) {
           try {
-            await EnrollmentService.enrollInExam(global.dbHelpers, req.user.id, examId)
+            await EnrollmentService.enrollInExam(dbHelpers, req.user.id, examId)
             console.log('[Enroll] Created enrollment record for exam:', examId)
           } catch (err) {
             console.error('[Enroll] Error creating exam enrollment:', err)
@@ -406,10 +407,10 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     }
 
     const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledSeriesLookup = await buildPublicIdLookup(global.dbHelpers, 'testSeries', enrolledSeriesIds)
+    const enrolledSeriesLookup = await buildPublicIdLookup(dbHelpers, 'testSeries', enrolledSeriesIds)
 
     res.json({
       success: true,
@@ -434,7 +435,7 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
     const { seriesId } = req.params
     console.log('[Unenroll] Request received for seriesId:', seriesId, 'userId:', req.user.id)
 
-    const series = await findEntityByIdentifier(global.dbHelpers, 'testSeries', seriesId, {
+    const series = await findEntityByIdentifier(dbHelpers, 'testSeries', seriesId, {
       slugFields: ['slug']
     })
 
@@ -451,14 +452,14 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
 
     // Archive user history before unenrolling
     try {
-      const attempts = await global.dbHelpers.find('attempts', { 
+      const attempts = await dbHelpers.find('attempts', { 
         userId: req.user.id, 
         seriesId: canonicalSeriesId 
       })
       
       if (attempts.length > 0) {
         for (const attempt of attempts) {
-          await global.dbHelpers.insertOne('user_history_archive', {
+          await dbHelpers.insertOne('user_history_archive', {
             userId: req.user.id,
             seriesId: canonicalSeriesId,
             type: 'test_attempt',
@@ -470,14 +471,14 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
         console.log(`[Unenroll] Archived ${attempts.length} test attempts`)
       }
       
-      const studyHistory = await global.dbHelpers.find('studyProgress', { 
+      const studyHistory = await dbHelpers.find('studyProgress', { 
         userId: req.user.id, 
         seriesId: canonicalSeriesId 
       })
       
       if (studyHistory.length > 0) {
         for (const history of studyHistory) {
-          await global.dbHelpers.insertOne('user_history_archive', {
+          await dbHelpers.insertOne('user_history_archive', {
             userId: req.user.id,
             seriesId: canonicalSeriesId,
             type: 'study_progress',
@@ -494,7 +495,7 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
     
     // Use EnrollmentService to unenroll
     const unenrolled = await EnrollmentService.unenrollFromSeries(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalSeriesId
     )
@@ -510,10 +511,10 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
     console.log('[Unenroll] Successfully unenrolled')
 
     const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledSeriesLookup = await buildPublicIdLookup(global.dbHelpers, 'testSeries', enrolledSeriesIds)
+    const enrolledSeriesLookup = await buildPublicIdLookup(dbHelpers, 'testSeries', enrolledSeriesIds)
 
     res.json({
       success: true,
@@ -536,12 +537,12 @@ router.get('/enrolled-series', protect, async (req, res) => {
   try {
     // Primary: get enrolled series IDs from enrollments table
     const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
 
     // Populate series details
-    const allSeries = await global.dbHelpers.find('testSeries', { isActive: true })
+    const allSeries = await dbHelpers.find('testSeries', { isActive: true })
     const populatedSeries = allSeries.filter(s =>
       enrolledSeriesIds.some(id => String(id) === String(s.id || s._id))
     )
@@ -563,7 +564,7 @@ router.get('/enrolled-series', protect, async (req, res) => {
 // @access  Private
 router.get('/analytics', protect, async (req, res) => {
   try {
-    const userAttempts = await getUserAttempts(req.user.id, global.dbHelpers)
+    const userAttempts = await getUserAttempts(req.user.id, dbHelpers)
     const userId = String(req.user.id)
     
     // Sort all user attempts by date (newest first)
@@ -583,7 +584,7 @@ router.get('/analytics', protect, async (req, res) => {
     let totalTimeSpent = 0
     
     // Fetch real subject-wise stats from the database by joining with questions and subjects
-    const subjectStatsRes = await global.dbHelpers.pool.query(`
+    const subjectStatsRes = await dbHelpers.pool.query(`
       SELECT 
         s.name as name,
         COUNT(*)::int as attempted,
@@ -608,7 +609,7 @@ router.get('/analytics', protect, async (req, res) => {
     }))
     
     // Fetch topic-level analytics
-    const topicStatsRes = await global.dbHelpers.pool.query(`
+    const topicStatsRes = await dbHelpers.pool.query(`
       SELECT 
         COALESCE(tp.name, 'Uncategorized') as topic_name,
         COALESCE(s.name, 'General') as subject_name,
@@ -651,7 +652,7 @@ router.get('/analytics', protect, async (req, res) => {
       // Recent tests (last 5)
       if (index < 5) {
         recentTests.push({
-          id: getPublicResponseId(global.dbHelpers, 'attempts', result, result._id || result.id),
+          id: getPublicResponseId(dbHelpers, 'attempts', result, result._id || result.id),
           title: result.testTitle || `Test ${index + 1}`,
           score: result.score || 0,
           accuracy: result.accuracy || 0,
@@ -672,7 +673,7 @@ router.get('/analytics', protect, async (req, res) => {
     const weakSubjects = sortedSubjects.slice(-2).map(s => s.name)
     
     const rank = totalTests > 0 ? await analyticsService.calculateUserRank(req.user.id, avgScore) : 0
-    const totalUsers = await global.dbHelpers.find('users')
+    const totalUsers = await dbHelpers.find('users')
     const percentile = totalTests > 0 ? Math.round(((totalUsers.length - rank) / totalUsers.length) * 100) : 0
     
     const streak = await analyticsService.getStudyStreak(req.user.id)
@@ -729,7 +730,7 @@ router.get('/attempts', protect, async (req, res) => {
     const userId = Number(req.user.id)
     
     // Get all attempts for this user directly from DB
-    const userAttempts = await global.dbHelpers.find('attempts', { userId: userId })
+    const userAttempts = await dbHelpers.find('attempts', { userId: userId })
     
     // Filter completed/submitted attempts
     const completedAttempts = userAttempts.filter(a => {
@@ -747,8 +748,8 @@ router.get('/attempts', protect, async (req, res) => {
     completedAttempts.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0))
     
     // Get test and series details
-    const tests = await global.dbHelpers.find('tests')
-    const series = await global.dbHelpers.find('testSeries')
+    const tests = await dbHelpers.find('tests')
+    const series = await dbHelpers.find('testSeries')
     
     const testMap = {}
     tests.forEach((test) => {
@@ -787,10 +788,10 @@ router.get('/attempts', protect, async (req, res) => {
         {}
       
       const formatted = {
-        id: getPublicResponseId(global.dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
-        testId: getPublicResponseId(global.dbHelpers, 'tests', test, attempt.testId || test.id || test._id),
+        id: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
+        testId: getPublicResponseId(dbHelpers, 'tests', test, attempt.testId || test.id || test._id),
         testSlug: test.slug || null,
-        seriesId: getPublicResponseId(global.dbHelpers, 'testSeries', testSeries, attempt.seriesId || test.seriesId || test.series_id),
+        seriesId: getPublicResponseId(dbHelpers, 'testSeries', testSeries, attempt.seriesId || test.seriesId || test.series_id),
         seriesSlug: testSeries.slug || null,
         title: attempt.testTitle || test.title || 'Unknown Test',
         seriesTitle: testSeries.title || 'Unknown Series',
@@ -811,7 +812,7 @@ router.get('/attempts', protect, async (req, res) => {
     
     
     // Also get quizzes created by user (as a teacher/creator)
-    const quizzes = await global.dbHelpers.find('quizzes', { created_by: userId })
+    const quizzes = await dbHelpers.find('quizzes', { created_by: userId })
     const formattedQuizzes = quizzes.map(q => ({
       id: q.id,
       type: 'quiz',
@@ -934,7 +935,7 @@ router.post('/change-email', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Valid email required' })
     }
     // In production, would send verification email
-    const user = await global.dbHelpers.findById('users', req.user.id)
+    const user = await dbHelpers.findById('users', req.user.id)
     if (user.email === newEmail) {
       return res.status(400).json({ success: false, message: 'New email must be different' })
     }

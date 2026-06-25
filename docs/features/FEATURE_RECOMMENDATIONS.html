@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 Feature Recommendations & AI Enhancements - Trstprep V2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --brand: #667eea;
+            --brand2: #764ba2;
+            --brand3: #f43f5e;
+            --brand-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f43f5e 100%);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --ai-glow: #a855f7;
+            
+            --bg-primary: #030712;
+            --bg-secondary: #0f172a;
+            --bg-tertiary: #1e293b;
+            --text: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --card-bg: rgba(15, 23, 42, 0.85);
+            --card-border: rgba(148, 163, 184, 0.12);
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --shadow-color: rgba(0, 0, 0, 0.4);
+            --glow-rose: rgba(244, 63, 94, 0.3);
+            --glow-purple: rgba(168, 85, 247, 0.3);
+            --glow-blue: rgba(59, 130, 246, 0.3);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #e2e8f0;
+            --bg-tertiary: #cbd5e1;
+            --text: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-border: rgba(0, 0, 0, 0.08);
+            --glass-bg: rgba(0, 0, 0, 0.02);
+            --shadow-color: rgba(100, 116, 139, 0.15);
+            --glow-rose: rgba(244, 63, 94, 0.2);
+            --glow-purple: rgba(168, 85, 247, 0.2);
+            --glow-blue: rgba(59, 130, 246, 0.2);
+        }
+
+        html { scroll-behavior: smooth; }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+            min-height: 100vh;
+            transition: background 0.5s ease, color 0.5s ease;
+        }
+
+        /* 🎨 Animated Background */
+        .bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+        
+        .bg-pattern {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(ellipse 80% 50% at 20% 30%, var(--glow-rose), transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 70%, var(--glow-purple), transparent 50%),
+                radial-gradient(ellipse 50% 50% at 50% 50%, var(--glow-blue), transparent 50%);
+            animation: bgShift 25s ease-in-out infinite;
+        }
+        
+        @keyframes bgShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            25% { transform: translate(-3%, 2%) rotate(2deg) scale(1.02); }
+            50% { transform: translate(2%, -3%) rotate(-1deg) scale(0.98); }
+            75% { transform: translate(-2%, -1%) rotate(1deg) scale(1.01); }
+        }
+
+        /* 🌟 Floating Particles */
+        .particle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(1px);
+        }
+        
+        .particle-1 { width: 6px; height: 6px; background: var(--brand); top: 20%; left: 10%; animation: particleFloat 15s ease-in-out infinite; }
+        .particle-2 { width: 4px; height: 4px; background: var(--brand2); top: 60%; left: 85%; animation: particleFloat 18s ease-in-out infinite 2s; }
+        .particle-3 { width: 8px; height: 8px; background: var(--brand3); top: 80%; left: 20%; animation: particleFloat 20s ease-in-out infinite 4s; }
+        .particle-4 { width: 5px; height: 5px; background: var(--success); top: 30%; left: 70%; animation: particleFloat 16s ease-in-out infinite 1s; }
+        .particle-5 { width: 7px; height: 7px; background: var(--warning); top: 70%; left: 50%; animation: particleFloat 22s ease-in-out infinite 3s; }
+        
+        @keyframes particleFloat {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.6; }
+            25% { transform: translate(50px, -30px) rotate(90deg); opacity: 1; }
+            50% { transform: translate(-30px, -60px) rotate(180deg); opacity: 0.4; }
+            75% { transform: translate(20px, -20px) rotate(270deg); opacity: 0.8; }
+        }
+
+        /* 🎯 Container */
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 🌙 Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 50px;
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: var(--text);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 32px var(--shadow-color);
+        }
+        
+        .theme-toggle:hover {
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 12px 40px var(--shadow-color);
+        }
+        
+        .theme-toggle:focus {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+        }
+        
+        .theme-toggle-icon {
+            font-size: 1.2rem;
+            transition: transform 0.5s ease;
+        }
+        
+        .theme-toggle:hover .theme-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* 🎬 Header */
+        header {
+            text-align: center;
+            padding: 100px 30px;
+            background: var(--brand-gradient);
+            border-radius: 32px;
+            margin-bottom: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 25px 80px var(--shadow-color);
+            animation: headerFadeIn 1s ease-out;
+        }
+        
+        @keyframes headerFadeIn {
+            from { opacity: 0; transform: translateY(-40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: -100%;
+            left: -100%;
+            width: 300%;
+            height: 300%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 60%);
+            animation: headerOrb 15s ease-in-out infinite;
+        }
+        
+        @keyframes headerOrb {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(10%, 10%); }
+        }
+        
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background: linear-gradient(to top, var(--bg-primary), transparent);
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        header h1 {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 20px;
+            color: white;
+            text-shadow: 0 4px 30px rgba(0,0,0,0.3);
+            animation: titleType 1.5s steps(40) forwards;
+        }
+        
+        @keyframes titleType {
+            from { width: 0; overflow: hidden; }
+            to { width: 100%; }
+        }
+        
+        header .subtitle {
+            font-size: 1.3rem;
+            color: rgba(255,255,255,0.95);
+            max-width: 800px;
+            margin: 0 auto 30px;
+            animation: fadeInUp 1s ease-out 0.3s both;
+        }
+        
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease-out 0.5s both;
+        }
+        
+        .badge {
+            padding: 10px 24px;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            cursor: default;
+        }
+        
+        .badge:hover {
+            transform: translateY(-5px) scale(1.1);
+            background: rgba(255,255,255,0.3);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .badge.ai-badge {
+            background: linear-gradient(135deg, rgba(168,85,247,0.4), rgba(102,126,234,0.4));
+            border-color: rgba(168,85,247,0.5);
+        }
+
+        /* 🧭 Navigation */
+        .nav {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 18px 25px;
+            margin-bottom: 40px;
+            position: sticky;
+            top: 80px;
+            z-index: 100;
+            box-shadow: 0 15px 50px var(--shadow-color);
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+        
+        .nav ul {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            list-style: none;
+            justify-content: center;
+        }
+        
+        .nav a {
+            text-decoration: none;
+            color: var(--text-secondary);
+            padding: 12px 22px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .nav a:hover, .nav a:focus {
+            background: var(--brand-gradient);
+            color: white;
+            transform: translateY(-4px);
+            box-shadow: 0 10px 30px rgba(102,126,234,0.4);
+        }
+        
+        .nav a:focus {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+        }
+
+        /* 📦 Cards */
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 50px;
+            margin-bottom: 50px;
+            opacity: 0;
+            transform: translateY(50px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 20px 60px var(--shadow-color);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--brand-gradient);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.6s ease;
+        }
+        
+        .card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        .card:hover {
+            border-color: rgba(102,126,234,0.4);
+            box-shadow: 0 30px 80px var(--shadow-color);
+        }
+        
+        .card h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 35px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid transparent;
+            border-image: var(--brand-gradient) 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .card-description {
+            color: var(--text-secondary);
+            font-size: 1.15rem;
+            max-width: 1000px;
+            margin-bottom: 35px;
+            line-height: 1.8;
+        }
+
+        /* 📊 Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 25px;
+            margin: 40px 0;
+        }
+        
+        .stat-card {
+            background: var(--brand-gradient);
+            padding: 35px 25px;
+            border-radius: 24px;
+            text-align: center;
+            color: white;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 15px 40px var(--shadow-color);
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -150%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transform: skewX(-25deg);
+            transition: 0.8s ease;
+        }
+        
+        .stat-card:hover::before {
+            left: 150%;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-15px) scale(1.03);
+            box-shadow: 0 25px 60px rgba(102,126,234,0.5);
+        }
+        
+        .stat-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+        
+        .stat-number {
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            line-height: 1;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.95;
+        }
+
+        /* 🎴 Feature Cards Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+        
+        .feature-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--brand-gradient);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.5s ease;
+        }
+        
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-12px);
+            border-color: var(--brand);
+            box-shadow: 0 25px 60px var(--shadow-color);
+        }
+        
+        .feature-card:focus-within {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+        }
+        
+        .feature-icon {
+            font-size: 4rem;
+            margin-bottom: 25px;
+            display: inline-block;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.15));
+        }
+        
+        .feature-card:hover .feature-icon {
+            transform: scale(1.2) rotate(10deg);
+        }
+        
+        .feature-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+            color: var(--text);
+        }
+        
+        .feature-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin-bottom: 25px;
+            flex-grow: 1;
+        }
+        
+        .feature-tags {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: auto;
+        }
+        
+        .tag {
+            padding: 8px 18px;
+            border-radius: 25px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+        
+        .tag:hover {
+            transform: scale(1.05);
+        }
+        
+        .tag-ai { background: rgba(168,85,247,0.2); color: #c084fc; border: 1px solid rgba(168,85,247,0.4); }
+        .tag-high { background: rgba(239,68,68,0.2); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+        .tag-medium { background: rgba(245,158,11,0.2); color: #fbbf24; border: 1px solid rgba(245,158,11,0.4); }
+        .tag-new { 
+            background: rgba(16,185,129,0.2); 
+            color: #34d399; 
+            border: 1px solid rgba(16,185,129,0.4);
+            animation: tagPulse 2s ease-in-out infinite;
+        }
+        .tag-ui { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+        .tag-learning { background: rgba(236,72,153,0.2); color: #f472b6; border: 1px solid rgba(236,72,153,0.4); }
+        .tag-community { background: rgba(20,184,166,0.2); color: #2dd4bf; border: 1px solid rgba(20,184,166,0.4); }
+        
+        @keyframes tagPulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+            50% { box-shadow: 0 0 15px 3px rgba(16,185,129,0.2); }
+        }
+
+        /* 🎯 Priority Grid */
+        .priority-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+        }
+        
+        .priority-item {
+            background: var(--card-bg);
+            border-radius: 24px;
+            padding: 35px;
+            border: 2px solid;
+            border-left-width: 8px;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .priority-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05));
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+        
+        .priority-item:hover::before {
+            opacity: 1;
+        }
+        
+        .priority-item:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 50px var(--shadow-color);
+        }
+        
+        .priority-high { border-color: var(--error); }
+        .priority-medium { border-color: var(--warning); }
+        .priority-low { border-color: var(--success); }
+        
+        .priority-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .priority-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+        
+        .priority-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+            margin-bottom: 25px;
+        }
+        
+        .priority-meta {
+            display: flex;
+            gap: 25px;
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        
+        .priority-meta span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ⏱️ Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 60px;
+            margin: 50px 0;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 25px;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--brand-gradient);
+            border-radius: 2px;
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding-bottom: 50px;
+            opacity: 0;
+            transform: translateX(-50px);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .timeline-item.visible {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -48px;
+            top: 8px;
+            width: 24px;
+            height: 24px;
+            background: var(--bg-primary);
+            border: 5px solid var(--brand);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            box-shadow: 0 0 20px rgba(102,126,234,0.5);
+        }
+        
+        .timeline-item:hover::before {
+            transform: scale(1.3);
+            background: var(--brand);
+            border-color: white;
+        }
+        
+        .timeline-phase {
+            color: var(--brand);
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 15px;
+        }
+        
+        .timeline-content {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px;
+            transition: all 0.4s ease;
+        }
+        
+        .timeline-item:hover .timeline-content {
+            border-color: var(--brand);
+            box-shadow: 0 15px 40px var(--shadow-color);
+        }
+        
+        .timeline-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 10px;
+        }
+        
+        .timeline-desc {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        /* 💡 Info Boxes */
+        .info-box {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 30px 35px;
+            margin: 35px 0;
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+            border-left: 6px solid;
+            transition: all 0.4s ease;
+            box-shadow: 0 10px 30px var(--shadow-color);
+        }
+        
+        .info-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 50px var(--shadow-color);
+        }
+        
+        .info-box.info { border-color: var(--info); }
+        .info-box.success { border-color: var(--success); }
+        .info-box.warning { border-color: var(--warning); }
+        .info-box.ai { border-color: var(--ai-glow); }
+        
+        .info-icon {
+            font-size: 2.5rem;
+            flex-shrink: 0;
+        }
+        
+        .info-content strong {
+            font-size: 1.25rem;
+            color: var(--text);
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .info-content p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        /* 🏆 AI Features Highlight Section */
+        .ai-highlight {
+            background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(102,126,234,0.15));
+            border-radius: 28px;
+            padding: 50px;
+            margin: 40px 0;
+            border: 1px solid rgba(168,85,247,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ai-highlight::before {
+            content: '🤖';
+            position: absolute;
+            font-size: 15rem;
+            opacity: 0.05;
+            right: -50px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .ai-highlight h3 {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 25px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .ai-features-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .ai-feature-item {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 25px;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            transition: all 0.4s ease;
+            border: 1px solid var(--card-border);
+        }
+        
+        .ai-feature-item:hover {
+            transform: translateX(8px);
+            border-color: var(--ai-glow);
+            box-shadow: 0 10px 30px var(--shadow-color);
+        }
+        
+        .ai-feature-icon {
+            font-size: 1.8rem;
+            flex-shrink: 0;
+        }
+        
+        .ai-feature-text h4 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--text);
+        }
+        
+        .ai-feature-text p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        /* 🦶 Footer */
+        footer {
+            text-align: center;
+            padding: 60px 30px;
+            margin-top: 80px;
+            border-top: 1px solid var(--card-border);
+            position: relative;
+        }
+        
+        footer p {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            margin-bottom: 10px;
+        }
+        
+        .footer-icons {
+            font-size: 1.5rem;
+            margin-top: 15px;
+            animation: iconBounce 2s ease-in-out infinite;
+        }
+        
+        @keyframes iconBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* 📜 Scrollbar */
+        ::-webkit-scrollbar { width: 14px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { 
+            background: var(--brand-gradient); 
+            border-radius: 7px;
+            border: 4px solid var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb:hover { background: var(--brand2); }
+
+        /* ♿ Accessibility - Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* 📱 Responsive Design */
+        @media (max-width: 1200px) {
+            .features-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+        }
+        
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            header { padding: 60px 20px; }
+            header h1 { font-size: 2rem; }
+            .subtitle { font-size: 1rem; }
+            .card { padding: 30px; border-radius: 20px; }
+            .card h2 { font-size: 1.6rem; }
+            .nav { top: 70px; padding: 12px 15px; }
+            .nav a { padding: 10px 16px; font-size: 0.85rem; }
+            .theme-toggle { top: 10px; right: 10px; padding: 10px 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+            .stat-number { font-size: 2.5rem; }
+            .features-grid { grid-template-columns: 1fr; }
+            .priority-grid { grid-template-columns: 1fr; }
+            .timeline { padding-left: 40px; }
+            .timeline::before { left: 15px; }
+            .timeline-item::before { left: -38px; width: 20px; height: 20px; }
+            .info-box { flex-direction: column; padding: 25px; }
+            .ai-highlight { padding: 30px; }
+        }
+        
+        @media (max-width: 480px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .badges { flex-direction: column; align-items: center; }
+            .nav ul { flex-direction: column; align-items: center; }
+        }
+    </style>
+</head>
+<body>
+    <!-- 🎨 Animated Background -->
+    <div class="bg-canvas">
+        <div class="bg-pattern"></div>
+    </div>
+    
+    <!-- 🌟 Floating Particles -->
+    <div class="particle particle-1"></div>
+    <div class="particle particle-2"></div>
+    <div class="particle particle-3"></div>
+    <div class="particle particle-4"></div>
+    <div class="particle particle-5"></div>
+
+    <div class="container">
+        <!-- 🌙 Theme Toggle -->
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <span class="theme-toggle-icon" id="themeIcon">☀️</span>
+            <span id="themeText">Light Mode</span>
+        </button>
+
+        <!-- 🎬 Header -->
+        <header role="banner">
+            <div class="header-content">
+                <h1>🚀 Next-Gen Feature Recommendations</h1>
+                <p class="subtitle">✨ AI-Powered Learning, Interactive Tools & Future Roadmap for Trstprep V2.0 — Making studying intuitive, engaging, and effortless! 🎯</p>
+                <div class="badges">
+                    <span class="badge">📦 Version 2.0+</span>
+                    <span class="badge ai-badge">🤖 30+ AI Features</span>
+                    <span class="badge">✨ Enhanced UX/UI</span>
+                    <span class="badge">🌐 Fully Responsive</span>
+                    <span class="badge">♿ WCAG Accessible</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 🧭 Navigation -->
+        <nav class="nav" role="navigation" aria-label="Main navigation">
+            <ul>
+                <li><a href="#overview">📊 Overview</a></li>
+                <li><a href="#current">⚡ UI Enhancements</a></li>
+                <li><a href="#ai">🤖 AI Features</a></li>
+                <li><a href="#learning">🎓 Easy Learning</a></li>
+                <li><a href="#new">💡 New Suggestions</a></li>
+                <li><a href="#priorities">🎯 Priorities</a></li>
+                <li><a href="#timeline">📅 Timeline</a></li>
+            </ul>
+        </nav>
+
+        <!-- 📊 Overview Section -->
+        <section class="card animate-on-scroll" id="overview" aria-labelledby="overview-heading">
+            <h2 id="overview-heading">📊 Platform Overview</h2>
+            <p class="card-description">
+                🎯 Our vision for Trstprep V2.0 is to transform the platform into an intelligent, AI-powered learning ecosystem. 
+                We're focusing on making studying more intuitive, engaging, and personalized for every student. 
+                From smart recommendations to interactive 3D visualizations, every feature is designed to enhance understanding and retention! 🧠✨
+            </p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-icon">🎯</span>
+                    <div class="stat-number">50+</div>
+                    <div class="stat-label">Total Features</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">🤖</span>
+                    <div class="stat-number">30</div>
+                    <div class="stat-label">AI Integrations</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">🎨</span>
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Dark/Light UI</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">📱</span>
+                    <div class="stat-number">Full</div>
+                    <div class="stat-label">Accessibility</div>
+                </div>
+            </div>
+
+            <div class="info-box ai">
+                <span class="info-icon">💡</span>
+                <div class="info-content">
+                    <strong>🧠 Strategic Vision</strong>
+                    <p>Building on our 40+ database tables, we're introducing cutting-edge AI capabilities, smooth micro-animations, real-time collaborative tools, and machine learning models to dramatically improve student engagement, retention rates, and learning outcomes! 📈</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ⚡ Current UI Enhancements -->
+        <section class="card animate-on-scroll" id="current" aria-labelledby="current-heading">
+            <h2 id="current-heading">⚡ Current Features & UI Enhancements</h2>
+            <p class="card-description">
+                🎨 We've completely redesigned the user interface with modern glassmorphism effects, smooth animations, 
+                and intuitive interactions. Every element has been crafted for maximum engagement! ✨
+            </p>
+            
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🌗</span>
+                    <h3 class="feature-title">Dynamic Theme System</h3>
+                    <p class="feature-desc">🎨 Full dark/light mode support with smooth color transitions. Automatically detects system preferences and allows manual override. Reduces eye strain during late-night study sessions! 👁️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-high">High Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">✨</span>
+                    <h3 class="feature-title">Micro-Interactions</h3>
+                    <p class="feature-desc">🎭 Delightful button hover states, skeleton loaders, progress indicators, and success confetti animations. Every interaction feels responsive and satisfying! 🎉</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📱</span>
+                    <h3 class="feature-title">Native App-Like Navigation</h3>
+                    <p class="feature-desc">📲 Rebuilt mobile navigation with bottom tab bar, swipe-to-dismiss panels, and fluid page transitions creating a seamless native-app experience in the browser! 🚀</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-high">High Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Live Dynamic Dashboards</h3>
+                    <p class="feature-desc">⚡ Real-time updates via WebSockets! Watch your study stats, global rank, and test scores update live without refreshing. Stay motivated with instant feedback! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">♿</span>
+                    <h3 class="feature-title">Full Accessibility Support</h3>
+                    <p class="feature-desc">🦯 WCAG 2.1 compliant with screen reader support, keyboard navigation, focus indicators, and reduced motion options. Learning should be accessible to everyone! ❤️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Essential</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🔔</span>
+                    <h3 class="feature-title">Smart Notification System</h3>
+                    <p class="feature-desc">📬 Intelligent notification center with customizable preferences, scheduled reminders, and priority filtering. Never miss an important update! ⏰</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 🤖 AI Features Section -->
+        <section class="card animate-on-scroll" id="ai" aria-labelledby="ai-heading">
+            <h2 id="ai-heading">🤖 Next-Gen AI Integrations</h2>
+            <p class="card-description">
+                🧠 Harness the power of artificial intelligence to create a truly personalized learning experience. 
+                Our AI features adapt to each student's unique learning style and pace! 🚀
+            </p>
+
+            <div class="ai-highlight">
+                <h3>🌟 Core AI Capabilities</h3>
+                <div class="ai-features-list">
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">🎯</span>
+                        <div class="ai-feature-text">
+                            <h4>Smart Question Recommender</h4>
+                            <p>AI analyzes performance to suggest optimal practice questions</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">📈</span>
+                        <div class="ai-feature-text">
+                            <h4>Adaptive Test Engine (IRT)</h4>
+                            <p>Dynamic difficulty adjustment based on real-time accuracy</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">✍️</span>
+                        <div class="ai-feature-text">
+                            <h4>AI Essay & Answer Grader</h4>
+                            <p>Automatic grading with detailed feedback and suggestions</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">💬</span>
+                        <div class="ai-feature-text">
+                            <h4>24/7 AI Voice Tutor</h4>
+                            <p>Conversational AI explaining complex topics step-by-step</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">🧠</span>
+                        <div class="ai-feature-text">
+                            <h4>Auto Flashcard Generation</h4>
+                            <p>Convert notes to interactive spaced-repetition cards</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">👁️</span>
+                        <div class="ai-feature-text">
+                            <h4>Proctoring & Anomaly Detection</h4>
+                            <p>Webcam monitoring for exam integrity</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎯</span>
+                    <h3 class="feature-title">Smart Question Recommender</h3>
+                    <p class="feature-desc">🧮 AI deeply analyzes your performance patterns, identifying weak areas at the micro-topic level. Uses collaborative filtering to push you past learning plateaus with perfectly matched questions! 💪</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📈</span>
+                    <h3 class="feature-title">Adaptive Test Engine (IRT)</h3>
+                    <p class="feature-desc">📊 Questions dynamically adjust in difficulty based on real-time accuracy during tests. Mimics real-world adaptive exams like GMAT, CAT, and GRE for better preparation! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">✍️</span>
+                    <h3 class="feature-title">AI Essay & Answer Grader</h3>
+                    <p class="feature-desc">📝 Automatically grade subjective mock exams with detailed feedback! Highlights missing keywords, grammar issues, structure problems, and provides polished model answers. ✨</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 New</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">💬</span>
+                    <h3 class="feature-title">24/7 AI Voice Tutor</h3>
+                    <p class="feature-desc">🗣️ A conversational AI companion capable of explaining complex topics step-by-step like a human tutor. Ask questions, get clarifications, and learn at your own pace! 🎓</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 New</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🧠</span>
+                    <h3 class="feature-title">Auto Flashcard Generation</h3>
+                    <p class="feature-desc">📚 Upload PDF notes or highlight text, and AI automatically converts it into interactive spaced-repetition flashcards! Perfect for quick revision and memory retention! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-medium">Medium Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">👁️</span>
+                    <h3 class="feature-title">Proctoring & Anomaly Detection</h3>
+                    <p class="feature-desc">🔒 Detects suspicious behavior using webcam posture tracking, tab switching monitoring, and audio anomaly detection during proctored exams. Ensures exam integrity! ⚠️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-medium">Medium Impact</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 🎓 Easy Learning Features -->
+        <section class="card animate-on-scroll" id="learning" aria-labelledby="learning-heading">
+            <h2 id="learning-heading">🎓 Features to Make Studying Easier</h2>
+            <p class="card-description">
+                🎯 Learning should be engaging, not tedious! These features are designed to make complex topics 
+                easier to understand and studying more enjoyable. Let's transform education! ✨
+            </p>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🗺️</span>
+                    <h3 class="feature-title">Auto Interactive Mind-Maps</h3>
+                    <p class="feature-desc">🧩 Struggling with big chapters? The platform automatically generates visual, explorable mind-maps of topics, linking related sub-topics. See the big picture! 🌐</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-learning">🎓 Learning</span>
+                        <span class="tag tag-high">Easier Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">⏱️</span>
+                    <h3 class="feature-title">Pomodoro Focus Timer</h3>
+                    <p class="feature-desc">⏰ Integrated study timer with customizable focus blocks! Includes built-in Lo-Fi beats, ambient noise toggles, and mental fatigue tracking. Stay focused! 🎵</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-medium">Productivity</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎮</span>
+                    <h3 class="feature-title">Gamified Daily Streaks</h3>
+                    <p class="feature-desc">🏆 Earn points, unlock badges, and maintain daily study streaks! Participate in weekly leaderboard challenges against peers. Learning becomes addictive! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Retention</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🤝</span>
+                    <h3 class="feature-title">Peer-to-Peer Matchmaking</h3>
+                    <p class="feature-desc">👥 Studying alone is boring! Get matched in real-time mock battles, or find a study buddy preparing for the same exam with similar timings. Learn together! 🌟</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-community">👥 Community</span>
+                        <span class="tag tag-medium">Social</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📹</span>
+                    <h3 class="feature-title">Bite-Sized Microlearning</h3>
+                    <p class="feature-desc">🎬 Long lectures automatically summarized into scrollable 60-second shorts for rapid revision! Similar to popular social media formats. Learn on the go! 📱</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Easier Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🌐</span>
+                    <h3 class="feature-title">3D Concept Visualizer</h3>
+                    <p class="feature-desc">🔬 Interact with 3D models of complex biology diagrams, physics mechanics, or geography maps! Build visual understanding through exploration. Touch to learn! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Visual Learning</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 💡 New Feature Suggestions -->
+        <section class="card animate-on-scroll" id="new" aria-labelledby="new-heading">
+            <h2 id="new-heading">💡 Additional Feature Suggestions</h2>
+            <p class="card-description">
+                🚀 Based on our analysis, here are additional features that would significantly enhance 
+                the learning experience and platform capabilities! ✨
+            </p>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🗣️</span>
+                    <h3 class="feature-title">Voice-to-Text Notes</h3>
+                    <p class="feature-desc">🎤 Speak your notes instead of typing! AI converts speech to organized notes with automatic topic detection and formatting. Perfect for quick capture during lectures! 📝</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Learning Style Assessment</h3>
+                    <p class="feature-desc">🧬 AI-powered quiz to identify each student's learning style (visual, auditory, kinesthetic) and customize content presentation accordingly! Personalized learning! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-learning">🎓 Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🤖</span>
+                    <h3 class="feature-title">AI Study Plan Generator</h3>
+                    <p class="feature-desc">📅 Tell the AI your exam date, current level, and available hours. It creates a personalized day-by-day study plan with milestones and adapts as you progress! 📈</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🔄</span>
+                    <h3 class="feature-title">Concept Dependency Graph</h3>
+                    <p class="feature-desc">🔗 Visualizes how topics connect and which concepts need to be mastered before others. Helps students understand learning paths and prerequisites! 🗺️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-learning">🎓 Learning</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">💬</span>
+                    <h3 class="feature-title">Real-Time Doubt Resolution</h3>
+                    <p class="feature-desc">❓ Stuck on a question? Get instant help from AI or connect with subject experts in real-time. Average resolution time under 5 minutes! ⚡</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-community">👥 Community</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Progress Prediction Engine</h3>
+                    <p class="feature-desc">🔮 AI predicts your likely exam score based on current performance trends, study patterns, and time remaining. Get actionable insights to improve! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎭</span>
+                    <h3 class="feature-title">Emotion-Aware Learning</h3>
+                    <p class="feature-desc">😊 AI detects frustration or boredom from interaction patterns and suggests breaks, easier topics, or motivational content. Mental health matters! 💚</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📱</span>
+                    <h3 class="feature-title">Offline Mode & Sync</h3>
+                    <p class="feature-desc">📶 Download tests and study materials for offline studying! Auto-syncs progress when connection returns. Perfect for commutes and areas with poor connectivity! 🚄</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 Feature</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">👨‍👩‍👧‍👦</span>
+                    <h3 class="feature-title">Parent Dashboard</h3>
+                    <p class="feature-desc">👨‍👩‍👧 Allow parents to monitor their child's progress, study hours, and performance trends. Weekly email reports with actionable insights! 📧</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-community">👥 Family</span>
+                        <span class="tag tag-medium">Engagement</span>
+                    </div>
+                </article>
+            </div>
+
+            <div class="info-box success">
+                <span class="info-icon">✨</span>
+                <div class="info-content">
+                    <strong>🔮 Future-Ready Architecture</strong>
+                    <p>Our modular React architecture allows for easy integration of these features. The PostgreSQL database can be extended with new tables, and the API layer supports rapid feature development. We're building for the future! 🚀</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 🎯 Priorities Section -->
+        <section class="card animate-on-scroll" id="priorities" aria-labelledby="priorities-heading">
+            <h2 id="priorities-heading">🎯 Implementation Priorities</h2>
+            <p class="card-description">
+                📊 Features are prioritized based on impact, development effort, and user value. 
+                Here's our strategic implementation order! 🚀
+            </p>
+
+            <div class="priority-grid">
+                <article class="priority-item priority-high">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🤖 AI Question Generator & Recommender</h3>
+                        <span class="tag tag-high">Phase 1</span>
+                    </div>
+                    <p class="priority-desc">🎯 Immediately scale content library and provide personal recommendations based on past weaknesses. This hooks users and demonstrates AI value from day one!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐⭐</span>
+                        <span>⏱️ 3 Weeks</span>
+                        <span>🔥 Critical</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-high">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🎨 UI Overhaul: Micro-Animations & Dark Mode</h3>
+                        <span class="tag tag-high">Phase 1</span>
+                    </div>
+                    <p class="priority-desc">✨ Upgrade the visual layer across React components to incorporate premium glassmorphism, smooth transitions, and theme support. First impressions matter!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐⭐</span>
+                        <span>⏱️ 2 Weeks</span>
+                        <span>🔥 Critical</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-medium">
+                    <div class="priority-header">
+                        <h3 class="priority-title">⏰ Pomodoro & Gamification System</h3>
+                        <span class="tag tag-medium">Phase 2</span>
+                    </div>
+                    <p class="priority-desc">🎮 Integrate the focus timer and build out user profiles with badges, streaks, and global leaderboards. Keep users engaged and coming back daily!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐</span>
+                        <span>⏱️ 3 Weeks</span>
+                        <span>📈 High</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-medium">
+                    <div class="priority-header">
+                        <h3 class="priority-title">✍️ AI Essay Grader & Voice Tutor</h3>
+                        <span class="tag tag-medium">Phase 2</span>
+                    </div>
+                    <p class="priority-desc">🗣️ Deploy subjective grading capabilities and interactive doubt solving via speech-to-text integration. A game-changer for exam preparation!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐</span>
+                        <span>⏱️ 4 Weeks</span>
+                        <span>📈 High</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-low">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🌐 3D Visualizers & Microlearning</h3>
+                        <span class="tag tag-new">Phase 3</span>
+                    </div>
+                    <p class="priority-desc">🎬 Implement video summarization and interactive AR/3D environments for specific subjects. The "wow" factor that sets us apart from competitors!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐</span>
+                        <span>⏱️ 4 Weeks</span>
+                        <span>✨ Polish</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- ⏱️ Timeline Section -->
+        <section class="card animate-on-scroll" id="timeline" aria-labelledby="timeline-heading">
+            <h2 id="timeline-heading">📅 Roadmap Timeline</h2>
+            <p class="card-description">
+                🗓️ A phased approach ensures steady progress with regular value delivery. 
+                Each phase builds on the previous, creating a robust platform! 🚀
+            </p>
+
+            <div class="timeline" role="list">
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">🚀 Phase 1 • Weeks 1-5</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Core UX & AI Foundation</h4>
+                        <p class="timeline-desc">🎯 Complete deployment of Dark Mode, live dynamic animations, AI Question Recommender system, and automated Flashcard creation. This forms the foundation for all future features!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">🎮 Phase 2 • Weeks 6-10</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Retention & Grading</h4>
+                        <p class="timeline-desc">🏆 Launch Gamified streaks, Pomodoro Timer with Lo-Fi music integration, and the AI Essay / subjective answer grading tool. Focus on keeping users engaged and motivated!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">👥 Phase 3 • Weeks 11-14</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Social & Immersion</h4>
+                        <p class="timeline-desc">🤝 Roll out Voice Tutor, Peer-to-Peer matchmaking for live challenges, and Adaptive testing algorithms (IRT). Transform learning from solitary to social!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">✨ Phase 4 • Weeks 15-16</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Next-Level Content</h4>
+                        <p class="timeline-desc">🎬 Implement Microlearning (short revision videos) and 3D concept visualizers. Final optimizations, performance tuning, and bug sweeping. Platform launch ready! 🎉</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="info-box warning">
+                <span class="info-icon">⚠️</span>
+                <div class="info-content">
+                    <strong>🔧 Technical Requirements</strong>
+                    <p>📡 Rollout requires: OpenAI API / Anthropic API keys for LLMs, WebSocket server upgrades, caching layer (Redis) for real-time leaderboards, and a dedicated 3D library (Three.js) for interactive models. Plan infrastructure scaling accordingly! 🏗️</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 🦶 Footer -->
+        <footer role="contentinfo">
+            <p>🚀 Next-Gen Feature Recommendations | Trstprep V2.0 Ecosystem</p>
+            <p>⚛️ React • 🟢 Node.js • ⚡ WebSockets • 🤖 AI Pipelines | February 2026</p>
+            <div class="footer-icons">🎯 🚀 ✨ 🎓 🤖 💡</div>
+        </footer>
+    </div>
+
+    <script>
+        // 🌙 Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const html = document.documentElement;
+
+        // Check for saved theme or system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        
+        html.setAttribute('data-theme', initialTheme);
+        updateThemeUI(initialTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeUI(next);
+        });
+
+        function updateThemeUI(theme) {
+            themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            themeText.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        }
+
+        // 🎬 Scroll Animations with Intersection Observer
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px 0px -100px 0px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, index) => {
+                if (entry.isIntersecting) {
+                    // Stagger animation for multiple items
+                    setTimeout(() => {
+                        entry.target.classList.add('visible');
+                    }, index * 100);
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.animate-on-scroll, .timeline-item').forEach(el => {
+            observer.observe(el);
+        });
+
+        // ⌨️ Keyboard Navigation for Feature Cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    card.click();
+                }
+            });
+        });
+
+        // 📊 Counter Animation for Stats
+        function animateCounter(element, target, duration = 2000) {
+            let start = 0;
+            const increment = target / (duration / 16);
+            const timer = setInterval(() => {
+                start += increment;
+                if (start >= target) {
+                    element.textContent = target + (target >= 100 ? '' : '+');
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.floor(start) + '+';
+                }
+            }, 16);
+        }
+
+        // Trigger counter animation when stats are visible
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const statNumbers = entry.target.querySelectorAll('.stat-number');
+                    statNumbers.forEach(stat => {
+                        const text = stat.textContent;
+                        const num = parseInt(text);
+                        if (!isNaN(num) && num > 0) {
+                            stat.textContent = '0';
+                            animateCounter(stat, num);
+                        }
+                    });
+                    statsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.stats-grid').forEach(grid => {
+            statsObserver.observe(grid);
+        });
+
+        // 🎵 Smooth Scroll for Navigation
+        document.querySelectorAll('.nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    const offset = 120;
+                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
+                    window.scrollTo({
+                        top: targetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // 🎨 Console Welcome Message
+        console.log('%c🚀 Trstprep V2.0 Feature Recommendations', 'font-size: 24px; font-weight: bold; color: #667eea;');
+        console.log('%c📚 Explore the future of learning!', 'font-size: 14px; color: #94a3b8;');
+    </script>
+</body>
+</html>

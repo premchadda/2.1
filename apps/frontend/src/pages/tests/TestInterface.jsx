@@ -747,7 +747,11 @@ function TestInterface() {
     .join('')
     .toUpperCase() || 'ST'
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-gray-50">
+    <div className="h-[100dvh] md:overflow-hidden flex flex-col md:flex-row bg-gray-50">
+      
+      {/* Left Column: Header + Main */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
+      
       {/* Header */}
       <header className="bg-white shadow-sm z-30 flex-none h-12 md:h-14 sticky top-0">
         <div className="h-full px-2 md:px-3 flex items-center justify-between">
@@ -776,15 +780,15 @@ function TestInterface() {
               )}
 
               {/* Test Name */}
-              <h1 className="text-[10px] md:text-sm font-bold text-gray-600 md:text-gray-800 line-clamp-2 md:truncate leading-tight">
+              <h1 className={`text-xs md:text-base font-bold text-gray-700 md:text-gray-900 leading-tight ${reviewMode ? 'whitespace-normal break-words line-clamp-3' : 'line-clamp-2 md:truncate'} pr-2`}>
                 {test?.title || 'Mock Test'}
               </h1>
             </div>
           </div>
 
           {/* Review Mode On/Off toggle — centered on all screens */}
-          {reviewMode && (
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+          {reviewMode && !location.state?.solutionMode && (
+            <div className="flex justify-center flex-shrink-0 px-2 z-10">
               <button
                 onClick={() => setInteractiveReviewEnabled(prev => !prev)}
                 className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
@@ -800,23 +804,23 @@ function TestInterface() {
           )}
 
           {/* Right Side: Controls */}
-          <div className="flex items-center gap-1.5 md:gap-3 flex-shrink-0 ml-1">
+          <div className={`flex items-center justify-end gap-1.5 md:gap-3 ml-1 ${reviewMode ? 'flex-1 min-w-0' : 'flex-shrink-0'}`}>
 
             {/* Review Mode: Back buttons */}
             {reviewMode && (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => navigate(`/test-result/${seriesId}/${testId}`, { state: { attemptId: location.state?.attemptId } })}
-                  className="flex items-center gap-1 px-2 py-1 rounded-md border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-700 transition-colors text-xs font-semibold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-700 transition-colors text-sm font-semibold"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <ArrowLeft className="w-4 h-4" />
                   <span className="hidden sm:inline">Results</span>
                 </button>
                 <button
                   onClick={() => navigate('/dashboard')}
-                  className="hidden md:flex items-center gap-1 px-2 py-1 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors text-xs font-semibold"
+                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors text-sm font-semibold"
                 >
-                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <LayoutDashboard className="w-4 h-4" />
                   Dashboard
                 </button>
               </div>
@@ -824,11 +828,11 @@ function TestInterface() {
 
             {/* Timer (Desktop Only) — hidden in review mode */}
             {!reviewMode && (
-              <div className={`hidden md:flex items-center gap-1.5 px-2 py-1 rounded-md border ${
+              <div className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md border ${
                 timeLeft < 300 ? 'bg-red-50 border-red-200 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-700'
               }`}>
-                <Clock className="w-3.5 h-3.5" />
-                <span className="font-mono font-bold text-sm text-center">
+                <Clock className="w-4 h-4" />
+                <span className="font-mono font-bold text-sm md:text-base text-center">
                   {formatTime(timeLeft)}
                 </span>
               </div>
@@ -838,19 +842,19 @@ function TestInterface() {
             {!reviewMode && (
               <button
                 onClick={isPaused ? handleResume : handlePause}
-                className="hidden md:flex items-center gap-1 px-2 py-1 rounded-md border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 transition-colors"
               >
-                {isPaused ? <Play className="w-3 h-3 text-indigo-600 fill-current" /> : <Pause className="w-3 h-3 text-indigo-600 fill-current" />}
-                <span className="text-xs font-semibold text-indigo-700">{isPaused ? 'Resume' : 'Pause'}</span>
+                {isPaused ? <Play className="w-4 h-4 text-indigo-600 fill-current" /> : <Pause className="w-4 h-4 text-indigo-600 fill-current" />}
+                <span className="text-sm font-semibold text-indigo-700">{isPaused ? 'Resume' : 'Pause'}</span>
               </button>
             )}
 
 
             <button
               onClick={() => setShowPalette(!showPalette)}
-              className="md:hidden p-1.5 rounded-md hover:bg-gray-100 active:bg-gray-200 transition-colors"
+              className="md:hidden p-2 rounded-md hover:bg-gray-100 active:bg-gray-200 transition-colors"
             >
-              <Menu className="w-4 h-4 text-gray-600" />
+              <Menu className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>
@@ -891,22 +895,24 @@ function TestInterface() {
         </div>
       )}
 
-      {/* Rest of the UI */}
-      <div className="flex-1 flex relative">
         {/* Main Question Area */}
-        <main className="flex-1 flex flex-col min-w-0 bg-gray-50">
+        <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50">
 
           {/* Scrollable Content */}
-          <div className="flex-1 p-3 md:p-4 pb-24 md:pb-3 scroll-smooth">
-            <div className="mx-auto max-w-5xl h-full flex flex-col">
+          <div className="flex-1 p-3 pb-24 md:pb-3 scroll-smooth overflow-y-auto">
+            <div className="mx-auto flex flex-col min-h-full">
 
               {/* Section Tabs - Modern Compact Responsive */}
-              <div className="sticky top-12 md:top-14 z-20 md:static mb-3 mx-[-12px] md:mx-0">
+              <div className="sticky -top-3 md:top-0 z-20 md:static mb-3 mx-[-12px] md:mx-0 md:pt-0 bg-gray-50 md:bg-transparent">
                 <div className="bg-white/95 backdrop-blur-sm border-b md:border border-gray-200 md:rounded-xl shadow-sm w-full overflow-hidden">
                   <div className="flex items-center gap-0 overflow-x-auto no-scrollbar px-2 md:px-3 py-1.5 md:py-2">
 
                     {/* Section Pills */}
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 shrink-0 hidden sm:inline ml-1">
+                        Section
+                      </span>
+                      <span className="w-px h-3 bg-gray-300 hidden sm:inline mr-1" />
                       {sections.map(section => {
                         const isActive = currentSection === section
                         return (
@@ -919,11 +925,7 @@ function TestInterface() {
                                 : 'bg-gray-50 border-gray-200 text-gray-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700'
                               }`}
                           >
-                            <span className={`text-[9px] font-semibold uppercase tracking-wider leading-none ${isActive ? 'text-indigo-200' : 'text-gray-400'}`}>
-                              Section
-                            </span>
-                            <span className={`w-px h-3 ${isActive ? 'bg-indigo-400' : 'bg-gray-300'}`} />
-                            <span className={`text-xs font-bold leading-none truncate max-w-[90px]`}>
+                            <span className={`text-xs font-bold leading-none truncate max-w-[120px]`}>
                               {section}
                             </span>
                           </button>
@@ -979,19 +981,6 @@ function TestInterface() {
                     )}
                   </div>
 
-                  {/* Desktop Right Actions */}
-                  {!reviewMode && <div className="hidden md:flex items-center gap-2">
-                    <button
-                      onClick={toggleReview}
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition ${markedForReview.has(currentQuestion)
-                          ? 'bg-purple-100 text-purple-700'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                        }`}
-                    >
-                      <Flag className="w-3 h-3" />
-                      {markedForReview.has(currentQuestion) ? 'Marked' : 'Mark'}
-                    </button>
-                  </div>}
                 </div>
 
 
@@ -1190,39 +1179,37 @@ function TestInterface() {
           </div>
 
           {/* Desktop Footer Action Bar */}
-          <div className="hidden md:flex bg-white border-t border-gray-200 p-2 items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
-            <div className="flex items-center gap-1.5">
-              {reviewMode ? (
-                /* Review mode: back nav in footer */
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={() => navigate(`/test-result/${seriesId}/${testId}`, { state: { attemptId: location.state?.attemptId } })}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-semibold border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 transition-colors"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" /> Back to Results
-                  </button>
-                  <button
-                    onClick={() => navigate('/dashboard')}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-semibold border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
-                  </button>
-                </div>
-              ) : (
+          <div className="hidden md:flex sticky bottom-0 mt-auto bg-white border-t border-gray-200 h-[60px] px-4 items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 shrink-0">
+            
+            {/* Left section */}
+            <div className="flex items-center gap-1.5 flex-1 justify-start">
+              <button
+                onClick={prevQuestion}
+                disabled={currentQuestion === 0}
+                className="flex items-center gap-1.5 px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md text-sm font-bold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" /> Prev
+              </button>
+            </div>
+
+            {/* Center section */}
+            <div className="flex items-center gap-4 flex-1 justify-center">
+              {!reviewMode && (
                 <>
                   <button
                     onClick={toggleReview}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded text-xs font-medium transition-colors border ${markedForReview.has(currentQuestion)
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors border ${markedForReview.has(currentQuestion)
                         ? 'bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100'
                         : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                       }`}
                   >
-                    <Flag className="w-3 h-3" />
+                    <Flag className="w-4 h-4" />
                     {markedForReview.has(currentQuestion) ? 'Unmark' : 'Mark'}
                   </button>
                   <button
                     onClick={clearResponse}
-                    className="px-2.5 py-1.5 bg-white text-gray-700 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                    disabled={answers[currentQuestion] === undefined && !markedForReview.has(currentQuestion)}
+                    className="px-3 py-2 bg-white text-gray-700 border border-gray-300 rounded-md text-sm font-semibold hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Clear
                   </button>
@@ -1230,29 +1217,24 @@ function TestInterface() {
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={prevQuestion}
-                disabled={currentQuestion === 0}
-                className="flex items-center gap-1 px-3 py-1.5 bg-white text-gray-700 border border-gray-300 rounded text-xs font-bold hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" /> Prev
-              </button>
+            {/* Right section */}
+            <div className="flex items-center gap-1.5 flex-1 justify-end">
               <button
                 onClick={nextQuestion}
-                className="flex items-center gap-1 px-4 py-1.5 bg-indigo-600 text-white border border-transparent rounded text-xs font-bold hover:bg-indigo-700 shadow-sm hover:shadow active:transform active:scale-95 transition-all"
+                className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 text-white border border-transparent rounded-md text-sm font-bold hover:bg-indigo-700 shadow-sm hover:shadow active:transform active:scale-95 transition-all"
               >
-                {reviewMode ? (currentQuestion === questions.length - 1 ? 'Finish Review' : 'Next') : (currentQuestion === questions.length - 1 ? 'Finish' : 'Save & Next')} <ChevronRight className="w-3.5 h-3.5" />
+                {reviewMode ? (currentQuestion === questions.length - 1 ? 'Finish Review' : 'Next') : (currentQuestion === questions.length - 1 ? 'Finish' : 'Save & Next')} <ChevronRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         </main>
+      </div>
 
 
 
         {/* Question Palette - Sidebar */}
         <aside className={`
-          fixed md:static inset-0 z-40 md:z-auto
+          fixed md:static inset-0 z-[60] md:z-auto
           ${showPalette ? 'block' : 'hidden md:block'}
           md:w-72 md:flex-shrink-0
         `}>
@@ -1266,13 +1248,13 @@ function TestInterface() {
             {/* Close button (mobile) */}
             <button
               onClick={() => setShowPalette(false)}
-              className="md:hidden absolute top-4 right-4 p-2 hover:bg-sky-100 rounded z-10"
+              className="md:hidden absolute top-1 right-2 p-1.5 hover:bg-sky-100 rounded z-10"
             >
               <X className="w-5 h-5" />
             </button>
 
             <div className="flex flex-col flex-1 min-h-0">
-              <div className="flex items-center gap-2.5 border-b border-gray-200 bg-white p-3">
+              <div className="flex items-center gap-2.5 border-b border-gray-200 bg-white px-3 h-12 md:h-14 shrink-0">
                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border border-blue-200 shadow-inner shrink-0">
                   {user?.avatar || user?.avatarUrl ? (
                     <img src={user.avatar || user.avatarUrl} alt={userName} className="h-full w-full object-cover" />
@@ -1291,25 +1273,25 @@ function TestInterface() {
               <div className="border-b border-gray-200 bg-white p-3">
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-gray-300 bg-gray-100 px-1 font-bold text-gray-700 shadow-sm">{stats.notVisited}</span>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-gray-300 bg-gray-100 px-1 font-bold text-gray-700 shadow-sm">{stats.notVisited}</span>
                     <span className="text-gray-700 font-medium leading-tight">Not Visited</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded bg-red-500 px-1 font-bold text-white shadow-sm">{stats.notAnswered}</span>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1 font-bold text-white shadow-sm">{stats.notAnswered}</span>
                     <span className="text-gray-700 font-medium leading-tight">Not Answered</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded bg-green-500 px-1 font-bold text-white shadow-sm">{stats.answered}</span>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">{stats.answered}</span>
                     <span className="text-gray-700 font-medium leading-tight">Answered</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded bg-purple-500 px-1 font-bold text-white shadow-sm">{stats.review}</span>
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">{stats.review}</span>
                     <span className="text-gray-700 font-medium leading-tight">Marked</span>
                   </div>
                   <div className="col-span-2 flex items-center gap-1.5 pt-0.5">
-                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded bg-purple-500 px-1 font-bold text-white shadow-sm">
+                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
                       {currentSectionStats.answeredReview}
-                      <span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-sm bg-green-500 border border-white" />
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white" />
                     </span>
                     <span className="text-gray-700 font-medium leading-tight">Answered & Marked</span>
                   </div>
@@ -1345,13 +1327,13 @@ function TestInterface() {
                       <button
                         key={index}
                         onClick={() => goToQuestion(index)}
-                        className={`relative h-9 rounded border flex items-center justify-center text-sm font-semibold transition-all shadow-sm ${statusClass} ${currentQuestion === index ? 'ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10' : ''
+                        className={`relative w-8 h-8 mx-auto rounded-full border flex items-center justify-center text-xs font-semibold transition-all shadow-sm ${statusClass} ${currentQuestion === index ? 'ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10' : ''
                           }`}
                         title={`Question ${index + 1}`}
                       >
                         {sectionPosition + 1}
                         {status === 'p-ans-review' && (
-                          <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-sm bg-green-500 border border-white" />
+                          <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border border-white" />
                         )}
                       </button>
                     )
@@ -1360,7 +1342,7 @@ function TestInterface() {
               </div>
 
               {/* Submit Button */}
-              <div className="p-3 border-t border-sky-100 bg-white shrink-0">
+              <div className="h-[60px] px-3 flex items-center w-full border-t border-sky-100 bg-white shrink-0">
                 {!reviewMode ? (
                   <button
                     onClick={confirmSubmit}
@@ -1381,7 +1363,6 @@ function TestInterface() {
             </div>
           </div>
         </aside>
-      </div>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-1.5 z-50 flex gap-1.5 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -1397,25 +1378,13 @@ function TestInterface() {
         {!reviewMode && (
           <button
             onClick={clearResponse}
-            className="flex-1 flex flex-col items-center justify-center p-1 rounded-md active:bg-gray-50"
+            disabled={answers[currentQuestion] === undefined && !markedForReview.has(currentQuestion)}
+            className="flex-1 flex flex-col items-center justify-center p-1 rounded-md active:bg-gray-50 disabled:opacity-30"
           >
             <X className="w-4 h-4 text-gray-500" />
             <span className="text-[9px] font-medium text-gray-500">Clear</span>
           </button>
         )}
-
-        <button
-          onClick={() => setShowPalette(true)}
-          className="flex-1 flex flex-col items-center justify-center p-1 rounded-md active:bg-gray-50 bg-indigo-50"
-        >
-          <div className="grid grid-cols-2 gap-0.5 w-3.5 h-3.5 mb-0.5">
-            <div className="bg-indigo-400 rounded-[1px]"></div>
-            <div className="bg-indigo-400 rounded-[1px]"></div>
-            <div className="bg-indigo-400 rounded-[1px]"></div>
-            <div className="bg-indigo-400 rounded-[1px]"></div>
-          </div>
-          <span className="text-[9px] font-bold text-indigo-700">Palette</span>
-        </button>
 
         {!reviewMode && (
           <button

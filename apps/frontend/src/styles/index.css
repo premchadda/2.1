@@ -4577,3 +4577,38 @@ button, input, textarea, select {
     animation: pulse-ring 2s infinite;
 }
 
+/* ========================================
+   ACCESSIBILITY & REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .animate-float,
+    .animate-float-slow,
+    .animate-shimmer,
+    .animate-pulse-slow,
+    .animate-bounce-subtle,
+    .animate-twinkle,
+    .animate-gradient-flow {
+        animation: none !important;
+    }
+
+    .skeleton,
+    .skeleton-enhanced {
+        background: #e5e7eb !important;
+        animation: none !important;
+    }
+
+    canvas.particle-canvas {
+        display: none !important;
+    }
+}
+

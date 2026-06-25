@@ -1,0 +1,2868 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Structure - Trstprep V2.0</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --brand: #667eea;
+            --brand2: #764ba2;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --bg-dark: #1a1a2e;
+            --bg-darker: #16213e;
+            --text: #e9ecef;
+            --text-muted: #8892b0;
+            --card-bg: rgba(255, 255, 255, 0.04);
+            --card-border: rgba(255, 255, 255, 0.09);
+            --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: var(--text);
+            line-height: 1.7;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ─── Animated Header ─── */
+        header {
+            text-align: center;
+            padding: 70px 20px;
+            background: linear-gradient(135deg, var(--brand), var(--brand2), #a855f7, var(--brand));
+            background-size: 300% 300%;
+            animation: headerGradient 8s ease infinite, headerEntrance 0.8s var(--ease-smooth) both;
+            border-radius: 24px;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(45deg, transparent, transparent 40px, rgba(255, 255, 255, 0.02) 40px, rgba(255, 255, 255, 0.02) 80px);
+            pointer-events: none;
+        }
+
+        @keyframes headerGradient {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        @keyframes headerEntrance {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        header h1 {
+            font-size: 2.6rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            opacity: 0.92;
+            font-size: 1.1rem;
+            font-weight: 400;
+        }
+
+        .badges {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.18);
+            backdrop-filter: blur(6px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            animation: badgePop 0.6s var(--ease-smooth) both;
+        }
+
+        .badge:nth-child(2) {
+            animation-delay: 0.1s;
+        }
+
+        .badge:nth-child(3) {
+            animation-delay: 0.2s;
+        }
+
+        @keyframes badgePop {
+            from {
+                opacity: 0;
+                transform: scale(0.7);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* ─── Sticky Nav ─── */
+        .nav {
+            background: rgba(22, 25, 46, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-bottom: 25px;
+            position: sticky;
+            top: 12px;
+            z-index: 100;
+            backdrop-filter: blur(16px);
+            animation: navSlide 0.5s var(--ease-smooth) 0.3s both;
+        }
+
+        @keyframes navSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-15px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .nav ul {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            list-style: none;
+            justify-content: center;
+        }
+
+        .nav a {
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 7px 14px;
+            border-radius: 10px;
+            transition: all 0.25s var(--ease-smooth);
+            display: block;
+            font-size: 0.88rem;
+            font-weight: 500;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .nav a::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.15), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .nav a:hover::after {
+            opacity: 1;
+        }
+
+        .nav a:hover {
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
+        }
+
+        /* ─── Section Cards ─── */
+        .card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--card-border);
+            overflow: hidden;
+            transition: box-shadow 0.3s var(--ease-smooth), transform 0.3s var(--ease-smooth);
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 40px rgba(102, 126, 234, 0.12);
+        }
+
+        /* Entrance animation – applied by JS */
+        .card.anim-enter {
+            opacity: 0;
+            transform: translateY(28px);
+        }
+
+        .card.anim-visible {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.55s var(--ease-smooth), transform 0.55s var(--ease-smooth);
+        }
+
+        /* ─── Section Toggle Header ─── */
+        .section-toggle-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 22px 28px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.25s var(--ease-smooth);
+            border-bottom: 1px solid transparent;
+        }
+
+        .section-toggle-header:hover {
+            background: rgba(102, 126, 234, 0.06);
+        }
+
+        .section-toggle-header.open {
+            border-bottom-color: rgba(103, 126, 234, 0.2);
+        }
+
+        .section-toggle-header h2 {
+            font-size: 1.45rem;
+            font-weight: 600;
+            border: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text);
+        }
+
+        .section-toggle-header h2 .section-label-bar {
+            width: 4px;
+            height: 28px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, var(--brand), var(--brand2));
+            flex-shrink: 0;
+        }
+
+        .chevron-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(102, 126, 234, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.25s, transform 0.35s var(--ease-smooth);
+        }
+
+        .chevron-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--brand);
+            transition: stroke 0.2s;
+        }
+
+        .section-toggle-header:hover .chevron-icon {
+            background: rgba(102, 126, 234, 0.22);
+        }
+
+        .section-toggle-header.open .chevron-icon {
+            transform: rotate(180deg);
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+        }
+
+        .section-toggle-header.open .chevron-icon svg {
+            stroke: white;
+        }
+
+        /* ─── Section Body (animated open/close) ─── */
+        .section-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.42s var(--ease-smooth);
+        }
+
+        .section-body.open {
+            grid-template-rows: 1fr;
+        }
+
+        .section-body-inner {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .section-body.open .section-body-inner {
+            padding: 24px 28px 28px;
+        }
+
+        .section-body-inner>*:first-child {
+            margin-top: 0;
+        }
+
+        /* Legacy card h3 */
+        .card h3 {
+            font-size: 1.1rem;
+            margin: 22px 0 12px;
+            color: var(--brand);
+            font-weight: 600;
+        }
+
+        /* ─── File Tree ─── */
+        .file-tree {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.84rem;
+            background: rgba(0, 0, 0, 0.28);
+            padding: 22px;
+            border-radius: 14px;
+            overflow-x: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .file-tree ul {
+            list-style: none;
+            padding-left: 20px;
+            margin: 2px 0;
+        }
+
+        .file-tree>ul {
+            padding-left: 0;
+        }
+
+        .file-tree li {
+            margin: 2px 0;
+            opacity: 0;
+            transform: translateX(-8px);
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .file-tree.tree-visible li {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .file-tree.tree-visible li:nth-child(1) {
+            transition-delay: 0.02s;
+        }
+
+        .file-tree.tree-visible li:nth-child(2) {
+            transition-delay: 0.03s;
+        }
+
+        .file-tree.tree-visible li:nth-child(3) {
+            transition-delay: 0.04s;
+        }
+
+        .file-tree.tree-visible li:nth-child(4) {
+            transition-delay: 0.05s;
+        }
+
+        .file-tree.tree-visible li:nth-child(5) {
+            transition-delay: 0.06s;
+        }
+
+        .file-tree.tree-visible li:nth-child(n+6) {
+            transition-delay: 0.07s;
+        }
+
+        .file-tree .folder {
+            color: #ffd700;
+            font-weight: 700;
+        }
+
+        .file-tree .file {
+            color: #00ff88;
+        }
+
+        .file-tree .comment {
+            color: var(--text-muted);
+            font-style: italic;
+            margin-left: 8px;
+        }
+
+        .file-tree .important {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .file-tree .config {
+            color: #00d9ff;
+        }
+
+        /* ─── Stats Grid ─── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            padding: 24px;
+            border-radius: 16px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s var(--ease-smooth), box-shadow 0.3s;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.12) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 12px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card .number {
+            font-size: 2.4rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .stat-card .label {
+            font-size: 0.85rem;
+            opacity: 0.88;
+            margin-top: 6px;
+        }
+
+        /* ─── Info Boxes ─── */
+        .info-box {
+            padding: 18px 20px;
+            border-radius: 12px;
+            margin: 14px 0;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .info-box.info {
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 4px solid var(--info);
+        }
+
+        .info-box.success {
+            background: rgba(16, 185, 129, 0.08);
+            border-left: 4px solid var(--success);
+        }
+
+        .info-box.warning {
+            background: rgba(245, 158, 11, 0.08);
+            border-left: 4px solid var(--warning);
+        }
+
+        /* ─── Tech Stack ─── */
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 18px;
+            margin: 18px 0;
+        }
+
+        .tech-card {
+            background: rgba(30, 40, 60, 0.7);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: transform 0.3s var(--ease-smooth), border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .tech-card:hover {
+            transform: translateY(-6px);
+            border-color: var(--brand);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.2);
+        }
+
+        .tech-header {
+            padding: 14px 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tech-header.frontend {
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3));
+        }
+
+        .tech-header.backend {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.3), rgba(102, 126, 234, 0.3));
+        }
+
+        .tech-header.tooling {
+            background: linear-gradient(90deg, rgba(245, 158, 11, 0.3), rgba(239, 68, 68, 0.3));
+        }
+
+        .tech-body {
+            padding: 18px;
+        }
+
+        .tech-list {
+            list-style: none;
+        }
+
+        .tech-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s;
+        }
+
+        .tech-list li:last-child {
+            border-bottom: none;
+        }
+
+        .tech-list li:hover {
+            background: rgba(255, 255, 255, 0.03);
+            padding-left: 6px;
+            border-radius: 4px;
+        }
+
+        .tech-list span {
+            color: var(--text-muted);
+            font-size: 0.83rem;
+            margin-left: 10px;
+        }
+
+        /* ─── Tables ─── */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 14px 0;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background: linear-gradient(90deg, var(--brand), var(--brand2));
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+        }
+
+        th:first-child {
+            border-radius: 8px 0 0 0;
+        }
+
+        th:last-child {
+            border-radius: 0 8px 0 0;
+        }
+
+        td {
+            padding: 10px 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+            transition: background 0.2s;
+        }
+
+        tr:hover td {
+            background: rgba(102, 126, 234, 0.06);
+        }
+
+        /* ─── Code ─── */
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 5px;
+            color: #00ff88;
+            font-family: 'Consolas', monospace;
+            font-size: 0.88em;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.28);
+            padding: 18px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-family: 'Consolas', monospace;
+            font-size: 0.84rem;
+            margin: 14px 0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* ─── Sub-collapsible Sections (DB tables etc.) ─── */
+        .collapsible-section {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .collapsible-header {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+            padding: 13px 18px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.25s var(--ease-smooth);
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .collapsible-header:hover {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.25));
+        }
+
+        .collapsible-header .toggle-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            font-size: 0.75rem;
+            transition: transform 0.32s var(--ease-smooth), background 0.25s;
+        }
+
+        .collapsible-header.open .toggle-icon {
+            transform: rotate(180deg);
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+        }
+
+        .collapsible-content {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.38s var(--ease-smooth);
+        }
+
+        .collapsible-content.open {
+            grid-template-rows: 1fr;
+        }
+
+        .collapsible-content-inner {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .collapsible-content.open .collapsible-content-inner {
+            padding: 16px 18px 18px;
+        }
+
+        .subcollapsible-section {
+            margin: 12px 0;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .subcollapsible-header {
+            background: rgba(255, 255, 255, 0.04);
+            padding: 10px 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s;
+            font-weight: 600;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .subcollapsible-header:hover {
+            background: rgba(255, 255, 255, 0.07);
+        }
+
+        .subcollapsible-content {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s var(--ease-smooth);
+        }
+
+        .subcollapsible-content.open {
+            grid-template-rows: 1fr;
+        }
+
+        .subcollapsible-content-inner {
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .subcollapsible-content.open .subcollapsible-content-inner {
+            padding: 12px 14px 14px;
+        }
+
+        /* ─── Scroll-to-top button ─── */
+        #scroll-top {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            border: none;
+            cursor: pointer;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+            opacity: 0;
+            transform: translateY(20px) scale(0.8);
+            transition: opacity 0.35s var(--ease-smooth), transform 0.35s var(--ease-smooth);
+            z-index: 200;
+        }
+
+        #scroll-top.visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        #scroll-top:hover {
+            transform: translateY(-3px) scale(1.08);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        #scroll-top svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* ─── Footer ─── */
+        footer {
+            text-align: center;
+            padding: 42px;
+            color: var(--text-muted);
+            margin-top: 40px;
+            animation: none;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.85rem;
+            }
+
+            .file-tree {
+                font-size: 0.76rem;
+            }
+
+            .section-toggle-header h2 {
+                font-size: 1.2rem;
+            }
+
+            .section-body-inner {
+                padding: 16px 18px 20px;
+            }
+
+            #scroll-top {
+                bottom: 18px;
+                right: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📁 Project Structure</h1>
+            <p>Complete Repository Structure for Trstprep V2.1</p>
+            <div class="badges">
+                <span class="badge">📦 Monorepo</span>
+                <span class="badge">⚛️ React</span>
+                <span class="badge">🟢 Express.js</span>
+            </div>
+        </header>
+
+        <nav class="nav">
+            <ul>
+                <li><a href="#overview">📊 Overview</a></li>
+                <li><a href="#root">📁 Root Directory</a></li>
+                <li><a href="#backend">🟢 Backend</a></li>
+                <li><a href="#frontend">⚛️ Frontend</a></li>
+                <li><a href="#admin-panel">🔧 Admin Panel</a></li>
+                <li><a href="#scripts">📜 Scripts</a></li>
+                <li><a href="#docs">📄 Documentation</a></li>
+                <li><a href="#tech">🛠️ Tech Stack</a></li>
+                <li><a href="#database">🗄️ Database</a></li>
+                <li><a href="#dev">🔧 Dev Files</a></li>
+                <li><a href="#scaling">🏗️ Scaling</a></li>
+            </ul>
+        </nav>
+
+        <!-- Overview Section -->
+        <section class="card" id="overview">
+            <h2>📊 Project Overview</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number">26</div>
+                    <div class="label">API Routes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">24</div>
+                    <div class="label">Data Models</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">7</div>
+                    <div class="label">Repositories</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">60+</div>
+                    <div class="label">Frontend Pages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">43</div>
+                    <div class="label">Admin Panels</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">6</div>
+                    <div class="label">Custom Hooks</div>
+                </div>
+            </div>
+
+            <div class="info-box info">
+                <span style="font-size:1.5rem">ℹ️</span>
+                <div>
+                    <strong>Modular Architecture</strong>
+                    <p>Trstprep uses a modular structure with feature-based organization. The backend has migrated to a modules-based architecture with dedicated routes, services, and helpers per feature. Models are organized by domain (user, exam, test, question, etc.).</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Root Directory Section -->
+        <section class="card" id="root">
+            <h2>📁 Root Directory</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>File/Directory</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>package.json</code></td>
+                        <td>Root package.json for monorepo (turbo)</td>
+                    </tr>
+                    <tr>
+                        <td><code>package-lock.json</code></td>
+                        <td>Node dependencies lock file</td>
+                    </tr>
+                    <tr>
+                        <td><code>turbo.json</code></td>
+                        <td>Turborepo configuration</td>
+                    </tr>
+                    <tr>
+                        <td><code>qms.jsx</code></td>
+                        <td>Question Management System component</td>
+                    </tr>
+                    <tr>
+                        <td><code>transform.cjs</code></td>
+                        <td>Data transformation utility</td>
+                    </tr>
+                    <tr>
+                        <td><code>deploy.sh</code></td>
+                        <td>Deployment script</td>
+                    </tr>
+                    <tr>
+                        <td><code>README.md</code></td>
+                        <td>Project documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>.gitignore</code></td>
+                        <td>Git ignore rules</td>
+                    </tr>
+                    <tr>
+                        <td><code>apps/</code></td>
+                        <td>Application packages (backend, frontend, admin-panel)</td>
+                    </tr>
+                    <tr>
+                        <td><code>packages/</code></td>
+                        <td>Shared monorepo packages (empty)</td>
+                    </tr>
+                    <tr>
+                        <td><code>dev-tools/</code></td>
+                        <td>Development utility scripts</td>
+                    </tr>
+                    <tr>
+                        <td><code>docs/</code></td>
+                        <td>Documentation hub (architecture, api, database, features, etc.)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Directory Structure</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 Trstprep V2.0/</span>
+                        <ul>
+                            <li><span class="config">📄 package.json</span> <span class="comment"># Root workspace config</span></li>
+                            <li><span class="config">📄 turbo.json</span> <span class="comment"># Turborepo configuration</span></li>
+                            <li><span class="file">📄 .gitignore</span></li>
+                            <li><span class="folder">📁 apps/</span> <span class="comment"># Application packages</span>
+                                <ul>
+                                    <li><span class="folder">📁 backend/</span> <span class="comment"># Express.js API (Port 5001)</span></li>
+                                    <li><span class="folder">📁 frontend/</span> <span class="comment"># React + Vite (Port 3000)</span></li>
+                                    <li><span class="folder">📁 admin-panel/</span> <span class="comment"># React + Vite Admin (Port 3002)</span></li>
+                                </ul>
+                            </li>
+                                            <li><span class="folder">📁 packages/</span> <span class="comment"># Shared monorepo packages (empty)</span></li>
+                            <li><span class="folder">📁 dev-tools/</span> <span class="comment"># Development tools</span></li>
+                            <li><span class="folder">📁 docs/</span> <span class="comment"># Documentation hub</span></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Backend Section -->
+        <section class="card" id="backend">
+            <h2>🟢 Backend Application</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Location: <code>apps/backend/</code> - Express.js API Server</p>
+
+            <h3>Backend Structure</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 apps/backend/</span>
+                        <ul>
+                            <li><span class="config">📄 package.json</span> <span class="comment"># Dependencies & scripts</span></li>
+                            <li><span class="config">📄 vercel.json</span> <span class="comment"># Vercel deployment</span></li>
+                            <li><span class="file">📄 .env.example</span> <span class="comment"># Environment variables template</span></li>
+                            <li><span class="folder">📁 src/</span>
+                                <ul>
+                                    <li><span class="file important">📄 app-port5001.js</span> <span class="comment"># Main entry point</span></li>
+                                    <li><span class="folder">📁 api/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 controllers/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 BaseController.js</span></li>
+                                                    <li><span class="file">📄 AuthController.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 middleware/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="folder">📁 auth/</span></li>
+                                                    <li><span class="folder">📁 error/</span></li>
+                                                    <li><span class="folder">📁 validation/</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 routes/</span> <span class="comment"># 25 API route modules</span>
+                                                <ul>
+                                                    <li><span class="file">📄 admin.js</span> <span class="comment"># Admin CRUD</span></li>
+                                                    <li><span class="file">📄 series.js</span> <span class="comment"># Test series</span></li>
+                                                    <li><span class="file">📄 study.js</span> <span class="comment"># Study materials</span></li>
+                                                    <li><span class="file">📄 stages.js</span></li>
+                                                    <li><span class="file">📄 questions.js</span></li>
+                                                    <li><span class="file">📄 practice.js</span></li>
+                                                    <li><span class="file">📄 promotions.js</span></li>
+                                                    <li><span class="file">📄 pyp.js</span> <span class="comment"># Previous Year Papers</span></li>
+                                                    <li><span class="file">📄 liveTests.js</span></li>
+                                                    <li><span class="file">📄 testCategories.js</span></li>
+                                                    <li><span class="file">📄 bookmarks.js</span></li>
+                                                    <li><span class="file">📄 notifications.js</span></li>
+                                                    <li><span class="file">📄 notificationsPref.js</span></li>
+                                                    <li><span class="file">📄 achievements.js</span></li>
+                                                    <li><span class="file">📄 doubts.js</span></li>
+                                                    <li><span class="file">📄 discussions.js</span></li>
+                                                    <li><span class="file">📄 studyGroups.js</span></li>
+                                                    <li><span class="file">📄 blog.js</span></li>
+                                                    <li><span class="file">📄 currentAffairs.js</span></li>
+                                                    <li><span class="file">📄 payments.js</span></li>
+                                                    <li><span class="file">📄 phoneAuth.js</span></li>
+                                                    <li><span class="file">📄 referrals.js</span></li>
+                                                    <li><span class="file">📄 subscriptions.js</span></li>
+                                                    <li><span class="file">📄 subscriptions-admin.js</span></li>
+                                                    <li><span class="file">📄 intelligence.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 validators/</span> <span class="comment"># Request validation schemas</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 modules/</span> <span class="comment"># NEW: Modular architecture</span>
+                                        <ul>
+                                            <li><span class="folder">📁 analytics/</span></li>
+                                            <li><span class="folder">📁 attempts/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 attempt.routes.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 auth/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 auth.routes.js</span></li>
+                                                    <li><span class="file">📄 auth.service.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 community/</span></li>
+                                            <li><span class="folder">📁 exams/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 exam.routes.js</span></li>
+                                                    <li><span class="file">📄 examCategory.routes.js</span></li>
+                                                    <li><span class="file">📄 examInfo.routes.js</span></li>
+                                                    <li><span class="file">📄 examYearly.routes.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 questions/</span></li>
+                                            <li><span class="folder">📁 study/</span></li>
+                                            <li><span class="folder">📁 subscriptions/</span></li>
+                                            <li><span class="folder">📁 tests/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 test.routes.js</span></li>
+                                                    <li><span class="file">📄 test.engine.routes.js</span></li>
+                                                    <li><span class="file">📄 test.helpers.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 users/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 user.routes.js</span></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 data/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 database/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 db.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 models/</span> <span class="comment"># Organized by domain</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 CurrentAffair.js</span></li>
+                                                    <li><span class="file">📄 ExamUpdate.js</span></li>
+                                                    <li><span class="file">📄 Leaderboard.js</span></li>
+                                                    <li><span class="file">📄 LiveTest.js</span></li>
+                                                    <li><span class="file">📄 Notification.js</span></li>
+                                                    <li><span class="file">📄 Stage.js</span></li>
+                                                    <li><span class="file">📄 StudyMaterial.js</span></li>
+                                                    <li><span class="file">📄 Video.js</span></li>
+                                                    <li><span class="folder">📁 attempt/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Enrollment.js</span></li>
+                                                            <li><span class="file">📄 Result.js</span></li>
+                                                            <li><span class="file">📄 SectionAttempt.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 exam/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Exam.js</span></li>
+                                                            <li><span class="file">📄 ExamCategory.js</span></li>
+                                                            <li><span class="file">📄 ExamSubCategory.js</span></li>
+                                                            <li><span class="file">📄 ExamYearlyData.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 question/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Passage.js</span></li>
+                                                            <li><span class="file">📄 Question.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 subscription/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Coupon.js</span></li>
+                                                            <li><span class="file">📄 SubscriptionPlan.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 syllabus/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Chapter.js</span></li>
+                                                            <li><span class="file">📄 Subject.js</span></li>
+                                                            <li><span class="file">📄 Topic.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 test/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Test.js</span></li>
+                                                            <li><span class="file">📄 TestCategory.js</span></li>
+                                                            <li><span class="file">📄 TestSeries.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 user/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 User.js</span></li>
+                                                        </ul>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 repositories/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 BaseRepository.js</span></li>
+                                                    <li><span class="file">📄 UserRepository.js</span></li>
+                                                    <li><span class="file">📄 TestRepository.js</span></li>
+                                                    <li><span class="file">📄 TestSeriesRepository.js</span></li>
+                                                    <li><span class="file">📄 TestAttemptRepository.js</span></li>
+                                                    <li><span class="file">📄 QuestionRepository.js</span></li>
+                                                    <li><span class="file">📄 test-engine-repos.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 seeds/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 seedData.js</span></li>
+                                                    <li><span class="file">📄 SeedService.js</span></li>
+                                                    <li><span class="file">📄 comprehensiveSeed.js</span></li>
+                                                    <li><span class="file">📄 hardcodedDataSeed.js</span></li>
+                                                    <li><span class="file">📄 seed-2026-exams.js</span></li>
+                                                    <li><span class="file">📄 seed-comprehensive-test.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 migrations/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 fix-test-series-mapping.js</span></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 infrastructure/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 cache/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 cacheService.js</span></li>
+                                                    <li><span class="file">📄 redisClient.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 database/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 postgres-helpers.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 email/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 emailService.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 events/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 eventBus.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 logger/</span></li>
+                                            <li><span class="folder">📁 queue/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 queueManager.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 storage/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 storageProvider.js</span></li>
+                                                    <li><span class="file">📄 upload.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 websocket/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 websocketManager.js</span></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 middleware/</span>
+                                        <ul>
+                                            <li><span class="file">📄 asyncHandler.js</span></li>
+                                            <li><span class="file">📄 auth.middleware.js</span></li>
+                                            <li><span class="file">📄 csrf.middleware.js</span></li>
+                                            <li><span class="file">📄 error.middleware.js</span></li>
+                                            <li><span class="folder">📁 validation/</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 services/</span>
+                                        <ul>
+                                            <li><span class="file">📄 EmailService.js</span></li>
+                                            <li><span class="file">📄 SmsService.js</span></li>
+                                            <li><span class="file">📄 SubscriptionService.js</span></li>
+                                            <li><span class="folder">📁 core/</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 shared/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 constants/</span></li>
+                                            <li><span class="folder">📁 utils/</span></li>
+                                            <li><span class="folder">📁 validators/</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 worker/</span>
+                                        <ul>
+                                            <li><span class="file">📄 index.js</span></li>
+                                            <li><span class="file">📄 jobHandlers.js</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 utils/</span>
+                                        <ul>
+                                            <li><span class="file">📄 db-config.js</span></li>
+                                            <li><span class="file">📄 queryBuilder.js</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 uploads/</span></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Frontend Section -->
+        <section class="card" id="frontend">
+            <h2>⚛️ Frontend Application</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Location: <code>apps/frontend/</code> - React + Vite Application</p>
+
+            <h3>Frontend Structure</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 apps/frontend/</span>
+                        <ul>
+                            <li><span class="config">📄 package.json</span></li>
+                            <li><span class="config">📄 vite.config.js</span> <span class="comment"># Vite configuration</span></li>
+                            <li><span class="config">📄 tailwind.config.js</span> <span class="comment"># TailwindCSS</span></li>
+                            <li><span class="config">📄 postcss.config.js</span></li>
+                            <li><span class="config">📄 eslint.config.js</span></li>
+                            <li><span class="config">📄 vercel.json</span></li>
+                            <li><span class="file">📄 index.html</span></li>
+                            <li><span class="file">📄 .env.example</span></li>
+                            <li><span class="folder">📁 public/</span>
+                                <ul>
+                                    <li><span class="folder">📁 locales/</span> <span class="comment"># i18n translations</span>
+                                        <ul>
+                                            <li><span class="file">📄 en.json</span></li>
+                                            <li><span class="file">📄 hi.json</span></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 src/</span>
+                                <ul>
+                                    <li><span class="file important">📄 App.jsx</span> <span class="comment"># Main app with routes</span></li>
+                                    <li><span class="file important">📄 main.jsx</span> <span class="comment"># Entry point</span></li>
+                                    <li><span class="folder">📁 app/</span>
+                                        <ul>
+                                            <li><span class="file">📄 config.js</span></li>
+                                            <li><span class="folder">📁 routes/</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 components/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 exams/</span> <span class="comment"># Exam components</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 config/</span>
+                                        <ul>
+                                            <li><span class="file">📄 i18n.js</span></li>
+                                            <li><span class="file">📄 routingUpdates.md</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 features/</span> <span class="comment"># Feature-based modules</span>
+                                        <ul>
+                                            <li><span class="folder">📁 admin/</span> <span class="comment"># 40 admin components</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 AdminDashboard.jsx</span></li>
+                                                    <li><span class="file">📄 AdminAnalytics.jsx</span></li>
+                                                    <li><span class="file">📄 AdminSettings.jsx</span></li>
+                                                    <li><span class="file">📄 ActivityOrderReport.jsx</span></li>
+                                                    <li><span class="file">📄 BackupsManager.jsx</span></li>
+                                                    <li><span class="file">📄 BannerManager.jsx</span></li>
+                                                    <li><span class="file">📄 CategoriesManager.jsx</span></li>
+                                                    <li><span class="file">📄 ContentManagement.jsx</span></li>
+                                                    <li><span class="file">📄 CouponsManager.jsx</span></li>
+                                                    <li><span class="file">📄 CurrentAffairsManager.jsx</span></li>
+                                                    <li><span class="file">📄 EnrollmentsManager.jsx</span></li>
+                                                    <li><span class="file">📄 ExamCategoriesManager.jsx</span></li>
+                                                    <li><span class="file">📄 ExamInfoManager.jsx</span></li>
+                                                    <li><span class="file">📄 FaqManager.jsx</span></li>
+                                                    <li><span class="file">📄 LeaderboardsManager.jsx</span></li>
+                                                    <li><span class="file">📄 LiveTestsManager.jsx</span></li>
+                                                    <li><span class="file">📄 MediaLibrary.jsx</span></li>
+                                                    <li><span class="file">📄 NavigationManager.jsx</span></li>
+                                                    <li><span class="file">📄 NotificationsManager.jsx</span></li>
+                                                    <li><span class="file">📄 PassagesManager.jsx</span></li>
+                                                    <li><span class="file">📄 PracticeQuestionsManager.jsx</span></li>
+                                                    <li><span class="file">📄 PromotionManager.jsx</span></li>
+                                                    <li><span class="file">📄 PYPManager.jsx</span></li>
+                                                    <li><span class="file">📄 QuestionsManager.jsx</span></li>
+                                                    <li><span class="file">📄 QuizManager.jsx</span></li>
+                                                    <li><span class="file">📄 RecycleBin.jsx</span></li>
+                                                    <li><span class="file">📄 ResultsManager.jsx</span></li>
+                                                    <li><span class="file">📄 StagesManager.jsx</span></li>
+                                                    <li><span class="file">📄 StudyMaterialsManager.jsx</span></li>
+                                                    <li><span class="file">📄 SubjectsManager.jsx</span></li>
+                                                    <li><span class="file">📄 SubscriptionPlansManager.jsx</span></li>
+                                                    <li><span class="file">📄 SystemHealthMonitor.jsx</span></li>
+                                                    <li><span class="file">📄 TagConfigsManager.jsx</span></li>
+                                                    <li><span class="file">📄 TestSeriesManager.jsx</span></li>
+                                                    <li><span class="file">📄 TestsManager.jsx</span></li>
+                                                    <li><span class="file">📄 TopicsManager.jsx</span></li>
+                                                    <li><span class="file">📄 UserActivityLog.jsx</span></li>
+                                                    <li><span class="file">📄 UsersManager.jsx</span></li>
+                                                    <li><span class="file">📄 VideosManager.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 auth/</span></li>
+                                            <li><span class="folder">📁 dashboard/</span></li>
+                                            <li><span class="folder">📁 exams/</span></li>
+                                            <li><span class="folder">📁 study-materials/</span></li>
+                                            <li><span class="folder">📁 test-series/</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 pages/</span> <span class="comment"># Page components</span>
+                                        <ul>
+                                            <li><span class="file">📄 index.js</span></li>
+                                            <li><span class="file">📄 COMING_SOON_USAGE.md</span></li>
+                                            <li><span class="folder">📁 auth/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 EmailVerification.jsx</span></li>
+                                                    <li><span class="file">📄 ForgotPassword.jsx</span></li>
+                                                    <li><span class="file">📄 ResetPassword.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 community/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 DoubtForum.jsx</span></li>
+                                                    <li><span class="file">📄 StudyGroups.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 dashboard/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 Dashboard.jsx</span></li>
+                                                    <li><span class="file">📄 Achievements.jsx</span></li>
+                                                    <li><span class="file">📄 Analysis.jsx</span></li>
+                                                    <li><span class="file">📄 AttemptedTests.jsx</span></li>
+                                                    <li><span class="file">📄 Bookmarks.jsx</span></li>
+                                                    <li><span class="file">📄 Notifications.jsx</span></li>
+                                                    <li><span class="file">📄 Profile.jsx</span></li>
+                                                    <li><span class="file">📄 ReferAndEarn.jsx</span></li>
+                                                    <li><span class="file">📄 Settings.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 errors/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 NotFound.jsx</span></li>
+                                                    <li><span class="file">📄 ServerError.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 exams/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 Exams.jsx</span></li>
+                                                    <li><span class="file">📄 ExamsNew.jsx</span></li>
+                                                    <li><span class="file">📄 ExamCategory.jsx</span></li>
+                                                    <li><span class="file">📄 ExamSubCategory.jsx</span></li>
+                                                    <li><span class="file">📄 ExamDetails.jsx</span></li>
+                                                    <li><span class="file">📄 ExamInfoNew.jsx</span></li>
+                                                    <li><span class="file">📄 ExamUpdates.jsx</span></li>
+                                                    <li><span class="file">📄 ExamYear.jsx</span></li>
+                                                    <li><span class="file">📄 ExamCompare.jsx</span></li>
+                                                    <li><span class="file">📄 ComingSoon.jsx</span></li>
+                                                    <li><span class="file">📄 PreviousYearPapers.jsx</span></li>
+                                                    <li><span class="file">📄 PreviousYearPapers.css</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 public/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 Home.jsx</span></li>
+                                                    <li><span class="file">📄 About.jsx</span></li>
+                                                    <li><span class="file">📄 Contact.jsx</span></li>
+                                                    <li><span class="file">📄 Blog.jsx</span></li>
+                                                    <li><span class="file">📄 BlogDetail.jsx</span></li>
+                                                    <li><span class="file">📄 Faq.jsx</span></li>
+                                                    <li><span class="file">📄 Privacy.jsx</span></li>
+                                                    <li><span class="file">📄 Terms.jsx</span></li>
+                                                    <li><span class="file">📄 Refund.jsx</span></li>
+                                                    <li><span class="file">📄 Pass.jsx</span></li>
+                                                    <li><span class="file">📄 ComingSoon.jsx</span></li>
+                                                    <li><span class="file">📄 SearchPage.jsx</span></li>
+                                                    <li><span class="file">📄 TagPage.jsx</span></li>
+                                                    <li><span class="file">📄 CurrentAffairsDetail.jsx</span></li>
+                                                    <li><span class="file">📄 CurrentAffairsDetail.css</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 study/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 StudyMaterial.jsx</span></li>
+                                                    <li><span class="file">📄 StudyMaterialChapter.jsx</span></li>
+                                                    <li><span class="file">📄 StudyMaterialDetail.jsx</span></li>
+                                                    <li><span class="file">📄 CurrentAffairs.jsx</span></li>
+                                                    <li><span class="file">📄 Videos.jsx</span></li>
+                                                    <li><span class="file">📄 ComingSoon.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 tests/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 TestSeries.jsx</span></li>
+                                                    <li><span class="file">📄 TestDetails.jsx</span></li>
+                                                    <li><span class="file">📄 TestInstructions.jsx</span></li>
+                                                    <li><span class="file">📄 TestInterface.jsx</span></li>
+                                                    <li><span class="file">📄 TestInterface.css</span></li>
+                                                    <li><span class="file">📄 TestResult.jsx</span></li>
+                                                    <li><span class="file">📄 TestResults.css</span></li>
+                                                    <li><span class="file">📄 TestReview.jsx</span></li>
+                                                    <li><span class="file">📄 Leaderboard.jsx</span></li>
+                                                    <li><span class="file">📄 SeriesLeaderboard.jsx</span></li>
+                                                    <li><span class="file">📄 LiveTests.jsx</span></li>
+                                                    <li><span class="file">📄 LiveTests.css</span></li>
+                                                    <li><span class="file">📄 LiveTestInterface.jsx</span></li>
+                                                    <li><span class="file">📄 LiveTestResults.jsx</span></li>
+                                                    <li><span class="file">📄 PracticeQuestions.jsx</span></li>
+                                                    <li><span class="file">📄 PreviousYearPapers.jsx</span></li>
+                                                    <li><span class="file">📄 PYPTest.jsx</span></li>
+                                                    <li><span class="file">📄 ComingSoon.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 shared/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 api/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 adminApi.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 components/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 LanguageSwitcher.jsx</span></li>
+                                                    <li><span class="file">📄 LanguageSwitcher.css</span></li>
+                                                    <li><span class="file">📄 ProPass.jsx</span></li>
+                                                    <li><span class="file">📄 ReattemptOptions.jsx</span></li>
+                                                    <li><span class="folder">📁 admin/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 AdminLayout.jsx</span></li>
+                                                            <li><span class="file">📄 AdminPageHeader.jsx</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 auth/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 ProtectedRoute.jsx</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 common/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 AnimatedHero.jsx</span></li>
+                                                            <li><span class="file">📄 Breadcrumb.jsx</span></li>
+                                                            <li><span class="file">📄 ComingSoon.jsx</span></li>
+                                                            <li><span class="file">📄 ContentReader.jsx</span></li>
+                                                            <li><span class="file">📄 ErrorMessage.jsx</span></li>
+                                                            <li><span class="file">📄 HorizontalScroll.jsx</span></li>
+                                                            <li><span class="file">📄 LoadingSkeleton.jsx</span></li>
+                                                            <li><span class="file">📄 LoadingSpinner.jsx</span></li>
+                                                            <li><span class="file">📄 PDFViewer.jsx</span></li>
+                                                            <li><span class="file">📄 SuccessMessage.jsx</span></li>
+                                                            <li><span class="file">📄 VideoPlayer.jsx</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 layout/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 Layout.jsx</span></li>
+                                                            <li><span class="file">📄 Navbar.jsx</span></li>
+                                                            <li><span class="file">📄 Sidebar.jsx</span></li>
+                                                            <li><span class="file">📄 LeftSidebar.jsx</span></li>
+                                                            <li><span class="file">📄 BottomNav.jsx</span></li>
+                                                        </ul>
+                                                    </li>
+                                                    <li><span class="folder">📁 test/</span>
+                                                        <ul>
+                                                            <li><span class="file">📄 TestCard.jsx</span></li>
+                                                            <li><span class="file">📄 TestSeriesCard.jsx</span></li>
+                                                        </ul>
+                                                    </li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 config/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 adminNavConfig.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 context/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 ThemeContext.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 hooks/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                    <li><span class="file">📄 useDraggableScroll.js</span></li>
+                                                    <li><span class="file">📄 useExamCategories.js</span></li>
+                                                    <li><span class="file">📄 useProPass.js</span></li>
+                                                    <li><span class="file">📄 useStages.js</span></li>
+                                                    <li><span class="file">📄 useTestCategories.js</span></li>
+                                                    <li><span class="file">📄 useWebSocket.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 lib/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 api.js</span></li>
+                                                    <li><span class="file">📄 apiBase.js</span></li>
+                                                    <li><span class="file">📄 dataService.js</span></li>
+                                                    <li><span class="file">📄 sanitizeHtml.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 providers/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 AuthContext.jsx</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 types/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 index.js</span></li>
+                                                </ul>
+                                            </li>
+                                            <li><span class="folder">📁 utils/</span>
+                                                <ul>
+                                                    <li><span class="file">📄 pass-helpers.js</span></li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 styles/</span>
+                                        <ul>
+                                            <li><span class="file">📄 index.css</span></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Admin Panel Section -->
+        <section class="card" id="admin-panel">
+            <h2>🔧 Admin Panel Application</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Location: <code>apps/admin-panel/</code> - React + Vite Application (Admin-only, Port 3002)</p>
+
+            <h3>Admin Panel Structure</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 apps/admin-panel/</span>
+                        <ul>
+                            <li><span class="config">📄 package.json</span> <span class="comment"># Dependencies</span></li>
+                            <li><span class="config">📄 vite.config.js</span> <span class="comment"># Vite configuration</span></li>
+                            <li><span class="config">📄 tailwind.config.js</span> <span class="comment"># TailwindCSS</span></li>
+                            <li><span class="config">📄 postcss.config.js</span></li>
+                            <li><span class="config">📄 vercel.json</span></li>
+                            <li><span class="file">📄 index.html</span></li>
+                            <li><span class="file">📄 .env.example</span></li>
+                            <li><span class="folder">📁 src/</span>
+                                <ul>
+                                    <li><span class="file important">📄 App.jsx</span> <span class="comment"># Main app with admin routes</span></li>
+                                    <li><span class="file important">📄 main.jsx</span> <span class="comment"># Entry point</span></li>
+                                    <li><span class="folder">📁 features/admin/</span> <span class="comment"># 43 admin components</span>
+                                        <ul>
+                                            <li><span class="file">📄 index.js</span> <span class="comment"># Admin exports</span></li>
+                                            <li><span class="file">📄 AdminDashboard.jsx</span> <span class="comment"># Main admin dashboard</span></li>
+                                            <li><span class="file">📄 AdminAnalytics.jsx</span> <span class="comment"># Analytics dashboard</span></li>
+                                            <li><span class="file">📄 AdminSettings.jsx</span> <span class="comment"># System settings</span></li>
+                                            <li><span class="file">📄 UsersManager.jsx</span> <span class="comment"># User management</span></li>
+                                            <li><span class="file">📄 TestsManager.jsx</span> <span class="comment"># Test management</span></li>
+                                            <li><span class="file">📄 TestSeriesManager.jsx</span> <span class="comment"># Test series management</span></li>
+                                            <li><span class="file">📄 QuestionsManager.jsx</span> <span class="comment"># Question management</span></li>
+                                            <li><span class="file">📄 StudyMaterialsManager.jsx</span> <span class="comment"># Study materials</span></li>
+                                            <li><span class="file">📄 VideosManager.jsx</span> <span class="comment"># Video management</span></li>
+                                            <li><span class="file">📄 CategoriesManager.jsx</span> <span class="comment"># Category management</span></li>
+                                            <li><span class="file">📄 SubjectsManager.jsx</span> <span class="comment"># Subject management</span></li>
+                                            <li><span class="file">📄 TopicsManager.jsx</span> <span class="comment"># Topic management</span></li>
+                                            <li><span class="file">📄 ExamCategoriesManager.jsx</span></li>
+                                            <li><span class="file">📄 ExamInfoManager.jsx</span></li>
+                                            <li><span class="file">📄 FaqManager.jsx</span></li>
+                                            <li><span class="file">📄 BannerManager.jsx</span></li>
+                                            <li><span class="file">📄 ContentManagement.jsx</span></li>
+                                            <li><span class="file">📄 EnrollmentsManager.jsx</span></li>
+                                            <li><span class="file">📄 LiveTestsManager.jsx</span></li>
+                                            <li><span class="file">📄 MediaLibrary.jsx</span></li>
+                                            <li><span class="file">📄 NavigationManager.jsx</span></li>
+                                            <li><span class="file">📄 NotificationsManager.jsx</span></li>
+                                            <li><span class="file">📄 PracticeQuestionsManager.jsx</span></li>
+                                            <li><span class="file">📄 PromotionManager.jsx</span></li>
+                                            <li><span class="file">📄 PYPManager.jsx</span> <span class="comment"># Previous year papers</span></li>
+                                            <li><span class="file">📄 QuizTab.jsx</span></li>
+                                            <li><span class="file">📄 RecycleBin.jsx</span> <span class="comment"># Soft delete recovery</span></li>
+                                            <li><span class="file">📄 ResultsManager.jsx</span></li>
+                                            <li><span class="file">📄 StagesManager.jsx</span></li>
+                                            <li><span class="file">📄 SubscriptionPlansManager.jsx</span></li>
+                                            <li><span class="file">📄 SystemHealthMonitor.jsx</span></li>
+                                            <li><span class="file">📄 TagConfigsManager.jsx</span></li>
+                                            <li><span class="file">📄 TestsTab.jsx</span></li>
+                                            <li><span class="file">📄 UserActivityLog.jsx</span></li>
+                                            <li><span class="file">📄 ActivityOrderReport.jsx</span></li>
+                                            <li><span class="file">📄 BackupsManager.jsx</span></li>
+                                            <li><span class="file">📄 ComingSoonManager.jsx</span></li>
+                                            <li><span class="file">📄 CouponsManager.jsx</span></li>
+                                            <li><span class="file">📄 CurrentAffairsManager.jsx</span></li>
+                                            <li><span class="file">📄 CurriculumBuilder.jsx</span></li>
+                                            <li><span class="file">📄 LeaderboardResultsUnified.jsx</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 shared/</span>
+                                        <ul>
+                                            <li><span class="folder">📁 components/</span> <span class="comment"># Shared admin components</span></li>
+                                            <li><span class="folder">📁 api/</span> <span class="comment"># Admin API client</span></li>
+                                        </ul>
+                                    </li>
+                                    <li><span class="folder">📁 styles/</span></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Scripts Section -->
+        <section class="card" id="scripts">
+            <h2>📜 Dev-Tools Scripts</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>add-pass-type.js</code></td>
+                        <td>Add pass type to tests</td>
+                    </tr>
+                    <tr>
+                        <td><code>alter_banners.js</code></td>
+                        <td>Modify banner schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>check_schema.js</code></td>
+                        <td>Validate database schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>check_tables.js</code></td>
+                        <td>Check table structures</td>
+                    </tr>
+                    <tr>
+                        <td><code>create-leaderboard.js</code></td>
+                        <td>Create leaderboard entries</td>
+                    </tr>
+                    <tr>
+                        <td><code>verify-indexes.js</code></td>
+                        <td>Verify database indexes</td>
+                    </tr>
+                    <tr>
+                        <td><code>migrate-admin-panel.sh/.bat</code></td>
+                        <td>Admin panel migration scripts</td>
+                    </tr>
+                    <tr>
+                        <td><code>analyze-unlinked.mjs</code></td>
+                        <td>Analyze unlinked entities</td>
+                    </tr>
+                    <tr>
+                        <td><code>find-broken-chains.mjs</code></td>
+                        <td>Find broken data chains</td>
+                    </tr>
+                    <tr>
+                        <td><code>export-database.mjs</code></td>
+                        <td>Export full database to SQL/JSON</td>
+                    </tr>
+                    <tr>
+                        <td><code>seed-quant-subjects.mjs</code></td>
+                        <td>Seed quantitative subjects</td>
+                    </tr>
+                    <tr>
+                        <td><code>seed-subjects-chapters-topics.mjs</code></td>
+                        <td>Seed subjects, chapters, and topics</td>
+                    </tr>
+                    <tr>
+                        <td><code>migrate-subject-groups.mjs</code></td>
+                        <td>Migrate subject groups</td>
+                    </tr>
+                    <tr>
+                        <td><code>fix-broken-subjects.mjs</code></td>
+                        <td>Repair broken subject links</td>
+                    </tr>
+                    <tr>
+                        <td><code>fix-stages-exams.mjs</code></td>
+                        <td>Fix stage-to-exam mappings</td>
+                    </tr>
+                    <tr>
+                        <td><code>fix-subscriptions.mjs</code></td>
+                        <td>Repair subscription records</td>
+                    </tr>
+                    <tr>
+                        <td><code>create-subscription-system.mjs</code></td>
+                        <td>Bootstrap subscription plans</td>
+                    </tr>
+                    <tr>
+                        <td><code>link-all-tables.mjs</code></td>
+                        <td>Re-link all relational tables</td>
+                    </tr>
+                    <tr>
+                        <td><code>mark-reattempts.mjs</code></td>
+                        <td>Mark tests eligible for re-attempt</td>
+                    </tr>
+                    <tr>
+                        <td><code>update-test-series-schema.js</code></td>
+                        <td>Update test series DB schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>test-attempts.mjs</code></td>
+                        <td>Debug / validate test attempts</td>
+                    </tr>
+                    <tr>
+                        <td><code>get-broken-subjects.mjs</code></td>
+                        <td>Get list of broken subjects</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Documentation Section -->
+        <section class="card" id="docs">
+            <h2>📄 Documentation</h2>
+            <p style="margin-bottom: 20px; opacity: 0.9;">Location: <code>docs/</code></p>
+
+            <h3>Main Documentation Files</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>API_DOCUMENTATION.html</code></td>
+                        <td>API endpoints documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>DATABASE_SCHEMA.html</code></td>
+                        <td>Database schema documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>PROJECT_STRUCTURE.html</code></td>
+                        <td>This structure documentation</td>
+                    </tr>
+                    <tr>
+                        <td><code>PROJECT_STRUCTURE.md</code></td>
+                        <td>Markdown version of structure</td>
+                    </tr>
+                    <tr>
+                        <td><code>ADMIN_PANEL_CATEGORIZATION_ANALYSIS.html</code></td>
+                        <td>Admin panel categorization analysis</td>
+                    </tr>
+                    <tr>
+                        <td><code>CARD_ORDERING_BEHAVIOR_REPORT.html</code></td>
+                        <td>Card ordering system docs</td>
+                    </tr>
+                    <tr>
+                        <td><code>TECHNICAL_ANALYSIS_REPORT.html</code></td>
+                        <td>Technical analysis</td>
+                    </tr>
+                    <tr>
+                        <td><code>FEATURE_RECOMMENDATIONS.html</code></td>
+                        <td>Feature recommendations</td>
+                    </tr>
+                    <tr>
+                        <td><code>platform_hierarchy_docs.md</code></td>
+                        <td>Platform hierarchy documentation</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>RepoWiki Documentation</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 repowiki/</span>
+                        <ul>
+                            <li><span class="file">📄 Project Overview.md</span></li>
+                            <li><span class="file">📄 Getting Started.md</span></li>
+                            <li><span class="file">📄 Development Guidelines.md</span></li>
+                            <li><span class="file">📄 Deployment & DevOps.md</span></li>
+                            <li><span class="file">📄 Testing & Quality Assurance.md</span></li>
+                            <li><span class="file">📄 Troubleshooting & FAQ.md</span></li>
+                            <li><span class="folder">📁 Admin Panel/</span>
+                                <ul>
+                                    <li><span class="file">📄 Admin Panel.md</span></li>
+                                    <li><span class="file">📄 Admin Dashboard Overview.md</span></li>
+                                    <li><span class="file">📄 Admin Navigation & Layout.md</span></li>
+                                    <li><span class="file">📄 Media Library.md</span></li>
+                                    <li><span class="file">📄 User Administration.md</span></li>
+                                    <li><span class="folder">📁 Content Management/</span></li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 API Documentation/</span>
+                                <ul>
+                                    <li><span class="file">📄 API Documentation.md</span></li>
+                                    <li><span class="file">📄 Admin API.md</span></li>
+                                    <li><span class="file">📄 Authentication API.md</span></li>
+                                    <li><span class="file">📄 Test Administration API.md</span></li>
+                                    <li><span class="file">📄 Test Series API.md</span></li>
+                                    <li><span class="file">📄 User Management API.md</span></li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 Architecture Overview/</span>
+                                <ul>
+                                    <li><span class="file">📄 Architecture Overview.md</span></li>
+                                    <li><span class="file">📄 Backend Architecture.md</span></li>
+                                    <li><span class="file">📄 Frontend Architecture.md</span></li>
+                                    <li><span class="file">📄 System Design.md</span></li>
+                                    <li><span class="file">📄 Data Flow Architecture.md</span></li>
+                                    <li><span class="file">📄 Design Patterns.md</span></li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 Core Features/</span>
+                                <ul>
+                                    <li><span class="file">📄 Core Features.md</span></li>
+                                    <li><span class="file">📄 User Management.md</span></li>
+                                    <li><span class="file">📄 Result Analysis & Performance Tracking.md</span></li>
+                                    <li><span class="file">📄 Study Materials & Content Management.md</span></li>
+                                    <li><span class="folder">📁 Admin Panel & Content Administration/</span></li>
+                                    <li><span class="folder">📁 Test Preparation System/</span></li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 Database Design/</span>
+                                <ul>
+                                    <li><span class="file">📄 Database Design.md</span></li>
+                                    <li><span class="file">📄 Database Abstraction Layer.md</span></li>
+                                    <li><span class="file">📄 Data Seeding and Migration.md</span></li>
+                                    <li><span class="file">📄 User Model.md</span></li>
+                                    <li><span class="file">📄 Test Model.md</span></li>
+                                    <li><span class="file">📄 TestSeries Model.md</span></li>
+                                    <li><span class="file">📄 Question Model.md</span></li>
+                                </ul>
+                            </li>
+                            <li><span class="folder">📁 Frontend Components/</span>
+                                <ul>
+                                    <li><span class="file">📄 Frontend Components.md</span></li>
+                                    <li><span class="file">📄 Common UI Components.md</span></li>
+                                    <li><span class="file">📄 Layout Components.md</span></li>
+                                    <li><span class="file">📄 Test-Related Components.md</span></li>
+                                    <li><span class="file">📄 Specialized Functional Components.md</span></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+
+            <h3>Flow Documentation</h3>
+            <div class="file-tree">
+                <ul>
+                    <li><span class="folder">📁 flows/</span>
+                        <ul>
+                            <li><span class="file">📄 FLOW_ADMIN.html</span></li>
+                            <li><span class="file">📄 FLOW_ADMIN_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 FLOW_AUTH_PUBLIC_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 FLOW_PUBLIC_AUTH.html</span></li>
+                            <li><span class="file">📄 FLOW_DASHBOARD.html</span></li>
+                            <li><span class="file">📄 FLOW_DASHBOARD_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 FLOW_EXAMS.html</span></li>
+                            <li><span class="file">📄 FLOW_EXAMS_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 FLOW_TESTS.html</span></li>
+                            <li><span class="file">📄 FLOW_TESTS_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 FLOW_STUDY_MATERIALS.html</span></li>
+                            <li><span class="file">📄 FLOW_STUDY_MATERIALS_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 EXAM_FLOW_DIAGRAM.html</span></li>
+                            <li><span class="file">📄 STUDY_MATERIALS_FLOWCHART.html</span></li>
+                            <li><span class="file">📄 USER_JOURNEY_COMPREHENSIVE.html</span></li>
+                            <li><span class="file">📄 ENTITY_RELATIONSHIP_FLOWMAP.html</span></li>
+                            <li><span class="file">📄 WORKFLOW_ARCHITECTURE_VISUALIZATION.html</span></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Tech Stack Section -->
+        <section class="card" id="tech">
+            <h2>🛠️ Technology Stack</h2>
+            <div class="tech-grid">
+                <div class="tech-card">
+                    <div class="tech-header frontend">⚛️ Frontend</div>
+                    <div class="tech-body">
+                        <ul class="tech-list">
+                            <li><strong>React 18</strong> <span>UI framework</span></li>
+                            <li><strong>Vite</strong> <span>Build tool</span></li>
+                            <li><strong>TailwindCSS</strong> <span>Styling</span></li>
+                            <li><strong>React Router v6</strong> <span>Routing</span></li>
+                            <li><strong>TanStack Query</strong> <span>Server state</span></li>
+                            <li><strong>Axios</strong> <span>HTTP client</span></li>
+                            <li><strong>Lucide React</strong> <span>Icons</span></li>
+                            <li><strong>i18next</strong> <span>Internationalization</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-header backend">🟢 Backend</div>
+                    <div class="tech-body">
+                        <ul class="tech-list">
+                            <li><strong>Node.js 18+</strong> <span>Runtime</span></li>
+                            <li><strong>Express.js</strong> <span>Web framework</span></li>
+                            <li><strong>PostgreSQL</strong> <span>Database (Supabase)</span></li>
+                            <li><strong>MongoDB</strong> <span>Document storage</span></li>
+                            <li><strong>JWT</strong> <span>Authentication</span></li>
+                            <li><strong>Redis</strong> <span>Caching layer</span></li>
+                            <li><strong>BullMQ</strong> <span>Job queues</span></li>
+                            <li><strong>WebSockets</strong> <span>Real-time events</span></li>
+                            <li><strong>Multer</strong> <span>File uploads</span></li>
+                            <li><strong>bcryptjs</strong> <span>Password hashing</span></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="tech-card">
+                    <div class="tech-header tooling">🔧 Tooling</div>
+                    <div class="tech-body">
+                        <ul class="tech-list">
+                            <li><strong>npm Workspaces</strong> <span>Monorepo</span></li>
+                            <li><strong>Turborepo</strong> <span>Build system</span></li>
+                            <li><strong>ESLint</strong> <span>Linting</span></li>
+                            <li><strong>Prettier</strong> <span>Formatting</span></li>
+                            <li><strong>Git</strong> <span>Version control</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Key Files Summary -->
+        <section class="card">
+            <h2>🔑 Key Files Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>apps/backend/src/app-port5001.js</code></td>
+                        <td>Main backend server (Express)</td>
+                    </tr>
+                    <tr>
+                        <td><code>apps/frontend/src/App.jsx</code></td>
+                        <td>Frontend routing & layout</td>
+                    </tr>
+                    <tr>
+                        <td><code>apps/frontend/src/main.jsx</code></td>
+                        <td>React entry point</td>
+                    </tr>
+                    <tr>
+                        <td><code>turbo.json</code></td>
+                        <td>Monorepo build config</td>
+                    </tr>
+                    <tr>
+                        <td><code>apps/backend/package.json</code></td>
+                        <td>Backend dependencies</td>
+                    </tr>
+                    <tr>
+                        <td><code>apps/frontend/package.json</code></td>
+                        <td>Frontend dependencies</td>
+                    </tr>
+                    <tr>
+                        <td><code>.gitignore</code></td>
+                        <td>Git exclusions</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- API Routes Summary -->
+        <section class="card">
+            <h2>📡 API Routes Summary</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Route File</th>
+                        <th>Endpoints</th>
+                        <th>Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>admin.js</td>
+                        <td>/api/admin/*</td>
+                        <td>Admin CRUD operations</td>
+                    </tr>
+                    <tr>
+                        <td>series.js</td>
+                        <td>/api/series/*</td>
+                        <td>Test series</td>
+                    </tr>
+                    <tr>
+                        <td>study.js</td>
+                        <td>/api/study/*</td>
+                        <td>Study materials</td>
+                    </tr>
+                    <tr>
+                        <td>stages.js</td>
+                        <td>/api/stages/*</td>
+                        <td>Exam stages</td>
+                    </tr>
+                    <tr>
+                        <td>questions.js</td>
+                        <td>/api/questions/*</td>
+                        <td>Question bank</td>
+                    </tr>
+                    <tr>
+                        <td>practice.js</td>
+                        <td>/api/practice/*</td>
+                        <td>Practice questions</td>
+                    </tr>
+                    <tr>
+                        <td>bookmarks.js</td>
+                        <td>/api/bookmarks/*</td>
+                        <td>User bookmarks</td>
+                    </tr>
+                    <tr>
+                        <td>notifications.js</td>
+                        <td>/api/notifications/*</td>
+                        <td>Notifications</td>
+                    </tr>
+                    <tr>
+                        <td>achievements.js</td>
+                        <td>/api/achievements/*</td>
+                        <td>Achievements</td>
+                    </tr>
+                    <tr>
+                        <td>payments.js</td>
+                        <td>/api/payments/*</td>
+                        <td>Payment processing</td>
+                    </tr>
+                    <tr>
+                        <td>liveTests.js</td>
+                        <td>/api/live-tests/*</td>
+                        <td>Live tests</td>
+                    </tr>
+                    <tr>
+                        <td>pyp.js</td>
+                        <td>/api/pyp/*</td>
+                        <td>Previous Year Papers</td>
+                    </tr>
+                    <tr>
+                        <td>promotions.js</td>
+                        <td>/api/promotions/*</td>
+                        <td>Promotions & banners</td>
+                    </tr>
+                    <tr>
+                        <td>subscriptions.js</td>
+                        <td>/api/subscriptions/*</td>
+                        <td>Subscriptions</td>
+                    </tr>
+                    <tr>
+                        <td>blog.js</td>
+                        <td>/api/blog/*</td>
+                        <td>Blog posts</td>
+                    </tr>
+                    <tr>
+                        <td>currentAffairs.js</td>
+                        <td>/api/current-affairs/*</td>
+                        <td>Current affairs</td>
+                    </tr>
+                    <tr>
+                        <td>discussions.js</td>
+                        <td>/api/discussions/*</td>
+                        <td>Discussions</td>
+                    </tr>
+                    <tr>
+                        <td>doubts.js</td>
+                        <td>/api/doubts/*</td>
+                        <td>Doubt forum</td>
+                    </tr>
+                    <tr>
+                        <td>studyGroups.js</td>
+                        <td>/api/study-groups/*</td>
+                        <td>Study groups</td>
+                    </tr>
+                    <tr>
+                        <td>referrals.js</td>
+                        <td>/api/referrals/*</td>
+                        <td>Referral system</td>
+                    </tr>
+                    <tr>
+                        <td>phoneAuth.js</td>
+                        <td>/api/phone-auth/*</td>
+                        <td>Phone authentication</td>
+                    </tr>
+                    <tr>
+                        <td>intelligence.js</td>
+                        <td>/api/intelligence/*</td>
+                        <td>AI intelligence</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Database Schema Section -->
+        <section class="card" id="database">
+            <h2>🗄️ Database Schema</h2>
+            <div class="info-box info">
+                <span style="font-size:1.5rem">ℹ️</span>
+                <div>
+                    <strong>Dual Database Architecture</strong>
+                    <p>The application uses a dual approach: <strong>MongoDB with Mongoose</strong> for complex
+                        documents and <strong>PostgreSQL via Supabase</strong> with a helper layer providing
+                        MongoDB-like API. All tables support soft delete via <code>is_active</code> flag and have
+                        <code>created_at</code>/<code>updated_at</code> timestamps.
+                    </p>
+                </div>
+            </div>
+
+            <h3>📊 Database Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="number">24</div>
+                    <div class="label">Data Models</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">16</div>
+                    <div class="label">MongoDB Models</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">8</div>
+                    <div class="label">PostgreSQL Models</div>
+                </div>
+                <div class="stat-card">
+                    <div class="number">7</div>
+                    <div class="label">Repositories</div>
+                </div>
+            </div>
+
+            <!-- Database Tables Overview -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>🗃️ Database Models by Domain</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Domain</th>
+                                    <th>Models</th>
+                                    <th>Storage</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>User</strong></td>
+                                    <td>User</td>
+                                    <td>PostgreSQL</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Exam</strong></td>
+                                    <td>Exam, ExamCategory, ExamSubCategory, ExamYearlyData, ExamUpdate, Stage</td>
+                                    <td>PostgreSQL</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Test</strong></td>
+                                    <td>Test, TestCategory, TestSeries, LiveTest, Leaderboard</td>
+                                    <td>MongoDB</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Question</strong></td>
+                                    <td>Question, Passage</td>
+                                    <td>MongoDB</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Attempt</strong></td>
+                                    <td>Result, SectionAttempt, Enrollment</td>
+                                    <td>MongoDB</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Syllabus</strong></td>
+                                    <td>Subject, Chapter, Topic</td>
+                                    <td>MongoDB/PostgreSQL</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Subscription</strong></td>
+                                    <td>SubscriptionPlan, Coupon</td>
+                                    <td>MongoDB</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Content</strong></td>
+                                    <td>StudyMaterial, Video, CurrentAffair, Notification</td>
+                                    <td>MongoDB/PostgreSQL</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User & Authentication Tables -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>👥 User & Authentication Tables</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Model File</th>
+                                    <th>Storage</th>
+                                    <th>Key Fields</th>
+                                    <th>Relationships</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>users</code></td>
+                                    <td>user/User.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>id, name, email, password, role, is_pro_user, referral_code</td>
+                                    <td>→ results, enrollments, notifications, bookmarks</td>
+                                </tr>
+                                <tr>
+                                    <td><code>notifications</code></td>
+                                    <td>Notification.js</td>
+                                    <td>MongoDB</td>
+                                    <td>userId, type, title, message, isRead, priority, actionUrl</td>
+                                    <td>users → (FK: userId)</td>
+                                </tr>
+                                <tr>
+                                    <td><code>enrollments</code></td>
+                                    <td>attempt/Enrollment.js</td>
+                                    <td>MongoDB</td>
+                                    <td>userId, seriesId, status, progress, completedTests[], paymentId</td>
+                                    <td>users →, test_series →</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test System Tables -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>📝 Test System Tables</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Model File</th>
+                                    <th>Storage</th>
+                                    <th>Key Fields</th>
+                                    <th>Relationships</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>test_series</code></td>
+                                    <td>test/TestSeries.js</td>
+                                    <td>MongoDB</td>
+                                    <td>slug, title, category, totalTests, price, isPro, difficulty, rating</td>
+                                    <td>→ tests, enrollments</td>
+                                </tr>
+                                <tr>
+                                    <td><code>tests</code></td>
+                                    <td>test/Test.js</td>
+                                    <td>MongoDB</td>
+                                    <td>seriesId, title, examType, tier, category, questions, duration, marks, isLive</td>
+                                    <td>test_series →, → questions, results</td>
+                                </tr>
+                                <tr>
+                                    <td><code>test_categories</code></td>
+                                    <td>test/TestCategory.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>parentId, name, level, examCategoryId, stageId</td>
+                                    <td>Self-referential, exam_categories →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>questions</code></td>
+                                    <td>question/Question.js</td>
+                                    <td>MongoDB</td>
+                                    <td>testId, text{en,hi}, options, correctOption, section, difficulty, passageId</td>
+                                    <td>tests →, passages →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>passages</code></td>
+                                    <td>question/Passage.js</td>
+                                    <td>MongoDB</td>
+                                    <td>title, content, questions[]</td>
+                                    <td>→ questions</td>
+                                </tr>
+                                <tr>
+                                    <td><code>section_attempts</code></td>
+                                    <td>attempt/SectionAttempt.js</td>
+                                    <td>MongoDB</td>
+                                    <td>attemptId, sectionName, totalQuestions, attempted, correct, wrong, marks</td>
+                                    <td>test_attempts →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>results</code></td>
+                                    <td>attempt/Result.js</td>
+                                    <td>MongoDB</td>
+                                    <td>userId, testId, seriesId, score, correctCount, rank, percentile, answers[]</td>
+                                    <td>users →, tests →, test_series →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>leaderboards</code></td>
+                                    <td>Leaderboard.js</td>
+                                    <td>MongoDB</td>
+                                    <td>testId, rankings[{userId,rank,score}], totalParticipants, isPublished</td>
+                                    <td>tests →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>live_tests</code></td>
+                                    <td>LiveTest.js</td>
+                                    <td>MongoDB</td>
+                                    <td>testId, scheduledAt, duration, registeredUsers[], prizes[], isCompleted</td>
+                                    <td>tests →, users →</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Exam Information Tables -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>🏛️ Exam Information Tables</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Model File</th>
+                                    <th>Storage</th>
+                                    <th>Key Fields</th>
+                                    <th>Relationships</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>exam_categories</code></td>
+                                    <td>exam/ExamCategory.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>category_id, label, slug, icon, description</td>
+                                    <td>→ exam_sub_categories, exams</td>
+                                </tr>
+                                <tr>
+                                    <td><code>exam_sub_categories</code></td>
+                                    <td>exam/ExamSubCategory.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>parent_category_id, name, slug</td>
+                                    <td>exam_categories →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>exams</code></td>
+                                    <td>exam/Exam.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>category_id, title, full_name, short_name, slug</td>
+                                    <td>exam_categories →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>exam_yearly_data</code></td>
+                                    <td>exam/ExamYearlyData.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>exam_id, year, vacancies, exam_date_start, exam_date_end</td>
+                                    <td>exams →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>exam_updates</code></td>
+                                    <td>ExamUpdate.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>exam_id, title, content, update_type, date</td>
+                                    <td>exams →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>stages</code></td>
+                                    <td>Stage.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>exam_id, name, order, description</td>
+                                    <td>exams →</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Study Materials Tables -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>📚 Study Materials Tables</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Model File</th>
+                                    <th>Storage</th>
+                                    <th>Key Fields</th>
+                                    <th>Relationships</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>subjects</code></td>
+                                    <td>syllabus/Subject.js</td>
+                                    <td>MongoDB</td>
+                                    <td>name, slug, icon, color, description, sortOrder</td>
+                                    <td>→ chapters, topics</td>
+                                </tr>
+                                <tr>
+                                    <td><code>chapters</code></td>
+                                    <td>syllabus/Chapter.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>subject_id, title, order, video_count, pdf_count</td>
+                                    <td>subjects →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>topics</code></td>
+                                    <td>syllabus/Topic.js</td>
+                                    <td>MongoDB</td>
+                                    <td>name, slug, subject, parentTopic, difficulty, importance</td>
+                                    <td>subjects →, self-referential</td>
+                                </tr>
+                                <tr>
+                                    <td><code>study_materials</code></td>
+                                    <td>StudyMaterial.js</td>
+                                    <td>PostgreSQL</td>
+                                    <td>title, slug, subject_id, content, type</td>
+                                    <td>subjects →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>videos</code></td>
+                                    <td>Video.js</td>
+                                    <td>MongoDB</td>
+                                    <td>title, subject, duration, videoUrl, thumbnail, isFree, views</td>
+                                    <td>subjects →</td>
+                                </tr>
+                                <tr>
+                                    <td><code>current_affairs</code></td>
+                                    <td>CurrentAffair.js</td>
+                                    <td>MongoDB</td>
+                                    <td>title, content, category, date, source, image, tags, isImportant</td>
+                                    <td>Standalone</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Commerce & Subscriptions Tables -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>💰 Commerce & Subscriptions Tables</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Table</th>
+                                    <th>Model File</th>
+                                    <th>Storage</th>
+                                    <th>Key Fields</th>
+                                    <th>Relationships</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>subscription_plans</code></td>
+                                    <td>subscription/SubscriptionPlan.js</td>
+                                    <td>MongoDB</td>
+                                    <td>id, name, price, originalPrice, period, features[], popular</td>
+                                    <td>Standalone</td>
+                                </tr>
+                                <tr>
+                                    <td><code>coupons</code></td>
+                                    <td>subscription/Coupon.js</td>
+                                    <td>MongoDB</td>
+                                    <td>code, discountType, discountValue, maxDiscount, validFrom, validUntil, usageLimit</td>
+                                    <td>→ payments</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Storage Distribution -->
+            <div class="collapsible-section">
+                <div class="collapsible-header">
+                    <span>🔄 Model Storage Distribution</span>
+                    <span class="toggle-icon">▼</span>
+                </div>
+                <div class="collapsible-content">
+                    <div class="collapsible-content-inner">
+                        <div class="grid" style="margin-top: 15px;">
+                            <div class="info-box info" style="margin: 0;">
+                                <span style="font-size:1.2rem">🍃</span>
+                                <div>
+                                    <strong>MongoDB Models (16)</strong>
+                                    <p style="font-size: 0.85rem; margin-top: 5px;">TestSeries, Test, TestCategory, Question, Passage, Result, SectionAttempt, Enrollment, Notification, Leaderboard, LiveTest, Coupon, SubscriptionPlan, Subject, Topic, Video, CurrentAffair</p>
+                                </div>
+                            </div>
+                            <div class="info-box success" style="margin: 0;">
+                                <span style="font-size:1.2rem">🐘</span>
+                                <div>
+                                    <strong>PostgreSQL Models (8)</strong>
+                                    <p style="font-size: 0.85rem; margin-top: 5px;">User, Exam, ExamCategory, ExamSubCategory, ExamYearlyData, ExamUpdate, Stage, Chapter, StudyMaterial</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Development Files Section -->
+        <section class="card" id="dev">
+            <h2>🔧 Development Tools (dev-tools/)</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Script</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>add-pass-type.js</code></td>
+                        <td>Add pass type to tests</td>
+                    </tr>
+                    <tr>
+                        <td><code>alter_banners.js</code></td>
+                        <td>Modify banner schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>check_schema.js</code></td>
+                        <td>Validate database schema</td>
+                    </tr>
+                    <tr>
+                        <td><code>check_tables.js</code></td>
+                        <td>Check table structures</td>
+                    </tr>
+                    <tr>
+                        <td><code>create-leaderboard.js</code></td>
+                        <td>Create leaderboard entries</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Recommendations Section -->
+        <section class="card">
+            <h2>⚠️ Untracked/Unnecessary Files</h2>
+            <div class="info-box warning">
+                <span style="font-size:1.5rem">⚠️</span>
+                <div>
+                    <strong>Recommendations</strong>
+                    <ul style="margin-top: 10px; padding-left: 20px;">
+                        <li><code>turbo_dry.json</code> - Delete or add to <code>.gitignore</code></li>
+                        <li><code>answers.json</code> - Check if needed or add to <code>.gitignore</code></li>
+                        <li><code>exams-page.tsx</code> - Move to appropriate location</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Architecture Recommendations Section -->
+        <section class="card" id="scaling">
+            <h2>🏗️ Architecture Recommendations for Scaling (50k-500k Users)</h2>
+
+            <div class="info-box warning">
+                <span style="font-size:1.5rem">⚠️</span>
+                <div>
+                    <strong>Storage Risk Warning</strong>
+                    <p><strong>MongoDB + PostgreSQL dual storage</strong> creates maintenance overhead. Consider pure
+                        PostgreSQL for structured data or PostgreSQL + Redis for caching only.</p>
+                </div>
+            </div>
+
+            <h3>1. Modular Architecture (Implemented)</h3>
+            <pre>backend/src/modules/
+├── analytics/
+├── attempts/ (attempt.routes.js)
+├── auth/ (auth.routes.js, auth.service.js)
+├── community/
+├── exams/ (exam.routes.js, examCategory.routes.js, examInfo.routes.js, examYearly.routes.js)
+├── questions/
+├── study/
+├── subscriptions/
+├── tests/ (test.routes.js, test.engine.routes.js, test.helpers.js)
+└── users/ (user.routes.js)</pre>
+
+            <h3>2. Domain-Based Model Organization (Implemented)</h3>
+            <pre>backend/src/data/models/
+├── attempt/ (Enrollment, Result, SectionAttempt)
+├── exam/ (Exam, ExamCategory, ExamSubCategory, ExamYearlyData)
+├── question/ (Passage, Question)
+├── subscription/ (Coupon, SubscriptionPlan)
+├── syllabus/ (Chapter, Subject, Topic)
+├── test/ (Test, TestCategory, TestSeries)
+└── user/ (User)</pre>
+
+            <h3>3. Worker System (Implemented)</h3>
+            <pre>backend/src/worker/
+├── index.js
+└── jobHandlers.js</pre>
+
+            <h3>4. Target Architecture</h3>
+            <pre>backend/
+├── api/routes/           # Legacy routes (being migrated)
+├── modules/              # NEW: Feature modules with routes, services
+├── data/ (models, repositories)
+├── infrastructure/ (database, storage, queue, websocket)
+├── services/ (auth, payments, notifications)
+├── shared/ (constants, utils, validators)
+└── worker/ (job processing)</pre>
+        </section>
+
+        <footer>
+            <p>📁 Project Structure Documentation | Trstprep V2.1</p>
+            <p>Monorepo with React + Express.js | Last Updated: March 31, 2026</p>
+        </footer>
+    </div>
+
+    <button id="scroll-top" title="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+        </svg>
+    </button>
+
+    <script>
+        (function () {
+            /* ── Chevron SVG ── */
+            const CHEVRON = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+            /* ── 1. Convert all section.card into collapsible wrappers ── */
+            document.querySelectorAll('section.card').forEach(card => {
+                const h2 = card.querySelector(':scope > h2');
+                if (!h2) return;
+
+                // Build header
+                const hdr = document.createElement('div');
+                hdr.className = 'section-toggle-header';
+
+                const bar = document.createElement('span');
+                bar.className = 'section-label-bar';
+                h2.prepend(bar);
+
+                hdr.appendChild(h2);   // move h2 into header
+
+                const chevron = document.createElement('div');
+                chevron.className = 'chevron-icon';
+                chevron.innerHTML = CHEVRON;
+                hdr.appendChild(chevron);
+
+                // Build body wrapper
+                const body = document.createElement('div');
+                body.className = 'section-body';
+                const inner = document.createElement('div');
+                inner.className = 'section-body-inner';
+
+                // Move remaining children into body-inner
+                while (card.firstChild) inner.appendChild(card.firstChild);
+                body.appendChild(inner);
+
+                // hdr is still outside – prepend it
+                card.appendChild(hdr);
+                card.appendChild(body);
+
+                // Remove padding from card (handled by inner now)
+                card.style.padding = '0';
+
+                // Default: first section (overview) open, rest closed
+                const isFirst = card.id === 'overview';
+                if (isFirst) {
+                    body.classList.add('open');
+                    hdr.classList.add('open');
+                }
+
+                hdr.addEventListener('click', () => {
+                    const isOpen = body.classList.contains('open');
+                    if (isOpen) {
+                        body.classList.remove('open');
+                        hdr.classList.remove('open');
+                        // Trigger tree hide
+                        card.querySelectorAll('.file-tree').forEach(t => t.classList.remove('tree-visible'));
+                    } else {
+                        body.classList.add('open');
+                        hdr.classList.add('open');
+                        // Trigger tree reveal after open transition
+                        setTimeout(() => {
+                            card.querySelectorAll('.file-tree').forEach(t => t.classList.add('tree-visible'));
+                        }, 80);
+                    }
+                });
+            });
+
+            /* ── 2. Animate stat counters ── */
+            function animateCount(el) {
+                const raw = el.textContent.trim();
+                const hasPlus = raw.endsWith('+');
+                const target = parseInt(raw, 10);
+                if (isNaN(target)) return;
+                const dur = 900;
+                const start = performance.now();
+                function step(now) {
+                    const p = Math.min((now - start) / dur, 1);
+                    const ease = 1 - Math.pow(1 - p, 3);  // ease-out cubic
+                    el.textContent = Math.round(ease * target) + (hasPlus ? '+' : '');
+                    if (p < 1) requestAnimationFrame(step);
+                }
+                requestAnimationFrame(step);
+            }
+
+            /* ── 3. IntersectionObserver for entrance animations ── */
+            const cardObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('anim-visible');
+                        // Animate numbers inside
+                        entry.target.querySelectorAll('.stat-card .number').forEach(animateCount);
+                        cardObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+            document.querySelectorAll('section.card').forEach((card, i) => {
+                card.classList.add('anim-enter');
+                card.style.transitionDelay = `${i * 0.06}s`;
+                cardObserver.observe(card);
+            });
+
+            /* ── 4. File tree visibility when parent section opens ── */
+            // Animate trees already inside open sections on load
+            document.querySelectorAll('.section-body.open .file-tree').forEach(t => {
+                setTimeout(() => t.classList.add('tree-visible'), 200);
+            });
+
+            // Also observe file trees that become visible via section toggle
+            const treeObserver = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        e.target.classList.add('tree-visible');
+                        treeObserver.unobserve(e.target);
+                    }
+                });
+            }, { threshold: 0.05 });
+            document.querySelectorAll('.file-tree').forEach(t => treeObserver.observe(t));
+
+            /* ── 5. Sub-collapsible sections (DB tables, etc.) ── */
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', function () {
+                    const content = this.nextElementSibling;
+                    const icon = this.querySelector('.toggle-icon');
+                    const isOpen = content.classList.contains('open');
+                    if (isOpen) {
+                        content.classList.remove('open');
+                        this.classList.remove('open');
+                        if (icon) icon.textContent = '▼';
+                    } else {
+                        content.classList.add('open');
+                        this.classList.add('open');
+                        if (icon) icon.textContent = '▲';
+                    }
+                });
+            });
+
+            document.querySelectorAll('.subcollapsible-header').forEach(header => {
+                header.addEventListener('click', function () {
+                    const content = this.nextElementSibling;
+                    const icon = this.querySelector('.toggle-icon') || this.querySelector('span:last-child');
+                    const isOpen = content.classList.contains('open');
+                    if (isOpen) {
+                        content.classList.remove('open');
+                        if (icon) icon.textContent = '▼';
+                    } else {
+                        content.classList.add('open');
+                        if (icon) icon.textContent = '▲';
+                    }
+                });
+            });
+
+            /* ── 6. Scroll-to-top button ── */
+            const scrollBtn = document.getElementById('scroll-top');
+            window.addEventListener('scroll', () => {
+                scrollBtn.classList.toggle('visible', window.scrollY > 400);
+            }, { passive: true });
+
+            /* ── 7. Nav active highlight while scrolling ── */
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.nav a');
+            const ioNav = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if (e.isIntersecting) {
+                        navLinks.forEach(a => a.style.cssText = '');
+                        const active = document.querySelector(`.nav a[href="#${e.target.id}"]`);
+                        if (active) {
+                            active.style.background = 'linear-gradient(135deg, var(--brand), var(--brand2))';
+                            active.style.color = 'white';
+                        }
+                    }
+                });
+            }, { threshold: 0.3 });
+            sections.forEach(s => ioNav.observe(s));
+
+        })();
+    </script>
+</body>
+
+</html>

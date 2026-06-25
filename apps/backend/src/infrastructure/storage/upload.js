@@ -18,7 +18,8 @@ const MAX_FILE_SIZE_VIDEO = 100 * 1024 * 1024 // 100MB for videos (reduced from 
 const ALLOWED_EXTENSIONS = {
   image: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
   pdf: ['.pdf'],
-  video: ['.mp4', '.webm']
+  video: ['.mp4', '.webm'],
+  document: ['.json', '.csv', '.xlsx', '.xls']
 }
 
 // File magic numbers for content validation
@@ -35,15 +36,16 @@ function ensureUploadDirs() {
   const videosDir = path.join(uploadsDir, 'videos')
   const pdfsDir = path.join(uploadsDir, 'pdfs')
   const imagesDir = path.join(uploadsDir, 'images')
+  const docsDir = path.join(uploadsDir, 'docs')
   
-  const dirs = [uploadsDir, videosDir, pdfsDir, imagesDir]
+  const dirs = [uploadsDir, videosDir, pdfsDir, imagesDir, docsDir]
   dirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true })
     }
   })
   
-  return { uploadsDir, videosDir, pdfsDir, imagesDir }
+  return { uploadsDir, videosDir, pdfsDir, imagesDir, docsDir }
 }
 
 // Ensure directories exist
@@ -102,6 +104,8 @@ const storage = multer.diskStorage({
       uploadPath = dirs.pdfsDir
     } else if (file.mimetype.startsWith('image/')) {
       uploadPath = dirs.imagesDir
+    } else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) {
+      uploadPath = dirs.docsDir
     }
     
     cb(null, uploadPath)
@@ -116,6 +120,7 @@ const storage = multer.diskStorage({
     if (file.mimetype.startsWith('image/')) fileType = 'image'
     else if (file.mimetype === 'application/pdf') fileType = 'pdf'
     else if (file.mimetype.startsWith('video/')) fileType = 'video'
+    else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) fileType = 'document'
     
     if (!ALLOWED_EXTENSIONS[fileType]?.includes(ext)) {
       return cb(new Error(`File extension ${ext} not allowed for ${fileType}`), false)
@@ -137,7 +142,11 @@ const fileFilter = (req, file, cb) => {
     'application/pdf',
     'video/mp4',
     'video/webm',
-    'video/mkv'
+    'video/mkv',
+    'application/json',
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel'
   ]
   
   // Check MIME type
@@ -155,6 +164,8 @@ const fileFilter = (req, file, cb) => {
     expectedExtensions = ALLOWED_EXTENSIONS.pdf
   } else if (file.mimetype.startsWith('video/')) {
     expectedExtensions = ALLOWED_EXTENSIONS.video
+  } else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) {
+    expectedExtensions = ALLOWED_EXTENSIONS.document
   }
   
   if (!expectedExtensions.includes(ext)) {
@@ -171,6 +182,16 @@ export const upload = multer({
   limits: {
     fileSize: MAX_FILE_SIZE_VIDEO, // Max limit (individual routes can set lower)
     files: 5, // Limit number of files per request
+  }
+})
+
+// Memory storage for bulk uploads that need buffer access (JSON, CSV, Excel)
+export const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  fileFilter,
+  limits: {
+    fileSize: 50 * 1024 * 1024, // 50MB limit should be plenty for data files
+    files: 1,
   }
 })
 

@@ -1,0 +1,4123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel Comprehensive Documentation - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-secondary: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.85);
+            --bg-card: rgba(30, 41, 59, 0.6);
+            --border-glass: rgba(148, 163, 184, 0.12);
+            --border-active: rgba(244, 63, 94, 0.4);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-rose: #f43f5e;
+            --accent-purple: #a855f7;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-orange: #f59e0b;
+            --gradient-admin: linear-gradient(135deg, #f43f5e 0%, #a855f7 50%, #3b82f6 100%);
+            --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+            --shadow-glow: 0 0 60px rgba(244, 63, 94, 0.25);
+            --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background:
+                radial-gradient(ellipse 60% 40% at 20% 20%, rgba(244, 63, 94, 0.15), transparent 50%),
+                radial-gradient(ellipse 50% 30% at 80% 80%, rgba(168, 85, 247, 0.12), transparent 50%),
+                radial-gradient(ellipse 40% 40% at 50% 50%, rgba(59, 130, 246, 0.08), transparent 50%);
+            animation: bgPulse 20s ease-in-out infinite;
+        }
+
+        .bg-pattern::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+        }
+
+        @keyframes bgPulse {
+
+            0%,
+            100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            25% {
+                transform: translate(-2%, 2%) rotate(1deg);
+            }
+
+            50% {
+                transform: translate(2%, -2%) rotate(-1deg);
+            }
+
+            75% {
+                transform: translate(-1%, 1%) rotate(0.5deg);
+            }
+        }
+
+        /* Floating Orbs */
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .orb-1 {
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(244, 63, 94, 0.2), transparent 70%);
+            top: -200px;
+            right: -200px;
+            animation: float1 30s ease-in-out infinite;
+        }
+
+        .orb-2 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.15), transparent 70%);
+            bottom: -150px;
+            left: -150px;
+            animation: float2 25s ease-in-out infinite;
+        }
+
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.12), transparent 70%);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: float3 35s ease-in-out infinite;
+        }
+
+        @keyframes float1 {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            33% {
+                transform: translate(-50px, 30px) scale(1.1);
+            }
+
+            66% {
+                transform: translate(30px, -50px) scale(0.95);
+            }
+        }
+
+        @keyframes float2 {
+
+            0%,
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            50% {
+                transform: translate(60px, -40px) scale(1.15);
+            }
+        }
+
+        @keyframes float3 {
+
+            0%,
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            25% {
+                transform: translate(-45%, -55%) scale(1.05);
+            }
+
+            50% {
+                transform: translate(-55%, -45%) scale(0.95);
+            }
+
+            75% {
+                transform: translate(-48%, -52%) scale(1.02);
+            }
+        }
+
+        /* Container */
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 4rem 0 6rem;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.7rem 1.8rem;
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.35);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fda4af;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 20px 5px rgba(244, 63, 94, 0.15);
+            }
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 6vw, 5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-admin);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: gradientShift 5s ease-in-out infinite;
+            background-size: 200% 200%;
+        }
+
+        @keyframes gradientShift {
+
+            0%,
+            100% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 900px;
+            margin: 0 auto;
+            line-height: 1.9;
+        }
+
+        .meta-info {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .meta-item strong {
+            color: var(--text-secondary);
+        }
+
+        /* Navigation */
+        .nav-container {
+            position: sticky;
+            top: 1rem;
+            z-index: 100;
+            margin-bottom: 2rem;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            flex-wrap: wrap;
+            max-width: fit-content;
+            margin: 0 auto;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            white-space: nowrap;
+        }
+
+        .nav-tab:hover {
+            background: rgba(244, 63, 94, 0.1);
+            color: var(--text-primary);
+        }
+
+        .nav-tab.active {
+            background: rgba(244, 63, 94, 0.2);
+            border-color: var(--accent-rose);
+            color: var(--text-primary);
+            box-shadow: 0 0 20px rgba(244, 63, 94, 0.2);
+        }
+
+        /* Section Headers */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 4rem 0 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .section-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: var(--gradient-admin);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(244, 63, 94, 0.3);
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 800;
+        }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Grid System */
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .span-3 {
+            grid-column: span 3;
+        }
+
+        .span-4 {
+            grid-column: span 4;
+        }
+
+        .span-6 {
+            grid-column: span 6;
+        }
+
+        .span-8 {
+            grid-column: span 8;
+        }
+
+        .span-12 {
+            grid-column: span 12;
+        }
+
+        /* Glass Cards */
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 2rem;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--border-active);
+            box-shadow: var(--shadow-glow), var(--shadow-card);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.25);
+            border-radius: 16px;
+            transition: var(--transition-smooth);
+        }
+
+        .glass-card:hover .card-icon {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 10px 30px rgba(244, 63, 94, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Admin Grid Items */
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+
+        .admin-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            transition: var(--transition-smooth);
+            cursor: pointer;
+        }
+
+        .admin-item:hover {
+            background: rgba(244, 63, 94, 0.08);
+            border-color: rgba(244, 63, 94, 0.3);
+            transform: translateX(8px);
+        }
+
+        .admin-icon {
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-admin);
+            border-radius: 12px;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .admin-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .admin-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .admin-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .admin-status {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-complete {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .status-partial {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .status-missing {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        /* API Grid */
+        .api-grid {
+            display: grid;
+            gap: 0.6rem;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.8rem 1rem;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+            transition: var(--transition-smooth);
+        }
+
+        .api-item:hover {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: rgba(148, 163, 184, 0.2);
+        }
+
+        .method-badge {
+            padding: 0.35rem 0.7rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            min-width: 55px;
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .method-get {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .method-post {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .method-put {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .method-delete {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        .method-patch {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+        }
+
+        .api-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #fda4af;
+            flex: 1;
+        }
+
+        .api-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: right;
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red {
+            background: #ef4444;
+        }
+
+        .code-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .code-dot.green {
+            background: #34d399;
+        }
+
+        .code-title {
+            margin-left: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        pre {
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.8;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .string {
+            color: #fde047;
+        }
+
+        .property {
+            color: #fda4af;
+        }
+
+        .number {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .function {
+            color: #a5b4fc;
+        }
+
+        .variable {
+            color: #fbbf24;
+        }
+
+        /* Stats */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 1.5rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            border: 1px solid var(--border-glass);
+            transition: var(--transition-smooth);
+        }
+
+        .stat-box:hover {
+            border-color: rgba(244, 63, 94, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: var(--gradient-admin);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Flow Diagram */
+        .flow-container {
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .flow-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .flow-step:last-child {
+            margin-bottom: 0;
+        }
+
+        .flow-step::before {
+            content: '';
+            position: absolute;
+            left: 27px;
+            top: 60px;
+            width: 2px;
+            height: calc(100% - 10px);
+            background: linear-gradient(to bottom, var(--accent-rose), transparent);
+        }
+
+        .flow-step:last-child::before {
+            display: none;
+        }
+
+        .flow-number {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-admin);
+            border-radius: 50%;
+            font-size: 1.25rem;
+            font-weight: 800;
+            flex-shrink: 0;
+            z-index: 1;
+            box-shadow: 0 0 30px rgba(244, 63, 94, 0.4);
+        }
+
+        .flow-content {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+        }
+
+        .flow-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .flow-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        .flow-code {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: #fda4af;
+        }
+
+        /* Security Matrix */
+        .security-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .security-item {
+            padding: 1.25rem;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid var(--border-glass);
+            border-radius: 14px;
+            transition: var(--transition-smooth);
+        }
+
+        .security-item:hover {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .security-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .security-icon {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(16, 185, 129, 0.15);
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+
+        .security-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .security-desc {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        /* Limitations & Improvements */
+        .limitation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .limitation-card {
+            padding: 1.5rem;
+            background: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 16px;
+        }
+
+        .improvement-card {
+            padding: 1.5rem;
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+        }
+
+        .card-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 1rem;
+        }
+
+        .limitation-card .card-type {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        .improvement-card .card-type {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .limitation-title,
+        .improvement-title {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .limitation-desc,
+        .improvement-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.7;
+        }
+
+        /* Database Schema */
+        .schema-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .schema-table th,
+        .schema-table td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .schema-table th {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .schema-table td {
+            font-size: 0.9rem;
+        }
+
+        .schema-table tr:hover td {
+            background: rgba(244, 63, 94, 0.05);
+        }
+
+        .type-badge {
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .type-uuid {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+        }
+
+        .type-string {
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
+
+        .type-boolean {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .type-timestamp {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .type-integer {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        /* Interactive Elements */
+        .interactive-demo {
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .demo-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .demo-tab {
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: var(--transition-smooth);
+        }
+
+        .demo-tab:hover,
+        .demo-tab.active {
+            background: rgba(244, 63, 94, 0.15);
+            border-color: var(--accent-rose);
+            color: var(--text-primary);
+        }
+
+        .demo-content {
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+        }
+
+        /* Workflow Visual */
+        .workflow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .workflow-row {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .workflow-node {
+            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            text-align: center;
+            min-width: 140px;
+            transition: var(--transition-smooth);
+        }
+
+        .workflow-node:hover {
+            border-color: var(--accent-rose);
+            transform: scale(1.05);
+        }
+
+        .workflow-node.active {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .workflow-arrow {
+            color: var(--accent-rose);
+            font-size: 1.5rem;
+        }
+
+        .workflow-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .workflow-sublabel {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Table Styles */
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 1rem 0;
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+        }
+
+        .data-table th {
+            background: rgba(0, 0, 0, 0.4);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table td {
+            border-bottom: 1px solid var(--border-glass);
+            font-size: 0.9rem;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover td {
+            background: rgba(244, 63, 94, 0.03);
+        }
+
+        /* Accordion */
+        .accordion {
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .accordion-item {
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .accordion-item:last-child {
+            border-bottom: none;
+        }
+
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .accordion-header:hover {
+            background: rgba(244, 63, 94, 0.1);
+        }
+
+        .accordion-title {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .accordion-icon {
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-item.open .accordion-icon {
+            transform: rotate(180deg);
+        }
+
+        .accordion-content {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .accordion-item.open .accordion-content {
+            padding: 1.5rem;
+            max-height: 2000px;
+        }
+
+        /* Responsive */
+        @media (max-width: 1400px) {
+            .span-3 {
+                grid-column: span 6;
+            }
+
+            .span-4 {
+                grid-column: span 6;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                padding: 1.5rem;
+            }
+
+            .span-3,
+            .span-4,
+            .span-6,
+            .span-8 {
+                grid-column: span 12;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .nav-tabs {
+                padding: 0.75rem;
+            }
+
+            .nav-tab {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header {
+                padding: 2rem 0 3rem;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+            }
+
+            .meta-info {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .admin-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stats-row {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+
+            .flow-step {
+                flex-direction: column;
+            }
+
+            .flow-step::before {
+                display: none;
+            }
+
+            .workflow-row {
+                flex-direction: column;
+            }
+
+            .workflow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* Animations */
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .animate-slide-left {
+            animation: slideInLeft 0.6s ease-out forwards;
+        }
+
+        .animate-slide-right {
+            animation: slideInRight 0.6s ease-out forwards;
+        }
+
+        .animate-fade-up {
+            animation: fadeInUp 0.6s ease-out forwards;
+        }
+
+        .animate-scale {
+            animation: scaleIn 0.5s ease-out forwards;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.3);
+        }
+
+        /* Selection */
+        ::selection {
+            background: rgba(244, 63, 94, 0.3);
+            color: var(--text-primary);
+        }
+
+        /* Hidden content for tabs */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeInUp 0.4s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Animated Background -->
+    <div class="bg-pattern"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="badge">🔒 Admin Documentation</div>
+            <h1>Admin Panel Architecture</h1>
+            <p class="subtitle">Complete technical documentation for the Trstprep V2.0 admin panel, covering 40
+                management components, security protocols, API workflows, database operations, and frontend-backend
+                interactions.</p>
+            <div class="meta-info">
+                <div class="meta-item"><strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026</div>
+                <div class="meta-item"><strong>Database:</strong> PostgreSQL (Supabase)</div>
+                <div class="meta-item"><strong>Tables:</strong> 40+</div>
+                <div class="meta-item"><strong>Components:</strong> 40</div>
+                <div class="meta-item"><strong>API Routes:</strong> 100+</div>
+            </div>
+        </header>
+        <!-- Navigation -->
+        <div class="nav-container">
+            <nav class="nav-tabs">
+                <button class="nav-tab active" onclick="switchTab('overview')">📊 Overview</button>
+                <button class="nav-tab" onclick="switchTab('components')">🧩 Components</button>
+                <button class="nav-tab" onclick="switchTab('api')">📡 API Endpoints</button>
+                <button class="nav-tab" onclick="switchTab('security')">🔐 Security</button>
+                <button class="nav-tab" onclick="switchTab('database')">🗄️ Database</button>
+                <button class="nav-tab" onclick="switchTab('workflows')">⚡ Workflows</button>
+                <button class="nav-tab" onclick="switchTab('limitations')">⚠️ Limitations</button>
+                <button class="nav-tab" onclick="switchTab('future')">🚀 Future</button>
+            </nav>
+        </div>
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="main-grid">
+                <!-- Architecture Overview -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🏛️</div>
+                        <div>
+                            <div class="card-title">Architecture Overview</div>
+                            <div class="card-subtitle">Complete admin panel system architecture</div>
+                        </div>
+                    </div>
+                    <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                        The Trstprep V2.0 admin panel is built on a modern React + Express architecture with PostgreSQL
+                        database.
+                        It follows a strict role-based access control (RBAC) pattern with JWT authentication and
+                        comprehensive
+                        soft-delete protocols for data integrity.
+                    </p>
+                    <div class="stats-row">
+                        <div class="stat-box">
+                            <div class="stat-value">40</div>
+                            <div class="stat-label">Manager Components</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">100+</div>
+                            <div class="stat-label">API Endpoints</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">40+</div>
+                            <div class="stat-label">Database Tables</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-value">3</div>
+                            <div class="stat-label">Auth Middleware Layers</div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Technology Stack -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">⚡</div>
+                        <div>
+                            <div class="card-title">Technology Stack</div>
+                            <div class="card-subtitle">Frontend & Backend Technologies</div>
+                        </div>
+                    </div>
+                    <div class="admin-grid" style="grid-template-columns: 1fr;">
+                        <div class="admin-item">
+                            <div class="admin-icon">⚛️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">React 18+ with Vite</div>
+                                <div class="admin-path">Frontend framework with hot module replacement</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🟢</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Express.js</div>
+                                <div class="admin-path">Backend REST API server</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🐘</div>
+                            <div class="admin-info">
+                                <div class="admin-name">PostgreSQL (Supabase)</div>
+                                <div class="admin-path">Primary database with connection pooling</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🔑</div>
+                            <div class="admin-info">
+                                <div class="admin-name">JWT Authentication</div>
+                                <div class="admin-path">Token-based auth with role verification</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🎨</div>
+                            <div class="admin-info">
+                                <div class="admin-name">TailwindCSS</div>
+                                <div class="admin-path">Utility-first styling framework</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Key Features -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">✨</div>
+                        <div>
+                            <div class="card-title">Key Features</div>
+                            <div class="card-subtitle">Admin panel capabilities</div>
+                        </div>
+                    </div>
+                    <div class="security-grid">
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🗑️</div>
+                                <div class="security-name">Soft Delete System</div>
+                            </div>
+                            <div class="security-desc">All deletions use soft-delete with restore capability via
+                                RecycleBin</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">📊</div>
+                                <div class="security-name">Real-time Analytics</div>
+                            </div>
+                            <div class="security-desc">Dashboard with live statistics, user activity, and performance
+                                metrics</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">👥</div>
+                                <div class="security-name">User Management</div>
+                            </div>
+                            <div class="security-desc">Complete user administration with role assignment and Pro Pass
+                                control</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">📝</div>
+                                <div class="security-name">Content Management</div>
+                            </div>
+                            <div class="security-desc">Full CRUD for tests, questions, study materials, and media</div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Request Flow -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🔄</div>
+                        <div>
+                            <div class="card-title">Request Flow Architecture</div>
+                            <div class="card-subtitle">How admin requests are processed</div>
+                        </div>
+                    </div>
+                    <div class="flow-container">
+                        <div class="flow-step">
+                            <div class="flow-number">1</div>
+                            <div class="flow-content">
+                                <div class="flow-title">Client Request Initiation</div>
+                                <div class="flow-desc">Admin user action triggers API call from React frontend. JWT
+                                    token from localStorage is attached to Authorization header as Bearer token.</div>
+                                <div class="flow-code">axios.get('/api/admin/users', { headers: { Authorization: `Bearer
+                                    ${token}` } })</div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">2</div>
+                            <div class="flow-content">
+                                <div class="flow-title">JWT Token Verification</div>
+                                <div class="flow-desc">The <code>protect</code> middleware extracts and verifies the JWT
+                                    using JWT_SECRET. Decoded user info is attached to req.user.</div>
+                                <div class="flow-code">const decoded = jwt.verify(token, process.env.JWT_SECRET)</div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">3</div>
+                            <div class="flow-content">
+                                <div class="flow-title">Admin Role Verification</div>
+                                <div class="flow-desc">The <code>admin</code> middleware checks if req.user.role ===
+                                    'admin'. Returns 403 if not authorized.</div>
+                                <div class="flow-code">if (req.user && req.user.isAdmin) { next() } else {
+                                    res.status(403) }</div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">4</div>
+                            <div class="flow-content">
+                                <div class="flow-title">Database Operation</div>
+                                <div class="flow-desc">Controller executes dbHelpers methods with whitelisted table
+                                    names. All queries use parameterized statements to prevent SQL injection.</div>
+                                <div class="flow-code">const items = await dbHelpers.find('users', { isActive: true })
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number">5</div>
+                            <div class="flow-content">
+                                <div class="flow-title">Response Generation</div>
+                                <div class="flow-desc">Data is transformed (snake_case → camelCase), sensitive fields
+                                    removed, and JSON response returned with success status.</div>
+                                <div class="flow-code">res.json({ success: true, data: sanitizedUsers })</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <!-- Components Tab -->
+        <div id="components" class="tab-content">
+            <div class="main-grid">
+                <!-- All Admin Components -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🧩</div>
+                        <div>
+                            <div class="card-title">Admin Manager Components (40)</div>
+                            <div class="card-subtitle">Complete list of all admin management modules</div>
+                        </div>
+                    </div>
+                    <div class="admin-grid">
+                        <div class="admin-item">
+                            <div class="admin-icon">📊</div>
+                            <div class="admin-info">
+                                <div class="admin-name">AdminDashboard</div>
+                                <div class="admin-path">AdminDashboard.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📈</div>
+                            <div class="admin-info">
+                                <div class="admin-name">AdminAnalytics</div>
+                                <div class="admin-path">AdminAnalytics.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">⚙️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">AdminSettings</div>
+                                <div class="admin-path">AdminSettings.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📚</div>
+                            <div class="admin-info">
+                                <div class="admin-name">TestSeriesManager</div>
+                                <div class="admin-path">TestSeriesManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📝</div>
+                            <div class="admin-info">
+                                <div class="admin-name">TestsManager</div>
+                                <div class="admin-path">TestsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">❓</div>
+                            <div class="admin-info">
+                                <div class="admin-name">QuestionsManager</div>
+                                <div class="admin-path">QuestionsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📂</div>
+                            <div class="admin-info">
+                                <div class="admin-name">CategoriesManager</div>
+                                <div class="admin-path">CategoriesManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📖</div>
+                            <div class="admin-info">
+                                <div class="admin-name">StudyMaterialsManager</div>
+                                <div class="admin-path">StudyMaterialsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">👥</div>
+                            <div class="admin-info">
+                                <div class="admin-name">UsersManager</div>
+                                <div class="admin-path">UsersManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🖼️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">MediaLibrary</div>
+                                <div class="admin-path">MediaLibrary.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🗑️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">RecycleBin</div>
+                                <div class="admin-path">RecycleBin.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📋</div>
+                            <div class="admin-info">
+                                <div class="admin-name">ExamCategoriesManager</div>
+                                <div class="admin-path">ExamCategoriesManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📄</div>
+                            <div class="admin-info">
+                                <div class="admin-name">ExamInfoManager</div>
+                                <div class="admin-path">ExamInfoManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🎬</div>
+                            <div class="admin-info">
+                                <div class="admin-name">VideosManager</div>
+                                <div class="admin-path">VideosManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🔔</div>
+                            <div class="admin-info">
+                                <div class="admin-name">NotificationsManager</div>
+                                <div class="admin-path">NotificationsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🔴</div>
+                            <div class="admin-info">
+                                <div class="admin-name">LiveTestsManager</div>
+                                <div class="admin-path">LiveTestsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🏆</div>
+                            <div class="admin-info">
+                                <div class="admin-name">LeaderboardsManager</div>
+                                <div class="admin-path">LeaderboardsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🎟️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">CouponsManager</div>
+                                <div class="admin-path">CouponsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">💳</div>
+                            <div class="admin-info">
+                                <div class="admin-name">SubscriptionPlansManager</div>
+                                <div class="admin-path">SubscriptionPlansManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📍</div>
+                            <div class="admin-info">
+                                <div class="admin-name">NavigationManager</div>
+                                <div class="admin-path">NavigationManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🏷️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">TagConfigsManager</div>
+                                <div class="admin-path">TagConfigsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📑</div>
+                            <div class="admin-info">
+                                <div class="admin-name">TopicsManager</div>
+                                <div class="admin-path">TopicsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📖</div>
+                            <div class="admin-info">
+                                <div class="admin-name">SubjectsManager</div>
+                                <div class="admin-path">SubjectsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📝</div>
+                            <div class="admin-info">
+                                <div class="admin-name">PassagesManager</div>
+                                <div class="admin-path">PassagesManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📊</div>
+                            <div class="admin-info">
+                                <div class="admin-name">ResultsManager</div>
+                                <div class="admin-path">ResultsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📝</div>
+                            <div class="admin-info">
+                                <div class="admin-name">EnrollmentsManager</div>
+                                <div class="admin-path">EnrollmentsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🏥</div>
+                            <div class="admin-info">
+                                <div class="admin-name">SystemHealthMonitor</div>
+                                <div class="admin-path">SystemHealthMonitor.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">💾</div>
+                            <div class="admin-info">
+                                <div class="admin-name">BackupsManager</div>
+                                <div class="admin-path">BackupsManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-partial">Partial</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📜</div>
+                            <div class="admin-info">
+                                <div class="admin-name">UserActivityLog</div>
+                                <div class="admin-path">UserActivityLog.jsx</div>
+                            </div>
+                            <span class="admin-status status-complete">Complete</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🎯</div>
+                            <div class="admin-info">
+                                <div class="admin-name">BannerManager</div>
+                                <div class="admin-path">BannerManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-partial">Partial</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">❓</div>
+                            <div class="admin-info">
+                                <div class="admin-name">FaqManager</div>
+                                <div class="admin-path">FaqManager.jsx</div>
+                            </div>
+                            <span class="admin-status status-partial">Partial</span>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📁</div>
+                            <div class="admin-info">
+                                <div class="admin-name">ContentManagement</div>
+                                <div class="admin-path">ContentManagement.jsx</div>
+                            </div>
+                            <span class="admin-status status-partial">Partial</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Component Pattern -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">📐</div>
+                        <div>
+                            <div class="card-title">Standard Component Pattern</div>
+                            <div class="card-subtitle">Common architecture used across all manager components</div>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot red"></div>
+                            <div class="code-dot yellow"></div>
+                            <div class="code-dot green"></div>
+                            <span class="code-title">Standard Manager Component Pattern</span>
+                        </div>
+                        <pre><code><span class="comment">// Every manager component follows this lifecycle pattern:</span>
+<span class="keyword">import</span> { useState, useEffect } <span class="keyword">from</span> <span class="string">'react'</span>
+<span class="keyword">import</span> api <span class="keyword">from</span> <span class="string">'../../shared/lib/api'</span>
+<span class="keyword">export default function</span> <span class="function">ResourceManager</span>() {
+<span class="comment">// State Management</span>
+<span class="keyword">const</span> [items, setItems] = <span class="function">useState</span>([])
+<span class="keyword">const</span> [loading, setLoading] = <span class="function">useState</span>(<span class="keyword">true</span>)
+<span class="keyword">const</span> [error, setError] = <span class="function">useState</span>(<span class="keyword">null</span>)
+<span class="keyword">const</span> [isEditing, setIsEditing] = <span class="function">useState</span>(<span class="keyword">false</span>)
+<span class="keyword">const</span> [currentRecord, setCurrentRecord] = <span class="function">useState</span>(<span class="keyword">null</span>)
+<span class="comment">// Data Fetching on Mount</span>
+<span class="function">useEffect</span>(() => {
+<span class="function">fetchItems</span>()
+}, [])
+<span class="keyword">const</span> <span class="function">fetchItems</span> = <span class="keyword">async</span> () => {
+<span class="keyword">try</span> {
+<span class="keyword">const</span> response = <span class="keyword">await</span> api.<span class="function">get</span>(<span class="string">'/api/admin/resource'</span>)
+<span class="function">setItems</span>(response.data.data || [])
+} <span class="keyword">catch</span> (err) {
+<span class="function">setError</span>(err.message)
+} <span class="keyword">finally</span> {
+<span class="function">setLoading</span>(<span class="keyword">false</span>)
+}
+}
+<span class="comment">// CRUD Operations</span>
+<span class="keyword">const</span> <span class="function">handleSave</span> = <span class="keyword">async</span> (formData) => {
+<span class="keyword">if</span> (currentRecord) {
+<span class="keyword">await</span> api.<span class="function">put</span>(<span class="string">`/api/admin/resource/${currentRecord._id}`</span>, formData)
+} <span class="keyword">else</span> {
+<span class="keyword">await</span> api.<span class="function">post</span>(<span class="string">'/api/admin/resource'</span>, formData)
+}
+<span class="function">setIsEditing</span>(<span class="keyword">false</span>)
+<span class="function">fetchItems</span>()
+}
+<span class="keyword">const</span> <span class="function">handleDelete</span> = <span class="keyword">async</span> (id) => {
+<span class="keyword">await</span> api.<span class="function">delete</span>(<span class="string">`/api/admin/resource/${id}`</span>)
+<span class="function">fetchItems</span>()
+}
+<span class="comment">// Render: Table + Modal Pattern</span>
+<span class="keyword">return</span> (
+&lt;div&gt;
+{loading ? &lt;LoadingSpinner /&gt; : &lt;DataTable data={items} /&gt;}
+{isEditing && &lt;FormModal onSubmit={handleSave} /&gt;}
+&lt;/div&gt;
+)
+}</code></pre>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <!-- API Tab -->
+        <div id="api" class="tab-content">
+            <div class="main-grid">
+                <!-- Dashboard & Stats -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <div>
+                            <div class="card-title">Dashboard & Statistics</div>
+                            <div class="card-subtitle">Admin dashboard endpoints</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/stats</span>
+                            <span class="api-desc">Dashboard stats</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/analytics</span>
+                            <span class="api-desc">Usage analytics</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/recent-activity</span>
+                            <span class="api-desc">Activity feed</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/system-health</span>
+                            <span class="api-desc">Health check</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/settings</span>
+                            <span class="api-desc">App settings</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/settings</span>
+                            <span class="api-desc">Update settings</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Test Management -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📝</div>
+                        <div>
+                            <div class="card-title">Test & Series Management</div>
+                            <div class="card-subtitle">Test series and tests CRUD</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/test-series</span>
+                            <span class="api-desc">List series</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/test-series</span>
+                            <span class="api-desc">Create series</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/test-series/:id</span>
+                            <span class="api-desc">Update series</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/test-series/:id</span>
+                            <span class="api-desc">Soft delete</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/tests</span>
+                            <span class="api-desc">List tests</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/tests</span>
+                            <span class="api-desc">Create test</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Questions Management -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">❓</div>
+                        <div>
+                            <div class="card-title">Questions Management</div>
+                            <div class="card-subtitle">Question bank CRUD</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/questions</span>
+                            <span class="api-desc">List questions</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/questions</span>
+                            <span class="api-desc">Create question</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/questions/bulk</span>
+                            <span class="api-desc">Bulk import</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/questions/:id</span>
+                            <span class="api-desc">Update question</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/questions/:id</span>
+                            <span class="api-desc">Soft delete</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- User Management -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">👥</div>
+                        <div>
+                            <div class="card-title">User Management</div>
+                            <div class="card-subtitle">User administration</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/users</span>
+                            <span class="api-desc">List users</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/users/:id/status</span>
+                            <span class="api-desc">Toggle status</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/users/:id/role</span>
+                            <span class="api-desc">Change role</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/users/:id/pro-pass</span>
+                            <span class="api-desc">Pro Pass status</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/users/:id</span>
+                            <span class="api-desc">Soft delete</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Study Materials -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📖</div>
+                        <div>
+                            <div class="card-title">Study Materials</div>
+                            <div class="card-subtitle">Content management</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/study-materials</span>
+                            <span class="api-desc">List materials</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/chapters</span>
+                            <span class="api-desc">List chapters</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/subject-videos</span>
+                            <span class="api-desc">List videos</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/subject-pdfs</span>
+                            <span class="api-desc">List PDFs</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/topic-tests</span>
+                            <span class="api-desc">List topic tests</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Recycle Bin -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🗑️</div>
+                        <div>
+                            <div class="card-title">Recycle Bin</div>
+                            <div class="card-subtitle">Soft delete management</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/trash</span>
+                            <span class="api-desc">All trash items</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/trash/:type</span>
+                            <span class="api-desc">By type</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/trash/:id/restore</span>
+                            <span class="api-desc">Restore item</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/trash/:id</span>
+                            <span class="api-desc">Permanent delete</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/trash</span>
+                            <span class="api-desc">Empty trash</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Exam Categories -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📋</div>
+                        <div>
+                            <div class="card-title">Exam Categories & Info</div>
+                            <div class="card-subtitle">Exam management</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/exam-categories</span>
+                            <span class="api-desc">List categories</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/exam-subcategories</span>
+                            <span class="api-desc">List subcategories</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/exam-info</span>
+                            <span class="api-desc">List exam info</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/exam-categories</span>
+                            <span class="api-desc">Create category</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-put">PUT</span>
+                            <span class="api-path">/api/admin/exam-info/:id</span>
+                            <span class="api-desc">Update info</span>
+                        </div>
+                    </div>
+                </section>
+                <!-- Media & Uploads -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🖼️</div>
+                        <div>
+                            <div class="card-title">Media & Uploads</div>
+                            <div class="card-subtitle">File management</div>
+                        </div>
+                    </div>
+                    <div class="api-grid">
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/media</span>
+                            <span class="api-desc">List media</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-get">GET</span>
+                            <span class="api-path">/api/admin/media/:id</span>
+                            <span class="api-desc">Get media</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/upload</span>
+                            <span class="api-desc">Upload file</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-post">POST</span>
+                            <span class="api-path">/api/admin/media/upload</span>
+                            <span class="api-desc">Media upload</span>
+                        </div>
+                        <div class="api-item">
+                            <span class="method-badge method-delete">DEL</span>
+                            <span class="api-path">/api/admin/media/:id</span>
+                            <span class="api-desc">Delete media</span>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <!-- Security Tab -->
+        <div id="security" class="tab-content">
+            <div class="main-grid">
+                <!-- Authentication Flow -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🔐</div>
+                        <div>
+                            <div class="card-title">Authentication & Authorization</div>
+                            <div class="card-subtitle">Security middleware chain</div>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot red"></div>
+                            <div class="code-dot yellow"></div>
+                            <div class="code-dot green"></div>
+                            <span class="code-title">middleware/auth.middleware.js</span>
+                        </div>
+                        <pre><code><span class="comment">// =========================================</span>
+<span class="comment">// JWT PROTECTION MIDDLEWARE</span>
+<span class="comment">// =========================================</span>
+<span class="keyword">export const</span> <span class="function">protect</span> = <span class="keyword">async</span> (req, res, next) => {
+<span class="keyword">try</span> {
+<span class="keyword">let</span> token
+<span class="comment">// 1. Extract token from Authorization header or cookies</span>
+<span class="keyword">if</span> (req.headers.authorization?.startsWith(<span class="string">'Bearer'</span>)) {
+token = req.headers.authorization.split(<span class="string">' '</span>)[1]
+}
+<span class="keyword">if</span> (!token && req.cookies?.token) {
+token = req.cookies.token
+}
+<span class="keyword">if</span> (!token) {
+<span class="keyword">return</span> res.<span class="function">status</span>(401).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Not authorized, no token provided'</span>
+})
+}
+<span class="comment">// 2. Verify JWT token</span>
+<span class="keyword">const</span> decoded = jwt.<span class="function">verify</span>(token, process.env.JWT_SECRET)
+<span class="comment">// 3. Fetch user and validate</span>
+<span class="keyword">const</span> user = <span class="keyword">await</span> dbHelpers.<span class="function">findById</span>(<span class="string">'users'</span>, decoded.id)
+<span class="keyword">if</span> (!user) {
+<span class="keyword">return</span> res.<span class="function">status</span>(401).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Not authorized, user not found'</span>
+})
+}
+<span class="comment">// 4. Check account status</span>
+<span class="keyword">if</span> (user.isActive === <span class="keyword">false</span>) {
+<span class="keyword">return</span> res.<span class="function">status</span>(403).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Account is deactivated. Please contact support.'</span>
+})
+}
+<span class="keyword">if</span> (user.emailVerified === <span class="keyword">false</span>) {
+<span class="keyword">return</span> res.<span class="function">status</span>(403).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Please verify your email to continue.'</span>
+})
+}
+<span class="comment">// 5. Attach user to request</span>
+<span class="keyword">const</span> { password, ...userWithoutPassword } = user
+req.user = { ...userWithoutPassword, isAdmin: user.role === <span class="string">'admin'</span> }
+<span class="function">next</span>()
+} <span class="keyword">catch</span> (error) {
+<span class="keyword">return</span> res.<span class="function">status</span>(401).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Not authorized, token failed'</span>
+})
+}
+}
+<span class="comment">// Alias for protect</span>
+<span class="keyword">export const</span> <span class="function">auth</span> = protect
+<span class="comment">// Optional auth - attaches user if token exists</span>
+<span class="keyword">export const</span> <span class="function">optionalAuth</span> = <span class="keyword">async</span> (req, res, next) => {
+<span class="keyword">try</span> {
+<span class="keyword">let</span> token
+<span class="keyword">if</span> (req.headers.authorization?.startsWith(<span class="string">'Bearer'</span>)) {
+token = req.headers.authorization.split(<span class="string">' '</span>)[1]
+<span class="keyword">if</span> (process.env.JWT_SECRET) {
+<span class="keyword">const</span> decoded = jwt.<span class="function">verify</span>(token, process.env.JWT_SECRET)
+<span class="keyword">const</span> user = <span class="keyword">await</span> dbHelpers.<span class="function">findById</span>(<span class="string">'users'</span>, decoded.id)
+<span class="keyword">if</span> (user && user.isActive !== <span class="keyword">false</span> && user.emailVerified !== <span class="keyword">false</span>) {
+<span class="keyword">const</span> { password, ...userWithoutPassword } = user
+req.user = { ...userWithoutPassword, isAdmin: user.role === <span class="string">'admin'</span> }
+}
+}
+}
+<span class="function">next</span>()
+} <span class="keyword">catch</span> (error) {
+<span class="function">next</span>()
+}
+}
+<span class="comment">// =========================================</span>
+<span class="comment">// ADMIN ROLE MIDDLEWARE</span>
+<span class="comment">// =========================================</span>
+<span class="keyword">export const</span> <span class="function">admin</span> = (req, res, next) => {
+<span class="keyword">if</span> (req.user && req.user.isAdmin) {
+<span class="function">next</span>()
+} <span class="keyword">else</span> {
+res.<span class="function">status</span>(403).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Not authorized as admin'</span>
+})
+}
+}
+<span class="comment">// =========================================</span>
+<span class="comment">// PRO PASS MIDDLEWARE</span>
+<span class="comment">// =========================================</span>
+<span class="keyword">export const</span> <span class="function">proPass</span> = (req, res, next) => {
+<span class="keyword">if</span> (req.user && req.user.isProUser) {
+<span class="function">next</span>()
+} <span class="keyword">else</span> {
+res.<span class="function">status</span>(403).<span class="function">json</span>({
+success: <span class="keyword">false</span>,
+message: <span class="string">'Pro Pass required for this resource'</span>
+})
+}
+}</code></pre>
+                    </div>
+                </section>
+                <!-- Security Features -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🛡️</div>
+                        <div>
+                            <div class="card-title">Security Features</div>
+                            <div class="card-subtitle">Implemented security measures</div>
+                        </div>
+                    </div>
+                    <div class="security-grid">
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🔒</div>
+                                <div class="security-name">JWT Token Auth</div>
+                            </div>
+                            <div class="security-desc">Bearer token authentication with configurable expiration. Tokens
+                                stored in localStorage and/or httpOnly cookies.</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">✅</div>
+                                <div class="security-name">Role-Based Access</div>
+                            </div>
+                            <div class="security-desc">Three-tier middleware chain: protect → admin → proPass. Each
+                                route can require specific authorization levels.</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🚫</div>
+                                <div class="security-name">SQL Injection Prevention</div>
+                            </div>
+                            <div class="security-desc">Whitelisted table names in dbHelpers. All queries use
+                                parameterized statements with $1, $2 placeholders.</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">📝</div>
+                                <div class="security-name">Input Validation</div>
+                            </div>
+                            <div class="security-desc">Schema-based validation middleware for POST/PUT requests.
+                                Validates types, lengths, and required fields.</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🔄</div>
+                                <div class="security-name">Connection Pooling</div>
+                            </div>
+                            <div class="security-desc">PostgreSQL connection pool with max 20 connections, automatic
+                                reconnection, and transient error retry logic.</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🗑️</div>
+                                <div class="security-name">Soft Delete System</div>
+                            </div>
+                            <div class="security-desc">All deletions set is_active=false. RecycleBin allows restore.
+                                Permanent delete requires explicit action.</div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Route Protection Matrix -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🎯</div>
+                        <div>
+                            <div class="card-title">Route Protection Matrix</div>
+                            <div class="card-subtitle">Middleware requirements by route type</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Route Type</th>
+                                <th>Protect</th>
+                                <th>Admin</th>
+                                <th>ProPass</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>/api/public/*</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                            </tr>
+                            <tr>
+                                <td>/api/auth/*</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                            </tr>
+                            <tr>
+                                <td>/api/users/*</td>
+                                <td>✅</td>
+                                <td>❌</td>
+                                <td>❌</td>
+                            </tr>
+                            <tr>
+                                <td>/api/admin/*</td>
+                                <td>✅</td>
+                                <td>✅</td>
+                                <td>❌</td>
+                            </tr>
+                            <tr>
+                                <td>/api/tests/attempts</td>
+                                <td>✅</td>
+                                <td>❌</td>
+                                <td>Varies</td>
+                            </tr>
+                            <tr>
+                                <td>/api/study/pro-content</td>
+                                <td>✅</td>
+                                <td>❌</td>
+                                <td>✅</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <!-- Validation Schemas -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">✓</div>
+                        <div>
+                            <div class="card-title">Input Validation Schemas</div>
+                            <div class="card-subtitle">Request body validation rules</div>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot red"></div>
+                            <div class="code-dot yellow"></div>
+                            <div class="code-dot green"></div>
+                            <span class="code-title">routes/admin.js - Validation Schemas</span>
+                        </div>
+                        <pre><code><span class="comment">// Test Series Validation</span>
+<span class="keyword">const</span> testSeriesSchema = <span class="function">createSchema</span>()
+.<span class="function">field</span>(<span class="string">'name'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">true</span>, minLength: 2, maxLength: 200 })
+.<span class="function">field</span>(<span class="string">'description'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">false</span>, maxLength: 2000 })
+.<span class="function">field</span>(<span class="string">'isPro'</span>, { type: <span class="string">'boolean'</span>, required: <span class="keyword">false</span> })
+<span class="comment">// Question Validation</span>
+<span class="keyword">const</span> questionSchema = <span class="function">createSchema</span>()
+.<span class="function">field</span>(<span class="string">'question'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">true</span>, minLength: 5, maxLength: 5000 })
+.<span class="function">field</span>(<span class="string">'options'</span>, { type: <span class="string">'array'</span>, required: <span class="keyword">true</span> })
+.<span class="function">field</span>(<span class="string">'correctAnswer'</span>, { type: <span class="string">'integer'</span>, required: <span class="keyword">true</span> })
+.<span class="function">field</span>(<span class="string">'subject'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">false</span>, maxLength: 100 })
+.<span class="function">field</span>(<span class="string">'difficulty'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">false</span> })
+<span class="comment">// User Update Validation</span>
+<span class="keyword">const</span> userUpdateSchema = <span class="function">createSchema</span>()
+.<span class="function">field</span>(<span class="string">'name'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">false</span>, minLength: 2, maxLength: 100 })
+.<span class="function">field</span>(<span class="string">'email'</span>, { type: <span class="string">'email'</span>, required: <span class="keyword">false</span> })
+.<span class="function">field</span>(<span class="string">'role'</span>, { type: <span class="string">'string'</span>, required: <span class="keyword">false</span> })
+.<span class="function">field</span>(<span class="string">'isActive'</span>, { type: <span class="string">'boolean'</span>, required: <span class="keyword">false</span> })
+.<span class="function">field</span>(<span class="string">'isProUser'</span>, { type: <span class="string">'boolean'</span>, required: <span class="keyword">false</span> })
+<span class="comment">// Applied to routes:</span>
+router.<span class="function">post</span>(<span class="string">'/test-series'</span>, <span class="function">validateBody</span>(testSeriesSchema), handler)
+router.<span class="function">post</span>(<span class="string">'/questions'</span>, <span class="function">validateBody</span>(questionSchema), handler)</code></pre>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <!-- Database Tab -->
+        <div id="database" class="tab-content">
+            <div class="main-grid">
+                <!-- Database Helper -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🗄️</div>
+                        <div>
+                            <div class="card-title">PostgreSQL Helper Class</div>
+                            <div class="card-subtitle">Core database abstraction layer</div>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot red"></div>
+                            <div class="code-dot yellow"></div>
+                            <div class="code-dot green"></div>
+                            <span class="code-title">infrastructure/database/postgres-helpers.js</span>
+                        </div>
+                        <pre><code><span class="keyword">class</span> <span class="function">PostgresHelpers</span> {
+<span class="keyword">constructor</span>(pool) {
+<span class="keyword">this</span>.pool = pool
+<span class="comment">// WHITELISTED TABLE NAMES (SQL Injection Prevention)</span>
+<span class="keyword">this</span>.tableMap = {
+users: <span class="string">'users'</span>,
+testSeries: <span class="string">'test_series'</span>,
+tests: <span class="string">'tests'</span>,
+questions: <span class="string">'questions'</span>,
+studyMaterials: <span class="string">'study_materials'</span>,
+examCategories: <span class="string">'exam_categories'</span>,
+examSubCategories: <span class="string">'exam_sub_categories'</span>,
+examInfo: <span class="string">'exam_info'</span>,
+chapters: <span class="string">'chapters'</span>,
+subjectVideos: <span class="string">'subject_videos'</span>,
+subjectPdfs: <span class="string">'subject_pdfs'</span>,
+topicTests: <span class="string">'topic_tests'</span>,
+media: <span class="string">'media'</span>,
+enrollments: <span class="string">'enrollments'</span>,
+results: <span class="string">'results'</span>,
+<span class="comment">// ... 40+ whitelisted tables</span>
+}
+}
+<span class="comment">// Get whitelisted table name</span>
+<span class="function">getTableName</span>(collection) {
+<span class="keyword">const</span> tableName = <span class="keyword">this</span>.tableMap[collection]
+<span class="keyword">if</span> (!tableName) {
+<span class="keyword">throw new</span> <span class="function">Error</span>(<span class="string">`Invalid collection: ${collection}`</span>)
+}
+<span class="keyword">return</span> tableName
+}
+<span class="comment">// Find with query operators</span>
+<span class="keyword">async</span> <span class="function">find</span>(collection, query = {}) {
+<span class="keyword">const</span> table = <span class="keyword">this</span>.<span class="function">getTableName</span>(collection)
+<span class="comment">// Supports: $in, $regex, $ne, $gt, $gte, $lt, $lte</span>
+<span class="comment">// Returns parameterized query with snake_case conversion</span>
+}
+<span class="comment">// Soft delete with audit trail</span>
+<span class="keyword">async</span> <span class="function">softDelete</span>(collection, id, userId) {
+<span class="keyword">return await this</span>.<span class="function">updateById</span>(collection, id, {
+isActive: <span class="keyword">false</span>,
+deletedBy: userId,
+deletedAt: <span class="keyword">new</span> <span class="function">Date</span>()
+})
+}
+<span class="comment">// CamelCase ↔ snake_case conversion</span>
+<span class="function">toCamel</span>(row) { <span class="comment">/* PostgreSQL → JavaScript */</span> }
+<span class="function">toSnake</span>(obj) { <span class="comment">/* JavaScript → PostgreSQL */</span> }
+}</code></pre>
+                    </div>
+                </section>
+                <!-- Table Whitelist -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📋</div>
+                        <div>
+                            <div class="card-title">Whitelisted Tables</div>
+                            <div class="card-subtitle">40+ validated table names</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Collection Key</th>
+                                <th>PostgreSQL Table</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>users</td>
+                                <td>users</td>
+                            </tr>
+                            <tr>
+                                <td>testSeries</td>
+                                <td>test_series</td>
+                            </tr>
+                            <tr>
+                                <td>tests</td>
+                                <td>tests</td>
+                            </tr>
+                            <tr>
+                                <td>questions</td>
+                                <td>questions</td>
+                            </tr>
+                            <tr>
+                                <td>studyMaterials</td>
+                                <td>study_materials</td>
+                            </tr>
+                            <tr>
+                                <td>examCategories</td>
+                                <td>exam_categories</td>
+                            </tr>
+                            <tr>
+                                <td>examSubCategories</td>
+                                <td>exam_sub_categories</td>
+                            </tr>
+                            <tr>
+                                <td>examInfo</td>
+                                <td>exam_info</td>
+                            </tr>
+                            <tr>
+                                <td>chapters</td>
+                                <td>chapters</td>
+                            </tr>
+                            <tr>
+                                <td>subjectVideos</td>
+                                <td>subject_videos</td>
+                            </tr>
+                            <tr>
+                                <td>subjectPdfs</td>
+                                <td>subject_pdfs</td>
+                            </tr>
+                            <tr>
+                                <td>enrollments</td>
+                                <td>enrollments</td>
+                            </tr>
+                            <tr>
+                                <td>results</td>
+                                <td>results</td>
+                            </tr>
+                            <tr>
+                                <td>media</td>
+                                <td>media</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+                <!-- Common Schema Pattern -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📐</div>
+                        <div>
+                            <div class="card-title">Common Table Schema</div>
+                            <div class="card-subtitle">Standard admin-managed table structure</div>
+                        </div>
+                    </div>
+                    <div class="code-block">
+                        <div class="code-header">
+                            <div class="code-dot red"></div>
+                            <div class="code-dot yellow"></div>
+                            <div class="code-dot green"></div>
+                            <span class="code-title">Standard Admin Table Pattern</span>
+                        </div>
+                        <pre><code><span class="keyword">CREATE TABLE</span> admin_managed_table (
+<span class="comment">// Primary Key</span>
+id <span class="type-uuid">SERIAL PRIMARY KEY</span>,
+<span class="comment">// Core Fields</span>
+name <span class="type-string">VARCHAR(200)</span> <span class="keyword">NOT NULL</span>,
+slug <span class="type-string">VARCHAR(250)</span> <span class="keyword">UNIQUE</span>,
+description <span class="type-string">TEXT</span>,
+<span class="comment">// Admin Control Flags</span>
+is_active <span class="type-boolean">BOOLEAN DEFAULT</span> <span class="keyword">true</span>,
+is_pro <span class="type-boolean">BOOLEAN DEFAULT</span> <span class="keyword">false</span>,
+<span class="comment">// Relationships</span>
+parent_id <span class="type-integer">INTEGER REFERENCES</span> parent_table(id),
+category_id <span class="type-integer">INTEGER</span>,
+<span class="comment">// Audit Fields</span>
+created_at <span class="type-timestamp">TIMESTAMP DEFAULT</span> CURRENT_TIMESTAMP,
+updated_at <span class="type-timestamp">TIMESTAMP DEFAULT</span> CURRENT_TIMESTAMP,
+created_by <span class="type-integer">INTEGER</span>,
+deleted_by <span class="type-integer">INTEGER</span>,
+<span class="comment">// Indexes for common queries</span>
+<span class="keyword">INDEX</span> idx_active (is_active),
+<span class="keyword">INDEX</span> idx_category (category_id)
+);</code></pre>
+                    </div>
+                </section>
+                <!-- Query Operators -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🔍</div>
+                        <div>
+                            <div class="card-title">Supported Query Operators</div>
+                            <div class="card-subtitle">MongoDB-style operators mapped to PostgreSQL</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Operator</th>
+                                <th>PostgreSQL Equivalent</th>
+                                <th>Example Usage</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>$in</code></td>
+                                <td><code>IN (...)</code></td>
+                                <td><code>{ status: { $in: ['active', 'pending'] } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$regex</code></td>
+                                <td><code>LIKE / ILIKE</code></td>
+                                <td><code>{ name: { $regex: 'test', $options: 'i' } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$ne</code></td>
+                                <td><code>IS DISTINCT FROM</code></td>
+                                <td><code>{ status: { $ne: 'deleted' } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$gt</code></td>
+                                <td><code>&gt;</code></td>
+                                <td><code>{ createdAt: { $gt: '2024-01-01' } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$gte</code></td>
+                                <td><code>&gt;=</code></td>
+                                <td><code>{ score: { $gte: 50 } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$lt</code></td>
+                                <td><code>&lt;</code></td>
+                                <td><code>{ price: { $lt: 1000 } }</code></td>
+                            </tr>
+                            <tr>
+                                <td><code>$lte</code></td>
+                                <td><code>&lt;=</code></td>
+                                <td><code>{ attempts: { $lte: 3 } }</code></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+        <!-- Workflows Tab -->
+        <div id="workflows" class="tab-content">
+            <div class="main-grid">
+                <!-- CRUD Workflow -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">⚡</div>
+                        <div>
+                            <div class="card-title">Admin CRUD Workflow</div>
+                            <div class="card-subtitle">Standard create, read, update, delete flow</div>
+                        </div>
+                    </div>
+                    <div class="workflow-container">
+                        <div class="workflow-row">
+                            <div class="workflow-node">
+                                <div class="workflow-label">User Action</div>
+                                <div class="workflow-sublabel">Click Add/Edit/Delete</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node">
+                                <div class="workflow-label">React State</div>
+                                <div class="workflow-sublabel">setIsEditing(true)</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node">
+                                <div class="workflow-label">Form Modal</div>
+                                <div class="workflow-sublabel">Collect data</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node active">
+                                <div class="workflow-label">API Call</div>
+                                <div class="workflow-sublabel">POST/PUT/DELETE</div>
+                            </div>
+                        </div>
+                        <div class="workflow-row" style="margin-top: 1rem;">
+                            <div class="workflow-node active">
+                                <div class="workflow-label">Express Router</div>
+                                <div class="workflow-sublabel">/api/admin/:resource</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node active">
+                                <div class="workflow-label">Middleware</div>
+                                <div class="workflow-sublabel">protect + admin</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node active">
+                                <div class="workflow-label">dbHelpers</div>
+                                <div class="workflow-sublabel">CRUD operation</div>
+                            </div>
+                            <div class="workflow-arrow">→</div>
+                            <div class="workflow-node">
+                                <div class="workflow-label">Response</div>
+                                <div class="workflow-sublabel">{ success: true }</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Soft Delete Workflow -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🗑️</div>
+                        <div>
+                            <div class="card-title">Soft Delete Workflow</div>
+                            <div class="card-subtitle">Data preservation pattern</div>
+                        </div>
+                    </div>
+                    <div class="flow-container" style="padding: 1.5rem;">
+                        <div class="flow-step">
+                            <div class="flow-number" style="width: 40px; height: 40px; font-size: 1rem;">1</div>
+                            <div class="flow-content" style="padding: 1rem;">
+                                <div class="flow-title" style="font-size: 0.95rem;">Admin clicks Delete</div>
+                                <div class="flow-desc" style="font-size: 0.85rem;">Delete button triggers
+                                    handleDelete(id)</div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number" style="width: 40px; height: 40px; font-size: 1rem;">2</div>
+                            <div class="flow-content" style="padding: 1rem;">
+                                <div class="flow-title" style="font-size: 0.95rem;">API: DELETE /api/admin/resource/:id
+                                </div>
+                                <div class="flow-desc" style="font-size: 0.85rem;">Request sent with JWT auth header
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number" style="width: 40px; height: 40px; font-size: 1rem;">3</div>
+                            <div class="flow-content" style="padding: 1rem;">
+                                <div class="flow-title" style="font-size: 0.95rem;">dbHelpers.softDelete()</div>
+                                <div class="flow-desc" style="font-size: 0.85rem;">UPDATE table SET is_active = false
+                                    WHERE id = $1</div>
+                            </div>
+                        </div>
+                        <div class="flow-step">
+                            <div class="flow-number" style="width: 40px; height: 40px; font-size: 1rem;">4</div>
+                            <div class="flow-content" style="padding: 1rem;">
+                                <div class="flow-title" style="font-size: 0.95rem;">Item in RecycleBin</div>
+                                <div class="flow-desc" style="font-size: 0.85rem;">Appears in trash with restore option
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <!-- User Management Workflow -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">👥</div>
+                        <div>
+                            <div class="card-title">User Management Workflow</div>
+                            <div class="card-subtitle">Admin user control</div>
+                        </div>
+                    </div>
+                    <div class="security-grid">
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">✅</div>
+                                <div class="security-name">Activate/Deactivate</div>
+                            </div>
+                            <div class="security-desc">PUT /api/admin/users/:id/status → Toggles isActive flag</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">👑</div>
+                                <div class="security-name">Role Assignment</div>
+                            </div>
+                            <div class="security-desc">PUT /api/admin/users/:id/role → Sets 'admin' or 'user'</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">⭐</div>
+                                <div class="security-name">Pro Pass Grant</div>
+                            </div>
+                            <div class="security-desc">PUT /api/admin/users/:id/pro-pass → Sets isProUser + expiry</div>
+                        </div>
+                        <div class="security-item">
+                            <div class="security-header">
+                                <div class="security-icon">🔒</div>
+                                <div class="security-name">Self-Protection</div>
+                            </div>
+                            <div class="security-desc">Admin cannot delete own account (server-side validation)</div>
+                        </div>
+                    </div>
+                </section>
+                <!-- Bulk Operations -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">📦</div>
+                        <div>
+                            <div class="card-title">Bulk Operations</div>
+                            <div class="card-subtitle">Batch processing capabilities</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Operation</th>
+                                <th>Endpoint</th>
+                                <th>Use Case</th>
+                                <th>Limit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Bulk Question Import</td>
+                                <td>POST /api/admin/questions/bulk</td>
+                                <td>Import questions from JSON/CSV</td>
+                                <td>100 per request</td>
+                            </tr>
+                            <tr>
+                                <td>Bulk Notifications</td>
+                                <td>POST /api/admin/notifications/bulk</td>
+                                <td>Send notifications to multiple users</td>
+                                <td>1000 users per batch</td>
+                            </tr>
+                            <tr>
+                                <td>Empty Trash</td>
+                                <td>DELETE /api/admin/trash</td>
+                                <td>Permanently delete all soft-deleted items</td>
+                                <td>No limit</td>
+                            </tr>
+                            <tr>
+                                <td>Recursive Category Delete</td>
+                                <td>DELETE /api/admin/test-categories/:id</td>
+                                <td>Delete category with all children</td>
+                                <td>No limit</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+        <!-- Limitations Tab -->
+        <div id="limitations" class="tab-content">
+            <div class="main-grid">
+                <!-- Current Limitations -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">⚠️</div>
+                        <div>
+                            <div class="card-title">Current Limitations & Issues</div>
+                            <div class="card-subtitle">Known problems and areas needing improvement</div>
+                        </div>
+                    </div>
+                    <div class="limitation-grid">
+                        <div class="limitation-card">
+                            <span class="card-type">🔴 Critical</span>
+                            <div class="limitation-title">No Pagination on Most Endpoints</div>
+                            <div class="limitation-desc">Most GET endpoints return all records without pagination. For
+                                large datasets (questions, users), this causes performance issues and potential memory
+                                exhaustion.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🔴 Critical</span>
+                            <div class="limitation-title">Missing Audit Logging</div>
+                            <div class="limitation-desc">No comprehensive audit trail for admin actions. Cannot track
+                                who made what changes and when. Critical for compliance and debugging.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟡 Medium</span>
+                            <div class="limitation-title">No Rate Limiting</div>
+                            <div class="limitation-desc">Admin endpoints lack rate limiting, making them vulnerable to
+                                abuse or accidental DoS from buggy admin tools.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟡 Medium</span>
+                            <div class="limitation-title">Limited Bulk Operations</div>
+                            <div class="limitation-desc">Only questions and notifications support bulk operations. Other
+                                resources require individual API calls for batch updates.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟡 Medium</span>
+                            <div class="limitation-title">No Search/Filter on Many Endpoints</div>
+                            <div class="limitation-desc">Many endpoints lack server-side search and filtering.
+                                UsersManager implements client-side filtering which doesn't scale.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟡 Medium</span>
+                            <div class="limitation-title">Inconsistent Error Handling</div>
+                            <div class="limitation-desc">Some endpoints return detailed error messages while others
+                                return generic errors. Inconsistent HTTP status code usage.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟢 Low</span>
+                            <div class="limitation-title">No Caching Layer</div>
+                            <div class="limitation-desc">Frequently accessed data (categories, settings) is fetched from
+                                database on every request. Could benefit from Redis caching.</div>
+                        </div>
+                        <div class="limitation-card">
+                            <span class="card-type">🟢 Low</span>
+                            <div class="limitation-title">Limited Export Functionality</div>
+                            <div class="limitation-desc">UsersManager has export button but no implementation. No
+                                CSV/Excel export for other resources.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Feature Organization Issues -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">📋</div>
+                        <div>
+                            <div class="card-title">Feature Organization Issues</div>
+                            <div class="card-subtitle">Misalignments in current structure</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Issue</th>
+                                <th>Current State</th>
+                                <th>Recommended Fix</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Duplicate Managers</td>
+                                <td>CategoriesManager + TestCategoriesManager + ExamCategoriesManager</td>
+                                <td>Consolidate into unified category manager with type prop</td>
+                            </tr>
+                            <tr>
+                                <td>Scattered Settings</td>
+                                <td>AdminSettings + individual manager settings</td>
+                                <td>Create centralized settings store</td>
+                            </tr>
+                            <tr>
+                                <td>Inconsistent Naming</td>
+                                <td>TestSeriesManager vs TestsManager naming</td>
+                                <td>Standardize: XManager for resource X</td>
+                            </tr>
+                            <tr>
+                                <td>Missing Relationships UI</td>
+                                <td>Questions linked to tests but no visual editor</td>
+                                <td>Add relationship management UI</td>
+                            </tr>
+                            <tr>
+                                <td>Partial Implementation</td>
+                                <td>BackupsManager, BannerManager incomplete</td>
+                                <td>Complete or remove placeholder components</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+
+        <!-- Future Tab -->
+        <div id="future" class="tab-content">
+            <div class="main-grid">
+                <!-- Future Features -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🚀</div>
+                        <div>
+                            <div class="card-title">Recommended Future Features</div>
+                            <div class="card-subtitle">Enhancements to improve admin experience</div>
+                        </div>
+                    </div>
+                    <div class="limitation-grid">
+                        <div class="improvement-card">
+                            <span class="card-type">✨ High Priority</span>
+                            <div class="improvement-title">Server-Side Pagination</div>
+                            <div class="improvement-desc">Implement cursor-based pagination for all list endpoints. Add
+                                page, limit, and total to all list responses. Critical for production scale.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">✨ High Priority</span>
+                            <div class="improvement-title">Audit Logging System</div>
+                            <div class="improvement-desc">Log all admin actions with user ID, timestamp, action type,
+                                and affected resources. Create AuditLogManager for viewing and filtering logs.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">✨ High Priority</span>
+                            <div class="improvement-title">Advanced Search & Filtering</div>
+                            <div class="improvement-desc">Add full-text search support with PostgreSQL's tsvector.
+                                Implement filter builders for complex queries (date ranges, multiple fields).</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">💡 Medium Priority</span>
+                            <div class="improvement-title">Real-time Updates</div>
+                            <div class="improvement-desc">Implement WebSocket or Server-Sent Events for real-time
+                                dashboard updates. Show live user counts, test attempts, and system alerts.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">💡 Medium Priority</span>
+                            <div class="improvement-title">Bulk Operations Framework</div>
+                            <div class="improvement-desc">Create standardized bulk operation endpoints for all
+                                resources. Support bulk create, update, delete with progress tracking.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">💡 Medium Priority</span>
+                            <div class="improvement-title">Export & Import System</div>
+                            <div class="improvement-desc">Add CSV/Excel export for all resources. Implement import with
+                                validation and preview. Support data migration between environments.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">🔧 Nice to Have</span>
+                            <div class="improvement-title">Version History</div>
+                            <div class="improvement-desc">Track changes to content with version history. Allow rollback
+                                to previous versions. Show diff between versions.</div>
+                        </div>
+                        <div class="improvement-card">
+                            <span class="card-type">🔧 Nice to Have</span>
+                            <div class="improvement-title">Scheduled Jobs</div>
+                            <div class="improvement-desc">Schedule content publishing, test activation, and maintenance
+                                tasks. Create JobSchedulerManager for cron-like functionality.</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Analytics Enhancements -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">📊</div>
+                        <div>
+                            <div class="card-title">Analytics Enhancements</div>
+                            <div class="card-subtitle">Better insights for admins</div>
+                        </div>
+                    </div>
+                    <div class="admin-grid" style="grid-template-columns: 1fr;">
+                        <div class="admin-item">
+                            <div class="admin-icon">📈</div>
+                            <div class="admin-info">
+                                <div class="admin-name">User Funnel Analytics</div>
+                                <div class="admin-path">Track signup → verification → first test → purchase</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🎯</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Content Performance</div>
+                                <div class="admin-path">Most viewed, most attempted, completion rates</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">💰</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Revenue Dashboard</div>
+                                <div class="admin-path">MRR, churn, LTV, conversion rates</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🐛</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Error Tracking</div>
+                                <div class="admin-path">Integrate Sentry or similar for error monitoring</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Security Enhancements -->
+                <section class="glass-card span-6">
+                    <div class="card-header">
+                        <div class="card-icon">🛡️</div>
+                        <div>
+                            <div class="card-title">Security Enhancements</div>
+                            <div class="card-subtitle">Strengthen admin security</div>
+                        </div>
+                    </div>
+                    <div class="admin-grid" style="grid-template-columns: 1fr;">
+                        <div class="admin-item">
+                            <div class="admin-icon">🔐</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Two-Factor Auth</div>
+                                <div class="admin-path">Required for admin accounts</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">⏱️</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Session Management</div>
+                                <div class="admin-path">View active sessions, force logout</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">🚦</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Rate Limiting</div>
+                                <div class="admin-path">Per-user and per-IP rate limits</div>
+                            </div>
+                        </div>
+                        <div class="admin-item">
+                            <div class="admin-icon">📝</div>
+                            <div class="admin-info">
+                                <div class="admin-name">Action Confirmation</div>
+                                <div class="admin-path">Require password for sensitive actions</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Implementation Roadmap -->
+                <section class="glass-card span-12">
+                    <div class="card-header">
+                        <div class="card-icon">🗺️</div>
+                        <div>
+                            <div class="card-title">Implementation Roadmap</div>
+                            <div class="card-subtitle">Suggested priority order</div>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Phase</th>
+                                <th>Features</th>
+                                <th>Estimated Effort</th>
+                                <th>Impact</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Phase 1 (Critical)</td>
+                                <td>Pagination, Audit Logging, Error Handling</td>
+                                <td>2-3 weeks</td>
+                                <td>High</td>
+                            </tr>
+                            <tr>
+                                <td>Phase 2 (Important)</td>
+                                <td>Search/Filter, Bulk Ops, Rate Limiting</td>
+                                <td>2-3 weeks</td>
+                                <td>High</td>
+                            </tr>
+                            <tr>
+                                <td>Phase 3 (Enhancement)</td>
+                                <td>Export/Import, 2FA, Session Management</td>
+                                <td>2-3 weeks</td>
+                                <td>Medium</td>
+                            </tr>
+                            <tr>
+                                <td>Phase 4 (Polish)</td>
+                                <td>Real-time Updates, Version History, Scheduled Jobs</td>
+                                <td>3-4 weeks</td>
+                                <td>Medium</td>
+                            </tr>
+                            <tr>
+                                <td>Phase 5 (Advanced)</td>
+                                <td>Advanced Analytics, Caching Layer, Performance</td>
+                                <td>2-3 weeks</td>
+                                <td>Low-Medium</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </div>
+
+    </div> <!-- Close container -->
+
+    <!-- Floating Dark Mode Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+        <span class="icon-sun">☀️</span>
+        <span class="icon-moon">🌙</span>
+    </button>
+
+    <style>
+        /* Theme Toggle Styles */
+        .theme-toggle {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: var(--transition-smooth);
+        }
+
+        .theme-toggle:hover {
+            transform: translateY(-5px) rotate(15deg);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-rose);
+        }
+
+        .theme-toggle .icon-moon {
+            display: none;
+        }
+
+        .light-mode .theme-toggle .icon-sun {
+            display: none;
+        }
+
+        .light-mode .theme-toggle .icon-moon {
+            display: block;
+        }
+
+        /* Light Theme Variables & Overrides */
+        .light-mode {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #f1f5f9;
+            --bg-glass: rgba(255, 255, 255, 0.85);
+            --bg-card: rgba(255, 255, 255, 0.9);
+            --border-glass: rgba(15, 23, 42, 0.1);
+            --border-active: rgba(244, 63, 94, 0.5);
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --shadow-glow: 0 0 40px rgba(244, 63, 94, 0.15);
+        }
+
+        .light-mode .bg-pattern::after {
+            opacity: 0.1;
+        }
+
+        .light-mode .glass-card {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        .light-mode .admin-item {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .light-mode .api-item {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .light-mode .data-table th {
+            background: rgba(0, 0, 0, 0.05);
+        }
+
+        .light-mode .workflow-node {
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        .light-mode .limitation-card,
+        .light-mode .improvement-card {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .light-mode .code-block {
+            background: rgba(15, 23, 42, 0.85);
+            color: #f8fafc;
+        }
+
+        .light-mode .code-header {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .light-mode .card-type {
+            background: transparent;
+            border: 1px solid currentColor;
+            color: inherit;
+        }
+
+        .light-mode .card-subtitle,
+        .light-mode .flow-desc {
+            color: var(--text-muted);
+        }
+    </style>
+
+    <!-- Scripts -->
+    <script>
+        // Tab Switching functionality
+        function switchTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+                tab.classList.remove('active');
+            });
+
+            // Remove active class from all nav tabs
+            document.querySelectorAll('.nav-tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Show selected tab content
+            const selectedTab = document.getElementById(tabId);
+            if (selectedTab) {
+                selectedTab.style.display = 'block';
+                // Add active class after a tiny delay for CSS animation
+                setTimeout(() => selectedTab.classList.add('active'), 10);
+            }
+
+            // Add active class to clicked button
+            const eventObj = window.event;
+            if (eventObj && eventObj.target) {
+                eventObj.target.classList.add('active');
+            } else {
+                // Fallback for manual calls
+                const navBtn = document.querySelector(`[onclick="switchTab('${tabId}')"]`);
+                if (navBtn) navBtn.classList.add('active');
+            }
+        }
+
+        // Dark Mode Toggle functionality
+        function toggleTheme() {
+            const isLightMode = document.body.classList.toggle('light-mode');
+            localStorage.setItem('admin-theme', isLightMode ? 'light' : 'dark');
+        }
+
+        // Initialization on load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Hide all tabs except the first one on initial load
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                if (tab.id !== 'overview') {
+                    tab.style.display = 'none';
+                } else {
+                    tab.style.display = 'block';
+                    tab.classList.add('active');
+                }
+            });
+
+            // Load saved theme preference
+            const savedTheme = localStorage.getItem('admin-theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light-mode');
+            }
+        });
+    </script>
+
+</body>
+
+</html>
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel Architecture - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-glass: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-rose: #f43f5e;
+            --accent-purple: #a855f7;
+            --gradient-admin: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%);
+            --shadow-glow: 0 0 40px rgba(244, 63, 94, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse 80% 50% at 20% 0%, rgba(244, 63, 94, 0.12), transparent), radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168, 85, 247, 0.1), transparent);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 4rem 0 6rem;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.6rem 1.5rem;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fda4af;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-admin);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 2rem 0 4rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-tab {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tab:hover,
+        .nav-tab.active {
+            background: rgba(244, 63, 94, 0.15);
+            border-color: var(--accent-rose);
+            color: var(--text-primary);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 4rem;
+        }
+
+        .glass-card {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 2rem;
+            transition: all 0.4s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(244, 63, 94, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            background: rgba(244, 63, 94, 0.1);
+            border: 1px solid rgba(244, 63, 94, 0.2);
+            border-radius: 16px;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .card-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .span-4 {
+            grid-column: span 4;
+        }
+
+        .span-6 {
+            grid-column: span 6;
+        }
+
+        .span-12 {
+            grid-column: span 12;
+        }
+
+        .admin-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .admin-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem 1.25rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .admin-item:hover {
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.3);
+            transform: translateX(8px);
+        }
+
+        .admin-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--gradient-admin);
+            border-radius: 10px;
+            font-size: 1.1rem;
+        }
+
+        .admin-info {
+            flex: 1;
+        }
+
+        .admin-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .admin-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .api-grid {
+            display: grid;
+            gap: 0.75rem;
+        }
+
+        .api-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 10px;
+        }
+
+        .method-badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .method-get {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        .method-post {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+        }
+
+        .method-put {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+        }
+
+        .method-delete {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        .api-path {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #fda4af;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red {
+            background: #ef4444;
+        }
+
+        .code-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .code-dot.green {
+            background: #34d399;
+        }
+
+        .code-title {
+            margin-left: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        pre {
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.7;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .string {
+            color: #fde047;
+        }
+
+        .property {
+            color: #fda4af;
+        }
+
+        .number {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #64748b;
+        }
+
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .stat-box {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            background: var(--gradient-admin);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 1200px) {
+
+            .span-4,
+            .span-6 {
+                grid-column: span 6;
+            }
+
+            .stats-row {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .span-4,
+            .span-6,
+            .span-12 {
+                grid-column: span 12;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <header class="header">
+            <div class="badge"><span>Admin Only</span></div>
+            <h1>Admin Panel Flow Map</h1>
+            <p class="subtitle">Complete architecture for the admin panel with 32+ management components, dashboard
+                analytics, content management, user administration, and system configuration.</p>
+            <p style="text-align: center; color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
+                <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong>
+                PostgreSQL (Supabase) | <strong>Tables:</strong> 40+
+            </p>
+        </header>
+        <nav class="nav-tabs">
+            <button class="nav-tab active">🧩 Components</button>
+            <button class="nav-tab">📡 API Endpoints</button>
+            <button class="nav-tab">🔐 Middleware</button>
+            <button class="nav-tab">📊 Statistics</button>
+        </nav>
+        <div class="main-grid">
+            <section class="glass-card span-12">
+                <div class="card-header">
+                    <div class="card-icon">🧩</div>
+                    <div>
+                        <div class="card-title">Admin Components (32+)</div>
+                        <div class="card-subtitle">All admin management modules</div>
+                    </div>
+                </div>
+                <div class="admin-grid">
+                    <div class="admin-item">
+                        <div class="admin-icon">📊</div>
+                        <div class="admin-info">
+                            <div class="admin-name">AdminDashboard</div>
+                            <div class="admin-path">AdminDashboard.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📈</div>
+                        <div class="admin-info">
+                            <div class="admin-name">AdminAnalytics</div>
+                            <div class="admin-path">AdminAnalytics.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📚</div>
+                        <div class="admin-info">
+                            <div class="admin-name">TestSeriesManager</div>
+                            <div class="admin-path">TestSeriesManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📝</div>
+                        <div class="admin-info">
+                            <div class="admin-name">TestsManager</div>
+                            <div class="admin-path">TestsManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">❓</div>
+                        <div class="admin-info">
+                            <div class="admin-name">QuestionsManager</div>
+                            <div class="admin-path">QuestionsManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📂</div>
+                        <div class="admin-info">
+                            <div class="admin-name">CategoriesManager</div>
+                            <div class="admin-path">CategoriesManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📖</div>
+                        <div class="admin-info">
+                            <div class="admin-name">StudyMaterialsManager</div>
+                            <div class="admin-path">StudyMaterialsManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">👥</div>
+                        <div class="admin-info">
+                            <div class="admin-name">UsersManager</div>
+                            <div class="admin-path">UsersManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🖼️</div>
+                        <div class="admin-info">
+                            <div class="admin-name">MediaLibrary</div>
+                            <div class="admin-path">MediaLibrary.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">⚙️</div>
+                        <div class="admin-info">
+                            <div class="admin-name">AdminSettings</div>
+                            <div class="admin-path">AdminSettings.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📋</div>
+                        <div class="admin-info">
+                            <div class="admin-name">ExamCategoriesManager</div>
+                            <div class="admin-path">ExamCategoriesManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">📄</div>
+                        <div class="admin-info">
+                            <div class="admin-name">ExamInfoManager</div>
+                            <div class="admin-path">ExamInfoManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🗑️</div>
+                        <div class="admin-info">
+                            <div class="admin-name">RecycleBin</div>
+                            <div class="admin-path">RecycleBin.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🎬</div>
+                        <div class="admin-info">
+                            <div class="admin-name">VideosManager</div>
+                            <div class="admin-path">VideosManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🔔</div>
+                        <div class="admin-info">
+                            <div class="admin-name">NotificationsManager</div>
+                            <div class="admin-path">NotificationsManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🔴</div>
+                        <div class="admin-info">
+                            <div class="admin-name">LiveTestsManager</div>
+                            <div class="admin-path">LiveTestsManager.jsx</div>
+                        </div>
+                    </div>
+                    <div class="admin-item">
+                        <div class="admin-icon">🏆</div>
+                        <div class="admin-info">
+                            <div class="admin-name">LeaderboardsManager</div>
+                            <div class="admin-path">LeaderboardsManager.jsx</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="glass-card span-6">
+                <div class="card-header">
+                    <div class="card-icon">📡</div>
+                    <div>
+                        <div class="card-title">Admin API Endpoints</div>
+                        <div class="card-subtitle">admin.js routes</div>
+                    </div>
+                </div>
+                <div class="api-grid">
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/stats</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/analytics</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/test-series</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span
+                            class="api-path">/api/admin/test-series</span></div>
+                    <div class="api-item"><span class="method-badge method-put">PUT</span><span
+                            class="api-path">/api/admin/test-series/:id</span></div>
+                    <div class="api-item"><span class="method-badge method-delete">DEL</span><span
+                            class="api-path">/api/admin/test-series/:id</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/tests</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/questions</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span
+                            class="api-path">/api/admin/questions/bulk</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span
+                            class="api-path">/api/admin/users</span></div>
+                </div>
+            </section>
+            <section class="glass-card span-6">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <div>
+                        <div class="card-title">Route Protection</div>
+                        <div class="card-subtitle">Auth middleware chain</div>
+                    </div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header">
+                        <div class="code-dot red"></div>
+                        <div class="code-dot yellow"></div>
+                        <div class="code-dot green"></div><span class="code-title">admin.js - Middleware</span>
+                    </div>
+                    <pre><code><span class="comment">// All admin routes protected by:</span>
+router.use(protect)  <span class="comment">// JWT verification</span>
+router.use(admin)    <span class="comment">// Role check</span>
+
+<span class="comment">// CRUD pattern example:</span>
+router.get(<span class="string">'/resource'</span>, async (req, res) => {
+  <span class="keyword">const</span> items = <span class="keyword">await</span> dbHelpers.find(<span class="string">'table'</span>)
+  res.json({ success: <span class="keyword">true</span>, data: items })
+})
+
+router.delete(<span class="string">'/:id'</span>, async (req, res) => {
+  <span class="keyword">await</span> dbHelpers.softDelete(<span class="string">'table'</span>, req.params.id)
+  res.json({ success: <span class="keyword">true</span> })
+})</code></pre>
+                </div>
+            </section>
+            <section class="glass-card span-12">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div>
+                        <div class="card-title">Dashboard Statistics</div>
+                        <div class="card-subtitle">Real-time admin metrics</div>
+                    </div>
+                </div>
+                <div class="stats-row">
+                    <div class="stat-box">
+                        <div class="stat-value">users</div>
+                        <div class="stat-label">Total Users</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">tests</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">questions</div>
+                        <div class="stat-label">Questions</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value">revenue</div>
+                        <div class="stat-label">Revenue</div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+
+</html>

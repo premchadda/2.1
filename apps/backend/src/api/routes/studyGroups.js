@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import { idsMatch } from '../../services/core/common.js'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 
 const router = express.Router()
 
@@ -11,7 +12,7 @@ router.get('/', async (req, res) => {
   try {
     const { category, search, limit = 20, offset = 0 } = req.query
     
-    let groups = await global.dbHelpers.find('studyGroups', { isActive: true })
+    let groups = await dbHelpers.find('studyGroups', { isActive: true })
     
     // Filter by category
     if (category && category !== 'all') {
@@ -34,7 +35,7 @@ router.get('/', async (req, res) => {
     
     // Get member count for each group
     const groupsWithCounts = await Promise.all(groups.map(async (group) => {
-      const members = await global.dbHelpers.find('studyGroupMembers', {
+      const members = await dbHelpers.find('studyGroupMembers', {
         groupId: group._id || group.id,
         isActive: { $ne: false }
       })
@@ -63,21 +64,21 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params
     if (id === 'my' || id === 'categories') return next()
     
-    let group = await global.dbHelpers.findById('studyGroups', id)
+    let group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
     }
     
     // Get members
-    const members = await global.dbHelpers.find('studyGroupMembers', {
+    const members = await dbHelpers.find('studyGroupMembers', {
       groupId: group._id || group.id,
       isActive: { $ne: false }
     })
     
     // Get admin info for each member
     const membersWithInfo = await Promise.all(members.map(async (member) => {
-      const user = await global.dbHelpers.findById('users', member.userId)
+      const user = await dbHelpers.findById('users', member.userId)
       return {
         ...member,
         userName: user?.name || member.userName,
@@ -108,7 +109,7 @@ router.post('/', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Name and description required' })
     }
     
-    const group = await global.dbHelpers.insertOne('studyGroups', {
+    const group = await dbHelpers.insertOne('studyGroups', {
       name,
       description,
       category: category || 'general',
@@ -122,7 +123,7 @@ router.post('/', protect, async (req, res) => {
     })
     
     // Add creator as admin member
-    await global.dbHelpers.insertOne('studyGroupMembers', {
+    await dbHelpers.insertOne('studyGroupMembers', {
       groupId: group._id || group.id,
       userId: req.user.id,
       userName: req.user.name,
@@ -144,7 +145,7 @@ router.put('/:id', protect, async (req, res) => {
     const { id } = req.params
     const { name, description, category, isPrivate, maxMembers } = req.body
     
-    const group = await global.dbHelpers.findById('studyGroups', id)
+    const group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
@@ -154,7 +155,7 @@ router.put('/:id', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
     
-    const updated = await global.dbHelpers.updateById('studyGroups', id, {
+    const updated = await dbHelpers.updateById('studyGroups', id, {
       ...(name && { name }),
       ...(description && { description }),
       ...(category && { category }),
@@ -176,7 +177,7 @@ router.delete('/:id', protect, async (req, res) => {
   try {
     const { id } = req.params
     
-    const group = await global.dbHelpers.findById('studyGroups', id)
+    const group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
@@ -186,7 +187,7 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
     
-    await global.dbHelpers.softDelete('studyGroups', id, req.user.id)
+    await dbHelpers.softDelete('studyGroups', id, req.user.id)
     
     res.json({ success: true, message: 'Study group deleted' })
   } catch (error) {
@@ -201,14 +202,14 @@ router.post('/:id/join', protect, async (req, res) => {
   try {
     const { id } = req.params
     
-    const group = await global.dbHelpers.findById('studyGroups', id)
+    const group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
     }
     
     // Check if already a member
-    const existingMember = await global.dbHelpers.findOne('studyGroupMembers', {
+    const existingMember = await dbHelpers.findOne('studyGroupMembers', {
       groupId: group._id || group.id,
       userId: req.user.id,
       isActive: { $ne: false }
@@ -219,7 +220,7 @@ router.post('/:id/join', protect, async (req, res) => {
     }
     
     // Check max members
-    const members = await global.dbHelpers.find('studyGroupMembers', {
+    const members = await dbHelpers.find('studyGroupMembers', {
       groupId: group._id || group.id,
       isActive: { $ne: false }
     })
@@ -228,7 +229,7 @@ router.post('/:id/join', protect, async (req, res) => {
     }
     
     // Add member
-    const member = await global.dbHelpers.insertOne('studyGroupMembers', {
+    const member = await dbHelpers.insertOne('studyGroupMembers', {
       groupId: group._id || group.id,
       userId: req.user.id,
       userName: req.user.name,
@@ -237,7 +238,7 @@ router.post('/:id/join', protect, async (req, res) => {
     })
     
     // Update member count
-    await global.dbHelpers.updateById('studyGroups', id, {
+    await dbHelpers.updateById('studyGroups', id, {
       memberCount: members.length + 1
     })
     
@@ -254,14 +255,14 @@ router.post('/:id/leave', protect, async (req, res) => {
   try {
     const { id } = req.params
     
-    const group = await global.dbHelpers.findById('studyGroups', id)
+    const group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
     }
     
     // Find and remove member
-    const member = await global.dbHelpers.findOne('studyGroupMembers', {
+    const member = await dbHelpers.findOne('studyGroupMembers', {
       groupId: group._id || group.id,
       userId: req.user.id,
       isActive: { $ne: false }
@@ -273,7 +274,7 @@ router.post('/:id/leave', protect, async (req, res) => {
     
     // Can't leave if only admin
     if (member.role === 'admin') {
-      const members = await global.dbHelpers.find('studyGroupMembers', {
+      const members = await dbHelpers.find('studyGroupMembers', {
         groupId: group._id || group.id,
         isActive: { $ne: false }
       })
@@ -282,14 +283,14 @@ router.post('/:id/leave', protect, async (req, res) => {
       }
     }
     
-    await global.dbHelpers.softDelete('studyGroupMembers', member._id || member.id, req.user.id)
+    await dbHelpers.softDelete('studyGroupMembers', member._id || member.id, req.user.id)
     
     // Update member count
-    const remainingMembers = await global.dbHelpers.find('studyGroupMembers', {
+    const remainingMembers = await dbHelpers.find('studyGroupMembers', {
       groupId: group._id || group.id,
       isActive: { $ne: false }
     })
-    await global.dbHelpers.updateById('studyGroups', id, {
+    await dbHelpers.updateById('studyGroups', id, {
       memberCount: remainingMembers.length
     })
     
@@ -307,14 +308,14 @@ router.put('/:id/member/:memberId/role', protect, async (req, res) => {
     const { id, memberId } = req.params
     const { role } = req.body
     
-    const group = await global.dbHelpers.findById('studyGroups', id)
+    const group = await dbHelpers.findById('studyGroups', id)
     
     if (!group) {
       return res.status(404).json({ success: false, message: 'Study group not found' })
     }
     
     // Check if requester is admin
-    const requesterMember = await global.dbHelpers.findOne('studyGroupMembers', {
+    const requesterMember = await dbHelpers.findOne('studyGroupMembers', {
       groupId: group._id || group.id,
       userId: req.user.id,
       isActive: { $ne: false }
@@ -324,12 +325,12 @@ router.put('/:id/member/:memberId/role', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
 
-    const memberToUpdate = await global.dbHelpers.findById('studyGroupMembers', memberId)
+    const memberToUpdate = await dbHelpers.findById('studyGroupMembers', memberId)
     if (!memberToUpdate || !idsMatch(memberToUpdate.groupId, group._id || group.id)) {
       return res.status(404).json({ success: false, message: 'Group member not found' })
     }
     
-    const updated = await global.dbHelpers.updateById('studyGroupMembers', memberId, {
+    const updated = await dbHelpers.updateById('studyGroupMembers', memberId, {
       role,
       updatedAt: new Date().toISOString()
     })
@@ -345,14 +346,14 @@ router.put('/:id/member/:memberId/role', protect, async (req, res) => {
 // @access  Private
 router.get('/my', protect, async (req, res) => {
   try {
-    const members = await global.dbHelpers.find('studyGroupMembers', {
+    const members = await dbHelpers.find('studyGroupMembers', {
       userId: req.user.id,
       isActive: { $ne: false }
     })
     const groupIds = members.map(m => m.groupId)
     
     const groups = await Promise.all(groupIds.map(async (groupId) => {
-      const group = await global.dbHelpers.findById('studyGroups', groupId)
+      const group = await dbHelpers.findById('studyGroups', groupId)
       const member = members.find((m) => idsMatch(m.groupId, groupId))
       return group ? { ...group, role: member?.role } : null
     }))

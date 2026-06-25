@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trstprep Database Schema Visualizer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); min-height: 100vh; color: #e0e0e0; }
+        .header { background: rgba(0,0,0,0.3); padding: 20px; text-align: center; border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 100; }
+        .header h1 { color: #00d4ff; margin-bottom: 5px; }
+        .header .subtitle { color: #888; font-size: 12px; margin-bottom: 15px; }
+        .search-box { margin: 15px 0; }
+        .search-box input { padding: 12px 20px; width: 300px; border-radius: 25px; border: 2px solid #00d4ff; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; }
+        .search-box input:focus { outline: none; box-shadow: 0 0 15px rgba(0,212,255,0.3); }
+        .search-box input::placeholder { color: #888; }
+        .stats { display: flex; justify-content: center; gap: 20px; margin-top: 10px; flex-wrap: wrap; }
+        .stat { background: rgba(0,212,255,0.1); padding: 8px 16px; border-radius: 20px; font-size: 13px; }
+        .stat span { color: #00d4ff; font-weight: bold; }
+        .container { display: flex; padding: 20px; gap: 20px; height: calc(100vh - 150px); }
+        .sidebar { width: 250px; background: rgba(0,0,0,0.2); border-radius: 10px; overflow-y: auto; padding: 15px; flex-shrink: 0; }
+        .sidebar h3 { color: #00d4ff; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #333; }
+        .category { margin-bottom: 12px; }
+        .category-title { color: #ffd700; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; padding: 6px 8px; background: rgba(255,215,0,0.1); border-radius: 5px; cursor: pointer; display: flex; justify-content: space-between; }
+        .category-title:hover { background: rgba(255,215,0,0.2); }
+        .category-tables { overflow: hidden; }
+        .category-tables.collapsed { max-height: 0; }
+        .table-link { display: block; padding: 7px 12px; color: #b0b0b0; text-decoration: none; border-radius: 5px; margin-bottom: 2px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+        .table-link:hover { background: rgba(0,212,255,0.2); color: #fff; }
+        .table-link.active { background: rgba(0,212,255,0.3); color: #00d4ff; }
+        .table-link .row-count { float: right; color: #666; font-size: 10px; }
+        .main-content { flex: 1; overflow-y: auto; min-width: 0; }
+        .view-toggle { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .view-btn { padding: 10px 20px; border: none; border-radius: 20px; background: rgba(0,212,255,0.2); color: #00d4ff; cursor: pointer; transition: all 0.2s; font-size: 13px; }
+        .view-btn:hover, .view-btn.active { background: #00d4ff; color: #000; }
+        .hidden { display: none !important; }
+        .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+        .overview-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 18px; border: 1px solid #333; transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+        .overview-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,212,255,0.15); }
+        .overview-card h3 { color: #00d4ff; margin-bottom: 8px; font-size: 14px; word-break: break-word; }
+        .overview-card .count { font-size: 28px; color: #ffd700; }
+        .overview-card p { color: #888; font-size: 11px; margin-top: 5px; }
+        .table-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #333; }
+        .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #00d4ff; flex-wrap: wrap; gap: 10px; }
+        .table-name { font-size: 20px; color: #00d4ff; }
+        .table-meta { display: flex; gap: 10px; flex-wrap: wrap; }
+        .meta-badge { background: rgba(0,212,255,0.2); padding: 4px 12px; border-radius: 12px; font-size: 11px; }
+        .columns-section h4 { color: #ffd700; margin-bottom: 12px; font-size: 14px; }
+        .columns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+        .column { background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .column-name { font-weight: bold; color: #fff; flex: 1; min-width: 80px; font-size: 13px; }
+        .column-type { color: #888; font-size: 11px; font-family: monospace; }
+        .column-pk { background: #ffd700; color: #000; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: bold; }
+        .column-fk { background: #ff6b6b; color: #fff; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: bold; cursor: pointer; }
+        .column-fk:hover { background: #ff8585; }
+        .column-nullable { color: #666; font-size: 10px; }
+        .relations-section { margin-top: 18px; padding-top: 12px; border-top: 1px solid #333; }
+        .relations-section h4 { color: #ffd700; margin-bottom: 10px; font-size: 14px; }
+        .relation { background: rgba(255,107,107,0.1); padding: 8px 12px; border-radius: 6px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; }
+        .relation-arrow { color: #ff6b6b; }
+        .relation-target { color: #00d4ff; cursor: pointer; }
+        .relation-target:hover { text-decoration: underline; }
+        .er-diagram { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 25px; overflow: auto; }
+        .er-row { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 25px; }
+        .er-row-label { width: 100%; color: #ffd700; font-size: 13px; font-weight: bold; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #333; }
+        .er-table { display: inline-block; background: rgba(255,255,255,0.05); border: 2px solid #00d4ff; border-radius: 8px; min-width: 180px; vertical-align: top; cursor: pointer; transition: transform 0.2s; }
+        .er-table:hover { transform: translateY(-2px); }
+        .er-table-header { background: rgba(0,212,255,0.2); padding: 8px 12px; border-bottom: 1px solid #00d4ff; font-weight: bold; color: #00d4ff; display: flex; justify-content: space-between; font-size: 12px; }
+        .er-table-header .row-count { font-size: 10px; color: #888; font-weight: normal; }
+        .er-table-columns { padding: 8px; max-height: 200px; overflow-y: auto; }
+        .er-column { padding: 4px 8px; font-size: 11px; border-bottom: 1px solid #333; display: flex; justify-content: space-between; }
+        .er-column:last-child { border-bottom: none; }
+        .er-column-type { color: #888; font-size: 9px; }
+        @media (max-width: 768px) {
+            .container { flex-direction: column; height: auto; }
+            .sidebar { width: 100%; max-height: 250px; }
+            .columns-grid { grid-template-columns: 1fr; }
+            .search-box input { width: 100%; max-width: 280px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Trstprep Database Schema</h1>
+        <div class="subtitle" id="exportDate">Export: 2026-04-16</div>
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="🔍 Search tables, columns...">
+        </div>
+        <div class="stats">
+            <div class="stat">Tables: <span id="tableCount">0</span></div>
+            <div class="stat">Columns: <span id="columnCount">0</span></div>
+            <div class="stat">Relations: <span id="relationCount">0</span></div>
+            <div class="stat">Rows: <span id="totalRows">0</span></div>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h3>📋 Tables</h3>
+            <div id="tableList"></div>
+        </div>
+        <div class="main-content">
+            <div class="view-toggle">
+                <button class="view-btn active" onclick="showView('overview')">Overview</button>
+                <button class="view-btn" onclick="showView('tables')">Tables</button>
+                <button class="view-btn" onclick="showView('er')">ER Diagram</button>
+            </div>
+            <div id="overviewView">
+                <h2 style="margin-bottom: 15px; font-size: 18px;">Database Overview</h2>
+                <div class="overview-grid" id="overviewGrid"></div>
+            </div>
+            <div id="tablesView" class="hidden">
+                <div id="tableDetails"><div style="text-align: center; padding: 40px; color: #888;">Select a table to view details</div></div>
+            </div>
+            <div id="erView" class="hidden"><div class="er-diagram" id="erDiagram"></div></div>
+        </div>
+    </div>
+
+    <script>
+    // EMBEDDED SCHEMA DATA - Complete table definitions
+    const schemaData = {
+        tables: {
+            "achievement_definitions": { columns: ["id:int", "code:varchar", "name:varchar", "description:text", "icon:varchar", "category:varchar", "criteria:jsonb", "points:int", "is_active:bool", "created_at:timestamp"], pk: ["id"], fk: [], rows: 0, cat: "Gamification" },
+            "achievements": { columns: ["id:int", "name:varchar", "description:text", "icon:varchar", "category:varchar", "points:int", "badge_color:varchar", "criteria:jsonb", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: [], rows: 0, cat: "Gamification" },
+            "app_settings": { columns: ["id:int", "site_name:varchar", "site_logo:varchar", "contact_email:varchar", "support_phone:varchar", "social_links:jsonb", "maintenance_mode:bool", "allow_signups:bool", "pro_pass_price:numeric", "features:jsonb", "updated_by:int", "updated_at:timestamp", "payment:jsonb"], pk: ["id"], fk: ["updated_by→users.id"], rows: 1, cat: "System" },
+            "assets": { columns: ["id:int", "name:varchar", "type:varchar", "category:varchar", "url:text", "size:bigint", "metadata:jsonb", "uploaded_by:int", "is_active:bool", "deleted_at:timestamp", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["uploaded_by→users.id"], rows: 0, cat: "System" },
+            "attempt_answers": { columns: ["id:uuid", "attempt_id:int", "question_id:int", "selected_option_id:uuid", "is_correct:bool", "time_spent:int", "time_spent_seconds:int", "is_unattempted:bool", "is_slow_question:bool", "section:varchar"], pk: ["id"], fk: ["attempt_id→attempts.id", "question_id→questions.id", "selected_option_id→question_options.id"], rows: 0, cat: "Attempts" },
+            "attempt_events": { columns: ["id:int", "attempt_id:int", "event_type:varchar", "question_id:int", "event_data:jsonb", "event_timestamp:timestamp"], pk: ["id"], fk: ["attempt_id→attempts.id", "question_id→questions.id"], rows: 0, cat: "Attempts" },
+            "attempts": { columns: ["id:int", "user_id:int", "test_id:int", "series_id:int", "status:varchar", "start_time:timestamp", "duration:int", "answers:jsonb", "is_completed:bool", "total_questions:int", "score:numeric", "total_marks:numeric", "correct:int", "wrong:int", "unattempted:int", "accuracy:numeric", "time_spent:int", "submitted_at:timestamp", "created_at:timestamp", "updated_at:timestamp", "marked_for_review:jsonb", "paused_at:timestamp", "resumed_at:timestamp", "remaining_time_seconds:int", "total_time_spent:int", "last_activity_at:timestamp", "test_title:varchar", "is_reattempt:bool", "reattempt_type:varchar", "parent_attempt_id:int", "section_timers:jsonb", "current_section:varchar"], pk: ["id"], fk: ["parent_attempt_id→attempts.id", "series_id→test_series.id", "test_id→tests.id", "user_id→users.id"], rows: 0, cat: "Attempts" },
+            "banners": { columns: ["id:int", "title:varchar", "subtitle:text", "image_url:varchar", "link:varchar", "position:varchar", "is_active:bool", "display_order:int", "start_date:timestamp", "end_date:timestamp", "created_at:timestamp", "exam_id:int", "asset_id:int"], pk: ["id"], fk: ["asset_id→assets.id", "exam_id→exams.id"], rows: 0, cat: "System" },
+            "bookmarks": { columns: ["id:int", "user_id:int", "item_type:varchar", "item_id:int", "notes:text", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["user_id→users.id"], rows: 0, cat: "User Data" },
+            "chapters": { columns: ["id:int", "study_material_id:int", "title:varchar", "slug:varchar", "description:text", "icon:varchar", "video_count:int", "pdf_count:int", "test_count:int", "duration:int", "order_index:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "unit_id:int", "stage_ids:array"], pk: ["id"], fk: ["study_material_id→study_materials.id", "unit_id→units.id"], rows: 258, cat: "Content" },
+            "concepts": { columns: ["id:int", "name:text", "slug:text", "subtopic_id:int", "stage_ids:array", "order_index:int", "is_active:bool", "created_at:timestamptz", "updated_at:timestamptz"], pk: ["id"], fk: ["subtopic_id→subtopics.id"], rows: 0, cat: "Content" },
+            "coupons": { columns: ["id:int", "code:varchar", "description:text", "discount_type:varchar", "discount_value:numeric", "max_discount:numeric", "min_order_value:numeric", "valid_from:timestamp", "valid_until:timestamp", "usage_limit:int", "usage_count:int", "user_usage_limit:int", "used_by_users:jsonb", "applicable_plans:array", "applicable_categories:array", "applicable_exams:array", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "plan_id:int"], pk: ["id"], fk: ["plan_id→subscription_plans.id"], rows: 0, cat: "Commerce" },
+            "csrf_tokens": { columns: ["id:int", "auth_token_hash:varchar", "csrf_token:text", "expires_at:timestamp", "created_at:timestamp", "user_id:int"], pk: ["id"], fk: ["user_id→users.id"], rows: 12, cat: "Auth" },
+            "daily_quiz_attempts": { columns: ["id:int", "quiz_id:int", "user_id:int", "answers:jsonb", "score:numeric", "accuracy:numeric", "submitted_at:timestamp", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["quiz_id→daily_quizzes.id", "user_id→users.id"], rows: 0, cat: "Quizzes" },
+            "daily_quiz_questions": { columns: ["id:int", "quiz_id:int", "question_id:int", "position:int", "created_at:timestamp"], pk: ["id"], fk: ["question_id→questions.id", "quiz_id→daily_quizzes.id"], rows: 0, cat: "Quizzes" },
+            "daily_quizzes": { columns: ["id:int", "quiz_date:date", "title:varchar", "total_questions:int", "metadata:jsonb", "is_active:bool", "created_at:timestamp"], pk: ["id"], fk: [], rows: 0, cat: "Quizzes" },
+            "discussion_replies": { columns: ["id:int", "discussion_id:int", "user_id:int", "content:text", "upvotes:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["discussion_id→question_discussions.id", "user_id→users.id"], rows: 0, cat: "Community" },
+            "discussion_votes": { columns: ["id:int", "discussion_id:int", "reply_id:int", "user_id:int", "vote_type:varchar", "created_at:timestamp"], pk: ["id"], fk: ["discussion_id→question_discussions.id", "reply_id→discussion_replies.id", "user_id→users.id"], rows: 0, cat: "Community" },
+            "doubt_replies": { columns: ["id:int", "doubt_id:int", "user_id:int", "user_name:varchar", "user_email:varchar", "content:text", "is_accepted:bool", "upvotes:int", "upvoted_by:jsonb", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["doubt_id→doubts.id", "user_id→users.id"], rows: 0, cat: "Community" },
+            "doubts": { columns: ["id:int", "user_id:int", "user_name:varchar", "user_email:varchar", "title:varchar", "description:text", "category:varchar", "tags:jsonb", "status:varchar", "views:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["user_id→users.id"], rows: 1, cat: "Community" },
+            "enrollments": { columns: ["id:int", "user_id:int", "series_id:int", "enrolled_at:timestamp", "expires_at:timestamp", "status:varchar", "progress:numeric"], pk: ["id"], fk: ["series_id→test_series.id", "user_id→users.id"], rows: 0, cat: "Commerce" },
+            "exam_categories": { columns: ["id:int", "category_id:varchar", "label:varchar", "icon:varchar", "slug:varchar", "order:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "description:text", "stage_ids:array", "display_order:int"], pk: ["id"], fk: [], rows: 2, cat: "Exams" },
+            "exam_info": { columns: ["id:int", "category_id:varchar", "exam_id:varchar", "title:varchar", "full_name:varchar", "description:text", "notification:text", "eligibility:text", "age_limit:text", "syllabus:text", "important_dates:jsonb", "exam_pattern:jsonb", "selection_process:text", "salary_structure:text", "official_website:varchar", "series_id:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["category_id→exam_categories.category_id", "series_id→test_series.id"], rows: 13, cat: "Exams" },
+            "exam_static_content": { columns: ["id:int", "overview:text", "basic_eligibility:text", "basic_age_limit:varchar", "age_relaxation:text", "selection_process:text", "exam_frequency:varchar", "conducting_body:varchar", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "exam_id:int"], pk: ["id"], fk: ["exam_id→exams.id"], rows: 1, cat: "Exams" },
+            "exam_sub_categories": { columns: ["id:int", "sub_category_id:varchar", "name:varchar", "slug:varchar", "description:text", "parent_category_id:varchar", "icon:varchar", "order:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "stage_ids:array", "display_order:int"], pk: ["id"], fk: ["parent_category_id→exam_categories.category_id"], rows: 9, cat: "Exams" },
+            "exam_updates": { columns: ["id:int", "type:varchar", "title:varchar", "description:text", "priority:varchar", "update_date:date", "is_active:bool", "created_at:timestamp", "exam_id:int"], pk: ["id"], fk: ["exam_id→exams.id"], rows: 4, cat: "Exams" },
+            "exam_yearly_data": { columns: ["id:int", "year:int", "notification:varchar", "notification_date:date", "application_start:date", "application_end:date", "tier1_exam_date:date", "tier2_exam_date:date", "vacancy_total:int", "vacancy_breakup:jsonb", "cutoff:jsonb", "syllabus_changes:text", "pattern_changes:text", "important_dates:jsonb", "result_status:varchar", "is_active:bool", "created_at:timestamp", "exam_id:int"], pk: ["id"], fk: ["exam_id→exams.id"], rows: 3, cat: "Exams" },
+            "exams": { columns: ["id:int", "category_id:varchar", "exam_id:varchar", "title:varchar", "full_name:varchar", "description:text", "notification:text", "eligibility:text", "age_limit:text", "syllabus:text", "series_id:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["category_id→exam_categories.category_id", "series_id→test_series.id"], rows: 7, cat: "Exams" },
+            "faqs": { columns: ["id:int", "question:text", "answer:text", "category:varchar", "is_active:bool", "display_order:int", "created_at:timestamp", "category_id:int"], pk: ["id"], fk: ["category_id→exam_categories.id"], rows: 10, cat: "System" },
+            "leaderboard_entries": { columns: ["id:int", "leaderboard_type:varchar", "scope_key:varchar", "user_id:int", "test_id:int", "score:numeric", "accuracy:numeric", "time_spent_seconds:int", "rank:int", "percentile:numeric", "batch_date:date", "metadata:jsonb", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["test_id→tests.id", "user_id→users.id"], rows: 2, cat: "Attempts" },
+            "leaderboards": { columns: ["id:int", "title:varchar", "test_title:varchar", "is_active:bool", "rankings:jsonb", "created_at:timestamp", "updated_at:timestamp", "test_id:int"], pk: ["id"], fk: ["test_id→tests.id"], rows: 0, cat: "Attempts" },
+            "media": { columns: ["id:int", "filename:varchar", "original_name:varchar", "mime_type:varchar", "size:bigint", "url:varchar", "file_type:varchar", "uploaded_by:int", "title:varchar", "description:text", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["uploaded_by→users.id"], rows: 0, cat: "System" },
+            "navigation_menu": { columns: ["id:int", "type:varchar", "label:varchar", "path:varchar", "icon:varchar", "color:varchar", "section:varchar", "order:int", "parent_id:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["parent_id→navigation_menu.id"], rows: 8, cat: "System" },
+            "notifications": { columns: ["id:int", "user_id:int", "type:varchar", "title:varchar", "message:text", "data:jsonb", "image:varchar", "action_url:varchar", "action_text:varchar", "is_read:bool", "read_at:timestamp", "sent_via:array", "scheduled_at:timestamp", "is_sent:bool", "sent_at:timestamp", "priority:varchar", "expires_at:timestamp", "created_at:timestamp", "updated_at:timestamp", "is_active:bool"], pk: ["id"], fk: ["user_id→users.id"], rows: 0, cat: "System" },
+            "page_content": { columns: ["id:int", "page:varchar", "section:varchar", "title:varchar", "content:text", "metadata:jsonb", "is_active:bool", "display_order:int", "created_at:timestamp", "updated_at:timestamp", "exam_id:int"], pk: ["id"], fk: ["exam_id→exams.id"], rows: 14, cat: "System" },
+            "platform_stats": { columns: ["id:int", "label:varchar", "value:varchar", "icon:varchar", "is_active:bool", "display_order:int", "created_at:timestamp"], pk: ["id"], fk: [], rows: 4, cat: "Config" },
+            "promotions": { columns: ["id:int", "title:varchar", "description:text", "code:varchar", "discount_type:varchar", "discount_value:numeric", "min_purchase:numeric", "max_discount:numeric", "usage_limit:int", "usage_count:int", "start_date:timestamp", "end_date:timestamp", "new_user_only:bool", "one_per_user:bool", "is_active:bool", "created_by:int", "deleted_at:timestamp", "created_at:timestamp", "updated_at:timestamp", "banner_asset_id:int"], pk: ["id"], fk: ["banner_asset_id→assets.id", "created_by→users.id"], rows: 0, cat: "Commerce" },
+            "pyp_papers": { columns: ["id:int", "exam_id:varchar", "year:int", "shift:varchar", "title:varchar", "duration:int", "total_marks:int", "questions:jsonb", "solutions:jsonb", "difficulty:varchar", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "series_id:int", "stage_id:int", "category_id:varchar", "sub_category_id:varchar", "category_path_ids:jsonb"], pk: ["id"], fk: ["series_id→test_series.id", "stage_id→stages.id"], rows: 0, cat: "PYP" },
+            "question_attempts": { columns: ["id:int", "attempt_id:int", "question_id:int", "selected_option:int", "is_marked_for_review:bool", "time_spent_seconds:int", "visits_count:int", "last_viewed_at:timestamp", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["attempt_id→attempts.id", "question_id→questions.id"], rows: 0, cat: "Attempts" },
+            "question_discussions": { columns: ["id:int", "question_id:int", "user_id:int", "content:text", "upvotes:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["question_id→questions.id", "user_id→users.id"], rows: 0, cat: "Community" },
+            "question_options": { columns: ["id:uuid", "question_id:int", "text:text", "is_correct:bool"], pk: ["id"], fk: ["question_id→questions.id"], rows: 0, cat: "Tests" },
+            "question_patterns": { columns: ["id:int", "name:text", "slug:text", "concept_id:int", "stage_ids:array", "order_index:int", "is_active:bool", "created_at:timestamptz", "updated_at:timestamptz"], pk: ["id"], fk: ["concept_id→concepts.id"], rows: 0, cat: "Analytics" },
+            "questions": { columns: ["id:int", "test_id:int", "question_number:int", "question_text:text", "question_text_hi:text", "options:array", "options_hi:array", "correct_option:int", "marks:numeric", "negative_marks:numeric", "section:varchar", "explanation:text", "difficulty:varchar", "image:varchar", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "subject:int", "chapter_id:int", "topic:varchar", "image_asset_id:int", "series_id:int", "category_id:varchar", "sub_category_id:varchar", "study_material_id:int", "topic_id:int", "quiz_id:int"], pk: ["id"], fk: ["category_id→exam_categories.category_id", "chapter_id→chapters.id", "image_asset_id→assets.id", "series_id→test_series.id", "study_material_id→study_materials.id", "sub_category_id→exam_sub_categories.sub_category_id", "subject→subjects.id", "test_id→tests.id", "topic_id→topics.id"], rows: 1, cat: "Tests" },
+            "quick_access": { columns: ["id:int", "title:varchar", "description:text", "icon:varchar", "link:varchar", "is_active:bool", "display_order:int", "created_at:timestamp"], pk: ["id"], fk: [], rows: 8, cat: "Config" },
+            "quizzes": { columns: ["id:int", "title:varchar", "description:text", "subject:varchar", "topic:varchar", "difficulty:varchar", "question_ids:array", "duration:int", "passing_score:int", "is_pro:bool", "is_active:bool", "order:int", "instructions:text", "is_public:bool", "shuffle_questions:bool", "show_answers:bool", "created_by:int", "deleted_at:timestamp", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["created_by→users.id"], rows: 0, cat: "Quizzes" },
+            "results": { columns: ["id:int", "user_id:int", "test_id:int", "series_id:int", "attempt_number:int", "answers:jsonb", "score:numeric", "total_marks:numeric", "correct_count:int", "incorrect_count:int", "skipped_count:int", "time_spent:int", "rank:int", "percentile:numeric", "is_completed:bool", "started_at:timestamp", "submitted_at:timestamp", "created_at:timestamp", "is_active:bool"], pk: ["id"], fk: ["series_id→test_series.id", "test_id→tests.id", "user_id→users.id"], rows: 0, cat: "Attempts" },
+            "revision_queue": { columns: ["id:int", "user_id:int", "question_id:int", "source_attempt_id:int", "schedule_day:int", "due_at:timestamp", "status:varchar", "completed_at:timestamp", "priority:int", "metadata:jsonb", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["question_id→questions.id", "source_attempt_id→attempts.id", "user_id→users.id"], rows: 0, cat: "User Data" },
+            "stages": { columns: ["id:int", "name:varchar", "slug:varchar", "description:text", "icon:varchar", "order:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp", "deleted_at:timestamp", "exam_ids:array"], pk: ["id"], fk: [], rows: 6, cat: "Exams" },
+            "study_group_members": { columns: ["id:int", "group_id:int", "user_id:int", "user_name:varchar", "role:varchar", "is_active:bool", "joined_at:timestamp", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["group_id→study_groups.id", "user_id→users.id"], rows: 0, cat: "Community" },
+            "study_groups": { columns: ["id:int", "name:varchar", "description:text", "category:varchar", "user_id:int", "owner_name:varchar", "is_private:bool", "max_members:int", "member_count:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["user_id→users.id"], rows: 0, cat: "Community" },
+            "study_materials": { columns: ["id:int", "slug:varchar", "title:varchar", "icon:varchar", "description:text", "topics:int", "videos:int", "pdf:int", "tests:int", "color:varchar", "bg:varchar", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: [], rows: 4, cat: "Content" },
+            "study_streaks": { columns: ["id:int", "user_id:int", "current_streak:int", "best_streak:int", "total_active_days:int", "last_active_date:date", "updated_at:timestamp", "created_at:timestamp"], pk: ["id"], fk: ["user_id→users.id"], rows: 1, cat: "User Data" },
+            "subject_parts": { columns: ["id:int", "name:varchar", "slug:varchar", "subject_id:int", "stage_ids:array", "order_index:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["subject_id→subjects.id"], rows: 19, cat: "Content" },
+            "subject_pdfs": { columns: ["id:int", "study_material_id:int", "chapter_id:int", "title:varchar", "slug:varchar", "description:text", "pdf_url:varchar", "file_size:int", "pages:int", "order_index:int", "is_pro:bool", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["chapter_id→chapters.id", "study_material_id→study_materials.id"], rows: 0, cat: "Content" },
+            "subject_videos": { columns: ["id:int", "study_material_id:int", "chapter_id:int", "title:varchar", "slug:varchar", "description:text", "video_url:varchar", "thumbnail:varchar", "duration:int", "order_index:int", "is_pro:bool", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["chapter_id→chapters.id", "study_material_id→study_materials.id"], rows: 0, cat: "Content" },
+            "subjects": { columns: ["id:int", "name:varchar", "slug:varchar", "icon:varchar", "color:varchar", "description:text", "is_active:bool", "sort_order:int", "created_at:timestamp", "updated_at:timestamp", "subject_group:varchar", "exam_ids:array", "stage_ids:array"], pk: ["id"], fk: [], rows: 13, cat: "Content" },
+            "subscription_features": { columns: ["id:int", "plan_type:varchar", "feature_key:varchar", "feature_name:varchar", "is_enabled:bool", "limit_value:int", "created_at:timestamp"], pk: ["id"], fk: [], rows: 25, cat: "Auth" },
+            "subscription_plans": { columns: ["id:int", "plan_id:varchar", "name:varchar", "price:numeric", "original_price:numeric", "period:varchar", "features:jsonb", "button_text:varchar", "button_class:varchar", "popular:bool", "savings:varchar", "is_active:bool", "sort_order:int", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: [], rows: 3, cat: "Auth" },
+            "subscriptions": { columns: ["id:int", "user_id:int", "plan_type:varchar", "start_date:timestamp", "expiry_date:timestamp", "status:varchar", "auto_renew:bool", "payment_method:varchar", "transaction_id:varchar", "amount_paid:numeric", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["user_id→users.id"], rows: 0, cat: "Auth" },
+            "subtopics": { columns: ["id:int", "name:varchar", "slug:varchar", "topic_id:int", "stage_ids:array", "order_index:int", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: ["topic_id→topics.id"], rows: 1059, cat: "Content" },
+            "tag_configs": { columns: ["id:int", "slug:varchar", "title:varchar", "exam_id:int"], pk: ["id"], fk: ["exam_id→exams.id"], rows: 5, cat: "Config" },
+            "test_attempts": { columns: ["id:uuid", "user_id:int", "test_id:int", "parent_attempt_id:uuid", "score:numeric"], pk: ["id"], fk: ["parent_attempt_id→test_attempts.id", "test_id→tests.id", "user_id→users.id"], rows: 0, cat: "Attempts" },
+            "test_categories": { columns: ["id:int", "name:varchar", "slug:varchar", "parent_id:int", "exam_category_id:varchar"], pk: ["id"], fk: ["parent_id→test_categories.id", "exam_category_id→exam_categories.category_id"], rows: 15, cat: "Tests" },
+            "test_questions": { columns: ["id:uuid", "test_id:int", "question_id:int", "marks:numeric"], pk: ["id"], fk: ["question_id→questions.id", "test_id→tests.id"], rows: 0, cat: "Tests" },
+            "test_series": { columns: ["id:int", "slug:varchar", "title:varchar", "category:varchar", "total_tests:int", "is_pro:bool", "price:numeric", "sections:jsonb", "stages:array"], pk: ["id"], fk: [], rows: 2, cat: "Tests" },
+            "testimonials": { columns: ["id:int", "name:varchar", "content:text", "user_id:int"], pk: ["id"], fk: ["user_id→users.id"], rows: 6, cat: "System" },
+            "tests": { columns: ["id:int", "slug:varchar", "title:varchar", "series_id:int", "subject_id:int", "stage_id:int", "total_questions:int", "duration:int", "is_pro:bool"], pk: ["id"], fk: ["series_id→test_series.id", "stage_id→stages.id", "subject_id→subjects.id"], rows: 8, cat: "Tests" },
+            "topic_analytics": { columns: ["id:int", "topic:varchar", "attempt_count:int", "avg_accuracy:numeric"], pk: ["id"], fk: [], rows: 1, cat: "Analytics" },
+            "topic_tests": { columns: ["id:int", "study_material_id:int", "chapter_id:int", "test_id:int"], pk: ["id"], fk: ["chapter_id→chapters.id", "study_material_id→study_materials.id", "test_id→tests.id"], rows: 0, cat: "Content" },
+            "topics": { columns: ["id:int", "name:varchar", "slug:varchar", "chapter_id:int", "parent_topic_id:int", "difficulty:varchar"], pk: ["id"], fk: ["chapter_id→chapters.id", "parent_topic_id→topics.id"], rows: 706, cat: "Content" },
+            "ui_tag_configs": { columns: ["id:varchar", "label:varchar", "icon:varchar"], pk: ["id"], fk: [], rows: 5, cat: "Config" },
+            "units": { columns: ["id:int", "name:varchar", "part_id:int", "stage_ids:array"], pk: ["id"], fk: ["part_id→subject_parts.id"], rows: 41, cat: "Content" },
+            "user_achievements": { columns: ["id:int", "user_id:int", "achievement_id:int"], pk: ["id"], fk: ["achievement_id→achievements.id", "user_id→users.id"], rows: 0, cat: "Gamification" },
+            "user_recommendations": { columns: ["id:int", "user_id:int", "recommendation_type:varchar", "payload:jsonb"], pk: ["id"], fk: ["user_id→users.id"], rows: 1, cat: "User Data" },
+            "user_topic_stats": { columns: ["id:int", "user_id:int", "topic:varchar", "accuracy:numeric"], pk: ["id"], fk: ["user_id→users.id"], rows: 1, cat: "User Data" },
+            "users": { columns: ["id:int", "name:varchar", "email:varchar", "password:varchar", "mobile:varchar", "avatar:varchar", "role:varchar", "is_pro_user:bool", "pro_pass_expiry:timestamp", "enrolled_series:array", "attempted_tests:jsonb", "is_active:bool", "created_at:timestamp", "updated_at:timestamp"], pk: ["id"], fk: [], rows: 3, cat: "Auth" },
+            "wrong_questions": { columns: ["id:int", "user_id:int", "test_id:int", "question_id:int", "source_attempt_id:int"], pk: ["id"], fk: ["question_id→questions.id", "source_attempt_id→attempts.id", "test_id→tests.id", "user_id→users.id"], rows: 0, cat: "User Data" }
+        }
+    };
+
+    // Parse column definition
+    function parseColumn(colDef) {
+        const parts = colDef.split(':');
+        return { name: parts[0], type: parts[1] || 'unknown' };
+    }
+
+    // Get all tables sorted
+    const tableNames = Object.keys(schemaData.tables).sort();
+    let currentView = 'overview';
+    let currentTable = null;
+
+    // Calculate stats
+    let totalCols = 0, totalFK = 0, totalRows = 0;
+    tableNames.forEach(name => {
+        const t = schemaData.tables[name];
+        totalCols += t.columns.length;
+        totalFK += t.fk.length;
+        totalRows += t.rows;
+    });
+
+    document.getElementById('tableCount').textContent = tableNames.length;
+    document.getElementById('columnCount').textContent = totalCols;
+    document.getElementById('relationCount').textContent = totalFK;
+    document.getElementById('totalRows').textContent = totalRows.toLocaleString();
+
+    // Group by category
+    const categories = {};
+    tableNames.forEach(name => {
+        const cat = schemaData.tables[name].cat || 'Other';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(name);
+    });
+
+    // Render sidebar
+    const tableList = document.getElementById('tableList');
+    Object.keys(categories).sort().forEach(cat => {
+        const catDiv = document.createElement('div');
+        catDiv.className = 'category';
+        catDiv.innerHTML = `<div class="category-title" onclick="toggleCat(this)">${cat}<span>${categories[cat].length}</span></div><div class="category-tables"></div>`;
+        const tablesDiv = catDiv.querySelector('.category-tables');
+        categories[cat].forEach(name => {
+            const t = schemaData.tables[name];
+            const link = document.createElement('a');
+            link.className = 'table-link';
+            link.innerHTML = `${name}<span class="row-count">${t.rows}</span>`;
+            link.onclick = () => showTable(name);
+            tablesDiv.appendChild(link);
+        });
+        tableList.appendChild(catDiv);
+    });
+
+    function toggleCat(el) { el.nextElementSibling.classList.toggle('collapsed'); }
+
+    // Render overview
+    const grid = document.getElementById('overviewGrid');
+    tableNames.slice().sort((a, b) => schemaData.tables[b].rows - schemaData.tables[a].rows).forEach(name => {
+        const t = schemaData.tables[name];
+        const card = document.createElement('div');
+        card.className = 'overview-card';
+        card.onclick = () => showTable(name);
+        card.innerHTML = `<h3>${name}</h3><div class="count">${t.rows}</div><p>${t.columns.length} cols • ${t.pk.length} PK • ${t.fk.length} FK</p>`;
+        grid.appendChild(card);
+    });
+
+    // Show table
+    function showTable(name) {
+        currentTable = name;
+        showView('tables');
+        const t = schemaData.tables[name];
+        const details = document.getElementById('tableDetails');
+
+        let colsHtml = t.columns.map(colDef => {
+            const col = parseColumn(colDef);
+            const isPK = t.pk.includes(col.name);
+            const fkMatch = t.fk.find(f => f.startsWith(col.name + '→'));
+            const fkTarget = fkMatch ? fkMatch.split('→')[1] : null;
+            return `<div class="column">
+                <span class="column-name">${col.name}</span>
+                <span class="column-type">${col.type}</span>
+                ${isPK ? '<span class="column-pk">PK</span>' : ''}
+                ${fkTarget ? `<span class="column-fk" onclick="showTable('${fkTarget.split('.')[0]}')">FK→${fkTarget}</span>` : ''}
+            </div>`;
+        }).join('');
+
+        let fkHtml = '';
+        if (t.fk.length > 0) {
+            fkHtml = `<div class="relations-section"><h4>🔗 Foreign Keys</h4>${t.fk.map(fk => {
+                const [col, target] = fk.split('→');
+                const [targetTable] = target.split('.');
+                return `<div class="relation"><span>${col}</span><span class="relation-arrow">→</span><span class="relation-target" onclick="showTable('${targetTable}')">${target}</span></div>`;
+            }).join('')}</div>`;
+        }
+
+        // Incoming relations
+        let incomingHtml = '';
+        const incoming = [];
+        tableNames.forEach(otherName => {
+            if (otherName === name) return;
+            schemaData.tables[otherName].fk.forEach(fk => {
+                const target = fk.split('→')[1];
+                if (target.startsWith(name + '.')) {
+                    incoming.push({ table: otherName, fk: fk });
+                }
+            });
+        });
+        if (incoming.length > 0) {
+            incomingHtml = `<div class="relations-section"><h4>🔗 Referenced By</h4>${incoming.map(ref => {
+                const [col, target] = ref.fk.split('→');
+                return `<div class="relation"><span class="relation-target" onclick="showTable('${ref.table}')">${ref.table}.${col}</span><span class="relation-arrow">→</span><span>${target}</span></div>`;
+            }).join('')}</div>`;
+        }
+
+        details.innerHTML = `<div class="table-card">
+            <div class="table-header">
+                <div class="table-name">${name}</div>
+                <div class="table-meta">
+                    <span class="meta-badge">${t.columns.length} columns</span>
+                    <span class="meta-badge">${t.rows} rows</span>
+                    <span class="meta-badge">${t.cat}</span>
+                </div>
+            </div>
+            <div class="columns-section"><h4>📝 Columns</h4><div class="columns-grid">${colsHtml}</div></div>
+            ${fkHtml}${incomingHtml}
+        </div>`;
+
+        document.querySelectorAll('.table-link').forEach(l => l.classList.remove('active'));
+        document.querySelectorAll('.table-link').forEach(l => { if (l.textContent.trim().startsWith(name)) l.classList.add('active'); });
+    }
+
+    // View toggle
+    function showView(view) {
+        currentView = view;
+        document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+        if (event && event.target) event.target.classList.add('active');
+        document.getElementById('overviewView').classList.add('hidden');
+        document.getElementById('tablesView').classList.add('hidden');
+        document.getElementById('erView').classList.add('hidden');
+        document.getElementById(view === 'overview' ? 'overviewView' : view === 'tables' ? 'tablesView' : 'erView').classList.remove('hidden');
+        if (view === 'er') renderER();
+    }
+
+    // ER Diagram
+    function renderER() {
+        const diagram = document.getElementById('erDiagram');
+        const cats = Object.keys(categories).sort();
+        let html = '';
+        cats.forEach(cat => {
+            html += `<div class="er-row-label">${cat}</div><div class="er-row">`;
+            categories[cat].forEach(name => {
+                const t = schemaData.tables[name];
+                html += `<div class="er-table" onclick="showTable('${name}')">
+                    <div class="er-table-header">${name}<span class="row-count">${t.rows}</span></div>
+                    <div class="er-table-columns">${t.columns.slice(0, 6).map(colDef => {
+                        const col = parseColumn(colDef);
+                        const isPK = t.pk.includes(col.name);
+                        const hasFK = t.fk.some(f => f.startsWith(col.name + '→'));
+                        return `<div class="er-column"><span>${col.name}</span><div><span class="er-column-type">${col.type}</span>${isPK ? '<span class="column-pk">PK</span>' : ''}${hasFK ? '<span class="column-fk">FK</span>' : ''}</div></div>`;
+                    }).join('')}${t.columns.length > 6 ? `<div class="er-column" style="color:#666">+${t.columns.length - 6} more</div>` : ''}</div></div>`;
+            });
+            html += '</div>';
+        });
+        diagram.innerHTML = html;
+    }
+
+    // Search
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll('.table-link').forEach(l => {
+            const name = l.textContent.split(/\s+/)[0].toLowerCase();
+            const t = schemaData.tables[name];
+            let match = name.includes(q);
+            if (t) match = match || t.columns.some(c => c.toLowerCase().includes(q));
+            l.style.display = match ? 'block' : 'none';
+        });
+        if (q.length > 0) document.querySelectorAll('.category-tables').forEach(c => c.classList.remove('collapsed'));
+    });
+    </script>
+</body>
+</html>

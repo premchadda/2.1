@@ -44,10 +44,12 @@ export default function UsersManagerEnhanced() {
       ])
       
       if (usersRes.status === 'fulfilled') {
-        setUsers(usersRes.value.data?.data || [])
+        const usersData = usersRes.value.data?.data;
+        setUsers(Array.isArray(usersData) ? usersData : (usersData?.users || []))
       }
       if (rolesRes.status === 'fulfilled') {
-        setSystemRoles(rolesRes.value.data?.data || [])
+        const rolesData = rolesRes.value.data?.data;
+        setSystemRoles(Array.isArray(rolesData) ? rolesData : (rolesData?.roles || []))
       }
     } catch (error) {
       console.error('Failed to fetch data:', error)

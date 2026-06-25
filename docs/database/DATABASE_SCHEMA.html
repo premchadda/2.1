@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Schema Documentation - Trstprep V2.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --brand: #667eea;
+            --brand2: #764ba2;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --info: #3b82f6;
+            --bg-dark: #1a1a2e;
+            --bg-darker: #16213e;
+            --text: #e9ecef;
+            --text-muted: #8892b0;
+        }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-darker) 100%);
+            min-height: 100vh;
+            color: var(--text);
+            line-height: 1.7;
+        }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
+        
+        header {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, var(--brand), var(--brand2));
+            border-radius: 20px;
+            margin-bottom: 30px;
+        }
+        header h1 { font-size: 2.5rem; margin-bottom: 10px; }
+        header p { opacity: 0.9; font-size: 1.1rem; }
+        .badges { display: flex; justify-content: center; gap: 10px; margin-top: 20px; flex-wrap: wrap; }
+        .badge {
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .nav {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 25px;
+            position: sticky;
+            top: 15px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+        .nav ul { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; justify-content: center; }
+        .nav a {
+            text-decoration: none;
+            color: var(--text-muted);
+            padding: 8px 15px;
+            border-radius: 8px;
+            transition: all 0.3s;
+            display: block;
+        }
+        .nav a:hover { background: linear-gradient(var(--brand), var(--brand2)); color: white; }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--brand);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card h3 { font-size: 1.2rem; margin: 25px 0 15px; color: var(--brand); }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin: 20px 0; }
+        
+        .table-card {
+            background: rgba(30,40,60,0.8);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .table-card:hover { transform: translateY(-5px); border-color: var(--brand); }
+        .table-header {
+            background: linear-gradient(90deg, rgba(102,126,234,0.3), rgba(118,75,162,0.3));
+            padding: 15px 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .table-body { padding: 15px 20px; max-height: 300px; overflow-y: auto; }
+        .field {
+            display: flex;
+            align-items: center;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem;
+        }
+        .field:last-child { border-bottom: none; }
+        .field-name { color: #00d9ff; font-family: 'Consolas', monospace; flex: 1; }
+        .field-type { color: var(--text-muted); font-size: 0.75rem; }
+        
+        .info-box {
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            display: flex;
+            gap: 15px;
+            align-items: flex-start;
+        }
+        .info-box.info { background: rgba(59,130,246,0.1); border-left: 4px solid var(--info); }
+        .info-box.success { background: rgba(16,185,129,0.1); border-left: 4px solid var(--success); }
+        
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 0.9rem; }
+        th { background: linear-gradient(var(--brand), var(--brand2)); color: white; padding: 12px 15px; text-align: left; }
+        td { padding: 10px 15px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        tr:hover td { background: rgba(255,255,255,0.05); }
+        
+        .collection-count {
+            background: rgba(102,126,234,0.2);
+            padding: 10px 20px;
+            border-radius: 10px;
+            display: inline-block;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+        
+        footer { text-align: center; padding: 40px; color: var(--text-muted); margin-top: 40px; }
+        
+        @media (max-width: 768px) {
+            header h1 { font-size: 1.8rem; }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🗄️ Database Schema Documentation</h1>
+            <p>Complete Database Schema for Trstprep V2.0</p>
+            <div class="badges">
+                <span class="badge">📊 PostgreSQL</span>
+                <span class="badge">☁️ Supabase</span>
+                <span class="badge">📅 Mar 2026</span>
+            </div>
+        </header>
+        
+        <nav class="nav">
+            <ul>
+                <li><a href="#overview">🏠 Overview</a></li>
+                <li><a href="#users-auth">👥 Users & Auth</a></li>
+                <li><a href="#tests">✅ Tests & Series</a></li>
+                <li><a href="#study">📚 Study Materials</a></li>
+                <li><a href="#exams">📝 Exams</a></li>
+                <li><a href="#engagement">💬 Engagement</a></li>
+                <li><a href="#commerce">💳 Commerce</a></li>
+                <li><a href="#content">📰 Content</a></li>
+            </ul>
+        </nav>
+        
+        <div class="collection-count">
+            📊 Total Collections: 78
+        </div>
+        
+        <section class="card" id="overview">
+            <h2>📋 Overview</h2>
+            <div class="info-box info">
+                <span style="font-size:1.5rem">ℹ️</span>
+                <div>
+                    <strong>Database Technology</strong>
+                    <p>Trstprep uses PostgreSQL (hosted on Supabase) with a helper layer providing MongoDB-like API.</p>
+                </div>
+            </div>
+            
+            <h3>Common Fields (All Tables)</h3>
+            <table>
+                <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code style="color:#00d9ff">id</code></td><td>UUID</td><td>Primary key</td></tr>
+                    <tr><td><code style="color:#00d9ff">_id</code></td><td>String/Number</td><td>Alternative ID</td></tr>
+                    <tr><td><code style="color:#00d9ff">isActive</code></td><td>Boolean</td><td>Soft delete flag</td></tr>
+                    <tr><td><code style="color:#00d9ff">createdAt</code></td><td>Timestamp</td><td>Creation date</td></tr>
+                    <tr><td><code style="color:#00d9ff">updatedAt</code></td><td>Timestamp</td><td>Last update</td></tr>
+                </tbody>
+            </table>
+        </section>
+        
+        <section class="card" id="users-auth">
+            <h2>👥 Users & Authentication</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">👥 users</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL (PK)</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR NOT NULL</span></div>
+                        <div class="field"><span class="field-name">email</span><span class="field-type">VARCHAR NOT NULL</span></div>
+                        <div class="field"><span class="field-name">password</span><span class="field-type">VARCHAR NOT NULL (Hash)</span></div>
+                        <div class="field"><span class="field-name">mobile</span><span class="field-type">VARCHAR (NULLABLE)</span></div>
+                        <div class="field"><span class="field-name">avatar</span><span class="field-type">VARCHAR (NULLABLE)</span></div>
+                        <div class="field"><span class="field-name">role</span><span class="field-type">VARCHAR DEFAULT 'user'</span></div>
+                        <div class="field"><span class="field-name">is_pro_user</span><span class="field-type">BOOLEAN DEFAULT false</span></div>
+                        <div class="field"><span class="field-name">pro_pass_expiry</span><span class="field-type">TIMESTAMP (NULLABLE)</span></div>
+                        <div class="field"><span class="field-name">enrolled_series</span><span class="field-type">ARRAY DEFAULT '{}'::integer[]</span></div>
+                        <div class="field"><span class="field-name">attempted_tests</span><span class="field-type">JSONB DEFAULT '{}'::jsonb</span></div>
+                        <div class="field"><span class="field-name">is_active</span><span class="field-type">BOOLEAN DEFAULT true</span></div>
+                        <div class="field"><span class="field-name">created_at</span><span class="field-type">TIMESTAMP DEFAULT CURRENT_TIMESTAMP</span></div>
+                        <div class="field"><span class="field-name">updated_at</span><span class="field-type">TIMESTAMP DEFAULT CURRENT_TIMESTAMP</span></div>
+                        <div class="field"><span class="field-name">pro_expiry</span><span class="field-type">TIMESTAMP (NULLABLE)</span></div>
+                        <div class="field"><span class="field-name">pass_type</span><span class="field-type">VARCHAR DEFAULT 'free'</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🔐 activityLogs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">action</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">details</span><span class="field-type">JSON</span></div>
+                        <div class="field"><span class="field-name">ipAddress</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="tests">
+            <h2>✅ Tests & Test Series</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">📚 testSeries</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">thumbnail</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">totalTests</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">freeTests</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isPro</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">isPinned</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">order</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">users</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">rating</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">✅ tests</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">seriesId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">subCategory</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">type</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">totalQuestions</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">duration</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isPro</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">isLive</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">tags</span><span class="field-type">Array</span></div>
+                        <div class="field"><span class="field-name">languages</span><span class="field-type">Array</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">❓ questions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">testId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">questionText</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">questionImage</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">options</span><span class="field-type">Array</span></div>
+                        <div class="field"><span class="field-name">correctOption</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">explanation</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">marks</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">negativeMarks</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">difficulty</span><span class="field-type">String</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📊 attempts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">testId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">status</span><span class="field-type">'in_progress'|'completed'</span></div>
+                        <div class="field"><span class="field-name">score</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">accuracy</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">timeSpent</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">answers</span><span class="field-type">Object</span></div>
+                        <div class="field"><span class="field-name">startedAt</span><span class="field-type">Timestamp</span></div>
+                        <div class="field"><span class="field-name">submittedAt</span><span class="field-type">Timestamp</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📊 sectionAttempts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">attemptId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">sectionName</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">totalQuestions</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">attempted</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">correct</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">wrong</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">unattempted</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">marks</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">timeSpent</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">accuracy</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🏆 results</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">testId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">correctAnswers</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">wrongAnswers</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">unattempted</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">score</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">percentile</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">rank</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🥇 leaderboards</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">testId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">seriesId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">rankings</span><span class="field-type">Array</span></div>
+                        <div class="field"><span class="field-name">isPublished</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎯 testCategories</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">parentId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">level</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">orderIndex</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📺 liveTests</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">testId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">scheduledAt</span><span class="field-type">Timestamp</span></div>
+                        <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">registeredUsers</span><span class="field-type">Array</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="study">
+            <h2>📚 Study Materials</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">📖 studyMaterials</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">thumbnail</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">chaptersCount</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">videosCount</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isPro</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📑 chapters</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">studyMaterialId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">order</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">videoCount</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">pdfCount</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎬 subjectVideos</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">studyMaterialId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">chapterId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">videoUrl</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">thumbnail</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">duration</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isFree</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📄 subjectPdfs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">studyMaterialId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">chapterId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">pdfUrl</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">pages</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isFree</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📺 videos</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">url</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">thumbnail</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">duration</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📰 subjects</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📋 topics</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">subject</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎯 topicTests</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">studyMaterialId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">topicId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">questionsCount</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="exams">
+            <h2>📝 Exams</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">🏛️ examCategories</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">categoryId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">label</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🏔️ stages</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">order</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📋 examInfo</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">categoryId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">fullName</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">eligibility</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">syllabus</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">pattern</span><span class="field-type">TEXT</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📂 examSubCategories</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">parentCategoryId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📅 examYearlyData</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">examId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">year</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">vacancies</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">examDateStart</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">examDateEnd</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">resultDate</span><span class="field-type">Date</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🔄 examUpdates</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">examId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">date</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">type</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="engagement">
+            <h2>💬 Engagement & Social</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">🔖 bookmarks</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">itemId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">itemType</span><span class="field-type">'test'|'question'|'video'</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🔔 notifications</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">message</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">isRead</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">type</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">❓ doubts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">question</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">image</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">status</span><span class="field-type">'open'|'answered'|'closed'</span></div>
+                        <div class="field"><span class="field-name">answersCount</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">💬 questionDiscussions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">questionId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">votes</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">👥 studyGroups</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">creatorId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">memberCount</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isPublic</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🏅 userAchievements</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">achievementId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">earnedAt</span><span class="field-type">Timestamp</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="commerce">
+            <h2>💳 Commerce & Subscriptions</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">🎟️ enrollments</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">userId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">seriesId</span><span class="field-type">UUID/Number</span></div>
+                        <div class="field"><span class="field-name">isPaid</span><span class="field-type">Boolean</span></div>
+                        <div class="field"><span class="field-name">paymentId</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">enrolledAt</span><span class="field-type">Timestamp</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">💳 subscriptionPlans</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">price</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">duration</span><span class="field-type">Number (days)</span></div>
+                        <div class="field"><span class="field-name">features</span><span class="field-type">Array</span></div>
+                        <div class="field"><span class="field-name">isPopular</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎫 coupons</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">code</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">discountType</span><span class="field-type">'percentage'|'fixed'</span></div>
+                        <div class="field"><span class="field-name">discountValue</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">minAmount</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">validUntil</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">usageLimit</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎁 promotions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">banner</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">startDate</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">endDate</span><span class="field-type">Date</span></div>
+                        <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🎟️ referrals</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">referrerId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">referredId</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">code</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">rewardClaimed</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="content">
+            <h2>📰 Content & Media</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">📰 blogs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">excerpt</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">thumbnail</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">author</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">tags</span><span class="field-type">Array</span></div>
+                        <div class="field"><span class="field-name">publishedAt</span><span class="field-type">Timestamp</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">📸 assets</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">filename</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">originalName</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">url</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">type</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">size</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">uploadedBy</span><span class="field-type">UUID</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🏷️ tagConfigs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">color</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🖼️ banners</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">image</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">link</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">position</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">❓ faqs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">question</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">answer</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">order</span><span class="field-type">Number</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">⭐ testimonials</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">image</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">review</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">rating</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">🧭 navigationMenu</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">label</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">url</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">order</span><span class="field-type">Number</span></div>
+                        <div class="field"><span class="field-name">parentId</span><span class="field-type">UUID</span></div>
+                    </div>
+                </div>
+                
+                <div class="table-card">
+                    <div class="table-header">⚙️ appSettings</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">UUID</span></div>
+                        <div class="field"><span class="field-name">key</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">value</span><span class="field-type">JSON</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <section class="card" id="additional">
+            <h2>📋 Additional Tables</h2>
+            <div class="grid">
+                <div class="table-card">
+                    <div class="table-header">🏅 achievement_definitions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">code</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">criteria</span><span class="field-type">JSONB</span></div>
+                        <div class="field"><span class="field-name">points</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🏅 achievements</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">category</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">points</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">badge_color</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">criteria</span><span class="field-type">JSONB</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📝 daily_quizzes</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">quiz_date</span><span class="field-type">DATE</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">total_questions</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">metadata</span><span class="field-type">JSONB</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📊 daily_quiz_questions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">quiz_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">question_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">position</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📊 daily_quiz_attempts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">quiz_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">answers</span><span class="field-type">JSONB</span></div>
+                        <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                        <div class="field"><span class="field-name">accuracy</span><span class="field-type">NUMERIC</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">💬 discussion_replies</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">discussion_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">upvotes</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">👍 discussion_votes</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">discussion_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">reply_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">vote_type</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">💬 doubt_replies</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">doubt_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">content</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">is_accepted</span><span class="field-type">BOOLEAN</span></div>
+                        <div class="field"><span class="field-name">upvotes</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🥇 leaderboard_entries</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">leaderboard_type</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">scope_key</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">test_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                        <div class="field"><span class="field-name">accuracy</span><span class="field-type">NUMERIC</span></div>
+                        <div class="field"><span class="field-name">rank</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">percentile</span><span class="field-type">NUMERIC</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">❓ question_attempts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">attempt_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">question_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">selected_option</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">is_marked_for_review</span><span class="field-type">BOOLEAN</span></div>
+                        <div class="field"><span class="field-name">time_spent_seconds</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">visits_count</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🎯 question_patterns</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">concept_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">stage_ids</span><span class="field-type">ARRAY</span></div>
+                        <div class="field"><span class="field-name">order_index</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📝 quizzes</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">title</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">subject</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">topic</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">difficulty</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">question_ids</span><span class="field-type">ARRAY</span></div>
+                        <div class="field"><span class="field-name">duration</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">passing_score</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📚 revision_queue</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">question_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">source_attempt_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">schedule_day</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">due_at</span><span class="field-type">TIMESTAMP</span></div>
+                        <div class="field"><span class="field-name">status</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">👥 study_group_members</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">group_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">user_name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">role</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">joined_at</span><span class="field-type">TIMESTAMP</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🔥 study_streaks</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">current_streak</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">best_streak</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">total_active_days</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">last_active_date</span><span class="field-type">DATE</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📚 subject_parts</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">subject_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">stage_ids</span><span class="field-type">ARRAY</span></div>
+                        <div class="field"><span class="field-name">order_index</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📖 subtopics</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">topic_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">stage_ids</span><span class="field-type">ARRAY</span></div>
+                        <div class="field"><span class="field-name">order_index</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📊 topic_analytics</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">date_bucket</span><span class="field-type">DATE</span></div>
+                        <div class="field"><span class="field-name">topic</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">subject</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">attempt_count</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">correct_count</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">avg_accuracy</span><span class="field-type">NUMERIC</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">🏷️ ui_tag_configs</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">label</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">description</span><span class="field-type">TEXT</span></div>
+                        <div class="field"><span class="field-name">icon</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">color</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">route</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">filterKey</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">filterValue</span><span class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📚 units</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">name</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">slug</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">part_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">stage_ids</span><span class="field-type">ARRAY</span></div>
+                        <div class="field"><span class="field-name">order_index</span><span class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">💡 user_recommendations</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">recommendation_type</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">payload</span><span class="field-type">JSONB</span></div>
+                        <div class="field"><span class="field-name">score</span><span class="field-type">NUMERIC</span></div>
+                        <div class="field"><span class="field-name">generated_at</span><span class="field-type">TIMESTAMP</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">📊 user_topic_stats</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">topic</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">subject</span><span class="field-type">VARCHAR</span></div>
+                        <div class="field"><span class="field-name">total_attempts</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">correct_answers</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">accuracy</span><span class="field-type">NUMERIC</span></div>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div class="table-header">❌ wrong_questions</div>
+                    <div class="table-body">
+                        <div class="field"><span class="field-name">id</span><span class="field-type">SERIAL</span></div>
+                        <div class="field"><span class="field-name">user_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">test_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">question_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">source_attempt_id</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">wrong_count</span><span class="field-type">INTEGER</span></div>
+                        <div class="field"><span class="field-name">last_seen_at</span><span class="field-type">TIMESTAMP</span></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <footer>
+            <p>🗄️ Database Schema Documentation | Trstprep V2.0</p>
+            <p>PostgreSQL via Supabase | Last Updated: March 10, 2026 | Update date is (19:18)</p>
+        </footer>
+    </div>
+</body>
+</html>

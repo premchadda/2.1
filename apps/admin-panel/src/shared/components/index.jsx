@@ -2,6 +2,7 @@ export { default as AdminLayout } from './AdminLayout.jsx'
 export { default as ProtectedRoute } from './ProtectedRoute.jsx'
 export { default as Breadcrumb } from './common/Breadcrumb.jsx'
 export { default as AdminPageHeader } from './admin/AdminPageHeader.jsx'
+export { default as CommandPalette } from './common/CommandPalette.jsx'
 
 // Logo component inline export
 export function Logo({ containerSize = "", iconSize = "w-6 h-6", textSize = "text-xl" }) {

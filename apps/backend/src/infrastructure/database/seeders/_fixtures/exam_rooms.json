@@ -1,0 +1,12 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "exam_name": "SSC CGL 2026 Tier-I Free Demo Room",
+    "exam_type": "ssc-cgl-2026",
+    "exam_date": "2026-12-15",
+    "room_code": "DEMO-ROOM-001",
+    "description": "Demo room for the public launch of trstprep live exam rooms. Replace before production launch.",
+    "is_active": true,
+    "created_by": null
+  }
+]

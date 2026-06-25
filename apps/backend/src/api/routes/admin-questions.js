@@ -2,18 +2,12 @@ import express from "express";
 import * as XLSX from "xlsx";
 import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
 import { Question } from "../../data/models/index.js";
-import { upload as bulkQuestionUpload } from "../../infrastructure/storage/upload.js";
+import { memoryUpload as bulkQuestionUpload } from "../../infrastructure/storage/upload.js";
 import { resolveAssetAccessUrl } from "../../infrastructure/storage/storageProvider.js";
+import { parseAssetId } from "../../shared/utils/parseAssetId.js";
+import { mapBulkRowToQuestionPayload } from "../../shared/utils/bulkRowMappers.js";
 
 const router = express.Router();
-
-// Helper to parse asset IDs
-const parseAssetId = (id) => {
-  if (!id) return null;
-  const str = String(id).trim();
-  if (!str || str === "null" || str === "undefined") return null;
-  return str;
-};
 
 // Helper: Synchronize test statistics (total_questions, total_marks)
 const syncTestStats = async (testId) => {
@@ -131,41 +125,7 @@ const parseQuestionsSpreadsheet = (buffer) => {
   return XLSX.utils.sheet_to_json(sheet, { defval: "" });
 };
 
-// Map bulk row to question payload
-const mapBulkRowToQuestionPayload = (row, config) => {
-  const questionText = row.questionText || row.question_text || row.question || "";
-  if (!questionText.trim()) return null;
-
-  const options = [
-    row.optionA || row.option_a || row.option1 || "",
-    row.optionB || row.option_b || row.option2 || "",
-    row.optionC || row.option_c || row.option3 || "",
-    row.optionD || row.option_d || row.option4 || "",
-  ].filter(Boolean);
-
-  return {
-    questionText: questionText.trim(),
-    question_text: questionText.trim(),
-    options,
-    correctOption: row.correctOption || row.correct_option || row.correctAnswer || 0,
-    explanation: row.explanation || "",
-    marks: Number(row.marks) || config.marks || 1,
-    negativeMarks: Number(row.negativeMarks) || config.negativeMarks || 0,
-    negative_marks: Number(row.negativeMarks) || config.negativeMarks || 0,
-    difficulty: row.difficulty || "medium",
-    type: row.type || "mcq",
-    testId: row.testId || config.testId || null,
-    test_id: row.testId || config.testId || null,
-    testSeriesId: row.testSeriesId || row.test_series_id || row.seriesId || row.series_id || config.testSeriesId || config.seriesId || null,
-    categoryId: row.categoryId || row.category_id || config.categoryId || null,
-    category: row.category || row.category_name || config.category || null,
-    chapterId: row.chapterId || config.chapterId || null,
-    topicId: row.topicId || config.topicId || null,
-    section: row.section || row.section_name || config.section || "",
-    subject: row.subject || null,
-    isActive: true,
-  };
-};
+// Map bulk row to question payload is imported from shared utils
 
 // Fetch questions with relations (JOINs for asset URLs and subject names)
 const fetchQuestionsWithRelations = async (filters = {}, limit = 1000, offset = 0) => {
@@ -620,15 +580,17 @@ router.post("/questions/bulk", bulkQuestionUpload.single("file"), async (req, re
 
     const questionSkipDetails = [];
     const validTestIds = new Set();
-    const mappedWithValidation = normalizedRows.map((row, index) => {
-      const payload = mapBulkRowToQuestionPayload(row, config);
-      if (!payload.questionText || payload.options.filter(Boolean).length < 2) {
-        questionSkipDetails.push({ row: index + 1, reason: "Missing question text or fewer than 2 options" });
-        return null;
-      }
-      if (payload.testId && !validTestIds.has(payload.testId)) validTestIds.add(payload.testId);
-      return { payload, rowIndex: index + 1 };
-    }).filter(Boolean);
+    const mappedWithValidation = (await Promise.all(
+      normalizedRows.map(async (row, index) => {
+        const payload = await mapBulkRowToQuestionPayload(row, config);
+        if (!payload || !payload.questionText || payload.options.filter(Boolean).length < 2) {
+          questionSkipDetails.push({ row: index + 1, reason: "Missing question text or fewer than 2 options" });
+          return null;
+        }
+        if (payload.testId && !validTestIds.has(payload.testId)) validTestIds.add(payload.testId);
+        return { payload, rowIndex: index + 1 };
+      })
+    )).filter(Boolean);
 
     const invalidTestIds = [];
     if (validTestIds.size > 0) {

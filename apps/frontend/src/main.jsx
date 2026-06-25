@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import App from './App'
 import { AuthProvider } from './shared/providers/AuthContext.jsx'
 import { ThemeProvider } from './shared/context/ThemeContext.jsx'
+import './styles/tokens.css'
 import './styles/index.css'
 
 // HIGH-06 FIX: Validate required environment variables at startup

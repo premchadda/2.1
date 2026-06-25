@@ -4466,3 +4466,62 @@ button, input, textarea, select {
     animation: pulse-ring 2s infinite;
 }
 
+/* ========================================
+   ACCESSIBILITY & REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .animate-float,
+    .animate-float-slow,
+    .animate-shimmer,
+    .animate-pulse-slow,
+    .animate-bounce-subtle,
+    .animate-twinkle,
+    .animate-gradient-flow {
+        animation: none !important;
+    }
+
+    .skeleton,
+    .skeleton-enhanced {
+        background: #e5e7eb !important;
+        animation: none !important;
+    }
+
+    canvas.particle-canvas {
+        display: none !important;
+    }
+}
+
+/* ===== A11Y-03: Keyboard Focus Indicators ===== */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid #6366f1 !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25) !important;
+}
+
+.dark a:focus-visible,
+.dark button:focus-visible,
+.dark input:focus-visible,
+.dark select:focus-visible,
+.dark textarea:focus-visible,
+.dark [role="button"]:focus-visible,
+.dark [tabindex]:focus-visible {
+    outline: 2px solid #818cf8 !important;
+    box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.3) !important;
+}
+

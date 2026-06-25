@@ -100,6 +100,8 @@ class ValidationSchema {
       type: options.type || 'string',
       minLength: options.minLength || 0,
       maxLength: options.maxLength || 1000,
+      min: options.min,
+      max: options.max,
       pattern: options.pattern || null,
       custom: options.custom || null,
       sanitize: options.sanitize !== false,
@@ -193,17 +195,20 @@ class ValidationSchema {
           }
           break
 
-        case 'integer':
-          if (!validators.isPositiveInteger(value)) {
+        case 'integer': {
+          const intVal = parseInt(value, 10)
+          const min = rule.min ?? 1
+          if (isNaN(intVal) || intVal < min || String(intVal) !== String(value)) {
             errors.push({
               field: rule.field,
-              message: `${rule.field} must be a positive integer`,
+              message: min > 0 ? `${rule.field} must be a positive integer` : `${rule.field} must be a non-negative integer`,
               code: 'INVALID_INTEGER',
             })
           } else {
-            processedValue = parseInt(value, 10)
+            processedValue = intVal
           }
           break
+        }
 
         case 'number':
           if (isNaN(parseFloat(value))) {

@@ -148,6 +148,14 @@ export const adminNavConfig = {
           badge: null
         },
         {
+          id: 'sections',
+          name: 'Sections',
+          path: '/admin/sections',
+          icon: List,
+          description: 'Test sections with timing',
+          badge: null
+        },
+        {
           id: 'tag-configs',
           name: 'Tag Configs',
           path: '/admin/tag-configs',
@@ -179,14 +187,6 @@ export const adminNavConfig = {
           path: '/admin/tests',
           icon: CheckSquare,
           description: 'Build full assessments',
-          badge: null
-        },
-        {
-          id: 'sections',
-          name: 'Sections',
-          path: '/admin/sections',
-          icon: List,
-          description: 'Test sections with timing',
           badge: null
         },
         {
@@ -246,22 +246,6 @@ export const adminNavConfig = {
           icon: GitBranch,
           description: 'View subject-chapter-topic-test relations',
           badge: 'NEW'
-        },
-        {
-          id: 'videos',
-          name: 'Videos',
-          path: '/admin/videos',
-          icon: Video,
-          description: 'Video library management',
-          badge: null
-        },
-        {
-          id: 'media',
-          name: 'Media Library',
-          path: '/admin/media',
-          icon: Image,
-          description: 'File uploads and media management',
-          badge: null
         },
         {
           id: 'current-affairs',

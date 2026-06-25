@@ -4,6 +4,7 @@ import { TestSeries } from "../../data/models/index.js";
 import { createSchema, validateBody } from "../../middleware/validation/inputValidation.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import * as XLSX from "xlsx";
+import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 // Helper to attach banner URLs to test series
 const attachTestBannerUrls = async (seriesList) => {
   return seriesList.map(s => ({
@@ -18,8 +19,7 @@ const router = express.Router();
 
 // Validation schema for test series
 const testSeriesSchema = createSchema()
-  .field("name", { type: "string", required: true, minLength: 2, maxLength: 200 })
-  .field("title", { type: "string", required: false, minLength: 2, maxLength: 200 })
+  .field("title", { type: "string", required: true, minLength: 2, maxLength: 200 })
   .field("slug", { type: "string", required: false, maxLength: 200 })
   .field("description", { type: "string", required: false, maxLength: 2000 })
   .field("is_pro", { type: "boolean", required: false })
@@ -36,13 +36,7 @@ const testSeriesSchema = createSchema()
   .field("is_pinned", { type: "boolean", required: false })
   .field("total_tests", { type: "integer", required: false, min: 0 });
 
-// Helper to parse asset IDs
-const parseAssetId = (id) => {
-  if (!id) return null;
-  const str = String(id).trim();
-  if (!str || str === "null" || str === "undefined") return null;
-  return str;
-};
+// Helper to parse asset IDs is imported from shared utils
 
 // ===== TEST SERIES MANAGEMENT =====
 
@@ -135,7 +129,7 @@ router.post("/test-series", validateBody(testSeriesSchema), async (req, res) => 
     }
 
     const payload = {
-      ...body,
+      ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v != null)),
       bannerAssetId: parseAssetId(body.bannerAssetId || body.banner_asset_id),
       promotionBannerAssetId: parseAssetId(
         body.promotionBannerAssetId || body.promotion_banner_asset_id,
@@ -162,7 +156,7 @@ router.put("/test-series/:id", validateBody(testSeriesSchema), async (req, res) 
     const body = req.validatedBody || req.body;
     const examId = body.exam_id || body.examId || body.subcategory;
     const payload = {
-      ...body,
+      ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v != null)),
       bannerAssetId: parseAssetId(body.bannerAssetId || body.banner_asset_id),
       promotionBannerAssetId: parseAssetId(
         body.promotionBannerAssetId || body.promotion_banner_asset_id,
@@ -174,7 +168,7 @@ router.put("/test-series/:id", validateBody(testSeriesSchema), async (req, res) 
       payload.subcategory = String(examId).toLowerCase().replace(/\s+/g, "-") || examId;
     }
 
-    const updated = await dbHelpers.updateOne("testSeries", series._id || series.id, payload);
+    const updated = await dbHelpers.updateById("testSeries", series._id || series.id, payload);
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

@@ -1,0 +1,1299 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Entity Relationship Flowmap - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-secondary: #0f172a;
+            --bg-glass: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1);
+            --border-active: rgba(16, 185, 129, 0.5);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-indigo: #6366f1;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-cyan: #06b6d4;
+            --accent-violet: #8b5cf6;
+            --accent-rose: #f43f5e;
+            --accent-teal: #14b8a6;
+            --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.3);
+            --shadow-card: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        .bg-pattern {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .bg-pattern::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse 80% 50% at 50% -20%, rgba(99, 102, 241, 0.15), transparent),
+                radial-gradient(ellipse 60% 40% at 100% 100%, rgba(139, 92, 246, 0.1), transparent),
+                radial-gradient(ellipse 50% 30% at 0% 100%, rgba(16, 185, 129, 0.1), transparent);
+        }
+
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image:
+                linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(60px, 60px);
+            }
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            position: relative;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            font-weight: 900;
+            line-height: 1.1;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.02em;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Main Flowmap Container */
+        .flowmap-container {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 3rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .flowmap-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            text-align: center;
+            color: var(--text-primary);
+        }
+
+        /* Central Hub Design */
+        .central-hub {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3rem;
+        }
+
+        /* Main Entity Node - Exam */
+        .exam-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            padding: 2rem 3rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border: 2px solid var(--accent-indigo);
+            border-radius: 24px;
+            position: relative;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .exam-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 50px rgba(99, 102, 241, 0.4);
+        }
+
+        .exam-icon {
+            font-size: 3rem;
+        }
+
+        .exam-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .exam-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Connection Lines Container */
+        .connections-wrapper {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            width: 100%;
+            position: relative;
+        }
+
+        /* Branch Container */
+        .branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+        }
+
+        /* Connection Line */
+        .connection-line {
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(to bottom, var(--accent-indigo), transparent);
+            position: relative;
+        }
+
+        .connection-line::after {
+            content: '▼';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: var(--accent-indigo);
+            font-size: 0.8rem;
+        }
+
+        /* Horizontal Line */
+        .horizontal-line {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-indigo), transparent);
+            margin: 2rem 0;
+        }
+
+        /* Entity Nodes */
+        .entity-node {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1.5rem 2rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border-glass);
+            border-radius: 16px;
+            min-width: 200px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .entity-node::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            border-radius: 16px 16px 0 0;
+        }
+
+        .entity-node:hover {
+            transform: translateY(-5px);
+        }
+
+        /* Color Variants */
+        .node-test-series::before {
+            background: var(--accent-emerald);
+        }
+
+        .node-test-series {
+            border-color: rgba(16, 185, 129, 0.5);
+        }
+
+        .node-test-series:hover {
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .node-test::before {
+            background: var(--accent-cyan);
+        }
+
+        .node-test {
+            border-color: rgba(6, 182, 212, 0.5);
+        }
+
+        .node-test:hover {
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.3);
+        }
+
+        .node-quiz::before {
+            background: var(--accent-amber);
+        }
+
+        .node-quiz {
+            border-color: rgba(245, 158, 11, 0.5);
+        }
+
+        .node-quiz:hover {
+            box-shadow: 0 0 30px rgba(245, 158, 11, 0.3);
+        }
+
+        .node-study-material::before {
+            background: var(--accent-rose);
+        }
+
+        .node-study-material {
+            border-color: rgba(244, 63, 94, 0.5);
+        }
+
+        .node-study-material:hover {
+            box-shadow: 0 0 30px rgba(244, 63, 94, 0.3);
+        }
+
+        .entity-icon {
+            font-size: 2rem;
+        }
+
+        .entity-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .entity-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* Sub Entities */
+        .sub-entities {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .sub-entity {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .sub-entity-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Relationship Types */
+        .relationship-section {
+            margin-top: 3rem;
+        }
+
+        .relationship-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .relationship-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .relationship-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .relationship-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .relationship-icon {
+            font-size: 1.5rem;
+        }
+
+        .relationship-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .relationship-content {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .relationship-content ul {
+            margin-top: 0.5rem;
+            margin-left: 1.5rem;
+        }
+
+        .relationship-content li {
+            margin-bottom: 0.25rem;
+        }
+
+        /* Visual Flow Diagram */
+        .visual-flow {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            margin-top: 2rem;
+        }
+
+        .flow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .flow-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1.25rem 1.75rem;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            min-width: 140px;
+        }
+
+        .flow-box:hover {
+            transform: scale(1.05);
+        }
+
+        .flow-box.exam {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.3) 100%);
+            border: 2px solid var(--accent-indigo);
+        }
+
+        .flow-box.test-series {
+            background: rgba(16, 185, 129, 0.15);
+            border: 2px solid var(--accent-emerald);
+        }
+
+        .flow-box.test {
+            background: rgba(6, 182, 212, 0.15);
+            border: 2px solid var(--accent-cyan);
+        }
+
+        .flow-box.quiz {
+            background: rgba(245, 158, 11, 0.15);
+            border: 2px solid var(--accent-amber);
+        }
+
+        .flow-box.study-material {
+            background: rgba(244, 63, 94, 0.15);
+            border: 2px solid var(--accent-rose);
+        }
+
+        .flow-box-icon {
+            font-size: 1.5rem;
+        }
+
+        .flow-box-text {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .flow-arrow {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: var(--accent-indigo);
+            font-size: 1.5rem;
+        }
+
+        .flow-arrow-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            position: absolute;
+            bottom: -20px;
+            white-space: nowrap;
+        }
+
+        /* Database Schema Section */
+        .schema-section {
+            margin-top: 2rem;
+        }
+
+        .schema-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .schema-card {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .schema-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .schema-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .schema-name {
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.95rem;
+        }
+
+        .schema-body {
+            padding: 1rem;
+        }
+
+        .schema-field {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.85rem;
+        }
+
+        .schema-field:last-child {
+            border-bottom: none;
+        }
+
+        .field-name {
+            font-family: 'JetBrains Mono', monospace;
+            color: #a5b4fc;
+        }
+
+        .field-type {
+            color: var(--accent-cyan);
+            font-size: 0.75rem;
+        }
+
+        .field-key {
+            padding: 0.2rem 0.5rem;
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        .field-fk {
+            padding: 0.2rem 0.5rem;
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+
+        /* Legend */
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .legend-dot.exam {
+            background: var(--accent-indigo);
+        }
+
+        .legend-dot.test-series {
+            background: var(--accent-emerald);
+        }
+
+        .legend-dot.test {
+            background: var(--accent-cyan);
+        }
+
+        .legend-dot.quiz {
+            background: var(--accent-amber);
+        }
+
+        .legend-dot.study-material {
+            background: var(--accent-rose);
+        }
+
+        /* Code Block */
+        .code-block {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot.red {
+            background: #ef4444;
+        }
+
+        .code-dot.yellow {
+            background: #fbbf24;
+        }
+
+        .code-dot.green {
+            background: #34d399;
+        }
+
+        pre {
+            padding: 1.25rem;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .keyword {
+            color: #f472b6;
+        }
+
+        .string {
+            color: #fde047;
+        }
+
+        .property {
+            color: #93c5fd;
+        }
+
+        .number {
+            color: #34d399;
+        }
+
+        .comment {
+            color: #64748b;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .flowmap-container {
+                padding: 1.5rem;
+            }
+
+            .connections-wrapper {
+                flex-direction: column;
+            }
+
+            .flow-row {
+                flex-direction: column;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="bg-pattern">
+        <div class="grid-lines"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header class="header fade-in">
+            <h1>🎯 Entity Relationship Flowmap</h1>
+            <p class="subtitle">
+                Visual representation of the Topic-Centric Knowledge Graph and Platform Hierarchy
+                <br><br>
+                <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong> PostgreSQL (Supabase)
+            </p>
+        </header>
+
+        <!-- Legend -->
+        <div class="legend fade-in">
+            <div class="legend-item">
+                <div class="legend-dot exam"></div>
+                <span>Exam</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot test-series"></div>
+                <span>Test Series</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot test"></div>
+                <span>Test</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot quiz"></div>
+                <span>Quiz</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot study-material"></div>
+                <span>Study Material</span>
+            </div>
+        </div>
+
+        <!-- Main Flowmap -->
+        <section class="flowmap-container fade-in">
+            <h2 class="flowmap-title">🌊 Central Entity Relationship Diagram</h2>
+
+            <div class="central-hub">
+                <!-- Main Exam Node -->
+                <div class="exam-node">
+                    <div class="exam-icon">📚</div>
+                    <div class="exam-title">EXAM</div>
+                    <div class="exam-desc">Central Entity (e.g., SSC CGL, RRB NTPC)</div>
+                </div>
+
+                <!-- Horizontal Line -->
+                <div class="horizontal-line"></div>
+
+                <!-- Connected Entities -->
+                <div class="connections-wrapper">
+                    <!-- Test Series Branch -->
+                    <div class="branch">
+                        <div class="connection-line"></div>
+                        <div class="entity-node node-test-series">
+                            <div class="entity-icon">📋</div>
+                            <div class="entity-title">Test Series Bundle</div>
+                            <div class="entity-desc">Organized by Stages/Tiers</div>
+                            <div class="sub-entities">
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-emerald);"></div>
+                                    <span>Stages (Tier I / II)</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-emerald);"></div>
+                                    <span>Mock Tests & PYQs</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-emerald);"></div>
+                                    <span>Sectional & Chapter</span>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Tests Sub-branch -->
+                        <div class="connection-line"></div>
+                        <div class="entity-node node-test">
+                            <div class="entity-icon">📝</div>
+                            <div class="entity-title">Tests</div>
+                            <div class="entity-desc">Individual test in a series</div>
+                            <div class="sub-entities">
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-cyan);"></div>
+                                    <span>Questions</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-cyan);"></div>
+                                    <span>Solutions</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-cyan);"></div>
+                                    <span>Analytics</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quiz Branch -->
+                    <div class="branch">
+                        <div class="connection-line"></div>
+                        <div class="entity-node node-quiz">
+                            <div class="entity-icon">🎯</div>
+                            <div class="entity-title">Quizzes</div>
+                            <div class="entity-desc">Quick practice assessments</div>
+                            <div class="sub-entities">
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-amber);"></div>
+                                    <span>Daily Quizzes</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-amber);"></div>
+                                    <span>Topic Quizzes</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-amber);"></div>
+                                    <span>Current Affairs</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Study Material Branch -->
+                    <div class="branch">
+                        <div class="connection-line"></div>
+                        <div class="entity-node node-study-material">
+                            <div class="entity-icon">📖</div>
+                            <div class="entity-title">Study Materials</div>
+                            <div class="entity-desc">Learning resources</div>
+                            <div class="sub-entities">
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-rose);"></div>
+                                    <span>Notes & PDFs</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-rose);"></div>
+                                    <span>Video Lessons</span>
+                                </div>
+                                <div class="sub-entity">
+                                    <div class="sub-entity-dot" style="background: var(--accent-rose);"></div>
+                                    <span>Syllabus & Pattern</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Visual Flow Diagram -->
+        <section class="flowmap-container fade-in">
+            <h2 class="flowmap-title">🔄 User Journey Flow</h2>
+
+            <div class="visual-flow">
+                <!-- Row 1: Main Flow -->
+                <div class="flow-row">
+                    <div class="flow-box exam">
+                        <div class="flow-box-icon">📚</div>
+                        <div class="flow-box-text">Exam</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box test-series">
+                        <div class="flow-box-icon">📋</div>
+                        <div class="flow-box-text">Test Series</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box test">
+                        <div class="flow-box-icon">📝</div>
+                        <div class="flow-box-text">Test</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box test">
+                        <div class="flow-box-icon">✅</div>
+                        <div class="flow-box-text">Attempt</div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Alternative Paths -->
+                <div class="flow-row">
+                    <div class="flow-box exam">
+                        <div class="flow-box-icon">📚</div>
+                        <div class="flow-box-text">Exam</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box quiz">
+                        <div class="flow-box-icon">🎯</div>
+                        <div class="flow-box-text">Quiz</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box quiz">
+                        <div class="flow-box-icon">📊</div>
+                        <div class="flow-box-text">Score</div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Study Material Path -->
+                <div class="flow-row">
+                    <div class="flow-box exam">
+                        <div class="flow-box-icon">📚</div>
+                        <div class="flow-box-text">Exam</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box study-material">
+                        <div class="flow-box-icon">📖</div>
+                        <div class="flow-box-text">Study Material</div>
+                    </div>
+                    <div class="flow-arrow">→</div>
+                    <div class="flow-box study-material">
+                        <div class="flow-box-icon">📄</div>
+                        <div class="flow-box-text">PDF/Video</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Relationship Details -->
+        <section class="flowmap-container fade-in">
+            <h2 class="flowmap-title">🔗 Entity Relationships</h2>
+
+            <div class="relationship-grid">
+                <!-- Exam to Test Series -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📚→📋</div>
+                        <div class="relationship-title">Exam → Test Series</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Exam can have multiple Test Series Bundles</li>
+                            <li>Bundles define hierarchy via <code>sections</code> JSONB (e.g. Tier I, PYP)</li>
+                            <li>Foreign Key: <code>test_series.exam_id → exams.id</code></li>
+                        </ul>
+                        <strong>Example:</strong> SSC CGL Exam → "SSC CGL Mock Test Series 2026 (Tier I & Tier II)"
+                    </div>
+                </div>
+
+                <!-- Test Series to Tests -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📋→📝</div>
+                        <div class="relationship-title">Test Series → Tests</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Test Series contains multiple Tests</li>
+                            <li>Each Test belongs to one Test Series</li>
+                            <li>Foreign Key: <code>tests.test_series_id → test_series.id</code></li>
+                        </ul>
+                        <strong>Example:</strong> "SSC CGL Tier 1 Series" → Test 1, Test 2, Test 3...
+                    </div>
+                </div>
+
+                <!-- Exam to Quiz -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📚→🎯</div>
+                        <div class="relationship-title">Exam → Quizzes</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Exam can have multiple Quizzes</li>
+                            <li>Quizzes can also be topic-based (independent)</li>
+                            <li>Foreign Key: <code>quizzes.exam_id → exams.id</code> (nullable)</li>
+                        </ul>
+                        <strong>Example:</strong> SSC CGL → "Daily GK Quiz", "Reasoning Mini Quiz"
+                    </div>
+                </div>
+
+                <!-- Exam to Study Material -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📚→📖</div>
+                        <div class="relationship-title">Exam → Study Materials</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Exam has multiple Study Materials</li>
+                            <li>Materials can be: Notes, PDFs, Videos, Syllabus</li>
+                            <li>Foreign Key: <code>study_materials.exam_id → exams.id</code></li>
+                        </ul>
+                        <strong>Example:</strong> SSC CGL → "Quant Notes", "English PDF", "Syllabus"
+                    </div>
+                </div>
+
+                <!-- Quiz to Questions -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">🎯→❓</div>
+                        <div class="relationship-title">Quiz → Questions</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Quiz contains multiple Questions</li>
+                            <li>Questions have options and correct answer</li>
+                            <li>Foreign Key: <code>questions.quiz_id → quizzes.id</code></li>
+                        </ul>
+                        <strong>Example:</strong> "GK Quiz" → Q1, Q2, Q3... (10-20 questions)
+                    </div>
+                </div>
+
+                <!-- Test to Questions -->
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📝→❓</div>
+                        <div class="relationship-title">Test → Questions</div>
+                    </div>
+                    <div class="relationship-content">
+                        <strong>Relationship:</strong> One-to-Many (1:N)
+                        <ul>
+                            <li>One Test contains multiple Questions</li>
+                            <li>Questions are mapped to test via junction table</li>
+                            <li>Foreign Key: <code>test_questions.test_id → tests.id</code></li>
+                        </ul>
+                        <strong>Example:</strong> "SSC CGL Mock 1" → 100 Questions
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Database Schema -->
+        <section class="flowmap-container schema-section fade-in">
+            <h2 class="flowmap-title">🗄️ Database Schema Overview</h2>
+
+            <div class="schema-grid">
+                <!-- exams table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>📚</span>
+                        <span class="schema-name">exams</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">slug</span><span class="field-type">VARCHAR
+                                (unique)</span></div>
+                        <div class="schema-field"><span class="field-name">category_id</span><span
+                                class="field-fk">FK</span></div>
+                        <div class="schema-field"><span class="field-name">title</span><span
+                                class="field-type">VARCHAR</span></div>
+                        <div class="schema-field"><span class="field-name">description</span><span
+                                class="field-type">TEXT</span></div>
+                        <div class="schema-field"><span class="field-name">is_active</span><span
+                                class="field-type">BOOLEAN</span></div>
+                    </div>
+                </div>
+
+                <!-- test_series table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>📋</span>
+                        <span class="schema-name">test_series</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">exam_id</span><span class="field-fk">FK →
+                                exams</span></div>
+                        <div class="schema-field"><span class="field-name">title</span><span
+                                class="field-type">VARCHAR</span></div>
+                        <div class="schema-field"><span class="field-name">sections</span><span
+                                class="field-type">JSONB</span></div>
+                        <div class="schema-field"><span class="field-name">languages</span><span
+                                class="field-type">JSONB</span></div>
+                        <div class="schema-field"><span class="field-name">total_tests</span><span
+                                class="field-type">INTEGER</span></div>
+                        <div class="schema-field"><span class="field-name">free_tests</span><span
+                                class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <!-- tests table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>📝</span>
+                        <span class="schema-name">tests</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">test_series_id</span><span
+                                class="field-fk">FK → test_series</span></div>
+                        <div class="schema-field"><span class="field-name">title</span><span
+                                class="field-type">VARCHAR</span></div>
+                        <div class="schema-field"><span class="field-name">duration</span><span
+                                class="field-type">INTEGER (mins)</span></div>
+                        <div class="schema-field"><span class="field-name">total_marks</span><span
+                                class="field-type">INTEGER</span></div>
+                        <div class="schema-field"><span class="field-name">question_count</span><span
+                                class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <!-- quizzes table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>🎯</span>
+                        <span class="schema-name">quizzes</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">exam_id</span><span class="field-fk">FK →
+                                exams</span></div>
+                        <div class="schema-field"><span class="field-name">topic_id</span><span class="field-fk">FK →
+                                topics</span></div>
+                        <div class="schema-field"><span class="field-name">title</span><span
+                                class="field-type">VARCHAR</span></div>
+                        <div class="schema-field"><span class="field-name">quiz_type</span><span
+                                class="field-type">ENUM</span></div>
+                        <div class="schema-field"><span class="field-name">duration</span><span
+                                class="field-type">INTEGER</span></div>
+                    </div>
+                </div>
+
+                <!-- study_materials table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>📖</span>
+                        <span class="schema-name">study_materials</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">exam_id</span><span class="field-fk">FK →
+                                exams</span></div>
+                        <div class="schema-field"><span class="field-name">subject_id</span><span class="field-fk">FK →
+                                subjects</span></div>
+                        <div class="schema-field"><span class="field-name">title</span><span
+                                class="field-type">VARCHAR</span></div>
+                        <div class="schema-field"><span class="field-name">material_type</span><span
+                                class="field-type">ENUM</span></div>
+                        <div class="schema-field"><span class="field-name">file_url</span><span
+                                class="field-type">VARCHAR</span></div>
+                    </div>
+                </div>
+
+                <!-- questions table -->
+                <div class="schema-card">
+                    <div class="schema-header">
+                        <span>❓</span>
+                        <span class="schema-name">questions</span>
+                    </div>
+                    <div class="schema-body">
+                        <div class="schema-field"><span class="field-name">id</span><span class="field-key">PK</span>
+                        </div>
+                        <div class="schema-field"><span class="field-name">text</span><span
+                                class="field-type">TEXT</span></div>
+                        <div class="schema-field"><span class="field-name">topic_id</span><span class="field-fk">FK →
+                                topics</span></div>
+                        <div class="schema-field"><span class="field-name">difficulty</span><span
+                                class="field-type">ENUM</span></div>
+                        <div class="schema-field"><span class="field-name">correct_option</span><span
+                                class="field-type">INTEGER</span></div>
+                        <div class="schema-field"><span class="field-name">explanation</span><span
+                                class="field-type">TEXT</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ER Diagram Code -->
+            <div class="code-block" style="margin-top: 2rem;">
+                <div class="code-header">
+                    <div class="code-dot red"></div>
+                    <div class="code-dot yellow"></div>
+                    <div class="code-dot green"></div>
+                    <span style="margin-left: 0.5rem; font-size: 0.85rem; color: var(--text-muted);">Entity Relationship
+                        Summary</span>
+                </div>
+                <pre>
+<span class="comment">// Entity Relationship Overview (Topic-Centric)</span>
+
+<span class="keyword">EXAMS</span> (Central Hub)
+  ├── <span class="property">1:N</span> → <span class="keyword">TEST_SERIES</span> (Bundles)
+  │     ├── Organizes into Stages/Tiers
+  │     └── <span class="property">1:N</span> → <span class="keyword">TESTS</span> (Mocks, PYQs, Sectional)
+  │           └── <span class="property">M:N</span> → <span class="keyword">QUESTIONS</span> (via test_questions)
+  │
+  ├── <span class="property">1:N</span> → <span class="keyword">SUBJECTS</span>
+  │     └── <span class="property">1:N</span> → <span class="keyword">CHAPTERS</span>
+  │           └── <span class="property">1:N</span> → <span class="keyword">TOPICS</span>
+  │                 ├── <span class="property">1:N</span> → <span class="keyword">QUIZZES</span>
+  │                 ├── <span class="property">1:N</span> → <span class="keyword">QUESTIONS</span>
+  │                 └── <span class="property">1:N</span> → <span class="keyword">STUDY_MATERIALS</span>
+
+<span class="comment">// Key Relationships:</span>
+<span class="comment">// - Exam is the parent entity, but learning is Topic-Centric</span>
+<span class="comment">// - Test Series groups Tests via dynamic JSONB sections</span>
+<span class="comment">// - Topics are the lowest common denominator linking content</span>
+<span class="comment">// - Every Question is tagged with [Subject, Chapter, Topic]</span>
+                </pre>
+            </div>
+        </section>
+
+        <!-- Quick Reference -->
+        <section class="flowmap-container fade-in">
+            <h2 class="flowmap-title">⚡ Quick Reference</h2>
+
+            <div class="relationship-grid">
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">🌐</div>
+                        <div class="relationship-title">Frontend Routes</div>
+                    </div>
+                    <div class="relationship-content">
+                        <ul>
+                            <li><code>/exams/:slug</code> → Exam Details</li>
+                            <li><code>/exams/:slug/test-series</code> → Test Series for Exam</li>
+                            <li><code>/test-series/:id</code> → Test Series Details</li>
+                            <li><code>/tests/:id</code> → Take Test</li>
+                            <li><code>/quizzes/:id</code> → Take Quiz</li>
+                            <li><code>/study-materials/:id</code> → View Material</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="relationship-card">
+                    <div class="relationship-header">
+                        <div class="relationship-icon">📡</div>
+                        <div class="relationship-title">Key API Endpoints</div>
+                    </div>
+                    <div class="relationship-content">
+                        <ul>
+                            <li><code>GET /api/exams</code> → List all exams</li>
+                            <li><code>GET /api/exams/:slug/test-series</code> → Get test series</li>
+                            <li><code>GET /api/test-series/:id/tests</code> → Get tests in series</li>
+                            <li><code>GET /api/exams/:slug/quizzes</code> → Get quizzes</li>
+                            <li><code>GET /api/exams/:slug/materials</code> → Get study materials</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Intersection Observer for fade-in animations
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, { threshold: 0.1 });
+
+        document.querySelectorAll('.fade-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+
+</html>

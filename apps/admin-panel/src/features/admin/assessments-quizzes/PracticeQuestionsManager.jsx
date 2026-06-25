@@ -10,7 +10,7 @@ function useExamCategories() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await adminAPI.apiClient.get('/exam-categories');
+        const res = await adminAPI.apiClient.get('/admin/exam-categories');
         const data = res.data?.success ? res.data.data : [];
         setCategories(data.filter(c => c.isActive !== false));
       } catch (e) { console.error("Failed to fetch exam categories:", e); }

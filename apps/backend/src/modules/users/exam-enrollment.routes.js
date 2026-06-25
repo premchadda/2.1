@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import { idsMatch } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
@@ -12,7 +13,7 @@ router.post('/enroll-exam/:examId', protect, async (req, res) => {
     const { examId } = req.params
     console.log('[Enroll Exam] Request received for examId:', examId, 'userId:', req.user.id)
 
-    const exam = await findEntityByIdentifier(global.dbHelpers, 'exams', examId, {
+    const exam = await findEntityByIdentifier(dbHelpers, 'exams', examId, {
       slugFields: ['slug', 'exam_id']
     })
 
@@ -28,7 +29,7 @@ router.post('/enroll-exam/:examId', protect, async (req, res) => {
     const canonicalExamId = getInternalId(exam)
 
     const result = await EnrollmentService.enrollInExam(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalExamId
     )
@@ -36,10 +37,10 @@ router.post('/enroll-exam/:examId', protect, async (req, res) => {
     if (result.alreadyEnrolled) {
       console.log('[Enroll Exam] User already enrolled')
       const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
-        global.dbHelpers,
+        dbHelpers,
         req.user.id
       )
-      const enrolledExamsLookup = await buildPublicIdLookup(global.dbHelpers, 'exams', enrolledExamIds)
+      const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
       return res.json({
         success: true,
         message: 'Already enrolled in this exam',
@@ -51,10 +52,10 @@ router.post('/enroll-exam/:examId', protect, async (req, res) => {
     console.log('[Enroll Exam] Created enrollment record in enrollments table')
 
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledExamsLookup = await buildPublicIdLookup(global.dbHelpers, 'exams', enrolledExamIds)
+    const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
 
     res.json({
       success: true,
@@ -76,7 +77,7 @@ router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
     const { examId } = req.params
     console.log('[Unenroll Exam] Request received for examId:', examId, 'userId:', req.user.id)
 
-    const exam = await findEntityByIdentifier(global.dbHelpers, 'exams', examId, {
+    const exam = await findEntityByIdentifier(dbHelpers, 'exams', examId, {
       slugFields: ['slug', 'exam_id']
     })
 
@@ -92,7 +93,7 @@ router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
     const canonicalExamId = getInternalId(exam)
 
     const unenrolled = await EnrollmentService.unenrollFromExam(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalExamId
     )
@@ -108,10 +109,10 @@ router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
     console.log('[Unenroll Exam] Successfully unenrolled')
 
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledExamsLookup = await buildPublicIdLookup(global.dbHelpers, 'exams', enrolledExamIds)
+    const enrolledExamsLookup = await buildPublicIdLookup(dbHelpers, 'exams', enrolledExamIds)
 
     res.json({
       success: true,
@@ -130,11 +131,11 @@ router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
 router.get('/enrolled-exams', protect, async (req, res) => {
   try {
     const enrolledExamIds = await EnrollmentService.getEnrolledExamIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
 
-    const allExams = await global.dbHelpers.find('exams')
+    const allExams = await dbHelpers.find('exams')
     const populatedExams = allExams
       .filter(exam =>
         enrolledExamIds.some(id => String(id) === String(exam.id || exam._id))

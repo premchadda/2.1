@@ -178,7 +178,7 @@ export const auditMiddleware = (options = {}) => {
         const action =
           actionResolver?.(req, res) || determineAction(req.method)
         const resource =
-          resourceResolver?.(req) || determineResource(req.originalUrl)
+          (resourceResolver?.(req) || determineResource(req.originalUrl))?.slice(0, 100) || null
 
         let resourceId = null
         const pathParts = req.path.split('/').filter(Boolean)

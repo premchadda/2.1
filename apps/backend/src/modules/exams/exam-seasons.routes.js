@@ -1,4 +1,5 @@
 import express from 'express'
+import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
 
 const router = express.Router()
@@ -51,7 +52,7 @@ router.get('/', async (req, res) => {
     
     query += ' ORDER BY es.year DESC, e.title'
     
-    const result = await global.dbHelpers.pool.query(query, params)
+    const result = await pool.query(query, params)
     
     res.json({
       success: true,
@@ -87,7 +88,7 @@ router.get('/:id', async (req, res) => {
       WHERE es.id = $1 AND es.is_active = true
     `
     
-    const result = await global.dbHelpers.pool.query(query, [id])
+    const result = await pool.query(query, [id])
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -129,7 +130,7 @@ router.get('/slug/:slug', async (req, res) => {
       WHERE es.season_slug = $1 AND es.is_active = true
     `
     
-    const result = await global.dbHelpers.pool.query(query, [slug])
+    const result = await pool.query(query, [slug])
     
     if (result.rows.length === 0) {
       return res.status(404).json({
@@ -169,7 +170,7 @@ router.get('/exam/:examId', async (req, res) => {
       ORDER BY es.year DESC
     `
     
-    const result = await global.dbHelpers.pool.query(query, [examId, examId, examId])
+    const result = await pool.query(query, [examId, examId, examId])
     
     res.json({
       success: true,

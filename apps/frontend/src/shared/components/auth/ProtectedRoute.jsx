@@ -22,8 +22,8 @@ function ProtectedRoute({ children, adminOnly = false }) {
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 
-  // Check for admin access if required
-  if (adminOnly && (!user.role || user.role !== 'admin')) {
+  // Check for admin access if required (accepts 'admin' or 'super_admin')
+  if (adminOnly && (!user.role || !['admin', 'super_admin'].includes(user.role))) {
     return <Navigate to="/dashboard" replace />
   }
 

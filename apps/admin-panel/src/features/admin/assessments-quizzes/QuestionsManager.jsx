@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Edit2, Trash2, X, Save,
   BookOpen, FileText, CheckCircle, Upload, Download,
   Eye, EyeOff, ChevronLeft, ChevronRight,
   Settings, Hash, Clock, ClipboardList, ScrollText, Sparkles,
-  Layers, ArrowLeft, FolderOpen, List, Filter, Activity, AlertTriangle
+  Layers, ArrowLeft, FolderOpen, List, Filter, Activity, AlertTriangle,
+  Sun, Moon
 } from 'lucide-react'
 import { adminAPI, questionsAPI } from '../../../shared/lib/dataService'
 import { useExamCategories } from '../../../shared/hooks/useExamCategories'
@@ -1337,6 +1339,7 @@ export default function QuestionsManager() {
     getSubcategories,
     loading: examFiltersLoading,
   } = useExamCategories()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [questions, setQuestions] = useState([])
   const [subjects, setSubjects] = useState([])
   const [chapters, setChapters] = useState([])
@@ -1347,11 +1350,11 @@ export default function QuestionsManager() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const [activeCategory, setActiveCategory] = useState('mock-tests')
-  const [activeExamCategoryId, setActiveExamCategoryId] = useState('')
-  const [activeExamId, setActiveExamId] = useState('')
-  const [activeStageId, setActiveStageId] = useState('')
-  const [selectedSection, setSelectedSection] = useState('all')
+  const [activeCategory, setActiveCategory] = useState(searchParams.get('tab') || 'mock-tests')
+  const [activeExamCategoryId, setActiveExamCategoryId] = useState(searchParams.get('examCategoryId') || '')
+  const [activeExamId, setActiveExamId] = useState(searchParams.get('examId') || '')
+  const [activeStageId, setActiveStageId] = useState(searchParams.get('stageId') || '')
+  const [selectedSection, setSelectedSection] = useState(searchParams.get('section') || 'all')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA)
@@ -1372,6 +1375,105 @@ export default function QuestionsManager() {
   const [currentPage, setCurrentPage] = useState(1)
   const QUESTIONS_PER_PAGE = 20
 
+  // Previews state (NF-02)
+  const [previewQuestion, setPreviewQuestion] = useState(null)
+  const [previewTest, setPreviewTest] = useState(null)
+
+  // Left rail and saved filters state (NF-04)
+  const [leftRailOpen, setLeftRailOpen] = useState(true)
+  const [savedFilters, setSavedFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('trstprep_saved_filters_questions')
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  })
+
+  const handleQuestionPreview = (q) => {
+    setPreviewQuestion(normalizeQuestion(q))
+  }
+
+  const handleTestPreview = (t) => {
+    setPreviewTest(t)
+  }
+
+  const handleSaveFilter = () => {
+    const name = prompt('Enter a name for this custom filter view:')
+    if (!name || !name.trim()) return
+
+    const newFilter = {
+      id: `filter-${Date.now()}`,
+      name: name.trim(),
+      filters: {
+        activeCategory,
+        activeExamCategoryId,
+        activeExamId,
+        activeStageId,
+        selectedSection,
+      }
+    }
+
+    const updated = [...savedFilters, newFilter]
+    setSavedFilters(updated)
+    localStorage.setItem('trstprep_saved_filters_questions', JSON.stringify(updated))
+    toast.success(`Filter "${name}" saved!`)
+  }
+
+  const handleApplyFilter = (filterData) => {
+    if (filterData.activeCategory) setActiveCategory(filterData.activeCategory)
+    if (filterData.activeExamCategoryId !== undefined) setActiveExamCategoryId(filterData.activeExamCategoryId)
+    if (filterData.activeExamId !== undefined) setActiveExamId(filterData.activeExamId)
+    if (filterData.activeStageId !== undefined) setActiveStageId(filterData.activeStageId)
+    if (filterData.selectedSection !== undefined) setSelectedSection(filterData.selectedSection)
+    toast.success('Saved filter view applied')
+  }
+
+  const handleDeleteSavedFilter = (e, filterId) => {
+    e.stopPropagation()
+    const updated = savedFilters.filter(f => f.id !== filterId)
+    setSavedFilters(updated)
+    localStorage.setItem('trstprep_saved_filters_questions', JSON.stringify(updated))
+    toast.success('Saved filter removed')
+  }
+
+  // URL Persistence effects (NF-06)
+  useEffect(() => {
+    const params = {}
+    if (activeCategory !== 'mock-tests') params.tab = activeCategory
+    if (activeExamCategoryId) params.examCategoryId = activeExamCategoryId
+    if (activeExamId) params.examId = activeExamId
+    if (activeStageId) params.stageId = activeStageId
+    if (selectedSection !== 'all') params.section = selectedSection
+    if (selectedSeries) params.seriesId = getSeriesId(selectedSeries)
+    if (selectedTest) params.testId = getTestId(selectedTest)
+    setSearchParams(params)
+  }, [activeCategory, activeExamCategoryId, activeExamId, activeStageId, selectedSection, selectedSeries, selectedTest])
+
+  useEffect(() => {
+    if (testSeriesList.length > 0 && searchParams.get('seriesId') && !selectedSeries) {
+      const found = testSeriesList.find(s => String(getSeriesId(s)) === searchParams.get('seriesId'))
+      if (found) setSelectedSeries(found)
+    }
+  }, [testSeriesList, searchParams])
+
+  useEffect(() => {
+    if (testsList.length > 0 && searchParams.get('testId') && !selectedTest) {
+      const found = testsList.find(t => String(getTestId(t)) === searchParams.get('testId'))
+      if (found) setSelectedTest(found)
+    }
+  }, [testsList, searchParams])
+
+  useEffect(() => {
+    if (searchParams.get('create') === 'true') {
+      resetForm()
+      setShowForm(true)
+      // Remove create trigger from URL
+      const params = Object.fromEntries(searchParams.entries())
+      delete params.create
+      setSearchParams(params)
+    }
+  }, [searchParams])
 
   // Bulk import state
   const [showBulkImport, setShowBulkImport] = useState(false)
@@ -1415,7 +1517,7 @@ export default function QuestionsManager() {
           adminAPI.getTestSeries(),
           adminAPI.getTests(),
           adminAPI.getTestCategories(),
-          adminAPI.apiClient.get('/stages'),
+          adminAPI.apiClient.get('/admin/stages'),
           adminAPI.apiClient.get('/admin/sections')
         ])
 
@@ -1847,16 +1949,49 @@ export default function QuestionsManager() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('This will move the question to trash. You can restore it later from the trash view.')) return
+    let undoClicked = false
+    const deletedQuestion = questions.find(q => (q._id || q.id) === id)
+    if (!deletedQuestion) return
 
-    try {
-      await adminAPI.deleteQuestion(id)
-      setQuestions(prev => prev.filter(q => (q._id || q.id) !== id))
-      toast.success('Question moved to trash!')
-    } catch (error) {
-      console.error('Failed to delete question:', error)
-      toast.error('Failed to delete question')
-    }
+    // Optimistically remove from UI
+    setQuestions(prev => prev.filter(q => (q._id || q.id) !== id))
+
+    // Show a toast with an Undo button and a 5-second timer
+    const toastId = toast((t) => (
+      <div className="flex items-center justify-between gap-4 py-1">
+        <div className="flex flex-col text-left">
+          <span className="text-sm font-semibold text-gray-900">Question moved to trash</span>
+          <span className="text-xs text-gray-500">You can undo this within 5 seconds</span>
+        </div>
+        <button
+          onClick={() => {
+            undoClicked = true
+            toast.dismiss(t.id)
+            // Restore back to UI
+            setQuestions(prev => [...prev, deletedQuestion])
+          }}
+          className="px-2.5 py-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors shrink-0"
+        >
+          UNDO
+        </button>
+      </div>
+    ), {
+      duration: 5000,
+      position: 'bottom-right',
+    })
+
+    // Set a timeout to perform the actual deletion after 5 seconds if not undone
+    setTimeout(async () => {
+      if (undoClicked) return
+      try {
+        await adminAPI.deleteQuestion(id)
+      } catch (error) {
+        console.error('Failed to delete question:', error)
+        // If backend delete failed, add it back to UI and show error
+        setQuestions(prev => [...prev, deletedQuestion])
+        toast.error('Failed to delete question from server')
+      }
+    }, 5000)
   }
 
   const handleToggleStatus = async (question) => {
@@ -2192,6 +2327,13 @@ export default function QuestionsManager() {
             Activity Log
           </button>
           <button
+            onClick={() => setLeftRailOpen(!leftRailOpen)}
+            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${leftRailOpen ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold' : 'border-gray-300 hover:bg-gray-50'}`}
+          >
+            <Filter className="w-4 h-4" />
+            {leftRailOpen ? 'Hide Filters' : 'Show Filters'}
+          </button>
+          <button
             onClick={() => { setShowTrash(!showTrash); if (!showTrash) loadTrashedQuestions() }}
             className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${showTrash ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-gray-300 hover:bg-gray-50'}`}
           >
@@ -2226,6 +2368,94 @@ export default function QuestionsManager() {
           <StatsCard icon={Hash} label="MCQ Questions" value={categoryStats.mcq.toLocaleString()} color="purple" />
         </div>
       )}
+
+      {/* Collapsible Filters Left Rail Layout (NF-04) */}
+      <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start w-full">
+        {!showTrash && leftRailOpen && (
+          <div className="w-full lg:w-64 bg-white border border-gray-200 rounded-xl p-4 shrink-0 shadow-sm space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                <Filter className="w-4 h-4 text-indigo-500" />
+                Saved Filter Views
+              </h3>
+            </div>
+            
+            {/* Seed Filters */}
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">System Presets</p>
+              <button
+                onClick={() => {
+                  setActiveCategory('mock-tests')
+                  setActiveExamCategoryId('')
+                  setActiveExamId('')
+                  setActiveStageId('')
+                  setSelectedSection('all')
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
+                <Layers className="w-4 h-4 text-indigo-400" />
+                All Mock Tests
+              </button>
+              <button
+                onClick={() => {
+                  setActiveCategory('pyp')
+                  setActiveExamCategoryId('')
+                  setActiveExamId('')
+                  setActiveStageId('')
+                  setSelectedSection('all')
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
+                <ScrollText className="w-4 h-4 text-amber-400" />
+                Previous Year Papers
+              </button>
+              <button
+                onClick={() => {
+                  setActiveCategory('audit')
+                  setSelectedSection('all')
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+              >
+                <AlertTriangle className="w-4 h-4 text-rose-400" />
+                Incomplete Drafts
+              </button>
+            </div>
+
+            {/* Custom Saved Filters */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 mb-1">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">My Saved Views</p>
+                <button onClick={handleSaveFilter} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase hover:underline">
+                  + Save Current
+                </button>
+              </div>
+              
+              {savedFilters.length === 0 ? (
+                <p className="text-xs text-gray-400 italic px-2 py-1">No saved views yet</p>
+              ) : (
+                savedFilters.map(filter => (
+                  <div
+                    key={filter.id}
+                    onClick={() => handleApplyFilter(filter.filters)}
+                    className="group w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer transition-colors"
+                  >
+                    <span className="truncate">{filter.name}</span>
+                    <button
+                      onClick={(e) => handleDeleteSavedFilter(e, filter.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 rounded"
+                      title="Delete Saved Filter"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Main Content Pane */}
+        <div className="flex-1 w-full min-w-0">
 
       {showTrash && (
         <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -2808,6 +3038,23 @@ export default function QuestionsManager() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
                         <button
+                          onClick={() => handleQuestionPreview(q)}
+                          style={{
+                            padding: '6px',
+                            backgroundColor: 'transparent',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            color: '#94a3b8',
+                            transition: 'all 0.15s'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5'; e.currentTarget.style.color = '#10b981' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
+                          title="Preview"
+                        >
+                          <Eye style={{ width: '16px', height: '16px' }} />
+                        </button>
+                        <button
                           onClick={() => handleEdit(q)}
                           style={{
                             padding: '6px',
@@ -2839,7 +3086,7 @@ export default function QuestionsManager() {
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
                           title={q.status === 'active' ? 'Deactivate' : 'Activate'}
                         >
-                          {q.status === 'active' ? <EyeOff style={{ width: '16px', height: '16px' }} /> : <Eye style={{ width: '16px', height: '16px' }} />}
+                          {q.status === 'active' ? <X style={{ width: '16px', height: '16px' }} /> : <CheckCircle style={{ width: '16px', height: '16px' }} />}
                         </button>
                         <button
                           onClick={() => handleDelete(q._id || q.id)}
@@ -3232,8 +3479,17 @@ export default function QuestionsManager() {
                               <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{qCount} Qs</span>
                               <button
                                 type="button"
+                                onClick={(event) => { event.stopPropagation(); handleTestPreview(test) }}
+                                className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
+                                title="Preview Test"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={(event) => { event.stopPropagation(); openEditTestForm(test) }}
                                 className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
+                                title="Edit Test Setup"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
@@ -3303,6 +3559,7 @@ export default function QuestionsManager() {
                               <p className="text-sm text-gray-900 line-clamp-3">{q.questionText}</p>
                             </div>
                             <div className="flex gap-1 shrink-0">
+                              <button onClick={() => handleQuestionPreview(q)} className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Preview Question"><Eye className="w-4 h-4" /></button>
                               <button onClick={() => handleEdit(q)} className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
                               <button onClick={() => handleDelete(getQuestionId(q))} className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
                             </div>
@@ -3423,6 +3680,282 @@ export default function QuestionsManager() {
             </div>
             <div className="flex-1 overflow-y-auto">
               <UserActivityLog />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Close Collapsible Filters Layout Wrapper */}
+        </div>
+      </div>
+
+      {/* Question Preview Drawer (NF-02) */}
+      {previewQuestion && (
+        <div className="fixed inset-0 z-[100] overflow-hidden" aria-labelledby="slide-over-title" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300" onClick={() => setPreviewQuestion(null)} />
+
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
+                <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
+                  {/* Header */}
+                  <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white" id="slide-over-title">
+                        Question Preview
+                      </h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Review question layout and answer correctness</p>
+                    </div>
+                    <button onClick={() => setPreviewQuestion(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex-1 p-6 space-y-6">
+                    {/* Metadata Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="info">{(previewQuestion.type || 'mcq').toUpperCase()}</Badge>
+                      <Badge className={(DIFFICULTY_LEVELS.find(d => d.value === previewQuestion.difficulty) || DIFFICULTY_LEVELS[1]).color}>
+                        {previewQuestion.difficulty || 'medium'}
+                      </Badge>
+                      <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900">
+                        Marks: +{previewQuestion.marks} {previewQuestion.negativeMarks > 0 ? `/ -${previewQuestion.negativeMarks}` : ''}
+                      </Badge>
+                    </div>
+
+                    {/* Question Content */}
+                    <div className="space-y-4">
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
+                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">English Question</h4>
+                        <p className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed whitespace-pre-wrap">{previewQuestion.questionText}</p>
+                        {previewQuestion.imageUrl && (
+                          <img src={previewQuestion.imageUrl} alt="Question Graphic" className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700" />
+                        )}
+                      </div>
+
+                      {previewQuestion.questionTextHi && (
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
+                          <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Hindi Question (हिंदी प्रश्न)</h4>
+                          <p className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed whitespace-pre-wrap">{previewQuestion.questionTextHi}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Options Render (Interactive Student Simulation) */}
+                    {previewQuestion.options?.length > 0 && (
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Options & Correct Answer</h4>
+                        <div className="space-y-2">
+                          {previewQuestion.options.map((opt, idx) => {
+                            const isCorrect = Array.isArray(previewQuestion.correctOption)
+                              ? previewQuestion.correctOption.includes(idx)
+                              : parseInt(previewQuestion.correctOption) === idx || previewQuestion.correctOption === idx
+                            const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F']
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                                  isCorrect
+                                    ? 'bg-green-50/75 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-300 font-semibold shadow-sm'
+                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                                }`}
+                              >
+                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                                  isCorrect ? 'bg-green-200 dark:bg-green-950 text-green-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                                }`}>
+                                  {optionLetters[idx]}
+                                </span>
+                                <div className="flex-1">
+                                  <p className="text-sm">{opt}</p>
+                                  {previewQuestion.optionsHi?.[idx] && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{previewQuestion.optionsHi[idx]}</p>
+                                  )}
+                                </div>
+                                {isCorrect && (
+                                  <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0">
+                                    Correct
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Numerical or Descriptive Correct Value */}
+                    {(previewQuestion.type === 'numerical' || previewQuestion.type === 'descriptive') && (
+                      <div className="bg-green-50/75 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                        <h4 className="text-xs font-bold text-green-800 dark:text-green-400 uppercase tracking-wider mb-2">
+                          {previewQuestion.type === 'numerical' ? 'Correct Numerical Value' : 'Model Answer'}
+                        </h4>
+                        <p className="text-sm text-green-900 dark:text-green-300 font-mono leading-relaxed whitespace-pre-wrap">{previewQuestion.correctOption}</p>
+                      </div>
+                    )}
+
+                    {/* Explanation */}
+                    {previewQuestion.explanation && (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Explanation</h4>
+                        <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{previewQuestion.explanation}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
+                    <button
+                      onClick={() => {
+                        const q = previewQuestion
+                        setPreviewQuestion(null)
+                        handleEdit(q)
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" /> Edit Question
+                    </button>
+                    <button
+                      onClick={() => setPreviewQuestion(null)}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Preview Drawer (NF-02) */}
+      {previewTest && (
+        <div className="fixed inset-0 z-[100] overflow-hidden" aria-labelledby="test-slide-title" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300" onClick={() => setPreviewTest(null)} />
+
+            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+              <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
+                <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
+                  {/* Header */}
+                  <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-gray-900 dark:text-white" id="test-slide-title">
+                        Test Configuration Preview
+                      </h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Verify curriculum, timings, and parameters</p>
+                    </div>
+                    <button onClick={() => setPreviewTest(null)} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="flex-1 p-6 space-y-6">
+                    {/* Title and Description */}
+                    <div>
+                      <h3 className="text-xl font-extrabold text-gray-950 dark:text-white mb-2">{previewTest.title || previewTest.name}</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">{previewTest.description || 'No description provided for this test.'}</p>
+                    </div>
+
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">Duration</p>
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                          <Clock className="w-5 h-5 text-indigo-500" /> {previewTest.duration || previewTest.time_limit || '--'} min
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">Marks & Negatives</p>
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white">
+                          {previewTest.totalMarks || previewTest.total_marks || '--'} pts <span className="text-xs text-red-500 font-medium">(-{previewTest.negativeMarking ?? 0.25} neg)</span>
+                        </p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">Difficulty & Status</p>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <Badge variant={previewTest.status === 'active' || previewTest.status === 'published' ? 'success' : 'default'}>{previewTest.status || 'draft'}</Badge>
+                          <Badge variant="info">{previewTest.difficulty || 'Medium'}</Badge>
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">Linked Series</p>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-300 truncate mt-1">
+                          {selectedSeries?.title || selectedSeries?.name || 'Individual Test'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Section Breakdown */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Test Section Breakdown</h4>
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                          <thead className="bg-gray-50 dark:bg-gray-800">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">Section Name</th>
+                              <th className="px-4 py-2 text-center font-semibold text-gray-500 dark:text-gray-400">Questions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                            {sections.filter(s => String(s.test_id || '') === String(previewTest.id || previewTest._id)).length === 0 ? (
+                              <tr>
+                                <td colSpan={2} className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">No custom sections defined. Uses global default.</td>
+                              </tr>
+                            ) : (
+                              sections
+                                .filter(s => String(s.test_id || '') === String(previewTest.id || previewTest._id))
+                                .map((sec, idx) => (
+                                  <tr key={idx}>
+                                    <td className="px-4 py-2 text-gray-900 dark:text-gray-200 font-medium">{sec.name}</td>
+                                    <td className="px-4 py-2 text-center text-gray-700 dark:text-gray-400">{sec.expected_questions || '--'} Qs</td>
+                                  </tr>
+                                ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+
+                    {/* Test Rules / Meta Info */}
+                    <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4 space-y-2">
+                      <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-2">Test Configuration Rules</h4>
+                      <ul className="text-xs text-indigo-950 dark:text-indigo-300 space-y-1.5 list-disc pl-4">
+                        <li>Passing Criteria: Student must score at least <strong>{previewTest.passingMarks || 33}%</strong> to pass.</li>
+                        <li>Proctoring Mode: {previewTest.isPro ? 'Enforced (Secure tab locking active)' : 'Standard Practice Mode'}.</li>
+                        <li>Live Mode: {previewTest.isLive ? 'Yes, scheduled slot enforcement active' : 'Self-paced practice, available anytime'}.</li>
+                        <li>Tags: <span className="font-semibold">{previewTest.tags || 'none'}</span></li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Footer */}
+                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
+                    <button
+                      onClick={() => {
+                        const t = previewTest
+                        setPreviewTest(null)
+                        openEditTestForm(t)
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" /> Edit Test Setup
+                    </button>
+                    <button
+                      onClick={() => setPreviewTest(null)}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

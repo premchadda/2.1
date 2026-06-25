@@ -37,7 +37,7 @@ Health check: `http://localhost:5001/api/health`
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm 9+
 - PostgreSQL database
 - Redis optional for API-only development, recommended if running the worker/queues
@@ -176,4 +176,3 @@ The `dev-tools/scripts` directory also contains one-off audit and repair scripts
 ## Notes
 
 - The repo contains historical audits and archive docs; not all documents reflect the latest code state.
-- Root and app package versions are currently `2.0.0` even though some older docs still mention `2.1.0`.

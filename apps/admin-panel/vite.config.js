@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    optimizeDeps: {
+      exclude: ['@trstprep/shared-config', '@trstprep/shared-hooks']
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),
@@ -29,23 +32,44 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target: backendUrl,
           changeOrigin: true,
-          secure: false
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
         '/socket.io': {
           target: backendUrl,
           ws: true,
           changeOrigin: true,
-          secure: false
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('error', () => {}) // Suppress HMR WebSocket reconnect warnings
+          }
         },
         '/assets': {
           target: backendUrl,
           changeOrigin: true,
-          secure: false
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         },
         '/uploads': {
           target: backendUrl,
           changeOrigin: true,
-          secure: false
+          secure: false,
+          configure: (proxy) => {
+            proxy.on('error', (err) => {
+              if (err.code === 'ECONNREFUSED') return
+              console.error('[proxy error]', err)
+            })
+          }
         }
       }
     },

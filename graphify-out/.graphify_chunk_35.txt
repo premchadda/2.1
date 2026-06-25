@@ -1,0 +1,15 @@
+E:\Tech\Testprep\Trstprep V2.1\README.md
+E:\Tech\Testprep\Trstprep V2.1\docs\development\Docs Check.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\development\New Text Document.txt
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\config\routingUpdates.md
+E:\Tech\Testprep\Trstprep V2.1\CONTRIBUTING.md
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Realtime updates.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Bulk Upload - Functions.txt
+E:\Tech\Testprep\Trstprep V2.1\apps\frontend\index.html
+E:\Tech\Testprep\Trstprep V2.1\scripts\README.md
+E:\Tech\Testprep\Trstprep V2.1\docker-compose.yml
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Docs Check.txt
+E:\Tech\Testprep\Trstprep V2.1\CHANGELOG.md
+E:\Tech\Testprep\Trstprep V2.1\apps\admin-panel\index.html
+E:\Tech\Testprep\Trstprep V2.1\docs\database\Open router key.txt
+E:\Tech\Testprep\Trstprep V2.1\docs\Prompts for Ai Chat\Openrouter API Key.txt

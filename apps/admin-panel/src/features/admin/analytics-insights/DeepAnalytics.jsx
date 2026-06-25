@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts'
 import { adminAPI } from '../../../shared/lib/dataService'
 import { toast } from 'react-hot-toast'
-import { TrendingUp, Users, Target, Award, Download, RefreshCw, Funnel, GitBranch, Activity } from 'lucide-react'
+import { TrendingUp, Users, Target, Award, Download, RefreshCw, GitBranch, Activity } from 'lucide-react'
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 

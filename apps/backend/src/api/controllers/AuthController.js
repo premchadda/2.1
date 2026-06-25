@@ -2,6 +2,7 @@ import { BaseController } from './BaseController.js';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import EnrollmentService from '../../services/EnrollmentService.js';
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
 
 export class AuthController extends BaseController {
   constructor() {
@@ -22,7 +23,7 @@ export class AuthController extends BaseController {
       const { name, email, password, mobile } = req.body;
 
       // Check if user exists
-      const existingUsers = await global.dbHelpers.find('users', { email });
+      const existingUsers = await dbHelpers.find('users', { email });
       if (existingUsers.length > 0) {
         return this.sendError(res, 'User already exists with this email', 400);
       }
@@ -43,7 +44,7 @@ export class AuthController extends BaseController {
         updatedAt: new Date().toISOString()
       };
 
-      const newUser = await global.dbHelpers.insertOne('users', userData);
+      const newUser = await dbHelpers.insertOne('users', userData);
 
       // Remove password from response
       const { password: _, ...userWithoutPassword } = newUser;
@@ -67,7 +68,7 @@ export class AuthController extends BaseController {
       const { email, password } = req.body;
 
       // Find user
-      const users = await global.dbHelpers.find('users', { email });
+      const users = await dbHelpers.find('users', { email });
       if (users.length === 0) {
         return this.sendError(res, 'Invalid credentials', 401);
       }
@@ -100,7 +101,7 @@ export class AuthController extends BaseController {
   getMe = this.handleAsync(async (req, res) => {
     try {
       const userId = req.user.id;
-      const user = await global.dbHelpers.findById('users', userId);
+      const user = await dbHelpers.findById('users', userId);
 
       if (!user) {
         return this.sendError(res, 'User not found', 404);
@@ -108,9 +109,9 @@ export class AuthController extends BaseController {
 
       // Fetch enrolled IDs from enrollments table (with fallback to legacy arrays)
       const [enrolledSeries, enrolledExams, enrolledStudyMaterials] = await Promise.all([
-        EnrollmentService.getEnrolledSeriesIds(global.dbHelpers, userId),
-        EnrollmentService.getEnrolledExamIds(global.dbHelpers, userId),
-        EnrollmentService.getEnrolledStudyMaterialIds(global.dbHelpers, userId)
+        EnrollmentService.getEnrolledSeriesIds(dbHelpers, userId),
+        EnrollmentService.getEnrolledExamIds(dbHelpers, userId),
+        EnrollmentService.getEnrolledStudyMaterialIds(dbHelpers, userId)
       ]);
 
       const { password: _, ...safeUser } = user;

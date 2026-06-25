@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { auth } from '../../middleware/auth.middleware.js'
 import { asyncHandler } from '../../middleware/asyncHandler.js'
 import { executePaginatedQuery } from '../../utils/queryBuilder.js'
@@ -31,7 +32,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const allowedFields = ['category', 'date']
 
   const result = await executePaginatedQuery(
-    global.dbHelpers,
+    dbHelpers,
     'current_affairs',
     ['id', 'title', 'content', 'category', 'date', 'language', 'created_at'],
     filters,
@@ -55,7 +56,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params
     
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `SELECT * FROM current_affairs WHERE id = $1 AND is_active = true`,
       [id]
     )
@@ -78,7 +79,7 @@ router.get('/:id/quiz', async (req, res) => {
   try {
     const { id } = req.params
     
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `SELECT id, ca_id, questions, created_at FROM ca_quizzes 
        WHERE ca_id = $1 AND is_active = true LIMIT 1`,
       [id]
@@ -118,7 +119,7 @@ router.post('/:id/quiz/attempt', auth, async (req, res) => {
     const { answers } = req.body
 
     // Get quiz questions
-    const quizResult = await global.dbHelpers.query(
+    const quizResult = await dbHelpers.query(
       `SELECT questions FROM ca_quizzes WHERE ca_id = $1`,
       [id]
     )
@@ -143,7 +144,7 @@ router.post('/:id/quiz/attempt', auth, async (req, res) => {
     const percentage = (correctCount / questions.length) * 100
 
     // Save attempt
-    const insertResult = await global.dbHelpers.query(
+    const insertResult = await dbHelpers.query(
       `INSERT INTO ca_quiz_attempts (user_id, ca_id, answers, correct_count, percentage, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING id, correct_count, percentage`,
@@ -171,7 +172,7 @@ router.post('/:id/quiz/attempt', auth, async (req, res) => {
  */
 router.get('/categories', async (req, res) => {
   try {
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `SELECT DISTINCT category FROM current_affairs WHERE is_active = true ORDER BY category`
     )
 

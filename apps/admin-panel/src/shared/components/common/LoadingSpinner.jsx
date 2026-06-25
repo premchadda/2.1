@@ -1,6 +1,6 @@
 import React from 'react'
 
-const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '' }) => {
+const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '', label }) => {
   const sizeClasses = {
     sm: 'w-4 h-4',
     md: 'w-8 h-8',
@@ -18,7 +18,7 @@ const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '' }) => {
 
   if (variant === 'dots') {
     return (
-      <div className={`flex items-center justify-center ${className}`}>
+      <div className={`flex items-center justify-center ${className}`} role="status" aria-label={label || 'Loading'}>
         <div className="loading-dots">
           <span className={`${sizeClasses[size].replace('w-', 'w-').replace('h-', 'h-')} bg-brand-start rounded-full inline-block`}></span>
           <span className={`${sizeClasses[size].replace('w-', 'w-').replace('h-', 'h-')} bg-brand-start rounded-full inline-block`}></span>
@@ -30,7 +30,7 @@ const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '' }) => {
 
   if (variant === 'bounce') {
     return (
-      <div className={`flex items-center justify-center gap-1 ${className}`}>
+      <div className={`flex items-center justify-center gap-1 ${className}`} role="status" aria-label={label || 'Loading'}>
         <div className={`${sizeClasses[size].replace('w-', 'w-').replace('h-', 'h-')} bg-brand-start rounded-full animate-bounce`} style={{ animationDelay: '0s' }}></div>
         <div className={`${sizeClasses[size].replace('w-', 'w-').replace('h-', 'h-')} bg-brand-start rounded-full animate-bounce`} style={{ animationDelay: '0.1s' }}></div>
         <div className={`${sizeClasses[size].replace('w-', 'w-').replace('h-', 'h-')} bg-brand-start rounded-full animate-bounce`} style={{ animationDelay: '0.2s' }}></div>
@@ -40,7 +40,7 @@ const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '' }) => {
 
   if (variant === 'shimmer') {
     return (
-      <div className={`flex flex-col gap-2 ${className}`}>
+      <div className={`flex flex-col gap-2 ${className}`} role="status" aria-label={label || 'Loading'}>
         <div className="skeleton-enhanced h-4 w-full rounded"></div>
         <div className="skeleton-enhanced h-4 w-5/6 rounded"></div>
         <div className="skeleton-enhanced h-4 w-4/6 rounded"></div>
@@ -49,8 +49,9 @@ const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '' }) => {
   }
 
   return (
-    <div className={`flex items-center justify-center ${className}`}>
+    <div className={`flex items-center justify-center ${className}`} role="status" aria-label={label || 'Loading'}>
       <div className={`${sizeClasses[size]} ${variants[variant] || variants.spin}`}></div>
+      {label && <span className="sr-only">{label}</span>}
     </div>
   );
 };

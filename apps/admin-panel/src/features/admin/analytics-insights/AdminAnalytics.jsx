@@ -155,21 +155,23 @@ export default function AdminAnalytics() {
   const { isAdmin } = useAuth();
 
   useEffect(() => {
-    if (isAdmin()) fetchAllData();
+    const controller = new AbortController();
+    if (isAdmin()) fetchAllData(controller.signal);
+    return () => controller.abort();
   }, [timeRange]);
 
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (signal) => {
     try {
       setLoading(true);
       setErrors({});
 
       const results = await Promise.allSettled([
-        apiClient.get(`/admin/analytics?range=${timeRange}`),
-        apiClient.get("/admin/stats"),
-        apiClient.get("/admin/realtime/active-users"),
-        apiClient.get("/admin/realtime/test-activity"),
+        apiClient.get(`/admin/analytics?range=${timeRange}`, { signal }),
+        apiClient.get("/admin/stats", { signal }),
+        apiClient.get("/admin/realtime/active-users", { signal }),
+        apiClient.get("/admin/realtime/test-activity", { signal }),
         apiClient
-          .get("/admin/realtime/revenue")
+          .get("/admin/realtime/revenue", { signal })
           .catch(() => ({ status: "rejected", reason: "Endpoint not found" })),
       ]);
 
@@ -247,6 +249,8 @@ export default function AdminAnalytics() {
 
       setErrors(newErrors);
       setLastFetched(new Date());
+
+      if (signal?.aborted) return;
 
       if (Object.keys(newErrors).length > 0) {
         const errorCount = Object.keys(newErrors).length;

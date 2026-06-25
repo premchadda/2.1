@@ -1,3 +1,5 @@
+import { dbHelpers } from '../infrastructure/database/postgres-helpers.js';
+
 const isPlainObject = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return false
@@ -53,7 +55,7 @@ export function publicIdResponseMiddleware(req, res, next) {
   const originalJson = res.json.bind(res)
 
   res.json = (body) => {
-    const shouldUsePublicId = global.dbHelpers?.shouldUsePublicId?.() !== false
+    const shouldUsePublicId = dbHelpers?.shouldUsePublicId?.() !== false
     return originalJson(transformPayload(body, shouldUsePublicId))
   }
 

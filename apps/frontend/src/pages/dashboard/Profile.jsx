@@ -309,7 +309,7 @@ function SettingsContent({ user, refreshUser, logout, proPass, isDarkMode, toggl
             )}
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <Cell label="Payment Methods" sub="Manage payment options" right={<span className="px-2 py-0.5 bg-gray-500 text-white text-[9px] font-bold rounded-full">Coming Soon</span>} />
+            <Cell label="Payment Methods" sub="Manage payment options" onClick={() => toast('Payment methods available in account settings', { icon: '💳' })} />
             <Cell label="Billing History" sub="View invoices" right={<Link to="/pass" className="text-xs font-bold text-indigo-600 hover:underline">View</Link>} last />
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
@@ -1537,8 +1537,7 @@ function Profile({ initialTab = 'personal' }) {
                 <SectionLabel>Social & Community</SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <CompactFeatureCard icon={<Gift className="w-5 h-5 text-green-500" />} iconBg="#D1FAE5" title="Refer & Earn" description="Invite friends" onClick={() => navigate('/refer')} badge="New" />
-                  <CompactFeatureCard icon={<Users className="w-5 h-5 text-indigo-500" />} iconBg="#E0E7FF" title="Study Groups" description="Learn together" onClick={() => navigate('/community/study-groups')} />
-                  <CompactFeatureCard icon={<MessageCircle className="w-5 h-5 text-cyan-500" />} iconBg="#CFFAFE" title="Doubt Forum" description="Get help from peers" comingSoon />
+                  <CompactFeatureCard icon={<Users className="w-5 h-5 text-indigo-500" />} iconBg="#E0E7FF" title="Community" description="Learn together" onClick={() => navigate('/community')} />
                   <CompactFeatureCard icon={<Share2 className="w-5 h-5 text-pink-500" />} iconBg="#FCE7F3" title="Leaderboard Sharing" description="Share your rank" comingSoon />
                 </div>
               </div>

@@ -19,7 +19,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
-import { adminAPI } from '../../../shared/lib/dataService'
+import { adminAPI, apiClient } from '../../../shared/lib/dataService'
 import api from '../../../shared/lib/api'
 import { useExamCategories } from '../../../shared/hooks/useExamCategories'
 
@@ -43,6 +43,231 @@ const TEST_CATEGORY_ALIASES = {
   practice: ['practice', 'quiz', 'practice-quiz', 'practice & quiz', 'Practice'],
   'live-tests': ['live-tests', 'live', 'live test', 'live tests', 'Live Tests'],
 }
+
+const SECTION_PRESETS = [
+  // ───────────────────── SSC CGL ─────────────────────
+  {
+    id: 'ssc-cgl-tier-1',
+    label: 'SSC CGL Tier-I',
+    description: '4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '1', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'General Awareness', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '2', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'Quantitative Aptitude', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '3', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'English Comprehension', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '4', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+    ]
+  },
+  {
+    id: 'ssc-cgl-tier-2-paper-1',
+    label: 'SSC CGL Tier-II Paper-I',
+    description: '150 Qs + DEST, 450 marks, 2 hr 30 min, -1.00 neg',
+    sections: [
+      { name: 'Mathematical Abilities', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-I', section_code: 'I-A', expected_questions: 30, total_marks: 90, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'Reasoning & General Intelligence', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-I', section_code: 'I-B', expected_questions: 30, total_marks: 90, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'English Language & Comprehension', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-I', section_code: 'II-A', expected_questions: 45, total_marks: 135, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'General Awareness', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-I', section_code: 'II-B', expected_questions: 25, total_marks: 75, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'Computer Knowledge Test', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-I', section_code: 'III', expected_questions: 20, total_marks: 60, marks_per_question: 3, negative_marks: 1, time_limit: 900, is_qualifying: true },
+      { name: 'Data Entry Speed Test (DEST)', exam_stage: 'Tier-II', paper: 'Paper-I', session: 'Session-II', section_code: 'IV', expected_questions: 0, total_marks: 0, marks_per_question: 0, negative_marks: 0, time_limit: 900, is_qualifying: true },
+    ]
+  },
+  {
+    id: 'ssc-cgl-tier-2-paper-2',
+    label: 'SSC CGL Tier-II Paper-II (Statistics)',
+    description: 'Statistics paper for JSO / Statistical Investigator — 100 Qs, 200 marks, 2 hr',
+    sections: [
+      { name: 'Statistics', exam_stage: 'Tier-II', paper: 'Paper-II', section_code: 'Paper-II', expected_questions: 100, total_marks: 200, marks_per_question: 2, negative_marks: 0.5, time_limit: 7200 },
+    ]
+  },
+
+  // ───────────────────── SSC CHSL ─────────────────────
+  {
+    id: 'ssc-chsl-tier-1',
+    label: 'SSC CHSL Tier-I',
+    description: '4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '1', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'General Awareness', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '2', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'Quantitative Aptitude', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '3', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+      { name: 'English Language', exam_stage: 'Tier-I', paper: 'Tier-I', section_code: '4', expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
+    ]
+  },
+  {
+    id: 'ssc-chsl-tier-2-session-1',
+    label: 'SSC CHSL Tier-II Session-I',
+    description: '135 Qs, 405 marks, 2 hr 15 min, -1.00 neg',
+    sections: [
+      { name: 'Mathematical Abilities', exam_stage: 'Tier-II', paper: 'Session-I', session: 'Session-I', section_code: 'I-M1', expected_questions: 30, total_marks: 90, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'Reasoning & General Intelligence', exam_stage: 'Tier-II', paper: 'Session-I', session: 'Session-I', section_code: 'I-M2', expected_questions: 30, total_marks: 90, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'English Language & Comprehension', exam_stage: 'Tier-II', paper: 'Session-I', session: 'Session-I', section_code: 'II-M1', expected_questions: 40, total_marks: 120, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'General Awareness', exam_stage: 'Tier-II', paper: 'Session-I', session: 'Session-I', section_code: 'II-M2', expected_questions: 20, total_marks: 60, marks_per_question: 3, negative_marks: 1, time_limit: 3600 },
+      { name: 'Computer Knowledge Test', exam_stage: 'Tier-II', paper: 'Session-I', session: 'Session-I', section_code: 'III-M1', expected_questions: 15, total_marks: 45, marks_per_question: 3, negative_marks: 1, time_limit: 900, is_qualifying: true },
+    ]
+  },
+
+  // ───────────────────── SSC MTS ─────────────────────
+  {
+    id: 'ssc-mts-session-1',
+    label: 'SSC MTS / Havaldar Session-I',
+    description: '40 Qs, 120 marks, 45 min, NO negative marking',
+    sections: [
+      { name: 'Numerical & Mathematical Ability', exam_stage: 'Session-I', paper: 'Session-I', session: 'Session-I', section_code: '1', expected_questions: 20, total_marks: 60, marks_per_question: 3, negative_marks: 0, time_limit: 2700 },
+      { name: 'Reasoning Ability & Problem Solving', exam_stage: 'Session-I', paper: 'Session-I', session: 'Session-I', section_code: '2', expected_questions: 20, total_marks: 60, marks_per_question: 3, negative_marks: 0, time_limit: 2700 },
+    ]
+  },
+  {
+    id: 'ssc-mts-session-2',
+    label: 'SSC MTS / Havaldar Session-II',
+    description: '50 Qs, 150 marks, 45 min, -1.00 neg',
+    sections: [
+      { name: 'General Awareness', exam_stage: 'Session-II', paper: 'Session-II', session: 'Session-II', section_code: '3', expected_questions: 25, total_marks: 75, marks_per_question: 3, negative_marks: 1, time_limit: 2700 },
+      { name: 'English Language & Comprehension', exam_stage: 'Session-II', paper: 'Session-II', session: 'Session-II', section_code: '4', expected_questions: 25, total_marks: 75, marks_per_question: 3, negative_marks: 1, time_limit: 2700 },
+    ]
+  },
+
+  // ───────────────────── SSC CPO ─────────────────────
+  {
+    id: 'ssc-cpo-paper-1',
+    label: 'SSC CPO Paper-I',
+    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing 30 min/section',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '1', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+      { name: 'General Knowledge & General Awareness', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '2', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+      { name: 'Quantitative Aptitude', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '3', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+      { name: 'English Comprehension', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '4', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+    ]
+  },
+  {
+    id: 'ssc-cpo-paper-2',
+    label: 'SSC CPO Paper-II',
+    description: 'English Language & Comprehension — 200 Qs, 200 marks, 2 hr, -0.25 neg',
+    sections: [
+      { name: 'English Language & Comprehension', exam_stage: 'Paper-II', paper: 'Paper-II', section_code: 'Paper-II', expected_questions: 200, total_marks: 200, marks_per_question: 1, negative_marks: 0.25, time_limit: 7200 },
+    ]
+  },
+
+  // ───────────────────── SSC Stenographer ─────────────────────
+  {
+    id: 'ssc-steno-cbt',
+    label: 'SSC Stenographer CBT',
+    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT', paper: 'CBT', section_code: '1', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+      { name: 'General Awareness', exam_stage: 'CBT', paper: 'CBT', section_code: '2', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 1800 },
+      { name: 'English Language & Comprehension', exam_stage: 'CBT', paper: 'CBT', section_code: '3', expected_questions: 100, total_marks: 100, marks_per_question: 1, negative_marks: 0.25, time_limit: 3600 },
+    ]
+  },
+
+  // ───────────────────── SSC GD ─────────────────────
+  {
+    id: 'ssc-gd-constable',
+    label: 'SSC GD Constable',
+    description: '80 Qs, 160 marks, 60 min, -0.25 neg, sectional timing 15 min/section',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT', paper: 'CBT', section_code: '1', expected_questions: 20, total_marks: 40, marks_per_question: 2, negative_marks: 0.25, time_limit: 900 },
+      { name: 'General Knowledge & General Awareness', exam_stage: 'CBT', paper: 'CBT', section_code: '2', expected_questions: 20, total_marks: 40, marks_per_question: 2, negative_marks: 0.25, time_limit: 900 },
+      { name: 'Elementary Mathematics', exam_stage: 'CBT', paper: 'CBT', section_code: '3', expected_questions: 20, total_marks: 40, marks_per_question: 2, negative_marks: 0.25, time_limit: 900 },
+      { name: 'English / Hindi', exam_stage: 'CBT', paper: 'CBT', section_code: '4', expected_questions: 20, total_marks: 40, marks_per_question: 2, negative_marks: 0.25, time_limit: 900 },
+    ]
+  },
+
+  // ───────────────────── SSC JE ─────────────────────
+  {
+    id: 'ssc-je-paper-1',
+    label: 'SSC JE Paper-I',
+    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, no sectional timing',
+    sections: [
+      { name: 'General Intelligence & Reasoning', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '1', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 7200 },
+      { name: 'General Awareness', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '2', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.25, time_limit: 7200 },
+      { name: 'General Engineering (Civil/Electrical/Mechanical)', exam_stage: 'Paper-I', paper: 'Paper-I', section_code: '3', expected_questions: 100, total_marks: 100, marks_per_question: 1, negative_marks: 0.25, time_limit: 7200 },
+    ]
+  },
+  {
+    id: 'ssc-je-paper-2',
+    label: 'SSC JE Paper-II',
+    description: 'General Engineering — 100 Qs, 300 marks, 2 hr, -1.00 neg',
+    sections: [
+      { name: 'General Engineering (Civil/Electrical/Mechanical)', exam_stage: 'Paper-II', paper: 'Paper-II', section_code: 'Paper-II', expected_questions: 100, total_marks: 300, marks_per_question: 3, negative_marks: 1, time_limit: 7200 },
+    ]
+  },
+
+  // ───────────────────── RRB NTPC ─────────────────────
+  {
+    id: 'rrb-ntpc-cbt-1',
+    label: 'RRB NTPC CBT-1',
+    description: '100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing',
+    sections: [
+      { name: 'General Awareness', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '1', expected_questions: 40, total_marks: 40, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'Mathematics', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '2', expected_questions: 30, total_marks: 30, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '3', expected_questions: 30, total_marks: 30, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+    ]
+  },
+  {
+    id: 'rrb-ntpc-cbt-2',
+    label: 'RRB NTPC CBT-2',
+    description: '120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing',
+    sections: [
+      { name: 'General Awareness', exam_stage: 'CBT-2', paper: 'CBT-2', section_code: '1', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'Mathematics', exam_stage: 'CBT-2', paper: 'CBT-2', section_code: '2', expected_questions: 35, total_marks: 35, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT-2', paper: 'CBT-2', section_code: '3', expected_questions: 35, total_marks: 35, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+    ]
+  },
+
+  // ───────────────────── RRB ALP ─────────────────────
+  {
+    id: 'rrb-alp-cbt-1',
+    label: 'RRB ALP CBT-1',
+    description: '75 Qs, 75 marks, 60 min, -1/3 neg, no sectional timing',
+    sections: [
+      { name: 'Mathematics', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '1', expected_questions: 20, total_marks: 20, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '2', expected_questions: 25, total_marks: 25, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
+      { name: 'General Science', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '3', expected_questions: 20, total_marks: 20, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
+      { name: 'General Awareness & Current Affairs', exam_stage: 'CBT-1', paper: 'CBT-1', section_code: '4', expected_questions: 10, total_marks: 10, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
+    ]
+  },
+  {
+    id: 'rrb-alp-cbt-2-part-a',
+    label: 'RRB ALP CBT-2 Part-A',
+    description: '100 Qs, 100 marks, 90 min, -1/3 neg',
+    sections: [
+      { name: 'Mathematics', exam_stage: 'CBT-2', paper: 'Part-A', session: 'Part-A', section_code: '1', expected_questions: 0, total_marks: 0, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT-2', paper: 'Part-A', session: 'Part-A', section_code: '2', expected_questions: 0, total_marks: 0, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'Basic Science & Engineering', exam_stage: 'CBT-2', paper: 'Part-A', session: 'Part-A', section_code: '3', expected_questions: 0, total_marks: 0, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+    ]
+  },
+  {
+    id: 'rrb-alp-cbt-2-part-b',
+    label: 'RRB ALP CBT-2 Part-B (Trade)',
+    description: 'Trade-specific — 75 Qs, 75 marks, 60 min, -1/3 neg',
+    sections: [
+      { name: 'Trade Specific (as per trade)', exam_stage: 'CBT-2', paper: 'Part-B', session: 'Part-B', section_code: 'Part-B', expected_questions: 75, total_marks: 75, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
+    ]
+  },
+
+  // ───────────────────── RRB Group D ─────────────────────
+  {
+    id: 'rrb-group-d',
+    label: 'RRB Group D (Level-1)',
+    description: '100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing',
+    sections: [
+      { name: 'General Science', exam_stage: 'CBT', paper: 'CBT', section_code: '1', expected_questions: 25, total_marks: 25, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'Mathematics', exam_stage: 'CBT', paper: 'CBT', section_code: '2', expected_questions: 25, total_marks: 25, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT', paper: 'CBT', section_code: '3', expected_questions: 30, total_marks: 30, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Awareness & Current Affairs', exam_stage: 'CBT', paper: 'CBT', section_code: '4', expected_questions: 20, total_marks: 20, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+    ]
+  },
+
+  // ───────────────────── RPF ─────────────────────
+  {
+    id: 'rpf-constable-si',
+    label: 'RPF Constable / Sub-Inspector',
+    description: '120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing',
+    sections: [
+      { name: 'General Awareness', exam_stage: 'CBT', paper: 'CBT', section_code: '1', expected_questions: 50, total_marks: 50, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'Arithmetic', exam_stage: 'CBT', paper: 'CBT', section_code: '2', expected_questions: 35, total_marks: 35, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+      { name: 'General Intelligence & Reasoning', exam_stage: 'CBT', paper: 'CBT', section_code: '3', expected_questions: 35, total_marks: 35, marks_per_question: 1, negative_marks: 0.33, time_limit: 5400 },
+    ]
+  },
+]
 
 const DEFAULT_TEST_FORM = {
   title: '',
@@ -113,6 +338,15 @@ const normalizeTest = (test) => ({
   tags: Array.isArray(test.tags) ? test.tags : (test.tags ? test.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
   stageIds: Array.isArray(test.stage_ids ?? test.stageIds) ? (test.stage_ids ?? test.stageIds) : [],
   questionsCount: getTestQuestionsCount(test),
+})
+
+const normalizeSectionForForm = (section) => ({
+  ...section,
+  duration: Math.max(1, Math.round((section.time_limit ?? section.timeLimit ?? 900) / 60)),
+  marks_per_question: section.marks_per_question ?? section.marksPerQuestion ?? 2,
+  negative_marks: section.negative_marks ?? section.negativeMarks ?? 0.5,
+  expected_questions: section.expected_questions ?? section.expectedQuestions ?? 0,
+  total_marks: section.total_marks ?? section.totalMarks ?? 0,
 })
 
 const coerceArray = (value) => {
@@ -518,17 +752,61 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                 disabled={availableSections.length === 0}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-400 h-24"
               >
-                {availableSections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.name} ({section.duration} min)
-                  </option>
-                ))}
+                {(() => {
+                  // Group by source so users can see where each section came from.
+                  const groups = { test: [], series_stage: [], default: [] }
+                  availableSections.forEach(s => {
+                    const source = s.source || (s.test_id ? 'test' : (s.test_series_id ? 'series_stage' : 'default'))
+                    if (!groups[source]) groups[source] = []
+                    groups[source].push(s)
+                  })
+                  const labels = {
+                    test: '🔒 Test-specific',
+                    series_stage: '📚 From series + stage template',
+                    default: '🧩 Default templates',
+                  }
+                  return Object.entries(groups).flatMap(([source, items]) =>
+                    items.length === 0 ? [] : [
+                      <optgroup key={source} label={labels[source]}>
+                        {items.map((section) => (
+                          <option key={section.id} value={section.id}>
+                            {section.name} ({section.duration} min)
+                          </option>
+                        ))}
+                      </optgroup>
+                    ]
+                  )
+                })()}
               </select>
               <p className="text-xs text-gray-500 mt-2">
                 {availableSections.length > 0
-                  ? 'Hold Ctrl/Cmd to select multiple sections.'
-                  : 'No sections available. Create sections first.'}
+                  ? 'Auto-fetched by test → series+stage → defaults. Hold Ctrl/Cmd to select multiple sections.'
+                  : 'No sections available. Apply an exam scheme below to create sections.'}
               </p>
+              {editingId && (
+                <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                    <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Exam Scheme:</label>
+                    <select
+                      value={selectedPresetId}
+                      onChange={(e) => setSelectedPresetId(e.target.value)}
+                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                    >
+                      {SECTION_PRESETS.map(p => (
+                        <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={applySectionPreset}
+                      disabled={saving}
+                      className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      Apply to Test
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             {[
               ['duration', 'Duration (minutes)', 1, '1'],
@@ -720,7 +998,7 @@ const BulkUploadModal = ({ isOpen, onClose, onUpload, onValidate, contextLabel, 
 }
 
 export default function TestsManager() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const deepLinkAppliedRef = useRef(false)
   const {
     categories: examCategories,
@@ -737,7 +1015,11 @@ export default function TestsManager() {
   const [sections, setSections] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [activeTestCategory, setActiveTestCategory] = useState('mock-tests')
+  const getInitialTab = () => {
+    const urlTab = searchParams.get('tab')
+    return urlTab && TEST_CATEGORY_TABS.some(t => t.id === urlTab) ? urlTab : 'mock-tests'
+  }
+  const [activeTestCategory, setActiveTestCategory] = useState(getInitialTab)
   const [activeExamCategoryId, setActiveExamCategoryId] = useState('')
   const [activeExamId, setActiveExamId] = useState('')
   const [activeStageId, setActiveStageId] = useState('')
@@ -755,6 +1037,9 @@ export default function TestsManager() {
   const [editingRelationshipSummary, setEditingRelationshipSummary] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [errors, setErrors] = useState({})
+  const [selectedPresetId, setSelectedPresetId] = useState(SECTION_PRESETS[0]?.id || '')
+  const [scopedSections, setScopedSections] = useState([])
+  const [scopedSectionsLoading, setScopedSectionsLoading] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -816,6 +1101,60 @@ export default function TestsManager() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // Auto-fetch sections scoped to the currently selected series+stage when
+  // the test form is open. Falls back through test_id → series+stage → defaults.
+  useEffect(() => {
+    if (!showForm) return
+    let cancelled = false
+    const seriesId = selectedSeries ? getSeriesId(selectedSeries) : null
+    const params = {}
+    if (editingId) params.testId = editingId
+    else if (seriesId) params.testSeriesId = seriesId
+    if (activeStageId) params.stageId = activeStageId
+
+    setScopedSectionsLoading(true)
+    adminAPI.getSectionsForTest(params)
+      .then(res => {
+        if (cancelled) return
+        const rows = res?.data?.data || []
+        setScopedSections(rows.map(normalizeSectionForForm))
+      })
+      .catch(err => {
+        console.error('Failed to load scoped sections:', err)
+        if (!cancelled) setScopedSections([])
+      })
+      .finally(() => { if (!cancelled) setScopedSectionsLoading(false) })
+
+    return () => { cancelled = true }
+  }, [showForm, editingId, selectedSeries, activeStageId])
+
+  // Keep URL in sync with the active tab (?tab=...)
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    const validTab = urlTab && TEST_CATEGORY_TABS.some(t => t.id === urlTab) ? urlTab : 'mock-tests'
+    if (urlTab && urlTab !== activeTestCategory) {
+      setActiveTestCategory(validTab)
+      setSelectedSeries(null)
+    } else if (!urlTab && activeTestCategory !== 'mock-tests') {
+      const next = new URLSearchParams(searchParams)
+      next.set('tab', 'mock-tests')
+      setSearchParams(next, { replace: true })
+    }
+  }, [searchParams])
+
+  const handleTabChange = (tabId) => {
+    setActiveTestCategory(tabId)
+    setSelectedSeries(null)
+    setSelectedTestSubCategoryId('all')
+    setSubCategoryLevel1('')
+    setSubCategoryLevel2('')
+    setSubCategoryLevel3('')
+    setSubCategoryLevel4('')
+    const next = new URLSearchParams(searchParams)
+    next.set('tab', tabId)
+    setSearchParams(next, { replace: true })
+  }
 
   const flatTestCategories = useMemo(() => flattenCategories(testCategories), [testCategories])
   const activeTestCategoryRefs = useMemo(() => buildTestCategoryRefs(activeTestCategory, flatTestCategories), [activeTestCategory, flatTestCategories])
@@ -921,7 +1260,7 @@ export default function TestsManager() {
   const activeStageRefs = useMemo(() => buildStageRefs(activeStageId), [activeStageId])
 
   const stagesForActiveExam = useMemo(() => {
-    if (!activeExamId || activeExamRefs.size === 0) return stages
+    if (!activeExamId || activeExamRefs.size === 0) return []
     const linked = stages.filter(stage => stageMatchesExam(stage, activeExamRefs))
     return linked.length > 0 ? linked : stages
   }, [activeExamId, activeExamRefs, stages])
@@ -943,7 +1282,8 @@ export default function TestsManager() {
   }, [activeExamCategoryId, examsForActiveCategory, activeExamId])
 
   useEffect(() => {
-    if (!activeStageId && stagesForActiveExam.length > 0) {
+    const isValidStage = activeStageId && stagesForActiveExam.some(stage => idsEqual(getEntityId(stage), activeStageId))
+    if (!isValidStage && stagesForActiveExam.length > 0) {
       const firstStageId = getEntityId(stagesForActiveExam[0])
       if (firstStageId) setActiveStageId(firstStageId)
     }
@@ -1074,6 +1414,102 @@ export default function TestsManager() {
     return acc
   }, {}), [tests, flatTestCategories])
 
+  const tabScopedStats = useMemo(() => {
+    const tabTests = tests.filter(test => recordMatchesTestCategory(test, activeTestCategoryRefs))
+    const tabPublished = tabTests.filter(test => test.status === 'published').length
+    const tabSeries = seriesList.filter(series => {
+      if (!(series.isActive !== false && series.is_active !== false)) return false
+      const seriesId = String(getSeriesId(series) || '')
+      const testsInSeries = testsBySeriesId.get(seriesId) || []
+      return seriesMatchesTestCategory(series, activeTestCategoryRefs, testsInSeries)
+    })
+    const tabCategoryIds = new Set()
+    flatTestCategories.forEach(cat => {
+      if (categoryRecordMatchesRefs(cat, activeTestCategoryRefs)) {
+        tabCategoryIds.add(String(getEntityId(cat) || ''))
+      }
+    })
+    return {
+      totalTests: tabTests.length,
+      activeSeries: tabSeries.length,
+      testCategories: tabCategoryIds.size,
+      publishedTests: tabPublished,
+    }
+  }, [tests, seriesList, testsBySeriesId, flatTestCategories, activeTestCategoryRefs])
+
+  // Stats further scoped by exam category / exam / stage / selected series.
+  // This is what the user sees in the four top cards.
+  const filteredScopeStats = useMemo(() => {
+    const scopedTests = tests.filter(test => {
+      // tab
+      if (activeTestCategory === 'live-tests') {
+        if (!test.isLive && !recordMatchesTestCategory(test, activeTestCategoryRefs)) return false
+      } else if (!recordMatchesTestCategory(test, activeTestCategoryRefs)) {
+        return false
+      }
+      // exam category (tests may carry their own copy of examCategory/categoryId)
+      if (activeExamCategoryRefs.size > 0) {
+        const testCat = test.category || test.examCategoryId || test.categoryId
+        if (!valueMatchesRefs([testCat], activeExamCategoryRefs)) {
+          // Fallback: derive from the linked series
+          const seriesId = String(getTestSeriesId(test) || '')
+          const linkedSeries = seriesList.find(s => idsEqual(getSeriesId(s), seriesId))
+          if (!linkedSeries || !valueMatchesRefs([getSeriesExamCategoryId(linkedSeries)], activeExamCategoryRefs)) return false
+        }
+      }
+      // exam
+      if (activeExamRefs.size > 0) {
+        const testExam = test.examId || test.exam_id
+        if (!valueMatchesRefs([testExam], activeExamRefs)) {
+          const seriesId = String(getTestSeriesId(test) || '')
+          const linkedSeries = seriesList.find(s => idsEqual(getSeriesId(s), seriesId))
+          if (!linkedSeries || !valueMatchesRefs([getSeriesExamId(linkedSeries)], activeExamRefs)) return false
+        }
+      }
+      // stage
+      if (activeStageRefs.size > 0 && !valueMatchesRefs([getStageIdFromTest(test)], activeStageRefs)) return false
+      // selected series
+      if (selectedSeries && !idsEqual(getTestSeriesId(test), getSeriesId(selectedSeries))) return false
+      return true
+    })
+
+    const scopedSeries = seriesList.filter(series => {
+      if (!(series.isActive !== false && series.is_active !== false)) return false
+      const seriesId = String(getSeriesId(series) || '')
+      const testsInSeries = testsBySeriesId.get(seriesId) || []
+      if (!seriesMatchesTestCategory(series, activeTestCategoryRefs, testsInSeries)) return false
+      if (activeExamCategoryRefs.size > 0 && !valueMatchesRefs([getSeriesExamCategoryId(series)], activeExamCategoryRefs)) return false
+      if (activeExamRefs.size > 0 && !valueMatchesRefs([getSeriesExamId(series)], activeExamRefs)) return false
+      if (activeStageRefs.size > 0) {
+        const seriesStages = coerceArray(series.stages || series.stageIds || series.stage_ids)
+        const seriesHasStage = valueMatchesRefs(seriesStages, activeStageRefs)
+        const testHasStage = testsInSeries.some(test => valueMatchesRefs([getStageIdFromTest(test)], activeStageRefs))
+        if (!seriesHasStage && !testHasStage) return false
+      }
+      if (selectedSeries && !idsEqual(getSeriesId(series), getSeriesId(selectedSeries))) return false
+      return true
+    })
+
+    // Test categories that are actually used in this scope
+    const scopedCategoryIds = new Set()
+    scopedTests.forEach(test => {
+      getTestCategoryValues(test).forEach(v => { if (v) scopedCategoryIds.add(String(v)) })
+    })
+    scopedSeries.forEach(series => {
+      getSeriesCategoryValues(series).forEach(v => { if (v) scopedCategoryIds.add(String(v)) })
+      flatTestCategories.forEach(cat => {
+        if (categoryLinksSeries(cat, getSeriesId(series))) scopedCategoryIds.add(String(getEntityId(cat) || ''))
+      })
+    })
+
+    return {
+      totalTests: scopedTests.length,
+      activeSeries: scopedSeries.length,
+      testCategories: scopedCategoryIds.size,
+      publishedTests: scopedTests.filter(t => t.status === 'published').length,
+    }
+  }, [tests, seriesList, testsBySeriesId, flatTestCategories, activeTestCategory, activeTestCategoryRefs, activeExamCategoryRefs, activeExamRefs, activeStageRefs, selectedSeries])
+
   const closeForm = () => {
     setShowForm(false)
     setEditingId(null)
@@ -1121,6 +1557,41 @@ export default function TestsManager() {
     setEditingId(null)
     setEditingRelationshipSummary(null)
     setShowForm(true)
+  }
+
+  const applySectionPreset = async () => {
+    const testId = editingId
+    if (!testId) {
+      toast.error('Save the test first, then apply an exam scheme')
+      return
+    }
+    const preset = SECTION_PRESETS.find(p => p.id === selectedPresetId)
+    if (!preset) return
+    try {
+      setSaving(true)
+      const res = await adminAPI.applySectionPreset({ testId, sections: preset.sections })
+      if (res.data?.success) {
+        const { linked, created, skipped } = res.data.data
+        const parts = []
+        if (created.length) parts.push(`${created.length} created`)
+        if (linked.length) parts.push(`${linked.length} linked`)
+        if (skipped.length) parts.push(`${skipped.length} already linked`)
+        toast.success(`Scheme applied: ${parts.join(', ')}`)
+        const sectionsRes = await adminAPI.getSections()
+        if (sectionsRes.data?.data) setSections(sectionsRes.data.data)
+        const allSectionIds = [...created, ...linked].map(s => s.id)
+        if (allSectionIds.length > 0) {
+          const currentIds = parseIdList(formData.sectionIds).map(Number)
+          const merged = [...new Set([...currentIds, ...allSectionIds])].filter(Boolean)
+          setFormData(prev => ({ ...prev, sectionIds: merged.join(', ') }))
+        }
+      }
+    } catch (error) {
+      console.error('Preset error:', error)
+      toast.error(error.response?.data?.message || 'Failed to apply scheme')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const openEditForm = (test) => {
@@ -1439,10 +1910,7 @@ export default function TestsManager() {
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                setActiveTestCategory(tab.id)
-                setSelectedSeries(null)
-              }}
+              onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-4 sm:px-6 py-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap shrink-0 ${isActive
                 ? 'border-indigo-600 text-indigo-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -1456,10 +1924,10 @@ export default function TestsManager() {
       </div>
 
       <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={CheckSquare} value={tests.length} label="Total Tests" tone="indigo" />
-        <StatCard icon={Layers} value={seriesList.filter(series => series.isActive !== false && series.is_active !== false).length} label="Active Test Series" tone="green" />
-        <StatCard icon={FileText} value={testCategories.length} label="Test Categories" tone="amber" />
-        <StatCard icon={Shield} value={tests.filter(test => test.status === 'published').length} label="Published Tests" tone="blue" />
+        <StatCard icon={CheckSquare} value={filteredScopeStats.totalTests} label={`Total ${activeCatLabel}`} tone="indigo" />
+        <StatCard icon={Layers} value={filteredScopeStats.activeSeries} label="Active Test Series" tone="green" />
+        <StatCard icon={FileText} value={filteredScopeStats.testCategories} label="Test Categories" tone="amber" />
+        <StatCard icon={Shield} value={filteredScopeStats.publishedTests} label="Published Tests" tone="blue" />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
@@ -1501,8 +1969,12 @@ export default function TestsManager() {
             ) : examsForActiveCategory
               .filter(exam => {
                 // Skip entries with no meaningful label — they'd display as a raw numeric ID
-                const display = exam.label || exam.fullName
-                return display || (exam.value && isNaN(Number(exam.value)))
+                const display = String(exam.label || exam.fullName || '').trim()
+                if (!display) return false
+                // Skip when label was just a fallback to the ID (label === value or numeric only)
+                if (display === String(exam.value)) return false
+                if (/^\d+$/.test(display)) return false
+                return true
               })
               .map(exam => {
                 const isActive = idsEqual(activeExamId, exam.value)
@@ -1852,7 +2324,7 @@ export default function TestsManager() {
         contextLabel={contextLabel}
         saving={saving}
         relationshipSummary={editingRelationshipSummary}
-        availableSections={sections}
+        availableSections={scopedSections}
         allSubCategories={activeTestSubCategories}
         flatTestCategories={flatTestCategories}
       />

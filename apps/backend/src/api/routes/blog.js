@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
   try {
     const { category, limit = 20, offset = 0 } = req.query
     
-    let blogs = await global.dbHelpers.find('blogs', { isActive: true })
+    let blogs = await dbHelpers.find('blogs', { isActive: true })
     
     // Filter by category if specified
     if (category && category !== 'all') {
@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
       success: true,
       data: blogs,
       count: blogs.length,
-      total: await global.dbHelpers.count('blogs')
+      total: await dbHelpers.count('blogs')
     })
   } catch (error) {
     res.status(500).json({
@@ -42,7 +42,7 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/categories', async (req, res) => {
   try {
-    const blogs = await global.dbHelpers.find('blogs', { isActive: true })
+    const blogs = await dbHelpers.find('blogs', { isActive: true })
     const categories = [...new Set(blogs.map(blog => blog.category).filter(Boolean))]
     
     res.json({

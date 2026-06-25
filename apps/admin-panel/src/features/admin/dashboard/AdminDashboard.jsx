@@ -68,14 +68,7 @@ export default function AdminDashboard() {
       trend: stats?.trends?.topics || null,
       link: '/admin/study-materials'
     },
-    {
-      title: 'Videos',
-      value: stats?.videos || 0,
-      icon: Video,
-      color: 'bg-red-500',
-      trend: stats?.trends?.videos || null,
-      link: '/admin/media'
-    },
+
     {
       title: 'PDFs',
       value: stats?.pdfs || 0,
@@ -115,7 +108,6 @@ export default function AdminDashboard() {
     { title: 'Add Question', icon: FileQuestion, link: '/admin/questions', color: 'text-purple-600' },
     { title: 'Manage Users', icon: Users, link: '/admin/users', color: 'text-blue-500' },
     { title: 'New Promo', icon: Gift, link: '/admin/promotions', color: 'text-emerald-500' },
-    { title: 'Upload Media', icon: Video, link: '/admin/media', color: 'text-indigo-600' },
     { title: 'Site Settings', icon: Settings, link: '/admin/settings', color: isDarkMode ? 'text-gray-400' : 'text-gray-600' }
   ]
 
@@ -366,11 +358,7 @@ export default function AdminDashboard() {
               <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.topics || 0}</p>
               <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics</p>
             </div>
-            <div className={`text-center p-4 bg-red-50 rounded-lg`}>
-              <Video className={`w-8 h-8 text-red-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.videos || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Videos</p>
-            </div>
+
             <div className={`text-center p-4 bg-orange-50 rounded-lg`}>
               <FileText className={`w-8 h-8 text-orange-600 mx-auto mb-2`} />
               <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.pdfs || 0}</p>

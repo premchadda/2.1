@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import { idsMatch } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
@@ -12,7 +13,7 @@ router.post('/enroll-study-material/:materialId', protect, async (req, res) => {
     const { materialId } = req.params
     console.log('[Enroll Study Material] Request received for materialId:', materialId, 'userId:', req.user.id)
 
-    const material = await findEntityByIdentifier(global.dbHelpers, 'studyMaterials', materialId, {
+    const material = await findEntityByIdentifier(dbHelpers, 'studyMaterials', materialId, {
       slugFields: ['slug']
     })
 
@@ -28,7 +29,7 @@ router.post('/enroll-study-material/:materialId', protect, async (req, res) => {
     const canonicalMaterialId = getInternalId(material)
 
     const result = await EnrollmentService.enrollInStudyMaterial(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalMaterialId
     )
@@ -36,10 +37,10 @@ router.post('/enroll-study-material/:materialId', protect, async (req, res) => {
     if (result.alreadyEnrolled) {
       console.log('[Enroll Study Material] User already enrolled')
       const enrolledMaterialIds = await EnrollmentService.getEnrolledStudyMaterialIds(
-        global.dbHelpers,
+        dbHelpers,
         req.user.id
       )
-      const enrolledStudyMaterialsLookup = await buildPublicIdLookup(global.dbHelpers, 'studyMaterials', enrolledMaterialIds)
+      const enrolledStudyMaterialsLookup = await buildPublicIdLookup(dbHelpers, 'studyMaterials', enrolledMaterialIds)
       return res.json({
         success: true,
         message: 'Already enrolled in this study material',
@@ -51,10 +52,10 @@ router.post('/enroll-study-material/:materialId', protect, async (req, res) => {
     console.log('[Enroll Study Material] Created enrollment record in enrollments table')
 
     const enrolledMaterialIds = await EnrollmentService.getEnrolledStudyMaterialIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledStudyMaterialsLookup = await buildPublicIdLookup(global.dbHelpers, 'studyMaterials', enrolledMaterialIds)
+    const enrolledStudyMaterialsLookup = await buildPublicIdLookup(dbHelpers, 'studyMaterials', enrolledMaterialIds)
 
     res.json({
       success: true,
@@ -76,7 +77,7 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
     const { materialId } = req.params
     console.log('[Unenroll Study Material] Request received for materialId:', materialId, 'userId:', req.user.id)
 
-    const material = await findEntityByIdentifier(global.dbHelpers, 'studyMaterials', materialId, {
+    const material = await findEntityByIdentifier(dbHelpers, 'studyMaterials', materialId, {
       slugFields: ['slug']
     })
 
@@ -93,14 +94,14 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
 
     // Archive study material reading history before unenrolling
     try {
-      const studyHistory = await global.dbHelpers.find('studyProgress', { 
+      const studyHistory = await dbHelpers.find('studyProgress', { 
         userId: req.user.id, 
         materialId: canonicalMaterialId 
       })
       
       if (studyHistory.length > 0) {
         for (const history of studyHistory) {
-          await global.dbHelpers.insertOne('user_history_archive', {
+          await dbHelpers.insertOne('user_history_archive', {
             userId: req.user.id,
             materialId: canonicalMaterialId,
             type: 'study_material_progress',
@@ -116,7 +117,7 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
     }
     
     const unenrolled = await EnrollmentService.unenrollFromStudyMaterial(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id,
       canonicalMaterialId
     )
@@ -132,10 +133,10 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
     console.log('[Unenroll Study Material] Successfully unenrolled')
 
     const enrolledMaterialIds = await EnrollmentService.getEnrolledStudyMaterialIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
-    const enrolledStudyMaterialsLookup = await buildPublicIdLookup(global.dbHelpers, 'studyMaterials', enrolledMaterialIds)
+    const enrolledStudyMaterialsLookup = await buildPublicIdLookup(dbHelpers, 'studyMaterials', enrolledMaterialIds)
 
     res.json({
       success: true,
@@ -154,11 +155,11 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
 router.get('/enrolled-study-materials', protect, async (req, res) => {
   try {
     const enrolledMaterialIds = await EnrollmentService.getEnrolledStudyMaterialIds(
-      global.dbHelpers,
+      dbHelpers,
       req.user.id
     )
 
-    const allMaterials = await global.dbHelpers.find('studyMaterials')
+    const allMaterials = await dbHelpers.find('studyMaterials')
     const populatedMaterials = allMaterials.filter(material =>
       enrolledMaterialIds.some(id => String(id) === String(material.id || material._id))
     )

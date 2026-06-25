@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import rateLimit from 'express-rate-limit'
 import { idsMatch } from '../../services/core/common.js'
@@ -44,17 +45,17 @@ const sanitizeInput = (input) => {
 const resolveBookmarkEntity = async (itemType, itemId) => {
   switch (itemType) {
     case 'test':
-      return findEntityByIdentifier(global.dbHelpers, 'tests', itemId, { slugFields: ['slug'] })
+      return findEntityByIdentifier(dbHelpers, 'tests', itemId, { slugFields: ['slug'] })
     case 'question':
-      return findEntityByIdentifier(global.dbHelpers, 'questions', itemId)
+      return findEntityByIdentifier(dbHelpers, 'questions', itemId)
     case 'study-material':
     case 'chapter':
-      return findEntityByIdentifier(global.dbHelpers, 'studyMaterials', itemId)
+      return findEntityByIdentifier(dbHelpers, 'studyMaterials', itemId)
     case 'video':
       return (
-        await findEntityByIdentifier(global.dbHelpers, 'videos', itemId)
+        await findEntityByIdentifier(dbHelpers, 'videos', itemId)
       ) || (
-        await findEntityByIdentifier(global.dbHelpers, 'studyMaterials', itemId)
+        await findEntityByIdentifier(dbHelpers, 'studyMaterials', itemId)
       )
     default:
       return null
@@ -69,7 +70,7 @@ router.use(protect)
 // @access  Private
 router.get('/', async (req, res) => {
   try {
-    const bookmarks = await global.dbHelpers.find('bookmarks', { 
+    const bookmarks = await dbHelpers.find('bookmarks', { 
       userId: req.user.id,
       isActive: true 
     })
@@ -141,7 +142,7 @@ router.post('/', bookmarkLimiter, async (req, res) => {
     }
     
     // Check if already bookmarked
-    const existing = (await global.dbHelpers.find('bookmarks', {
+    const existing = (await dbHelpers.find('bookmarks', {
       userId: req.user.id,
       itemType,
       isActive: true
@@ -158,7 +159,7 @@ router.post('/', bookmarkLimiter, async (req, res) => {
     const sanitizedTitle = title ? sanitizeInput(String(title).substring(0, 200)) : ''
     const sanitizedNotes = notes ? sanitizeInput(String(notes).substring(0, 1000)) : ''
     
-    const bookmark = await global.dbHelpers.insertOne('bookmarks', {
+    const bookmark = await dbHelpers.insertOne('bookmarks', {
       userId: req.user.id,
       itemId: canonicalItemId,
       itemType,
@@ -190,7 +191,7 @@ router.put('/:id', async (req, res) => {
     const { notes, title } = req.body
     
     // Verify bookmark belongs to user
-    const bookmark = await findEntityByIdentifier(global.dbHelpers, 'bookmarks', req.params.id)
+    const bookmark = await findEntityByIdentifier(dbHelpers, 'bookmarks', req.params.id)
     if (!bookmark || !idsMatch(bookmark.userId, req.user.id)) {
       return res.status(404).json({
         success: false,
@@ -198,7 +199,7 @@ router.put('/:id', async (req, res) => {
       })
     }
     
-    const updated = await global.dbHelpers.updateById('bookmarks', getInternalId(bookmark), {
+    const updated = await dbHelpers.updateById('bookmarks', getInternalId(bookmark), {
       notes: notes !== undefined ? notes : bookmark.notes,
       title: title !== undefined ? title : bookmark.title,
       updatedAt: new Date().toISOString()
@@ -224,7 +225,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     // Verify bookmark belongs to user
-    const bookmark = await findEntityByIdentifier(global.dbHelpers, 'bookmarks', req.params.id)
+    const bookmark = await findEntityByIdentifier(dbHelpers, 'bookmarks', req.params.id)
     if (!bookmark || !idsMatch(bookmark.userId, req.user.id)) {
       return res.status(404).json({
         success: false,
@@ -232,7 +233,7 @@ router.delete('/:id', async (req, res) => {
       })
     }
     
-    await global.dbHelpers.updateById('bookmarks', getInternalId(bookmark), {
+    await dbHelpers.updateById('bookmarks', getInternalId(bookmark), {
       isActive: false,
       deletedAt: new Date().toISOString()
     })
@@ -257,7 +258,7 @@ router.get('/check/:itemType/:itemId', async (req, res) => {
   try {
     const { itemType, itemId } = req.params
     
-    const bookmark = (await global.dbHelpers.find('bookmarks', {
+    const bookmark = (await dbHelpers.find('bookmarks', {
       userId: req.user.id,
       itemType,
       isActive: true
@@ -301,7 +302,7 @@ router.post('/toggle', bookmarkLimiter, async (req, res) => {
     }
     
     // Check if already bookmarked
-    const existing = (await global.dbHelpers.find('bookmarks', {
+    const existing = (await dbHelpers.find('bookmarks', {
       userId: req.user.id,
       itemType,
       isActive: true
@@ -309,7 +310,7 @@ router.post('/toggle', bookmarkLimiter, async (req, res) => {
     
     if (existing) {
       // Remove bookmark
-      await global.dbHelpers.updateById('bookmarks', existing._id || existing.id, {
+      await dbHelpers.updateById('bookmarks', existing._id || existing.id, {
         isActive: false,
         deletedAt: new Date().toISOString()
       })
@@ -324,7 +325,7 @@ router.post('/toggle', bookmarkLimiter, async (req, res) => {
       const sanitizedTitle = title ? sanitizeInput(String(title).substring(0, 200)) : ''
       
       // Add bookmark
-      const bookmark = await global.dbHelpers.insertOne('bookmarks', {
+      const bookmark = await dbHelpers.insertOne('bookmarks', {
         userId: req.user.id,
         itemId,
         itemType,

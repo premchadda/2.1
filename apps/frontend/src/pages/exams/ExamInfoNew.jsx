@@ -121,70 +121,25 @@ The exam consists of three tiers:
 }
 
 // Default content for unknown exams
-const DEFAULT_CONTENT = {
-  overview: 'This exam is conducted for recruitment to various government posts. The detailed information will be updated soon.',
-  basicEligibility: 'As per official notification',
-  basicAgeLimit: 'As per official notification',
-  ageRelaxation: 'As per government rules',
-  selectionProcess: 'As per official notification',
-  examFrequency: 'As per vacancy',
-  conductingBody: 'To be announced',
-  examLevel: 'National',
-  posts: [],
-  syllabus: {},
-  preparation: { books: [], tips: [] }
-}
+const DEFAULT_CONTENT = {  // eslint-disable-next-line
+  title: 'Information Coming Soon',
+  subtitle: 'Detailed exam information will be available shortly.',
+  overview: 'We are updating our exam database. Please check back later for detailed information about this examination.',
+  eligibility: 'Information not available yet.',
+  importantDates: [],
+  applyOnline: '#',
+  vacancyDetails: 'Details will be updated soon.',
+  selectionProcess: 'Details will be updated soon.',
+  salary: 'Details will be updated soon.',
+  examPattern: [],
+  syllabus: [],
+  keyPoints: [],
+  preparationTips: []
+};
 
-// Sample yearly data
-const SAMPLE_YEARLY_DATA = {
-  '2026': {
-    notification: 'March 2026',
-    notificationDate: '2026-03-01',
-    applicationStart: '2026-03-01',
-    applicationEnd: '2026-04-01',
-    tier1ExamDate: '2026-06-15',
-    tier2ExamDate: '2026-10-01',
-    vacancy: 17727,
-    vacancyBreakup: { UR: 9374, OBC: 4815, SC: 2689, ST: 1849 },
-    syllabusChanges: 'No major changes from 2025',
-    patternChanges: 'Tier-II includes optional papers for JSA/PA/SA posts',
-    importantDates: [
-      { event: 'Notification Release', date: '2026-03-01', status: 'upcoming' },
-      { event: 'Last Date to Apply', date: '2026-04-01', status: 'upcoming' },
-      { event: 'Tier-I Exam', date: '2026-06-15', status: 'upcoming' },
-      { event: 'Tier-I Result', date: '2026-08-15', status: 'upcoming' },
-      { event: 'Tier-II Exam', date: '2026-10-01', status: 'upcoming' }
-    ],
-    cutoff: null,
-    result: null
-  },
-  '2025': {
-    notification: 'June 2024',
-    notificationDate: '2024-06-24',
-    applicationStart: '2024-06-24',
-    applicationEnd: '2024-07-24',
-    tier1ExamDate: '2025-09-01',
-    vacancy: 17727,
-    vacancyBreakup: { UR: 9374, OBC: 4815, SC: 2689, ST: 1849 },
-    syllabusChanges: 'Added new topics in General Awareness',
-    patternChanges: 'Tier-IV made qualifying for all posts',
-    cutoff: { UR: 174.87, OBC: 172.54, SC: 161.26, ST: 151.75 },
-    result: 'Tier-I declared'
-  },
-  '2024': {
-    notification: 'March 2023',
-    notificationDate: '2023-03-01',
-    applicationStart: '2023-03-01',
-    applicationEnd: '2023-04-01',
-    tier1ExamDate: '2024-07-01',
-    vacancy: 7600,
-    vacancyBreakup: { UR: 3800, OBC: 2100, SC: 1100, ST: 600 },
-    syllabusChanges: 'No major changes',
-    patternChanges: 'No changes',
-    cutoff: { UR: 180.12, OBC: 177.84, SC: 168.46, ST: 156.89 },
-    result: 'Final result declared'
-  }
-}
+// All exam data now comes from the database via API.
+// Previously hard-coded exam-specific content has been removed per audit recommendations.
+// Yearly data, syllabus changes, and cutoffs should come from backend API endpoints.
 
 // Sample updates
 const SAMPLE_UPDATES = [
@@ -744,14 +699,14 @@ export default function ExamInfoNew() {
                 </h2>
                 <div className="prose prose-indigo max-w-none">
                   <p className="text-gray-600">
-                    The exam is conducted in multiple tiers. Each tier has a specific pattern and qualifying criteria.
+                    The exam is conducted in multiple tiers. Each tier has a specific pattern and qualifying criteria. Refer to the official notification for the latest details.
                   </p>
                   <h3 className="text-lg font-semibold text-gray-900 mt-4">Key Points:</h3>
                   <ul className="list-disc list-inside text-gray-600 space-y-2">
-                    <li>All questions are objective type (Multiple Choice Questions)</li>
-                    <li>There is negative marking of 0.25 marks for each wrong answer</li>
-                    <li>The exam is conducted in Computer Based Test (CBT) mode</li>
-                    <li>Candidates can appear for Tier-II only after qualifying Tier-I</li>
+                    <li>Exam pattern and structure vary by examination. Please refer to the official notification.</li>
+                    <li>Negative marking details are subject to official guidelines for each exam.</li>
+                    <li>Exam mode (CBT or pen-and-paper) is specified in the official notification.</li>
+                    <li>Tier/Stage qualification criteria are announced with each exam cycle.</li>
                   </ul>
                 </div>
               </div>
@@ -1123,7 +1078,7 @@ export default function ExamInfoNew() {
                     { q: "What is the age limit for this exam?", a: "The age limit varies from 18-32 years depending on the category and post." },
                     { q: "How many attempts are allowed?", a: "There is no limit on the number of attempts for most posts." },
                     { q: "What is the exam mode?", a: "The exam is conducted in online (CBT) mode for Tier-I and Tier-II." },
-                    { q: "Is there negative marking?", a: "Yes, there is negative marking of 0.50 marks for each wrong answer in Tier-I." }
+                    { q: "Is there negative marking?", a: "Negative marking details vary by exam. Please refer to the official notification for this examination." }
                   ].map((faq, idx) => (
                     <div key={idx} className="border border-gray-200 rounded-xl overflow-hidden">
                       <details className="group">

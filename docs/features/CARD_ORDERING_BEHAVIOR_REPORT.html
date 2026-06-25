@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Card Ordering Behavior Report - Trstprep V2.0</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            color: white;
+            padding: 40px 20px;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        .legend {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .legend h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .badge-auto {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        .badge-fixed {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+        }
+        .badge-semi {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+        .badge-manual {
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            color: white;
+        }
+        .page-section {
+            background: white;
+            border-radius: 16px;
+            margin-bottom: 25px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .page-header {
+            background: linear-gradient(135deg, #1e293b, #334155);
+            color: white;
+            padding: 20px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-header h2 {
+            font-size: 1.3rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .page-header .icon {
+            font-size: 1.5rem;
+        }
+        .page-content {
+            padding: 25px;
+        }
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .card-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        .card-item.auto {
+            border-color: #10b981;
+        }
+        .card-item.fixed {
+            border-color: #6366f1;
+        }
+        .card-item.semi {
+            border-color: #f59e0b;
+        }
+        .card-item.manual {
+            border-color: #8b5cf6;
+        }
+        .card-title {
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+            font-size: 1rem;
+        }
+        .card-type {
+            margin-bottom: 10px;
+        }
+        .card-description {
+            color: #64748b;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            margin-bottom: 12px;
+        }
+        .card-code {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.8rem;
+            overflow-x: auto;
+        }
+        .card-code .keyword {
+            color: #ff7b72;
+        }
+        .card-code .string {
+            color: #a5d6ff;
+        }
+        .card-code .function {
+            color: #fbbf24;
+        }
+        .card-code .comment {
+            color: #64748b;
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .summary-table th,
+        .summary-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .summary-table th {
+            background: #f1f5f9;
+            font-weight: 600;
+            color: #334155;
+        }
+        .summary-table tr:hover {
+            background: #f8fafc;
+        }
+        .section-intro {
+            background: #f0f9ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0ea5e9;
+        }
+        .section-intro p {
+            color: #0369a1;
+            font-size: 0.95rem;
+        }
+        .toc {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .toc h3 {
+            margin-bottom: 15px;
+            color: #1e293b;
+        }
+        .toc-list {
+            columns: 3;
+            list-style: none;
+        }
+        .toc-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .toc-list a {
+            color: #6366f1;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .toc-list a:hover {
+            color: #4f46e5;
+            text-decoration: underline;
+        }
+
+        /* Architecture Section */
+        .architecture-diagram {
+            background: rgba(30, 41, 59, 0.05);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .layer {
+            background: rgba(99, 102, 241, 0.1);
+            border: 2px dashed rgba(99, 102, 241, 0.3);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+        }
+        .layer:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-style: solid;
+        }
+        .layer-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .layer-content {
+            color: #64748b;
+        }
+
+        /* Problem Cards */
+        .problem-card {
+            background: rgba(30, 41, 59, 0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            transition: all 0.3s ease;
+        }
+        .problem-card.critical { border-color: #ef4444; }
+        .problem-card.medium { border-color: #f59e0b; }
+        .problem-card.minor { border-color: #10b981; }
+        .problem-card:hover {
+            transform: translateX(10px);
+        }
+        .problem-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .problem-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .problem-badge.critical { background: rgba(239, 68, 68, 0.2); color: #dc2626; }
+        .problem-badge.medium { background: rgba(245, 158, 11, 0.2); color: #d97706; }
+        .problem-badge.minor { background: rgba(16, 185, 129, 0.2); color: #059669; }
+
+        /* Hierarchy Tree */
+        .hierarchy-container {
+            background: rgba(30, 41, 59, 0.05);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            overflow-x: auto;
+        }
+        .tree {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .tree-node {
+            position: relative;
+            padding: 1rem 2rem;
+            background: rgba(99, 102, 241, 0.2);
+            border: 2px solid #6366f1;
+            border-radius: 12px;
+            margin: 0.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .tree-node:hover {
+            background: #6366f1;
+            color: white;
+            transform: scale(1.05);
+        }
+        .tree-node.root {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            font-weight: 700;
+            color: white;
+        }
+        .tree-children {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            position: relative;
+            padding-top: 1rem;
+        }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 2rem;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        }
+        .timeline-item {
+            position: relative;
+            padding-bottom: 2rem;
+            padding-left: 2rem;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -2rem;
+            top: 0;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            border: 3px solid white;
+            transform: translateX(-7px);
+        }
+        .timeline-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+        .timeline-content {
+            color: #64748b;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: rgba(30, 41, 59, 0.05);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            transition: all 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: scale(1.05);
+            border-color: #6366f1;
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .stat-label {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Flow Container */
+        .flow-container {
+            position: relative;
+            padding: 2rem;
+            background: rgba(30, 41, 59, 0.05);
+            border-radius: 20px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .flow-node {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            margin: 0.5rem;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .flow-node:hover {
+            transform: scale(1.1);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+        }
+        .flow-arrow {
+            display: block;
+            color: #6366f1;
+            font-size: 1.5rem;
+            margin: 0.5rem 0;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+            .toc-list {
+                columns: 1;
+            }
+            .legend-items {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Card Ordering Behavior Report</h1>
+            <p>Comprehensive analysis of how cards are ordered across all pages in Trstprep V2.0</p>
+            <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.8;">Last Updated: March 2026 | Merged from Design Documents + Repository Analysis | Update date is (19:18)</p>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <h3>🏷️ Card Ordering Types</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="badge badge-auto">AUTO-ORDER</span>
+                    <span>Automatically reorders based on activity/usage data</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-fixed">FIXED</span>
+                    <span>Stays in same place regardless of activity</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-semi">SEMI-DYNAMIC</span>
+                    <span>Fixed structure with dynamic content inside</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-manual">USER-CONTROLLED</span>
+                    <span>User can manually change order via filters/sorting</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h3>📑 Table of Contents</h3>
+            <ul class="toc-list">
+                <li><a href="#overview">1. System Overview</a></li>
+                <li><a href="#architecture">2. Architecture Design</a></li>
+                <li><a href="#hierarchy">3. Platform Hierarchy</a></li>
+                <li><a href="#problems">4. Problems Analysis</a></li>
+                <li><a href="#dashboard">5. Dashboard Page</a></li>
+                <li><a href="#exams">6. Exams Page</a></li>
+                <li><a href="#test-series">7. Test Series Page</a></li>
+                <li><a href="#test-details">8. Test Details Page</a></li>
+                <li><a href="#home">9. Home Page</a></li>
+                <li><a href="#study-material">10. Study Material Page</a></li>
+                <li><a href="#admin-control">11. Admin Panel Control</a></li>
+                <li><a href="#database">12. Database Schema</a></li>
+                <li><a href="#api">13. API Endpoints</a></li>
+                <li><a href="#summary">14. Summary & Recommendations</a></li>
+            </ul>
+        </div>
+
+        <!-- System Overview -->
+        <div class="page-section" id="overview">
+            <div class="page-header">
+                <h2><span class="icon">📊</span> 1. System Overview</h2>
+            </div>
+            <div class="page-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">7+</div>
+                        <div class="stat-label">📱 Frontend Pages</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">6</div>
+                        <div class="stat-label">🎛️ Admin Managers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">8+</div>
+                        <div class="stat-label">🗃️ DB Tables with Order</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">20+</div>
+                        <div class="stat-label">🔌 API Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="section-intro">
+                    <p><strong>Tech Stack:</strong> React 18+ with Vite, TailwindCSS, Node.js + Express Backend, PostgreSQL Database, JWT Authentication</p>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Current Ordering Patterns Identified</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Pattern Type</th>
+                            <th>Description</th>
+                            <th>Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-auto">AUTO-SORTED</span></td>
+                            <td>Sorted by activity data (users, popularity)</td>
+                            <td>Popular Test Series, Top Performers, Leaderboards</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-fixed">FIXED</span></td>
+                            <td>Hardcoded order in component</td>
+                            <td>Quick Access Grid, Category Tabs, Features Section</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-semi">SEMI-DYNAMIC</span></td>
+                            <td>Fixed structure, dynamic content</td>
+                            <td>Sub-Category Tabs, Subject Performance</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-manual">USER-CONTROLLED</span></td>
+                            <td>User can filter/sort</td>
+                            <td>Test Series Grid, Attempted Tests</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Architecture Design -->
+        <div class="page-section" id="architecture">
+            <div class="page-header">
+                <h2><span class="icon">🏗️</span> 2. Architecture Design</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p>The Card Ordering System uses a 4-layer architecture for flexible content positioning.</p>
+                </div>
+
+                <div class="flow-container">
+                    <div class="flow-node">⚛️ Frontend (React)</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🔌 Card Order API</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🚀 Backend (Express)</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🐘 PostgreSQL Database</div>
+                </div>
+
+                <div class="architecture-diagram">
+                    <div class="layer">
+                        <div class="layer-title">👁️ Layer 1: VISIBILITY CONTROL</div>
+                        <div class="layer-content">
+                            <code>is_visible, is_active, visibility_status</code> → Determines IF content should appear
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">⭐ Layer 2: PROMINENCE CONTROL</div>
+                        <div class="layer-content">
+                            <code>is_pinned, is_featured, priority_weight</code> → Determines HOW PROMINENTLY content appears
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">🔢 Layer 3: SEQUENCE CONTROL</div>
+                        <div class="layer-content">
+                            <code>display_order, sort_mode, section_group</code> → Determines POSITION in list
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">📊 Layer 4: FALLBACK SORTING</div>
+                        <div class="layer-content">
+                            <code>created_at, popularity_score, alphabetical</code> → Used when explicit order not set
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Master Sorting Rule (SQL)</h3>
+                <div class="card-code">
+<span class="comment">-- Universal Ordering Query Pattern</span>
+<span class="keyword">ORDER BY</span>
+  <span class="comment">-- Layer 1: Visibility</span>
+  is_active <span class="keyword">DESC</span>,
+  is_visible <span class="keyword">DESC</span>,
+  <span class="comment">-- Layer 2: Prominence</span>
+  is_pinned <span class="keyword">DESC</span>,
+  is_featured <span class="keyword">DESC</span>,
+  priority_weight <span class="keyword">DESC</span>,
+  <span class="comment">-- Layer 3: Sequence</span>
+  display_order <span class="keyword">ASC NULLS LAST</span>,
+  <span class="comment">-- Layer 4: Fallback</span>
+  created_at <span class="keyword">DESC</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Hierarchy -->
+        <div class="page-section" id="hierarchy">
+            <div class="page-header">
+                <h2><span class="icon">🌳</span> 3. Platform Hierarchy Map</h2>
+            </div>
+            <div class="page-content">
+                <div class="hierarchy-container">
+                    <div class="tree">
+                        <div class="tree-node root">📚 Exam Category (SSC, Railways, Banking...)</div>
+                        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                <div class="tree-node">📂 Exam Sub-Category</div>
+                                <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                        <div class="tree-node">📝 Exam Instance</div>
+                                        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+                                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                                <div class="tree-node">📖 Test Series</div>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <div class="tree-node">📋 Tests</div>
+                                                    <div class="tree-node">❓ Questions</div>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                                <div class="tree-node">📚 Study Materials</div>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <div class="tree-node">📄 Chapters</div>
+                                                    <div class="tree-node">🎬 Videos</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Ordering Levels Required</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Level</th>
+                            <th>Entity</th>
+                            <th>Ordering Scope</th>
+                            <th>Required Fields</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>L1</td><td>Exam Categories</td><td>Global</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L2</td><td>Exam Sub-Categories</td><td>Within Category</td><td><code>display_order</code></td></tr>
+                        <tr><td>L3</td><td>Exams</td><td>Within Sub-Category</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L4</td><td>Test Series</td><td>Within Exam + Global</td><td><code>display_order, is_pinned, is_featured</code></td></tr>
+                        <tr><td>L5</td><td>Tests</td><td>Within Series</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L6</td><td>Questions</td><td>Within Test</td><td><code>order_index</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Problems Analysis -->
+        <div class="page-section" id="problems">
+            <div class="page-header">
+                <h2><span class="icon">🔍</span> 4. Problems Analysis</h2>
+            </div>
+            <div class="page-content">
+                <div class="problem-card critical">
+                    <div class="problem-header">
+                        <span class="problem-badge critical">🔴 CRITICAL</span>
+                        <strong>Inconsistent Field Names</strong>
+                    </div>
+                    <p style="color: #64748b;">Different tables use different field names: <code>order</code> vs <code>sortOrder</code> vs <code>orderIndex</code> causing developer confusion and bugs.</p>
+                </div>
+
+                <div class="problem-card critical">
+                    <div class="problem-header">
+                        <span class="problem-badge critical">🔴 CRITICAL</span>
+                        <strong>Hardcoded Arrays</strong>
+                    </div>
+                    <p style="color: #64748b;">Quick Access items hardcoded in Dashboard.jsx and Home.jsx - requires code change to reorder, same order for all users.</p>
+                </div>
+
+                <div class="problem-card medium">
+                    <div class="problem-header">
+                        <span class="problem-badge medium">🟠 MEDIUM</span>
+                        <strong>No Bulk Reorder</strong>
+                    </div>
+                    <p style="color: #64748b;">Must move items one at a time - time-consuming for admins managing large content libraries.</p>
+                </div>
+
+                <div class="problem-card medium">
+                    <div class="problem-header">
+                        <span class="problem-badge medium">🟠 MEDIUM</span>
+                        <strong>No Audit Trail</strong>
+                    </div>
+                    <p style="color: #64748b;">Order changes not logged - can't track who changed what and when.</p>
+                </div>
+
+                <div class="problem-card minor">
+                    <div class="problem-header">
+                        <span class="problem-badge minor">🟢 MINOR</span>
+                        <strong>No User Personalization</strong>
+                    </div>
+                    <p style="color: #64748b;">Users can't customize their view - limited UX flexibility.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div class="page-section" id="dashboard">
+            <div class="page-header">
+                <h2><span class="icon">📊</span> 5. Dashboard Page (Dashboard.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/dashboard/Dashboard.jsx</code></p>
+                    <p>The main dashboard shows personalized content after user login. Cards here are primarily activity-based with some fixed sections.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Quick Access Grid</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            8-item grid of navigation shortcuts (Live Tests, Quizzes, PYQ, Practice, Analysis, Videos, Attempted, Materials).
+                            <strong>Always stays in same order</strong> - hardcoded array definition.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// File: Dashboard.jsx - Hardcoded array</span>
+<span class="keyword">const</span> quickAccessItems = [
+  { icon: Radio, title: <span class="string">'Live Tests'</span>, route: <span class="string">'/tag/live-tests'</span> },
+  { icon: HelpCircle, title: <span class="string">'Quizzes'</span>, route: <span class="string">'/tag/quizzes'</span> },
+  { icon: BookOpen, title: <span class="string">'PYQ'</span>, route: <span class="string">'/tag/pyps'</span> },
+  <span class="comment">// ... always same 8 items</span>
+]
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Recent Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Horizontal scroll of enrolled test series. Filtered from user's enrolled series - shows first 4 series.
+                            <strong>Order depends on enrollment order</strong>.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> enrolledTestSeries = useMemo(() => {
+  <span class="keyword">return</span> testSeries
+    .filter(s => userEnrolled.includes(s._id))
+    .slice(0, 4) <span class="comment">// First 4, order from API</span>
+}, [user, testSeries])
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Top Performers</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>AUTO-SORTED by tests attempted (descending)</strong>. Top 3 performers based on activity.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> sortedPerformers = performers
+  .sort((a, b) => (b.testsAttempted || 0) - (a.testsAttempted || 0))
+  .slice(0, 3)
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Live Tests & Free Quizzes</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Fetched from API with tags 'live-tests' and 'quizzes'. Shows first 3 tests from API response.
+                            <strong>Order from backend</strong>.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> response = <span class="keyword">await</span> testsAPI.getByTag(<span class="string">'live-tests'</span>)
+<span class="keyword">const</span> mappedLiveTests = liveTestsData.slice(0, 3)
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Exam Categories</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Generated from test series data grouped by category.
+                            <strong>Order based on data occurrence</strong>, not sorted.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Recommended Section</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Test series suggestions. First 6 from API, not enrolled by user.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exams Page -->
+        <div class="page-section" id="exams">
+            <div class="page-header">
+                <h2><span class="icon">📚</span> 6. Exams Page (Exams.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/exams/Exams.jsx</code></p>
+                    <p>Lists exam categories and individual exams. All content is API-driven with some static configurations.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Tabs for filtering exams by category (SSC, Railways, Banking, etc.).
+                            <strong>Fixed order</strong> from categoryConfig object.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Category Cards Grid</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Cards for each exam category.
+                            <strong>Order from API response</strong> - examCategories array sorted by <code>order</code> field.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// Backend: admin.js</span>
+<span class="keyword">const</span> sortedCategories = categories
+  .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Exam Cards (Within Category)</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Individual exam cards shown when category selected.
+                            <strong>Order from API</strong>, filtered by selectedCategory.
+                        </div>
+                    </div>
+
+                    <div class="card-item semi">
+                        <div class="card-title">Popular Exams Per Category</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Shows top 6 exams per category from categoryStats calculation.
+                            <strong>First 6 from filtered array</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Series Page -->
+        <div class="page-section" id="test-series">
+            <div class="page-header">
+                <h2><span class="icon">📝</span> 7. Test Series Page (TestSeries.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestSeries.jsx</code></p>
+                    <p>Main test series listing page with multiple sections. Has extensive filtering and sorting options.</p>
+                </div>
+
+                <div class="cards-grid">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Series Page -->
+        <div class="page-section" id="test-series">
+            <div class="page-header">
+                <h2><span class="icon">📝</span> 7. Test Series Page (TestSeries.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestSeries.jsx</code></p>
+                    <p>Main test series listing page with multiple sections. Has extensive filtering and sorting options. Uses <code>isPinned</code> and <code>order</code> fields.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item manual">
+                        <div class="card-title">Category Filter Tabs</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Dynamic tabs from <code>useTestCategories</code> hook.
+                            <strong>User can select category</strong> to filter results.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Sort Dropdown</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            User can choose: Most Popular, Highest Rated, Most Tests.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// TestSeries.jsx - Sorting logic with pinning support</span>
+<span class="keyword">if</span> (sortBy === <span class="string">'popular'</span>) {
+  result.sort((a, b) => {
+    <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+    <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+    <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+  })
+}
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Popular Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>AUTO-SORTED by users count (descending)</strong> with pinned items first.
+                            Top 8 most popular series.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> popularSeries = useMemo(() => {
+  <span class="keyword">return</span> [...allSeries].sort((a, b) => {
+    <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+    <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+    <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+  }).slice(0, 8);
+}, [allSeries])
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Live Tests & Quizzes</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Filtered for Live/Quiz/Free tests. Limited to 3 items each.
+                            <strong>Order from API</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Browse by Category</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Grouped by category from test series data.
+                            <strong>Order from data occurrence</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Filtered Series Grid</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Main grid of test series. Affected by search, category filter, and sort selection.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Details Page -->
+        <div class="page-section" id="test-details">
+            <div class="page-header">
+                <h2><span class="icon">📋</span> 8. Test Details Page (TestDetails.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestDetails.jsx</code></p>
+                    <p>Shows tests within a specific test series. Has two-level navigation (Mock Tests vs PYP).</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item manual">
+                        <div class="card-title">Stage Selection Dropdown</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Fixed options: All Stages, Tier 1, Tier 2, Prelims, Mains.
+                            <strong>User controls filter</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Main Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            <strong>Fixed: "Mock Tests" and "Previous Year Papers"</strong>.
+                            Order hardcoded in categoriesData state.
+                        </div>
+                    </div>
+
+                    <div class="card-item semi">
+                        <div class="card-title">Sub-Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Fixed structure but counts update dynamically.
+                            Mock: All, Live Tests, Full Mock, Chapter Test, Sectional Test, Topic-wise.
+                            PYP: All, Year-wise, Shift-wise, Subject-wise.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Tests List</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Filtered tests based on selected main category, sub-category, and stage.
+                            <strong>Order from API response</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Page -->
+        <div class="page-section" id="home">
+            <div class="page-header">
+                <h2><span class="icon">🏠</span> 9. Home Page (Home.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/public/Home.jsx</code></p>
+                    <p>Landing page with different content for logged-in vs non-logged-in users.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Platform Statistics</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            <strong>Hardcoded values</strong>: 50K+ Users, 500+ Series, 10K+ Questions, 98% Success Rate.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Quick Access (LoggedIn User)</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Same 8 items as Dashboard - <strong>fixed order</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Features Section</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            6 feature cards in <strong>fixed order</strong>: Mock Tests, Live Tests, Analytics, Videos, Materials, Mobile.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Popular Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>SORTED by users count (descending)</strong>.
+                            Top 8 most popular series.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Testimonials</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Hardcoded testimonials with <strong>auto-rotation</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Filter Pills</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            All, SSC, Railways, Banking, UPSC, Defence.
+                            <strong>First one selected by default</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Study Material Page -->
+        <div class="page-section" id="study-material">
+            <div class="page-header">
+                <h2><span class="icon">📖</span> 10. Study Material Page (StudyMaterial.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/study/StudyMaterial.jsx</code></p>
+                    <p>Shows study subjects organized in groups with expandable sections.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item semi">
+                        <div class="card-title">Subject Group Headers</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Collapsible group headers.
+                            <strong>Auto-expanded by default</strong>. Order from API data.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Standalone Subject Cards</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Subjects without a group.
+                            <strong>Order from API response</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Grouped Subject Cards</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Subjects within each group.
+                            <strong>Order from API</strong>, shown when group expanded.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel Control Section -->
+        <div class="page-section" id="admin-control">
+            <div class="page-header">
+                <h2><span class="icon">⚙️</span> 11. Admin Panel Control</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro" style="background: #fef2f2; border-left-color: #ef4444;">
+                    <p><strong>IMPORTANT:</strong> All card ordering should be controllable via Admin Panel, even for sections that appear "fixed" to users.</p>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #dc2626;">🎯 Admin Panel Should Control:</h3>
+
+                <div style="background: #fef2f2; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 2px dashed #fca5a5;">
+                    <h4 style="color: #991b1b; margin-bottom: 15px;">1. Fixed Position Cards - Admin Controllable</h4>
+                    <table class="summary-table" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Section</th>
+                                <th>Page</th>
+                                <th>Admin Control Needed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Quick Access Grid</strong></td>
+                                <td>Dashboard, Home</td>
+                                <td>Drag-drop reordering, Show/Hide individual items, Add custom items</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Category Tabs</strong></td>
+                                <td>Exams, Test Series</td>
+                                <td>Reorder categories, Set default selected, Show/Hide categories</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Features Section</strong></td>
+                                <td>Home</td>
+                                <td>Reorder features, Edit content, Show/Hide</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Platform Statistics</strong></td>
+                                <td>Home</td>
+                                <td>Edit values, Add/Remove stat cards</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Testimonials</strong></td>
+                                <td>Home</td>
+                                <td>Add/Edit/Remove testimonials, Reorder, Auto-rotation speed</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">📋 Current Admin Endpoints (Backend)</h3>
+                <div class="card-code" style="margin-bottom: 15px;">
+<span class="comment">// File: apps/backend/src/api/routes/admin.js</span>
+
+<span class="comment">// Test Series with order support</span>
+GET    /api/admin/test-series        <span class="comment">// List all series</span>
+POST   /api/admin/test-series        <span class="comment">// Create (auto-assigns next order)</span>
+PUT    /api/admin/test-series/:id    <span class="comment">// Update (includes order reordering logic)</span>
+DELETE /api/admin/test-series/:id    <span class="comment">// Soft delete</span>
+
+<span class="comment">// Exam Categories with order field</span>
+GET    /api/admin/exam-categories
+POST   /api/admin/exam-categories
+PUT    /api/admin/exam-categories/:id
+DELETE /api/admin/exam-categories/:id
+
+<span class="comment">// Study Materials with order field</span>
+GET    /api/admin/study-materials
+POST   /api/admin/study-materials
+PUT    /api/admin/study-materials/:id  <span class="comment">// Includes reordering logic</span>
+DELETE /api/admin/study-materials/:id
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">📋 Suggested Admin Panel UI Structure</h3>
+                <div style="background: #f0f9ff; border-radius: 10px; padding: 20px; border-left: 4px solid #0ea5e9;">
+                    <pre style="font-family: monospace; font-size: 0.85rem; color: #0369a1; white-space: pre-wrap;">
+Admin Panel
+├── 📊 Dashboard Settings
+│   ├── Quick Access Items
+│   │   ├── [Drag to Reorder] Live Tests
+│   │   ├── [Drag to Reorder] Quizzes
+│   │   └── ... (+ Add Custom Item)
+│   └── Featured Sections Order
+│
+├── 🏠 Home Page Settings
+│   ├── Platform Statistics (Edit Values)
+│   ├── Features Section (Reorder/Edit)
+│   └── Testimonials (CRUD + Order)
+│
+├── 📝 Test Series Settings
+│   ├── Default Sort Order
+│   ├── Featured/Pinned Series
+│   └── Category Tab Order
+│
+└── 📖 Study Material Settings
+    ├── Subject Group Order
+    └── Subject Order Within Groups
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Schema -->
+        <div class="page-section" id="database">
+            <div class="page-header">
+                <h2><span class="icon">🗃️</span> 12. Database Schema</h2>
+            </div>
+            <div class="page-content">
+                <h3 style="margin-bottom: 15px;">Tables WITH Order Fields (Current Implementation)</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Table</th>
+                            <th>Order Field</th>
+                            <th>Additional Fields</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>test_series</code></td><td><code>order</code></td><td><code>is_pinned</code>, <code>users</code></td></tr>
+                        <tr><td><code>exam_categories</code></td><td><code>order</code></td><td><code>is_active</code></td></tr>
+                        <tr><td><code>exam_sub_categories</code></td><td><code>order</code></td><td><code>parent_category_id</code></td></tr>
+                        <tr><td><code>study_materials</code></td><td><code>order</code></td><td>-</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 style="margin: 25px 0 15px;">Recommended Universal Fields</h3>
+                <div class="card-code">
+<span class="comment">-- Standard ordering fields for ALL content tables</span>
+
+<span class="comment">-- Visibility</span>
+is_active <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">true</span>,
+is_visible <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">true</span>,
+visibility_status <span class="keyword">VARCHAR</span>(20) <span class="keyword">DEFAULT</span> <span class="string">'visible'</span>,
+
+<span class="comment">-- Prominence</span>
+is_pinned <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">false</span>,
+is_featured <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">false</span>,
+priority_weight <span class="keyword">INTEGER DEFAULT</span> 0,
+
+<span class="comment">-- Sequence</span>
+display_order <span class="keyword">INTEGER DEFAULT</span> 0,
+section_group <span class="keyword">VARCHAR</span>(100),
+
+<span class="comment">-- Sorting Mode Override</span>
+sort_mode <span class="keyword">VARCHAR</span>(20) <span class="keyword">DEFAULT</span> <span class="string">'manual'</span>,
+
+<span class="comment">-- Audit</span>
+last_order_modified_by <span class="keyword">INTEGER REFERENCES</span> users(id),
+last_order_modified_at <span class="keyword">TIMESTAMP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="page-section" id="api">
+            <div class="page-header">
+                <h2><span class="icon">🔌</span> 13. API Endpoints</h2>
+            </div>
+            <div class="page-content">
+                <h3 style="margin-bottom: 15px;">Current Admin Endpoints</h3>
+                <div class="cards-grid">
+                    <div class="card-item auto">
+                        <div class="card-title">Test Series Management</div>
+                        <div class="card-code" style="margin-top: 15px;">
+<span class="comment">-- JavaScript sorting function from TestSeries.jsx</span>
+<span class="keyword">const</span> sortedSeries = [...allSeries].sort((a, b) => {
+  <span class="comment">// 1. Pinned items first</span>
+  <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+  
+  <span class="comment">// 2. Among pinned, use order field</span>
+  <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+  
+  <span class="comment">// 3. Non-pinned sorted by users (popularity)</span>
+  <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+});
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">Recommended Improvements</h3>
+                <div style="background: #fef2f2; border-radius: 10px; padding: 15px; border-left: 4px solid #ef4444;">
+                    <ol style="margin-left: 20px; color: #991b1b;">
+                        <li><strong>Dashboard - Recent Test Series</strong>: Sort by last activity date (most recently accessed first)</li>
+                        <li><strong>Test Details - Top Performers</strong>: Replace mock data with real API data</li>
+                        <li><strong>Analysis - Subject Performance</strong>: Make subjects dynamic from user's actual test data</li>
+                        <li><strong>Study Material</strong>: Add "Recently Viewed" section at top</li>
+                        <li><strong>All Pages</strong>: Consider adding "recency" sorting for content that users interact with</li>
+                    </ol>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">Migration Roadmap</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-title">📦 Phase 1: Database Schema Updates</div>
+                        <div class="timeline-content">
+                            Add universal ordering fields to all tables, create audit log table, add indexes
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">🔄 Phase 2: Data Backfill</div>
+                        <div class="timeline-content">
+                            Backfill display_order from existing order fields, normalize orders to fill gaps
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">🔌 Phase 3: Backend API Implementation</div>
+                        <div class="timeline-content">
+                            Create card order API routes, add admin endpoints for reordering, add audit logging
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">⚛️ Phase 4: Frontend Updates</div>
+                        <div class="timeline-content">
+                            Create useOrderedCards hook, create OrderedCardGrid component, update admin managers
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">✅ Phase 5: Testing & Rollout</div>
+                        <div class="timeline-content">
+                            Unit tests, integration tests, performance testing, staged rollout
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; color: white; padding: 20px; margin-top: 20px;">
+            <p>Report generated on: March 2026</p>
+            <p style="opacity: 0.7; font-size: 0.9rem;">Trstprep V2.0 - Card Ordering Behavior Analysis | Merged from Design Documents</p>
+        </div>
+    </div>
+</body>
+</html>

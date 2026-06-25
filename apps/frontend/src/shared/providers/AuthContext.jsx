@@ -140,10 +140,13 @@ export function AuthProvider({ children }) {
       // httpOnly cookie is set automatically by browser - no localStorage storage needed
       // SECURITY: Removing localStorage token storage to prevent XSS token theft (Audit Fix #CRIT-03)
 
-       // Store CSRF token in memory for mutation requests
-       if (newCsrfToken) {
-         storeSetCsrfToken(newCsrfToken)
-       }
+      // Store CSRF token in memory for mutation requests
+      if (newCsrfToken) {
+        setCsrfToken(newCsrfToken)
+      }
+
+      // Delay slightly to ensure the browser has written the httpOnly cookie to the cookie jar
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       const frontendUser = mapUserToFrontend(userData)
       setUser(frontendUser)
@@ -180,6 +183,9 @@ export function AuthProvider({ children }) {
       if (newCsrfToken) {
         setCsrfToken(newCsrfToken)
       }
+
+      // Delay slightly to ensure the browser has written the httpOnly cookie to the cookie jar
+      await new Promise(resolve => setTimeout(resolve, 200))
 
       const frontendUser = mapUserToFrontend(userData)
       setUser(frontendUser)
@@ -223,6 +229,9 @@ export function AuthProvider({ children }) {
 
       // If auto-login after registration
       if (userData) {
+        // Delay slightly to ensure the browser has written the httpOnly cookie to the cookie jar
+        await new Promise(resolve => setTimeout(resolve, 200))
+
         const frontendUser = mapUserToFrontend(userData)
         setUser(frontendUser)
         

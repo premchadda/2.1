@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Public & Authentication Architecture Analysis - Trstprep V2.0</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0f111a;
+            --bg-surface: #1a1d2d;
+            --bg-surface-hover: #22263a;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-primary: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.5);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --code-bg: #0d0f18;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            line-height: 1.7;
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-base);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, #fff, #6ee7b7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin: 48px 0 24px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 24px 0 12px;
+            color: #cbd5e1;
+        }
+
+        p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            font-size: 1.05rem;
+        }
+
+        .grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 24px;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 32px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin: 24px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        th,
+        td {
+            padding: 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: rgba(255, 255, 255, 0.02);
+            color: #e2e8f0;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge.get {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.2);
+        }
+
+        .badge.post {
+            background: rgba(59, 130, 246, 0.1);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        pre {
+            background: var(--code-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px;
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            margin: 16px 0;
+        }
+
+        .property {
+            color: #6ee7b7;
+        }
+
+        .string {
+            color: #98c379;
+        }
+
+        .keyword {
+            color: #c678dd;
+        }
+
+        .flow-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            padding: 40px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        .flow-node {
+            background: var(--bg-surface);
+            border: 2px solid var(--accent-primary);
+            padding: 20px;
+            border-radius: 12px;
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .flow-node::after {
+            content: '↓';
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            color: var(--accent-primary);
+        }
+
+        .flow-node:last-child::after {
+            display: none;
+        }
+
+        .flow-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #fff;
+        }
+
+        .flow-desc {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Public Funnels & Authentication Boundary Flow</h1>
+        <p>A comprehensive deep dive detailing the unauthenticated marketing endpoints (Home/About/Contact), the global
+            <code>useAuth</code> context engine binding frontend states to the backend JWT validator, and robust
+            fallback/Interception mechanisms catching expired credentials seamlessly.</p>
+
+        <!-- Routing Architecture -->
+        <h2>🚦 1. Public App Navigation Tree</h2>
+        <div class="card">
+            <p>These routes are strictly unauthenticated. They represent the "top of the funnel" meant to draw public
+                traffic towards the login screens or free test offerings. They mount outside of
+                <code>ProtectedRoute.jsx</code>.</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Global Path</th>
+                        <th>Target View Component</th>
+                        <th>Behavioral Logic / Side Effects</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>/</code> (Root)</td>
+                        <td><code>Home.jsx</code></td>
+                        <td>Renders static SEO features, Hero Banner, Testimonials array. Pushes CTAs parsing URL
+                            params.</td>
+                    </tr>
+                    <tr>
+                        <td><code>/about</code> & <code>/contact</code></td>
+                        <td><code>About.jsx</code>, <code>Contact.jsx</code></td>
+                        <td>Static Company info. Displays Support email mechanisms and Helpdesk form handling pointing
+                            to POST `/api/contact`.</td>
+                    </tr>
+                    <tr>
+                        <td><code>/login</code> & <code>/signup</code></td>
+                        <td><code>AuthForm.jsx</code></td>
+                        <td>Core gateway. Modifies central `AuthContext` on success. Redirects `/dashboard` preventing
+                            repeat returns if token already exists.</td>
+                    </tr>
+                    <tr>
+                        <td><code>*</code> (Wildcard)</td>
+                        <td><code>NotFound.jsx</code></td>
+                        <td>Catches entirely unmapped paths returning an elegant 404 block with a
+                            <code>Link to="/"</code> fallback to preserve retention.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- React Auth Context Architecture -->
+        <h2>⚛️ 2. Comprehensive JWT State Handshake</h2>
+        <div class="card">
+            <p>The entire React UI transforms instantly based on the presence of a valid `trstprep_token` string stored
+                in localStorage. The `AuthContext` runs a verify request the instant the DOM mounts.</p>
+
+            <h4 style="margin-top:0">The Context Execution Sequence</h4>
+            <div class="flow-diagram">
+                <div class="flow-node">
+                    <div class="flow-title">1. App Initialization (`AuthContext.Provider`)</div>
+                    <div class="flow-desc">`useEffect` executes on `mount`. Reads
+                        `localStorage.getItem('trstprep_token')`.</div>
+                </div>
+                <div class="flow-node">
+                    <div class="flow-title">2. Token Verification Strategy</div>
+                    <div class="flow-desc">Axios implicitly attaches the JWT. Hits GET `/api/auth/me`. Express validates
+                        signature utilizing `jsonwebtoken` package vs ENV secret.</div>
+                </div>
+                <div class="flow-node">
+                    <div class="flow-title">3. Identity Hydration (`setUser(data)`)</div>
+                    <div class="flow-desc">Upon 200 OK, the generic context exposes `{ user: { name: 'Admin', role:
+                        'admin' }, logout() }` globally to any `useAuth()` hook.</div>
+                </div>
+                <div class="flow-node">
+                    <div class="flow-title">4. Automatic Interception (`axios_config.js`)</div>
+                    <div class="flow-desc">If token is expired, Server returns 401. Axios Interceptor catches error,
+                        calls `logout()` forcing a redirect to `/login` seamlessly.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Node API Payload Schema -->
+        <h2>📡 3. Express BCrypt Authentication APIs</h2>
+        <div class="card">
+
+            <div class="grid-2">
+                <div
+                    style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h4><span class="badge post">POST</span> <code>/api/auth/login</code></h4>
+                    <p style="margin-top:10px">Hashes incoming plaintext string and matches against `users` table via
+                        `bcrypt.compare()`.</p>
+                    <pre><code class="javascript"><span class="comment">// Standard Success Pipeline</span>
+{
+  <span class="property">"success"</span>: <span class="keyword">true</span>,
+  <span class="property">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="property">"user"</span>: {
+    <span class="property">"id"</span>: <span class="string">"a1b2..."</span>,
+    <span class="property">"role"</span>: <span class="string">"user"</span>,
+    <span class="property">"name"</span>: <span class="string">"Jane Doe"</span>
+  }
+}</code></pre>
+                </div>
+
+                <div
+                    style="background: rgba(0,0,0,0.3); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <h4><span class="badge post">POST</span> <code>/api/auth/register</code></h4>
+                    <p style="margin-top:10px">Demands `email`, `password`, `name`. Validates length rules, checks for
+                        UNIQUE constraint violations on `email` throwing 409 Conflict if redundant.</p>
+                    <pre><code class="javascript"><span class="comment">// Immediately signs user in upon insert</span>
+{
+  <span class="property">"success"</span>: <span class="keyword">true</span>,
+  <span class="property">"token"</span>: <span class="string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="property">"user"</span>: { ... }
+}</code></pre>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 24px;">Middleware Verification (`authMiddleware.js`)</h4>
+            <pre><code class="javascript"><span class="comment">// The global wrapper shielding deep APIs</span>
+<span class="keyword">const</span> protectRoute = async (req, res, next) =&gt; {
+  <span class="keyword">const</span> token = req.headers.authorization?.split(<span class="string">' '</span>)[1];
+  
+  <span class="keyword">if</span> (!token) <span class="keyword">return</span> res.status(401).json({ message: <span class="string">'No token'</span> });
+  
+  <span class="keyword">try</span> {
+    <span class="keyword">const</span> decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded; <span class="comment">// Attach for controllers</span>
+    next();
+  } <span class="keyword">catch</span> (err) {
+    res.status(401).json({ message: <span class="string">'Invalid/Expired token'</span> });
+  }
+};</code></pre>
+
+        </div>
+
+    </div>
+</body>
+
+</html>

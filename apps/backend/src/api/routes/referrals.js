@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 
 const router = express.Router()
@@ -11,7 +12,7 @@ router.get('/', protect, async (req, res) => {
     const userId = req.user.id
     
     // Get user's referral code
-    const referrals = await global.dbHelpers.find('referrals', { referrerId: userId })
+    const referrals = await dbHelpers.find('referrals', { referrerId: userId })
     
     // Calculate stats
     const stats = {
@@ -25,7 +26,7 @@ router.get('/', protect, async (req, res) => {
     }
     
     // Get user's referral code
-    const user = await global.dbHelpers.findById('users', userId)
+    const user = await dbHelpers.findById('users', userId)
     const referralCode = user?.referralCode || `TRSTPREP${userId}`.toUpperCase()
     
     res.json({
@@ -59,13 +60,13 @@ router.post('/', async (req, res) => {
     }
     
     // OPTIMIZED: Query specific referrer instead of fetching all users (DoS prevention)
-    let referrer = await global.dbHelpers.findOne('users', { referralCode })
+    let referrer = await dbHelpers.findOne('users', { referralCode })
     
     if (!referrer) {
       // Try resolving TRSTPREP{id} format
       const idMatch = referralCode.match(/^TRSTPREP(\d+)$/i)
       if (idMatch) {
-        referrer = await global.dbHelpers.findById('users', idMatch[1])
+        referrer = await dbHelpers.findById('users', idMatch[1])
       }
     }
     
@@ -77,7 +78,7 @@ router.post('/', async (req, res) => {
     }
     
     // Create referral record
-    const referral = await global.dbHelpers.insertOne('referrals', {
+    const referral = await dbHelpers.insertOne('referrals', {
       referrerId: referrer.id || referrer._id,
       referredUserId: newUserId,
       status: 'pending',
@@ -104,7 +105,7 @@ router.put('/:id/complete', protect, admin, async (req, res) => {
   try {
     const { reward = 500 } = req.body
     
-    const referral = await global.dbHelpers.updateById('referrals', req.params.id, {
+    const referral = await dbHelpers.updateById('referrals', req.params.id, {
       status: 'completed',
       reward,
       completedAt: new Date().toISOString()

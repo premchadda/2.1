@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { generateToken, clearAuthCookies, validatePasswordStrength, setAuthCookies } from './auth.service.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import { recordLoginAttempt } from '../../middleware/lockout.middleware.js'
@@ -34,8 +35,8 @@ export const authController = {
       }
 
       // Find user by email
-      const users = await global.dbHelpers.find('users', { email })
-      if (users.length === 0) {
+      const user = await dbHelpers.findOne('users', { email })
+      if (!user) {
         // Record failed attempt for non-existent user
         await recordLoginAttempt(email, ipAddress, false, userAgent)
         return res.status(401).json({
@@ -43,8 +44,6 @@ export const authController = {
           message: 'Invalid email or password',
         })
       }
-
-      const user = users[0]
 
       // Check if user is active
       if (user.isActive === false || user.isDeactivated === true) {
@@ -166,8 +165,8 @@ export const authController = {
       }
 
       // Check if user already exists
-      const existingUsers = await global.dbHelpers.find('users', { email })
-      if (existingUsers.length > 0) {
+      const existingUser = await dbHelpers.findOne('users', { email })
+      if (existingUser) {
         return res.status(409).json({
           success: false,
           message: 'User already exists with this email',
@@ -191,7 +190,7 @@ export const authController = {
         updatedAt: new Date().toISOString(),
       }
 
-      const newUser = await global.dbHelpers.insertOne('users', userData)
+      const newUser = await dbHelpers.insertOne('users', userData)
 
        // Generate tokens
        const userId = newUser._id || newUser.id
@@ -265,10 +264,9 @@ export const authController = {
       const userAgent = req.headers['user-agent']
 
       let user
-      const users = await global.dbHelpers.find('users', { email: email.toLowerCase() })
+      user = await dbHelpers.findOne('users', { email: email.toLowerCase() })
 
-      if (users.length > 0) {
-        user = users[0]
+      if (user) {
         if (user.isActive === false || user.isDeactivated === true) {
           return res.status(403).json({ success: false, message: 'Your account has been deactivated.' })
         }
@@ -289,7 +287,7 @@ export const authController = {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
-        user = await global.dbHelpers.insertOne('users', userData)
+        user = await dbHelpers.insertOne('users', userData)
       }
 
       await recordLoginAttempt(email, ipAddress, true, userAgent)
@@ -337,7 +335,7 @@ export const authController = {
        }
        // Invalidate refresh token version to revoke all refresh tokens from this session
        if (req.user?.id) {
-         await global.dbHelpers.query(
+         await dbHelpers.query(
            'UPDATE users SET refresh_token_version = refresh_token_version + 1 WHERE id = $1',
            [req.user.id]
          )
@@ -370,9 +368,9 @@ export const authController = {
         process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET
       )
 
-      // Find user
-      const users = await global.dbHelpers.find('users', { _id: decoded.id })
-      if (users.length === 0) {
+      // Find user — use findById for consistency with the rest of the codebase
+      const user = await dbHelpers.findById('users', decoded.id)
+      if (!user) {
         clearAuthCookies(res)
         return res.status(401).json({
           success: false,
@@ -380,33 +378,30 @@ export const authController = {
         })
       }
 
-       const user = users[0]
+      // Check refresh token version to ensure token hasn't been revoked
+      const tokenVersion = decoded.refreshTokenVersion || 0
+      const currentUserVersion = user.refresh_token_version || 0
+      if (tokenVersion !== currentUserVersion) {
+        clearAuthCookies(res)
+        return res.status(401).json({
+          success: false,
+          message: 'Refresh token invalidated. Please log in again.',
+        })
+      }
 
-       // Check refresh token version to ensure token hasn't been revoked
-       const tokenVersion = decoded.refreshTokenVersion || 0
-       const currentUserVersion = user.refresh_token_version || 0
-       if (tokenVersion !== currentUserVersion) {
-         // Token version mismatch - likely revoked (e.g., logout from another device, password change)
-         clearAuthCookies(res)
-         return res.status(401).json({
-           success: false,
-           message: 'Refresh token invalidated. Please log in again.',
-         })
-       }
+      // Generate new tokens
+      const token = generateToken(decoded.id, decoded.role)
+      const newRefreshToken = generateToken(
+        decoded.id,
+        decoded.role,
+        {
+          secret: process.env.JWT_REFRESH_SECRET,
+          expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
+          claims: { refreshTokenVersion: currentUserVersion },
+        }
+      )
 
-       // Generate new tokens
-       const token = generateToken(decoded.id, decoded.role)
-       const newRefreshToken = generateToken(
-         decoded.id,
-         decoded.role,
-         {
-           secret: process.env.JWT_REFRESH_SECRET,
-           expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '30d',
-           claims: { refreshTokenVersion: currentUserVersion },
-         }
-       )
-
-       setAuthCookies(res, { token, refreshToken: newRefreshToken })
+      setAuthCookies(res, { token, refreshToken: newRefreshToken })
 
       res.status(200).json({
         success: true,
@@ -437,16 +432,14 @@ export const authController = {
         })
       }
 
-      const users = await global.dbHelpers.find('users', { email })
-      if (users.length === 0) {
+      const user = await dbHelpers.findOne('users', { email })
+      if (!user) {
         // Don't reveal if user exists or not for security
         return res.status(200).json({
           success: true,
           message: 'If an account exists with this email, a password reset link has been sent',
         })
       }
-
-      const user = users[0]
 
       // Generate reset token
       const resetToken = jwt.sign(
@@ -456,7 +449,7 @@ export const authController = {
       )
 
       // Save reset token to user
-      await global.dbHelpers.updateById('users', user._id || user.id, {
+      await dbHelpers.updateById('users', user._id || user.id, {
         resetPasswordToken: resetToken,
         resetPasswordExpires: new Date(Date.now() + 3600000).toISOString(), // 1 hour
       })
@@ -528,26 +521,20 @@ export const authController = {
       }
 
       // Find user and verify token hasn't been used already
-      const users = await global.dbHelpers.find('users', {
-        _id: decoded.id,
-        resetPasswordToken: token,
-      })
-
-      if (users.length === 0) {
+      const user = await dbHelpers.findById('users', decoded.id)
+      if (!user || user.resetPasswordToken !== token) {
         return res.status(400).json({
           success: false,
           message: 'Invalid or already used reset token',
         })
       }
 
-      const user = users[0]
-
       // Hash new password
       const salt = await bcrypt.genSalt(10)
       const hashedPassword = await bcrypt.hash(newPassword, salt)
 
       // Update user - Clear token immediately to prevent reuse
-      await global.dbHelpers.updateById('users', user._id || user.id, {
+      await dbHelpers.updateById('users', user._id || user.id, {
         password: hashedPassword,
         resetPasswordToken: null,
         resetPasswordExpires: null,
@@ -587,8 +574,7 @@ export const authController = {
         })
       }
 
-      const users = await global.dbHelpers.find('users', { _id: req.user.id })
-      const user = users[0]
+      const user = await dbHelpers.findById('users', req.user.id)
 
       if (!user) {
         return res.status(404).json({
@@ -608,7 +594,7 @@ export const authController = {
       const salt = await bcrypt.genSalt(10)
       const hashedPassword = await bcrypt.hash(newPassword, salt)
 
-      await global.dbHelpers.updateById('users', user._id || user.id, {
+      await dbHelpers.updateById('users', user._id || user.id, {
         password: hashedPassword,
         updatedAt: new Date().toISOString(),
       })
@@ -655,15 +641,13 @@ export const authController = {
       }
 
       // Find user
-      const users = await global.dbHelpers.find('users', { _id: decoded.id })
-      if (users.length === 0) {
+      const user = await dbHelpers.findById('users', decoded.id)
+      if (!user) {
         return res.status(400).json({
           success: false,
           message: 'User not found',
         })
       }
-
-      const user = users[0]
 
       if (user.isEmailVerified) {
         return res.status(200).json({
@@ -673,7 +657,7 @@ export const authController = {
       }
 
       // Update user
-      await global.dbHelpers.updateById('users', user._id || user.id, {
+      await dbHelpers.updateById('users', user._id || user.id, {
         isEmailVerified: true,
         emailVerificationToken: null,
         updatedAt: new Date().toISOString(),

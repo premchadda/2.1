@@ -13,7 +13,7 @@ const isDisabledProvider = (provider) => DISABLED_PROVIDERS.has(String(provider 
 
 class SmsService {
   constructor() {
-    this.provider = (process.env.SMS_PROVIDER || 'twilio').toLowerCase()
+    this.provider = (process.env.SMS_PROVIDER || 'none').toLowerCase()
     this.setupProvider()
   }
 

@@ -1,0 +1,2210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trstprep User Journey - Comprehensive Flow Diagram</title>
+    <style>
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --secondary: #764ba2;
+            --success: #48bb78;
+            --warning: #ed8936;
+            --danger: #f56565;
+            --info: #4299e1;
+            --dark: #2d3748;
+            --light: #f7fafc;
+            --guest: #a0aec0;
+            --user: #48bb78;
+            --pro: #ed8936;
+            --admin: #9f7aea;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        
+        .nav-tabs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .nav-tab {
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .nav-tab:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: var(--dark);
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .card h2 .icon {
+            font-size: 1.5rem;
+        }
+        
+        /* Flow Diagram Styles */
+        .flow-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 15px;
+            overflow-x: auto;
+        }
+        
+        .flow-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .flow-node {
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 150px;
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .flow-node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .flow-node.guest {
+            background: linear-gradient(135deg, #a0aec0, #718096);
+            color: white;
+        }
+        
+        .flow-node.user {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .flow-node.pro {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+        }
+        
+        .flow-node.admin {
+            background: linear-gradient(135deg, #9f7aea, #805ad5);
+            color: white;
+        }
+        
+        .flow-node.action {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+        }
+        
+        .flow-node.decision {
+            background: linear-gradient(135deg, #fbd38d, #f6ad55);
+            color: var(--dark);
+            transform: rotate(0deg);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            min-width: 180px;
+            padding: 25px;
+        }
+        
+        .flow-node.decision:hover {
+            transform: scale(1.05);
+        }
+        
+        .flow-node.endpoint {
+            background: linear-gradient(135deg, #fc8181, #f56565);
+            color: white;
+            border-radius: 25px;
+        }
+        
+        .flow-node.success {
+            background: linear-gradient(135deg, #68d391, #48bb78);
+            color: white;
+        }
+        
+        .flow-node.error {
+            background: linear-gradient(135deg, #fc8181, #f56565);
+            color: white;
+        }
+        
+        .flow-arrow {
+            font-size: 1.5rem;
+            color: var(--primary);
+            font-weight: bold;
+        }
+        
+        .flow-arrow-down {
+            transform: rotate(90deg);
+        }
+        
+        .flow-label {
+            font-size: 0.75rem;
+            color: #718096;
+            margin-top: 5px;
+        }
+        
+        /* Database Schema Styles */
+        .schema-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        
+        .schema-table {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .schema-table-header {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            padding: 15px;
+            font-weight: 700;
+            text-align: center;
+        }
+        
+        .schema-table-body {
+            padding: 15px;
+        }
+        
+        .schema-column {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+        
+        .schema-column:last-child {
+            border-bottom: none;
+        }
+        
+        .schema-column-name {
+            font-weight: 600;
+            color: var(--dark);
+        }
+        
+        .schema-column-type {
+            color: #718096;
+            font-family: monospace;
+        }
+        
+        .schema-column.pk {
+            background: #faf089;
+            margin: 0 -15px;
+            padding: 8px 15px;
+        }
+        
+        .schema-column.fk {
+            background: #c6f6d5;
+            margin: 0 -15px;
+            padding: 8px 15px;
+        }
+        
+        /* API Endpoint Styles */
+        .api-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .api-endpoint {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border-left: 4px solid var(--primary);
+            transition: all 0.3s ease;
+        }
+        
+        .api-endpoint:hover {
+            background: #edf2f7;
+            transform: translateX(5px);
+        }
+        
+        .api-method {
+            padding: 5px 12px;
+            border-radius: 5px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .api-method.get { background: #c6f6d5; color: #22543d; }
+        .api-method.post { background: #bee3f8; color: #2a4365; }
+        .api-method.put { background: #faf089; color: #744210; }
+        .api-method.delete { background: #fed7d7; color: #742a2a; }
+        
+        .api-path {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--dark);
+            flex: 1;
+        }
+        
+        .api-desc {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+        
+        .api-auth {
+            padding: 3px 10px;
+            background: #e9d8fd;
+            color: #553c9a;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .api-auth.public {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        /* Code Block Styles */
+        .code-block {
+            background: #1a202c;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+        
+        .code-block pre {
+            margin: 0;
+            color: #e2e8f0;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .code-keyword { color: #f687b3; }
+        .code-string { color: #68d391; }
+        .code-comment { color: #718096; }
+        .code-function { color: #63b3ed; }
+        .code-number { color: #fbd38d; }
+        
+        /* User Type Legend */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: white;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+        
+        /* Security Checkpoint Styles */
+        .security-checkpoint {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #fed7d7, #feebc8);
+            border-radius: 10px;
+            margin: 10px 0;
+            border-left: 4px solid var(--danger);
+        }
+        
+        .security-icon {
+            font-size: 1.5rem;
+        }
+        
+        .security-content h4 {
+            color: #742a2a;
+            margin-bottom: 5px;
+        }
+        
+        .security-content p {
+            color: #744210;
+            font-size: 0.9rem;
+        }
+        
+        /* State Transition Styles */
+        .state-transition {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: #ebf8ff;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .state-box {
+            padding: 10px 15px;
+            background: white;
+            border: 2px solid var(--info);
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .state-arrow {
+            color: var(--info);
+            font-size: 1.2rem;
+        }
+        
+        /* Conditional Branch Styles */
+        .branch-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .branch {
+            flex: 1;
+            min-width: 250px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 15px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .branch-header {
+            font-weight: 700;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+            border-bottom: 2px solid;
+        }
+        
+        .branch-yes .branch-header { border-color: var(--success); color: var(--success); }
+        .branch-no .branch-header { border-color: var(--danger); color: var(--danger); }
+        .branch-guest .branch-header { border-color: var(--guest); color: var(--guest); }
+        .branch-user .branch-header { border-color: var(--user); color: var(--user); }
+        .branch-pro .branch-header { border-color: var(--pro); color: var(--pro); }
+        .branch-admin .branch-header { border-color: var(--admin); color: var(--admin); }
+        
+        /* Interactive Elements */
+        .interactive-flow {
+            position: relative;
+        }
+        
+        .tooltip {
+            display: none;
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--dark);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .flow-node:hover .tooltip {
+            display: block;
+        }
+        
+        /* Timeline Styles */
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--primary), var(--secondary));
+        }
+        
+        .timeline-item {
+            position: relative;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 25px;
+            width: 15px;
+            height: 15px;
+            background: var(--primary);
+            border-radius: 50%;
+            border: 3px solid white;
+        }
+        
+        .timeline-time {
+            font-size: 0.8rem;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .timeline-title {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 10px;
+        }
+        
+        .timeline-content {
+            color: #4a5568;
+            font-size: 0.95rem;
+        }
+        
+        /* Error Flow Styles */
+        .error-flow {
+            background: linear-gradient(135deg, #fff5f5, #fed7d7);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+        
+        .error-flow h4 {
+            color: #c53030;
+            margin-bottom: 15px;
+        }
+        
+        .error-code {
+            display: inline-block;
+            padding: 5px 15px;
+            background: #fc8181;
+            color: white;
+            border-radius: 5px;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 1.8rem; }
+            .nav-tab { padding: 10px 16px; font-size: 0.9rem; }
+            .card { padding: 20px; }
+            .flow-row { flex-direction: column; }
+            .branch { min-width: 100%; }
+        }
+        
+        /* Animation Styles */
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .glow {
+            box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        /* CTA Analysis Styles */
+        .cta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .cta-card {
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .cta-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.2);
+        }
+        
+        .cta-button-preview {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .cta-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+        }
+        
+        .cta-secondary {
+            background: #edf2f7;
+            color: var(--dark);
+        }
+        
+        .cta-warning {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+            color: white;
+        }
+        
+        .cta-success {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+            color: white;
+        }
+        
+        .cta-danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Trstprep User Journey Flow</h1>
+        <p class="subtitle">Comprehensive visualization of authentication, enrollment, and test-taking workflows</p>
+        <p style="text-align: center; color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
+            <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong> PostgreSQL (Supabase) | <strong>Tables:</strong> 40+
+        </p>
+        
+        <!-- User Type Legend -->
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #a0aec0, #718096);"></div>
+                <span>Guest (Unauthenticated)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #48bb78, #38a169);"></div>
+                <span>Registered User</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #ed8936, #dd6b20);"></div>
+                <span>Pro User</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: linear-gradient(135deg, #9f7aea, #805ad5);"></div>
+                <span>Admin</span>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showSection('overview')">📊 Overview</button>
+            <button class="nav-tab" onclick="showSection('auth')">🔐 Authentication Flow</button>
+            <button class="nav-tab" onclick="showSection('enrollment')">📝 Enrollment Flow</button>
+            <button class="nav-tab" onclick="showSection('test')">✍️ Test Taking Flow</button>
+            <button class="nav-tab" onclick="showSection('enrollment-management')">📋 Enrollment Management</button>
+            <button class="nav-tab" onclick="showSection('database')">🗄️ Database Schema</button>
+            <button class="nav-tab" onclick="showSection('api')">🔌 API Endpoints</button>
+            <button class="nav-tab" onclick="showSection('security')">🔒 Security</button>
+            <button class="nav-tab" onclick="showSection('errors')">⚠️ Error Handling</button>
+            <button class="nav-tab" onclick="showSection('cta')">🎯 CTA Analysis</button>
+        </div>
+        
+        <!-- Overview Section -->
+        <div id="overview" class="content-section active">
+            <div class="card">
+                <h2><span class="icon">📊</span> System Overview</h2>
+                <p style="margin-bottom: 20px; color: #4a5568;">
+                    Trstprep is a comprehensive test preparation platform supporting multiple user types and complex workflows.
+                    This document visualizes all user journeys from landing page to test completion.
+                </p>
+                
+                <div class="flow-container">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">High-Level User Journey</h3>
+                    <div class="flow-row">
+                        <div class="flow-node guest">🌐 Visit Platform</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Registered?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node action">Browse Content</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Enrolled?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node action">Take Test</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node success">View Results</div>
+                    </div>
+                </div>
+                
+                <div class="branch-container" style="margin-top: 30px;">
+                    <div class="branch branch-guest">
+                        <div class="branch-header">👤 Guest User Capabilities</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>Browse public pages (Home, About, Contact)</li>
+                            <li>View test series listings</li>
+                            <li>View exam information</li>
+                            <li>Register/Login required for:</li>
+                            <ul>
+                                <li>Enrolling in series</li>
+                                <li>Taking tests</li>
+                                <li>Viewing detailed analytics</li>
+                            </ul>
+                        </ul>
+                    </div>
+                    <div class="branch branch-user">
+                        <div class="branch-header">👤 Registered User Capabilities</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>All guest capabilities plus:</li>
+                            <li>Enroll in test series</li>
+                            <li>Take free tests</li>
+                            <li>View basic analytics</li>
+                            <li>Bookmark questions</li>
+                            <li>Access study materials</li>
+                        </ul>
+                    </div>
+                    <div class="branch branch-pro">
+                        <div class="branch-header">👑 Pro User Capabilities</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>All registered capabilities plus:</li>
+                            <li>Access all PRO tests</li>
+                            <li>Advanced analytics</li>
+                            <li>Priority support</li>
+                            <li>Ad-free experience</li>
+                            <li>Download PDFs</li>
+                        </ul>
+                    </div>
+                    <div class="branch branch-admin">
+                        <div class="branch-header">⚙️ Admin Capabilities</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>All capabilities plus:</li>
+                            <li>Manage users</li>
+                            <li>Create/edit tests</li>
+                            <li>Manage test series</li>
+                            <li>View system analytics</li>
+                            <li>Configure settings</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🔄</span> ID System Architecture</h2>
+                <p style="margin-bottom: 15px; color: #4a5568;">
+                    <strong>Important:</strong> The system uses a hybrid ID approach for flexibility:
+                </p>
+                
+                <div class="code-block">
+                    <pre>
+<span class="code-comment">// ID Types Used in the System:</span>
+
+<span class="code-comment">// 1. Database Primary Keys (PostgreSQL SERIAL)</span>
+<span class="code-keyword">id</span>: <span class="code-number">1, 2, 3...</span>  <span class="code-comment">// Auto-incrementing integers</span>
+
+<span class="code-comment">// 2. URL-Safe Slugs (for routing)</span>
+<span class="code-keyword">slug</span>: <span class="code-string">"rrb-ntpc-2026-mega"</span>  <span class="code-comment">// Human-readable identifiers</span>
+
+<span class="code-comment">// 3. Frontend ID Mapping</span>
+<span class="code-keyword">_id</span>: <span class="code-number">4</span>  <span class="code-comment">// Mapped from database id for frontend compatibility</span>
+<span class="code-keyword">id</span>: <span class="code-string">"rrb-ntpc-2026-mega"</span>  <span class="code-comment">// Slug exposed as id to frontend</span>
+
+<span class="code-comment">// 4. Enrollment Array Storage (PostgreSQL integer[])</span>
+<span class="code-keyword">enrolled_series</span>: <span class="code-string">"{1,2,3}"</span>  <span class="code-comment">// PostgreSQL array format</span>
+<span class="code-comment">// Parsed to: [1, 2, 3]</span>
+                    </pre>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">⚠️</span>
+                    <div class="security-content">
+                        <h4>Critical: ID Handling</h4>
+                        <p>Frontend should NEVER send raw integer IDs for operations. Always use slugs or stringified IDs. Backend converts to appropriate format for database queries.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Authentication Flow Section -->
+        <div id="auth" class="content-section">
+            <div class="card">
+                <h2><span class="icon">🔐</span> Authentication Flow</h2>
+                
+                <div class="flow-container">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">Registration Flow</h3>
+                    <div class="flow-row">
+                        <div class="flow-node action">📝 User fills registration form</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Valid Input?</div>
+                        
+                        <div class="branch-container" style="margin-top: 15px;">
+                            <div class="branch branch-yes">
+                                <span class="flow-arrow">↓ Yes</span>
+                                <div class="flow-node success">✅ Create user record</div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node action">📧 Send verification email</div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node success">✉️ User verifies email</div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node success">✅ Account activated</div>
+                            </div>
+                            <div class="branch branch-no">
+                                <span class="flow-arrow">↓ No</span>
+                                <div class="flow-node error">❌ Validation error</div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node action">📝 Show error message</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flow-container" style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">Login Flow</h3>
+                    <div class="flow-row">
+                        <div class="flow-node action">📧 Enter email & password</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">User exists?</div>
+                        
+                        <div class="branch-container" style="margin-top: 15px;">
+                            <div class="branch branch-yes">
+                                <span class="flow-arrow">↓ Yes</span>
+                                <div class="flow-node decision">Password correct?</div>
+                                <div class="branch-container">
+                                    <div class="branch branch-yes">
+                                        <span class="flow-arrow">↓ Yes</span>
+                                        <div class="flow-node decision">Email verified?</div>
+                                        <div class="branch-container">
+                                            <div class="branch branch-yes">
+                                                <span class="flow-arrow">↓ Yes</span>
+                                                <div class="flow-node success">🔑 Generate JWT token</div>
+                                                <span class="flow-arrow">→</span>
+                                                <div class="flow-node success">🍪 Set httpOnly cookie</div>
+                                                <span class="flow-arrow">→</span>
+                                                <div class="flow-node success">✅ Return user data</div>
+                                            </div>
+                                            <div class="branch branch-no">
+                                                <span class="flow-arrow">↓ No</span>
+                                                <div class="flow-node error">⚠️ 403: Verify email first</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="branch branch-no">
+                                        <span class="flow-arrow">↓ No</span>
+                                        <div class="flow-node error">❌ 401: Invalid credentials</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="branch branch-no">
+                                <span class="flow-arrow">↓ No</span>
+                                <div class="flow-node error">❌ 401: User not found</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 20px;">
+                    <pre>
+<span class="code-comment">// Backend: JWT Token Generation (AuthController.js)</span>
+<span class="code-keyword">const</span> token = jwt.sign(
+  { id: user._id || user.id },
+  process.env.JWT_SECRET,
+  { expiresIn: <span class="code-string">'7d'</span> }
+);
+
+<span class="code-comment">// Token Storage Options:</span>
+<span class="code-comment">// 1. httpOnly cookie (primary - secure, XSS protected)</span>
+res.cookie(<span class="code-string">'token'</span>, token, {
+  httpOnly: <span class="code-keyword">true</span>,
+  secure: process.env.NODE_ENV === <span class="code-string">'production'</span>,
+  sameSite: <span class="code-string">'strict'</span>,
+  maxAge: <span class="code-number">7</span> * <span class="code-number">24</span> * <span class="code-number">60</span> * <span class="code-number">60</span> * <span class="code-number">1000</span>
+});
+
+<span class="code-comment">// 2. localStorage (fallback for cross-origin)</span>
+res.json({ token, user: sanitizedUser });
+                    </pre>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">🔒</span>
+                    <div class="security-content">
+                        <h4>Authentication Security</h4>
+                        <p>• httpOnly cookies prevent XSS token theft<br>
+                        • sameSite='strict' prevents CSRF attacks<br>
+                        • Token includes user ID for lookup<br>
+                        • Password excluded from all responses</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🔄</span> Auth State Management</h2>
+                
+                <div class="state-transition">
+                    <div class="state-box">🔐 Unauthenticated</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">📧 Login Request</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">🔑 JWT Token</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">👤 Authenticated</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">🚪 Logout</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">🔐 Unauthenticated</div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 15px;">
+                    <pre>
+<span class="code-comment">// Frontend: AuthContext.jsx - User State</span>
+<span class="code-keyword">const</span> [user, setUser] = useState(<span class="code-keyword">null</span>);
+
+<span class="code-comment">// User object structure:</span>
+{
+  id: <span class="code-number">1</span>,                    <span class="code-comment">// Database ID</span>
+  name: <span class="code-string">"Test User"</span>,
+  email: <span class="code-string">"test@example.com"</span>,
+  role: <span class="code-string">"user"</span>,            <span class="code-comment">// "user" | "admin"</span>
+  isProUser: <span class="code-keyword">false</span>,       <span class="code-comment">// Pro pass status</span>
+  proPassExpiry: <span class="code-keyword">null</span>,     <span class="code-comment">// Pro expiry date</span>
+  enrolledSeries: [<span class="code-number">1</span>, <span class="code-number">2</span>],   <span class="code-comment">// Array of series IDs</span>
+  emailVerified: <span class="code-keyword">true</span>,
+  isActive: <span class="code-keyword">true</span>
+}
+                    </pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enrollment Flow Section -->
+        <div id="enrollment" class="content-section">
+            <div class="card">
+                <h2><span class="icon">📝</span> Test Series Enrollment Flow</h2>
+                
+                <div class="flow-container">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">Enrollment Decision Tree</h3>
+                    
+                    <div class="flow-row">
+                        <div class="flow-node action">📚 Browse Test Series</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Logged in?</div>
+                        
+                        <div class="branch-container" style="margin-top: 15px;">
+                            <div class="branch branch-no">
+                                <span class="flow-arrow">↓ No</span>
+                                <div class="flow-node guest">🔐 Redirect to Login</div>
+                                <span class="flow-arrow">→</span>
+                                <div class="flow-node action">📝 Show login modal</div>
+                            </div>
+                            <div class="branch branch-yes">
+                                <span class="flow-arrow">↓ Yes</span>
+                                <div class="flow-node decision">Already enrolled?</div>
+                                <div class="branch-container">
+                                    <div class="branch branch-yes">
+                                        <span class="flow-arrow">↓ Yes</span>
+                                        <div class="flow-node success">📖 Go to Series</div>
+                                    </div>
+                                    <div class="branch branch-no">
+                                        <span class="flow-arrow">↓ No</span>
+                                        <div class="flow-node decision">Pro required?</div>
+                                        <div class="branch-container">
+                                            <div class="branch branch-yes">
+                                                <span class="flow-arrow">↓ Yes</span>
+                                                <div class="flow-node decision">Has Pro?</div>
+                                                <div class="branch-container">
+                                                    <div class="branch branch-yes">
+                                                        <span class="flow-arrow">↓ Yes</span>
+                                                        <div class="flow-node pro">✅ Enroll User</div>
+                                                        <span class="flow-arrow">→</span>
+                                                        <div class="flow-node success">📚 Redirect to Series</div>
+                                                    </div>
+                                                    <div class="branch branch-no">
+                                                        <span class="flow-arrow">↓ No</span>
+                                                        <div class="flow-node warning">👑 Show Pro Pass CTA</div>
+                                                        <span class="flow-arrow">→</span>
+                                                        <div class="flow-node action">💳 Upgrade prompt</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="branch branch-no">
+                                                <span class="flow-arrow">↓ No</span>
+                                                <div class="flow-node success">✅ Enroll User</div>
+                                                <span class="flow-arrow">→</span>
+                                                <div class="flow-node success">📚 Redirect to Series</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 20px;">
+                    <pre>
+<span class="code-comment">// Backend: Enrollment API (users.js)</span>
+router.post(<span class="code-string">'/enroll/:seriesId'</span>, protect, <span class="code-keyword">async</span> (req, res) => {
+  <span class="code-comment">// 1. Validate series exists</span>
+  <span class="code-keyword">const</span> series = <span class="code-keyword">await</span> dbHelpers.findById(<span class="code-string">'testSeries'</span>, seriesId);
+  
+  <span class="code-comment">// 2. Check current enrollment status</span>
+  <span class="code-keyword">const</span> user = <span class="code-keyword">await</span> dbHelpers.findById(<span class="code-string">'users'</span>, req.user.id);
+  <span class="code-keyword">const</span> enrolledSeries = parseEnrolledSeries(user.enrolledSeries);
+  
+  <span class="code-comment">// 3. Prevent duplicate enrollment</span>
+  <span class="code-keyword">if</span> (enrolledSeries.includes(seriesId)) {
+    <span class="code-keyword">return</span> res.status(<span class="code-number">400</span>).json({ message: <span class="code-string">'Already enrolled'</span> });
+  }
+  
+  <span class="code-comment">// 4. Add to enrolled_series array (PostgreSQL integer[])</span>
+  <span class="code-keyword">const</span> newEnrolledSeries = [...enrolledSeries, seriesId];
+  <span class="code-keyword">await</span> dbHelpers.updateById(<span class="code-string">'users'</span>, req.user.id, { 
+    enrolledSeries: newEnrolledSeries 
+  });
+  
+  res.json({ success: <span class="code-keyword">true</span>, message: <span class="code-string">'Enrolled successfully'</span> });
+});
+                    </pre>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">🔒</span>
+                    <div class="security-content">
+                        <h4>Enrollment Validation</h4>
+                        <p>• User must be authenticated (protect middleware)<br>
+                        • Series must exist in database<br>
+                        • Duplicate enrollment prevented<br>
+                        • Series ID converted to integer for array storage</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🔄</span> Enrollment State Transitions</h2>
+                
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-time">Step 1</div>
+                        <div class="timeline-title">User Clicks "Add Test Series"</div>
+                        <div class="timeline-content">
+                            <code>POST /api/users/enroll/:seriesId</code><br>
+                            Frontend sends: series slug or numeric ID<br>
+                            Headers: <code>Authorization: Bearer {token}</code>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">Step 2</div>
+                        <div class="timeline-title">Backend Validation</div>
+                        <div class="timeline-content">
+                            • Verify JWT token<br>
+                            • Fetch user from database<br>
+                            • Parse existing enrolled_series array<br>
+                            • Check for duplicate enrollment
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">Step 3</div>
+                        <div class="timeline-title">Database Update</div>
+                        <div class="timeline-content">
+                            <code>UPDATE users SET enrolled_series = '{1,2,3}'::integer[] WHERE id = $1</code><br>
+                            PostgreSQL array format with proper casting
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">Step 4</div>
+                        <div class="timeline-title">Frontend Update</div>
+                        <div class="timeline-content">
+                            • Update user context with new enrolledSeries<br>
+                            • Show success message<br>
+                            • Redirect to test series page
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test Taking Flow Section -->
+        <div id="test" class="content-section">
+            <div class="card">
+                <h2><span class="icon">✍️</span> Test Taking Flow</h2>
+                
+                <div class="flow-container">
+                    <h3 style="margin-bottom: 20px; color: var(--dark);">Complete Test Journey</h3>
+                    
+                    <div class="flow-row">
+                        <div class="flow-node action">📋 View Test List</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Logged in?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node action">📖 Test Details</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Pro test?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Has access?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node success">▶️ Start Test</div>
+                    </div>
+                    
+                    <h4 style="margin: 30px 0 15px; color: var(--dark);">Test Interface Flow</h4>
+                    <div class="flow-row">
+                        <div class="flow-node action">📋 Test Instructions</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node action">📝 Question Interface</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node action">⏱️ Timer Running</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Submit?</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node success">📊 Calculate Results</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node success">🏆 Show Score</div>
+                    </div>
+                </div>
+                
+                <div class="branch-container" style="margin-top: 30px;">
+                    <div class="branch branch-guest">
+                        <div class="branch-header">🔒 Guest User</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>Cannot start tests</li>
+                            <li>Redirected to login</li>
+                            <li>Can view test listings</li>
+                            <li>Can see test details (limited)</li>
+                        </ul>
+                    </div>
+                    <div class="branch branch-user">
+                        <div class="branch-header">👤 Free User</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>Can take free tests</li>
+                            <li>Cannot access PRO tests</li>
+                            <li>Shows upgrade prompt</li>
+                            <li>Basic results shown</li>
+                        </ul>
+                    </div>
+                    <div class="branch branch-pro">
+                        <div class="branch-header">👑 Pro User</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li>Access to ALL tests</li>
+                            <li>Advanced analytics</li>
+                            <li>Detailed solutions</li>
+                            <li>Performance insights</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">📊</span> Test Result Calculation</h2>
+                
+                <div class="code-block">
+                    <pre>
+<span class="code-comment">// Test Submission Logic (tests.js)</span>
+router.put(<span class="code-string">'/:testId/submit'</span>, protect, <span class="code-keyword">async</span> (req, res) => {
+  <span class="code-keyword">const</span> { answers, timeSpent, attemptId } = req.body;
+  
+  <span class="code-comment">// Calculate score</span>
+  <span class="code-keyword">let</span> correct = <span class="code-number">0</span>, wrong = <span class="code-number">0</span>, unattempted = <span class="code-number">0</span>;
+  
+  questions.forEach((question) => {
+    <span class="code-keyword">const</span> userAnswer = answers.find(a => a.questionId === question.id);
+    <span class="code-keyword">if</span> (!userAnswer?.selectedOption) {
+      unattempted++;
+    } <span class="code-keyword">else if</span> (userAnswer.selectedOption === question.correct) {
+      correct++;
+    } <span class="code-keyword">else</span> {
+      wrong++;
+    }
+  });
+  
+  <span class="code-comment">// Calculate score with negative marking</span>
+  <span class="code-keyword">const</span> score = (correct * marksPerQuestion) - (wrong * negativeMarks);
+  <span class="code-keyword">const</span> accuracy = (correct / (correct + wrong)) * <span class="code-number">100</span>;
+  
+  <span class="code-comment">// Save attempt</span>
+  <span class="code-keyword">await</span> dbHelpers.insertOne(<span class="code-string">'attempts'</span>, {
+    userId, testId, seriesId,
+    score, correct, wrong, unattempted,
+    accuracy, timeSpent, answers,
+    isCompleted: <span class="code-keyword">true</span>,
+    submittedAt: <span class="code-keyword">new</span> Date()
+  });
+});
+                    </pre>
+                </div>
+                
+                <div class="state-transition" style="margin-top: 15px;">
+                    <div class="state-box">📋 Not Started</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">⏳ In Progress</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">📤 Submitted</div>
+                    <span class="state-arrow">→</span>
+                    <div class="state-box">✅ Completed</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Database Schema Section -->
+        <div id="database" class="content-section">
+            <div class="card">
+                <h2><span class="icon">🗄️</span> Database Schema</h2>
+                <p style="margin-bottom: 20px; color: #4a5568;">
+                    PostgreSQL database with the following core tables. Relationships shown with foreign key indicators.
+                </p>
+                
+                <div class="schema-container">
+                    <div class="schema-table">
+                        <div class="schema-table-header">👤 users</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">name</span>
+                                <span class="schema-column-type">VARCHAR(100)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">email</span>
+                                <span class="schema-column-type">VARCHAR(255) UNIQUE</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">password</span>
+                                <span class="schema-column-type">VARCHAR(255)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">role</span>
+                                <span class="schema-column-type">VARCHAR(20)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_pro</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">enrolled_series</span>
+                                <span class="schema-column-type">INTEGER[]</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">email_verified</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="schema-table">
+                        <div class="schema-table-header">📚 test_series</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">slug</span>
+                                <span class="schema-column-type">VARCHAR(255) UNIQUE</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">title</span>
+                                <span class="schema-column-type">VARCHAR(255)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">category</span>
+                                <span class="schema-column-type">VARCHAR(100)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">total_tests</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">free_tests</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_pro</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="schema-table">
+                        <div class="schema-table-header">📝 tests</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">series_id</span>
+                                <span class="schema-column-type">INTEGER FK → test_series</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">title</span>
+                                <span class="schema-column-type">VARCHAR(255)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">duration</span>
+                                <span class="schema-column-type">INTEGER (minutes)</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">questions</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_pro</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_live</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="schema-table">
+                        <div class="schema-table-header">❓ questions</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">test_id</span>
+                                <span class="schema-column-type">INTEGER FK → tests</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">question_text</span>
+                                <span class="schema-column-type">TEXT</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">options</span>
+                                <span class="schema-column-type">JSONB</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">correct_option</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">explanation</span>
+                                <span class="schema-column-type">TEXT</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="schema-table">
+                        <div class="schema-table-header">📊 attempts</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">user_id</span>
+                                <span class="schema-column-type">INTEGER FK → users</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">test_id</span>
+                                <span class="schema-column-type">INTEGER FK → tests</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">score</span>
+                                <span class="schema-column-type">DECIMAL</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">correct</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">wrong</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">answers</span>
+                                <span class="schema-column-type">JSONB</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_completed</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px; padding: 20px; background: #f8fafc; border-radius: 10px;">
+                    <h3 style="color: var(--dark); margin-bottom: 15px;">🔗 Table Relationships</h3>
+                    <div class="code-block">
+                        <pre>
+<span class="code-comment">// Entity Relationships:</span>
+
+users ||--o{ attempts : "takes"
+test_series ||--o{ tests : "contains"
+tests ||--o{ questions : "has"
+tests ||--o{ attempts : "recorded in"
+
+<span class="code-comment">// Enrollment relationship (array-based):</span>
+users.enrolled_series: INTEGER[] → test_series.id
+
+<span class="code-comment">// PostgreSQL Array Query:</span>
+SELECT * FROM users WHERE <span class="code-number">4</span> = ANY(enrolled_series);
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Endpoints Section -->
+        <div id="api" class="content-section">
+            <div class="card">
+                <h2><span class="icon">🔌</span> API Endpoints</h2>
+                
+                <h3 style="color: var(--dark); margin: 20px 0 15px;">🔐 Authentication</h3>
+                <div class="api-container">
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/auth/register</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Register new user</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/auth/login</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Login user, returns JWT token</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/auth/logout</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Logout user, clear cookie</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/auth/me</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get current user data</span>
+                    </div>
+                </div>
+                
+                <h3 style="color: var(--dark); margin: 20px 0 15px;">📚 Test Series</h3>
+                <div class="api-container">
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/series</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Get all test series</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/series/:id</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Get series by ID or slug</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/series/:id/tests</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Get tests in a series</span>
+                    </div>
+                </div>
+                
+                <h3 style="color: var(--dark); margin: 20px 0 15px;">👤 User Actions</h3>
+                <div class="api-container">
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/users/enroll/:seriesId</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Enroll in a test series</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/enrolled-series</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get user's enrolled series</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/analytics</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get user performance analytics</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/attempts</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get user's test attempts</span>
+                    </div>
+                </div>
+                
+                <h3 style="color: var(--dark); margin: 20px 0 15px;">📝 Tests</h3>
+                <div class="api-container">
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/tests</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Get all active tests</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/tests/:testId</span>
+                        <span class="api-auth public">Public</span>
+                        <span class="api-desc">Get test details</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/tests/:testId/questions</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get test questions (for taking)</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/tests/:testId/start</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Start a test attempt</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method put">PUT</span>
+                        <span class="api-path">/api/tests/:testId/submit</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Submit test answers</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/tests/:testId/result/:attemptId</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get test result</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Security Section -->
+        <div id="security" class="content-section">
+            <div class="card">
+                <h2><span class="icon">🔒</span> Security Architecture</h2>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">🔐</span>
+                    <div class="security-content">
+                        <h4>JWT Authentication</h4>
+                        <p>Tokens signed with JWT_SECRET, stored in httpOnly cookies. Token includes user ID for database lookup. 7-day expiry with refresh capability.</p>
+                    </div>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">🛡️</span>
+                    <div class="security-content">
+                        <h4>Route Protection Middleware</h4>
+                        <p>• <code>protect</code> - Requires valid JWT token<br>
+                        • <code>optionalAuth</code> - Attaches user if token present<br>
+                        • <code>admin</code> - Requires admin role<br>
+                        • <code>proPass</code> - Requires active Pro subscription</p>
+                    </div>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">✅</span>
+                    <div class="security-content">
+                        <h4>Input Validation</h4>
+                        <p>All user inputs validated with express-validator. SQL injection prevented through parameterized queries. XSS prevented through output encoding.</p>
+                    </div>
+                </div>
+                
+                <div class="security-checkpoint">
+                    <span class="security-icon">🔑</span>
+                    <div class="security-content">
+                        <h4>Password Security</h4>
+                        <p>Bcrypt hashing with salt rounds of 10. Passwords never returned in API responses. Reset tokens expire after 1 hour.</p>
+                    </div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 20px;">
+                    <pre>
+<span class="code-comment">// Auth Middleware (auth/index.js)</span>
+<span class="code-keyword">export const</span> protect = <span class="code-keyword">async</span> (req, res, next) => {
+  <span class="code-keyword">let</span> token;
+  
+  <span class="code-comment">// Check Authorization header</span>
+  <span class="code-keyword">if</span> (req.headers.authorization?.startsWith(<span class="code-string">'Bearer'</span>)) {
+    token = req.headers.authorization.split(<span class="code-string">' '</span>)[<span class="code-number">1</span>];
+  }
+  
+  <span class="code-comment">// Also check httpOnly cookie</span>
+  <span class="code-keyword">if</span> (!token && req.cookies?.token) {
+    token = req.cookies.token;
+  }
+  
+  <span class="code-keyword">if</span> (!token) {
+    <span class="code-keyword">return</span> res.status(<span class="code-number">401</span>).json({ message: <span class="code-string">'Not authorized'</span> });
+  }
+  
+  <span class="code-keyword">const</span> decoded = jwt.verify(token, process.env.JWT_SECRET);
+  <span class="code-keyword">const</span> user = <span class="code-keyword">await</span> dbHelpers.findById(<span class="code-string">'users'</span>, decoded.id);
+  
+  <span class="code-keyword">if</span> (!user || user.isActive === <span class="code-keyword">false</span>) {
+    <span class="code-keyword">return</span> res.status(<span class="code-number">401</span>).json({ message: <span class="code-string">'User not found or inactive'</span> });
+  }
+  
+  req.user = user;
+  next();
+};
+                    </pre>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🚦</span> Authorization Checkpoints</h2>
+                
+                <div class="flow-container">
+                    <h4 style="margin-bottom: 15px; color: var(--dark);">Test Access Flow</h4>
+                    <div class="flow-row">
+                        <div class="flow-node action">Request Test</div>
+                        <span class="flow-arrow">→</span>
+                        <div class="flow-node decision">Authenticated?</div>
+                        <div class="branch-container">
+                            <div class="branch branch-no">
+                                <span class="flow-arrow">↓ No</span>
+                                <div class="flow-node error">❌ 401 Unauthorized</div>
+                            </div>
+                            <div class="branch branch-yes">
+                                <span class="flow-arrow">↓ Yes</span>
+                                <div class="flow-node decision">PRO Test?</div>
+                                <div class="branch-container">
+                                    <div class="branch branch-no">
+                                        <span class="flow-arrow">↓ No</span>
+                                        <div class="flow-node success">✅ Allow Access</div>
+                                    </div>
+                                    <div class="branch branch-yes">
+                                        <span class="flow-arrow">↓ Yes</span>
+                                        <div class="flow-node decision">Has PRO?</div>
+                                        <div class="branch-container">
+                                            <div class="branch branch-yes">
+                                                <span class="flow-arrow">↓ Yes</span>
+                                                <div class="flow-node success">✅ Allow Access</div>
+                                            </div>
+                                            <div class="branch branch-no">
+                                                <span class="flow-arrow">↓ No</span>
+                                                <div class="flow-node error">❌ 403 Forbidden</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Handling Section -->
+        <div id="errors" class="content-section">
+            <div class="card">
+                <h2><span class="icon">⚠️</span> Error Handling</h2>
+                
+                <h3 style="color: var(--dark); margin: 20px 0 15px;">HTTP Status Codes</h3>
+                <div class="branch-container">
+                    <div class="branch" style="border-left: 4px solid #48bb78;">
+                        <div class="branch-header" style="border-color: #48bb78; color: #48bb78;">2xx Success</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li><span class="error-code" style="background: #48bb78;">200</span> OK - Request successful</li>
+                            <li><span class="error-code" style="background: #48bb78;">201</span> Created - Resource created</li>
+                            <li><span class="error-code" style="background: #48bb78;">204</span> No Content - Success, no body</li>
+                        </ul>
+                    </div>
+                    <div class="branch" style="border-left: 4px solid #fbd38d;">
+                        <div class="branch-header" style="border-color: #fbd38d; color: #c05621;">4xx Client Errors</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li><span class="error-code">400</span> Bad Request - Invalid input</li>
+                            <li><span class="error-code">401</span> Unauthorized - Not logged in</li>
+                            <li><span class="error-code">403</span> Forbidden - No permission</li>
+                            <li><span class="error-code">404</span> Not Found - Resource missing</li>
+                            <li><span class="error-code">409</span> Conflict - Duplicate entry</li>
+                        </ul>
+                    </div>
+                    <div class="branch" style="border-left: 4px solid #fc8181;">
+                        <div class="branch-header" style="border-color: #fc8181; color: #c53030;">5xx Server Errors</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li><span class="error-code" style="background: #fc8181;">500</span> Internal Server Error</li>
+                            <li><span class="error-code" style="background: #fc8181;">502</span> Bad Gateway</li>
+                            <li><span class="error-code" style="background: #fc8181;">503</span> Service Unavailable</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="error-flow" style="margin-top: 30px;">
+                    <h4>Enrollment Error Scenarios</h4>
+                    <div class="api-container" style="margin-top: 15px;">
+                        <div class="api-endpoint">
+                            <span class="error-code">400</span>
+                            <span class="api-path">Already enrolled in this series</span>
+                            <span class="api-desc">User tries to enroll again in same series</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="error-code">401</span>
+                            <span class="api-path">Not authorized, no token provided</span>
+                            <span class="api-desc">Guest user tries to enroll without login</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="error-code">404</span>
+                            <span class="api-path">Test series not found</span>
+                            <span class="api-desc">Invalid series ID provided</span>
+                        </div>
+                        <div class="api-endpoint">
+                            <span class="error-code">500</span>
+                            <span class="api-path">Database connection error</span>
+                            <span class="api-desc">Server cannot reach PostgreSQL</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 20px;">
+                    <pre>
+<span class="code-comment">// Frontend Error Handling (dataService.js)</span>
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    <span class="code-keyword">if</span> (error.response) {
+      <span class="code-keyword">const</span> { status, data } = error.response;
+      
+      <span class="code-keyword">switch</span> (status) {
+        <span class="code-keyword">case</span> <span class="code-number">400</span>:
+          <span class="code-keyword">return</span> Promise.reject(<span class="code-keyword">new</span> ValidationError(data?.message));
+        <span class="code-keyword">case</span> <span class="code-number">401</span>:
+          localStorage.removeItem(<span class="code-string">'token'</span>);
+          window.dispatchEvent(<span class="code-keyword">new</span> Event(<span class="code-string">'unauthorized'</span>));
+          <span class="code-keyword">return</span> Promise.reject(<span class="code-keyword">new</span> AuthenticationError(data?.message));
+        <span class="code-keyword">case</span> <span class="code-number">403</span>:
+          <span class="code-keyword">return</span> Promise.reject(<span class="code-keyword">new</span> AuthenticationError(<span class="code-string">'Access forbidden'</span>));
+        <span class="code-keyword">case</span> <span class="code-number">404</span>:
+          <span class="code-keyword">return</span> Promise.reject(<span class="code-keyword">new</span> NotFoundError(data?.message));
+        <span class="code-keyword">default</span>:
+          <span class="code-keyword">return</span> Promise.reject(<span class="code-keyword">new</span> DataError(data?.message));
+      }
+    }
+  }
+);
+                    </pre>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CTA Analysis Section -->
+        <div id="cta" class="content-section">
+            <div class="card">
+                <h2><span class="icon">🎯</span> Call-to-Action Analysis</h2>
+                <p style="margin-bottom: 20px; color: #4a5568;">
+                    Analysis of all CTA buttons across the platform and their behavior based on user state.
+                </p>
+                
+                <div class="cta-grid">
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-primary">Start Free Mock Test</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Landing Page Hero</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-guest">
+                                <div class="branch-header">Guest</div>
+                                <p style="font-size: 0.9rem;">Redirects to /signup</p>
+                            </div>
+                            <div class="branch branch-user">
+                                <div class="branch-header">User</div>
+                                <p style="font-size: 0.9rem;">Redirects to /test-series</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-success">Add Test Series</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Test Series Card</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-guest">
+                                <div class="branch-header">Guest</div>
+                                <p style="font-size: 0.9rem;">Redirects to /login</p>
+                            </div>
+                            <div class="branch branch-user">
+                                <div class="branch-header">User</div>
+                                <p style="font-size: 0.9rem;">Enrolls in series, redirects</p>
+                            </div>
+                            <div class="branch branch-pro">
+                                <div class="branch-header">Pro</div>
+                                <p style="font-size: 0.9rem;">Same as User</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-warning">👑 Get Pro Pass</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Pro Series/Test</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-guest">
+                                <div class="branch-header">Guest</div>
+                                <p style="font-size: 0.9rem;">Redirects to /login</p>
+                            </div>
+                            <div class="branch branch-user">
+                                <div class="branch-header">User</div>
+                                <p style="font-size: 0.9rem;">Redirects to /pass</p>
+                            </div>
+                            <div class="branch branch-pro">
+                                <div class="branch-header">Pro</div>
+                                <p style="font-size: 0.9rem;">Hidden (already has Pro)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-primary">Start Test</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Test Details Page</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-guest">
+                                <div class="branch-header">Guest</div>
+                                <p style="font-size: 0.9rem;">Redirects to /login</p>
+                            </div>
+                            <div class="branch branch-user">
+                                <div class="branch-header">Free Test</div>
+                                <p style="font-size: 0.9rem;">Starts test attempt</p>
+                            </div>
+                            <div class="branch branch-user">
+                                <div class="branch-header">Pro Test</div>
+                                <p style="font-size: 0.9rem;">Shows upgrade prompt</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-secondary">View Test Series</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Enrolled Series Card</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-user">
+                                <div class="branch-header">Enrolled</div>
+                                <p style="font-size: 0.9rem;">Navigates to series detail</p>
+                            </div>
+                            <div class="branch branch-guest">
+                                <div class="branch-header">Not Enrolled</div>
+                                <p style="font-size: 0.9rem;">Shows "Add Test Series" instead</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="cta-card">
+                        <span class="cta-button-preview cta-primary">Continue Learning</span>
+                        <h4 style="color: var(--dark); margin-bottom: 10px;">Location: Test Details (Enrolled)</h4>
+                        <div class="branch-container">
+                            <div class="branch branch-user">
+                                <div class="branch-header">Enrolled</div>
+                                <p style="font-size: 0.9rem;">Navigates to series, shows tests</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🔄</span> CTA State Machine</h2>
+                
+                <div class="flow-container">
+                    <h4 style="margin-bottom: 15px; color: var(--dark);">Test Series Card Button States</h4>
+                    <div class="state-transition">
+                        <div class="state-box" style="border-color: var(--guest);">"Login to Enroll"</div>
+                        <span class="state-arrow">→</span>
+                        <div class="state-box" style="border-color: var(--user);">"Add Test Series"</div>
+                        <span class="state-arrow">→</span>
+                        <div class="state-box" style="border-color: var(--success);">"View Series"</div>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #718096;">
+                        States: Guest → Authenticated (not enrolled) → Enrolled
+                    </p>
+                    
+                    <h4 style="margin: 30px 0 15px; color: var(--dark);">Pro Test Access States</h4>
+                    <div class="state-transition">
+                        <div class="state-box" style="border-color: var(--guest);">"Login Required"</div>
+                        <span class="state-arrow">→</span>
+                        <div class="state-box" style="border-color: var(--warning);">"Get Pro Pass"</div>
+                        <span class="state-arrow">→</span>
+                        <div class="state-box" style="border-color: var(--success);">"Start Test"</div>
+                    </div>
+                    <p style="margin-top: 10px; font-size: 0.9rem; color: #718096;">
+                        States: Guest → Free User (blocked) → Pro User (allowed)
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Enrollment Management Section (NEW) -->
+        <div id="enrollment-management" class="content-section">
+            <div class="card">
+                <h2><span class="icon">📋</span> Enrollment Management System</h2>
+                <p style="margin-bottom: 20px; color: #4a5568;">
+                    Comprehensive tracking of user enrollment in test series with detailed status, timestamps, and analytics.
+                </p>
+                
+                <div class="branch-container">
+                    <div class="branch branch-user">
+                        <div class="branch-header">✅ Current Implementation</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li><strong>Enrollment Status:</strong> Tracked via <code>enrolled_series</code> array in users table</li>
+                            <li><strong>Enrollment API:</strong> <code>POST /api/users/enroll/:seriesId</code></li>
+                            <li><strong>Slug Support:</strong> Backend now accepts both numeric ID and slug</li>
+                            <li><strong>Duplicate Prevention:</strong> Prevents re-enrollment in same series</li>
+                            <li><strong>User Context:</strong> Enrollment reflected in AuthContext</li>
+                        </ul>
+                    </div>
+                    <div class="branch" style="border-left: 4px solid #4299e1;">
+                        <div class="branch-header" style="border-color: #4299e1; color: #4299e1;">🚧 Planned Enhancements</div>
+                        <ul style="padding-left: 20px; color: #4a5568;">
+                            <li><strong>Dedicated enrollments table:</strong> Track enrollment date, status, source</li>
+                            <li><strong>Enrollment history:</strong> View all past enrollments</li>
+                            <li><strong>Enrollment analytics:</strong> Statistics per user/series</li>
+                            <li><strong>Expiration tracking:</strong> Time-limited enrollments</li>
+                            <li><strong>Cancellation flow:</strong> Allow users to unenroll</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="code-block" style="margin-top: 20px;">
+                    <pre>
+<span class="code-comment">// Current: Enrollment with Slug Support (users.js)</span>
+router.post(<span class="code-string">'/enroll/:seriesId'</span>, protect, <span class="code-keyword">async</span> (req, res) => {
+  <span class="code-keyword">const</span> { seriesId } = req.params;
+  
+  <span class="code-comment">// Support both numeric ID and slug (NEW!)</span>
+  <span class="code-keyword">let</span> series = <span class="code-keyword">await</span> dbHelpers.findById(<span class="code-string">'testSeries'</span>, seriesId);
+  
+  <span class="code-comment">// If not found by numeric ID, try slug</span>
+  <span class="code-keyword">if</span> (!series) {
+    series = <span class="code-keyword">await</span> dbHelpers.findOne(<span class="code-string">'testSeries'</span>, { 
+      slug: seriesId, 
+      isActive: <span class="code-keyword">true</span> 
+    });
+  }
+  
+  <span class="code-keyword">if</span> (!series) {
+    <span class="code-keyword">return</span> res.status(<span class="code-number">404</span>).json({ message: <span class="code-string">'Test series not found'</span> });
+  }
+  
+  <span class="code-comment">// Add to enrolled_series array</span>
+  <span class="code-keyword">const</span> canonicalId = series._id || series.id;
+  <span class="code-keyword">const</span> newEnrolledSeries = [...enrolledSeries, canonicalId];
+  <span class="code-keyword">await</span> dbHelpers.updateById(<span class="code-string">'users'</span>, req.user.id, { 
+    enrolledSeries: newEnrolledSeries 
+  });
+});
+                    </pre>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">📊</span> Test Attempts Management</h2>
+                <p style="margin-bottom: 20px; color: #4a5568;">
+                    Detailed tracking of user test attempts with scores, time, and question-level responses.
+                </p>
+                
+                <div class="schema-container">
+                    <div class="schema-table">
+                        <div class="schema-table-header">📊 attempts (Current)</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">user_id</span>
+                                <span class="schema-column-type">INTEGER FK → users</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">test_id</span>
+                                <span class="schema-column-type">INTEGER FK → tests</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">score</span>
+                                <span class="schema-column-type">DECIMAL</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">correct</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">wrong</span>
+                                <span class="schema-column-type">INTEGER</span>
+                            </div>
+                            <div class="schema-column">
+                                <span class="schema-column-name">is_completed</span>
+                                <span class="schema-column-type">BOOLEAN</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="schema-table" style="border: 2px solid #4299e1;">
+                        <div class="schema-table-header" style="background: linear-gradient(135deg, #4299e1, #3182ce);">📊 attempts (Planned Enhancement)</div>
+                        <div class="schema-table-body">
+                            <div class="schema-column pk">
+                                <span class="schema-column-name">id</span>
+                                <span class="schema-column-type">SERIAL PK</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">user_id</span>
+                                <span class="schema-column-type">INTEGER FK → users</span>
+                            </div>
+                            <div class="schema-column fk">
+                                <span class="schema-column-name">test_id</span>
+                                <span class="schema-column-type">INTEGER FK → tests</span>
+                            </div>
+                            <div class="schema-column fk" style="background: #fef3c7;">
+                                <span class="schema-column-name">series_id</span>
+                                <span class="schema-column-type">INTEGER FK → test_series (NEW)</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">attempt_number</span>
+                                <span class="schema-column-type">INTEGER (NEW)</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">status</span>
+                                <span class="schema-column-type">VARCHAR (in-progress/completed/abandoned)</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">started_at</span>
+                                <span class="schema-column-type">TIMESTAMP</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">submitted_at</span>
+                                <span class="schema-column-type">TIMESTAMP</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">time_spent</span>
+                                <span class="schema-column-type">INTEGER (seconds)</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">accuracy</span>
+                                <span class="schema-column-type">DECIMAL(5,2)</span>
+                            </div>
+                            <div class="schema-column" style="background: #fef3c7;">
+                                <span class="schema-column-name">responses</span>
+                                <span class="schema-column-type">JSONB (question-by-question)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <h3 style="color: var(--dark); margin: 30px 0 15px;">🎯 Planned Attempt Tracking APIs</h3>
+                <div class="api-container">
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/attempts</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get all user attempts across all series</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/attempts/:seriesId</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get attempts for a specific series</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/attempts/test/:testId</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get all attempts for a specific test</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/users/attempts/start</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Start a new test attempt</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method put">PUT</span>
+                        <span class="api-path">/api/users/attempts/:attemptId</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Save progress (auto-save during test)</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method post">POST</span>
+                        <span class="api-path">/api/users/attempts/:attemptId/submit</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Submit completed attempt</span>
+                    </div>
+                    <div class="api-endpoint">
+                        <span class="api-method get">GET</span>
+                        <span class="api-path">/api/users/analytics/performance</span>
+                        <span class="api-auth">Auth Required</span>
+                        <span class="api-desc">Get performance trends over time</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2><span class="icon">🔧</span> Recent Updates & Fixes</h2>
+                
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-time">February 2026</div>
+                        <div class="timeline-title">✅ Enrollment Slug Support</div>
+                        <div class="timeline-content">
+                            <strong>Issue:</strong> Frontend was sending numeric IDs but backend rejected slugs.<br>
+                            <strong>Fix:</strong> Updated <code>POST /api/users/enroll/:seriesId</code> to accept both numeric IDs and slugs.<br>
+                            <strong>Files:</strong> <code>users.js</code>, <code>TestSeries.jsx</code>, <code>Home.jsx</code>, <code>TestDetails.jsx</code>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">February 2026</div>
+                        <div class="timeline-title">✅ Tests Table is_pro Column</div>
+                        <div class="timeline-content">
+                            <strong>Issue:</strong> <code>is_pro</code> column missing in tests table.<br>
+                            <strong>Fix:</strong> Added migration to create column and populate from existing <code>type</code> field.<br>
+                            <strong>Files:</strong> <code>postgres-helpers.js</code>
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">Planned</div>
+                        <div class="timeline-title">🚧 Enhanced Enrollment Tracking</div>
+                        <div class="timeline-content">
+                            <strong>Goal:</strong> Create dedicated <code>enrollments</code> table for detailed tracking.<br>
+                            <strong>Features:</strong> Enrollment timestamps, status, source tracking, expiration dates.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-time">Planned</div>
+                        <div class="timeline-title">🚧 Comprehensive Attempt Tracking</div>
+                        <div class="timeline-content">
+                            <strong>Goal:</strong> Enhance <code>attempts</code> table with detailed metrics.<br>
+                            <strong>Features:</strong> Question-by-question responses, time tracking, attempt numbering, status transitions.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 40px; color: rgba(255,255,255,0.8);">
+            <p>Generated for Trstprep V2.0 • Last Updated: March 8, 2026 | Update date is (19:18)</p>
+            <p style="margin-top: 10px; font-size: 0.9rem;">
+                📊 Comprehensive Flow Documentation • 🔐 Security Analysis • 🗄️ Database Schema • 40+ PostgreSQL Tables
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active from all tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Add active to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        // Add click animation to flow nodes
+        document.querySelectorAll('.flow-node').forEach(node => {
+            node.addEventListener('click', function() {
+                this.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    this.style.transform = '';
+                }, 150);
+            });
+        });
+        
+        // Add keyboard navigation
+        document.addEventListener('keydown', function(e) {
+            const tabs = document.querySelectorAll('.nav-tab');
+            const activeIndex = Array.from(tabs).findIndex(tab => tab.classList.contains('active'));
+            
+            if (e.key === 'ArrowRight' && activeIndex < tabs.length - 1) {
+                tabs[activeIndex + 1].click();
+            } else if (e.key === 'ArrowLeft' && activeIndex > 0) {
+                tabs[activeIndex - 1].click();
+            }
+        });
+    </script>
+</body>
+</html>

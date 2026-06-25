@@ -4,6 +4,7 @@ import { resolveAssetAccessUrl } from '../../infrastructure/storage/storageProvi
 import { nullIfEmpty } from '../../services/core/common.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { getPublicResponseId } from '../../shared/utils/public-id-response.js'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 
 const router = express.Router()
 
@@ -18,7 +19,7 @@ const buildAssetMap = async (assetIds) => {
   const uniqueIds = Array.from(new Set(assetIds.map(parseAssetId).filter(Boolean)))
   if (uniqueIds.length === 0) return new Map()
 
-  const assets = await global.dbHelpers.find('assets', {
+  const assets = await dbHelpers.find('assets', {
     id: { $in: uniqueIds },
     isActive: true
   })
@@ -43,7 +44,7 @@ router.get('/test/:testId', protect, async (req, res) => {
   try {
     const { testId } = req.params
 
-    const test = await findEntityByIdentifier(global.dbHelpers, 'tests', testId, { slugFields: ['slug'] })
+    const test = await findEntityByIdentifier(dbHelpers, 'tests', testId, { slugFields: ['slug'] })
     if (!test || test.isActive === false) {
       return res.status(404).json({
         success: false,
@@ -51,7 +52,7 @@ router.get('/test/:testId', protect, async (req, res) => {
       })
     }
 
-    if ((test.isPro === true || test.type === 'Pro') && !req.user?.isProUser) {
+    if ((test.isPro === true || test.type === 'Pro') && !req.user?.isProUser && !req.user?.isAdmin) {
       return res.status(403).json({
         success: false,
         message: 'Pro Pass required for this test'
@@ -61,12 +62,12 @@ router.get('/test/:testId', protect, async (req, res) => {
     // Find questions by test_id - handle both numeric and string IDs
     const internalTestId = test.id || test._id;
     
-    const result = await global.dbHelpers.pool.query(
+    const result = await dbHelpers.pool.query(
       `SELECT * FROM questions WHERE test_id = $1 AND is_active = true`,
       [internalTestId]
     )
     
-    const filteredQuestions = result.rows.map(row => global.dbHelpers.toCamel(row))
+    const filteredQuestions = result.rows.map(row => dbHelpers.toCamel(row))
     
     // Sort by question number
     const sortedQuestions = filteredQuestions.sort((a, b) => 
@@ -93,7 +94,7 @@ router.get('/test/:testId', protect, async (req, res) => {
       imageUrl: parseAssetId(q.imageAssetId)
         ? assetMap.get(parseAssetId(q.imageAssetId)) || null
         : q.imageUrl || null,
-      id: getPublicResponseId(global.dbHelpers, 'questions', q, q.id || q._id),
+      id: getPublicResponseId(dbHelpers, 'questions', q, q.id || q._id),
       questionNumber: q.questionNumber,
       questionText: q.questionText,
       questionTextHi: q.questionTextHi,
@@ -103,7 +104,7 @@ router.get('/test/:testId', protect, async (req, res) => {
       negativeMarks: q.negativeMarks,
       section: q.section,
       subject: q.subject,
-      testId: getPublicResponseId(global.dbHelpers, 'tests', test, q.testId),
+      testId: getPublicResponseId(dbHelpers, 'tests', test, q.testId),
       difficulty: q.difficulty,
       // DO NOT include correctOption/correct_option - that's only for result calculation
     }))
@@ -129,7 +130,7 @@ router.get('/:questionId', protect, admin, async (req, res) => {
   try {
     const { questionId } = req.params
     
-    const question = await findEntityByIdentifier(global.dbHelpers, 'questions', questionId)
+    const question = await findEntityByIdentifier(dbHelpers, 'questions', questionId)
     
     if (!question) {
       return res.status(404).json({

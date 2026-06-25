@@ -128,7 +128,7 @@ export default function TestSeriesManager() {
   const tabs = useMemo(() => {
     const categoryTabs = categories.map((cat) => {
       const catId = cat.categoryId || cat.slug || cat.id;
-      const count = series.filter((s) => s.category === catId).length;
+      const count = series.filter((s) => String(s.category) === String(catId)).length;
       return {
         id: catId,
         label: cat.label,
@@ -156,12 +156,12 @@ export default function TestSeriesManager() {
   // FIX BUG-001: Normalize the legacy exam field for consistent filtering
   const filteredSeries = useMemo(() => {
     if (!activeTab) return [];
-    let filtered = series.filter((s) => s.category === activeTab);
+    let filtered = series.filter((s) => String(s.category) === String(activeTab));
     // Apply exam filter if selected. Older records still store this as subcategory.
     if (activeExamFilter) {
       filtered = filtered.filter((s) => {
-        const sub = s.subcategory || s.subCategory || s.sub_category || "";
-        return sub === activeExamFilter;
+        const sub = String(s.subcategory || s.subCategory || s.sub_category || "").toLowerCase();
+        return sub === String(activeExamFilter).toLowerCase();
       });
     }
     return filtered;
@@ -592,7 +592,7 @@ export default function TestSeriesManager() {
           <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-4 py-2 gap-2">
             {examsForActiveCategory.map((exam) => {
               const examCount = series.filter(
-                (s) => s.subcategory === exam.value,
+                (s) => String(s.subcategory || s.subCategory || s.sub_category || "").toLowerCase() === String(exam.value).toLowerCase(),
               ).length;
               const isActive =
                 activeExamFilter === exam.value ||

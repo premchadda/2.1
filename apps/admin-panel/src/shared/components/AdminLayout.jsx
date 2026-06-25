@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { 
   LayoutDashboard, FileText, BookOpen, 
@@ -11,7 +11,7 @@ import {
 import { useAuth } from '../providers/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import adminNavConfig, { getFlatNavItems, getBreadcrumbs } from '../config/adminNavConfig'
-import { Logo } from './index.jsx'
+import { Logo, CommandPalette } from './index.jsx'
 import { API_BASE_URL } from '../lib/apiBase.js'
 
 // Main site URL - can be changed via environment variable
@@ -24,10 +24,23 @@ export default function AdminLayout() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
+
+  // Cmd+K / Ctrl+K keyboard shortcut for command palette
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setCommandPaletteOpen(p => !p)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Get user initials for avatar fallback
   const getUserInitials = () => {
@@ -173,6 +186,7 @@ export default function AdminLayout() {
               ? 'text-gray-400 hover:bg-gray-800 hover:text-white'
               : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
         }`}
+        aria-label={item.badge ? `${item.name} (${item.badge})` : item.name}
       >
         <div className="flex items-center gap-3">
           <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -211,6 +225,8 @@ export default function AdminLayout() {
               : isDarkMode ? 'text-gray-500 hover:bg-gray-800/50 hover:text-gray-300' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
           }`}
           style={{ borderLeft: hasActiveChild ? `3px solid ${category.color}` : '3px solid transparent' }}
+          aria-label={category.name}
+          aria-expanded={isExpanded}
         >
           <div className="flex items-center gap-3">
             <div 
@@ -239,6 +255,15 @@ export default function AdminLayout() {
 
   return (
     <div className={`flex h-screen transition-colors duration-200 ${isDarkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      {/* Command Palette */}
+      <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
+      {/* Skip to main content */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
+      >
+        Skip to main content
+      </a>
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
         <div 
@@ -269,13 +294,14 @@ export default function AdminLayout() {
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
             className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
             {sidebarOpen ? <X className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} /> : <Menu className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />}
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent" aria-label="Sidebar navigation">
           {filteredNav.map(category => renderCategory(category))}
         </nav>
       </aside>
@@ -299,13 +325,14 @@ export default function AdminLayout() {
           <button 
             onClick={() => setMobileMenuOpen(false)}
             className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+            aria-label="Close menu"
           >
             <X className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto" aria-label="Mobile navigation drawer">
           {filteredNav.map(category => renderCategory(category))}
         </nav>
       </aside>
@@ -321,6 +348,7 @@ export default function AdminLayout() {
             <button 
               onClick={() => setMobileMenuOpen(true)}
               className={`p-2 rounded-lg md:hidden ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+              aria-label="Open menu"
             >
               <Menu className="w-5 h-5 text-gray-400" />
             </button>
@@ -374,7 +402,7 @@ export default function AdminLayout() {
 
               {/* Search Results Dropdown */}
               {searchOpen && searchQuery && (
-                <div className={`absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border shadow-2xl z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+                <div className={`absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border shadow-2xl z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`} role="listbox" aria-label="Search results">
                   {searchResults.length > 0 ? (
                     <div className="p-2">
                       {searchResults.map((item, idx) => (
@@ -429,6 +457,9 @@ export default function AdminLayout() {
               <button 
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity focus:outline-none"
+                aria-label="User profile menu"
+                aria-expanded={isProfileOpen}
+                aria-haspopup="true"
               >
                 {hasValidAvatar ? (
                   <div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
@@ -516,13 +547,13 @@ export default function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main className={`flex-1 overflow-y-auto pb-16 md:pb-0 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`}>
+        <main id="main-content" className={`flex-1 overflow-y-auto pb-16 md:pb-0 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`} tabIndex={-1}>
           <Outlet />
         </main>
       </div>
 
       {/* Bottom Navigation Bar - Mobile Only */}
-      <div className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-2 py-2 flex justify-between items-center safe-area-bottom ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+      <nav aria-label="Mobile navigation" className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-2 py-2 flex justify-between items-center safe-area-bottom ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
         <Link 
           to="/admin" 
           className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
@@ -582,7 +613,7 @@ export default function AdminLayout() {
           <Menu className="w-5 h-5" />
           <span className="text-[10px] font-medium">Menu</span>
         </button>
-      </div>
+      </nav>
 
     </div>
   )

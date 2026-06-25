@@ -398,8 +398,11 @@ function TestSeries() {
         </div>
       </AnimatedHero>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-10">
-        
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+          {/* MAIN CONTENT */}
+          <div className="space-y-10 min-w-0">
+
         {/* LOGGED-IN USER: Enrolled Test Series - Dashboard Style */}
         {user && enrolledSeries.length > 0 && (
           <section className="fade-in">
@@ -710,6 +713,160 @@ function TestSeries() {
             ))}
           </div>
         </section>
+          </div>
+
+          {/* RIGHT SIDEBAR - Informative / Recommendation Cards (Desktop only) */}
+          <aside className="hidden lg:block space-y-5 lg:sticky lg:top-24 lg:self-start">
+            {/* Exam Categories Quick Browse */}
+            {Object.keys(seriesByCategory).length > 0 && (
+              <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
+                <div className="absolute -top-6 -right-6 w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full" />
+                <div className="relative">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
+                      <Filter className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">Categories</h3>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Browse by exam type</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(seriesByCategory).slice(0, 8).map(([category, series]) => {
+                      const active = selectedCategory === category
+                      return (
+                        <button
+                          key={category}
+                          onClick={() => {
+                            setSelectedCategory(category)
+                            window.scrollTo({ top: 0, behavior: 'smooth' })
+                          }}
+                          className={`group inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-full border transition-all ${
+                            active
+                              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-transparent shadow-sm scale-105'
+                              : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-300'
+                          }`}
+                        >
+                          <span className="text-sm leading-none">{getCategoryEmoji(category)}</span>
+                          <span>{category}</span>
+                          <span className={`text-[9px] font-bold px-1 rounded ${active ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
+                            {series.length}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Recent Activity */}
+            <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
+              <div className="absolute -top-8 -right-8 w-28 h-28 bg-green-50 dark:bg-green-900/20 rounded-full" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-sm">
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">Your Activity</h3>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Recent attempts</p>
+                    </div>
+                  </div>
+                  {attemptRows.length > 0 && (
+                    <Link to="/attempted-tests" className="text-[10px] font-bold text-brand-start dark:text-indigo-400 hover:underline">
+                      View All →
+                    </Link>
+                  )}
+                </div>
+                {user && attemptRows.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {attemptRows.slice(0, 4).map((attempt, idx) => {
+                      const rawDate = attempt.submittedAt || attempt.date
+                      const dateObj = rawDate ? new Date(rawDate) : null
+                      const timeLabel = dateObj && !isNaN(dateObj)
+                        ? dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+                        : 'Recently'
+                      const accuracy = attempt.accuracy != null ? attempt.accuracy : null
+                      const accColor = accuracy == null
+                        ? 'text-gray-500 dark:text-gray-400'
+                        : accuracy >= 70
+                          ? 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30'
+                          : accuracy >= 40
+                            ? 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30'
+                            : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30'
+                      return (
+                        <div key={attempt.id || attempt._id || idx} className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                          <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                              {attempt.title || 'Test Attempted'}
+                            </p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">{timeLabel}</p>
+                          </div>
+                          {accuracy != null && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${accColor}`}>
+                              {accuracy}%
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-6 px-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 text-center">
+                    <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                      <CheckCircle className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                      {user ? 'No attempts yet' : 'Sign in to track activity'}
+                    </p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                      {user ? 'Take a test to see your progress' : 'Login to see your journey'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Tips / Why Pro */}
+            <div className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 rounded-2xl shadow-lg p-5 text-white">
+              <div className="absolute -top-12 -right-12 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-amber-400/20 rounded-full blur-2xl" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Crown className="w-4 h-4 text-amber-300" />
+                  </div>
+                  <h3 className="text-sm font-bold">Why Trstprep Pro?</h3>
+                </div>
+                <ul className="space-y-2 text-xs text-white/95">
+                  {[
+                    'All premium test series',
+                    'AI-powered analytics',
+                    '8+ regional languages',
+                    'Detailed solutions & rank predictor'
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-green-300" />
+                      <span className="leading-snug">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  to="/pass"
+                  className="mt-4 flex items-center justify-center gap-1.5 py-2.5 bg-white text-indigo-600 text-xs font-bold rounded-lg hover:bg-amber-50 hover:scale-[1.02] transition-all shadow-md"
+                >
+                  Get Pro Pass
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   )

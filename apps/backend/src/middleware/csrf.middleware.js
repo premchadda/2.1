@@ -1,28 +1,9 @@
 import crypto from 'crypto';
-import fs from 'fs';
 import { dbHelpers } from '../infrastructure/database/postgres-helpers.js';
 
 // ===== CSRF PROTECTION (Issue #8, #32) =====
-// Database-backed CSRF token storage for production resilience
-export const csrfTokensMemory = new Map(); // Fallback for database unavailability
-const CSRF_TOKEN_FILE = './csrf-tokens-store.json';
-function loadCsrfTokens() {
-  try {
-    if (fs.existsSync(CSRF_TOKEN_FILE)) {
-      const data = JSON.parse(fs.readFileSync(CSRF_TOKEN_FILE, 'utf8'));
-      for (const [k, v] of Object.entries(data)) {
-        csrfTokensMemory.set(k, v);
-      }
-    }
-  } catch (_) {}
-}
-function persistCsrfTokens() {
-  try {
-    const obj = Object.fromEntries(csrfTokensMemory);
-    fs.writeFileSync(CSRF_TOKEN_FILE, JSON.stringify(obj));
-  } catch (_) {}
-}
-loadCsrfTokens();
+// Database-backed CSRF token storage with in-memory fallback
+export const csrfTokensMemory = new Map();
 
 // CSRF token lifecycle configuration
 export const CSRF_TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000 // 24 hours
@@ -49,11 +30,11 @@ export const storeCsrfToken = async (authToken, csrfToken) => {
   } catch (error) {
     // Fallback to memory storage if database fails
     console.warn('CSRF database storage failed, using memory fallback:', error.message);
-csrfTokensMemory.set(authToken, {
-  token: csrfToken,
-  expiresAt: Date.now() + CSRF_TOKEN_EXPIRY_MS
-});
-persistCsrfTokens();
+    const authTokenHash = crypto.createHash('sha256').update(authToken).digest('hex');
+    csrfTokensMemory.set(authTokenHash, {
+      token: csrfToken,
+      expiresAt: Date.now() + CSRF_TOKEN_EXPIRY_MS
+    });
     return true
   }
 }
@@ -74,7 +55,7 @@ export const getCsrfToken = async (authToken) => {
     }
 
     // Check memory fallback
-    const memoryRecord = csrfTokensMemory.get(authToken)
+    const memoryRecord = csrfTokensMemory.get(authTokenHash)
     if (memoryRecord && memoryRecord.expiresAt > Date.now()) {
       return memoryRecord.token
     }
@@ -83,7 +64,8 @@ export const getCsrfToken = async (authToken) => {
   } catch (error) {
     // Fallback to memory on database error
     console.warn('CSRF database lookup failed, checking memory:', error.message)
-    const memoryRecord = csrfTokensMemory.get(authToken)
+    const authTokenHash = crypto.createHash('sha256').update(authToken).digest('hex')
+    const memoryRecord = csrfTokensMemory.get(authTokenHash)
     if (memoryRecord && memoryRecord.expiresAt > Date.now()) {
       return memoryRecord.token
     }
@@ -93,14 +75,13 @@ export const getCsrfToken = async (authToken) => {
 
 // Delete CSRF token (for logout)
 export const deleteCsrfToken = async (authToken) => {
+  const authTokenHash = crypto.createHash('sha256').update(authToken).digest('hex')
   try {
-    const authTokenHash = crypto.createHash('sha256').update(authToken).digest('hex')
     await dbHelpers.deleteMany('csrf_tokens', { auth_token_hash: authTokenHash })
   } catch (error) {
     console.warn('CSRF token deletion failed:', error.message)
   }
-  csrfTokensMemory.delete(authToken);
-  persistCsrfTokens();
+  csrfTokensMemory.delete(authTokenHash);
 }
 
 // Cleanup expired CSRF tokens (run periodically)
@@ -177,9 +158,8 @@ export const validateCsrfToken = async (req, res, next) => {
   if (storedToken) {
     csrfTokensMemory.set(`prev:${authTokenHash}`, {
       token: storedToken,
-        expiresAt: Date.now() + CSRF_GRACE_PERIOD_MS
-      });
-      persistCsrfTokens();
+      expiresAt: Date.now() + CSRF_GRACE_PERIOD_MS
+    });
   }
 
   const newToken = generateCsrfToken()

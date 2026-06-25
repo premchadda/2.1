@@ -30,8 +30,14 @@ export default function RolePermissionsManager() {
         adminAPI.apiClient.get('/admin/roles'),
         adminAPI.apiClient.get('/admin/permissions')
       ])
-      if (rolesRes.status === 'fulfilled') setRoles(rolesRes.value.data?.data || [])
-      if (permsRes.status === 'fulfilled') setPermissions(permsRes.value.data?.data || ALL_PERMISSIONS)
+      if (rolesRes.status === 'fulfilled') {
+        const rData = rolesRes.value.data?.data;
+        setRoles(Array.isArray(rData) ? rData : (rData?.roles || []));
+      }
+      if (permsRes.status === 'fulfilled') {
+        const pData = permsRes.value.data?.data;
+        setPermissions(Array.isArray(pData) ? pData : (pData?.permissions || ALL_PERMISSIONS));
+      }
     } catch (error) {
       console.error('Error fetching roles/permissions:', error)
       toast.error('Failed to load data')

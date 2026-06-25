@@ -1,5 +1,6 @@
 
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, optionalAuth } from '../../middleware/auth.middleware.js'
 import { checkAttemptLimit } from '../../shared/utils/attempt-limits.js'
 import { emitDomainEvent } from '../../infrastructure/events/eventBus.js'
@@ -17,16 +18,25 @@ import { getPublicResponseId } from '../../shared/utils/public-id-response.js'
 import { isProUser, isProRestrictedTest } from '../../shared/utils/user-utils.js'
 import { findTestByIdentifier, filterQuestionsByTestId } from '../../shared/utils/test-utils.js'
 
+// Fetch questions for a specific test from DB directly (avoids full-table scan)
+const fetchQuestionsByTestId = async (testId) => {
+  const result = await dbHelpers.pool.query(
+    'SELECT * FROM questions WHERE test_id = $1 AND is_active = true',
+    [testId]
+  )
+  return result.rows.map(row => dbHelpers.toCamel(row))
+}
+
 const router = express.Router()
 
 const findAttemptByIdentifier = (attemptId) =>
-  findEntityByIdentifier(global.dbHelpers, 'attempts', attemptId)
+  findEntityByIdentifier(dbHelpers, 'attempts', attemptId)
 
 const findSeriesByIdentifier = (seriesId) =>
-  findEntityByIdentifier(global.dbHelpers, 'testSeries', seriesId, { slugFields: ['slug'] })
+  findEntityByIdentifier(dbHelpers, 'testSeries', seriesId, { slugFields: ['slug'] })
 
 const findQuestionByIdentifier = (questionId) =>
-  findEntityByIdentifier(global.dbHelpers, 'questions', questionId)
+  findEntityByIdentifier(dbHelpers, 'questions', questionId)
 
 const getTestSeriesId = (source = {}) =>
   source.testSeriesId ?? source.test_series_id ?? source.seriesId ?? source.series_id ?? null
@@ -93,7 +103,7 @@ const buildAssetMap = async (assetIds) => {
   const uniqueIds = Array.from(new Set(assetIds.map(parseAssetId).filter(Boolean)))
   if (uniqueIds.length === 0) return new Map()
 
-  const assets = await global.dbHelpers.find('assets', {
+  const assets = await dbHelpers.find('assets', {
     id: { $in: uniqueIds },
     isActive: true
   })
@@ -229,7 +239,7 @@ const getRankAndPercentile = async (testId, attempt) => {
   if (!attempt || !attempt.score) return { rank: 1, totalParticipants: 1, percentile: 100 }
   
   // Find all completing attempts for this test
-  const allAttempts = await global.dbHelpers.find('attempts', { isCompleted: true })
+  const allAttempts = await dbHelpers.find('attempts', { isCompleted: true })
   const testAttempts = allAttempts.filter(a => idsMatch(a.testId, testId) || idsMatch(a.test_id, testId))
   
   if (testAttempts.length === 0) {
@@ -289,7 +299,7 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
   const questionIdMap = new Map(
     questions.map((question) => [
       String(getQuestionId(question)),
-      getPublicResponseId(global.dbHelpers, 'questions', question, getQuestionId(question))
+      getPublicResponseId(dbHelpers, 'questions', question, getQuestionId(question))
     ])
   )
 
@@ -297,7 +307,7 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
     const userAnswer = getUserAnswerForQuestion(attempt, q, idx)
 
     return {
-      id: getPublicResponseId(global.dbHelpers, 'questions', q, getQuestionId(q)),
+      id: getPublicResponseId(dbHelpers, 'questions', q, getQuestionId(q)),
       text: getQuestionText(q),
       questionText: getQuestionText(q),
       options: getQuestionOptions(q),
@@ -312,7 +322,7 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
     }
   })
 
-  const fallbackQuestionCount = questions.length > 0 ? questions.length : Number(test?.questions ?? 0)
+  const fallbackQuestionCount = questions.length > 0 ? questions.length : Number(test?.totalQuestions ?? 0)
   const totalQuestions = Number(attempt?.totalQuestions ?? fallbackQuestionCount)
 
   const correct = Number(attempt?.correct ?? attempt?.correctAnswers ?? 0)
@@ -328,13 +338,13 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
   const accuracy = Number(attempt?.accuracy ?? computedAccuracy)
 
   return {
-    attemptId: getPublicResponseId(global.dbHelpers, 'attempts', attempt, attempt?._id || attempt?.id || null),
-    testId: getPublicResponseId(global.dbHelpers, 'tests', test, attempt?.testId || test?._id || test?.id || testIdFallback),
+    attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt?._id || attempt?.id || null),
+    testId: getPublicResponseId(dbHelpers, 'tests', test, attempt?.testId || test?._id || test?.id || testIdFallback),
     testSeriesId: getTestSeriesId(attempt) || getTestSeriesId(test),
     seriesId: getTestSeriesId(attempt) || getTestSeriesId(test),
     testTitle: attempt?.testTitle || test?.title || null,
     score: Number(attempt?.score ?? 0),
-    totalMarks: Number(attempt?.totalMarks ?? test?.marks ?? 0),
+    totalMarks: Number(attempt?.totalMarks ?? test?.totalMarks ?? 0),
     totalQuestions,
     correct,
     wrong,
@@ -363,7 +373,7 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    const allTests = await global.dbHelpers.find('tests', { isActive: true })
+    const allTests = await dbHelpers.find('tests', { isActive: true })
     const publishedTests = allTests.filter(test => 
       test.status === 'published' || test.isActive === true
     )
@@ -389,7 +399,7 @@ router.get('/series/:seriesId', async (req, res) => {
     const { seriesId } = req.params
     const series = await findSeriesByIdentifier(seriesId)
     const resolvedSeriesId = getInternalId(series) ?? seriesId
-    const allTests = await global.dbHelpers.find('tests', { isActive: true })
+    const allTests = await dbHelpers.find('tests', { isActive: true })
 
     const filteredTests = allTests.filter(test =>
       (idsMatch(test.seriesId, resolvedSeriesId) || idsMatch(test.series_id, resolvedSeriesId)) &&
@@ -436,7 +446,7 @@ router.get('/tag/:tag', async (req, res) => {
         query.tags = { $regex: tag, $options: 'i' }
     }
 
-    const allTests = await global.dbHelpers.find('tests', { isActive: true })
+    const allTests = await dbHelpers.find('tests', { isActive: true })
     let filteredTests = allTests
 
     switch (tag) {
@@ -462,7 +472,7 @@ router.get('/tag/:tag', async (req, res) => {
         )
     }
 
-    const testSeries = await global.dbHelpers.find('testSeries')
+    const testSeries = await dbHelpers.find('testSeries')
     const seriesMap = {}
     testSeries.forEach((series) => {
       const seriesKey = series._id || series.id
@@ -474,13 +484,13 @@ router.get('/tag/:tag', async (req, res) => {
     const testsWithSeries = filteredTests.map((test) => ({
       ...test,
       testSeriesId: getPublicResponseId(
-        global.dbHelpers,
+        dbHelpers,
         'testSeries',
         seriesMap[getTestSeriesId(test)],
         getTestSeriesId(test)
       ),
       seriesId: getPublicResponseId(
-        global.dbHelpers,
+        dbHelpers,
         'testSeries',
         seriesMap[getTestSeriesId(test)],
         getTestSeriesId(test)
@@ -507,7 +517,7 @@ router.get('/tag/:tag', async (req, res) => {
 // @access  Public
 router.get('/:testId', optionalAuth, async (req, res) => {
   try {
-    const test = await findTestByIdentifier(req.params.testId, global.dbHelpers)
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
 
     if (!test) {
       return res.status(404).json({
@@ -529,8 +539,8 @@ router.get('/:testId', optionalAuth, async (req, res) => {
       success: true,
       data: {
         ...enrichedTest,
-        testSeriesId: getPublicResponseId(global.dbHelpers, 'testSeries', series, getTestSeriesId(test)),
-        seriesId: getPublicResponseId(global.dbHelpers, 'testSeries', series, getTestSeriesId(test)),
+        testSeriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
+        seriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
         hasAccess,
       },
     })
@@ -547,7 +557,7 @@ router.get('/:testId', optionalAuth, async (req, res) => {
 // @access  Private
 router.get('/:testId/questions', protect, async (req, res) => {
   try {
-    const test = await findTestByIdentifier(req.params.testId, global.dbHelpers)
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
 
     if (!test) {
       return res.status(404).json({
@@ -563,8 +573,8 @@ router.get('/:testId/questions', protect, async (req, res) => {
       })
     }
 
-    const allQuestions = await global.dbHelpers.find('questions', { isActive: true })
-    const questions = filterQuestionsByTestId(allQuestions, getInternalId(test))
+    const rawQuestions = await fetchQuestionsByTestId(getInternalId(test))
+    const questions = rawQuestions
       .map(sanitizeQuestionForAttempt)
       .sort((a, b) => {
         const left = Number(a.questionNumber ?? a.question_number ?? 0)
@@ -592,7 +602,7 @@ router.get('/:testId/questions', protect, async (req, res) => {
 // @access  Private
 router.post('/:testId/start', protect, async (req, res) => {
   try {
-    const test = await findTestByIdentifier(req.params.testId, global.dbHelpers)
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
 
     if (!test) {
       return res.status(404).json({
@@ -608,7 +618,7 @@ router.post('/:testId/start', protect, async (req, res) => {
       })
     }
 
-    const existingAttempts = await global.dbHelpers.find('attempts', {
+    const existingAttempts = await dbHelpers.find('attempts', {
       userId: req.user.id,
       isCompleted: false
     })
@@ -621,7 +631,7 @@ router.post('/:testId/start', protect, async (req, res) => {
 
     if (!attempt) {
       // Check attempt limits for non-pro users
-      const allUserAttempts = await global.dbHelpers.find('attempts', { userId: req.user.id })
+      const allUserAttempts = await dbHelpers.find('attempts', { userId: req.user.id })
       const limitCheck = checkAttemptLimit(req.user, allUserAttempts, test)
       
       if (limitCheck.hasReached) {
@@ -632,7 +642,7 @@ router.post('/:testId/start', protect, async (req, res) => {
         })
       }
 
-      attempt = await global.dbHelpers.insertOne('attempts', {
+      attempt = await dbHelpers.insertOne('attempts', {
         userId: req.user.id,
         testId: test._id || test.id,
         seriesId: test.seriesId || test.series_id,
@@ -659,8 +669,8 @@ router.post('/:testId/start', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
-        testId: getPublicResponseId(global.dbHelpers, 'tests', test, test._id || test.id),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
+        testId: getPublicResponseId(dbHelpers, 'tests', test, test._id || test.id),
         startTime: attempt.startTime,
         duration: test.duration,
         timeSpent: attempt.timeSpent || 0,
@@ -668,7 +678,7 @@ router.post('/:testId/start', protect, async (req, res) => {
         markedForReview: attempt.markedForReview || [],
         sectionTimers: attempt.sectionTimers || {},
         currentSection: attempt.currentSection || null,
-        questions: test.questions,
+        questions: test.totalQuestions,
       },
     })
   } catch (error) {
@@ -708,7 +718,7 @@ router.put('/:testId/autosave', protect, async (req, res) => {
 
     const normalizedAnswers = await normalizeSubmittedAnswers(answers)
 
-    const updated = await global.dbHelpers.updateById('attempts', internalAttemptId, {
+    const updated = await dbHelpers.updateById('attempts', internalAttemptId, {
       answers: normalizedAnswers,
       timeSpent: Number(timeSpent || 0),
       markedForReview: Array.isArray(markedForReview) ? markedForReview : [],
@@ -730,14 +740,10 @@ router.put('/:testId/submit', protect, async (req, res) => {
   try {
     const { answers, timeSpent, attemptId, markedForReview, sectionTimers, currentSection } = req.body
     
-    console.log('[SUBMIT DEBUG] Request params:', req.params)
-    console.log('[SUBMIT DEBUG] Request body:', { attemptId, timeSpent, answersCount: answers?.length })
+
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
     
-    // Use findTestByIdentifier to support slug-based IDs
-    const test = await findTestByIdentifier(req.params.testId, global.dbHelpers)
-    
-    console.log('[SUBMIT DEBUG] Found test:', test?.id, test?.title)
-    
+
     if (!test) {
       return res.status(404).json({
         success: false,
@@ -752,16 +758,15 @@ router.put('/:testId/submit', protect, async (req, res) => {
       })
     }
 
-    const allQuestions = await global.dbHelpers.find('questions', { isActive: true })
-    const questions = filterQuestionsByTestId(allQuestions, getInternalId(test))
+    const questions = await fetchQuestionsByTestId(getInternalId(test))
     const submittedAnswers = await normalizeSubmittedAnswers(answers)
 
     let correct = 0
     let wrong = 0
     let unattempted = 0
 
-    const totalQuestions = Number(test.questions ?? questions.length ?? 0) || questions.length
-    const totalMarks = Number(test.marks ?? totalQuestions * 2)
+    const totalQuestions = Number(test.totalQuestions ?? questions.length ?? 0) || questions.length
+    const totalMarks = Number(test.totalMarks ?? totalQuestions * 1)
     const marksPerQuestion = totalQuestions > 0 ? totalMarks / totalQuestions : 0
     const negativeMarks = Number(test.negativeMarking ?? test.negativeMarks ?? 0)
 
@@ -806,9 +811,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
     }
 
     let result
-    console.log('[SUBMIT DEBUG] Attempt data:', JSON.stringify(attemptData))
-    console.log('[SUBMIT DEBUG] attemptId:', attemptId)
-    
+
     if (attemptId) {
       const existingAttempt = await findAttemptByIdentifier(attemptId)
       if (!existingAttempt) {
@@ -830,14 +833,14 @@ router.put('/:testId/submit', protect, async (req, res) => {
         })
       }
       const existingSectionTimers = existingAttempt.sectionTimers || {}
-      result = await global.dbHelpers.updateById('attempts', getInternalId(existingAttempt), {
+      result = await dbHelpers.updateById('attempts', getInternalId(existingAttempt), {
         ...attemptData,
         sectionTimers: Object.keys(attemptData.sectionTimers).length > 0 ? attemptData.sectionTimers : existingSectionTimers
       })
-      console.log('[SUBMIT DEBUG] Updated attempt, result:', result)
+
     } else {
-      result = await global.dbHelpers.insertOne('attempts', attemptData)
-      console.log('[SUBMIT DEBUG] Inserted attempt, result:', result)
+      result = await dbHelpers.insertOne('attempts', attemptData)
+
     }
 
     await publishEvent('test_submitted', {
@@ -877,7 +880,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
     res.json({
       success: true,
       data: {
-        attemptId: getPublicResponseId(global.dbHelpers, 'attempts', result, attemptId || result?._id || result?.id || null),
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', result, attemptId || result?._id || result?.id || null),
         ...attemptData,
         rank: null
       },
@@ -912,7 +915,7 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
     }
 
     // Resolve the test from URL param (could be numeric ID, _id, or slug)
-    const testFromUrl = await findTestByIdentifier(req.params.testId, global.dbHelpers)
+    const testFromUrl = await findTestByIdentifier(req.params.testId, dbHelpers)
     
     // Compare attempt's testId with the resolved test's ID
     // The attempt.testId is numeric, so we need to compare with test.id or test._id
@@ -926,15 +929,14 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
       })
     }
 
-    const test = testFromUrl || (await findTestByIdentifier(attempt.testId, global.dbHelpers))
+    const test = testFromUrl || (await findTestByIdentifier(attempt.testId, dbHelpers))
 
-    const allQuestions = await global.dbHelpers.find('questions', { isActive: true })
-    const questions = filterQuestionsByTestId(allQuestions, attempt.testId || req.params.testId)
+    const questions = await fetchQuestionsByTestId(attempt.testId || resolvedTestId)
 
     const rankData = await getRankAndPercentile(resolvedTestId || test._id || test.id || req.params.testId, attempt)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
-    result.seriesId = getPublicResponseId(global.dbHelpers, 'testSeries', series, result.seriesId)
+    result.seriesId = getPublicResponseId(dbHelpers, 'testSeries', series, result.seriesId)
 
     res.json({
       success: true,
@@ -954,7 +956,7 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
 router.get('/:testId/result', protect, async (req, res) => {
   try {
     // Resolve the test from URL param (could be numeric ID, _id, or slug)
-    const test = await findTestByIdentifier(req.params.testId, global.dbHelpers)
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
     if (!test) {
       return res.status(404).json({
         success: false,
@@ -965,7 +967,7 @@ router.get('/:testId/result', protect, async (req, res) => {
     // Get the numeric test ID for matching with attempts
     const numericTestId = test.id || test._id
 
-    const resultRows = await global.dbHelpers.find('results', {
+    const resultRows = await dbHelpers.find('results', {
       userId: req.user.id,
       isCompleted: true
     })
@@ -974,7 +976,7 @@ router.get('/:testId/result', protect, async (req, res) => {
       idsMatch(row.testId, req.params.testId) || idsMatch(row.testId, numericTestId)
     )
 
-    const attemptRows = await global.dbHelpers.find('attempts', {
+    const attemptRows = await dbHelpers.find('attempts', {
       userId: req.user.id,
       isCompleted: true
     })
@@ -995,12 +997,11 @@ router.get('/:testId/result', protect, async (req, res) => {
       })
     }
 
-    const allQuestions = await global.dbHelpers.find('questions', { isActive: true })
-    const questions = filterQuestionsByTestId(allQuestions, attempt.testId || numericTestId)
+    const questions = await fetchQuestionsByTestId(attempt.testId || numericTestId)
     const rankData = await getRankAndPercentile(numericTestId || test._id || test.id || req.params.testId, attempt)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
-    result.seriesId = getPublicResponseId(global.dbHelpers, 'testSeries', series, result.seriesId)
+    result.seriesId = getPublicResponseId(dbHelpers, 'testSeries', series, result.seriesId)
 
     res.json({
       success: true,

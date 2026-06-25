@@ -31,10 +31,14 @@ const Toast = ({ message, type = 'success', onClose }) => {
 const TABS = [
   { id: 'tree', label: 'Category Tree', icon: FolderOpen },
   { id: 'series-category-relations', label: 'Test Series Relations', icon: ExternalLink },
+  { id: 'series-subcategory-relations', label: 'Child Relations', icon: ClipboardList },
   { id: 'test-series-list', label: 'Test Series List', icon: ClipboardList },
   { id: 'import-export', label: 'Import / Export', icon: Database },
   { id: 'api-docs', label: 'API Documentation', icon: Link }
 ]
+
+export { TABS }
+export const CategoryTabConfig = TABS
 
 const isSameEntityId = (a, b) => {
   if (a == null || b == null) return false

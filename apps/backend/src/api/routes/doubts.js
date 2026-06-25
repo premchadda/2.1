@@ -2,6 +2,7 @@ import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import rateLimit from 'express-rate-limit'
 import { idsMatch } from '../../services/core/common.js'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 
 const router = express.Router()
 
@@ -56,7 +57,7 @@ router.get('/', async (req, res) => {
   try {
     const { category, status, limit = 20, offset = 0, search } = req.query
     
-    let doubts = await global.dbHelpers.find('doubts', { isActive: true })
+    let doubts = await dbHelpers.find('doubts', { isActive: true })
     
     // Filter by category
     if (category && category !== 'all') {
@@ -84,7 +85,7 @@ router.get('/', async (req, res) => {
     
     // Get reply counts for each doubt
     const doubtsWithCounts = await Promise.all(doubts.map(async (doubt) => {
-      const replies = await global.dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
+      const replies = await dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
       return {
         ...sanitizeDoubt(doubt),
         replyCount: replies.length,
@@ -110,14 +111,14 @@ router.get('/:id', async (req, res, next) => {
     const { id } = req.params
     if (id === 'categories') return next()
     
-    let doubt = await global.dbHelpers.findById('doubts', id)
+    let doubt = await dbHelpers.findById('doubts', id)
     
     if (!doubt) {
       return res.status(404).json({ success: false, message: 'Doubt not found' })
     }
     
     // Get replies
-    const replies = await global.dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
+    const replies = await dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
     const sortedReplies = replies.sort((a, b) => {
       // Put accepted answer first
       if (a.isAccepted && !b.isAccepted) return -1
@@ -151,7 +152,7 @@ router.post('/', protect, contentCreationLimiter, async (req, res) => {
     // Sanitize input (Issue #37)
     const sanitizedData = sanitizeDoubtInput({ title, description, category, tags })
     
-    const doubt = await global.dbHelpers.insertOne('doubts', {
+    const doubt = await dbHelpers.insertOne('doubts', {
       ...sanitizedData,
       userId: req.user.id,
       userName: req.user.name,
@@ -176,7 +177,7 @@ router.put('/:id', protect, async (req, res) => {
     const { id } = req.params
     const { title, description, category, tags, status } = req.body
     
-    const doubt = await global.dbHelpers.findById('doubts', id)
+    const doubt = await dbHelpers.findById('doubts', id)
     
     if (!doubt) {
       return res.status(404).json({ success: false, message: 'Doubt not found' })
@@ -186,7 +187,7 @@ router.put('/:id', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
     
-    const updated = await global.dbHelpers.updateById('doubts', id, {
+    const updated = await dbHelpers.updateById('doubts', id, {
       ...(title && { title }),
       ...(description && { description }),
       ...(category && { category }),
@@ -208,7 +209,7 @@ router.delete('/:id', protect, async (req, res) => {
   try {
     const { id } = req.params
     
-    const doubt = await global.dbHelpers.findById('doubts', id)
+    const doubt = await dbHelpers.findById('doubts', id)
     
     if (!doubt) {
       return res.status(404).json({ success: false, message: 'Doubt not found' })
@@ -218,7 +219,7 @@ router.delete('/:id', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
     
-    await global.dbHelpers.softDelete('doubts', id, req.user.id)
+    await dbHelpers.softDelete('doubts', id, req.user.id)
     
     res.json({ success: true, message: 'Doubt deleted' })
   } catch (error) {
@@ -238,13 +239,13 @@ router.post('/:id/reply', protect, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Content required' })
     }
     
-    const doubt = await global.dbHelpers.findById('doubts', id)
+    const doubt = await dbHelpers.findById('doubts', id)
     
     if (!doubt) {
       return res.status(404).json({ success: false, message: 'Doubt not found' })
     }
     
-    const reply = await global.dbHelpers.insertOne('doubtReplies', {
+    const reply = await dbHelpers.insertOne('doubtReplies', {
       doubtId: doubt._id || doubt.id,
       content,
       userId: req.user.id,
@@ -258,7 +259,7 @@ router.post('/:id/reply', protect, async (req, res) => {
     
     // Update doubt status if it's an answer
     if (isAnswer) {
-      await global.dbHelpers.updateById('doubts', id, {
+      await dbHelpers.updateById('doubts', id, {
         status: 'answered',
         updatedAt: new Date().toISOString()
       })
@@ -277,7 +278,7 @@ router.put('/:id/reply/:replyId/accept', protect, async (req, res) => {
   try {
     const { replyId } = req.params
     
-    const doubt = await global.dbHelpers.findById('doubts', req.params.id)
+    const doubt = await dbHelpers.findById('doubts', req.params.id)
     
     if (!doubt) {
       return res.status(404).json({ success: false, message: 'Doubt not found' })
@@ -288,23 +289,23 @@ router.put('/:id/reply/:replyId/accept', protect, async (req, res) => {
     }
     
     // Unaccept all other replies
-    const allReplies = await global.dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
+    const allReplies = await dbHelpers.find('doubtReplies', { doubtId: doubt._id || doubt.id })
     for (const reply of allReplies) {
       if (reply.isAccepted) {
-        await global.dbHelpers.updateById('doubtReplies', reply._id || reply.id, { isAccepted: false })
+        await dbHelpers.updateById('doubtReplies', reply._id || reply.id, { isAccepted: false })
       }
     }
     
-    const replyToAccept = await global.dbHelpers.findById('doubtReplies', replyId)
+    const replyToAccept = await dbHelpers.findById('doubtReplies', replyId)
     if (!replyToAccept || !idsMatch(replyToAccept.doubtId, doubt._id || doubt.id)) {
       return res.status(404).json({ success: false, message: 'Reply not found for this doubt' })
     }
 
     // Accept this reply
-    const updated = await global.dbHelpers.updateById('doubtReplies', replyId, { isAccepted: true })
+    const updated = await dbHelpers.updateById('doubtReplies', replyId, { isAccepted: true })
     
     // Update doubt status
-    await global.dbHelpers.updateById('doubts', req.params.id, {
+    await dbHelpers.updateById('doubts', req.params.id, {
       status: 'answered',
       updatedAt: new Date().toISOString()
     })
@@ -322,7 +323,7 @@ router.put('/:id/reply/:replyId/upvote', protect, async (req, res) => {
   try {
     const { replyId } = req.params
     
-    const reply = await global.dbHelpers.findById('doubtReplies', replyId)
+    const reply = await dbHelpers.findById('doubtReplies', replyId)
     
     if (!reply) {
       return res.status(404).json({ success: false, message: 'Reply not found' })
@@ -341,7 +342,7 @@ router.put('/:id/reply/:replyId/upvote', protect, async (req, res) => {
     }
     
     // Add user to upvotedBy list and increment count
-    const updated = await global.dbHelpers.updateById('doubtReplies', replyId, {
+    const updated = await dbHelpers.updateById('doubtReplies', replyId, {
       upvotes: (reply.upvotes || 0) + 1,
       upvotedBy: [...upvotedBy, userId]
     })

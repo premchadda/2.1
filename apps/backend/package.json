@@ -1,6 +1,6 @@
 {
   "name": "trstprep-backend",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Trstprep API Backend with Express and Local JSON Database",
   "main": "src/app-port5001.js",
   "type": "module",
@@ -11,9 +11,9 @@
     "worker:dev": "node --watch src/worker/index.js",
     "seed": "node src/data/seeds/SeedService.js",
     "build": "echo \"No build step required for Node.js backend\"",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest --passWithNoTests",
-    "test:watch": "node --experimental-vm-modules node_modules/.bin/jest --watch",
-    "test:coverage": "node --experimental-vm-modules node_modules/.bin/jest --coverage",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint src/**/*.js",
     "clean": "node -e \"const fs=require('fs'); const path=require('path'); const rimraf=(dir)=>{try{if(fs.existsSync(dir)){fs.rmSync(dir,{recursive:true,force:true})}}catch(e){console.error('Failed to remove',dir,e.message)}}; rimraf('node_modules/.cache'); console.log('Clean completed.')\""
   },
@@ -23,7 +23,7 @@
     "@aws-sdk/client-sns": "^3.1000.0",
     "@aws-sdk/s3-request-presigner": "^3.1000.0",
     "@sendgrid/mail": "^8.1.6",
-    "axios": "^1.15.0",
+    "axios": "^1.18.0",
     "bcryptjs": "^2.4.3",
     "bullmq": "^5.70.4",
     "cookie-parser": "^1.4.7",
@@ -38,18 +38,20 @@
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^8.0.1",
+    "nodemailer": "^9.0.1",
     "pg": "^8.18.0",
     "razorpay": "^2.9.6",
     "socket.io": "^4.8.3",
     "twilio": "^5.12.2",
     "xlsx": "^0.18.5",
-    "xlsx-js-style": "^1.2.0"
+    "xlsx-js-style": "^1.2.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "eslint": "^10.0.0",
-    "globals": "^15.14.0"
+    "globals": "^15.14.0",
+    "jest": "^29.7.0"
   },
   "overrides": {
     "qs": "6.15.0"

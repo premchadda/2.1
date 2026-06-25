@@ -351,24 +351,9 @@ const RELATIONSHIP_DEFINITIONS = Object.freeze([
     onDelete: "CASCADE",
     indexName: "idx_subscriptions_user_id",
   },
-  {
-    table: "test_attempts",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "test_attempts_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_test_attempts_user_id",
-  },
-  {
-    table: "test_attempts",
-    column: "test_id",
-    foreignTable: "tests",
-    foreignColumn: "id",
-    constraintName: "test_attempts_test_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_test_attempts_test_id",
-  },
+  // test_attempts is a VIEW (migration 039/048), not a table — FK constraints
+  // belong on the underlying "attempts" table. Skipping to avoid
+  // "ALTER action ADD CONSTRAINT cannot be performed on relation" errors.
   {
     table: "test_categories",
     column: "exam_category_id",
@@ -548,8 +533,13 @@ const pool = new Pool({
   ),
   idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 30000),
   query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
-   max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
-});
+  max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
+  allowExitOnIdle: false,
+})
+
+pool.on('error', (err) => {
+  console.error('[Pool] Idle client error (non-fatal):', err.message)
+})
 
 let ensureTestSectionsSchemaPromise = null;
 
@@ -985,6 +975,11 @@ class PostgresHelpers {
            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'reset_password_expires') THEN
              ALTER TABLE users ADD COLUMN reset_password_expires TIMESTAMP;
            END IF;
+           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_email_verified') THEN
+             ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN NOT NULL DEFAULT true;
+             -- Backfill existing users so they are not locked out
+             UPDATE users SET is_email_verified = true WHERE is_email_verified IS NULL;
+           END IF;
          END $$;
       `);
 
@@ -1148,13 +1143,24 @@ class PostgresHelpers {
           slug VARCHAR(255) NOT NULL,
           description TEXT,
           icon VARCHAR(100),
-          part_id INTEGER REFERENCES subject_parts(id) ON DELETE CASCADE,
+          part_id INTEGER REFERENCES subject_parts(id) ON DELETE SET NULL,
+          subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
           stage_ids INTEGER[] DEFAULT '{}',
           order_index INTEGER DEFAULT 0,
           is_active BOOLEAN DEFAULT true,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
+
+        -- Migration 056: Backfill part_id on pre-existing units tables
+        DO $$
+        BEGIN
+          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'units')
+             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'units' AND column_name = 'part_id') THEN
+            ALTER TABLE units ADD COLUMN part_id INTEGER REFERENCES subject_parts(id) ON DELETE SET NULL;
+            CREATE INDEX IF NOT EXISTS idx_units_part_id ON units(part_id);
+          END IF;
+        END $$;
 
         -- Subtopics
         CREATE TABLE IF NOT EXISTS "subtopics" (
@@ -1614,12 +1620,12 @@ class PostgresHelpers {
           request_method VARCHAR(10),
           request_path TEXT,
           response_status_code INTEGER,
-          timestamp TIMESTAMP DEFAULT NOW()
+          created_at TIMESTAMP DEFAULT NOW()
         );
         CREATE INDEX IF NOT EXISTS idx_audit_logs_admin_id ON audit_logs(admin_id);
         CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
         CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(created_at DESC);
 
         -- Login attempts tracking for brute force protection
         CREATE TABLE IF NOT EXISTS "login_attempts" (
@@ -1760,12 +1766,25 @@ class PostgresHelpers {
 
   async find(collection, query = {}, limit = null, offset = null) {
     const table = this.getTableName(collection);
+
+    // Extract includeInactive/include_inactive to support opt-out
+    const cleanQuery = { ...query };
+    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    delete cleanQuery.includeInactive;
+    delete cleanQuery.include_inactive;
+
+    // Default isActive: true scope if the table contains 'is_active'
+    const hasActive = await this.columnExists(table, "is_active");
+    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+      cleanQuery.is_active = true;
+    }
+
     let sql = `SELECT * FROM "${table}"`;
     const values = [];
     const conditions = [];
     let i = 1;
 
-    const snakeQuery = this.toSnake(query, collection);
+    const snakeQuery = this.toSnake(cleanQuery, collection);
 
     for (const key in snakeQuery) {
       const value = snakeQuery[key];
@@ -2259,8 +2278,15 @@ class PostgresHelpers {
 
     // Prepare values - stringify JSONB columns, keep PostgreSQL arrays as-is
     const prepared = prepareDbValues(table, dbData);
-    const keys = Object.keys(prepared);
-    const values = Object.values(prepared);
+
+    // Filter to only columns that actually exist in the table
+    const colResult = await this.pool.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
+      [table],
+    );
+    const existingColumns = new Set(colResult.rows.map((r) => r.column_name));
+    const keys = Object.keys(prepared).filter((k) => existingColumns.has(k));
+    const values = keys.map((k) => prepared[k]);
 
     if (keys.length === 0) return null;
 

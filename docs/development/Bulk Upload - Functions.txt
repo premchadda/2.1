@@ -1,0 +1,392 @@
+Bulk Upload Functions Documentation
+====================================
+
+Date: March 22, 2026, 10:38 PM
+Status: ✅ Implemented
+
+---
+
+## Overview
+
+The Trstprep platform supports bulk upload functionality for tests, questions, PYP papers, practice questions, and quizzes. This document describes the implementation details.
+
+---
+
+## Implementation Files
+
+### Frontend Components
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| `QuestionsManager.jsx` | `apps/frontend/src/features/admin/QuestionsManager.jsx` | Bulk upload questions with series/test linking |
+| `TestsTab.jsx` | `apps/frontend/src/features/admin/TestsTab.jsx` | Bulk upload tests with series linking |
+| `PYPManager.jsx` | `apps/frontend/src/features/admin/PYPManager.jsx` | Bulk upload previous year papers |
+| `PracticeQuestionsManager.jsx` | `apps/frontend/src/features/admin/PracticeQuestionsManager.jsx` | Bulk upload practice questions |
+| `QuizTab.jsx` | `apps/frontend/src/features/admin/QuizTab.jsx` | Bulk upload quizzes |
+
+### Backend Routes
+
+| Route | File | Endpoint |
+|-------|------|----------|
+| Questions | `apps/backend/src/api/routes/admin.js` | `POST /api/admin/questions/bulk` |
+| Tests | `apps/backend/src/api/routes/admin.js` | `POST /api/admin/tests/bulk` |
+| Practice Questions | `apps/backend/src/api/routes/practice.js` | `POST /api/practice/questions/bulk-import` |
+
+---
+
+## QuestionsManager.jsx - Bulk Upload
+
+### Configuration Modal
+```javascript
+// Component: BulkUploadConfigModal
+function BulkUploadConfigModal({ 
+  onClose, 
+  onUpload, 
+  onDownloadTemplate, 
+  series, 
+  categories, 
+  subCategories, 
+  tests, 
+  pypPapers, 
+  studyMaterials, 
+  chapters, 
+  questionCounts, 
+  activeTab 
+}) {
+  const [config, setConfig] = useState({
+    seriesId: '',
+    testId: '',
+    categoryId: '',
+    subCategoryId: '',
+    // ... other fields
+  });
+}
+```
+
+### Upload Handler
+```javascript
+const handleBulkUpload = (file, config) => {
+  if (!file) return;
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('config', JSON.stringify(config));
+  
+  // Upload to backend
+  fetch('/api/admin/questions/bulk', {
+    method: 'POST',
+    body: formData
+  });
+};
+```
+
+### Template Download
+```javascript
+const downloadProforma = () => {
+  const link = document.createElement('a');
+  link.setAttribute('href', templateUrl);
+  link.setAttribute('download', 'questions_bulk_upload_template.csv');
+  link.click();
+};
+```
+
+---
+
+## TestsTab.jsx - Bulk Upload
+
+### Configuration Modal
+```javascript
+function BulkUploadModal({ 
+  onClose, 
+  series, 
+  categories, 
+  allStages, 
+  rootCategories, 
+  getChildren, 
+  getCategoryId, 
+  getCategoryName, 
+  categoriesById, 
+  onDownloadTemplate, 
+  onSuccess 
+}) {
+  const [file, setFile] = useState(null);
+  
+  const handleUpload = async () => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('seriesId', selectedSeries);
+    
+    await fetch('/api/admin/tests/bulk', {
+      method: 'POST',
+      body: formData
+    });
+  };
+}
+```
+
+---
+
+## Data Hierarchy Linking
+
+### Test Series → Tests → Questions
+
+1. **Test Series** (Root Level)
+   - `id` - Primary key
+   - `title` - Series name
+   - `category` - Exam category
+
+2. **Tests** (Linked to Series)
+   - `id` - Primary key
+   - `series_id` - Foreign key to test_series
+   - `title` - Test name
+   - `category` - Test category
+
+3. **Questions** (Linked to Tests)
+   - `id` - Primary key
+   - `test_id` - Foreign key to tests
+   - `series_id` - Foreign key to test_series (denormalized)
+   - `question_text` - Question content
+   - `options` - Answer options (array)
+   - `correct_option` - Correct answer index
+
+---
+
+## Dropdown Data Sources
+
+### Series Dropdown
+```javascript
+// Fetch all test series
+const { data: series } = useQuery({
+  queryKey: ['admin', 'test-series'],
+  queryFn: () => api.get('/admin/test-series')
+});
+```
+
+### Tests Dropdown (Filtered by Series)
+```javascript
+// Fetch tests filtered by selected series
+const { data: tests } = useQuery({
+  queryKey: ['admin', 'tests', config.seriesId],
+  queryFn: () => api.get(`/admin/tests?seriesId=${config.seriesId}`),
+  enabled: !!config.seriesId
+});
+```
+
+### Categories Dropdown
+```javascript
+// Fetch exam categories
+const { data: categories } = useQuery({
+  queryKey: ['exam-categories'],
+  queryFn: () => api.get('/exam-categories')
+});
+```
+
+### Stages Dropdown (Filtered by Series)
+```javascript
+// Fetch stages
+const { data: stages } = useQuery({
+  queryKey: ['stages'],
+  queryFn: () => api.get('/stages')
+});
+```
+
+---
+
+## Bulk Upload Validation
+
+### File Validation
+```javascript
+const validateFile = (file) => {
+  // Check file type
+  const allowedTypes = ['text/csv', 'application/json'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only CSV and JSON allowed.');
+  }
+  
+  // Check file size (max 10MB)
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    throw new Error('File size exceeds 10MB limit.');
+  }
+  
+  return true;
+};
+```
+
+### Data Validation
+```javascript
+const validateBulkData = (data, config) => {
+  const errors = [];
+  
+  data.forEach((row, index) => {
+    // Validate required fields
+    if (!row.question_text) {
+      errors.push(`Row ${index + 1}: Question text is required`);
+    }
+    
+    if (!row.options || row.options.length < 2) {
+      errors.push(`Row ${index + 1}: At least 2 options required`);
+    }
+    
+    if (row.correct_option === undefined) {
+      errors.push(`Row ${index + 1}: Correct option is required`);
+    }
+  });
+  
+  return errors;
+};
+```
+
+---
+
+## Backend Bulk Processing
+
+### Questions Bulk Import
+```javascript
+// POST /api/admin/questions/bulk
+router.post('/questions/bulk', adminLimiter, validateCsrfToken, async (req, res) => {
+  try {
+    const { file, config } = req.body;
+    const questions = parseCSV(file);
+    
+    // Validate data
+    const errors = validateBulkData(questions, config);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, errors });
+    }
+    
+    // Insert questions
+    const inserted = [];
+    for (const question of questions) {
+      const result = await dbHelpers.insert('questions', {
+        ...question,
+        test_id: config.testId,
+        series_id: config.seriesId,
+        category_id: config.categoryId
+      });
+      inserted.push(result);
+    }
+    
+    res.json({ 
+      success: true, 
+      count: inserted.length,
+      message: `Successfully imported ${inserted.length} questions`
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+```
+
+### Tests Bulk Import
+```javascript
+// POST /api/admin/tests/bulk
+router.post('/tests/bulk', adminLimiter, validateCsrfToken, async (req, res) => {
+  try {
+    const { file, seriesId } = req.body;
+    const tests = parseCSV(file);
+    
+    const inserted = [];
+    for (const test of tests) {
+      const result = await dbHelpers.insert('tests', {
+        ...test,
+        series_id: seriesId
+      });
+      inserted.push(result);
+    }
+    
+    res.json({ 
+      success: true, 
+      count: inserted.length 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+```
+
+---
+
+## CSV Template Format
+
+### Questions Template
+```csv
+question_text,question_text_hi,option_a,option_b,option_c,option_d,correct_option,marks,negative_marks,section,difficulty,explanation
+"What is 2+2?","2+2 क्या है?","3","4","5","6","1","2","0.5","Quant","easy","Basic addition"
+```
+
+### Tests Template
+```csv
+title,description,category,sub_category,type,total_questions,total_marks,duration,passing_marks,negative_marking,difficulty
+"Mock Test 1","Full length mock test","SSC","CGL","Mock","100","200","180","80","0.25","Medium"
+```
+
+---
+
+## Error Handling
+
+### Upload Errors
+```javascript
+try {
+  await uploadBulkData(file, config);
+} catch (error) {
+  if (error.response?.status === 400) {
+    // Validation errors
+    setErrors(error.response.data.errors);
+  } else if (error.response?.status === 413) {
+    // File too large
+    setError('File size exceeds maximum limit');
+  } else {
+    // Generic error
+    setError('Upload failed. Please try again.');
+  }
+}
+```
+
+### Progress Tracking
+```javascript
+const uploadWithProgress = async (file, config, onProgress) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('config', JSON.stringify(config));
+  
+  const response = await fetch('/api/admin/questions/bulk', {
+    method: 'POST',
+    body: formData,
+    onUploadProgress: (progressEvent) => {
+      const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+      onProgress(progress);
+    }
+  });
+  
+  return response.json();
+};
+```
+
+---
+
+## Supported File Formats
+
+| Format | Extension | Max Size | Notes |
+|--------|-----------|----------|-------|
+| CSV | .csv | 10MB | UTF-8 encoding required |
+| JSON | .json | 10MB | Array of objects |
+| Excel | .xlsx | 10MB | Converted to CSV internally |
+
+---
+
+## Future Enhancements
+
+### Planned Features
+- [ ] Real-time progress indicator during upload
+- [ ] Partial success handling (some rows succeed, some fail)
+- [ ] Rollback functionality for failed bulk imports
+- [ ] Duplicate detection and handling
+- [ ] Auto-mapping of columns based on headers
+- [ ] Support for more file formats (Excel direct)
+- [ ] Batch size configuration for large imports
+- [ ] Background processing for very large files
+
+---
+
+*Last Updated: March 22, 2026, 10:38 PM*

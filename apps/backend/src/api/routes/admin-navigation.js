@@ -208,15 +208,15 @@ router.post('/reset', async (req, res) => {
       { id: 'exam-manager', label: 'Exam Manager', icon: 'FileText', route: '/admin/exams', order: 2, category: 'exams', enabled: true },
       { id: 'stages', label: 'Stages', icon: 'Flag', route: '/admin/stages', order: 3, category: 'exams', enabled: true },
       { id: 'test-categories', label: 'Test Categories', icon: 'Tags', route: '/admin/test-categories', order: 4, category: 'exams', enabled: true },
-      { id: 'tag-configs', label: 'Tag Configs', icon: 'Settings', route: '/admin/tag-configs', order: 5, category: 'exams', enabled: true },
+      { id: 'sections', label: 'Sections', icon: 'Columns', route: '/admin/sections', order: 5, category: 'exams', enabled: true },
+      { id: 'tag-configs', label: 'Tag Configs', icon: 'Settings', route: '/admin/tag-configs', order: 6, category: 'exams', enabled: true },
       
       // Assessments & Quizzes
       { id: 'test-series', label: 'Test Series', icon: 'BookOpen', route: '/admin/test-series', order: 1, category: 'assessments', enabled: true },
       { id: 'tests', label: 'Tests', icon: 'ClipboardList', route: '/admin/tests', order: 2, category: 'assessments', enabled: true },
-      { id: 'sections', label: 'Sections', icon: 'Columns', route: '/admin/sections', order: 3, category: 'assessments', enabled: true },
-      { id: 'questions', label: 'Questions', icon: 'HelpCircle', route: '/admin/questions', order: 4, category: 'assessments', enabled: true },
-      { id: 'quizzes', label: 'Quizzes', icon: 'Brain', route: '/admin/quizzes', order: 5, category: 'assessments', enabled: true },
-      { id: 'practice-questions', label: 'Practice Questions', icon: 'PenTool', route: '/admin/practice-questions', order: 6, category: 'assessments', enabled: true },
+      { id: 'questions', label: 'Questions', icon: 'HelpCircle', route: '/admin/questions', order: 3, category: 'assessments', enabled: true },
+      { id: 'quizzes', label: 'Quizzes', icon: 'Brain', route: '/admin/quizzes', order: 4, category: 'assessments', enabled: true },
+      { id: 'practice-questions', label: 'Practice Questions', icon: 'PenTool', route: '/admin/practice-questions', order: 5, category: 'assessments', enabled: true },
       
       // Study Materials
       { id: 'sm-manager', label: 'SM Manager', icon: 'FolderOpen', route: '/admin/study-materials', order: 1, category: 'study_materials', enabled: true },

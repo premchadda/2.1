@@ -24,10 +24,13 @@ export const API_BASE_URL = (() => {
 
       // 3. Fallback for other ports (unlikely in this dev setup)
       let resolvedUrl
+      const backendPort = import.meta.env.VITE_BACKEND_PORT
+        || (import.meta.env.VITE_BACKEND_URL?.match(/:(\d+)/)?.[1])
+        || '5001'
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        resolvedUrl = `${window.location.protocol}//localhost:${import.meta.env.VITE_BACKEND_PORT || ''}`
+        resolvedUrl = `${window.location.protocol}//localhost:${backendPort}`
       } else {
-        resolvedUrl = `${window.location.protocol}//${window.location.hostname}:${import.meta.env.VITE_BACKEND_PORT || ''}`
+        resolvedUrl = `${window.location.protocol}//${window.location.hostname}:${backendPort}`
       }
       return resolvedUrl
     }

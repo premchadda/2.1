@@ -11,12 +11,16 @@ const getPaymentSettings = async () => {
   const settings = await dbHelpers.find('appSettings')
   const appSettings = settings[0] || {}
   
-  // Try to get from payment column (JSONB) or root fields
+  // payment column uses snake_case keys from the DB JSONB
   const payment = appSettings.payment || {}
   
+  // Support both snake_case (DB) and camelCase (env) variants
+  const razorpayKeyId = payment.razorpay_key_id || payment.razorpayKeyId || process.env.RAZORPAY_KEY_ID
+  const razorpayKeySecret = payment.razorpay_key_secret || payment.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET
+
   return {
-    razorpayKeyId: payment.razorpayKeyId || process.env.RAZORPAY_KEY_ID,
-    razorpayKeySecret: payment.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET,
+    razorpayKeyId: razorpayKeyId || null,
+    razorpayKeySecret: razorpayKeySecret || null,
     currency: payment.currency || 'INR'
   }
 }

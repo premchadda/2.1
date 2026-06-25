@@ -36,7 +36,7 @@ Thumbs.db
 # ===========================================
 
 # Documentation files (analysis, reports, audits)
-docs/
+# docs/  — tracked for public documentation
 
 # Database files and archives
 *.zip
@@ -51,11 +51,14 @@ apps/backend/src/data/*
 # Test and debug scripts (if any remain outside _dev)
 test-*.js
 check-*.js
+check_*.js
 fix-*.js
 run-*.js
 *-test.js
 *.test.js
 *.spec.js
+check-*.mjs
+check_*.mjs
 
 # ===========================================
 # IDE AND EDITOR

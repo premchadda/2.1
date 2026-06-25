@@ -1,0 +1,316 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         SSC CGL 2026 PYQS                                   │
+│                     Previous Year Questions                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+EXAM HIERARCHY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    examCategoryId: ssc
+    └── examId: ssc-cgl
+        └── stageId: tier-1-pre
+            └── testSeriesId: ssc-cgl-2026
+                └── categoryId: pyqs
+                    └── testType: pyqs
+                        ├── subcategory: pyqs-year-based-2019  (12 tests)
+                        ├── subcategory: pyqs-year-based-2020  (18 tests)
+                        ├── subcategory: pyqs-year-based-2021  (21 tests)
+                        ├── subcategory: pyqs-year-based-2022  (41 tests)
+                        ├── subcategory: pyqs-year-based-2023  (39 tests)
+                        ├── subcategory: pyqs-year-based-2024  (36 tests)
+                        └── subcategory: pyqs-year-based-2025  (46 tests)
+
+TEST CONFIG
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    duration: 60 min          negativeMarking: 0.5
+    totalQuestions: 100        totalMarks: 200
+    languages: [en, hi]        questionLanguageMode: bilingual
+    isPyq: true                difficulty: medium
+    shuffleQuestions: false     shuffleOptions: true
+    showTimer: true            showCalculator: false
+    allowBookmark: true        allowReview: true
+
+    timingConfig:
+      mode: overall            navigationMode: free
+      autoSubmit: true         sectionTimeShared: false
+
+    access:
+      type: free               requiresPurchase: false
+
+SECTION CONFIG (×4 sections)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    questionCount: 25          maxMarks: 50
+    duration: 900 (15 min)     negativeMarking: 0.5
+    mandatory: true            shuffleQuestions: false
+    allowNavigation: true
+
+SECTION DISTRIBUTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+    ┌──────────────────────────┬────────┬──────────┬───────┐
+    │ Section                  │ Tests  │ Questions│ Marks │
+    ├──────────────────────────┼────────┼──────────┼───────┤
+    │ quantitative-aptitude    │  213   │  5,326   │10,652 │
+    │ logical-reasoning        │  213   │  5,324   │10,648 │
+    │ general-awareness        │  213   │  5,325   │10,650 │
+    │ english-language         │  213   │  5,323   │10,646 │
+    ├──────────────────────────┼────────┼──────────┼───────┤
+    │ TOTAL                    │  213   │ 21,298   │42,596 │
+    └──────────────────────────┴────────┴──────────┴───────┘
+
+FULL TOPIC TREE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Quantitative Aptitude ──────────────────────────────── 5,326 questions
+│
+├── arithmetic ─────────────────────────────────────── 3,021
+│   ├── percentages ................................. 1,061
+│   ├── simplification .............................. 1,020
+│   ├── ratio-proportion-variation ...................   289
+│   ├── averages ....................................   226
+│   ├── time-work ...................................   187
+│   ├── time-speed-distance .........................   140
+│   ├── profit-loss .................................    67
+│   ├── simple-compound-interest ....................    23
+│   ├── mixture-alligation ..........................     6
+│   └── miscellaneous-arithmetic ....................     2
+│
+├── mensuration ──────────────────────────────────────   614
+│   └── mensuration-2d ..............................   614
+│
+├── trigonometry ─────────────────────────────────────   584
+│   ├── trigonometric-ratios ........................   579
+│   └── heights-distances ...........................     5
+│
+├── geometry ─────────────────────────────────────────   558
+│   └── basic-geometry ..............................   558
+│
+├── data-interpretation ──────────────────────────────   352
+│   └── di-mixed ....................................   352
+│
+├── quantitative-aptitude-misc ───────────────────────   142
+│   └── quantitative-aptitude-misc ..................   142
+│
+├── number-systems ───────────────────────────────────    49
+│   ├── divisibility-remainders .....................    29
+│   ├── types-of-numbers ............................    12
+│   └── hcf-lcm .....................................     8
+│
+└── algebra ──────────────────────────────────────────     6
+    ├── linear-quadratic-equations ...................     5
+    └── algebraic-identities ........................     1
+
+
+Logical Reasoning ──────────────────────────────────── 5,324 questions
+│
+├── general-intelligence-misc ──────────────────────── 2,706
+│   └── general-intelligence-misc ................... 2,706
+│
+├── series ───────────────────────────────────────────   863
+│   └── number-series ...............................   863
+│
+├── coding-decoding ──────────────────────────────────   455
+│   └── coding-decoding .............................   455
+│
+├── syllogism ────────────────────────────────────────   326
+│   └── syllogism .................................   326
+│
+├── classification ───────────────────────────────────   311
+│   └── classification ..............................   311
+│
+├── mirror-water-images ──────────────────────────────   214
+│   └── mirror-water-images .........................   214
+│
+├── direction-sense ──────────────────────────────────   179
+│   └── direction-sense .............................   179
+│
+├── ranking ──────────────────────────────────────────   111
+│   └── ranking .....................................   111
+│
+├── paper-folding-cutting ────────────────────────────    49
+│   └── paper-folding-cutting .......................    49
+│
+├── analogy ──────────────────────────────────────────    48
+│   └── analogy .....................................    48
+│
+├── blood-relations ──────────────────────────────────    37
+│   └── blood-relations .............................    37
+│
+├── figure-based ─────────────────────────────────────    10
+│   └── figure-series ...............................    10
+│
+├── seating-arrangement ──────────────────────────────    10
+│   └── seating-arrangement .........................    10
+│
+└── puzzles ──────────────────────────────────────────     5
+    └── puzzles ......................................     5
+
+
+English Language ───────────────────────────────────── 5,323 questions
+│
+├── vocabulary ─────────────────────────────────────── 1,948
+│   ├── synonyms .....................................   874
+│   ├── idioms-phrases ...............................   452
+│   ├── antonyms .....................................   314
+│   ├── spelling-errors ..............................   265
+│   └── one-word-substitution ........................    43
+│
+├── english-language-misc ──────────────────────────── 1,407
+│   └── english-language-misc ....................... 1,407
+│
+├── grammar ──────────────────────────────────────────   591
+│   └── grammar-mixed ...............................   591
+│
+├── sentence-improvement ─────────────────────────────   536
+│   ├── active-passive ...............................   376
+│   └── direct-indirect ..............................   160
+│
+├── sentence-completion ──────────────────────────────   277
+│   └── fill-in-the-blanks ...........................   277
+│
+├── error-spotting ───────────────────────────────────   243
+│   └── error-spotting ...............................   243
+│
+├── reading-comprehension ────────────────────────────   172
+│   └── reading-comprehension .......................   172
+│
+├── sentence-rearrangement ───────────────────────────   144
+│   ├── sentence-rearrangement .......................   101
+│   └── para-jumbles .................................    43
+│
+└── cloze-test ───────────────────────────────────────     5
+    └── cloze-test .................................     5
+
+
+General Awareness ──────────────────────────────────── 5,325 questions
+│
+├── general-awareness-misc ─────────────────────────── 3,001
+│   └── general-awareness-misc ...................... 3,001
+│
+├── polity ───────────────────────────────────────────   743
+│   └── indian-polity ...............................   743
+│
+├── history ──────────────────────────────────────────   466
+│   └── indian-history ..............................   466
+│
+├── geography ────────────────────────────────────────   385
+│   └── indian-geography ............................   385
+│
+├── static-gk ────────────────────────────────────────   315
+│   └── awards-sports-books .........................   315
+│
+├── economics ────────────────────────────────────────   240
+│   └── economics ...................................   240
+│
+└── science ──────────────────────────────────────────   175
+    └── science ......................................   175
+
+
+SAMPLE TEST: SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{
+  "id": "19274",
+  "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 1",
+  "shortTitle": "SSC CGL 2022 Tier 1 - 01 Dec 2022",
+  "slug": "ssc-cgl-2022-tier-1-01-dec-2022-shift-1",
+  "examCategoryId": "ssc",
+  "examId": "ssc-cgl",
+  "stageId": "tier-1-pre",
+  "testSeriesId": "ssc-cgl-2026",
+  "categoryId": "pyqs",
+  "testType": "pyqs",
+  "subcategory": "pyqs-year-based-2022",
+  "pyqYear": 2022,
+  "pyqShift": 1,
+  "duration": 60,
+  "totalQuestions": 100,
+  "totalMarks": 200,
+  "languages": ["en", "hi"],
+  "questionLanguageMode": "bilingual",
+  "sections": [
+    {
+      "id": "quantitative-aptitude",
+      "name": "Quantitative Aptitude",
+      "questionCount": 25,
+      "maxMarks": 50,
+      "duration": 900,
+      "questions": [ ... 25 questions ... ]
+    },
+    {
+      "id": "logical-reasoning",
+      "name": "Logical Reasoning",
+      "questionCount": 25,
+      "maxMarks": 50,
+      "duration": 900,
+      "questions": [ ... 25 questions ... ]
+    },
+    {
+      "id": "english-language",
+      "name": "English Language",
+      "questionCount": 25,
+      "maxMarks": 50,
+      "duration": 900,
+      "questions": [ ... 25 questions ... ]
+    },
+    {
+      "id": "general-awareness",
+      "name": "General Awareness",
+      "questionCount": 25,
+      "maxMarks": 50,
+      "duration": 900,
+      "questions": [ ... 25 questions ... ]
+    }
+  ]
+}
+
+
+SAMPLE QUESTION: Q1001 (Quantitative Aptitude)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+{
+  "id": "Q1001",
+  "questionType": "mcq",
+  "question": "<p>Riya could not decide between discount of 30%...</p>",
+  "options": ["<p>Rs. 44</p>", "<p>Rs. 48</p>", "<p>Rs. 42</p>", "<p>Rs. 46</p>"],
+  "correctAnswer": 2,
+  "solution": "<p>The correct answer is <strong>Option 2</strong>...</p>",
+  "explanation": "",
+  "difficulty": "medium",
+  "estimatedTime": 90,
+  "marks": 2,
+  "negativeMarks": 0.5,
+  "languages": ["en", "hi"],
+
+  "subjectId": "quantitative-aptitude",
+  "chapterId": "arithmetic",
+  "topicId": "percentages",
+  "subtopicId": null,
+
+  "source": {
+    "type": "pyq",
+    "examId": "ssc-cgl",
+    "year": 2022,
+    "shift": 1,
+    "paper": null
+  },
+
+  "text": {
+    "en": "<p>Riya could not decide between discount of 30%...</p>",
+    "hi": "<p>रिया 30% की छूट...</p>"
+  },
+  "options_bilingual": {
+    "en": ["<p>Rs. 44</p>", "<p>Rs. 48</p>", "<p>Rs. 42</p>", "<p>Rs. 46</p>"],
+    "hi": ["<p>44 रुपये</p>", "<p>48 रुपये</p>", "<p>42 रुपये</p>", "<p>46 रुपये</p>"]
+  },
+  "solution_bilingual": {
+    "en": "<p>The correct answer is...</p>",
+    "hi": "<div>सही उत्तर...</div>"
+  },
+
+  "correct_option_id": 1,
+  "section": "Quantitative Aptitude",
+  "status": "published"
+}

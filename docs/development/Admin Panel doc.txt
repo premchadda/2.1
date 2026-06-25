@@ -1,0 +1,228 @@
+Admin Panel Development Documentation
+=====================================
+
+Date: March 22, 2026, 10:35 PM
+Status: ✅ Implemented
+
+---
+
+## Overview
+
+The Trstprep Admin Panel provides comprehensive management capabilities for platform administrators. It includes 43 specialized components for content management, user administration, analytics, and system configuration.
+
+---
+
+## Technology Stack
+
+- **Frontend:** React 18, Tailwind CSS, Lucide Icons
+- **State Management:** React Context, TanStack Query
+- **API Client:** Axios
+- **Routing:** React Router v6
+- **Backend:** Express.js, PostgreSQL (Supabase)
+
+---
+
+## Admin Components (43 Total)
+
+### Dashboard & Analytics (3 components)
+1. AdminDashboard.jsx - Main dashboard with stats overview
+2. AdminAnalytics.jsx - Detailed analytics and charts
+3. AdminSettings.jsx - System configuration
+
+### Content Management (11 components)
+4. ContentManagement.jsx - Central content hub
+5. TestSeriesManager.jsx - Manage test series with ordering
+6. TestsManager.jsx - Manage individual tests
+7. QuestionsManager.jsx - Manage questions with bulk import
+8. StudyMaterialsManager.jsx - Manage study materials
+9. CurrentAffairsManager.jsx - Manage current affairs
+10. PYPManager.jsx - Manage previous year papers
+11. LiveTestsManager.jsx - Manage live test events
+12. PracticeQuestionsManager.jsx - Manage practice questions
+13. VideosManager.jsx - Manage video content
+14. QuizManager.jsx - Manage quizzes
+
+### User Management (4 components)
+15. UsersManager.jsx - Manage user accounts
+16. EnrollmentsManager.jsx - Manage enrollments
+17. ResultsManager.jsx - View test results
+18. UserActivityLog.jsx - Track user activity
+
+### Exam Management (5 components)
+19. ExamCategoriesManager.jsx - Manage exam categories
+20. ExamInfoManager.jsx - Manage exam information
+21. StagesManager.jsx - Manage exam stages
+22. SubjectsManager.jsx - Manage subjects
+23. TopicsManager.jsx - Manage topics
+
+### Commerce (4 components)
+24. SubscriptionPlansManager.jsx - Manage subscription plans
+25. CouponsManager.jsx - Manage discount coupons
+26. PromotionManager.jsx - Manage promotions
+27. LeaderboardsManager.jsx - Manage leaderboards
+
+### System (8 components)
+28. SystemHealthMonitor.jsx - Monitor system health
+29. BackupsManager.jsx - Manage database backups
+30. RecycleBin.jsx - Restore deleted items
+31. MediaLibrary.jsx - Manage media files
+32. NavigationManager.jsx - Manage navigation menu
+33. BannerManager.jsx - Manage promotional banners
+34. NotificationsManager.jsx - Send notifications
+35. FaqManager.jsx - Manage FAQs
+
+### Additional Components (8 components)
+36. ActivityOrderReport.jsx - Generate activity reports
+37. CategoriesManager.jsx - Manage categories
+38. TagConfigsManager.jsx - Manage tag configurations
+39. CurriculumBuilder.jsx - Build curriculum
+40. ComingSoonManager.jsx - Manage coming soon pages
+41. QuizTab.jsx - Quiz tab component
+42. TestsTab.jsx - Tests tab component
+43. index.js - Admin exports
+
+---
+
+## API Endpoints
+
+### Dashboard
+```
+GET /api/admin/stats - Dashboard statistics
+GET /api/admin/analytics - Analytics data
+GET /api/admin/dashboard-stats - Dashboard stats
+```
+
+### Test Series
+```
+GET /api/admin/test-series - List all series
+POST /api/admin/test-series - Create series
+PUT /api/admin/test-series/:id - Update series
+DELETE /api/admin/test-series/:id - Delete series
+```
+
+### Tests
+```
+GET /api/admin/tests - List all tests
+POST /api/admin/tests - Create test
+PUT /api/admin/tests/:id - Update test
+DELETE /api/admin/tests/:id - Delete test
+```
+
+### Questions
+```
+GET /api/admin/questions - List all questions
+POST /api/admin/questions - Create question
+PUT /api/admin/questions/:id - Update question
+DELETE /api/admin/questions/:id - Delete question
+POST /api/admin/questions/bulk - Bulk import
+```
+
+### Study Materials
+```
+GET /api/admin/study-materials - List materials
+POST /api/admin/study-materials - Create material
+PUT /api/admin/study-materials/:id - Update material
+DELETE /api/admin/study-materials/:id - Delete material
+```
+
+### Users
+```
+GET /api/admin/users - List all users
+PUT /api/admin/users/:id - Update user
+DELETE /api/admin/users/:id - Delete user
+```
+
+---
+
+## Route Configuration
+
+### Admin Navigation
+Located in: `apps/frontend/src/shared/config/adminNavConfig.js`
+
+```javascript
+export const adminNavConfig = [
+  { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
+  { name: 'Test Series', path: '/admin/test-series', icon: FileText },
+  { name: 'Tests', path: '/admin/tests', icon: ClipboardList },
+  { name: 'Questions', path: '/admin/questions', icon: HelpCircle },
+  { name: 'Study Materials', path: '/admin/study-materials', icon: BookOpen },
+  { name: 'Users', path: '/admin/users', icon: Users },
+  { name: 'Analytics', path: '/admin/analytics', icon: BarChart },
+  { name: 'Settings', path: '/admin/settings', icon: Settings },
+];
+```
+
+---
+
+## Security
+
+### Authentication
+- JWT token required for all admin routes
+- Token stored in httpOnly cookie
+- Role check: `role === 'admin'`
+
+### Authorization
+- Protected route wrapper: `ProtectedRoute.jsx`
+- Admin layout wrapper: `AdminLayout.jsx`
+- CSRF protection on all mutations
+
+---
+
+## Common Patterns
+
+### CRUD Operations
+```javascript
+// Fetch data
+const { data, isLoading } = useQuery({
+  queryKey: ['admin', 'test-series'],
+  queryFn: () => api.get('/admin/test-series')
+});
+
+// Create mutation
+const createMutation = useMutation({
+  mutationFn: (data) => api.post('/admin/test-series', data),
+  onSuccess: () => queryClient.invalidateQueries(['admin', 'test-series'])
+});
+
+// Update mutation
+const updateMutation = useMutation({
+  mutationFn: ({ id, data }) => api.put(`/admin/test-series/${id}`, data),
+  onSuccess: () => queryClient.invalidateQueries(['admin', 'test-series'])
+});
+
+// Delete mutation
+const deleteMutation = useMutation({
+  mutationFn: (id) => api.delete(`/admin/test-series/${id}`),
+  onSuccess: () => queryClient.invalidateQueries(['admin', 'test-series'])
+});
+```
+
+### Data Table Pattern
+```javascript
+const columns = [
+  { header: 'Title', accessorKey: 'title' },
+  { header: 'Category', accessorKey: 'category' },
+  { header: 'Status', accessorKey: 'isActive' },
+  { header: 'Actions', cell: ({ row }) => <ActionButtons row={row} /> }
+];
+
+<DataTable columns={columns} data={data} />
+```
+
+---
+
+## Future Enhancements
+
+### Planned Features
+- [ ] Bulk operations for all content types
+- [ ] Advanced filtering and search
+- [ ] Export to CSV/Excel
+- [ ] Real-time notifications
+- [ ] Audit logging for all admin actions
+- [ ] Role-based permissions (super-admin, moderator)
+- [ ] Dashboard customization
+- [ ] Automated backups scheduling
+
+---
+
+*Last Updated: March 22, 2026, 10:35 PM*

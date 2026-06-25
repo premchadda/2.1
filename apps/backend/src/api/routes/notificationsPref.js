@@ -1,4 +1,5 @@
 import express from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { auth } from '../../middleware/auth.middleware.js'
 
 const router = express.Router()
@@ -25,10 +26,10 @@ router.get('/', auth, async (req, res) => {
     query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`
     params.push(limit, (page - 1) * limit)
 
-    const result = await global.dbHelpers.query(query, params)
+    const result = await dbHelpers.query(query, params)
 
     // Get unread count
-    const unreadResult = await global.dbHelpers.query(
+    const unreadResult = await dbHelpers.query(
       'SELECT COUNT(*) as unread FROM notifications WHERE user_id = $1 AND read = false',
       [userId]
     )
@@ -56,7 +57,7 @@ router.put('/:id/read', auth, async (req, res) => {
     const userId = req.user.id
     const { id } = req.params
 
-    const result = await global.dbHelpers.query(
+    const result = await dbHelpers.query(
       `UPDATE notifications SET read = true, updated_at = NOW() 
        WHERE id = $1 AND user_id = $2
        RETURNING *`,
@@ -81,7 +82,7 @@ router.put('/read-all', auth, async (req, res) => {
   try {
     const userId = req.user.id
 
-    await global.dbHelpers.query(
+    await dbHelpers.query(
       `UPDATE notifications SET read = true, updated_at = NOW() 
        WHERE user_id = $1 AND read = false`,
       [userId]
@@ -102,7 +103,7 @@ router.delete('/:id', auth, async (req, res) => {
     const userId = req.user.id
     const { id } = req.params
 
-    await global.dbHelpers.query(
+    await dbHelpers.query(
       'DELETE FROM notifications WHERE id = $1 AND user_id = $2',
       [id, userId]
     )
@@ -122,7 +123,7 @@ router.post('/subscribe', auth, async (req, res) => {
     const userId = req.user.id
     const { type, email, sms, push } = req.body
 
-    await global.dbHelpers.query(
+    await dbHelpers.query(
       `INSERT INTO notification_preferences (user_id, notification_type, email, sms, push, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
        ON CONFLICT (user_id, notification_type) DO UPDATE SET 

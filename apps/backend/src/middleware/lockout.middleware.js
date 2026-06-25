@@ -153,13 +153,17 @@ export const lockoutMiddleware = async (req, res, next) => {
     })
   }
 
-  const originalJson = res.json.bind(res)
-  res.json = function (data) {
-    if (data && data.success === true) {
-      recordLoginAttempt(email, ipAddress, true, req.headers['user-agent'])
+  // Use response finish event to record successful login attempts
+  // This avoids monkey-patching res.json and works with any response method
+  res.on('finish', () => {
+    // Check if response indicates successful login (2xx status with success: true)
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      // Only record if this was a login attempt (email present in request)
+      if (email) {
+        recordLoginAttempt(email, ipAddress, true, req.headers['user-agent'])
+      }
     }
-    return originalJson(data)
-  }
+  })
 
   next()
 }

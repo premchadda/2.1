@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth & Public Pages Architecture - Trstprep V2.0</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712;
+            --bg-glass: rgba(15, 23, 42, 0.8);
+            --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-sky: #0ea5e9;
+            --accent-indigo: #6366f1;
+            --gradient-auth: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+            --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.3);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; line-height: 1.7; overflow-x: hidden; }
+        .bg-pattern { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        .bg-pattern::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse 80% 50% at 30% 0%, rgba(59, 130, 246, 0.12), transparent), radial-gradient(ellipse 60% 40% at 70% 100%, rgba(99, 102, 241, 0.08), transparent); }
+        .container { max-width: 1600px; margin: 0 auto; padding: 2rem; position: relative; z-index: 1; }
+        .header { text-align: center; padding: 4rem 0 6rem; }
+        .badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.5rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 50px; font-size: 0.85rem; font-weight: 600; color: #93c5fd; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2rem; }
+        h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 900; line-height: 1.1; margin-bottom: 1.5rem; background: var(--gradient-auth); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 1.25rem; color: var(--text-secondary); max-width: 800px; margin: 0 auto; line-height: 1.8; }
+        .nav-tabs { display: flex; justify-content: center; gap: 0.5rem; padding: 2rem 0 4rem; flex-wrap: wrap; }
+        .nav-tab { padding: 0.75rem 1.5rem; background: var(--bg-card); border: 1px solid var(--border-glass); border-radius: 12px; color: var(--text-secondary); font-weight: 500; cursor: pointer; transition: all 0.3s ease; }
+        .nav-tab:hover, .nav-tab.active { background: rgba(59, 130, 246, 0.15); border-color: var(--accent-blue); color: var(--text-primary); }
+        .main-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; margin-bottom: 4rem; }
+        .glass-card { background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border-glass); border-radius: 24px; padding: 2rem; transition: all 0.4s ease; }
+        .glass-card:hover { transform: translateY(-8px); border-color: rgba(59, 130, 246, 0.3); box-shadow: var(--shadow-glow); }
+        .card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-glass); }
+        .card-icon { width: 56px; height: 56px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 16px; }
+        .card-title { font-size: 1.5rem; font-weight: 700; }
+        .card-subtitle { font-size: 0.9rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .span-4 { grid-column: span 4; }
+        .span-6 { grid-column: span 6; }
+        .span-12 { grid-column: span 12; }
+        .page-list { display: flex; flex-direction: column; gap: 0.75rem; }
+        .page-item { display: flex; align-items: center; gap: 1rem; padding: 1rem 1.25rem; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-glass); border-radius: 12px; transition: all 0.3s ease; }
+        .page-item:hover { background: rgba(59, 130, 246, 0.1); border-color: rgba(59, 130, 246, 0.3); transform: translateX(8px); }
+        .page-number { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: var(--gradient-auth); border-radius: 8px; font-weight: 700; font-size: 0.85rem; }
+        .page-info { flex: 1; }
+        .page-name { font-weight: 600; font-size: 1rem; }
+        .page-path { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .page-status { padding: 0.3rem 0.75rem; border-radius: 50px; font-size: 0.75rem; font-weight: 600; }
+        .status-public { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+        .status-auth { background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3); }
+        .api-grid { display: grid; gap: 0.75rem; }
+        .api-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-glass); border-radius: 10px; }
+        .method-badge { padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 700; min-width: 50px; text-align: center; }
+        .method-get { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+        .method-post { background: rgba(99, 102, 241, 0.15); color: #a5b4fc; }
+        .api-path { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: #93c5fd; }
+        .code-block { background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-glass); border-radius: 12px; overflow: hidden; }
+        .code-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: rgba(0, 0, 0, 0.3); border-bottom: 1px solid var(--border-glass); }
+        .code-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .code-dot.red { background: #ef4444; }
+        .code-dot.yellow { background: #fbbf24; }
+        .code-dot.green { background: #34d399; }
+        .code-title { margin-left: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+        pre { padding: 1.25rem; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.7; }
+        .keyword { color: #f472b6; }
+        .string { color: #fde047; }
+        .property { color: #93c5fd; }
+        .number { color: #34d399; }
+        .comment { color: #64748b; }
+        .auth-flow { display: flex; align-items: center; justify-content: center; gap: 1rem; padding: 2rem; flex-wrap: wrap; }
+        .auth-node { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 1.25rem 1.5rem; background: var(--bg-card); border: 2px solid var(--border-glass); border-radius: 16px; min-width: 140px; text-align: center; transition: all 0.3s ease; }
+        .auth-node:hover { transform: translateY(-5px); border-color: var(--accent-blue); box-shadow: var(--shadow-glow); }
+        .auth-icon { font-size: 1.75rem; }
+        .auth-title { font-weight: 700; font-size: 0.9rem; }
+        .auth-desc { font-size: 0.75rem; color: var(--text-muted); }
+        .auth-arrow { color: var(--accent-blue); font-size: 1.5rem; }
+        @media (max-width: 1200px) { .span-4, .span-6 { grid-column: span 6; } }
+        @media (max-width: 768px) { .container { padding: 1rem; } .span-4, .span-6, .span-12 { grid-column: span 12; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <header class="header">
+            <div class="badge"><span>Public & Auth Routes</span></div>
+            <h1>Auth & Public Pages Flow Map</h1>
+            <p class="subtitle">Complete architecture for authentication flows (login, signup, password reset, email verification) and public pages (home, about, contact, blog, legal) with no authentication required.</p>
+            <p style="text-align: center; color: rgba(255,255,255,0.7); margin-top: 10px; font-size: 0.9rem;">
+                <strong>Last Updated: | Update date is (19:18)</strong> March 8, 2026 | <strong>Database:</strong> PostgreSQL (Supabase) | <strong>Tables:</strong> 40+
+            </p>
+        </header>
+        <nav class="nav-tabs">
+            <button class="nav-tab active">🔐 Auth Pages</button>
+            <button class="nav-tab">🌐 Public Pages</button>
+            <button class="nav-tab">📡 API Endpoints</button>
+            <button class="nav-tab">🔑 Auth Flow</button>
+        </nav>
+        <div class="main-grid">
+            <section class="glass-card span-12">
+                <div class="card-header">
+                    <div class="card-icon">🔑</div>
+                    <div><div class="card-title">Authentication Flow</div><div class="card-subtitle">User authentication journey</div></div>
+                </div>
+                <div class="auth-flow">
+                    <div class="auth-node"><div class="auth-icon">📝</div><div class="auth-title">/signup</div><div class="auth-desc">Register</div></div>
+                    <div class="auth-arrow">→</div>
+                    <div class="auth-node"><div class="auth-icon">📧</div><div class="auth-title">/verify-email</div><div class="auth-desc">Verify Email</div></div>
+                    <div class="auth-arrow">→</div>
+                    <div class="auth-node"><div class="auth-icon">🔓</div><div class="auth-title">/login</div><div class="auth-desc">Login</div></div>
+                    <div class="auth-arrow">→</div>
+                    <div class="auth-node"><div class="auth-icon">📊</div><div class="auth-title">/dashboard</div><div class="auth-desc">Dashboard</div></div>
+                </div>
+                <div class="auth-flow" style="margin-top: 1rem;">
+                    <div class="auth-node"><div class="auth-icon">❓</div><div class="auth-title">/forgot-password</div><div class="auth-desc">Request Reset</div></div>
+                    <div class="auth-arrow">→</div>
+                    <div class="auth-node"><div class="auth-icon">📧</div><div class="auth-title">Email Link</div><div class="auth-desc">Token Sent</div></div>
+                    <div class="auth-arrow">→</div>
+                    <div class="auth-node"><div class="auth-icon">🔄</div><div class="auth-title">/reset-password</div><div class="auth-desc">New Password</div></div>
+                </div>
+            </section>
+            <section class="glass-card span-4">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <div><div class="card-title">Auth Pages</div><div class="card-subtitle">5 authentication pages</div></div>
+                </div>
+                <div class="page-list">
+                    <div class="page-item"><div class="page-number">1</div><div class="page-info"><div class="page-name">Login</div><div class="page-path">src/features/auth/Login.jsx</div></div><span class="page-status status-auth">Auth</span></div>
+                    <div class="page-item"><div class="page-number">2</div><div class="page-info"><div class="page-name">Signup</div><div class="page-path">src/features/auth/Signup.jsx</div></div><span class="page-status status-auth">Auth</span></div>
+                    <div class="page-item"><div class="page-number">3</div><div class="page-info"><div class="page-name">EmailVerification</div><div class="page-path">src/pages/auth/EmailVerification.jsx</div></div><span class="page-status status-auth">Auth</span></div>
+                    <div class="page-item"><div class="page-number">4</div><div class="page-info"><div class="page-name">ForgotPassword</div><div class="page-path">src/pages/auth/ForgotPassword.jsx</div></div><span class="page-status status-auth">Auth</span></div>
+                    <div class="page-item"><div class="page-number">5</div><div class="page-info"><div class="page-name">ResetPassword</div><div class="page-path">src/pages/auth/ResetPassword.jsx</div></div><span class="page-status status-auth">Auth</span></div>
+                </div>
+            </section>
+            <section class="glass-card span-4">
+                <div class="card-header">
+                    <div class="card-icon">🌐</div>
+                    <div><div class="card-title">Public Pages</div><div class="card-subtitle">13 public pages</div></div>
+                </div>
+                <div class="page-list">
+                    <div class="page-item"><div class="page-number">1</div><div class="page-info"><div class="page-name">Home</div><div class="page-path">src/pages/public/Home.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">2</div><div class="page-info"><div class="page-name">About</div><div class="page-path">src/pages/public/About.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">3</div><div class="page-info"><div class="page-name">Contact</div><div class="page-path">src/pages/public/Contact.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">4</div><div class="page-info"><div class="page-name">Terms</div><div class="page-path">src/pages/public/Terms.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">5</div><div class="page-info"><div class="page-name">Privacy</div><div class="page-path">src/pages/public/Privacy.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">6</div><div class="page-info"><div class="page-name">Refund</div><div class="page-path">src/pages/public/Refund.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">7</div><div class="page-info"><div class="page-name">Faq</div><div class="page-path">src/pages/public/Faq.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">8</div><div class="page-info"><div class="page-name">Pass</div><div class="page-path">src/pages/public/Pass.jsx</div></div><span class="page-status status-public">Public</span></div>
+                    <div class="page-item"><div class="page-number">9</div><div class="page-info"><div class="page-name">Blog</div><div class="page-path">src/pages/public/Blog.jsx</div></div><span class="page-status status-public">Public</span></div>
+                </div>
+            </section>
+            <section class="glass-card span-4">
+                <div class="card-header">
+                    <div class="card-icon">📡</div>
+                    <div><div class="card-title">Auth API Endpoints</div><div class="card-subtitle">auth.js routes</div></div>
+                </div>
+                <div class="api-grid">
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span class="api-path">/api/auth/register</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span class="api-path">/api/auth/login</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span class="api-path">/api/auth/verify-email/:token</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span class="api-path">/api/auth/forgot-password</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span class="api-path">/api/auth/reset-password</span></div>
+                    <div class="api-item"><span class="method-badge method-get">GET</span><span class="api-path">/api/auth/me</span></div>
+                    <div class="api-item"><span class="method-badge method-post">POST</span><span class="api-path">/api/auth/logout</span></div>
+                </div>
+            </section>
+            <section class="glass-card span-6">
+                <div class="card-header">
+                    <div class="card-icon">📝</div>
+                    <div><div class="card-title">Registration Flow</div><div class="card-subtitle">User signup process</div></div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-title">auth.js - Register Handler</span></div>
+                    <pre><code><span class="comment">// POST /api/auth/register</span>
+router.post(<span class="string">'/register'</span>, async (req, res) => {
+  <span class="keyword">const</span> { name, email, password } = req.body
+
+  <span class="comment">// Check if user exists</span>
+  <span class="keyword">const</span> existingUser = <span class="keyword">await</span> dbHelpers.findOne(<span class="string">'users'</span>, { email })
+  <span class="keyword">if</span> (existingUser) {
+    <span class="keyword">return</span> res.status(<span class="number">400</span>).json({ 
+      success: <span class="keyword">false</span>, 
+      message: <span class="string">'User already exists'</span> 
+    })
+  }
+
+  <span class="comment">// Hash password & create user</span>
+  <span class="keyword">const</span> hashedPassword = <span class="keyword">await</span> bcrypt.hash(password, <span class="number">10</span>)
+  <span class="keyword">const</span> user = <span class="keyword">await</span> dbHelpers.insertOne(<span class="string">'users'</span>, {
+    name, email, 
+    password: hashedPassword,
+    role: <span class="string">'user'</span>,
+    isEmailVerified: <span class="keyword">false</span>
+  })
+
+  <span class="comment">// Send verification email</span>
+  <span class="keyword">await</span> sendVerificationEmail(user)
+  
+  res.status(<span class="number">201</span>).json({ success: <span class="keyword">true</span>, data: user })
+})</code></pre>
+                </div>
+            </section>
+            <section class="glass-card span-6">
+                <div class="card-header">
+                    <div class="card-icon">🔓</div>
+                    <div><div class="card-title">Login Flow</div><div class="card-subtitle">JWT token generation</div></div>
+                </div>
+                <div class="code-block">
+                    <div class="code-header"><div class="code-dot red"></div><div class="code-dot yellow"></div><div class="code-dot green"></div><span class="code-title">auth.js - Login Handler</span></div>
+                    <pre><code><span class="comment">// POST /api/auth/login</span>
+router.post(<span class="string">'/login'</span>, async (req, res) => {
+  <span class="keyword">const</span> { email, password } = req.body
+
+  <span class="comment">// Find user</span>
+  <span class="keyword">const</span> user = <span class="keyword">await</span> dbHelpers.findOne(<span class="string">'users'</span>, { email })
+  <span class="keyword">if</span> (!user) {
+    <span class="keyword">return</span> res.status(<span class="number">401</span>).json({ 
+      success: <span class="keyword">false</span>, 
+      message: <span class="string">'Invalid credentials'</span> 
+    })
+  }
+
+  <span class="comment">// Verify password</span>
+  <span class="keyword">const</span> isMatch = <span class="keyword">await</span> bcrypt.compare(password, user.password)
+  <span class="keyword">if</span> (!isMatch) {
+    <span class="keyword">return</span> res.status(<span class="number">401</span>).json({ 
+      success: <span class="keyword">false</span>, 
+      message: <span class="string">'Invalid credentials'</span> 
+    })
+  }
+
+  <span class="comment">// Generate JWT token</span>
+  <span class="keyword">const</span> token = jwt.sign(
+    { id: user.id, role: user.role },
+    process.env.JWT_SECRET,
+    { expiresIn: <span class="string">'7d'</span> }
+  )
+
+  res.json({ 
+    success: <span class="keyword">true</span>, 
+    token,
+    user: { id: user.id, name: user.name, email: user.email }
+  })
+})</code></pre>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { authController } from './auth.controller.js'
 import { authRateLimiter, protect } from '../../middleware/auth.middleware.js'
 import { lockoutMiddleware } from '../../middleware/lockout.middleware.js'
@@ -23,7 +24,7 @@ router.get('/verify-email/:token', authController.verifyEmail)
 // Get current authenticated user
 router.get('/me', protect, async (req, res) => {
   try {
-    const user = await global.dbHelpers.findById('users', req.user.id)
+    const user = await dbHelpers.findById('users', req.user.id)
 
     if (!user) {
       return res.status(404).json({
@@ -33,10 +34,10 @@ router.get('/me', protect, async (req, res) => {
     }
 
     const [enrolledSeries, enrolledExams, enrolledStudyMaterials, userAttempts] = await Promise.all([
-      EnrollmentService.getEnrolledSeriesIds(global.dbHelpers, req.user.id),
-      EnrollmentService.getEnrolledExamIds(global.dbHelpers, req.user.id),
-      EnrollmentService.getEnrolledStudyMaterialIds(global.dbHelpers, req.user.id),
-      getUserAttempts(req.user.id, global.dbHelpers, { completedOnly: true })
+      EnrollmentService.getEnrolledSeriesIds(dbHelpers, req.user.id),
+      EnrollmentService.getEnrolledExamIds(dbHelpers, req.user.id),
+      EnrollmentService.getEnrolledStudyMaterialIds(dbHelpers, req.user.id),
+      getUserAttempts(req.user.id, dbHelpers, { completedOnly: true })
     ])
 
     const attemptedTestsBySeries = new Map()
@@ -64,8 +65,8 @@ router.get('/me', protect, async (req, res) => {
     })
 
     const [attemptedSeriesLookup, attemptedTestsLookup] = await Promise.all([
-      buildPublicIdLookup(global.dbHelpers, 'testSeries', Array.from(attemptedTestsBySeries.keys())),
-      buildPublicIdLookup(global.dbHelpers, 'tests', Array.from(attemptedTestIds))
+      buildPublicIdLookup(dbHelpers, 'testSeries', Array.from(attemptedTestsBySeries.keys())),
+      buildPublicIdLookup(dbHelpers, 'tests', Array.from(attemptedTestIds))
     ])
 
     const attemptedTests = Object.fromEntries(

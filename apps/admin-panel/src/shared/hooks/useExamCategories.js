@@ -14,7 +14,7 @@ export function useExamCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/exam-categories`)
+      const response = await fetch(`${API_URL}/api/exam-categories`)
       const data = await response.json()
       if (data.success) {
         // Filter out "All Exams" and active only
@@ -36,7 +36,7 @@ export function useExamCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/exam-info`)
+      const response = await fetch(`${API_URL}/api/exam-info`)
       const data = await response.json()
       if (data.success) {
         // Filter active only
@@ -57,7 +57,7 @@ export function useExamCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/exam-categories/`)
+      const response = await fetch(`${API_URL}/api/exam-categories/`)
       const data = await response.json()
       if (data.success) {
         // Filter active only and map to expected format
@@ -111,21 +111,28 @@ export function useExamCategories() {
       })
       .map(exam => ({
         value: exam.id || exam.examId,
-        label: exam.name || exam.title || exam.fullName || exam.id,
-        fullName: exam.fullName || exam.description || exam.name || exam.title
+        label: exam.name || exam.title || exam.fullName || '',
+        fullName: exam.fullName || exam.description || exam.name || exam.title || ''
       }))
 
-    // Merge with examInfo fallback for missing exam rows in exams table
+    // Merge with examInfo fallback for missing exam rows in exams table.
+    // NOTE: Do NOT fall back to exam.examId as label — if there's no title/fullName
+    // the row has no usable display name and should be skipped by callers.
     const fromExamInfo = examInfo
       .filter(exam => {
         const key = String(exam.categoryId || '').toLowerCase()
         return key && categoryKeys.includes(key)
       })
-      .map(exam => ({
-        value: exam.examId,
-        label: exam.title || exam.fullName || exam.examId,
-        fullName: exam.fullName || exam.title
-      }))
+      .map(exam => {
+        const label = exam.title || exam.fullName || ''
+        if (!label) return null
+        return {
+          value: exam.examId,
+          label,
+          fullName: exam.fullName || exam.title || ''
+        }
+      })
+      .filter(Boolean)
 
     const merged = [...fromExams, ...fromExamInfo]
     const seen = new Set()

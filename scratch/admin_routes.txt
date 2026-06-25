@@ -1,0 +1,224 @@
+﻿64:  router.use(normalizeFields({ methods: ["POST", "PUT", "PATCH"] }));
+70:  router.use(restrictAdminOrigin);
+72:  router.use(validateAdminApiKey);
+74:  router.use(protect);
+76:  router.use(admin);
+78:  router.use(auditMiddleware({
+85:  router.use(testSeriesRoutes);
+86:  router.use(testsRoutes);
+87:  router.use(questionsRoutes);
+88:  router.use(adminCategoriesRoutes);
+89:  router.use(adminUsersRoutes);
+90:  router.use(adminStagesRoutes);
+91:  router.use('/stages', stagesRoutes);
+92:  router.use('/sections', sectionsRoutes);
+95:  router.use('/admin/analytics', analyticsRoutes);
+96:  router.use('/admin/roles', rolesRoutes);
+97:  router.use('/admin/permissions', rolesRoutes); // Permissions endpoint
+100:  router.use('/admin/audit-logs', auditRoutes);
+101:  router.use('/admin/email-templates', email_templatesRoutes);
+104:  router.use('/admin/navigation', navigationRoutes);
+105:  router.use('/admin/coming-soon', comingSoonRoutes);
+108:  router.use('/leaderboards', leaderboardRoutes);
+111:  router.get('/sessions', sessionController.getAllSessions);
+112:  router.get('/sessions/stats', sessionController.getSessionStats);
+113:  router.delete('/sessions/:sessionId', sessionController.revokeAnySession);
+114:  router.get('/users/:userId/sessions', sessionController.getUserSessionsById);
+115:  router.delete('/users/:userId/sessions', sessionController.revokeUserSessions);
+116:  router.put('/users/:userId/session-limit', sessionController.updateSessionLimit);
+609: router.get("/exams", async (req, res) => {
+648: router.get("/navigation", async (req, res) => {
+675: router.get("/stats", async (req, res) => {
+805: router.get("/test-series", async (req, res) => {
+858: router.post(
+908: router.put(
+1007: router.get("/test-series/:id", async (req, res) => {
+1022: router.delete("/test-series/:id", async (req, res) => {
+1076: router.get("/tests", async (req, res) => {
+1099: router.get("/tests/orphaned", async (req, res) => {
+1135: router.get("/tests/:id", async (req, res) => {
+1151: router.post("/tests", validateBody(testSchema), async (req, res) => {
+1244: router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
+1317: router.post("/tests/:id/duplicate", async (req, res) => {
+1352: router.delete("/tests/:id", async (req, res) => {
+1410: router.post(
+1578: router.get("/questions", async (req, res) => {
+1629: router.post("/questions/practice", async (req, res) => {
+1659: router.put("/tests/:id/reassign", async (req, res) => {
+1713: router.get("/questions/practice", async (req, res) => {
+1752: router.get("/questions/count-by-test", async (req, res) => {
+1781: router.get("/questions/orphaned", async (req, res) => {
+1815: router.get("/questions/:id", async (req, res) => {
+1860: router.post("/questions", async (req, res) => {
+1947: router.post(
+2205: router.put("/questions/:id", async (req, res) => {
+2295: router.get("/tests/export", async (req, res) => {
+2403: router.delete("/questions/:id", async (req, res) => {
+2422: router.post("/questions/:id/duplicate", async (req, res) => {
+2462: router.put("/questions/reorder", async (req, res) => {
+2526: router.put("/questions/:id/restore", async (req, res) => {
+2545: router.get("/questions/export", async (req, res) => {
+2650: router.get("/analytics/export", async (req, res) => {
+2750: router.get("/subjects-list", async (req, res) => {
+2759: router.get("/study-materials", async (req, res) => {
+2785: router.post("/study-materials", async (req, res) => {
+2803: router.put("/study-materials/:id", async (req, res) => {
+2884: router.delete("/study-materials/:id", async (req, res) => {
+2903: router.put("/study-materials/:id/restore", async (req, res) => {
+2922: router.get("/study-materials/:id", async (req, res) => {
+2940: router.get("/chapters", async (req, res) => {
+2955: router.get("/topics", async (req, res) => {
+2968: router.post("/chapters", async (req, res) => {
+3004: router.put("/chapters/:id", async (req, res) => {
+3028: router.delete("/chapters/:id", async (req, res) => {
+3060: router.get("/subject-videos", async (req, res) => {
+3075: router.post("/subject-videos", async (req, res) => {
+3122: router.put("/subject-videos/:id", async (req, res) => {
+3146: router.delete("/subject-videos/:id", async (req, res) => {
+3177: router.put("/subject-videos/:id/reorder", async (req, res) => {
+3190: router.get("/subject-pdfs", async (req, res) => {
+3205: router.post("/subject-pdfs", async (req, res) => {
+3252: router.put("/subject-pdfs/:id", async (req, res) => {
+3274: router.delete("/subject-pdfs/:id", async (req, res) => {
+3301: router.put("/subject-pdfs/:id/reorder", async (req, res) => {
+3314: router.get("/topic-tests", async (req, res) => {
+3329: router.post("/topic-tests", async (req, res) => {
+3366: router.delete("/topic-tests/:id", async (req, res) => {
+3397: router.put("/topic-tests/:id/reorder", async (req, res) => {
+3426: router.get("/enrollments", async (req, res) => {
+3593: router.get("/results", async (req, res) => {
+3763: router.get("/assets", listAssets);
+3766: router.get("/media", listAssets);
+3769: router.get("/assets/:id", async (req, res) => {
+3784: router.get("/media/:id", async (req, res) => {
+3799: router.patch("/assets/:id", async (req, res) => {
+3833: router.delete("/assets/:id", async (req, res) => {
+3865: router.delete("/media/:id", async (req, res) => {
+3943: router.post("/assets/upload", upload.single("file"), handleAssetUpload);
+3944: router.post("/upload", upload.single("file"), handleAssetUpload);
+3945: router.post("/media/upload", upload.single("file"), handleAssetUpload);
+3948: router.get("/settings", async (req, res) => {
+3957: router.put("/settings", async (req, res) => {
+3984: router.post("/exams", async (req, res) => {
+4062: router.put("/exams/:id", async (req, res) => {
+4138: router.delete("/exams/:id", async (req, res) => {
+4168: router.get("/exam-info", async (req, res) => {
+4218: router.post("/exam-info", async (req, res) => {
+4264: router.put("/exam-info/:id", async (req, res) => {
+4322: router.delete("/exam-info/:id", async (req, res) => {
+4344: router.get("/exam-seasons", async (req, res) => {
+4374: router.post("/exam-seasons", async (req, res) => {
+4432: router.put("/exam-seasons/:id", async (req, res) => {
+4453: router.delete("/exam-seasons/:id", async (req, res) => {
+4471: router.post("/navigation", async (req, res) => {
+4480: router.put("/navigation/:id", async (req, res) => {
+4498: router.delete("/navigation/:id", async (req, res) => {
+4517: router.get("/tag-configs", async (req, res) => {
+4526: router.post("/tag-configs", async (req, res) => {
+4535: router.put("/tag-configs/:id", async (req, res) => {
+4553: router.delete("/tag-configs/:id", async (req, res) => {
+4572: router.get("/analytics", async (req, res) => {
+4769: router.get("/question-analytics", async (req, res) => {
+4790: router.get("/recent-activity", async (req, res) => {
+4920: router.get("/trash", async (req, res) => {
+4930: router.get("/trash/:type", async (req, res) => {
+4942: router.put("/trash/:id/restore", async (req, res) => {
+4961: router.delete("/trash/:id", async (req, res) => {
+4976: router.delete("/trash", async (req, res) => {
+4987: router.get("/curriculum/orphans", async (req, res) => {
+5109: router.get("/topics", async (req, res) => {
+5118: router.post("/topics", async (req, res) => {
+5130: router.put("/topics/:id", async (req, res) => {
+5147: router.delete("/topics/:id", async (req, res) => {
+5168: router.get("/passages", async (req, res) => {
+5181: router.get("/coupons", async (req, res) => {
+5190: router.post("/coupons", async (req, res) => {
+5202: router.put("/coupons/:id", async (req, res) => {
+5219: router.delete("/coupons/:id", async (req, res) => {
+5238: router.get("/notifications", async (req, res) => {
+5247: router.post("/notifications", async (req, res) => {
+5259: router.post("/notifications/bulk", async (req, res) => {
+5276: router.put("/notifications/:id", async (req, res) => {
+5293: router.delete("/notifications/:id", async (req, res) => {
+5312: router.get("/leaderboards", async (req, res) => {
+5323: router.get("/leaderboards/:testId", async (req, res) => {
+5339: router.post("/leaderboards", async (req, res) => {
+5351: router.put("/leaderboards/:id", async (req, res) => {
+5368: router.put("/leaderboards/:id/publish", async (req, res) => {
+5389: router.delete("/leaderboards/:id", async (req, res) => {
+5408: router.get("/subscription-plans", async (req, res) => {
+5417: router.post("/subscription-plans", async (req, res) => {
+5429: router.put("/subscription-plans/:id", async (req, res) => {
+5450: router.delete("/subscription-plans/:id", async (req, res) => {
+5469: router.get("/videos", async (req, res) => {
+5478: router.post("/videos", async (req, res) => {
+5490: router.put("/videos/:id", async (req, res) => {
+5507: router.delete("/videos/:id", async (req, res) => {
+5526: router.get("/subjects", async (req, res) => {
+5535: router.post("/subjects", async (req, res) => {
+5547: router.put("/subjects/:id", async (req, res) => {
+5564: router.delete("/subjects/:id", async (req, res) => {
+5584: router.get("/activity-order", async (req, res) => {
+5637: router.get("/realtime/active-users", async (req, res) => {
+5709: router.get("/realtime/test-activity", async (req, res) => {
+5787: router.get("/realtime/revenue", async (req, res) => {
+5881: router.get("/realtime/system-health", async (req, res) => {
+5960: router.get("/realtime/live-feed", async (req, res) => {
+6091: router.get("/system-health", getSystemHealth);
+6092: router.get("/health", getSystemHealth);
+6095: router.get("/backups", async (req, res) => {
+6105: router.post("/backups", async (req, res) => {
+6310: router.delete("/backups/:id", async (req, res) => {
+6351: router.post("/backups/:id/restore", async (req, res) => {
+6439: router.post("/backups/trigger", async (req, res) => {
+6501: router.get("/backups/:id/download", async (req, res) => {
+6532: router.post("/settings/test-email", async (req, res) => {
+6593: router.get("/banners", async (req, res) => {
+6602: router.post("/banners", async (req, res) => {
+6614: router.put("/banners/:id", async (req, res) => {
+6631: router.delete("/banners/:id", async (req, res) => {
+6650: router.get("/faqs", async (req, res) => {
+6659: router.post("/faqs", async (req, res) => {
+6671: router.put("/faqs/:id", async (req, res) => {
+6686: router.delete("/faqs/:id", async (req, res) => {
+6703: router.get("/promotions", async (req, res) => {
+6733: router.post("/promotions", async (req, res) => {
+6749: router.put("/promotions/:id", async (req, res) => {
+6770: router.delete("/promotions/:id", async (req, res) => {
+6789: router.get("/quizzes", async (req, res) => {
+6798: router.post("/quizzes", async (req, res) => {
+6810: router.put("/quizzes/:id", async (req, res) => {
+6827: router.delete("/quizzes/:id", async (req, res) => {
+6846: router.get("/activity-logs", async (req, res) => {
+6873: router.post("/activity-logs", async (req, res) => {
+6904:   router.get(`/${path}`, async (req, res) => {
+6960:   router.post(`/${path}`, async (req, res) => {
+6969:   router.put(`/${path}/:id`, async (req, res) => {
+6984:   router.delete(`/${path}/:id`, async (req, res) => {
+7001: router.get("/coming-soon-config", async (req, res) => {
+7015: router.put("/coming-soon-config", async (req, res) => {
+7050: router.get("/analytics/funnel", async (req, res) => {
+7116: router.get("/analytics/cohort", async (req, res) => {
+7180: router.get("/analytics/engagement", async (req, res) => {
+7263: router.get("/email-templates", async (req, res) => {
+7320: router.get("/email-templates/:id", async (req, res) => {
+7330: router.post("/email-templates", async (req, res) => {
+7354: router.put("/email-templates/:id", async (req, res) => {
+7375: router.delete("/email-templates/:id", async (req, res) => {
+7388: router.post("/email-templates/test", async (req, res) => {
+7413: router.get("/roles", async (req, res) => {
+7543: router.post("/roles", async (req, res) => {
+7563: router.put("/roles/:id", async (req, res) => {
+7584: router.delete("/roles/:id", async (req, res) => {
+7601: router.get("/permissions", async (req, res) => {
+7623: router.put("/users/:id/role", async (req, res) => {
+7673: router.get("/audit-logs", async (req, res) => {
+7766: router.get("/audit-logs/stats", async (req, res) => {
+7797: router.get("/audit-logs/export/csv", async (req, res) => {
+7799: router.get("/audit-logs/:id", async (req, res) => {
+7858: router.post("/test-series/bulk-operation", async (req, res) => {
+7956: router.post("/tests/bulk-reassign", async (req, res) => {
+8025: router.post("/questions/bulk-reorder", async (req, res) => {
+8084: router.post("/questions/:id/convert", async (req, res) => {
+8146: router.post("/questions/bulk-convert", async (req, res) => {
+8179: router.get("/chapters/:id/resources", async (req, res) => {
