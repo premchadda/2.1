@@ -87,6 +87,7 @@ yarn-error.log*
 coverage/
 .nyc_output/
 *.tsbuildinfo
+graphify-out/
 
 # ===========================================
 # LOCAL DEVELOPMENT FILES (Added by audit)
@@ -94,9 +95,17 @@ coverage/
 # Local scripts that shouldn't be committed
 *.cjs
 
+# Scratch and temp files
+scratch/
+New Text Document.txt
+
 # Sensitive backup files
 dev-tools/backups/
 dev-tools/*.backup
+
+# AI agent configs
+.agents/
+.codex/
 
 # QMS file (misplaced)
 qms.jsx

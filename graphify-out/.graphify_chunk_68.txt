@@ -1,2 +1,0 @@
-E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\tests\TestSeries.jsx
-E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\public\Home.jsx

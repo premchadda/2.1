@@ -1,2 +1,0 @@
-E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\pages\study\StudyMaterial.jsx
-E:\Tech\Testprep\Trstprep V2.1\apps\backend\src\infrastructure\database\migrations\019-fix-all-remaining-schema-issues.sql
