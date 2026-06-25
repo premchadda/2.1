@@ -1,0 +1,12 @@
+2026-02-16T06:46:33.834828Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo"), AnchoredSystemPathBuf(".turbo\\cookies\\1.cookie"), AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-02-16T06:46:33.835359Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-02-16T06:46:33.944019Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\cookies")}
+2026-02-16T06:46:33.944053Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-02-16T06:46:36.339696Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\frontend"), AnchoredSystemPathBuf("apps\\frontend\\vite.config.js.timestamp-1771224396283-244eb712d47b78.mjs")}
+2026-02-16T06:46:36.339713Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-frontend"), path: AnchoredSystemPathBuf("apps\\frontend") }}))
+2026-02-16T06:46:36.439926Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("apps\\frontend"), AnchoredSystemPathBuf("apps\\frontend\\vite.config.js.timestamp-1771224396283-244eb712d47b78.mjs")}
+2026-02-16T06:46:36.439969Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Other("trstprep-frontend"), path: AnchoredSystemPathBuf("apps\\frontend") }}))
+2026-02-16T06:46:57.950944Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf(".turbo\\daemon")}
+2026-02-16T06:46:57.951020Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
+2026-02-16T06:59:59.787345Z  WARN turborepo_lib::package_changes_watcher: changed_files: {AnchoredSystemPathBuf("Plan.txt"), AnchoredSystemPathBuf(""), AnchoredSystemPathBuf("Plan")}
+2026-02-16T06:59:59.787367Z  WARN turborepo_lib::package_changes_watcher: changed_packages: Ok(Some({WorkspacePackage { name: Root, path: AnchoredSystemPathBuf("") }}))
