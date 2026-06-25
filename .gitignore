@@ -47,6 +47,7 @@ data/
 apps/backend/src/data/*
 *.db
 *.sqlite
+ssc_cgl_prevyear_full.json
 
 # Test and debug scripts (if any remain outside _dev)
 test-*.js
