@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "dev": "turbo dev",
@@ -20,8 +21,6 @@
     "build:backend": "turbo build --filter=trstprep-backend",
     "build:frontend": "turbo build --filter=trstprep-frontend",
     "build:admin": "turbo build --filter=trstprep-admin",
-    "docs": "node dev-tools/scripts/update-docs.mjs",
-    "watch-docs": "node dev-tools/scripts/watch-docs.mjs",
     "upgrade": "ncu -u",
     "prepare": "husky install"
   },
