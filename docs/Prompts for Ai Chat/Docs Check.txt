@@ -1,9 +1,0 @@
-Analyze the documentation files in the repository and compare them against the current codebase to determine if they are up-to-date with the existing implementation. Specifically:
-
-1. Review all documentation files located in the `docs/` directory and its subdirectories
-2. Compare the documented APIs, database schemas, project structure, and functionality against the actual current code in the repository
-3. Identify which documentation files accurately reflect the current codebase versus those that are outdated
-4. Pay special attention to key documentation files like API_DOCUMENTATION.html, DATABASE_SCHEMA.html, PROJECT_STRUCTURE.html, and any flow diagrams
-5. Note any discrepancies between what's documented and what exists in the actual code
-6. Determine if the documentation reflects the current architecture including the three-app structure (backend, frontend, landing), the database export files, and the dev-tools scripts
-7. Flag any documentation that appears to reference legacy or outdated information based on the current repository state

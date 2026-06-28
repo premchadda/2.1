@@ -1,0 +1,2301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trstprep V2.1 - Feature Reports</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #030712; --bg-glass: rgba(15, 23, 42, 0.8); --bg-card: rgba(30, 41, 59, 0.5);
+            --border-glass: rgba(148, 163, 184, 0.1); --text-primary: #f8fafc; --text-secondary: #cbd5e1;
+            --text-muted: #64748b; --accent: #a855f7;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg-primary); color: var(--text-primary); line-height: 1.7; overflow-x: hidden; }
+        .bg-pattern { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+        .bg-pattern::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse 80% 50% at 20% 0%, rgba(168,85,247,0.15), transparent), radial-gradient(ellipse 60% 40% at 80% 100%, rgba(244,63,94,0.1), transparent); }
+        .bg-pattern::after { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(148,163,184,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.03) 1px, transparent 1px); background-size: 60px 60px; }
+        .topbar { position: sticky; top: 0; z-index: 100; background: rgba(3,7,18,0.85); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-glass); padding: 1rem 2rem; }
+        .topbar-inner { max-width: 1600px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+        .topbar-title { font-size: 1.1rem; font-weight: 800; background: linear-gradient(135deg, #f43f5e 0%, #a855f7 50%, #10b981 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+        .tab-bar { display: flex; gap: 0.25rem; flex-wrap: nowrap; overflow-x: auto; padding: 0.5rem 0; }
+        .flow-tab { padding: 0.5rem 1rem; background: rgba(30,41,59,0.5); border: 1px solid var(--border-glass); border-radius: 10px; color: var(--text-secondary); font-weight: 600; font-size: 0.8rem; cursor: pointer; white-space: nowrap; transition: all 0.3s; display: flex; align-items: center; gap: 0.4rem; }
+        .flow-tab:hover { background: rgba(99,102,241,0.15); color: var(--text-primary); }
+        .flow-tab.active { background: color-mix(in srgb, var(--tab-accent, var(--accent)) 20%, transparent); border-color: var(--tab-accent, var(--accent)); color: #fff; }
+        .flow-tab .tab-icon { width: 8px; height: 8px; border-radius: 50%; background: var(--tab-accent, var(--accent)); }
+        .container { max-width: 1600px; margin: 0 auto; padding: 2rem; position: relative; z-index: 1; }
+        .flow-section { animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .section-header { display: flex; align-items: baseline; gap: 1rem; padding-bottom: 1.5rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border-glass); }
+        .section-header h2 { font-size: clamp(1.5rem, 3vw, 2.5rem); font-weight: 900; }
+        .glass-card { background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border-glass); border-radius: 24px; padding: 2rem; }
+        .header { text-align: center; padding: 2rem 0 3rem; }
+        h1 { font-size: clamp(2rem, 4vw, 3.5rem); font-weight: 900; }
+        .subtitle { font-size: 1.15rem; color: var(--text-secondary); max-width: 800px; margin: 0 auto; }
+        .main-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1.5rem; margin-bottom: 3rem; }
+        .span-4 { grid-column: span 4; } .span-6 { grid-column: span 6; } .span-12 { grid-column: span 12; }
+        .card-header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-glass); }
+        .card-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; border-radius: 14px; }
+        .card-title { font-size: 1.3rem; font-weight: 700; }
+        .footer { text-align: center; padding: 3rem 0; color: var(--text-muted); font-size: 0.85rem; }
+        @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } .span-4,.span-6 { grid-column: span 12; } }
+    </style>
+</head>
+<body>
+    <div class="bg-pattern"></div>
+    <div class="topbar">
+        <div class="topbar-inner">
+            <div class="topbar-title">Trstprep V2.1 &mdash; Feature Reports</div>
+        </div>
+        <div class="tab-bar">
+        <button class="flow-tab active" data-target="feature-0" style="--tab-accent: #f43f5e">
+          <span class="tab-icon"></span>
+          Admin Panel Analysis
+        </button>
+        <button class="flow-tab " data-target="feature-1" style="--tab-accent: #f59e0b">
+          <span class="tab-icon"></span>
+          Card Ordering Report
+        </button>
+        <button class="flow-tab " data-target="feature-2" style="--tab-accent: #10b981">
+          <span class="tab-icon"></span>
+          Feature Recommendations
+        </button>
+        </div>
+    </div>
+    <div class="container">
+    <div class="flow-section" id="feature-0" data-accent="#f43f5e" style="display: block;">
+      <div class="section-header" style="background: linear-gradient(135deg, #f43f5e 0%, #a855f7 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+        <h2>Admin Panel Analysis</h2>
+      </div>
+      <div class="container">
+        <header>
+            <h1>🛠️ Admin Panel Master Specification</h1>
+            <p>Trstprep V2.0 — Complete Architecture, Data Hierarchies & Permission Rules</p>
+            <div class="badges">
+                <span class="badge">📋 10 Modules</span>
+                <span class="badge">🔐 CRUD+ Rules</span>
+                <span class="badge">📁 40 Components</span>
+                <span class="badge">🚀 Migration Ready</span>
+                <span class="badge">📅 March 10, 2026</span>
+            </div>
+        </header>
+        
+        <nav class="nav">
+            <ul>
+                <li><a href="#crud">🔐 CRUD+ Rules</a></li>
+                <li><a href="#specification">📋 Specification</a></li>
+                <li><a href="#taxonomy">🗂️ Taxonomy</a></li>
+                <li><a href="#mapping">🗺️ Mapping</a></li>
+                <li><a href="#technical">⚙️ Technical</a></li>
+                <li><a href="#migration">🧭 Migration</a></li>
+                <li><a href="#risks">⚠️ Risks</a></li>
+            </ul>
+        </nav>
+        
+        <!-- CRUD+ Rules Section -->
+        <section class="card" id="crud">
+            <h2>🔐 Core Administrative Capabilities (CRUD+ Rules)</h2>
+            <p style="margin-bottom: 25px; color: var(--text-muted);">Administrators possess absolute control over content state, user access, and visual presentation across all modules.</p>
+            
+            <div class="crud-grid">
+                <div class="crud-card">
+                    <div class="crud-icon">➕</div>
+                    <div class="crud-title">Create & Add</div>
+                    <div class="crud-desc">Author new tests, upload study materials, define exam categories, generate coupons, and add staff accounts.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">👁️</div>
+                    <div class="crud-title">View & Read</div>
+                    <div class="crud-desc">Inspect user profiles, preview tests as a student, read Analytic Engine logs, and monitor system health.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">✏️</div>
+                    <div class="crud-title">Modify & Update</div>
+                    <div class="crud-desc">Fix typos in question banks, adjust test durations, update syllabus details, and manually upgrade user passes.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">🔄</div>
+                    <div class="crud-title">Reorder (Custom Display)</div>
+                    <div class="crud-desc">Manually define UI placement via <code>display_order</code> index. Overrides creation dates on static frontend views.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">🔌</div>
+                    <div class="crud-title">Enable & Disable</div>
+                    <div class="crud-desc">Publish or hide tests, activate/deactivate campaigns, and toggle global maintenance modes without deleting data.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">🗑️</div>
+                    <div class="crud-title">Delete & Restore</div>
+                    <div class="crud-desc">Soft-delete content (sent to Recycle Bin) with instant restoration capability.</div>
+                </div>
+                <div class="crud-card">
+                    <div class="crud-icon">🚫</div>
+                    <div class="crud-title">Ban & Remove</div>
+                    <div class="crud-desc">Instantly suspend bad actors or permanently delete user accounts and associated data.</div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Master Specification Section -->
+        <section class="card" id="specification">
+            <h2>📋 Master Admin Module Specification</h2>
+            <p style="margin-bottom: 25px; color: var(--text-muted);">Aligned with <code>docs/Admin Panel doc.txt</code> — 10 functional modules with detailed workflows.</p>
+            
+            <div class="stats-grid">
+                <div class="stat-card"><div class="number">10</div><div class="label">Admin Modules</div></div>
+                <div class="stat-card"><div class="number">40+</div><div class="label">Features</div></div>
+                <div class="stat-card"><div class="number">7</div><div class="label">CRUD+ Actions</div></div>
+                <div class="stat-card"><div class="number">∞</div><div class="label">Control Level</div></div>
+            </div>
+            
+            <div class="module-grid">
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📊</div><span>Dashboard</span></div>
+                    <div class="module-body">
+                        <p class="module-description">High-level landing page for administrative oversight with real-time metrics and quick actions.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Overview Metrics</span> <span class="desc">— DAU, live test takers, daily revenue</span></li>
+                            <li><span class="component">Quick Actions</span> <span class="desc">— Add Mock Test, Generate Coupon</span></li>
+                            <li><span class="component">AdminDashboard.jsx</span> <span class="desc">— Main gateway</span></li>
+                            <li><span class="component">AdminAnalytics.jsx</span> <span class="desc">— Analytics overview</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📝</div><span>Exam Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Controls the top-level taxonomy of the platform with category and subcategory management.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Exam Category</span> <span class="desc">— SSC, Railway umbrellas</span></li>
+                            <li><span class="component">Subcategory</span> <span class="desc">— CGL, CHSL, NTPC</span></li>
+                            <li><span class="component">Exam Info Editor</span> <span class="desc">— Rich-text syllabus, eligibility</span></li>
+                            <li><span class="component">CategoriesManager.jsx</span> <span class="desc">— Taxonomy controls</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">🎯</div><span>Test & Quiz Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Core engine for assessment creation and organization with full lifecycle management.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Test Category/Subcategory</span> <span class="desc">— Live Mocks, Sectional</span></li>
+                            <li><span class="component">TestSeriesManager.jsx</span> <span class="desc">— Group tests into packages</span></li>
+                            <li><span class="component">TestsManager.jsx</span> <span class="desc">— Build full assessments</span></li>
+                            <li><span class="component">QuizManager.jsx</span> <span class="feature-tag new">NEW</span> <span class="desc">— Practice Mode</span></li>
+                            <li><span class="component">QuestionsManager.jsx</span> <span class="desc">— Question Bank</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📚</div><span>Study Material Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Controls syllabus hierarchy and static learning resources with complete curriculum tree.</p>
+                        <ul class="module-list">
+                            <li><span class="component">SubjectsManager.jsx</span> <span class="desc">— Subject taxonomy</span></li>
+                            <li><span class="component">TopicsManager.jsx</span> <span class="desc">— Topic hierarchy</span></li>
+                            <li><span class="component">ContentManager.jsx</span> <span class="desc">— PDFs, Notes, Videos</span></li>
+                            <li><span class="component">TagConfigsManager.jsx</span> <span class="desc">— Searchable tags</span></li>
+                            <li><span class="component">VideosManager.jsx</span> <span class="desc">— Video content</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📈</div><span>Analytic Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Deep-dive data center for tracking performance, security, and comprehensive audit trails.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Performance Analytics</span> <span class="desc">— Scores, failed questions</span></li>
+                            <li><span class="component">Analytic Engine Logs</span> <span class="desc">— Action history</span></li>
+                            <li><span class="component">AdminAnalytics.jsx</span> <span class="desc">— Metrics dashboard</span></li>
+                            <li><span class="component">LeaderboardsManager.jsx</span> <span class="desc">— Rankings data</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">🔔</div><span>Notification Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Platform's communication hub for alerts, announcements, and targeted notifications.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Alerts & Announcements</span> <span class="desc">— Bulk notifications</span></li>
+                            <li><span class="component">Targeted Alerts</span> <span class="desc">— Cohort-specific</span></li>
+                            <li><span class="component">NotificationsManager.jsx</span> <span class="desc">— Main controller</span></li>
+                            <li><span class="component">FaqManager.jsx</span> <span class="desc">— Support content</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">💳</div><span>Subscriptions Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Controls monetization and promotional engines with pass management and coupon systems.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Pass Manager</span> <span class="desc">— Free/Pro tier features</span></li>
+                            <li><span class="component">Coupon Manager</span> <span class="feature-tag new">NEW</span> <span class="desc">— Discount codes</span></li>
+                            <li><span class="component">Promotion Manager</span> <span class="feature-tag new">NEW</span> <span class="desc">— Referral rewards</span></li>
+                            <li><span class="component">SubscriptionsManager.jsx</span> <span class="desc">— Main controller</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">👥</div><span>User Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Support and moderation console for user administration and account management.</p>
+                        <ul class="module-list">
+                            <li><span class="component">User Dashboard</span> <span class="desc">— Search profiles, history</span></li>
+                            <li><span class="component">User Manage</span> <span class="desc">— Upgrade passes, ban users</span></li>
+                            <li><span class="component">UsersManager.jsx</span> <span class="desc">— User administration</span></li>
+                            <li><span class="component">EnrollmentsManager.jsx</span> <span class="desc">— Enrollment tracking</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">⚙️</div><span>System Manager</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Technical oversight and recovery center for system health and data lifecycle.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Recycle Bin</span> <span class="desc">— Soft-deleted content</span></li>
+                            <li><span class="component">System Health</span> <span class="desc">— Backend status, DB health</span></li>
+                            <li><span class="component">RecycleBin.jsx</span> <span class="desc">— Recovery interface</span></li>
+                            <li><span class="component">BackupsManager.jsx</span> <span class="desc">— Backup management</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">🛠️</div><span>Admin & App Settings</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Global configuration controls for platform customization and feature management.</p>
+                        <ul class="module-list">
+                            <li><span class="component">Platform Settings</span> <span class="desc">— Site name, contact, social</span></li>
+                            <li><span class="component">Feature Toggles</span> <span class="desc">— Maintenance mode, etc.</span></li>
+                            <li><span class="component">Documentation Hub</span> <span class="feature-tag new">NEW</span> <span class="desc">— Internal docs</span></li>
+                            <li><span class="component">AdminSettings.jsx</span> <span class="desc">— Global config</span></li>
+                            <li><span class="component">NavigationManager.jsx</span> <span class="desc">— Nav structure</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Proposed Taxonomy Section -->
+        <section class="card" id="taxonomy">
+            <h2>🗂️ Proposed Admin Taxonomy</h2>
+            <p style="margin-bottom: 25px; color: var(--text-muted);">Domain-oriented taxonomy aligned with master specification for scalable navigation structure.</p>
+            
+            <div class="module-grid">
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📊</div><span>Analytics & Insights</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Dashboards, metrics, and performance data</p>
+                        <ul class="module-list">
+                            <li><span class="component">AdminDashboard</span></li>
+                            <li><span class="component">AdminAnalytics</span></li>
+                            <li><span class="component">LeaderboardsManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📝</div><span>Exams & Categories</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Exam taxonomy and metadata management</p>
+                        <ul class="module-list">
+                            <li><span class="component">CategoriesManager</span></li>
+                            <li><span class="component">ExamInfoEditor</span> <span class="feature-tag new">NEW</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">🎯</div><span>Assessments & Quizzes</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Tests, quizzes, questions, and test series</p>
+                        <ul class="module-list">
+                            <li><span class="component">TestSeriesManager</span></li>
+                            <li><span class="component">TestsManager</span></li>
+                            <li><span class="component">QuizManager</span> <span class="feature-tag new">NEW</span></li>
+                            <li><span class="component">QuestionsManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">📚</div><span>Study Materials</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Content assets, taxonomy, and lifecycle</p>
+                        <ul class="module-list">
+                            <li><span class="component">SubjectsManager</span></li>
+                            <li><span class="component">TopicsManager</span></li>
+                            <li><span class="component">ContentManager</span></li>
+                            <li><span class="component">VideosManager</span></li>
+                            <li><span class="component">TagConfigsManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">🔔</div><span>Notifications & Comms</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Alerts, announcements, and support content</p>
+                        <ul class="module-list">
+                            <li><span class="component">NotificationsManager</span></li>
+                            <li><span class="component">FaqManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">💳</div><span>Subscriptions & Monetization</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Passes, coupons, promotions, and revenue</p>
+                        <ul class="module-list">
+                            <li><span class="component">SubscriptionsManager</span></li>
+                            <li><span class="component">CouponManager</span> <span class="feature-tag new">NEW</span></li>
+                            <li><span class="component">PromotionManager</span> <span class="feature-tag new">NEW</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">👥</div><span>Users & Enrollments</span></div>
+                    <div class="module-body">
+                        <p class="module-description">User administration and enrollment tracking</p>
+                        <ul class="module-list">
+                            <li><span class="component">UsersManager</span></li>
+                            <li><span class="component">EnrollmentsManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="module-card">
+                    <div class="module-header"><div class="module-icon">⚙️</div><span>System & Settings</span></div>
+                    <div class="module-body">
+                        <p class="module-description">Health, backups, recovery, and configuration</p>
+                        <ul class="module-list">
+                            <li><span class="component">RecycleBin</span></li>
+                            <li><span class="component">BackupsManager</span></li>
+                            <li><span class="component">AdminSettings</span></li>
+                            <li><span class="component">NavigationManager</span></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Component Mapping Section -->
+        <section class="card" id="mapping">
+            <h2>🗺️ Component Mapping: Specification → Implementation</h2>
+            <p style="margin-bottom: 15px; color: var(--text-muted);">Detailed mapping from master specification modules to frontend components.</p>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Spec Module</th>
+                            <th>Component</th>
+                            <th>Taxonomy Category</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><strong>📊 Dashboard</strong></td><td><code>AdminDashboard.jsx</code></td><td>Analytics & Insights</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>AdminAnalytics.jsx</code></td><td>Analytics & Insights</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>📝 Exam Manager</strong></td><td><code>CategoriesManager.jsx</code></td><td>Exams & Categories</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>ExamInfoEditor.jsx</code></td><td>Exams & Categories</td><td>🆕 Needed</td></tr>
+                        <tr><td><strong>🎯 Test & Quiz</strong></td><td><code>TestSeriesManager.jsx</code></td><td>Assessments & Quizzes</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>TestsManager.jsx</code></td><td>Assessments & Quizzes</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>QuizManager.jsx</code></td><td>Assessments & Quizzes</td><td>🆕 Needed</td></tr>
+                        <tr><td></td><td><code>QuestionsManager.jsx</code></td><td>Assessments & Quizzes</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>📚 Study Materials</strong></td><td><code>SubjectsManager.jsx</code></td><td>Study Materials</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>TopicsManager.jsx</code></td><td>Study Materials</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>ContentManagement.jsx</code></td><td>Study Materials</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>VideosManager.jsx</code></td><td>Study Materials</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>TagConfigsManager.jsx</code></td><td>Study Materials</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>📈 Analytics</strong></td><td><code>LeaderboardsManager.jsx</code></td><td>Analytics & Insights</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>🔔 Notifications</strong></td><td><code>NotificationsManager.jsx</code></td><td>Notifications & Comms</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>FaqManager.jsx</code></td><td>Notifications & Comms</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>💳 Subscriptions</strong></td><td><code>SubscriptionsManager.jsx</code></td><td>Subscriptions</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>CouponManager.jsx</code></td><td>Subscriptions</td><td>🆕 Needed</td></tr>
+                        <tr><td></td><td><code>PromotionManager.jsx</code></td><td>Subscriptions</td><td>🆕 Needed</td></tr>
+                        <tr><td><strong>👥 Users</strong></td><td><code>UsersManager.jsx</code></td><td>Users & Enrollments</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>EnrollmentsManager.jsx</code></td><td>Users & Enrollments</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>⚙️ System</strong></td><td><code>RecycleBin.jsx</code></td><td>System & Settings</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>BackupsManager.jsx</code></td><td>System & Settings</td><td>✅ Exists</td></tr>
+                        <tr><td><strong>🛠️ Settings</strong></td><td><code>AdminSettings.jsx</code></td><td>System & Settings</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>NavigationManager.jsx</code></td><td>System & Settings</td><td>✅ Exists</td></tr>
+                        <tr><td></td><td><code>BannerManager.jsx</code></td><td>System & Settings</td><td>✅ Exists</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="info-box info">
+                <span style="font-size:1.5rem">📊</span>
+                <div>
+                    <strong>Summary</strong>
+                    <p>23 existing components, 4 new components needed (ExamInfoEditor, QuizManager, CouponManager, PromotionManager)</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Technical Implementation Section -->
+        <section class="card" id="technical">
+            <h2>⚙️ Key Technical Implementations</h2>
+            
+            <h3>Custom Order vs. Dynamic Feeds</h3>
+            <div class="info-box info">
+                <span style="font-size:1.5rem">🔄</span>
+                <div>
+                    <strong>Display Order Logic</strong>
+                    <p>Admins have "Drag and Drop" or numeric input to set the <code>display_order</code> of static libraries (syllabus chapters, test series catalog). This strict ordering is <strong>intentionally ignored</strong> in dynamic student UI sections.</p>
+                    <p style="margin-top: 10px;"><strong>Dynamic sections:</strong> "Continue Learning," "Recently Added," "Recommended for You" — sorted by <code>last_accessed_at</code> or <code>created_at</code> timestamps.</p>
+                </div>
+            </div>
+            
+            <h3>Soft Deletion Logic</h3>
+            <div class="info-box success">
+                <span style="font-size:1.5rem">🗑️</span>
+                <div>
+                    <strong>Safe Deletion Pattern</strong>
+                    <p>When an admin clicks "Delete" on a test or PDF, the system <strong>does not drop</strong> the row from Supabase. Instead, it updates a boolean column: <code>is_deleted = true</code>.</p>
+                    <pre>-- Deletion SQL Pattern
+UPDATE tests SET is_deleted = true WHERE id = ?;
+
+-- Frontend Query Pattern  
+SELECT * FROM tests WHERE is_deleted != true;
+
+-- Admin Recycle Bin Query
+SELECT * FROM tests WHERE is_deleted = true;</pre>
+                </div>
+            </div>
+            
+            <h3>Backend Admin Routes</h3>
+            <div class="info-box warning">
+                <span style="font-size:1.5rem">🟢</span>
+                <div>
+                    <strong>Main Admin API</strong>
+                    <p><code>apps/backend/src/api/routes/admin.js</code> — Central admin endpoints handling all CRUD operations</p>
+                </div>
+            </div>
+            
+            <h3>Seed & Demo Data</h3>
+            <p><code>SeedService.js</code> — Seeds admin/demo users, exam categories, and exam data for testing</p>
+        </section>
+        
+        <!-- Migration Plan Section -->
+        <section class="card" id="migration">
+            <h2>🧭 Migration Plan (Phases)</h2>
+            
+            <div class="progress-container">
+                <div class="progress-bar"><div class="progress-fill" style="width: 20%;"></div></div>
+                <div class="progress-label"><span>Overall Progress</span><span>Phase 0 Complete (20%)</span></div>
+            </div>
+            
+            <div class="timeline">
+                <div class="timeline-item completed">
+                    <div><span class="timeline-phase">Phase 0 – Planning</span><span class="timeline-status completed">Completed</span></div>
+                    <p style="margin-top: 10px; color: var(--text-muted);">Define new taxonomy, data models, and migration milestones. Create adminNavConfig and wire into UI.</p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>✅ Taxonomy definition completed</li>
+                        <li>✅ Component mapping documented</li>
+                        <li>✅ Migration strategy outlined</li>
+                    </ul>
+                </div>
+                
+                <div class="timeline-item active">
+                    <div><span class="timeline-phase">Phase 1 – UI Scaffolding</span><span class="timeline-status active">In Progress</span></div>
+                    <p style="margin-top: 10px; color: var(--text-muted);">Build data-driven AdminNav, AdminLayout and side nav in a non-breaking way.</p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>⏳ Create AdminNavConfig data file</li>
+                        <li>⏳ Implement AdminLayout component</li>
+                        <li>⏳ Build side navigation menu</li>
+                        <li>⏳ Add feature flags for rollout</li>
+                    </ul>
+                </div>
+                
+                <div class="timeline-item">
+                    <div><span class="timeline-phase">Phase 2 – Component Migration</span><span class="timeline-status pending">Pending</span></div>
+                    <p style="margin-top: 10px; color: var(--text-muted);">Move components into new categorized folders; keep legacy paths alive with adapters.</p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>📋 Create new folder structure</li>
+                        <li>📋 Migrate components incrementally</li>
+                        <li>📋 Update route definitions</li>
+                        <li>📋 Create legacy path adapters</li>
+                    </ul>
+                </div>
+                
+                <div class="timeline-item">
+                    <div><span class="timeline-phase">Phase 3 – New Components</span><span class="timeline-status pending">Pending</span></div>
+                    <p style="margin-top: 10px; color: var(--text-muted);">Build missing components identified by specification alignment.</p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>📋 ExamInfoEditor component</li>
+                        <li>📋 QuizManager component</li>
+                        <li>📋 CouponManager component</li>
+                        <li>📋 PromotionManager component</li>
+                    </ul>
+                </div>
+                
+                <div class="timeline-item">
+                    <div><span class="timeline-phase">Phase 4 – Production</span><span class="timeline-status pending">Pending</span></div>
+                    <p style="margin-top: 10px; color: var(--text-muted);">Full QA, security review, RBAC hardening, performance profiling.</p>
+                    <ul style="margin-top: 10px; margin-left: 20px;">
+                        <li>📋 End-to-end testing</li>
+                        <li>📋 Security audit</li>
+                        <li>📋 Performance optimization</li>
+                        <li>📋 Monitoring setup</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Risks Section -->
+        <section class="card" id="risks">
+            <h2>⚠️ Risks & Mitigations</h2>
+            
+            <div class="info-box error">
+                <span style="font-size:1.5rem">⚠️</span>
+                <div><strong>Migration Risk: Breaking Admin Flows</strong><p><strong>Mitigation:</strong> Staged migration with adapters and feature flags for zero downtime.</p></div>
+            </div>
+            
+            <div class="info-box warning">
+                <span style="font-size:1.5rem">🔐</span>
+                <div><strong>Data Integrity Risk</strong><p><strong>Mitigation:</strong> Ensure IDs and foreign keys preserved. Map carefully and seed-test in sandbox.</p></div>
+            </div>
+            
+            <div class="info-box info">
+                <span style="font-size:1.5rem">🔒</span>
+                <div><strong>Security Risk: Auth/Permissions Drift</strong><p><strong>Mitigation:</strong> RBAC review and admin-only guards at each migration phase.</p></div>
+            </div>
+            
+            <div class="info-box success">
+                <span style="font-size:1.5rem">📅</span>
+                <div><strong>Timeline Risk: Scope Creep</strong><p><strong>Mitigation:</strong> Fixed phases with milestones and approvals. No new features during migration.</p></div>
+            </div>
+        </section>
+        
+        <!-- Timeline & Resources Section -->
+        <section class="card">
+            <h2>⏰ Implementation Timeline</h2>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="number">12-16</div><div class="label">Weeks Total</div></div>
+                <div class="stat-card"><div class="number">2-3</div><div class="label">Weeks Planning</div></div>
+                <div class="stat-card"><div class="number">8-10</div><div class="label">Weeks Development</div></div>
+                <div class="stat-card"><div class="number">2-3</div><div class="label">Weeks Testing</div></div>
+            </div>
+        </section>
+        
+        <!-- Success Metrics Section -->
+        <section class="card">
+            <h2>📊 Success Metrics</h2>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="number">95%</div><div class="label">Task Completion</div></div>
+                <div class="stat-card"><div class="number">40%</div><div class="label">Faster Navigation</div></div>
+                <div class="stat-card"><div class="number">99.9%</div><div class="label">System Uptime</div></div>
+                <div class="stat-card"><div class="number">0</div><div class="label">Critical Bugs</div></div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>KPI</th><th>Measurement</th><th>Target</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Admin Efficiency</strong></td><td>Time to complete common tasks</td><td>30% reduction</td></tr>
+                        <tr><td><strong>System Performance</strong></td><td>Response times</td><td>< 200ms</td></tr>
+                        <tr><td><strong>User Satisfaction</strong></td><td>Admin feedback scores</td><td>4.5/5 rating</td></tr>
+                        <tr><td><strong>Code Quality</strong></td><td>Test coverage</td><td>80% coverage</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <!-- Next Steps Section -->
+        <section class="card">
+            <h2>🧪 Validation & Next Steps</h2>
+            <ul style="margin-left: 20px;">
+                <li>🗺️ <strong>Map Current → New:</strong> Finalize mapping and update code references</li>
+                <li>📁 <strong>Implement AdminNav:</strong> Create data file and wire to AdminLayout</li>
+                <li>🆕 <strong>Build Missing Components:</strong> ExamInfoEditor, QuizManager, CouponManager, PromotionManager</li>
+                <li>🧪 <strong>Integration Tests:</strong> Test admin routes and UI flows</li>
+                <li>♿ <strong>Accessibility:</strong> WCAG validation</li>
+                <li>📚 <strong>Update Docs:</strong> Sync with Hardcoded Data Migration Plan</li>
+            </ul>
+        </section>
+        
+        <footer>
+            <p>🛠️ Admin Panel Master Specification | Trstprep V2.0</p>
+            <p>Last Updated: March 10, 2026  | Update date is (19:18)| 40 Manager Components | 100+ API Endpoints</p>
+        </footer>
+    </div>
+    </div>
+
+    <div class="flow-section" id="feature-1" data-accent="#f59e0b" style="display: none;">
+      <div class="section-header" style="background: linear-gradient(135deg, #f59e0b 0%, #a855f7 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+        <h2>Card Ordering Report</h2>
+      </div>
+      <div class="container">
+        <div class="header">
+            <h1>📊 Card Ordering Behavior Report</h1>
+            <p>Comprehensive analysis of how cards are ordered across all pages in Trstprep V2.0</p>
+            <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.8;">Last Updated: March 2026 | Merged from Design Documents + Repository Analysis | Update date is (19:18)</p>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <h3>🏷️ Card Ordering Types</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="badge badge-auto">AUTO-ORDER</span>
+                    <span>Automatically reorders based on activity/usage data</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-fixed">FIXED</span>
+                    <span>Stays in same place regardless of activity</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-semi">SEMI-DYNAMIC</span>
+                    <span>Fixed structure with dynamic content inside</span>
+                </div>
+                <div class="legend-item">
+                    <span class="badge badge-manual">USER-CONTROLLED</span>
+                    <span>User can manually change order via filters/sorting</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h3>📑 Table of Contents</h3>
+            <ul class="toc-list">
+                <li><a href="#overview">1. System Overview</a></li>
+                <li><a href="#architecture">2. Architecture Design</a></li>
+                <li><a href="#hierarchy">3. Platform Hierarchy</a></li>
+                <li><a href="#problems">4. Problems Analysis</a></li>
+                <li><a href="#dashboard">5. Dashboard Page</a></li>
+                <li><a href="#exams">6. Exams Page</a></li>
+                <li><a href="#test-series">7. Test Series Page</a></li>
+                <li><a href="#test-details">8. Test Details Page</a></li>
+                <li><a href="#home">9. Home Page</a></li>
+                <li><a href="#study-material">10. Study Material Page</a></li>
+                <li><a href="#admin-control">11. Admin Panel Control</a></li>
+                <li><a href="#database">12. Database Schema</a></li>
+                <li><a href="#api">13. API Endpoints</a></li>
+                <li><a href="#summary">14. Summary & Recommendations</a></li>
+            </ul>
+        </div>
+
+        <!-- System Overview -->
+        <div class="page-section" id="overview">
+            <div class="page-header">
+                <h2><span class="icon">📊</span> 1. System Overview</h2>
+            </div>
+            <div class="page-content">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value">7+</div>
+                        <div class="stat-label">📱 Frontend Pages</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">6</div>
+                        <div class="stat-label">🎛️ Admin Managers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">8+</div>
+                        <div class="stat-label">🗃️ DB Tables with Order</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">20+</div>
+                        <div class="stat-label">🔌 API Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="section-intro">
+                    <p><strong>Tech Stack:</strong> React 18+ with Vite, TailwindCSS, Node.js + Express Backend, PostgreSQL Database, JWT Authentication</p>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Current Ordering Patterns Identified</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Pattern Type</th>
+                            <th>Description</th>
+                            <th>Examples</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><span class="badge badge-auto">AUTO-SORTED</span></td>
+                            <td>Sorted by activity data (users, popularity)</td>
+                            <td>Popular Test Series, Top Performers, Leaderboards</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-fixed">FIXED</span></td>
+                            <td>Hardcoded order in component</td>
+                            <td>Quick Access Grid, Category Tabs, Features Section</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-semi">SEMI-DYNAMIC</span></td>
+                            <td>Fixed structure, dynamic content</td>
+                            <td>Sub-Category Tabs, Subject Performance</td>
+                        </tr>
+                        <tr>
+                            <td><span class="badge badge-manual">USER-CONTROLLED</span></td>
+                            <td>User can filter/sort</td>
+                            <td>Test Series Grid, Attempted Tests</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Architecture Design -->
+        <div class="page-section" id="architecture">
+            <div class="page-header">
+                <h2><span class="icon">🏗️</span> 2. Architecture Design</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p>The Card Ordering System uses a 4-layer architecture for flexible content positioning.</p>
+                </div>
+
+                <div class="flow-container">
+                    <div class="flow-node">⚛️ Frontend (React)</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🔌 Card Order API</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🚀 Backend (Express)</div>
+                    <div class="flow-arrow">⬇️</div>
+                    <div class="flow-node">🐘 PostgreSQL Database</div>
+                </div>
+
+                <div class="architecture-diagram">
+                    <div class="layer">
+                        <div class="layer-title">👁️ Layer 1: VISIBILITY CONTROL</div>
+                        <div class="layer-content">
+                            <code>is_visible, is_active, visibility_status</code> → Determines IF content should appear
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">⭐ Layer 2: PROMINENCE CONTROL</div>
+                        <div class="layer-content">
+                            <code>is_pinned, is_featured, priority_weight</code> → Determines HOW PROMINENTLY content appears
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">🔢 Layer 3: SEQUENCE CONTROL</div>
+                        <div class="layer-content">
+                            <code>display_order, sort_mode, section_group</code> → Determines POSITION in list
+                        </div>
+                    </div>
+                    <div class="layer">
+                        <div class="layer-title">📊 Layer 4: FALLBACK SORTING</div>
+                        <div class="layer-content">
+                            <code>created_at, popularity_score, alphabetical</code> → Used when explicit order not set
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Master Sorting Rule (SQL)</h3>
+                <div class="card-code">
+<span class="comment">-- Universal Ordering Query Pattern</span>
+<span class="keyword">ORDER BY</span>
+  <span class="comment">-- Layer 1: Visibility</span>
+  is_active <span class="keyword">DESC</span>,
+  is_visible <span class="keyword">DESC</span>,
+  <span class="comment">-- Layer 2: Prominence</span>
+  is_pinned <span class="keyword">DESC</span>,
+  is_featured <span class="keyword">DESC</span>,
+  priority_weight <span class="keyword">DESC</span>,
+  <span class="comment">-- Layer 3: Sequence</span>
+  display_order <span class="keyword">ASC NULLS LAST</span>,
+  <span class="comment">-- Layer 4: Fallback</span>
+  created_at <span class="keyword">DESC</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Hierarchy -->
+        <div class="page-section" id="hierarchy">
+            <div class="page-header">
+                <h2><span class="icon">🌳</span> 3. Platform Hierarchy Map</h2>
+            </div>
+            <div class="page-content">
+                <div class="hierarchy-container">
+                    <div class="tree">
+                        <div class="tree-node root">📚 Exam Category (SSC, Railways, Banking...)</div>
+                        <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                <div class="tree-node">📂 Exam Sub-Category</div>
+                                <div style="display: flex; flex-wrap: wrap; justify-content: center;">
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                        <div class="tree-node">📝 Exam Instance</div>
+                                        <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;">
+                                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                                <div class="tree-node">📖 Test Series</div>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <div class="tree-node">📋 Tests</div>
+                                                    <div class="tree-node">❓ Questions</div>
+                                                </div>
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; align-items: center;">
+                                                <div class="tree-node">📚 Study Materials</div>
+                                                <div style="display: flex; gap: 10px;">
+                                                    <div class="tree-node">📄 Chapters</div>
+                                                    <div class="tree-node">🎬 Videos</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #1e293b;">Ordering Levels Required</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Level</th>
+                            <th>Entity</th>
+                            <th>Ordering Scope</th>
+                            <th>Required Fields</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>L1</td><td>Exam Categories</td><td>Global</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L2</td><td>Exam Sub-Categories</td><td>Within Category</td><td><code>display_order</code></td></tr>
+                        <tr><td>L3</td><td>Exams</td><td>Within Sub-Category</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L4</td><td>Test Series</td><td>Within Exam + Global</td><td><code>display_order, is_pinned, is_featured</code></td></tr>
+                        <tr><td>L5</td><td>Tests</td><td>Within Series</td><td><code>display_order, is_featured</code></td></tr>
+                        <tr><td>L6</td><td>Questions</td><td>Within Test</td><td><code>order_index</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Problems Analysis -->
+        <div class="page-section" id="problems">
+            <div class="page-header">
+                <h2><span class="icon">🔍</span> 4. Problems Analysis</h2>
+            </div>
+            <div class="page-content">
+                <div class="problem-card critical">
+                    <div class="problem-header">
+                        <span class="problem-badge critical">🔴 CRITICAL</span>
+                        <strong>Inconsistent Field Names</strong>
+                    </div>
+                    <p style="color: #64748b;">Different tables use different field names: <code>order</code> vs <code>sortOrder</code> vs <code>orderIndex</code> causing developer confusion and bugs.</p>
+                </div>
+
+                <div class="problem-card critical">
+                    <div class="problem-header">
+                        <span class="problem-badge critical">🔴 CRITICAL</span>
+                        <strong>Hardcoded Arrays</strong>
+                    </div>
+                    <p style="color: #64748b;">Quick Access items hardcoded in Dashboard.jsx and Home.jsx - requires code change to reorder, same order for all users.</p>
+                </div>
+
+                <div class="problem-card medium">
+                    <div class="problem-header">
+                        <span class="problem-badge medium">🟠 MEDIUM</span>
+                        <strong>No Bulk Reorder</strong>
+                    </div>
+                    <p style="color: #64748b;">Must move items one at a time - time-consuming for admins managing large content libraries.</p>
+                </div>
+
+                <div class="problem-card medium">
+                    <div class="problem-header">
+                        <span class="problem-badge medium">🟠 MEDIUM</span>
+                        <strong>No Audit Trail</strong>
+                    </div>
+                    <p style="color: #64748b;">Order changes not logged - can't track who changed what and when.</p>
+                </div>
+
+                <div class="problem-card minor">
+                    <div class="problem-header">
+                        <span class="problem-badge minor">🟢 MINOR</span>
+                        <strong>No User Personalization</strong>
+                    </div>
+                    <p style="color: #64748b;">Users can't customize their view - limited UX flexibility.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div class="page-section" id="dashboard">
+            <div class="page-header">
+                <h2><span class="icon">📊</span> 5. Dashboard Page (Dashboard.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/dashboard/Dashboard.jsx</code></p>
+                    <p>The main dashboard shows personalized content after user login. Cards here are primarily activity-based with some fixed sections.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Quick Access Grid</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            8-item grid of navigation shortcuts (Live Tests, Quizzes, PYQ, Practice, Analysis, Videos, Attempted, Materials).
+                            <strong>Always stays in same order</strong> - hardcoded array definition.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// File: Dashboard.jsx - Hardcoded array</span>
+<span class="keyword">const</span> quickAccessItems = [
+  { icon: Radio, title: <span class="string">'Live Tests'</span>, route: <span class="string">'/tag/live-tests'</span> },
+  { icon: HelpCircle, title: <span class="string">'Quizzes'</span>, route: <span class="string">'/tag/quizzes'</span> },
+  { icon: BookOpen, title: <span class="string">'PYQ'</span>, route: <span class="string">'/tag/pyps'</span> },
+  <span class="comment">// ... always same 8 items</span>
+]
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Recent Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Horizontal scroll of enrolled test series. Filtered from user's enrolled series - shows first 4 series.
+                            <strong>Order depends on enrollment order</strong>.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> enrolledTestSeries = useMemo(() => {
+  <span class="keyword">return</span> testSeries
+    .filter(s => userEnrolled.includes(s._id))
+    .slice(0, 4) <span class="comment">// First 4, order from API</span>
+}, [user, testSeries])
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Top Performers</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>AUTO-SORTED by tests attempted (descending)</strong>. Top 3 performers based on activity.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> sortedPerformers = performers
+  .sort((a, b) => (b.testsAttempted || 0) - (a.testsAttempted || 0))
+  .slice(0, 3)
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Live Tests & Free Quizzes</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Fetched from API with tags 'live-tests' and 'quizzes'. Shows first 3 tests from API response.
+                            <strong>Order from backend</strong>.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> response = <span class="keyword">await</span> testsAPI.getByTag(<span class="string">'live-tests'</span>)
+<span class="keyword">const</span> mappedLiveTests = liveTestsData.slice(0, 3)
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Exam Categories</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Generated from test series data grouped by category.
+                            <strong>Order based on data occurrence</strong>, not sorted.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Recommended Section</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Test series suggestions. First 6 from API, not enrolled by user.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exams Page -->
+        <div class="page-section" id="exams">
+            <div class="page-header">
+                <h2><span class="icon">📚</span> 6. Exams Page (Exams.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/exams/Exams.jsx</code></p>
+                    <p>Lists exam categories and individual exams. All content is API-driven with some static configurations.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Tabs for filtering exams by category (SSC, Railways, Banking, etc.).
+                            <strong>Fixed order</strong> from categoryConfig object.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Category Cards Grid</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Cards for each exam category.
+                            <strong>Order from API response</strong> - examCategories array sorted by <code>order</code> field.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// Backend: admin.js</span>
+<span class="keyword">const</span> sortedCategories = categories
+  .sort((a, b) => (a.order || 0) - (b.order || 0))
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Exam Cards (Within Category)</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Individual exam cards shown when category selected.
+                            <strong>Order from API</strong>, filtered by selectedCategory.
+                        </div>
+                    </div>
+
+                    <div class="card-item semi">
+                        <div class="card-title">Popular Exams Per Category</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Shows top 6 exams per category from categoryStats calculation.
+                            <strong>First 6 from filtered array</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Series Page -->
+        <div class="page-section" id="test-series">
+            <div class="page-header">
+                <h2><span class="icon">📝</span> 7. Test Series Page (TestSeries.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestSeries.jsx</code></p>
+                    <p>Main test series listing page with multiple sections. Has extensive filtering and sorting options.</p>
+                </div>
+
+                <div class="cards-grid">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Series Page -->
+        <div class="page-section" id="test-series">
+            <div class="page-header">
+                <h2><span class="icon">📝</span> 7. Test Series Page (TestSeries.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestSeries.jsx</code></p>
+                    <p>Main test series listing page with multiple sections. Has extensive filtering and sorting options. Uses <code>isPinned</code> and <code>order</code> fields.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item manual">
+                        <div class="card-title">Category Filter Tabs</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Dynamic tabs from <code>useTestCategories</code> hook.
+                            <strong>User can select category</strong> to filter results.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Sort Dropdown</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            User can choose: Most Popular, Highest Rated, Most Tests.
+                        </div>
+                        <div class="card-code">
+<span class="comment">// TestSeries.jsx - Sorting logic with pinning support</span>
+<span class="keyword">if</span> (sortBy === <span class="string">'popular'</span>) {
+  result.sort((a, b) => {
+    <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+    <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+    <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+  })
+}
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Popular Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>AUTO-SORTED by users count (descending)</strong> with pinned items first.
+                            Top 8 most popular series.
+                        </div>
+                        <div class="card-code">
+<span class="keyword">const</span> popularSeries = useMemo(() => {
+  <span class="keyword">return</span> [...allSeries].sort((a, b) => {
+    <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+    <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+    <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+  }).slice(0, 8);
+}, [allSeries])
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Live Tests & Quizzes</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Filtered for Live/Quiz/Free tests. Limited to 3 items each.
+                            <strong>Order from API</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Browse by Category</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Grouped by category from test series data.
+                            <strong>Order from data occurrence</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Filtered Series Grid</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Main grid of test series. Affected by search, category filter, and sort selection.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Details Page -->
+        <div class="page-section" id="test-details">
+            <div class="page-header">
+                <h2><span class="icon">📋</span> 8. Test Details Page (TestDetails.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/tests/TestDetails.jsx</code></p>
+                    <p>Shows tests within a specific test series. Has two-level navigation (Mock Tests vs PYP).</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item manual">
+                        <div class="card-title">Stage Selection Dropdown</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            Fixed options: All Stages, Tier 1, Tier 2, Prelims, Mains.
+                            <strong>User controls filter</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Main Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            <strong>Fixed: "Mock Tests" and "Previous Year Papers"</strong>.
+                            Order hardcoded in categoriesData state.
+                        </div>
+                    </div>
+
+                    <div class="card-item semi">
+                        <div class="card-title">Sub-Category Tabs</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Fixed structure but counts update dynamically.
+                            Mock: All, Live Tests, Full Mock, Chapter Test, Sectional Test, Topic-wise.
+                            PYP: All, Year-wise, Shift-wise, Subject-wise.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Tests List</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Filtered tests based on selected main category, sub-category, and stage.
+                            <strong>Order from API response</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Home Page -->
+        <div class="page-section" id="home">
+            <div class="page-header">
+                <h2><span class="icon">🏠</span> 9. Home Page (Home.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/public/Home.jsx</code></p>
+                    <p>Landing page with different content for logged-in vs non-logged-in users.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item fixed">
+                        <div class="card-title">Platform Statistics</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            <strong>Hardcoded values</strong>: 50K+ Users, 500+ Series, 10K+ Questions, 98% Success Rate.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Quick Access (LoggedIn User)</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Same 8 items as Dashboard - <strong>fixed order</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Features Section</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            6 feature cards in <strong>fixed order</strong>: Mock Tests, Live Tests, Analytics, Videos, Materials, Mobile.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Popular Test Series</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            <strong>SORTED by users count (descending)</strong>.
+                            Top 8 most popular series.
+                        </div>
+                    </div>
+
+                    <div class="card-item fixed">
+                        <div class="card-title">Testimonials</div>
+                        <div class="card-type"><span class="badge badge-fixed">FIXED</span></div>
+                        <div class="card-description">
+                            Hardcoded testimonials with <strong>auto-rotation</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item manual">
+                        <div class="card-title">Filter Pills</div>
+                        <div class="card-type"><span class="badge badge-manual">USER-CONTROLLED</span></div>
+                        <div class="card-description">
+                            All, SSC, Railways, Banking, UPSC, Defence.
+                            <strong>First one selected by default</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Study Material Page -->
+        <div class="page-section" id="study-material">
+            <div class="page-header">
+                <h2><span class="icon">📖</span> 10. Study Material Page (StudyMaterial.jsx)</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro">
+                    <p><strong>File:</strong> <code>apps/frontend/src/pages/study/StudyMaterial.jsx</code></p>
+                    <p>Shows study subjects organized in groups with expandable sections.</p>
+                </div>
+
+                <div class="cards-grid">
+                    <div class="card-item semi">
+                        <div class="card-title">Subject Group Headers</div>
+                        <div class="card-type"><span class="badge badge-semi">SEMI-DYNAMIC</span></div>
+                        <div class="card-description">
+                            Collapsible group headers.
+                            <strong>Auto-expanded by default</strong>. Order from API data.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Standalone Subject Cards</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Subjects without a group.
+                            <strong>Order from API response</strong>.
+                        </div>
+                    </div>
+
+                    <div class="card-item auto">
+                        <div class="card-title">Grouped Subject Cards</div>
+                        <div class="card-type"><span class="badge badge-auto">AUTO-ORDER</span></div>
+                        <div class="card-description">
+                            Subjects within each group.
+                            <strong>Order from API</strong>, shown when group expanded.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Panel Control Section -->
+        <div class="page-section" id="admin-control">
+            <div class="page-header">
+                <h2><span class="icon">⚙️</span> 11. Admin Panel Control</h2>
+            </div>
+            <div class="page-content">
+                <div class="section-intro" style="background: #fef2f2; border-left-color: #ef4444;">
+                    <p><strong>IMPORTANT:</strong> All card ordering should be controllable via Admin Panel, even for sections that appear "fixed" to users.</p>
+                </div>
+
+                <h3 style="margin: 20px 0 15px; color: #dc2626;">🎯 Admin Panel Should Control:</h3>
+
+                <div style="background: #fef2f2; border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 2px dashed #fca5a5;">
+                    <h4 style="color: #991b1b; margin-bottom: 15px;">1. Fixed Position Cards - Admin Controllable</h4>
+                    <table class="summary-table" style="margin-top: 10px;">
+                        <thead>
+                            <tr>
+                                <th>Section</th>
+                                <th>Page</th>
+                                <th>Admin Control Needed</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Quick Access Grid</strong></td>
+                                <td>Dashboard, Home</td>
+                                <td>Drag-drop reordering, Show/Hide individual items, Add custom items</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Category Tabs</strong></td>
+                                <td>Exams, Test Series</td>
+                                <td>Reorder categories, Set default selected, Show/Hide categories</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Features Section</strong></td>
+                                <td>Home</td>
+                                <td>Reorder features, Edit content, Show/Hide</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Platform Statistics</strong></td>
+                                <td>Home</td>
+                                <td>Edit values, Add/Remove stat cards</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Testimonials</strong></td>
+                                <td>Home</td>
+                                <td>Add/Edit/Remove testimonials, Reorder, Auto-rotation speed</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">📋 Current Admin Endpoints (Backend)</h3>
+                <div class="card-code" style="margin-bottom: 15px;">
+<span class="comment">// File: apps/backend/src/api/routes/admin.js</span>
+
+<span class="comment">// Test Series with order support</span>
+GET    /api/admin/test-series        <span class="comment">// List all series</span>
+POST   /api/admin/test-series        <span class="comment">// Create (auto-assigns next order)</span>
+PUT    /api/admin/test-series/:id    <span class="comment">// Update (includes order reordering logic)</span>
+DELETE /api/admin/test-series/:id    <span class="comment">// Soft delete</span>
+
+<span class="comment">// Exam Categories with order field</span>
+GET    /api/admin/exam-categories
+POST   /api/admin/exam-categories
+PUT    /api/admin/exam-categories/:id
+DELETE /api/admin/exam-categories/:id
+
+<span class="comment">// Study Materials with order field</span>
+GET    /api/admin/study-materials
+POST   /api/admin/study-materials
+PUT    /api/admin/study-materials/:id  <span class="comment">// Includes reordering logic</span>
+DELETE /api/admin/study-materials/:id
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">📋 Suggested Admin Panel UI Structure</h3>
+                <div style="background: #f0f9ff; border-radius: 10px; padding: 20px; border-left: 4px solid #0ea5e9;">
+                    <pre style="font-family: monospace; font-size: 0.85rem; color: #0369a1; white-space: pre-wrap;">
+Admin Panel
+├── 📊 Dashboard Settings
+│   ├── Quick Access Items
+│   │   ├── [Drag to Reorder] Live Tests
+│   │   ├── [Drag to Reorder] Quizzes
+│   │   └── ... (+ Add Custom Item)
+│   └── Featured Sections Order
+│
+├── 🏠 Home Page Settings
+│   ├── Platform Statistics (Edit Values)
+│   ├── Features Section (Reorder/Edit)
+│   └── Testimonials (CRUD + Order)
+│
+├── 📝 Test Series Settings
+│   ├── Default Sort Order
+│   ├── Featured/Pinned Series
+│   └── Category Tab Order
+│
+└── 📖 Study Material Settings
+    ├── Subject Group Order
+    └── Subject Order Within Groups
+                    </pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Database Schema -->
+        <div class="page-section" id="database">
+            <div class="page-header">
+                <h2><span class="icon">🗃️</span> 12. Database Schema</h2>
+            </div>
+            <div class="page-content">
+                <h3 style="margin-bottom: 15px;">Tables WITH Order Fields (Current Implementation)</h3>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Table</th>
+                            <th>Order Field</th>
+                            <th>Additional Fields</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td><code>test_series</code></td><td><code>order</code></td><td><code>is_pinned</code>, <code>users</code></td></tr>
+                        <tr><td><code>exam_categories</code></td><td><code>order</code></td><td><code>is_active</code></td></tr>
+                        <tr><td><code>exam_sub_categories</code></td><td><code>order</code></td><td><code>parent_category_id</code></td></tr>
+                        <tr><td><code>study_materials</code></td><td><code>order</code></td><td>-</td></tr>
+                    </tbody>
+                </table>
+
+                <h3 style="margin: 25px 0 15px;">Recommended Universal Fields</h3>
+                <div class="card-code">
+<span class="comment">-- Standard ordering fields for ALL content tables</span>
+
+<span class="comment">-- Visibility</span>
+is_active <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">true</span>,
+is_visible <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">true</span>,
+visibility_status <span class="keyword">VARCHAR</span>(20) <span class="keyword">DEFAULT</span> <span class="string">'visible'</span>,
+
+<span class="comment">-- Prominence</span>
+is_pinned <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">false</span>,
+is_featured <span class="keyword">BOOLEAN DEFAULT</span> <span class="string">false</span>,
+priority_weight <span class="keyword">INTEGER DEFAULT</span> 0,
+
+<span class="comment">-- Sequence</span>
+display_order <span class="keyword">INTEGER DEFAULT</span> 0,
+section_group <span class="keyword">VARCHAR</span>(100),
+
+<span class="comment">-- Sorting Mode Override</span>
+sort_mode <span class="keyword">VARCHAR</span>(20) <span class="keyword">DEFAULT</span> <span class="string">'manual'</span>,
+
+<span class="comment">-- Audit</span>
+last_order_modified_by <span class="keyword">INTEGER REFERENCES</span> users(id),
+last_order_modified_at <span class="keyword">TIMESTAMP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="page-section" id="api">
+            <div class="page-header">
+                <h2><span class="icon">🔌</span> 13. API Endpoints</h2>
+            </div>
+            <div class="page-content">
+                <h3 style="margin-bottom: 15px;">Current Admin Endpoints</h3>
+                <div class="cards-grid">
+                    <div class="card-item auto">
+                        <div class="card-title">Test Series Management</div>
+                        <div class="card-code" style="margin-top: 15px;">
+<span class="comment">-- JavaScript sorting function from TestSeries.jsx</span>
+<span class="keyword">const</span> sortedSeries = [...allSeries].sort((a, b) => {
+  <span class="comment">// 1. Pinned items first</span>
+  <span class="keyword">if</span> (a.isPinned !== b.isPinned) <span class="keyword">return</span> a.isPinned ? -1 : 1;
+  
+  <span class="comment">// 2. Among pinned, use order field</span>
+  <span class="keyword">if</span> (a.isPinned && b.isPinned) <span class="keyword">return</span> (a.order || 0) - (b.order || 0);
+  
+  <span class="comment">// 3. Non-pinned sorted by users (popularity)</span>
+  <span class="keyword">return</span> (b.users || 0) - (a.users || 0);
+});
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">Recommended Improvements</h3>
+                <div style="background: #fef2f2; border-radius: 10px; padding: 15px; border-left: 4px solid #ef4444;">
+                    <ol style="margin-left: 20px; color: #991b1b;">
+                        <li><strong>Dashboard - Recent Test Series</strong>: Sort by last activity date (most recently accessed first)</li>
+                        <li><strong>Test Details - Top Performers</strong>: Replace mock data with real API data</li>
+                        <li><strong>Analysis - Subject Performance</strong>: Make subjects dynamic from user's actual test data</li>
+                        <li><strong>Study Material</strong>: Add "Recently Viewed" section at top</li>
+                        <li><strong>All Pages</strong>: Consider adding "recency" sorting for content that users interact with</li>
+                    </ol>
+                </div>
+
+                <h3 style="margin: 25px 0 15px;">Migration Roadmap</h3>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-title">📦 Phase 1: Database Schema Updates</div>
+                        <div class="timeline-content">
+                            Add universal ordering fields to all tables, create audit log table, add indexes
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">🔄 Phase 2: Data Backfill</div>
+                        <div class="timeline-content">
+                            Backfill display_order from existing order fields, normalize orders to fill gaps
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">🔌 Phase 3: Backend API Implementation</div>
+                        <div class="timeline-content">
+                            Create card order API routes, add admin endpoints for reordering, add audit logging
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">⚛️ Phase 4: Frontend Updates</div>
+                        <div class="timeline-content">
+                            Create useOrderedCards hook, create OrderedCardGrid component, update admin managers
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-title">✅ Phase 5: Testing & Rollout</div>
+                        <div class="timeline-content">
+                            Unit tests, integration tests, performance testing, staged rollout
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; color: white; padding: 20px; margin-top: 20px;">
+            <p>Report generated on: March 2026</p>
+            <p style="opacity: 0.7; font-size: 0.9rem;">Trstprep V2.0 - Card Ordering Behavior Analysis | Merged from Design Documents</p>
+        </div>
+    </div>
+    </div>
+
+    <div class="flow-section" id="feature-2" data-accent="#10b981" style="display: none;">
+      <div class="section-header" style="background: linear-gradient(135deg, #10b981 0%, #a855f7 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;">
+        <h2>Feature Recommendations</h2>
+      </div>
+      <!-- 🎨 Animated Background -->
+    <div class="bg-canvas">
+        <div class="bg-pattern"></div>
+    </div>
+    
+    <!-- 🌟 Floating Particles -->
+    <div class="particle particle-1"></div>
+    <div class="particle particle-2"></div>
+    <div class="particle particle-3"></div>
+    <div class="particle particle-4"></div>
+    <div class="particle particle-5"></div>
+
+    <div class="container">
+        <!-- 🌙 Theme Toggle -->
+        <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+            <span class="theme-toggle-icon" id="themeIcon">☀️</span>
+            <span id="themeText">Light Mode</span>
+        </button>
+
+        <!-- 🎬 Header -->
+        <header role="banner">
+            <div class="header-content">
+                <h1>🚀 Next-Gen Feature Recommendations</h1>
+                <p class="subtitle">✨ AI-Powered Learning, Interactive Tools & Future Roadmap for Trstprep V2.0 — Making studying intuitive, engaging, and effortless! 🎯</p>
+                <div class="badges">
+                    <span class="badge">📦 Version 2.0+</span>
+                    <span class="badge ai-badge">🤖 30+ AI Features</span>
+                    <span class="badge">✨ Enhanced UX/UI</span>
+                    <span class="badge">🌐 Fully Responsive</span>
+                    <span class="badge">♿ WCAG Accessible</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- 🧭 Navigation -->
+        <nav class="nav" role="navigation" aria-label="Main navigation">
+            <ul>
+                <li><a href="#overview">📊 Overview</a></li>
+                <li><a href="#current">⚡ UI Enhancements</a></li>
+                <li><a href="#ai">🤖 AI Features</a></li>
+                <li><a href="#learning">🎓 Easy Learning</a></li>
+                <li><a href="#new">💡 New Suggestions</a></li>
+                <li><a href="#priorities">🎯 Priorities</a></li>
+                <li><a href="#timeline">📅 Timeline</a></li>
+            </ul>
+        </nav>
+
+        <!-- 📊 Overview Section -->
+        <section class="card animate-on-scroll" id="overview" aria-labelledby="overview-heading">
+            <h2 id="overview-heading">📊 Platform Overview</h2>
+            <p class="card-description">
+                🎯 Our vision for Trstprep V2.0 is to transform the platform into an intelligent, AI-powered learning ecosystem. 
+                We're focusing on making studying more intuitive, engaging, and personalized for every student. 
+                From smart recommendations to interactive 3D visualizations, every feature is designed to enhance understanding and retention! 🧠✨
+            </p>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-icon">🎯</span>
+                    <div class="stat-number">50+</div>
+                    <div class="stat-label">Total Features</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">🤖</span>
+                    <div class="stat-number">30</div>
+                    <div class="stat-label">AI Integrations</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">🎨</span>
+                    <div class="stat-number">100%</div>
+                    <div class="stat-label">Dark/Light UI</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-icon">📱</span>
+                    <div class="stat-number">Full</div>
+                    <div class="stat-label">Accessibility</div>
+                </div>
+            </div>
+
+            <div class="info-box ai">
+                <span class="info-icon">💡</span>
+                <div class="info-content">
+                    <strong>🧠 Strategic Vision</strong>
+                    <p>Building on our 40+ database tables, we're introducing cutting-edge AI capabilities, smooth micro-animations, real-time collaborative tools, and machine learning models to dramatically improve student engagement, retention rates, and learning outcomes! 📈</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ⚡ Current UI Enhancements -->
+        <section class="card animate-on-scroll" id="current" aria-labelledby="current-heading">
+            <h2 id="current-heading">⚡ Current Features & UI Enhancements</h2>
+            <p class="card-description">
+                🎨 We've completely redesigned the user interface with modern glassmorphism effects, smooth animations, 
+                and intuitive interactions. Every element has been crafted for maximum engagement! ✨
+            </p>
+            
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🌗</span>
+                    <h3 class="feature-title">Dynamic Theme System</h3>
+                    <p class="feature-desc">🎨 Full dark/light mode support with smooth color transitions. Automatically detects system preferences and allows manual override. Reduces eye strain during late-night study sessions! 👁️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-high">High Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">✨</span>
+                    <h3 class="feature-title">Micro-Interactions</h3>
+                    <p class="feature-desc">🎭 Delightful button hover states, skeleton loaders, progress indicators, and success confetti animations. Every interaction feels responsive and satisfying! 🎉</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📱</span>
+                    <h3 class="feature-title">Native App-Like Navigation</h3>
+                    <p class="feature-desc">📲 Rebuilt mobile navigation with bottom tab bar, swipe-to-dismiss panels, and fluid page transitions creating a seamless native-app experience in the browser! 🚀</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-high">High Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Live Dynamic Dashboards</h3>
+                    <p class="feature-desc">⚡ Real-time updates via WebSockets! Watch your study stats, global rank, and test scores update live without refreshing. Stay motivated with instant feedback! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">♿</span>
+                    <h3 class="feature-title">Full Accessibility Support</h3>
+                    <p class="feature-desc">🦯 WCAG 2.1 compliant with screen reader support, keyboard navigation, focus indicators, and reduced motion options. Learning should be accessible to everyone! ❤️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Essential</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🔔</span>
+                    <h3 class="feature-title">Smart Notification System</h3>
+                    <p class="feature-desc">📬 Intelligent notification center with customizable preferences, scheduled reminders, and priority filtering. Never miss an important update! ⏰</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 UI/UX</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 🤖 AI Features Section -->
+        <section class="card animate-on-scroll" id="ai" aria-labelledby="ai-heading">
+            <h2 id="ai-heading">🤖 Next-Gen AI Integrations</h2>
+            <p class="card-description">
+                🧠 Harness the power of artificial intelligence to create a truly personalized learning experience. 
+                Our AI features adapt to each student's unique learning style and pace! 🚀
+            </p>
+
+            <div class="ai-highlight">
+                <h3>🌟 Core AI Capabilities</h3>
+                <div class="ai-features-list">
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">🎯</span>
+                        <div class="ai-feature-text">
+                            <h4>Smart Question Recommender</h4>
+                            <p>AI analyzes performance to suggest optimal practice questions</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">📈</span>
+                        <div class="ai-feature-text">
+                            <h4>Adaptive Test Engine (IRT)</h4>
+                            <p>Dynamic difficulty adjustment based on real-time accuracy</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">✍️</span>
+                        <div class="ai-feature-text">
+                            <h4>AI Essay & Answer Grader</h4>
+                            <p>Automatic grading with detailed feedback and suggestions</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">💬</span>
+                        <div class="ai-feature-text">
+                            <h4>24/7 AI Voice Tutor</h4>
+                            <p>Conversational AI explaining complex topics step-by-step</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">🧠</span>
+                        <div class="ai-feature-text">
+                            <h4>Auto Flashcard Generation</h4>
+                            <p>Convert notes to interactive spaced-repetition cards</p>
+                        </div>
+                    </div>
+                    <div class="ai-feature-item">
+                        <span class="ai-feature-icon">👁️</span>
+                        <div class="ai-feature-text">
+                            <h4>Proctoring & Anomaly Detection</h4>
+                            <p>Webcam monitoring for exam integrity</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎯</span>
+                    <h3 class="feature-title">Smart Question Recommender</h3>
+                    <p class="feature-desc">🧮 AI deeply analyzes your performance patterns, identifying weak areas at the micro-topic level. Uses collaborative filtering to push you past learning plateaus with perfectly matched questions! 💪</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📈</span>
+                    <h3 class="feature-title">Adaptive Test Engine (IRT)</h3>
+                    <p class="feature-desc">📊 Questions dynamically adjust in difficulty based on real-time accuracy during tests. Mimics real-world adaptive exams like GMAT, CAT, and GRE for better preparation! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">✍️</span>
+                    <h3 class="feature-title">AI Essay & Answer Grader</h3>
+                    <p class="feature-desc">📝 Automatically grade subjective mock exams with detailed feedback! Highlights missing keywords, grammar issues, structure problems, and provides polished model answers. ✨</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 New</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">💬</span>
+                    <h3 class="feature-title">24/7 AI Voice Tutor</h3>
+                    <p class="feature-desc">🗣️ A conversational AI companion capable of explaining complex topics step-by-step like a human tutor. Ask questions, get clarifications, and learn at your own pace! 🎓</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 New</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🧠</span>
+                    <h3 class="feature-title">Auto Flashcard Generation</h3>
+                    <p class="feature-desc">📚 Upload PDF notes or highlight text, and AI automatically converts it into interactive spaced-repetition flashcards! Perfect for quick revision and memory retention! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-medium">Medium Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">👁️</span>
+                    <h3 class="feature-title">Proctoring & Anomaly Detection</h3>
+                    <p class="feature-desc">🔒 Detects suspicious behavior using webcam posture tracking, tab switching monitoring, and audio anomaly detection during proctored exams. Ensures exam integrity! ⚠️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-medium">Medium Impact</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 🎓 Easy Learning Features -->
+        <section class="card animate-on-scroll" id="learning" aria-labelledby="learning-heading">
+            <h2 id="learning-heading">🎓 Features to Make Studying Easier</h2>
+            <p class="card-description">
+                🎯 Learning should be engaging, not tedious! These features are designed to make complex topics 
+                easier to understand and studying more enjoyable. Let's transform education! ✨
+            </p>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🗺️</span>
+                    <h3 class="feature-title">Auto Interactive Mind-Maps</h3>
+                    <p class="feature-desc">🧩 Struggling with big chapters? The platform automatically generates visual, explorable mind-maps of topics, linking related sub-topics. See the big picture! 🌐</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-learning">🎓 Learning</span>
+                        <span class="tag tag-high">Easier Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">⏱️</span>
+                    <h3 class="feature-title">Pomodoro Focus Timer</h3>
+                    <p class="feature-desc">⏰ Integrated study timer with customizable focus blocks! Includes built-in Lo-Fi beats, ambient noise toggles, and mental fatigue tracking. Stay focused! 🎵</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-medium">Productivity</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎮</span>
+                    <h3 class="feature-title">Gamified Daily Streaks</h3>
+                    <p class="feature-desc">🏆 Earn points, unlock badges, and maintain daily study streaks! Participate in weekly leaderboard challenges against peers. Learning becomes addictive! 🔥</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Retention</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🤝</span>
+                    <h3 class="feature-title">Peer-to-Peer Matchmaking</h3>
+                    <p class="feature-desc">👥 Studying alone is boring! Get matched in real-time mock battles, or find a study buddy preparing for the same exam with similar timings. Learn together! 🌟</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-community">👥 Community</span>
+                        <span class="tag tag-medium">Social</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📹</span>
+                    <h3 class="feature-title">Bite-Sized Microlearning</h3>
+                    <p class="feature-desc">🎬 Long lectures automatically summarized into scrollable 60-second shorts for rapid revision! Similar to popular social media formats. Learn on the go! 📱</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Easier Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🌐</span>
+                    <h3 class="feature-title">3D Concept Visualizer</h3>
+                    <p class="feature-desc">🔬 Interact with 3D models of complex biology diagrams, physics mechanics, or geography maps! Build visual understanding through exploration. Touch to learn! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-new">🆕 New</span>
+                        <span class="tag tag-high">Visual Learning</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- 💡 New Feature Suggestions -->
+        <section class="card animate-on-scroll" id="new" aria-labelledby="new-heading">
+            <h2 id="new-heading">💡 Additional Feature Suggestions</h2>
+            <p class="card-description">
+                🚀 Based on our analysis, here are additional features that would significantly enhance 
+                the learning experience and platform capabilities! ✨
+            </p>
+
+            <div class="features-grid">
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🗣️</span>
+                    <h3 class="feature-title">Voice-to-Text Notes</h3>
+                    <p class="feature-desc">🎤 Speak your notes instead of typing! AI converts speech to organized notes with automatic topic detection and formatting. Perfect for quick capture during lectures! 📝</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Learning Style Assessment</h3>
+                    <p class="feature-desc">🧬 AI-powered quiz to identify each student's learning style (visual, auditory, kinesthetic) and customize content presentation accordingly! Personalized learning! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-learning">🎓 Learning</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🤖</span>
+                    <h3 class="feature-title">AI Study Plan Generator</h3>
+                    <p class="feature-desc">📅 Tell the AI your exam date, current level, and available hours. It creates a personalized day-by-day study plan with milestones and adapts as you progress! 📈</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-high">High Impact</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🔄</span>
+                    <h3 class="feature-title">Concept Dependency Graph</h3>
+                    <p class="feature-desc">🔗 Visualizes how topics connect and which concepts need to be mastered before others. Helps students understand learning paths and prerequisites! 🗺️</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-learning">🎓 Learning</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">💬</span>
+                    <h3 class="feature-title">Real-Time Doubt Resolution</h3>
+                    <p class="feature-desc">❓ Stuck on a question? Get instant help from AI or connect with subject experts in real-time. Average resolution time under 5 minutes! ⚡</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-community">👥 Community</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📊</span>
+                    <h3 class="feature-title">Progress Prediction Engine</h3>
+                    <p class="feature-desc">🔮 AI predicts your likely exam score based on current performance trends, study patterns, and time remaining. Get actionable insights to improve! 🎯</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">🎭</span>
+                    <h3 class="feature-title">Emotion-Aware Learning</h3>
+                    <p class="feature-desc">😊 AI detects frustration or boredom from interaction patterns and suggests breaks, easier topics, or motivational content. Mental health matters! 💚</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ai">🤖 AI</span>
+                        <span class="tag tag-new">🆕 Suggested</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">📱</span>
+                    <h3 class="feature-title">Offline Mode & Sync</h3>
+                    <p class="feature-desc">📶 Download tests and study materials for offline studying! Auto-syncs progress when connection returns. Perfect for commutes and areas with poor connectivity! 🚄</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-ui">🎨 Feature</span>
+                        <span class="tag tag-medium">Medium Priority</span>
+                    </div>
+                </article>
+
+                <article class="feature-card" tabindex="0">
+                    <span class="feature-icon">👨‍👩‍👧‍👦</span>
+                    <h3 class="feature-title">Parent Dashboard</h3>
+                    <p class="feature-desc">👨‍👩‍👧 Allow parents to monitor their child's progress, study hours, and performance trends. Weekly email reports with actionable insights! 📧</p>
+                    <div class="feature-tags">
+                        <span class="tag tag-community">👥 Family</span>
+                        <span class="tag tag-medium">Engagement</span>
+                    </div>
+                </article>
+            </div>
+
+            <div class="info-box success">
+                <span class="info-icon">✨</span>
+                <div class="info-content">
+                    <strong>🔮 Future-Ready Architecture</strong>
+                    <p>Our modular React architecture allows for easy integration of these features. The PostgreSQL database can be extended with new tables, and the API layer supports rapid feature development. We're building for the future! 🚀</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 🎯 Priorities Section -->
+        <section class="card animate-on-scroll" id="priorities" aria-labelledby="priorities-heading">
+            <h2 id="priorities-heading">🎯 Implementation Priorities</h2>
+            <p class="card-description">
+                📊 Features are prioritized based on impact, development effort, and user value. 
+                Here's our strategic implementation order! 🚀
+            </p>
+
+            <div class="priority-grid">
+                <article class="priority-item priority-high">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🤖 AI Question Generator & Recommender</h3>
+                        <span class="tag tag-high">Phase 1</span>
+                    </div>
+                    <p class="priority-desc">🎯 Immediately scale content library and provide personal recommendations based on past weaknesses. This hooks users and demonstrates AI value from day one!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐⭐</span>
+                        <span>⏱️ 3 Weeks</span>
+                        <span>🔥 Critical</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-high">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🎨 UI Overhaul: Micro-Animations & Dark Mode</h3>
+                        <span class="tag tag-high">Phase 1</span>
+                    </div>
+                    <p class="priority-desc">✨ Upgrade the visual layer across React components to incorporate premium glassmorphism, smooth transitions, and theme support. First impressions matter!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐⭐</span>
+                        <span>⏱️ 2 Weeks</span>
+                        <span>🔥 Critical</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-medium">
+                    <div class="priority-header">
+                        <h3 class="priority-title">⏰ Pomodoro & Gamification System</h3>
+                        <span class="tag tag-medium">Phase 2</span>
+                    </div>
+                    <p class="priority-desc">🎮 Integrate the focus timer and build out user profiles with badges, streaks, and global leaderboards. Keep users engaged and coming back daily!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐</span>
+                        <span>⏱️ 3 Weeks</span>
+                        <span>📈 High</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-medium">
+                    <div class="priority-header">
+                        <h3 class="priority-title">✍️ AI Essay Grader & Voice Tutor</h3>
+                        <span class="tag tag-medium">Phase 2</span>
+                    </div>
+                    <p class="priority-desc">🗣️ Deploy subjective grading capabilities and interactive doubt solving via speech-to-text integration. A game-changer for exam preparation!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐⭐</span>
+                        <span>⏱️ 4 Weeks</span>
+                        <span>📈 High</span>
+                    </div>
+                </article>
+
+                <article class="priority-item priority-low">
+                    <div class="priority-header">
+                        <h3 class="priority-title">🌐 3D Visualizers & Microlearning</h3>
+                        <span class="tag tag-new">Phase 3</span>
+                    </div>
+                    <p class="priority-desc">🎬 Implement video summarization and interactive AR/3D environments for specific subjects. The "wow" factor that sets us apart from competitors!</p>
+                    <div class="priority-meta">
+                        <span>⭐⭐⭐</span>
+                        <span>⏱️ 4 Weeks</span>
+                        <span>✨ Polish</span>
+                    </div>
+                </article>
+            </div>
+        </section>
+
+        <!-- ⏱️ Timeline Section -->
+        <section class="card animate-on-scroll" id="timeline" aria-labelledby="timeline-heading">
+            <h2 id="timeline-heading">📅 Roadmap Timeline</h2>
+            <p class="card-description">
+                🗓️ A phased approach ensures steady progress with regular value delivery. 
+                Each phase builds on the previous, creating a robust platform! 🚀
+            </p>
+
+            <div class="timeline" role="list">
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">🚀 Phase 1 • Weeks 1-5</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Core UX & AI Foundation</h4>
+                        <p class="timeline-desc">🎯 Complete deployment of Dark Mode, live dynamic animations, AI Question Recommender system, and automated Flashcard creation. This forms the foundation for all future features!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">🎮 Phase 2 • Weeks 6-10</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Retention & Grading</h4>
+                        <p class="timeline-desc">🏆 Launch Gamified streaks, Pomodoro Timer with Lo-Fi music integration, and the AI Essay / subjective answer grading tool. Focus on keeping users engaged and motivated!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">👥 Phase 3 • Weeks 11-14</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Social & Immersion</h4>
+                        <p class="timeline-desc">🤝 Roll out Voice Tutor, Peer-to-Peer matchmaking for live challenges, and Adaptive testing algorithms (IRT). Transform learning from solitary to social!</p>
+                    </div>
+                </article>
+
+                <article class="timeline-item animate-on-scroll" role="listitem">
+                    <h3 class="timeline-phase">✨ Phase 4 • Weeks 15-16</h3>
+                    <div class="timeline-content">
+                        <h4 class="timeline-title">Next-Level Content</h4>
+                        <p class="timeline-desc">🎬 Implement Microlearning (short revision videos) and 3D concept visualizers. Final optimizations, performance tuning, and bug sweeping. Platform launch ready! 🎉</p>
+                    </div>
+                </article>
+            </div>
+
+            <div class="info-box warning">
+                <span class="info-icon">⚠️</span>
+                <div class="info-content">
+                    <strong>🔧 Technical Requirements</strong>
+                    <p>📡 Rollout requires: OpenAI API / Anthropic API keys for LLMs, WebSocket server upgrades, caching layer (Redis) for real-time leaderboards, and a dedicated 3D library (Three.js) for interactive models. Plan infrastructure scaling accordingly! 🏗️</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- 🦶 Footer -->
+        <footer role="contentinfo">
+            <p>🚀 Next-Gen Feature Recommendations | Trstprep V2.0 Ecosystem</p>
+            <p>⚛️ React • 🟢 Node.js • ⚡ WebSockets • 🤖 AI Pipelines | February 2026</p>
+            <div class="footer-icons">🎯 🚀 ✨ 🎓 🤖 💡</div>
+        </footer>
+    </div>
+
+    <script>
+        // 🌙 Theme Toggle
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const themeText = document.getElementById('themeText');
+        const html = document.documentElement;
+
+        // Check for saved theme or system preference
+        const savedTheme = localStorage.getItem('theme');
+        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme = savedTheme || (systemPrefersDark ? 'dark' : 'light');
+        
+        html.setAttribute('data-theme', initialTheme);
+        updateThemeUI(initialTheme);
+
+        themeToggle.addEventListener('click', () => {
+            const current = html.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
+            updateThemeUI(next);
+        });
+
+        function updateThemeUI(theme) {
+            themeIcon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            themeText.textContent = theme === 'dark' ? 'Light Mode' : 'Dark Mode';
+        }
+
+        // 🎬 Scroll Animations with Intersection Observer
+        const observerOptions = {
+            root: null,
+            rootMargin: '0px 0px -100px 0px',
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry, index) => {
+                if (entry.isIntersecting) {
+                    // Stagger animation for multiple items
+                    setTimeout(() => {
+                        entry.target.classList.add('visible');
+                    }, index * 100);
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.animate-on-scroll, .timeline-item').forEach(el => {
+            observer.observe(el);
+        });
+
+        // ⌨️ Keyboard Navigation for Feature Cards
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    card.click();
+                }
+            });
+        });
+
+        // 📊 Counter Animation for Stats
+        function animateCounter(element, target, duration = 2000) {
+            let start = 0;
+            const increment = target / (duration / 16);
+            const timer = setInterval(() => {
+                start += increment;
+                if (start >= target) {
+                    element.textContent = target + (target >= 100 ? '' : '+');
+                    clearInterval(timer);
+                } else {
+                    element.textContent = Math.floor(start) + '+';
+                }
+            }, 16);
+        }
+
+        // Trigger counter animation when stats are visible
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const statNumbers = entry.target.querySelectorAll('.stat-number');
+                    statNumbers.forEach(stat => {
+                        const text = stat.textContent;
+                        const num = parseInt(text);
+                        if (!isNaN(num) && num > 0) {
+                            stat.textContent = '0';
+                            animateCounter(stat, num);
+                        }
+                    });
+                    statsObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+
+        document.querySelectorAll('.stats-grid').forEach(grid => {
+            statsObserver.observe(grid);
+        });
+
+        // 🎵 Smooth Scroll for Navigation
+        document.querySelectorAll('.nav a').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const targetId = link.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+                if (targetElement) {
+                    const offset = 120;
+                    const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - offset;
+                    window.scrollTo({
+                        top: targetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // 🎨 Console Welcome Message
+        console.log('%c🚀 Trstprep V2.0 Feature Recommendations', 'font-size: 24px; font-weight: bold; color: #667eea;');
+        console.log('%c📚 Explore the future of learning!', 'font-size: 14px; color: #94a3b8;');
+    </script>
+    </div>
+
+    </div>
+    <div class="footer">3 feature reports combined &mdash; Trstprep V2.1</div>
+    <script>
+        const tabs=document.querySelectorAll('.flow-tab'),sections=document.querySelectorAll('.flow-section');
+        tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>x.classList.remove('active'));sections.forEach(s=>s.style.display='none');t.classList.add('active');document.getElementById(t.dataset.target).style.display='block';window.scrollTo({top:0,behavior:'smooth'});}));
+        document.addEventListener('keydown',e=>{const i=[...tabs].findIndex(t=>t.classList.contains('active'));if(e.key==='ArrowRight'&&i<tabs.length-1)tabs[i+1].click();if(e.key==='ArrowLeft'&&i>0)tabs[i-1].click();});
+    </script>
+</body>
+</html>

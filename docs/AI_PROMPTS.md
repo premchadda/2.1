@@ -1,3 +1,127 @@
+# AI Prompts
+
+AI prompt library and generated outputs for Trstprep V2.1 development.
+
+---
+
+
+## Admin Panel Prompt
+
+*Source: `docs/Prompts for Ai Chat/Admin Panel doc.txt`*
+
+```
+Here is the complete, comprehensive master specification for the Trstprep V2.0 Admin Panel. This document consolidates your architecture, data hierarchies, and granular permission rules into a single blueprint, perfect for guiding your backend API development and frontend UI design.
+🛠️ Trstprep V2.0: Master Admin Panel Specification
+1. Core Administrative Capabilities (The "CRUD+" Rules)
+Across the entire platform, administrators possess absolute control over content state, user access, and visual presentation. The system is built to support the following actions across all applicable modules:
+ * Create & Add: Author new tests, upload study materials, define new exam categories, generate coupons, and add staff accounts.
+ * View & Read: Inspect user profiles, preview tests as a student, read the Analytic Engine logs, and monitor system health.
+ * Modify & Update: Fix typos in question banks, adjust test durations, update syllabus details, and manually upgrade user passes.
+ * Reorder (Custom Display): Manually define the exact UI placement of categories, test series, and study materials via a display_order index. This overrides creation dates on static frontend library views.
+ * Enable & Disable (Toggle State): Publish or hide tests, activate/deactivate promotional campaigns, and toggle global maintenance modes without deleting data.
+ * Delete & Restore: Soft-delete outdated tests or materials (sending them to the System Manager's Recycle Bin), with the ability to restore them instantly.
+ * Ban & Remove: Instantly suspend bad actors or permanently delete user accounts and their associated data.
+2. Detailed Navigation & Module Workflows
+📊 Dashboard
+The high-level landing page for administrative oversight.
+ * Overview Metrics: Real-time data on active enrollments, daily active users (DAU), live test takers, and daily revenue.
+ * Quick Actions: Shortcuts to frequently used tools (e.g., "Add New Mock Test," "Generate Coupon," "Review Flagged Questions").
+📝 Exam Manager
+Controls the top-level taxonomy of the platform.
+ * Exam Category & Subcategory: Create broad umbrellas (e.g., SSC, Railway) and specific sub-exams (e.g., CGL, CHSL, NTPC). Admins can reorder these to push high-traffic exams to the top of the student homepage.
+ * Exam Info: A rich-text editor to modify public-facing exam metadata, such as syllabus breakdowns, eligibility criteria, and upcoming notification dates.
+🎯 Test & Quiz Manager
+The core engine for assessment creation and organization.
+ * Test Category & Subcategory: Define assessment types (e.g., Live Mocks, Sectional Tests, Previous Year Papers).
+ * Test Series Manager: Group individual tests into logical packages (e.g., "SSC CGL 2026 Tier-1 Mock Series"). Admins can reorder these packages for promotional visibility.
+ * Test Manager: Build full-length assessments. Set properties like total marks, duration, and premium status (Free vs. Pro). Admins can enable/disable tests to schedule their release.
+ * Quiz Manager: Configure flexible Practice Mode modules (Subject-wise, Topic-wise) that pull random or minimum required questions.
+ * Questions Manager: The centralized Question Bank. Admins can create, modify, and delete questions, configure multiple-choice options, set the correct answer key, and author detailed explanations.
+📚 Study Material Manager
+Controls the syllabus hierarchy and static learning resources.
+ * Subject, Chapter, & Topic Manager: Build the exact curriculum tree (e.g., Maths \rightarrow Number System). Admins can reorder chapters to dictate the student's learning path.
+ * Content Manager: Upload, view, modify, and delete specific assets (PDFs, Notes, Video URLs) and attach them to specific chapters.
+ * Tag & Category Manager: Apply searchable tags to content for cross-referencing across different exams.
+📈 Analytic Manager
+The deep-dive data center for tracking performance and security.
+ * Performance Analytics: Review aggregated student scores, identify the most frequently failed questions, and track overall completion rates.
+ * The Analytic Engine Logs: A hidden, non-public history log that records every action taken on the site. Admins can view logs of who created a test, who deleted a file, or what time a specific user started an exam.
+🔔 Notification Manager
+The platform's communication hub.
+ * Alerts & Announcements: Create and push bulk notifications (e.g., "New Mock Test Added!") or targeted alerts to specific cohorts (e.g., all users enrolled in the SSC CGL series).
+💳 Subscriptions Manager
+Controls the platform's monetization and promotional engines.
+ * Pass Manager: Modify the features, access limits, and pricing of the Free and Pro subscription tiers.
+ * Coupon & Promotion Manager: Create, enable, disable, and track discount codes or referral rewards.
+👥 User Manager
+The support and moderation console.
+ * User Dashboard: Search and view individual student profiles, inspecting their payment history, active enrollments, and specific test attempts.
+ * User Manage: Perform manual account actions. Admins can upgrade a user's pass tier, reset passwords, change account roles (Student to Admin), ban suspicious accounts, or manually add test users.
+⚙️ System Manager
+The technical oversight and recovery center.
+ * Recycle Bin: The interface for viewing soft-deleted content (tests, materials, users). Admins can choose to permanently delete these items or restore them to the live database.
+ * System Health: Monitor the Express.js backend status, PostgreSQL/Supabase connection health, and API rate limits.
+🛠️ Admin and App Settings
+Global configuration controls.
+ * Platform Settings: Modify the site name, contact email, social media links, and footer text.
+ * Feature Toggles: Enable or disable global site features, such as turning on a "Maintenance Mode" screen.
+ * Documentation Hub: Internal links to your docs/ folder, including architecture audits and your Hardcoded Data Migration Plan.
+3. Key Technical Implementations for the UI/UX
+ * Custom Order vs. Dynamic Feeds: While admins have a "Drag and Drop" or numeric input to set the display_order of static libraries (like the syllabus chapters or main test series catalog), this strict ordering is intentionally ignored in dynamic student UI sections. Components like "Continue Learning," "Recently Added," or "Recommended for You" are automatically sorted by the user's last_accessed_at or the system's created_at timestamps.
+ * Soft Deletion Logic: When an admin clicks "Delete" on a test or PDF, the system does not drop the row from the Supabase database. Instead, it updates a boolean column (is_deleted = true). The frontend automatically filters out is_deleted items, but they remain visible in the Admin Recycle Bin for potential restoration.
+```
+
+---
+
+
+## Bulk Upload Prompt
+
+*Source: `docs/Prompts for Ai Chat/Bulk Upload - Functions.txt`*
+
+```
+Check the bulk creation/upload functionality for tests and questions, ensuring proper handling of the hierarchical linking from test series to tests. Specifically verify that:
+
+1. When creating tests in bulk via upload, the system properly links tests to their corresponding test series using the seriesId field
+2. When creating questions in bulk via upload, the system properly links questions to both tests (via testId) and test series (via seriesId) as appropriate
+3. The dropdown fields in the bulk upload forms show proper data fetched from the backend, including:
+   - Test series dropdown showing all available test series
+   - Test dropdown showing tests filtered by selected series
+   - Category and subcategory dropdowns showing proper hierarchical data
+   - Stage dropdown showing stages filtered by selected series
+4. The bulk upload process correctly handles the linking hierarchy where questions can be linked to either a specific test or directly to a series
+5. The validation and mapping functions properly maintain the relationships during bulk operations
+6. The UI components properly display and handle the hierarchical relationships in both individual and bulk operations
+
+Focus on the QuestionsManager.jsx component's bulk upload modal and the corresponding backend routes in admin.js for bulk test and question creation.
+```
+
+---
+
+
+## Docs Check Prompt
+
+*Source: `docs/Prompts for Ai Chat/Docs Check.txt`*
+
+```
+Analyze the documentation files in the repository and compare them against the current codebase to determine if they are up-to-date with the existing implementation. Specifically:
+
+1. Review all documentation files located in the `docs/` directory and its subdirectories
+2. Compare the documented APIs, database schemas, project structure, and functionality against the actual current code in the repository
+3. Identify which documentation files accurately reflect the current codebase versus those that are outdated
+4. Pay special attention to key documentation files like API_DOCUMENTATION.html, DATABASE_SCHEMA.html, PROJECT_STRUCTURE.html, and any flow diagrams
+5. Note any discrepancies between what's documented and what exists in the actual code
+6. Determine if the documentation reflects the current architecture including the three-app structure (backend, frontend, landing), the database export files, and the dev-tools scripts
+7. Flag any documentation that appears to reference legacy or outdated information based on the current repository state
+```
+
+---
+
+
+## Node Engine Vision (V1-V5)
+
+*Source: `docs/Prompts for Ai Chat/NODE_ENGINE_VISION.txt`*
+
+```
 Here is your **🔥 NODE ENGINE IMPLEMENTATION (Production-Ready Design)** — this is the real backbone of your system.
 
 This turns your platform into a **flexible learning graph (like Notion + LMS + Testbook combined)**.
@@ -2660,6 +2784,400 @@ Just say:
 > “convert into production system”
 
 and I’ll turn this into real deployable architecture.
+```
+
+---
+
+
+## Analysis Report
+
+*Source: `docs/Prompts for Ai Chat/ANALYSIS_REPORT.txt`*
+
+```
+Analyze the application to identify what types of analysis reports are provided and displayed for users and in the admin panel. Specifically:
+
+1. Identify all user-facing analytics and reporting features including:
+   - What metrics are tracked and displayed (test performance, subject-wise breakdown, accuracy, time spent, etc.)
+   - Where these analytics are shown in the UI (dashboard, analysis page, test results, etc.)
+   - What data points are collected and presented
+
+2. Identify all admin panel analytics and reporting features including:
+   - What administrative reports are available (user stats, content engagement, test performance, question analytics, etc.)
+   - What endpoints exist for admin analytics (check routes and controllers)
+
+3. Verify if the graphs and visualizations are using real-time data:
+   - Check if charts are using appropriate libraries (like Chart.js, D3, etc.)
+   - Confirm data is being fetched dynamically vs. hardcoded
+   - Verify if the displayed content accurately reflects the underlying data
+
+4. Check if the frontend can properly render content for all subjects including:
+   - Mathematics (formulas, equations, calculations)
+   - Reasoning (logical problems, diagrams)
+   - Image-based content (charts, diagrams, visual questions)
+   - Other subject-specific content types
+
+5. Locate any directories or storage mechanisms for images in the repository:
+   - Find where image assets are stored
+   - Check upload/download functionality for images
+   - Identify image handling in the database/filesystem
+
+6. Determine if features are implemented with proper logic versus hardcoded values:
+   - Check if subject lists, content, and features use dynamic data from APIs/database vs. hardcoded values
+   - Verify if proper libraries and frameworks are used for functionality
+   - Identify any hardcoded names or values that should be dynamic
 
 
 
+
+Examine the repository structure and code to identify which libraries, frameworks, and cloud services are being used to provide application features, including both local and cloud-based functionality. Please analyze the project dependencies, configuration files, and code to determine the specific technologies powering the various features.
+
+
+
+
+
+## Libraries, Frameworks & Cloud Services Analysis
+
+### 🖥️ FRONTEND (React + Vite)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| **React** | 18.2.0 | Core UI framework |
+| **React Router DOM** | 6.21.0 | Client-side routing |
+| **Chart.js** | 4.4.1 | Graph/chart rendering |
+| **react-chartjs-2** | 5.2.0 | React wrapper for Chart.js |
+| **TanStack React Query** | 5.90.21 | Server state management, caching |
+| **Axios** | 1.6.2 | HTTP client for API calls |
+| **Socket.io-client** | 4.8.3 | Real-time WebSocket communication |
+| **Lucide React** | 0.294.0 | Icon library |
+| **React Hot Toast** | 2.6.0 | Toast notifications |
+| **TailwindCSS** | 3.3.6 | Utility-first CSS framework |
+| **Vite** | 6.4.1 | Build tool & dev server |
+
+---
+
+### ⚙️ BACKEND (Node.js + Express)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| **Express** | 4.18.2 | Web server framework |
+| **Socket.io** | 4.8.3 | Real-time bidirectional communication |
+| **JWT (jsonwebtoken)** | 9.0.2 | Authentication tokens |
+| **bcryptjs** | 2.4.3 | Password hashing |
+| **express-validator** | 7.0.1 | Input validation |
+| **helmet** | 7.1.0 | Security headers |
+| **cors** | 2.8.5 | Cross-origin resource sharing |
+| **express-rate-limit** | 7.5.1 | API rate limiting |
+| **morgan** | 1.10.0 | HTTP request logging |
+| **multer** | 1.4.5-lts.1 | File upload handling |
+
+---
+
+### 🗄️ DATABASES
+
+| Database | Library | Use Case |
+|----------|---------|----------|
+| **PostgreSQL** | `pg` 8.18.0 | Primary production database |
+| **MongoDB** | `mongoose` 8.0.3 | Document storage (flexible schema) |
+| **SQLite** | `sqlite3` 6.0.1 | Local development database |
+| **Redis** | `ioredis` 5.10.0 | Caching & session storage |
+| **lowdb** | 6.1.1 | Local JSON file database |
+
+---
+
+### ☁️ CLOUD SERVICES
+
+#### **Storage (Multi-provider)**
+| Provider | Library | Config Vars |
+|----------|---------|-------------|
+| **AWS S3** | `@aws-sdk/client-s3` 3.888.0 | `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
+| **Supabase Storage** | REST API | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET` |
+| **Local** | Native `fs` | Default fallback |
+
+#### **Email Services**
+| Provider | Library | Config Vars |
+|----------|---------|-------------|
+| **SMTP (Generic)** | `nodemailer` 8.0.1 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` |
+| **SendGrid** | `@sendgrid/mail` 8.1.6 | `SENDGRID_API_KEY` |
+| **AWS SES** | `@aws-sdk/client-ses` 3.888.0 | AWS credentials |
+
+#### **SMS/Notifications**
+| Provider | Library | Purpose |
+|----------|---------|---------|
+| **Twilio** | `twilio` 5.12.2 | SMS notifications |
+| **AWS SNS** | `@aws-sdk/client-sns` 3.888.0 | Push notifications |
+
+#### **Payments**
+| Provider | Library | Purpose |
+|----------|---------|---------|
+| **Razorpay** | `razorpay` 2.9.6 | Payment gateway (INR) |
+
+---
+
+### 📊 REAL-TIME FEATURES
+
+| Feature | Implementation |
+|---------|----------------|
+| **WebSocket Server** | Socket.io (backend) |
+| **WebSocket Client** | socket.io-client (frontend) |
+| **Queue Processing** | BullMQ 5.70.4 + Redis |
+| **Live Test Updates** | Real-time attempt sync |
+| **Leaderboard** | Socket-based rankings |
+
+---
+
+### 📁 FILE PROCESSING
+
+| Library | Purpose |
+|---------|---------|
+| **xlsx-js-style** | Excel file generation with styling (bulk uploads/reports) |
+| **axios** | External API integrations |
+
+---
+
+### 🔐 SECURITY FEATURES
+
+| Feature | Implementation |
+|---------|----------------|
+| **Rate Limiting** | express-rate-limit (100 req/15min default) |
+| **Security Headers** | helmet middleware |
+| **CORS Protection** | cors middleware |
+| **Password Hashing** | bcryptjs (10 salt rounds) |
+| **JWT Authentication** | HS256 algorithm |
+| **Input Validation** | express-validator |
+
+---
+
+### ⚠️ MISSING/RECOMMENDED LIBRARIES
+
+| Feature | Current Status | Recommendation |
+|---------|----------------|----------------|
+| **Math Rendering** | Plain text | Add `katex` or `@uiw/react-md-editor` |
+| **PDF Generation** | Not found | Could use `puppeteer` or `jspdf` |
+| **Image Processing** | Basic multer | Could add `sharp` for optimization |
+
+---
+
+### 🏗️ ARCHITECTURE SUMMARY
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      FRONTEND (React)                        │
+│  Vite + TailwindCSS + Chart.js + Socket.io-client          │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ HTTP/WebSocket
+┌─────────────────────▼───────────────────────────────────────┐
+│                     BACKEND (Express)                        │
+│  Socket.io + BullMQ + JWT + Rate Limiting                    │
+└───┬─────────────┬─────────────┬─────────────┬──────────────┘
+    │             │             │             │
+┌───▼───┐    ┌───▼───┐    ┌───▼───┐    ┌───▼───┐
+│PostgreSQL│ │MongoDB│    │ Redis │    │ AWS   │
+│ (pg)   │    │(mongoose)   │(ioredis)   │S3/SES/SNS│
+└────────┘    └────────┘    └────────┘    └────────┘
+```
+
+All major features use **proper libraries with real implementations** - not hardcoded mockups.
+
+
+
+
+## Analysis Report: Trstprep V2.0 Analytics & Content System
+
+### 1. **Types of Analysis Reports Provided**
+
+#### User-Facing Analytics (`Analysis.jsx`):
+- **Overview Tab**: Answer distribution (Correct/Wrong/Skipped), recent tests, test statistics
+- **Subject Wise Tab**: Per-subject accuracy breakdown with strong/weak area identification
+- **Progress Tab**: Improvement areas, strengths tracking, rank percentile
+
+#### Admin Panel Analytics (`AdminAnalytics.jsx` + `admin.js`):
+- **Dashboard Stats**: Users, tests, questions, media, enrollments counts
+- **User Activity Charts**: Daily registrations, test completions
+- **Top Tests Analytics**: Attempt counts, completion rates
+- **Question Analytics**: Per-question performance analysis
+- **Recent Activity Feed**: User registrations, test completions, uploads
+- **Content Distribution**: Media type breakdowns
+
+### 2. **Graph Implementation Status**
+
+⚠️ **No Chart Library Installed** - The project does NOT use Recharts, D3, or Victory charts.
+
+**Current Implementation**: Custom CSS-based progress bars
+- Uses `<div>` elements with percentage widths for bar charts
+- No interactive graphs or data visualizations
+- Icons from `lucide-react` (BarChart2, PieChart, TrendingUp) are decorative only
+
+**Files Using Visual Indicators**:
+- `Analysis.jsx`: Subject performance bars (CSS width percentages)
+- `AdminAnalytics.jsx`: Placeholder for charts with `<BarChart3>` icons
+- `AdminDashboard.jsx`: Empty chart placeholders
+
+### 3. **Frontend Content Rendering for Subjects**
+
+✅ **Properly Implemented** - `TestInterface.jsx` handles all subject types:
+
+```javascript
+const subjectToSection = {
+  'General Knowledge': 'GK',
+  'Mathematics': 'Math',
+  'Quantitative Aptitude': 'Math',
+  'Reasoning': 'Reasoning',
+  'English': 'English',
+  'General Science': 'Science'
+}
+```
+
+**Rendering Capabilities**:
+- ✅ Text questions with proper formatting
+- ✅ Image questions (`questionImageUrl` support)
+- ✅ Multi-language support (English/Hindi toggle)
+- ✅ Section-based navigation
+- ✅ Question timers per subject
+
+### 4. **Image Storage Directories**
+
+**Backend Storage**: `apps/backend/uploads/`
+- Configured via `multer` for file uploads
+- Assets stored in database (`assets` table) with metadata
+- Access URLs resolved via `storageProvider.js`
+
+**Frontend**: No static image directory - uses API-served URLs
+- Question images: `imageUrl`, `questionImageUrl`, `image_url`
+- Banners: `bannerUrl`, `bannerAssetId`
+
+### 5. **Features: Hardcoded vs Logic-Based**
+
+#### ✅ **Proper Logic with Backend Integration**:
+- Analytics data fetched from `/api/admin/analytics`, `/api/admin/stats`
+- User analytics from `getUserAnalytics()` API call
+- Test results computed from actual attempt data
+- Question counts calculated dynamically via `calculateStudyMaterialCounts()`
+- Leaderboard rankings from database queries
+
+#### ⚠️ **Hardcoded/Fallback Values**:
+- AI Recommendations in Analysis.jsx (static text suggestions)
+- Default subject colors in performance display
+- Achievement badge logic uses simple threshold checks
+- `avgTimeSpent: 'N/A'` (time tracking not fully implemented)
+
+#### ❌ **Missing Real-time Updates**:
+- No WebSocket for live leaderboard updates
+- Charts don't auto-refresh (manual page reload needed)
+- No real-time analytics streaming
+
+### Key Recommendations:
+1. **Install a chart library** (Recharts recommended for React)
+2. **Implement WebSocket** for real-time test rankings
+3. **Add actual AI logic** for personalized recommendations
+4. **Complete time tracking** implementation for study materials
+```
+
+---
+
+
+## Realtime Updates Prompt
+
+*Source: `docs/Prompts for Ai Chat/Realtime updates.txt`*
+
+```
+We need to implement real-time cascading updates throughout the database when core entities are modified. Specifically, when a test series name is changed in the test_series table, this update must automatically propagate to all related tables that reference this test series. This includes updating any foreign key references, denormalized data, or cached values in related tables such as tests, questions, test_questions, test_series_enrollments, and any other tables that contain the test series name or ID. The system should ensure data consistency across all tables immediately upon update, either through database triggers, application-level logic, or a combination of both. Please analyze the current schema and implement the necessary changes to ensure that changing a test series name will update all related records in real-time without manual intervention.
+
+
+
+We need to implement real-time data updates on the frontend without requiring a page or window refresh. The system should automatically update displayed data when changes occur in the backend, similar to how the test series component currently uses WebSocket connections and TanStack Query invalidation to refresh data in real-time. Specifically, we want to ensure that when data is modified through admin operations or user actions, the corresponding UI components update immediately without manual intervention or page reloads.
+```
+
+---
+
+
+## Security & UI Scan Prompt
+
+*Source: `docs/Prompts for Ai Chat/Security, Ui Scan.txt`*
+
+```
+Perform a comprehensive security and code quality audit of the entire repository. Specifically examine:
+
+**Security Audit:**
+- Identify potential security vulnerabilities (SQL injection, XSS, CSRF, authentication bypasses, etc.)
+- Review authentication and authorization implementations across ​frontend/src/context/AuthContext.jsx​, ​Backend/src/middleware/auth.js​, and ​Backend/src/routes/auth.js​
+- Check for proper input validation and sanitization in API routes
+- Verify JWT token handling and session management security
+- Review file upload security in ​Backend/src/middleware/upload.js​
+
+**Code Quality & Structure:**
+- Identify duplicate files, folders, and code blocks throughout the codebase
+- Locate misplaced files that don't follow the established project structure
+- Find incomplete files, truncated code, or missing implementations
+- Check for broken or inconsistent routing in ​frontend/src/App.jsx​ and backend route definitions
+- Verify proper API endpoint configurations and error handling
+
+**UI/UX & Responsiveness:**
+- Audit current UI for responsiveness across different device sizes
+- Evaluate design optimization for various screen dimensions
+- Check mobile-first design implementation and adaptive layouts
+- Review TailwindCSS usage and optimization per ​tailwind.config.js​
+
+**Configuration & Logic Issues:**
+- Identify misconfigured settings in ​.env​ files and configuration modules
+- Find API routes that fetch data without proper logic or error handling
+- Locate files that lack proper business logic implementation
+- Verify workflow consistency across frontend and backend components
+- Check for missing error handling and proper fallback mechanisms
+
+Focus on the identified areas while maintaining the existing architecture patterns shown in ​Backend/src/app.js​, ​frontend/src/main.jsx​, and ​frontend/src/App.jsx​.zl
+
+
+Conduct a comprehensive audit of the current repository to identify and document:
+
+1. **Misplaced files/components**: Files located in incorrect directories, components imported from wrong paths, or incorrectly structured modules
+
+2. **Missing elements**: Files referenced but not present, broken imports, missing dependencies, undefined variables, or incomplete implementations
+
+3. **Misconfigurations**: Incorrect environment variables, faulty routing configurations, improper build settings, or malformed configuration files
+
+4. **Incomplete features**: Partially implemented functionality, stubbed endpoints, placeholder components, or unfinished code sections
+
+5. **Hardcoded/mock data**: Embedded test values, temporary data, mock APIs, hardcoded credentials, or placeholder content that should be dynamic
+
+6. **Analysis reports**: Generate findings with severity levels (Critical, High, Medium, Low), exact file locations, line numbers, and impact assessment
+
+7. **Live update systems**: Identify real-time data feeds, WebSocket connections, polling mechanisms, or dashboard components that require live data updates
+
+Focus on the following areas specifically:
+- Frontend components with hardcoded values or mock data
+- Backend API endpoints returning static responses instead of dynamic data
+- Database queries with hardcoded parameters
+- Configuration files with sensitive information
+- Routing configurations pointing to non-existent components
+- Chart/report components that need live data integration
+- Any placeholder implementations marked as "coming soon" or "stub"
+
+Provide detailed documentation of each finding with:
+- Exact file paths and line numbers
+- Severity classification
+- Recommended remediation steps
+- Potential security implications where applicable
+
+Identify files that are completely unused, redundant, or serve no functional purpose in the codebase. Look for files that are not imported, referenced, or used anywhere in the project, including:
+
+1. Files that are never imported or required by other modules
+2. Duplicate files with identical or nearly identical content
+3. Empty files or files with only comments/no meaningful code
+4. Files that were created for testing but never removed
+5. Files that exist but have no corresponding functionality being used
+6. Files that are remnants of old features that have been replaced
+7. Files that are ignored by git (like those in .gitignore) but still take up space unnecessarily
+
+Focus particularly on the _dev/ folder and other development-only files that should never be deployed to production, as well as any test files, debug scripts, or temporary files that are no longer needed.
+
+Consider the .gitignore file patterns to understand what files are intentionally excluded from version control, and verify if any of these represent truly useless files vs. generated/compiled files that are expected.
+
+Identify incomplete feature implementations in the codebase where features lack proper business logic, data flow analysis, or real-time functionality. Specifically look for features that:
+- Have no implemented logic behind their functionality
+- Lack data flow analysis or processing
+- Don't support real-time updates when they should
+- Are merely named components without actual logic implementation
+- Include elements like like buttons, sections, or data displays that don't have proper backend logic for real-time data updates
+```
+
+---
