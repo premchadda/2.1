@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trstprep V2.1 — Repo Brain</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:rgba(255,255,255,0.08);--text:#e8e8f0;--text2:#a0a0b8;--text3:#606078;--accent:#6366f1;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;--radius:8px}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+code{font-family:'JetBrains Mono',monospace;font-size:0.85em;background:var(--surface2);padding:0.15em 0.4em;border-radius:4px;color:#c4b5fd}
+pre{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:0.8rem;color:var(--text2)}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;margin:1rem 0}
+th{background:var(--surface2);color:var(--text3);font-weight:600;text-transform:uppercase;font-size:0.7rem;letter-spacing:0.5px;padding:0.625rem 0.75rem;text-align:left;position:sticky;top:0;z-index:1}
+td{padding:0.5rem 0.75rem;border-bottom:1px solid var(--border);color:var(--text2)}
+tr:hover td{background:rgba(99,102,241,0.05)}
+
+/* Layout */
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;z-index:100;padding:1rem 0}
+.sidebar h3{font-size:0.7rem;text-transform:uppercase;color:var(--text3);letter-spacing:1px;padding:0.5rem 1.5rem;margin-top:1rem}
+.sidebar a{display:block;padding:0.5rem 1.5rem;color:var(--text2);font-size:0.85rem;font-weight:500;border-left:2px solid transparent;transition:all 0.2s}
+.sidebar a:hover{color:var(--text);background:rgba(255,255,255,0.03);border-left-color:var(--accent)}
+.sidebar a.active{color:var(--accent);border-left-color:var(--accent);background:rgba(99,102,241,0.08)}
+.main{margin-left:240px;padding:2rem 2.5rem;max-width:1400px}
+
+/* Sections */
+.section{margin-bottom:3rem}
+.section-title{font-size:1.75rem;font-weight:800;margin-bottom:0.5rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border)}
+.section-desc{color:var(--text3);font-size:0.9rem;margin-bottom:1.5rem}
+.subsection{margin-bottom:2rem}
+.subsection-title{font-size:1.15rem;font-weight:700;margin-bottom:1rem;color:var(--text)}
+
+/* Tabs */
+.tabs{display:flex;gap:0.25rem;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+.tab{padding:0.625rem 1rem;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text2);font-family:inherit;font-size:0.8rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all 0.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.panel{display:none}
+.panel.active{display:block}
+
+/* Badges */
+.badge{display:inline-block;padding:0.2rem 0.6rem;border-radius:4px;font-size:0.7rem;font-weight:700;text-transform:uppercase}
+.badge-green{background:rgba(16,185,129,0.15);color:#34d399}
+.badge-yellow{background:rgba(245,158,11,0.15);color:#fbbf24}
+.badge-red{background:rgba(239,68,68,0.15);color:#f87171}
+.badge-blue{background:rgba(59,130,246,0.15);color:#60a5fa}
+.badge-purple{background:rgba(168,85,247,0.15);color:#c084fc}
+
+/* Search */
+.search-box{width:100%;padding:0.625rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:inherit;font-size:0.85rem;margin-bottom:1rem}
+.search-box:focus{outline:none;border-color:var(--accent)}
+
+/* Collapsible */
+.collapse{cursor:pointer;padding:0.75rem 1rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;font-weight:600;font-size:0.85rem;display:flex;justify-content:space-between;align-items:center}
+.collapse:hover{background:var(--surface2)}
+.collapse::after{content:'▾';color:var(--text3);transition:transform 0.2s}
+.collapse.open::after{transform:rotate(180deg)}
+.collapse-content{display:none;padding:1rem 0}
+.collapse-content.open{display:block}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
+.card-title{font-weight:700;font-size:0.9rem;margin-bottom:0.5rem}
+.card-body{font-size:0.85rem;color:var(--text2)}
+
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;text-align:center}
+.stat-value{font-size:1.5rem;font-weight:800}
+.stat-label{font-size:0.7rem;color:var(--text3);margin-top:0.25rem}
+
+/* Method badges */
+.method{display:inline-block;padding:0.15rem 0.5rem;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:700;min-width:45px;text-align:center}
+.m-get{background:rgba(16,185,129,0.15);color:#34d399}
+.m-post{background:rgba(99,102,241,0.15);color:#a5b4fc}
+.m-put{background:rgba(245,158,11,0.15);color:#fbbf24}
+.m-del{background:rgba(239,68,68,0.15);color:#f87171}
+
+/* Tree */
+.tree{font-family:'JetBrains Mono',monospace;font-size:0.8rem;line-height:1.8;color:var(--text2);white-space:pre}
+.tree-dir{color:var(--accent);font-weight:600}
+
+/* Mobile */
+.mobile-toggle{display:none;position:fixed;top:1rem;left:1rem;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.5rem 0.75rem;color:var(--text);cursor:pointer;font-size:0.8rem}
+@media(max-width:768px){
+.sidebar{transform:translateX(-100%);transition:transform 0.3s}
+.sidebar.open{transform:translateX(0)}
+.main{margin-left:0;padding:1rem}
+.mobile-toggle{display:block}
+}
+</style>
+</head>
+<body>
+
+<button class="mobile-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰ Menu</button>
+
+<nav class="sidebar">
+<h3>Repo Brain</h3>
+<a href="#overview" class="active">1. Overview</a>
+<a href="#structure">2. Repository Structure</a>
+<a href="#backend">3. Backend</a>
+<a href="#frontend">4. Frontend</a>
+<a href="#admin">5. Admin Panel</a>
+<a href="#database">6. Database</a>
+<a href="#packages">7. Packages</a>
+<a href="#scripts">8. Scripts</a>
+<a href="#docs">9. Docs</a>
+<a href="#cicd">10. CI/CD</a>
+<a href="#status">11. Implementation Status</a>
+</nav>
+
+<div class="main">
+
+<!-- 1. OVERVIEW -->
+<div class="section" id="overview">
+<h2 class="section-title">1. Overview</h2>
+<p class="section-desc">Complete repository map — every app, file, route, table, and workflow</p>
+<div class="stat-grid">
+<div class="stat"><div class="stat-value">3</div><div class="stat-label">Apps</div></div>
+<div class="stat"><div class="stat-value">2</div><div class="stat-label">Packages</div></div>
+<div class="stat"><div class="stat-value">~95</div><div class="stat-label">DB Tables</div></div>
+<div class="stat"><div class="stat-value">~200+</div><div class="stat-label">API Routes</div></div>
+<div class="stat"><div class="stat-value">~50</div><div class="stat-label">Frontend Pages</div></div>
+<div class="stat"><div class="stat-value">32</div><div class="stat-label">Admin Managers</div></div>
+<div class="stat"><div class="stat-value">43</div><div class="stat-label">Migrations</div></div>
+<div class="stat"><div class="stat-value">4</div><div class="stat-label">CI Workflows</div></div>
+</div>
+<div class="card">
+<div class="card-title">Tech Stack</div>
+<div class="card-body">
+<strong>Backend:</strong> Express 4, PostgreSQL/Supabase (pg 8), Redis/ioredis 5, BullMQ 5, Socket.IO 4, Helmet, Multer, Razorpay, Nodemailer, xlsx<br>
+<strong>Frontend:</strong> React 18, Vite 6, Tailwind 3, React Router 6, TanStack Query 5, Axios, Framer Motion, Chart.js, Socket.IO Client<br>
+<strong>Admin:</strong> React 18, Vite 6, Tailwind 3, Recharts, Heroicons, TanStack Query 5<br>
+<strong>Monorepo:</strong> npm workspaces + Turborepo 2, Node ≥20, ESM throughout<br>
+<strong>Ports:</strong> Backend 5001, Frontend 3000, Admin 3002
+</div>
+</div>
+</div>
+
+<!-- 2. STRUCTURE -->
+<div class="section" id="structure">
+<h2 class="section-title">2. Repository Structure</h2>
+<pre class="tree">Trstprep V2.1/
+├── <span class="tree-dir">apps/</span>
+│   ├── <span class="tree-dir">backend/</span>          Express API (port 5001)
+│   │   ├── src/
+│   │   │   ├── app-port5001.js    Entry point
+│   │   │   ├── config/            Database, email, security, passport
+│   │   │   ├── api/routes/        Admin, public, legacy routes
+│   │   │   ├── modules/           Feature modules (auth, tests, ai, etc.)
+│   │   │   ├── middleware/        Auth, CSRF, rate limit, audit, etc.
+│   │   │   ├── services/          Business logic (core, ai, import)
+│   │   │   ├── infrastructure/    Cache, DB, email, events, queue, storage, WS
+│   │   │   ├── shared/            Config, utils, validation
+│   │   │   └── worker/            Background job processors
+│   │   └── Dockerfile
+│   ├── <span class="tree-dir">frontend/</span>         React SPA (port 3000)
+│   │   ├── src/
+│   │   │   ├── App.jsx            Routes + providers
+│   │   │   ├── pages/             ~50 pages (auth, dashboard, exams, tests, study)
+│   │   │   ├── shared/            Components, hooks, lib, config, providers
+│   │   │   └── api/               API client
+│   │   └── Dockerfile
+│   └── <span class="tree-dir">admin-panel/</span>      React admin SPA (port 3002)
+│       ├── src/
+│       │   ├── App.jsx            Admin routes
+│       │   ├── features/admin/    32 manager components
+│       │   └── shared/            Components, hooks, lib, config
+│       └── (no Dockerfile — missing)
+├── <span class="tree-dir">packages/</span>
+│   ├── <span class="tree-dir">shared-config/</span>    @trstprep/shared-config (assets, logger, CSRF, coming-soon)
+│   └── <span class="tree-dir">shared-hooks/</span>     @trstprep/shared-hooks (9 React hooks)
+├── <span class="tree-dir">scripts/</span>              Utility scripts (taxonomy, admin reset, DB export)
+├── <span class="tree-dir">docs/</span>                 7 consolidated doc files
+├── .github/workflows/         4 CI workflows
+├── docker-compose.yml         3-service orchestration
+├── package.json               Monorepo manifest
+├── turbo.json                 Turborepo task config
+└── tsconfig.json              Shared TS config</pre>
+</div>
+
+<!-- 3. BACKEND -->
+<div class="section" id="backend">
+<h2 class="section-title">3. Backend (apps/backend)</h2>
+<p class="section-desc">Express 4 API server — port 5001, PostgreSQL, Redis, Socket.IO</p>
+<input type="text" class="search-box" placeholder="Search backend routes, services..." oninput="filterTable(this,'backend')">
+<div class="tabs" id="backend-tabs">
+<button class="tab active" data-tab="backend-config">Config</button>
+<button class="tab" data-tab="backend-routes">Routes</button>
+<button class="tab" data-tab="backend-middleware">Middleware</button>
+<button class="tab" data-tab="backend-services">Services</button>
+<button class="tab" data-tab="backend-infra">Infrastructure</button>
+<button class="tab" data-tab="backend-workers">Workers</button>
+<button class="tab" data-tab="backend-missing">What's Missing</button>
+</div>
+
+<div class="panel active" id="backend-config">
+<div class="card"><div class="card-title">Entry Point</div><div class="card-body">
+<code>src/app-port5001.js</code> — port 5001, binds 0.0.0.0<br>
+Startup: dotenv → validate env (DATABASE_URL, JWT_SECRET ≥32 chars, FRONTEND_URL) → test DB connection (5 retries) → createServer + initWebSocket → listen → background: initTables(), initRedis(), initQueues(), scheduled reminders
+</div></div>
+<div class="card"><div class="card-title">Required Env Vars</div><div class="card-body">
+<code>DATABASE_URL</code>, <code>JWT_SECRET</code>, <code>JWT_REFRESH_SECRET</code>, <code>FRONTEND_URL</code>, <code>REDIS_URL</code>, <code>STORAGE_PROVIDER</code> (local|s3|supabase), <code>EMAIL_PROVIDER</code> (none|sendgrid|aws|smtp), <code>SMS_PROVIDER</code> (none|twilio|aws), <code>FORTSPY_URL</code>, <code>GOOGLE_CLIENT_ID</code>, <code>ADMIN_PANEL_URL</code>, <code>ADMIN_API_KEY</code>, <code>RAZORPAY_KEY_ID/SECRET</code>
+</div></div>
+<div class="card"><div class="card-title">Middleware Order</div><div class="card-body">
+helmet (CSP) → express.json → cookieParser → morgan → monitoring → publicIdResponse → trace → CORS (allowlist) → rateLimiters → cacheControl → route mounts → notFoundHandler → errorHandler
+</div></div>
+</div>
+
+<div class="panel" id="backend-routes">
+<h3 class="subsection-title">Auth Routes <span class="badge badge-green">Mounted</span></h3>
+<table id="routes-auth"><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/login</td><td>lockout+rateLimit</td><td>Email+password login</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/google</td><td>lockout+rateLimit</td><td>Google OAuth login</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/register</td><td>rateLimit</td><td>Register + verification email</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/logout</td><td>-</td><td>Invalidate session, clear cookies</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/refresh</td><td>rateLimit</td><td>Refresh JWT</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/forgot-password</td><td>rateLimit</td><td>Send reset email</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/reset-password</td><td>rateLimit</td><td>Reset via token</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/auth/change-password</td><td>protect</td><td>Change password</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/auth/verify-email/:token</td><td>-</td><td>Verify email</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/auth/me</td><td>protect</td><td>Current user + enrollments</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Test Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-get">GET</span></td><td>/api/tests</td><td>-</td><td>List active tests</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/tests/series/:seriesId</td><td>-</td><td>Tests in a series</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/tests/:testId</td><td>optionalAuth</td><td>Test detail (pro-gated)</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/tests/:testId/questions</td><td>protect</td><td>Questions for test</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/tests/:testId/start</td><td>protect</td><td>Start attempt</td></tr>
+<tr><td><span class="method m-put">PUT</span></td><td>/api/tests/:testId/autosave</td><td>protect</td><td>Autosave progress</td></tr>
+<tr><td><span class="method m-put">PUT</span></td><td>/api/tests/:testId/submit</td><td>protect</td><td>Submit attempt, compute score</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/tests/:testId/result/:attemptId</td><td>protect</td><td>Result with solutions</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Attempt Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-post">POST</span></td><td>/api/attempt/start</td><td>protect</td><td>Start/resume attempt</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/attempt/pause</td><td>protect</td><td>Pause attempt</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/attempt/resume</td><td>protect</td><td>Resume attempt</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/attempt/save-progress</td><td>protect</td><td>Save answers/time</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/attempt/:attemptId/state</td><td>protect</td><td>Get attempt state</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/attempt/:attemptId/event</td><td>protect</td><td>Record attempt event</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/attempt/:attemptId/analytics</td><td>protect</td><td>Per-attempt analytics</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">User Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-get">GET</span></td><td>/api/users/profile</td><td>protect</td><td>Get profile</td></tr>
+<tr><td><span class="method m-put">PUT</span></td><td>/api/users/profile</td><td>protect</td><td>Update profile</td></tr>
+<tr><td><span class="method m-del">DEL</span></td><td>/api/users/profile</td><td>protect</td><td>Deactivate account</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/users/enroll/:seriesId</td><td>protect</td><td>Enroll in series</td></tr>
+<tr><td><span class="method m-del">DEL</span></td><td>/api/users/unenroll/:seriesId</td><td>protect</td><td>Unenroll</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/users/enrolled-series</td><td>protect</td><td>List enrolled series</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/users/analytics</td><td>protect</td><td>User analytics</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/users/attempts</td><td>protect</td><td>User attempts</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/users/sessions</td><td>protect</td><td>Active sessions</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/users/enroll-exam/:examId</td><td>protect</td><td>Enroll in exam</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/users/enroll-study-material/:materialId</td><td>protect</td><td>Enroll in study material</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Public Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Prefix</th><th>Endpoints</th></tr></thead><tbody>
+<tr><td>/api/exams</td><td>GET /, GET /slug/:slug, GET /category/:id, GET /:slug/compare, GET /:slug/year</td></tr>
+<tr><td>/api/exam-info</td><td>GET /, GET /:id, GET /:examId/updates, GET /:examId/yearly-data</td></tr>
+<tr><td>/api/exam-seasons</td><td>GET /, GET /:id, GET /slug/:slug, GET /exam/:examId</td></tr>
+<tr><td>/api/series</td><td>GET /, GET /:slug, GET /:slug/tests, GET /category/:cat</td></tr>
+<tr><td>/api/search</td><td>GET /?q=</td></tr>
+<tr><td>/api/videos</td><td>Public video library</td></tr>
+<tr><td>/api/subscription-plans</td><td>Public plan listing</td></tr>
+<tr><td>/api/leaderboards</td><td>Public leaderboards</td></tr>
+<tr><td>/api/live-tests</td><td>GET /, GET /:id, POST /:id/register, GET /:id/result, GET /:id/leaderboard</td></tr>
+<tr><td>/api/previous-year-papers</td><td>PYP listing</td></tr>
+<tr><td>/api/practice-questions</td><td>Practice question bank</td></tr>
+<tr><td>/api/public-stats</td><td>Platform statistics</td></tr>
+<tr><td>/api/settings</td><td>Public site settings</td></tr>
+<tr><td>/api/current-affairs</td><td>Current affairs articles</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Admin Routes <span class="badge badge-green">Mounted</span></h3>
+<p style="color:var(--text3);font-size:0.8rem">All under /api/admin with: adminLimiter + validateCsrfToken + protect + admin + auditMiddleware</p>
+<table><thead><tr><th>Resource</th><th>CRUD</th><th>Key Routes</th></tr></thead><tbody>
+<tr><td>Sessions</td><td>R/D</td><td>GET /sessions, GET /sessions/stats, DELETE /sessions/:id</td></tr>
+<tr><td>Users</td><td>R/U/D</td><td>GET /users, PUT /users/:id/pro-pass, PUT /users/:id/status, PUT /users/:id/role, DELETE /users/:id</td></tr>
+<tr><td>Tests</td><td>C/R/U/D</td><td>GET/POST /tests, GET/PUT/DELETE /tests/:id, POST /tests/:id/publish, POST /tests/bulk</td></tr>
+<tr><td>Test Series</td><td>C/R/U/D</td><td>GET/POST /test-series, GET/PUT/DELETE /test-series/:id, POST /test-series/bulk-upload</td></tr>
+<tr><td>Questions</td><td>C/R/U/D</td><td>GET/POST /questions, GET/PUT/DELETE /questions/:id, POST /questions/bulk, GET /questions/export</td></tr>
+<tr><td>Test Categories</td><td>C/R/U/D</td><td>GET/POST /test-categories, PUT/DELETE /test-categories/:id</td></tr>
+<tr><td>Exam Categories</td><td>C/R/U/D</td><td>GET/POST /exam-categories, PUT/DELETE /exam-categories/:id</td></tr>
+<tr><td>Exams</td><td>C/R/U/D</td><td>GET/POST /exams, PUT/DELETE /exams/:id</td></tr>
+<tr><td>Exam Info</td><td>C/R/U/D</td><td>GET/POST /exam-info, PUT/DELETE /exam-info/:id</td></tr>
+<tr><td>Stages</td><td>C/R/U/D</td><td>GET /stages/with-test-counts, GET/POST /stages, PUT/DELETE /stages/:id</td></tr>
+<tr><td>Sections</td><td>C/R/U/D</td><td>GET/POST /sections, GET/PUT/DELETE /sections/:id, POST /sections/preset</td></tr>
+<tr><td>Study Materials</td><td>C/R/U/D</td><td>GET/POST /study-materials, GET/PUT/DELETE /study-materials/:id</td></tr>
+<tr><td>Chapters</td><td>C/R/U/D</td><td>GET/POST /chapters, PUT/DELETE /chapters/:id</td></tr>
+<tr><td>Topics</td><td>C/R/U/D</td><td>GET/POST /topics, PUT/DELETE /topics/:id</td></tr>
+<tr><td>Subject Videos</td><td>C/R/U/D</td><td>GET/POST /subject-videos, PUT/DELETE /subject-videos/:id</td></tr>
+<tr><td>Subject PDFs</td><td>C/R/U/D</td><td>GET/POST /subject-pdfs, PUT/DELETE /subject-pdfs/:id</td></tr>
+<tr><td>Topic Tests</td><td>C/R/D</td><td>GET/POST /topic-tests, DELETE /topic-tests/:id</td></tr>
+<tr><td>Assets/Media</td><td>C/R/U/D</td><td>GET /assets, POST /assets/upload, PATCH/DELETE /assets/:id</td></tr>
+<tr><td>Settings</td><td>R/U</td><td>GET/PUT /settings</td></tr>
+<tr><td>Navigation</td><td>C/R/U/D</td><td>GET/POST /navigation, PUT/DELETE /navigation/:id</td></tr>
+<tr><td>Tag Configs</td><td>C/R/U/D</td><td>GET/POST /tag-configs, PUT/DELETE /tag-configs/:id</td></tr>
+<tr><td>Coupons</td><td>C/R/U/D</td><td>GET/POST /coupons, PUT/DELETE /coupons/:id</td></tr>
+<tr><td>Notifications</td><td>C/R/U</td><td>GET/POST /notifications, POST /notifications/bulk</td></tr>
+<tr><td>Banners</td><td>C/R/U/D</td><td>CRUD banners</td></tr>
+<tr><td>FAQs</td><td>C/R/U/D</td><td>CRUD faqs</td></tr>
+<tr><td>Promotions</td><td>C/R/U/D</td><td>CRUD promotions</td></tr>
+<tr><td>Analytics</td><td>R</td><td>GET /analytics, GET /analytics/export, GET /stats, GET /recent-activity</td></tr>
+<tr><td>Roles</td><td>C/R/U/D</td><td>GET /permissions, GET/POST /roles, POST /roles/:id/assign</td></tr>
+<tr><td>Audit Logs</td><td>R</td><td>GET /audit-logs</td></tr>
+<tr><td>Email Templates</td><td>C/R/U/D</td><td>GET/POST /email-templates, POST /email-templates/:id/test</td></tr>
+<tr><td>Coming Soon</td><td>C/R/U/D</td><td>GET/POST/PUT/DELETE /coming-soon</td></tr>
+<tr><td>Trash</td><td>R/U/D</td><td>GET /trash, PUT /trash/:id/restore, DELETE /trash/:id</td></tr>
+<tr><td>Leaderboards</td><td>R</td><td>GET /leaderboards</td></tr>
+<tr><td>Enrollments</td><td>R</td><td>GET /enrollments</td></tr>
+<tr><td>Results</td><td>R</td><td>GET /results</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Import Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-get">GET</span></td><td>/api/import/stats, /formats, /template, /history</td><td>Import metadata</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/import/validate, /import</td><td>Validate and import files</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/import/full-test/preview, /import, /upload</td><td>Full test JSON import</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">FortSpy Routes <span class="badge badge-green">Mounted</span></h3>
+<table><thead><tr><th>Method</th><th>Path</th><th>Auth</th><th>Description</th></tr></thead><tbody>
+<tr><td><span class="method m-get">GET</span></td><td>/api/fortspy/health</td><td>-</td><td>Proxy health check</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/fortspy/keygen</td><td>protect+admin</td><td>Generate encryption key</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/fortspy/encrypt</td><td>protect+admin</td><td>Encrypt file</td></tr>
+<tr><td><span class="method m-post">POST</span></td><td>/api/fortspy/decrypt</td><td>protect+admin</td><td>Decrypt content</td></tr>
+<tr><td><span class="method m-get">GET</span></td><td>/api/fortspy/stream/:id</td><td>protect</td><td>MJPEG stream proxy</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Dormant Routes <span class="badge badge-yellow">NOT Mounted</span></h3>
+<table><thead><tr><th>Module</th><th>Routes</th><th>Status</th></tr></thead><tbody>
+<tr><td>Adaptive Test</td><td>POST /session, GET /next, POST /answer, GET /result</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>AI Mentor</td><td>POST /study-plan, POST /doubt, POST /exam-strategy</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>AI Explanation</td><td>-</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>AI Generation Log</td><td>-</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Topic Analytics</td><td>GET /:topicId/overview, /questions, /engagement, /difficulty</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Weak Area Detection</td><td>-</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Live Mock</td><td>GET /upcoming, /active, /:id, POST /start, /join, /submit</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Ranking</td><td>GET /overall, /my-rank, /subject/:id, /test/:id</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Smart Revision</td><td>POST /generate-plan, /add, GET /due, POST /complete</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Question Search</td><td>-</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Vector Search</td><td>POST /semantic</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Test Templates</td><td>GET /, /active, /:id, POST /, PUT /:id, DELETE /:id</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Question Builder</td><td>GET /, /:id, POST /, PUT /:id, POST /versions, /restore</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Section Routes</td><td>GET/POST/PUT/DELETE /sections</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+<tr><td>Test Builder</td><td>GET /, /:id, POST /, POST /from-template, PUT /:id, POST /clone</td><td><span class="badge badge-yellow">Code exists, not mounted</span></td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="backend-middleware">
+<table><thead><tr><th>Middleware</th><th>File</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>protect</td><td>auth.middleware.js</td><td>JWT verify + session check (Redis cached) + isActive + emailVerified</td></tr>
+<tr><td>admin</td><td>auth.middleware.js</td><td>Requires req.user.isAdmin</td></tr>
+<tr><td>superAdmin</td><td>auth.middleware.js</td><td>Requires role super_admin</td></tr>
+<tr><td>optionalAuth</td><td>auth.middleware.js</td><td>Attach user if valid token, else continue</td></tr>
+<tr><td>validateCsrfToken</td><td>csrf.middleware.js</td><td>DB-backed CSRF, skips GET/auth/webhook, 30s grace, rotates token</td></tr>
+<tr><td>lockoutMiddleware</td><td>lockout.middleware.js</td><td>Progressive lockout: 3→5min, 5→15min, 10→1h, 20→24h</td></tr>
+<tr><td>auditMiddleware</td><td>audit.middleware.js</td><td>Writes to audit_logs table (action, resource, IP, UA, old/new values)</td></tr>
+<tr><td>normalizeFields</td><td>normalize-fields.js</td><td>camelCase→snake_case for admin POST/PUT/PATCH</td></tr>
+<tr><td>monitoring</td><td>monitoring.js</td><td>In-memory+Redis metrics, slow-request warning >1s</td></tr>
+<tr><td>rateLimiters</td><td>rateLimiterFactory.js</td><td>strict(5/min), moderate(30/min), relaxed(60/min), generous(1000/15min)</td></tr>
+<tr><td>cacheControl</td><td>cacheControl.js</td><td>no-store for user data, max-age=300 for public</td></tr>
+<tr><td>trace</td><td>trace.middleware.js</td><td>x-request-id, traceId, startTime</td></tr>
+<tr><td>publicIdResponse</td><td>public-id-response.middleware.js</td><td>Rewrites res.json to expose public_id as id</td></tr>
+<tr><td>errorHandler</td><td>error.middleware.js</td><td>Handles JWT/multer/CORS/PG errors, AppError subclasses</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="backend-services">
+<table><thead><tr><th>Service</th><th>File</th><th>Status</th><th>Key Functions</th></tr></thead><tbody>
+<tr><td>EmailService</td><td>services/EmailService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Multi-provider: sendgrid, aws-ses, smtp, none</td></tr>
+<tr><td>SmsService</td><td>services/SmsService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Twilio, AWS SNS, none</td></tr>
+<tr><td>EnrollmentService</td><td>services/EnrollmentService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Series/exam/study-material enrollment</td></tr>
+<tr><td>SubscriptionService</td><td>services/SubscriptionService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Plans, features, pro pass, attempt limits</td></tr>
+<tr><td>SessionCaptureService</td><td>services/SessionCaptureService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Session tracking, geo, device parsing</td></tr>
+<tr><td>SettingsService</td><td>services/SettingsService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Site config, feature flags, maintenance, coming-soon</td></tr>
+<tr><td>FortSpyService</td><td>services/fortspyService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Python Flask proxy for encryption</td></tr>
+<tr><td>AnalyticsService</td><td>services/core/analyticsService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Test analytics, topic stats, weak topics, progress</td></tr>
+<tr><td>LearningService</td><td>services/core/learningService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Wrong question bank, revision queue, daily quiz</td></tr>
+<tr><td>LeaderboardService</td><td>services/core/leaderboardService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Test/daily/weekly leaderboard recalculation</td></tr>
+<tr><td>NotificationService</td><td>services/core/notificationService.js</td><td><span class="badge badge-green">Implemented</span></td><td>In-app, email, push, scheduled reminders</td></tr>
+<tr><td>RankPredictionService</td><td>services/core/rankPredictionService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Percentile-based rank prediction</td></tr>
+<tr><td>RecommendationService</td><td>services/core/recommendationService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Test recommendations for users</td></tr>
+<tr><td>TestEngineService</td><td>services/core/testEngineService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Active attempt management</td></tr>
+<tr><td>TestScheduler</td><td>services/core/testScheduler.js</td><td><span class="badge badge-yellow">Dormant</span></td><td>Scheduled→published transitions (not started)</td></tr>
+<tr><td>TestStateMachine</td><td>services/core/testStateMachine.js</td><td><span class="badge badge-green">Implemented</span></td><td>States: draft→review→scheduled→published→live→expired→archived</td></tr>
+<tr><td>ModerationService</td><td>services/core/moderationService.js</td><td><span class="badge badge-green">Implemented</span></td><td>Submit/approve/requestChanges/reject</td></tr>
+<tr><td>ClassxImporter</td><td>services/import/classxImporter.js</td><td><span class="badge badge-green">Implemented</span></td><td>ClassX format import</td></tr>
+<tr><td>EnhancedImporter</td><td>services/import/enhancedImporter.js</td><td><span class="badge badge-green">Implemented</span></td><td>Excel/CSV import with format detection</td></tr>
+<tr><td>FullTestImporter</td><td>services/import/fullTestImporter.js</td><td><span class="badge badge-green">Implemented</span></td><td>Full test JSON import pipeline</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="backend-infra">
+<table><thead><tr><th>Component</th><th>File</th><th>Status</th><th>Details</th></tr></thead><tbody>
+<tr><td>Cache</td><td>infrastructure/cache/</td><td><span class="badge badge-green">Implemented</span></td><td>Redis (ioredis) with in-memory Map fallback. get/set/delete/deleteByPrefix.</td></tr>
+<tr><td>Email</td><td>infrastructure/email/</td><td><span class="badge badge-green">Implemented</span></td><td>Nodemailer SMTP. Verification, reset, welcome emails.</td></tr>
+<tr><td>Events</td><td>infrastructure/events/</td><td><span class="badge badge-green">Implemented</span></td><td>eventBus: domain events → BullMQ queues. test_submitted → analytics+leaderboard+recommendations+notifications</td></tr>
+<tr><td>Queue</td><td>infrastructure/queue/</td><td><span class="badge badge-green">Implemented</span></td><td>BullMQ: 4 queues (analytics, leaderboard, notifications, recommendations). Optional — disabled if Redis down.</td></tr>
+<tr><td>Outbox Poller</td><td>infrastructure/queue/outboxPoller.js</td><td><span class="badge badge-yellow">Dormant</span></td><td>Transactional outbox pattern, polls every 5s. NOT started in entry or worker.</td></tr>
+<tr><td>Storage</td><td>infrastructure/storage/</td><td><span class="badge badge-green">Implemented</span></td><td>local/S3/Supabase with automatic fallback. Presigned URLs.</td></tr>
+<tr><td>WebSocket</td><td>infrastructure/websocket/</td><td><span class="badge badge-green">Implemented</span></td><td>Socket.IO, JWT auth, rooms (user, test, notifications, admin), rate limiting, heartbeat</td></tr>
+<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>pg Pool, postgres-helpers.js (2350+ lines), initTables() runtime DDL, reconcileRelationships() (40 FKs)</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="backend-workers">
+<div class="card"><div class="card-title">Worker Entry</div><div class="card-body">
+<code>src/worker/index.js</code> — starts BullMQ workers for 4 queues<br>
+<code>src/worker/jobHandlers.js</code> — processes analytics, leaderboard, notification, recommendation jobs<br>
+Run: <code>npm run worker</code>
+</div></div>
+</div>
+
+<div class="panel" id="backend-missing">
+<table><thead><tr><th>Issue</th><th>Severity</th><th>Details</th></tr></thead><tbody>
+<tr><td>15+ dormant route modules</td><td><span class="badge badge-yellow">Dormant</span></td><td>Adaptive, AI mentor, topic analytics, weak area, live mock, ranking, smart revision, question search, vector search, test templates, question builder, sections, test builder — all have code but are NOT mounted in app-port5001.js</td></tr>
+<tr><td>Outbox poller not started</td><td><span class="badge badge-yellow">Dormant</span></td><td>outboxPoller.js implemented but never called — transactional outbox pattern inactive</td></tr>
+<tr><td>Test scheduler not started</td><td><span class="badge badge-yellow">Dormant</span></td><td>testScheduler.js implemented but never called — scheduled→published transitions don't fire</td></tr>
+<tr><td>Duplicate controllers</td><td><span class="badge badge-red">Dead code</span></td><td>test.controller.js, attempt.controller.js define own routers but routes.js uses inline handlers</td></tr>
+<tr><td>Duplicate config files</td><td><span class="badge badge-red">Dead code</span></td><td>config/cors.js, config/security.js, config/upload.js — entry defines inline, these are unused</td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- 4. FRONTEND -->
+<div class="section" id="frontend">
+<h2 class="section-title">4. Frontend (apps/frontend)</h2>
+<p class="section-desc">React 18 SPA — port 3000, ~50 pages, Vite 6, Tailwind 3</p>
+<input type="text" class="search-box" placeholder="Search frontend pages, components..." oninput="filterTable(this,'frontend')">
+<div class="tabs" id="frontend-tabs">
+<button class="tab active" data-tab="fe-routes">Routes</button>
+<button class="tab" data-tab="fe-pages">Pages</button>
+<button class="tab" data-tab="fe-components">Components</button>
+<button class="tab" data-tab="fe-hooks">Hooks</button>
+<button class="tab" data-tab="fe-lib">Lib</button>
+<button class="tab" data-tab="fe-missing">What's Missing</button>
+</div>
+
+<div class="panel active" id="fe-routes">
+<table><thead><tr><th>Route</th><th>Page</th><th>Protected</th><th>Feature-gated</th></tr></thead><tbody>
+<tr><td>/</td><td>Home</td><td>-</td><td>-</td></tr>
+<tr><td>/login, /signup</td><td>Login/Signup (modal)</td><td>-</td><td>-</td></tr>
+<tr><td>/verify-email</td><td>EmailVerification</td><td>-</td><td>-</td></tr>
+<tr><td>/forgot-password, /reset-password</td><td>Forgot/ResetPassword</td><td>-</td><td>-</td></tr>
+<tr><td>/dashboard</td><td>Dashboard</td><td>✓</td><td>-</td></tr>
+<tr><td>/dashboard/ai-planner</td><td>AIStudyPlanner</td><td>✓</td><td>-</td></tr>
+<tr><td>/dashboard/insights</td><td>PerformanceInsights</td><td>✓</td><td>-</td></tr>
+<tr><td>/analysis</td><td>Analysis</td><td>✓</td><td>proPass</td></tr>
+<tr><td>/attempted-tests</td><td>AttemptedTests</td><td>✓</td><td>-</td></tr>
+<tr><td>/profile</td><td>Profile</td><td>✓</td><td>-</td></tr>
+<tr><td>/settings</td><td>Settings</td><td>✓</td><td>-</td></tr>
+<tr><td>/notifications</td><td>Notifications</td><td>✓</td><td>-</td></tr>
+<tr><td>/bookmarks</td><td>Bookmarks</td><td>✓</td><td>-</td></tr>
+<tr><td>/achievements</td><td>Achievements</td><td>✓</td><td>achievements</td></tr>
+<tr><td>/refer-and-earn</td><td>ReferAndEarn</td><td>✓</td><td>referAndEarn</td></tr>
+<tr><td>/exams</td><td>Exams</td><td>-</td><td>-</td></tr>
+<tr><td>/exams/category/:categoryId</td><td>ExamCategory</td><td>-</td><td>-</td></tr>
+<tr><td>/exam/:examId</td><td>ExamInfoNew</td><td>-</td><td>-</td></tr>
+<tr><td>/exam/:examId/updates</td><td>ExamUpdates</td><td>-</td><td>-</td></tr>
+<tr><td>/exam/:examId/year/:year</td><td>ExamYear</td><td>-</td><td>-</td></tr>
+<tr><td>/exam/:examId/compare</td><td>ExamCompare</td><td>-</td><td>-</td></tr>
+<tr><td>/test-series</td><td>TestSeries</td><td>-</td><td>-</td></tr>
+<tr><td>/test-series/:seriesId</td><td>TestDetails</td><td>-</td><td>-</td></tr>
+<tr><td>/test-series/:id/leaderboard</td><td>SeriesLeaderboard</td><td>-</td><td>-</td></tr>
+<tr><td>/test/:seriesId/:testId/instructions</td><td>TestInstructions</td><td>✓</td><td>-</td></tr>
+<tr><td>/test/:seriesId/:testId</td><td>TestInterface</td><td>✓</td><td>-</td></tr>
+<tr><td>/test-result/:seriesId/:testId</td><td>TestResult</td><td>✓</td><td>-</td></tr>
+<tr><td>/test-review/:seriesId/:testId</td><td>TestReview</td><td>✓</td><td>-</td></tr>
+<tr><td>/pyp/:pypId/test</td><td>PYPTest</td><td>✓</td><td>-</td></tr>
+<tr><td>/live-tests</td><td>TagPage(live-tests)</td><td>-</td><td>liveTests</td></tr>
+<tr><td>/live-tests/:liveTestId</td><td>LiveTestInterface</td><td>✓</td><td>-</td></tr>
+<tr><td>/live-test-results/:id</td><td>LiveTestResults</td><td>✓</td><td>-</td></tr>
+<tr><td>/live-tests/:id/leaderboard</td><td>LiveTestLeaderboard</td><td>✓</td><td>-</td></tr>
+<tr><td>/live-tests/:id/review</td><td>LiveTestReview</td><td>✓</td><td>-</td></tr>
+<tr><td>/practice</td><td>PracticeQuestions</td><td>-</td><td>practiceQuestions</td></tr>
+<tr><td>/previous-year-papers</td><td>PreviousYearPapers</td><td>-</td><td>-</td></tr>
+<tr><td>/leaderboard</td><td>Leaderboard</td><td>-</td><td>leaderboard</td></tr>
+<tr><td>/study</td><td>StudyMaterial</td><td>-</td><td>-</td></tr>
+<tr><td>/study/:subjectId</td><td>StudyMaterialDetail</td><td>-</td><td>-</td></tr>
+<tr><td>/study/:subjectId/:chapterId</td><td>StudyMaterialChapter</td><td>-</td><td>-</td></tr>
+<tr><td>/videos</td><td>Videos</td><td>-</td><td>videos</td></tr>
+<tr><td>/videos/:id</td><td>VideoDetail</td><td>-</td><td>-</td></tr>
+<tr><td>/current-affairs</td><td>CurrentAffairs</td><td>-</td><td>currentAffairs</td></tr>
+<tr><td>/current-affairs/:caId</td><td>CurrentAffairsDetail</td><td>-</td><td>-</td></tr>
+<tr><td>/community</td><td>Community</td><td>-</td><td>doubtForum</td></tr>
+<tr><td>/community/groups/:id</td><td>Community(groups)</td><td>-</td><td>studyGroups</td></tr>
+<tr><td>/about, /contact, /terms, /privacy, /refund, /faq</td><td>Public pages</td><td>-</td><td>-</td></tr>
+<tr><td>/pass</td><td>Pass (Pro Pass pricing)</td><td>-</td><td>-</td></tr>
+<tr><td>/search</td><td>SearchPage</td><td>-</td><td>-</td></tr>
+<tr><td>/blog, /blog/:id</td><td>Blog, BlogDetail</td><td>-</td><td>-</td></tr>
+<tr><td>/tag/:tag, /pyps, /quizzes</td><td>TagPage</td><td>-</td><td>-</td></tr>
+<tr><td>/admin/*</td><td>Redirect to admin app</td><td>-</td><td>-</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="fe-pages">
+<table><thead><tr><th>Page</th><th>Lines</th><th>Purpose</th><th>Key API Calls</th></tr></thead><tbody>
+<tr><td>Home.jsx</td><td>-</td><td>Landing page with hero, featured exams, test series, live tests</td><td>getTestSeries, getTests, getExams, getPublicStats</td></tr>
+<tr><td>Login.jsx</td><td>-</td><td>Modal login with email/password + Google OAuth</td><td>useAuth().login, getPublicStats</td></tr>
+<tr><td>Signup.jsx</td><td>-</td><td>Modal signup with feature gate (userRegistration)</td><td>useAuth().signup, usePublicSettings</td></tr>
+<tr><td>Dashboard.jsx</td><td>-</td><td>User hub: enrolled series, recommendations, live tests, quizzes</td><td>getTestSeries, getUserAnalytics, getTopPerformers</td></tr>
+<tr><td>Profile.jsx</td><td>2053</td><td>Mega-page: avatar cropper, banner, edit, password, Pro Pass, stats</td><td>getUserAnalytics, userAPI, authAPI</td></tr>
+<tr><td>Analysis.jsx</td><td>-</td><td>Performance analytics with tabs (overview/subject/time/difficulty)</td><td>getUserAnalytics, checkFeatureAccess</td></tr>
+<tr><td>TestInterface.jsx</td><td>1447</td><td>Full test engine: sections, palette, language toggle, timer, anti-cheat</td><td>getTestById, getQuestionsByTestId, attempt API</td></tr>
+<tr><td>TestResult.jsx</td><td>797</td><td>Result with confetti, score, solutions, section breakdown, reattempt</td><td>apiClient (result, attempt)</td></tr>
+<tr><td>TestDetails.jsx</td><td>1394</td><td>Series detail: 4-level category nav, test cards, rankings</td><td>getTestSeriesById, getTestsBySeriesId, useStages</td></tr>
+<tr><td>ExamInfoNew.jsx</td><td>1286</td><td>Exam info with static syllabus, enrollment, updates, yearly data</td><td>getExamCategories, getExams, getExamUpdates</td></tr>
+<tr><td>Community.jsx</td><td>1162</td><td>Doubts forum + study groups with tabs, comments, likes</td><td>/api/community/doubts, /groups</td></tr>
+<tr><td>StudyMaterialChapter.jsx</td><td>1171</td><td>Chapter view with topics, videos, PDFs, tests, comments</td><td>getStudyMaterialById</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="fe-components">
+<h3 class="subsection-title">Layout (5)</h3>
+<table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>Layout</td><td>App shell: Navbar + LeftSidebar + Sidebar (mobile) + BottomNav + PageTransition</td></tr>
+<tr><td>Navbar</td><td>Top nav: logo, search (Ctrl+K), links, notifications, profile, dark mode toggle</td></tr>
+<tr><td>Sidebar</td><td>Mobile right-drawer with Learning/Tests/Resources/Premium sections</td></tr>
+<tr><td>LeftSidebar</td><td>Desktop fixed left sidebar (260px) with nav sections</td></tr>
+<tr><td>BottomNav</td><td>Mobile bottom tab bar with role-aware variants</td></tr>
+</tbody></table>
+<h3 class="subsection-title">Common (22)</h3>
+<table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>Logo</td><td>Animated SVG rocket + shimmer</td></tr>
+<tr><td>ScrollToTop</td><td>Scroll to top on route change</td></tr>
+<tr><td>ErrorBoundary</td><td>Class error boundary with retry/reload</td></tr>
+<tr><td>MaintenanceMode</td><td>Reads usePublicSettings, admin bypass, animated maintenance UI</td></tr>
+<tr><td>FeatureGate</td><td>Wraps page/section, shows ComingSoon if feature disabled</td></tr>
+<tr><td>ComingSoon</td><td>Full Coming Soon page with notify-me subscribe</td></tr>
+<tr><td>AnimatedHero</td><td>486-line reusable hero with canvas particles, gradients</td></tr>
+<tr><td>Breadcrumb</td><td>Breadcrumb nav from items array</td></tr>
+<tr><td>SearchBox</td><td>Search input with compact/full variants</td></tr>
+<tr><td>ContentReader</td><td>Modal reader for HTML content with bookmark/share</td></tr>
+<tr><td>ConfirmModal</td><td>Promise-based confirm dialog (useConfirm hook)</td></tr>
+<tr><td>ImageCropperModal</td><td>react-easy-crop portal modal</td></tr>
+<tr><td>PDFViewer</td><td>PDF embed with Google Drive preview</td></tr>
+<tr><td>VideoPlayer</td><td>747-line player: YouTube/Vimeo/Drive/HTML5, FortSpy badge</td></tr>
+<tr><td>HorizontalScroll</td><td>Scroll container with arrow nav</td></tr>
+<tr><td>LoadingSkeleton</td><td>Many skeleton variants (Card, TestSeries, Stats, Table, etc.)</td></tr>
+<tr><td>LoadingSpinner</td><td>Spinner with variants (spin/pulse/bounce/dots/shimmer)</td></tr>
+<tr><td>ErrorMessage / SuccessMessage</td><td>Error/success banners</td></tr>
+<tr><td>CompactStatsCards / CompactFilterBar</td><td>Stat cards row, collapsible filter bar</td></tr>
+<tr><td>AdminTable</td><td>Reusable sortable table</td></tr>
+<tr><td>PageComingSoon</td><td>Legacy coming-soon wrapper</td></tr>
+</tbody></table>
+<h3 class="subsection-title">UI Primitives (7)</h3>
+<table><thead><tr><th>Component</th><th>Props</th></tr></thead><tbody>
+<tr><td>Button</td><td>variant: primary/secondary/outline/ghost/danger/success, size: xs-xl, loading, icon</td></tr>
+<tr><td>Card</td><td>variant: default/elevated/gradient/outline/ghost, hover</td></tr>
+<tr><td>Modal</td><td>size: sm→full, ESC/overlay close, scroll lock</td></tr>
+<tr><td>Input</td><td>forwardRef, label/error/helper/icon</td></tr>
+<tr><td>Badge</td><td>variant: default/primary/success/warning/error/pro, dot, removable</td></tr>
+<tr><td>ProgressRing</td><td>SVG circular progress</td></tr>
+<tr><td>EmptyState</td><td>icon/title/description/action</td></tr>
+</tbody></table>
+<h3 class="subsection-title">Other (6)</h3>
+<table><thead><tr><th>Component</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>ProtectedRoute</td><td>Redirect to /login if no user, admin check</td></tr>
+<tr><td>PageTransition</td><td>Framer Motion AnimatePresence fade+y slide</td></tr>
+<tr><td>ScrollReveal</td><td>IntersectionObserver-triggered reveal</td></tr>
+<tr><td>TestCard</td><td>406-line test card with status badges, CTA, pass-gating</td></tr>
+<tr><td>TestSeriesCard</td><td>Series card with category, enroll, progress ring</td></tr>
+<tr><td>ProPass</td><td>Pro Pass modal with plan pricing</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="fe-hooks">
+<table><thead><tr><th>Hook</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>useWebSocket</td><td>Socket.IO connection, emit/on, isConnected</td></tr>
+<tr><td>useProPass</td><td>Pro Pass status: active/expired, remaining days, urgency</td></tr>
+<tr><td>usePublicSettings</td><td>Public site settings via React Query (2m stale, 5m refetch)</td></tr>
+<tr><td>useRealtimeSync</td><td>WS→React Query cache invalidation (mount once at App root)</td></tr>
+<tr><td>useLiveTestMonitor</td><td>Realtime live test participants/submissions/leaderboard</td></tr>
+<tr><td>useTestCategories</td><td>Test category tree (flat/tree/roots) + emoji/color helpers</td></tr>
+<tr><td>useExamCategories</td><td>Exam categories + exams + examInfo</td></tr>
+<tr><td>useStages</td><td>Exam stages with categories/test-counts</td></tr>
+<tr><td>useDraggableScroll</td><td>Drag-to-scroll for carousels (mouse+touch+wheel)</td></tr>
+<tr><td>useFormManager</td><td>Form state/validation/submission</td></tr>
+<tr><td>useGenericCRUD</td><td>Generic admin CRUD with optimistic updates</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="fe-lib">
+<table><thead><tr><th>File</th><th>Lines</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>dataService.js</td><td>1143</td><td>Core API layer. Axios with cookies, CSRF, typed errors, caching, entity fetchers, adminAPI namespace</td></tr>
+<tr><td>api-client.js</td><td>-</td><td>Second axios client with JWT+refresh retry (coexists with dataService)</td></tr>
+<tr><td>api.js / adminApi.js</td><td>-</td><td>Re-exports from dataService</td></tr>
+<tr><td>cache.js</td><td>-</td><td>Standalone CacheService (Map + TTL)</td></tr>
+<tr><td>websocket.js</td><td>-</td><td>Socket.IO init, joinTestRoom, subscribeToLeaderboard</td></tr>
+<tr><td>sanitizeHtml.js</td><td>-</td><td>DOMPurify wrapper</td></tr>
+<tr><td>enrollment.js</td><td>-</td><td>Enrolled series parsing (JS array, PG array, JSON, CSV)</td></tr>
+<tr><td>pass-helpers.js</td><td>-</td><td>PASS_TYPES, FEATURE_MATRIX, checkFeatureAccess, gateTests</td></tr>
+</tbody></table>
+<h3 class="subsection-title">Contexts</h3>
+<table><thead><tr><th>Context</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>AuthContext</td><td>httpOnly cookie auth, login/signup/logout/refresh, WebSocket init, notification listener</td></tr>
+<tr><td>ThemeContext</td><td>Dark mode toggle (localStorage + prefers-color-scheme)</td></tr>
+<tr><td>WebSocketProvider</td><td><span class="badge badge-red">BROKEN</span> Imports non-existent NotificationContext, not mounted</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="fe-missing">
+<table><thead><tr><th>Issue</th><th>Severity</th><th>Details</th></tr></thead><tbody>
+<tr><td>PYPTest.jsx</td><td><span class="badge badge-red">Stub</span></td><td>Hardcoded sample questions ("JEE Advanced 2024"), no real API</td></tr>
+<tr><td>ExamYear.jsx</td><td><span class="badge badge-red">Fallback</span></td><td>Falls back to getSampleExamData() on any API failure</td></tr>
+<tr><td>ExamCompare.jsx</td><td><span class="badge badge-red">Fallback</span></td><td>Falls back to getSampleData() on any API failure</td></tr>
+<tr><td>WebSocketProvider.jsx</td><td><span class="badge badge-red">Broken</span></td><td>Imports non-existent NotificationContext, dead code</td></tr>
+<tr><td>ExamMasterPage.jsx</td><td><span class="badge badge-yellow">Orphan</span></td><td>590 lines, not routed in App.jsx</td></tr>
+<tr><td>MockTests.jsx</td><td><span class="badge badge-yellow">Orphan</span></td><td>Duplicate of TestSeries, not routed</td></tr>
+<tr><td>VideoSubject.jsx</td><td><span class="badge badge-yellow">Orphan</span></td><td>Alternate video page, not routed</td></tr>
+<tr><td>ExamDetails.jsx</td><td><span class="badge badge-yellow">Orphan</span></td><td>Not routed (ExamInfoNew used instead)</td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- 5. ADMIN PANEL -->
+<div class="section" id="admin">
+<h2 class="section-title">5. Admin Panel (apps/admin-panel)</h2>
+<p class="section-desc">React 18 admin SPA — port 3002, 32 managers, Recharts</p>
+<input type="text" class="search-box" placeholder="Search admin managers..." oninput="filterTable(this,'admin')">
+<div class="tabs" id="admin-tabs">
+<button class="tab active" data-tab="admin-features">Features</button>
+<button class="tab" data-tab="admin-components">Components</button>
+<button class="tab" data-tab="admin-missing">What's Missing</button>
+</div>
+
+<div class="panel active" id="admin-features">
+<table><thead><tr><th>Manager</th><th>Route</th><th>Lines</th><th>CRUD</th><th>Notes</th></tr></thead><tbody>
+<tr><td>AdminDashboard</td><td>/admin</td><td>-</td><td>R</td><td>Stats, analytics, recent activity, time-range selector</td></tr>
+<tr><td>TestSeriesManager</td><td>/admin/test-series</td><td>1251</td><td>C/R/U/D</td><td>Category tabs, orphan-test reassign, pin/unpin</td></tr>
+<tr><td>TestsManager</td><td>/admin/tests</td><td>2400+</td><td>C/R/U/D</td><td>4 category tabs, 26 SECTION_PRESETS, full-test JSON import</td></tr>
+<tr><td>QuestionsManager</td><td>/admin/questions</td><td>1600+</td><td>C/R/U/D</td><td>MCQ/MSQ/Numeric/TF/Match/Comprehension, Hindi, bulk upload</td></tr>
+<tr><td>QuizzesManager</td><td>/admin/quizzes</td><td>808</td><td>C/R/U/D</td><td><span class="badge badge-red">Demo fallbacks on API error</span></td></tr>
+<tr><td>PracticeQuestionsManager</td><td>/admin/practice-questions</td><td>517</td><td>C/R/U</td><td><span class="badge badge-red">Bulk upload is UI-only</span></td></tr>
+<tr><td>SectionsManager</td><td>/admin/sections</td><td>1948</td><td>C/R/U/D</td><td>Presets, aliases, linking, dedup, reorder</td></tr>
+<tr><td>ExamCategoriesManager</td><td>/admin/exam-categories</td><td>317</td><td>C/R/U/D</td><td>Flat list of exam categories</td></tr>
+<tr><td>ExamInfoManager</td><td>/admin/exam-info</td><td>673</td><td>C/R/U/D</td><td>8-step wizard</td></tr>
+<tr><td>StagesManager</td><td>/admin/stages</td><td>1948</td><td>C/R/U/D</td><td>Bulk link/unlink stages↔series</td></tr>
+<tr><td>CategoriesManager</td><td>/admin/test-categories</td><td>1999</td><td>C/R/U/D</td><td>6 tabs: Tree/Relations/List/Import-Export/API Docs</td></tr>
+<tr><td>TagConfigsManager</td><td>/admin/tag-configs</td><td>416</td><td>C/R/U/D</td><td>Searchable tag configs with color picker</td></tr>
+<tr><td>StudyMaterialsManager</td><td>/admin/study-materials</td><td>487</td><td>C/R/U/D</td><td>Tree view, embeds CurriculumBuilder</td></tr>
+<tr><td>SubjectsManager</td><td>/admin/subjects</td><td>434</td><td>C/R/U/D</td><td>Recursive tree with parentId</td></tr>
+<tr><td>SubjectRelationsManager</td><td>/admin/subject-relations</td><td>482</td><td>R</td><td>Read-only relation viewer</td></tr>
+<tr><td>TopicsManager</td><td>/admin/topics</td><td>562</td><td>C/R/U/D</td><td>Importance levels, frequently-asked flag</td></tr>
+<tr><td>CurriculumBuilder</td><td>/admin/curriculum</td><td>2510</td><td>C/R/U/D</td><td>Heaviest file — curriculum structure with CSV export</td></tr>
+<tr><td>ContentManagement</td><td>/admin/content</td><td>1269</td><td>C/R/U/D</td><td>4 tabs: videos/pdfs/notes/tests, file upload</td></tr>
+<tr><td>CurrentAffairsManager</td><td>/admin/current-affairs</td><td>309</td><td>C/R/U/D</td><td>Article CRUD with category/date/language</td></tr>
+<tr><td>AdminAnalytics</td><td>/admin/analytics</td><td>947</td><td>R</td><td>Recharts dashboards, exports</td></tr>
+<tr><td>DeepAnalytics</td><td>/admin/deep-analytics</td><td>352</td><td>R</td><td>Funnel + cohort + engagement radar</td></tr>
+<tr><td>LeaderboardResultsUnified</td><td>/admin/leaderboards</td><td>367</td><td>C/R/U/D</td><td>Leaderboard CRUD + recalculate/reset</td></tr>
+<tr><td>UsersManager</td><td>/admin/users</td><td>675</td><td>R/U/D</td><td>Activate/deactivate, enrollments, sessions</td></tr>
+<tr><td>EnrollmentsManager</td><td>/admin/enrollments</td><td>499</td><td>R</td><td>Read-only with filters</td></tr>
+<tr><td>RolePermissionsManager</td><td>/admin/roles</td><td>349</td><td>C/R/U/D</td><td>Roles + permission matrix toggle</td></tr>
+<tr><td>ActiveSessionsManager</td><td>/admin/sessions</td><td>420</td><td>R/D</td><td>WebSocket real-time session updates</td></tr>
+<tr><td>UserActivityLog</td><td>/admin/activity-log</td><td>312</td><td>R</td><td><span class="badge badge-yellow">Repurposes recent-activity, N/A placeholders</span></td></tr>
+<tr><td>AuditTrailManager</td><td>/admin/audit-trail</td><td>357</td><td>R</td><td>CSV export, detail modal, filter</td></tr>
+<tr><td>ResultsManager</td><td>/admin/results</td><td>377</td><td>R</td><td><span class="badge badge-yellow">"Coming soon" for detailed analytics</span></td></tr>
+<tr><td>EmailTemplatesManager</td><td>/admin/email-templates</td><td>259</td><td>C/R/U/D</td><td>Preview + test-send</td></tr>
+<tr><td>NotificationsManager</td><td>/admin/notifications</td><td>579</td><td>C/R</td><td>10 types, 3 priorities, scheduled send</td></tr>
+<tr><td>BannerManager</td><td>/admin/banners</td><td>334</td><td>C/R/U/D</td><td>Active toggle + reorder</td></tr>
+<tr><td>FaqManager</td><td>/admin/faqs</td><td>306</td><td>C/R/U/D</td><td>Category + order</td></tr>
+<tr><td>SubscriptionPlansManager</td><td>/admin/subscriptions</td><td>427</td><td>C/R/U/D</td><td>Features list editor, auto-refresh 60s</td></tr>
+<tr><td>CouponsManager</td><td>/admin/coupons</td><td>592</td><td>C/R/U/D</td><td>% or fixed discount, applicable plans</td></tr>
+<tr><td>PromotionManager</td><td>/admin/promotions</td><td>678</td><td>C/R/U/D</td><td>Duplicate + status toggle</td></tr>
+<tr><td>AdminSettings</td><td>/admin/settings</td><td>1158</td><td>R/U</td><td>Massive settings form: site, SEO, features, maintenance, SMTP, payments</td></tr>
+<tr><td>RecycleBin</td><td>/admin/recycle-bin</td><td>473</td><td>R/U/D</td><td>Restore/permanent-delete/empty-trash</td></tr>
+<tr><td>SystemHealthMonitor</td><td>/admin/system-health</td><td>332</td><td>R</td><td>CPU/memory/disk/db health, alerts</td></tr>
+<tr><td>BackupsManager</td><td>/admin/backups</td><td>262</td><td>C/R/D</td><td>Manual backup + download</td></tr>
+<tr><td>ComingSoonManager</td><td>/admin/coming-soon</td><td>365</td><td>R/U</td><td>Per-page Coming Soon + maintenance toggles</td></tr>
+<tr><td>NavigationManager</td><td>/admin/navigation</td><td>445</td><td>C/R/U/D</td><td>Visibility toggle + reorder + sections</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="admin-components">
+<div class="card"><div class="card-title">AdminLayout (560 lines)</div><div class="card-body">
+Sidebar (collapsible 72↔20rem) + mobile drawer. 8 nav categories, 32 items.<br>
+Top bar: breadcrumbs, search dropdown (Cmd+K), View Site, theme toggle, profile dropdown.<br>
+AdminBottomNav for mobile.
+</div></div>
+<h3 class="subsection-title">Common Components (24)</h3>
+<p>FormModal, FormField + 10 form primitives, AdminTable, Breadcrumb, ComingSoon, ConfirmModal, ContentReader, ErrorBoundary, ErrorMessage, HorizontalScroll, LoadingSkeleton, LoadingSpinner, Logo, PDFViewer, ScrollToTop, SearchBox, SuccessMessage, VideoPlayer, EmptyState, Pagination, CommandPalette, PageComingSoon</p>
+<h3 class="subsection-title">Hooks</h3>
+<table><thead><tr><th>Hook</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>useForm</td><td>Zod validation, submitting/touched/errors state</td></tr>
+<tr><td>useSubjects</td><td>Fetch /admin/subjects</td></tr>
+<tr><td>useExamCategories</td><td>Fetch exam categories (uses raw fetch, not apiClient)</td></tr>
+<tr><td>useGenericCRUD</td><td>Generic CRUD — largely unused by managers</td></tr>
+<tr><td>useWebSocket</td><td>Socket.IO for ActiveSessionsManager</td></tr>
+<tr><td>useUndoToast</td><td>Toast with undo button</td></tr>
+<tr><td>useKeyboardShortcuts</td><td>Global keyboard shortcuts</td></tr>
+</tbody></table>
+<h3 class="subsection-title">Lib</h3>
+<table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>dataService.js (1234 L)</td><td>Core API layer with CSRF, typed errors, CacheService, adminAPI namespace</td></tr>
+<tr><td>validationSchemas.js (265 L)</td><td>17 Zod schemas (question, test, exam, category, stage, series, etc.)</td></tr>
+<tr><td>settingsSchema.js</td><td>Zod schema for AdminSettings form</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="admin-missing">
+<table><thead><tr><th>Issue</th><th>Severity</th><th>Details</th></tr></thead><tbody>
+<tr><td>ExamSeasonsManager.jsx</td><td><span class="badge badge-yellow">Orphaned</span></td><td>477 lines, no route, no export. Uses wrong /api prefix.</td></tr>
+<tr><td>SubjectHierarchyManager.jsx</td><td><span class="badge badge-yellow">Orphaned</span></td><td>576 lines, no route, no export. Uses wrong /api prefix.</td></tr>
+<tr><td>VideosManager</td><td><span class="badge badge-red">Dead export</span></td><td>Exported in index.js but file doesn't exist</td></tr>
+<tr><td>MediaLibrary</td><td><span class="badge badge-red">Dead export</span></td><td>Exported in index.js but file doesn't exist</td></tr>
+<tr><td>QuizzesManager</td><td><span class="badge badge-red">Demo fallbacks</span></td><td>toast.success('demo') on API error — UI pretends success</td></tr>
+<tr><td>PracticeQuestionsManager</td><td><span class="badge badge-red">UI-only</span></td><td>Bulk upload stepper shows success without calling API</td></tr>
+<tr><td>ResultsManager</td><td><span class="badge badge-yellow">Placeholder</span></td><td>"Detailed question-wise analytics coming soon"</td></tr>
+<tr><td>SECTION_PRESETS</td><td><span class="badge badge-yellow">Duplicated</span></td><td>26 presets duplicated between TestsManager and SectionsManager</td></tr>
+</tbody></table>
+</div>
+</div>
+
+<!-- 6. DATABASE -->
+<div class="section" id="database">
+<h2 class="section-title">6. Database</h2>
+<p class="section-desc">PostgreSQL/Supabase — ~95 tables, 43 migrations, dual-ID system, RLS, soft-delete</p>
+<input type="text" class="search-box" placeholder="Search tables..." oninput="filterTable(this,'database')">
+<div class="tabs" id="db-tabs">
+<button class="tab active" data-tab="db-tables">Tables</button>
+<button class="tab" data-tab="db-migrations">Migrations</button>
+<button class="tab" data-tab="db-seeders">Seeders</button>
+<button class="tab" data-tab="db-relations">Relationships</button>
+</div>
+
+<div class="panel active" id="db-tables">
+<h3 class="subsection-title">Content Hierarchy</h3>
+<table><thead><tr><th>Table</th><th>PK</th><th>Key FKs</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>subjects</td><td>SERIAL</td><td>parent_id→subjects (self)</td><td>Top-level subjects (Quant, Reasoning, English, etc.)</td></tr>
+<tr><td>subject_parts</td><td>SERIAL</td><td>subject_id→subjects</td><td>Parts within a subject</td></tr>
+<tr><td>units</td><td>SERIAL</td><td>part_id→subject_parts, subject_id→subjects</td><td>Units within parts</td></tr>
+<tr><td>chapters</td><td>SERIAL</td><td>unit_id→units, study_material_id</td><td>Chapters within units</td></tr>
+<tr><td>topics</td><td>SERIAL</td><td>chapter_id→chapters</td><td>Topics within chapters</td></tr>
+<tr><td>subtopics</td><td>SERIAL</td><td>topic_id→topics</td><td>Subtopics within topics</td></tr>
+<tr><td>study_materials</td><td>SERIAL</td><td>-</td><td>Study material aggregates (counts via trigger)</td></tr>
+<tr><td>subject_videos</td><td>SERIAL</td><td>topic_id→topics</td><td>Video resources</td></tr>
+<tr><td>subject_pdfs</td><td>SERIAL</td><td>topic_id→topics</td><td>PDF resources</td></tr>
+<tr><td>topic_tests</td><td>SERIAL</td><td>topic_id→topics</td><td>Topic-level tests</td></tr>
+<tr><td>passages</td><td>SERIAL</td><td>subject_id, topic_id, chapter_id</td><td>Comprehension passages</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Test Engine</h3>
+<table><thead><tr><th>Table</th><th>PK</th><th>Key FKs</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>tests</td><td>SERIAL</td><td>series_id→test_series, stage_id→stages, subject_id→subjects</td><td>Test definitions with state machine</td></tr>
+<tr><td>test_questions</td><td>SERIAL</td><td>test_id→tests, question_id→questions, section_id→test_sections</td><td>Canonical M:N test↔question link</td></tr>
+<tr><td>questions</td><td>SERIAL</td><td>series_id, subject_id, topic_id, chapter_id, passage_id</td><td>Questions with options JSONB, Hindi translations</td></tr>
+<tr><td>question_options</td><td>SERIAL</td><td>question_id→questions</td><td>Legacy option storage (questions.options JSONB preferred)</td></tr>
+<tr><td>question_versions</td><td>SERIAL</td><td>question_id</td><td>Versioning history</td></tr>
+<tr><td>question_attempts</td><td>SERIAL</td><td>attempt_id→attempts, question_id→questions</td><td>Per-question analytics</td></tr>
+<tr><td>question_search_index</td><td>SERIAL</td><td>-</td><td>pgvector search index</td></tr>
+<tr><td>attempts</td><td>SERIAL</td><td>user_id→users, test_id→tests, series_id→test_series</td><td>Test attempts with score, section_scores, solutions JSONB</td></tr>
+<tr><td>attempt_answers</td><td>SERIAL</td><td>attempt_id→attempts, question_id→questions</td><td>Per-question answers with time_spent, visits</td></tr>
+<tr><td>attempt_events</td><td>SERIAL</td><td>attempt_id→attempts, question_id</td><td>Anti-cheat events</td></tr>
+<tr><td>attempt_section_scores</td><td>SERIAL</td><td>-</td><td>Section-wise scores</td></tr>
+<tr><td>attempt_question_snapshots</td><td>SERIAL</td><td>-</td><td>Per-attempt question snapshots</td></tr>
+<tr><td>test_categories</td><td>SERIAL</td><td>exam_category_id</td><td>Test category hierarchy</td></tr>
+<tr><td>test_sections</td><td>SERIAL</td><td>category_id→test_categories</td><td>Test sections (duration, passing_marks)</td></tr>
+<tr><td>test_series</td><td>SERIAL</td><td>-</td><td>Test series with stages[], sections JSONB</td></tr>
+<tr><td>test_templates</td><td>SERIAL</td><td>-</td><td>Test templates for generation</td></tr>
+<tr><td>live_tests</td><td>SERIAL</td><td>test_id→tests</td><td>Live tests with start/end/result times</td></tr>
+<tr><td>pyp_papers</td><td>SERIAL</td><td>exam_id, series_id, stage_id</td><td>Previous year papers</td></tr>
+<tr><td>pyp_attempts</td><td>SERIAL</td><td>user_id, pyp_id→pyp_papers</td><td>PYP attempt scores</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Exam Taxonomy</h3>
+<table><thead><tr><th>Table</th><th>PK</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>exam_categories</td><td>VARCHAR</td><td>Top-level exam categories (SSC, Railway, Banking)</td></tr>
+<tr><td>exams</td><td>-</td><td>Exam subcategories</td></tr>
+<tr><td>exam_info</td><td>SERIAL</td><td>Detailed exam info (eligibility, syllabus, dates, salary)</td></tr>
+<tr><td>exam_yearly_data</td><td>SERIAL</td><td>Year-wise vacancy, cutoff, dates</td></tr>
+<tr><td>exam_updates</td><td>SERIAL</td><td>Exam news/announcements</td></tr>
+<tr><td>exam_seasons</td><td>SERIAL</td><td>Yearly exam cycles</td></tr>
+<tr><td>exam_rooms</td><td>UUID</td><td>Exam rooms with room_code</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Users & Auth</h3>
+<table><thead><tr><th>Table</th><th>PK</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>users</td><td>-</td><td>Users with public_id, pro_pass, enrolled_series/exams/materials[], preferences JSONB</td></tr>
+<tr><td>user_sessions</td><td>VARCHAR</td><td>Active sessions with geo/device info</td></tr>
+<tr><td>login_attempts</td><td>SERIAL</td><td>Brute-force tracking</td></tr>
+<tr><td>csrf_tokens</td><td>SERIAL</td><td>DB-backed CSRF tokens</td></tr>
+<tr><td>subscriptions</td><td>SERIAL</td><td>User subscription records</td></tr>
+<tr><td>subscription_plans</td><td>SERIAL</td><td>Plan definitions with features JSONB</td></tr>
+<tr><td>pro_passes</td><td>SERIAL</td><td>Pro Pass records</td></tr>
+<tr><td>enrollments</td><td>SERIAL</td><td>Series/exam/study-material enrollments</td></tr>
+<tr><td>transactions</td><td>SERIAL</td><td>Payment transactions</td></tr>
+<tr><td>coupons</td><td>SERIAL</td><td>Discount coupons</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Analytics & Activity</h3>
+<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>user_topic_stats</td><td>Per-user topic performance stats</td></tr>
+<tr><td>user_topic_performance</td><td>Detailed topic performance</td></tr>
+<tr><td>user_answers</td><td>Answer history</td></tr>
+<tr><td>user_achievements</td><td>Achievement unlocks</td></tr>
+<tr><td>study_streaks</td><td>Daily study streaks</td></tr>
+<tr><td>revision_queue</td><td>Smart revision items (RLS self-scoped)</td></tr>
+<tr><td>wrong_questions</td><td>Wrong question bank (RLS self-scoped)</td></tr>
+<tr><td>bookmarks</td><td>User bookmarks (RLS self-scoped)</td></tr>
+<tr><td>leaderboards / leaderboard_entries</td><td>Leaderboard data</td></tr>
+<tr><td>results</td><td>Test results (RLS self-scoped)</td></tr>
+<tr><td>activity_logs</td><td>User activity logs</td></tr>
+<tr><td>study_groups / study_group_members / study_group_messages</td><td>Study group system</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Admin & System</h3>
+<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>roles / permissions / user_roles / role_permissions</td><td>RBAC system</td></tr>
+<tr><td>audit_logs</td><td>Audit trail (action, entity, old/new values, IP)</td></tr>
+<tr><td>ai_generation_logs / ai_api_usage / ai_logs</td><td>AI usage tracking</td></tr>
+<tr><td>email_templates</td><td>Email template management</td></tr>
+<tr><td>coming_soon_features</td><td>Coming soon page toggles</td></tr>
+<tr><td>navigation_config / navigation_menu</td><td>Admin navigation</td></tr>
+<tr><td>app_settings</td><td>Singleton settings (site config, features, maintenance)</td></tr>
+<tr><td>ui_tag_configs</td><td>Tag configurations</td></tr>
+<tr><td>backups</td><td>Database backup records</td></tr>
+<tr><td>schema_migrations</td><td>Migration tracking</td></tr>
+</tbody></table>
+
+<h3 class="subsection-title">Content & Notifications</h3>
+<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>notifications</td><td>User notifications (RLS self-scoped)</td></tr>
+<tr><td>assets / media</td><td>Uploaded files</td></tr>
+<tr><td>banners / promotions</td><td>Marketing content</td></tr>
+<tr><td>blogs</td><td>Blog posts</td></tr>
+<tr><td>referrals / affiliates</td><td>Referral system</td></tr>
+<tr><td>current_affairs</td><td>Current affairs articles</td></tr>
+<tr><td>discussions / discussion_replies</td><td>Discussion forum</td></tr>
+<tr><td>doubts / doubt_replies</td><td>Doubt forum</td></tr>
+<tr><td>quizzes / ca_quizzes / daily_quizzes</td><td>Quiz system</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="db-migrations">
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">43 primary migrations in src/infrastructure/database/migrations/ (000-061). Auto-run on startup via migrationRunner.js. Secondary migrations in src/database/migrations/ are NOT auto-run.</p>
+<table><thead><tr><th>Migration</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>000_baseline_functions</td><td>pgcrypto, uuid-ossp extensions, 13 baseline functions, RLS event trigger</td></tr>
+<tr><td>000a_enable_rls_policies</td><td>RLS on users, attempts, results, subscriptions, audit_logs, notifications, bookmarks</td></tr>
+<tr><td>001_create_admin_feature_tables</td><td>permissions, roles, user_roles, role_permissions, audit_logs, email_templates, navigation_config</td></tr>
+<tr><td>018-019_fix_schema_issues</td><td>Creates 20+ tables: test_attempts, pro_passes, study_materials, quizzes, blogs, etc.</td></tr>
+<tr><td>020_question_versioning</td><td>Question version history</td></tr>
+<tr><td>021_attempt_snapshots</td><td>Per-attempt question snapshots</td></tr>
+<tr><td>022_test_state_machine</td><td>Test state machine</td></tr>
+<tr><td>025_schema_v3_hierarchy</td><td>V3 hierarchy: user_answers, user_topic_performance, import_logs</td></tr>
+<tr><td>027_templates_ai_search</td><td>test_templates, ai_generation_logs, question_search_index</td></tr>
+<tr><td>029_transactions</td><td>Payment transactions table</td></tr>
+<tr><td>038-041_audit_discussions</td><td>doubt_replies, subject_relations, discussions, tags</td></tr>
+<tr><td>043-045_exam_rooms_live_tests</td><td>exam_rooms, live_tests schema alignment</td></tr>
+<tr><td>046_create_missing_tables</td><td>app_settings, navigation_menu, exam_seasons, coupons, promotions, discussions, study_groups</td></tr>
+<tr><td>047-048_rls_orphans</td><td>Orphan tracking, RLS policies, schema_migrations_metadata</td></tr>
+<tr><td>050-054_cleanup_linter</td><td>Duplicate index cleanup, RLS consolidation, Supabase linter fixes</td></tr>
+<tr><td>055-058_full_test_import</td><td>Full test import schema, importer bug fixes</td></tr>
+<tr><td>059_legacy_drop</td><td>Drops legacy tables/columns</td></tr>
+<tr><td>060_create_missing</td><td>Recreates exam_seasons, coupons, promotions, discussions, achievements, etc.</td></tr>
+<tr><td>061_audit_consolidation</td><td>Formalizes core tables (tests, questions, test_questions, attempts)</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="db-seeders">
+<table><thead><tr><th>Seeder</th><th>Table</th><th>Fixture</th><th>Conflict Target</th></tr></thead><tbody>
+<tr><td>SubjectsSeeder</td><td>subjects</td><td>subjects.json</td><td>id</td></tr>
+<tr><td>TestsSeeder</td><td>tests</td><td>tests.json</td><td>id</td></tr>
+<tr><td>QuestionsSeeder</td><td>questions</td><td>questions.json</td><td>id</td></tr>
+<tr><td>LiveTestsSeeder</td><td>live_tests</td><td>live_tests.json</td><td>code</td></tr>
+<tr><td>ExamRoomsSeeder</td><td>exam_rooms</td><td>exam_rooms.json</td><td>id</td></tr>
+<tr><td>AppSettingsSeeder</td><td>app_settings</td><td>app_settings.json</td><td>id (upsert)</td></tr>
+</tbody></table>
+</div>
+
+<div class="panel" id="db-relations">
+<pre class="tree">exam_categories (VARCHAR category_id)
+  ├─ test_categories.exam_category_id
+  ├─ questions.category_id
+  └─ exams.category_id
+
+stages ──┬── tests.stage_id
+         ├── test_series.stages[]
+         ├── subjects.stage_ids[]
+         └── pyp_papers.stage_id
+
+test_series ──┬── tests.series_id
+              ├── questions.series_id
+              ├── attempts.series_id
+              └── pyp_papers.series_id
+
+tests ──┬── test_questions (M:N with questions)
+        ├── attempts.test_id
+        ├── live_tests.test_id
+        ├── test_sections (via section_id)
+        └── State: draft→scheduled→published→live→expired→archived
+
+questions ──┬── question_options (legacy) / options JSONB
+            ├── question_attempts (per-attempt)
+            ├── attempt_answers
+            ├── question_versions
+            └── passages (passage_id)
+
+attempts ──┬── attempt_answers
+           ├── attempt_events (anti-cheat)
+           ├── question_attempts
+           ├── attempt_section_scores
+           └── users / tests / test_series
+
+users ──┬── attempts, results, bookmarks, doubts
+        ├── notifications, subscriptions, enrollments
+        ├── user_sessions, login_attempts, csrf_tokens
+        ├── user_achievements, study_streaks, revision_queue
+        └── roles via user_roles (RBAC)
+
+Content Hierarchy:
+subjects → subject_parts → units → chapters → topics → subtopics
+           └── subject_videos / subject_pdfs / topic_tests (leaf resources)</pre>
+<div class="card"><div class="card-title">Key Design Patterns</div><div class="card-body">
+<strong>Dual-ID:</strong> SERIAL id (internal) + public_id_uuid UUID + generated public_id (API-exposed, prefixed: usr_, tst_, qst_, etc.)<br>
+<strong>Soft-delete:</strong> is_deleted / deleted_by / deleted_at trio + is_active flag<br>
+<strong>RLS:</strong> Enabled on user-scoped tables via current_user_id(). Event trigger auto-enables on new tables.<br>
+<strong>Runtime DDL:</strong> postgres-helpers.js initTables() creates/alters ~25 tables on every boot (idempotent)<br>
+<strong>FK Reconciliation:</strong> reconcileRelationships() auto-adds 40+ missing FKs + indexes on every boot<br>
+<strong>JSONB auto-stringify:</strong> ~25 tables have JSONB columns auto-stringified on insert
+</div></div>
+</div>
+</div>
+
+<!-- 7. PACKAGES -->
+<div class="section" id="packages">
+<h2 class="section-title">7. Packages</h2>
+<div class="tabs" id="pkg-tabs">
+<button class="tab active" data-tab="pkg-config">shared-config</button>
+<button class="tab" data-tab="pkg-hooks">shared-hooks</button>
+</div>
+<div class="panel active" id="pkg-config">
+<div class="card"><div class="card-title">@trstprep/shared-config</div><div class="card-body">
+<strong>Exports:</strong> Asset URL helpers (getPicsumUrl, getCategoryImage, getSubjectImage, getValidThumbnail, getVideoThumbnail, getAvatarUrl, getInitials, getAssetUrl), logger (debug/info/warn/error), CSRF token store (getCsrfToken/setCsrfToken/clearCsrfToken), coming-soon config (SITE_CONFIG, COMING_SOON_PAGES, isPageComingSoon, isSiteInMaintenance)
+</div></div>
+</div>
+<div class="panel" id="pkg-hooks">
+<div class="card"><div class="card-title">@trstprep/shared-hooks</div><div class="card-body">
+<strong>9 hooks:</strong> useStages, useExamCategories, useTestCategories, useProPass, useFormManager, useGenericCRUD, useDraggableScroll, useWebSocket, useUndoRedo<br>
+Note: All hooks use plain fetch() (not axios). useProPass couples to app via relative ../providers/AuthContext import.
+</div></div>
+</div>
+</div>
+
+<!-- 8. SCRIPTS -->
+<div class="section" id="scripts">
+<h2 class="section-title">8. Scripts</h2>
+<table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>show-full-taxonomy.mjs</td><td>Print DB taxonomy (subjects/units/chapters/topics) as markdown</td></tr>
+<tr><td>reset-admin.js</td><td>Reset admin password to ADMIN_DEFAULT_PASSWORD or random 16-char</td></tr>
+<tr><td>debug-user.js</td><td>Inspect admin user (id, email, role, password_hash, is_active)</td></tr>
+<tr><td>generate_taxonomy_html.py</td><td>Generate study hierarchy HTML dashboard</td></tr>
+<tr><td>split_languages.cjs</td><td>Extract Hindi/English from questions_uploadable.json</td></tr>
+<tr><td>export-db.js</td><td>Full DB export to SQL + per-table CSVs</td></tr>
+</tbody></table>
+</div>
+
+<!-- 9. DOCS -->
+<div class="section" id="docs">
+<h2 class="section-title">9. Documentation (7 files)</h2>
+<table><thead><tr><th>File</th><th>Content</th></tr></thead><tbody>
+<tr><td>ARCHITECTURE.md</td><td>8 merged: quick-ref, deployment, project structure, hierarchy, checklist, workflows, phase1, migrations</td></tr>
+<tr><td>ARCHITECTURE.html</td><td>9 flow diagrams + database schema with tab navigation</td></tr>
+<tr><td>SECURITY.md</td><td>PII incident report, security incident, secret rotation runbook</td></tr>
+<tr><td>AI_ARCHITECTURE.md</td><td>AI infrastructure setup + integration architecture</td></tr>
+<tr><td>DEVELOPMENT.md</td><td>Admin panel, bulk upload, dev notes, docs check, evolve plan</td></tr>
+<tr><td>AI_PROMPTS.md</td><td>7 AI prompts and generated outputs</td></tr>
+<tr><td>FEATURES.html</td><td>3 feature reports with tab navigation</td></tr>
+</tbody></table>
+</div>
+
+<!-- 10. CI/CD -->
+<div class="section" id="cicd">
+<h2 class="section-title">10. CI/CD (4 GitHub Workflows)</h2>
+<table><thead><tr><th>Workflow</th><th>Triggers</th><th>Jobs/Checks</th></tr></thead><tbody>
+<tr><td>ci.yml</td><td>push/PR to main</td><td>lint + test (backend/frontend/admin) + data-guard + build artifacts</td></tr>
+<tr><td>security.yml</td><td>push to main, PR</td><td>npm audit --audit-level=high + lint</td></tr>
+<tr><td>no-env.yml</td><td>push/PR</td><td>Block tracked .env files + scan for hardcoded secrets (PEM, sk-*, AWS AKIA, JWT ≥32 chars)</td></tr>
+<tr><td>data-guard.yml</td><td>push/PR</td><td>Block PII in JSON + check migration sequences + validate fixtures + no duplicate migration prefixes</td></tr>
+</tbody></table>
+</div>
+
+<!-- 11. IMPLEMENTATION STATUS -->
+<div class="section" id="status">
+<h2 class="section-title">11. Implementation Status</h2>
+
+<div class="collapse open" onclick="toggleCollapse(this)">✅ Fully Implemented & Working</div>
+<div class="collapse-content open">
+<table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody>
+<tr><td>Auth (login, register, Google OAuth, password reset, email verify, JWT refresh)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Tests (list, detail, start, autosave, submit, result, review)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Attempts (start, pause, resume, save, analytics)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Test series (list, detail, enroll, leaderboard)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Admin CRUD (tests, questions, series, categories, stages, sections, users, etc.)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Database (95 tables, 43 migrations, 6 seeders, RLS, soft-delete, dual-ID)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Realtime (Socket.IO: live tests, notifications, leaderboard, sessions)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>File uploads (local/S3/Supabase with fallback)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Email (multi-provider: SendGrid/AWS/SMTP)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>SMS (Twilio/AWS SNS)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Payments (Razorpay)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Import (Excel, CSV, JSON, ClassX, full-test)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Feature gating (backend flags → frontend FeatureGate)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>CSRF protection (DB-backed)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Rate limiting (general, auth, admin, upload)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Account lockout (progressive)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Audit logging</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Maintenance mode + Coming soon pages</td><td><span class="badge badge-green">Implemented</span></td></tr>
+<tr><td>Background workers (BullMQ: analytics, leaderboard, notifications, recommendations)</td><td><span class="badge badge-green">Implemented</span></td></tr>
+</tbody></table>
+</div>
+
+<div class="collapse" onclick="toggleCollapse(this)">⚠️ Implemented but NOT Mounted (Dormant)</div>
+<div class="collapse-content">
+<table><thead><tr><th>Module</th><th>Routes</th><th>Action Needed</th></tr></thead><tbody>
+<tr><td>Adaptive test engine</td><td>5 routes (session, next, answer, result, progress)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>AI mentor</td><td>3 routes (study-plan, doubt, exam-strategy)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>AI explanation</td><td>Service exists</td><td><span class="badge badge-blue">Create routes + mount</span></td></tr>
+<tr><td>Topic analytics</td><td>4 routes (overview, questions, engagement, difficulty)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Weak area detection</td><td>Service exists</td><td><span class="badge badge-blue">Create routes + mount</span></td></tr>
+<tr><td>Live mock tests</td><td>8 routes (upcoming, active, start, join, submit, leaderboard)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Ranking system</td><td>4 routes (overall, my-rank, subject, test)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Smart revision</td><td>4 routes (generate-plan, add, due, complete)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Question search</td><td>Service exists</td><td><span class="badge badge-blue">Create routes + mount</span></td></tr>
+<tr><td>Vector/semantic search</td><td>POST /semantic</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Test templates</td><td>8 routes (CRUD + generate-test)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Question builder</td><td>6 routes (CRUD + versions + restore)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Section management</td><td>5 routes (CRUD)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Test builder</td><td>10 routes (CRUD + clone + template + sections)</td><td><span class="badge badge-blue">Mount in app-port5001.js</span></td></tr>
+<tr><td>Outbox poller</td><td>Polls every 5s, transactional outbox</td><td><span class="badge badge-blue">Start in worker or entry</span></td></tr>
+<tr><td>Test scheduler</td><td>Scheduled→published transitions</td><td><span class="badge badge-blue">Start in entry or worker</span></td></tr>
+</tbody></table>
+</div>
+
+<div class="collapse" onclick="toggleCollapse(this)">❌ Stubs / Broken / Dead Code</div>
+<div class="collapse-content">
+<table><thead><tr><th>Issue</th><th>Location</th><th>Severity</th></tr></thead><tbody>
+<tr><td>PYPTest — hardcoded sample questions</td><td>frontend/pages/tests/PYPTest.jsx</td><td><span class="badge badge-red">Stub</span></td></tr>
+<tr><td>ExamYear — sample data fallback</td><td>frontend/pages/exams/ExamYear.jsx</td><td><span class="badge badge-red">Fallback</span></td></tr>
+<tr><td>ExamCompare — sample data fallback</td><td>frontend/pages/exams/ExamCompare.jsx</td><td><span class="badge badge-red">Fallback</span></td></tr>
+<tr><td>WebSocketProvider — broken import</td><td>frontend/shared/providers/WebSocketProvider.jsx</td><td><span class="badge badge-red">Broken</span></td></tr>
+<tr><td>QuizzesManager — demo fallbacks</td><td>admin/features/.../QuizzesManager.jsx</td><td><span class="badge badge-red">Demo</span></td></tr>
+<tr><td>PracticeQuestions bulk upload — UI only</td><td>admin/features/.../PracticeQuestionsManager.jsx</td><td><span class="badge badge-red">UI-only</span></td></tr>
+<tr><td>Duplicate controllers (test, attempt)</td><td>backend/modules/</td><td><span class="badge badge-red">Dead code</span></td></tr>
+<tr><td>Duplicate config files (cors, security, upload)</td><td>backend/config/</td><td><span class="badge badge-red">Dead code</span></td></tr>
+<tr><td>ExamSeasonsManager — orphaned</td><td>admin/features/</td><td><span class="badge badge-yellow">Orphan</span></td></tr>
+<tr><td>SubjectHierarchyManager — orphaned</td><td>admin/features/</td><td><span class="badge badge-yellow">Orphan</span></td></tr>
+<tr><td>VideosManager, MediaLibrary — dead exports</td><td>admin/features/index.js</td><td><span class="badge badge-red">Dead export</span></td></tr>
+<tr><td>SECTION_PRESETS — duplicated</td><td>TestsManager + SectionsManager</td><td><span class="badge badge-yellow">Duplicate</span></td></tr>
+</tbody></table>
+</div>
+
+<div class="collapse" onclick="toggleCollapse(this)">🔧 Needs Implementation</div>
+<div class="collapse-content">
+<table><thead><tr><th>Task</th><th>Priority</th></tr></thead><tbody>
+<tr><td>Mount 15+ dormant route modules in app-port5001.js</td><td><span class="badge badge-blue">High</span></td></tr>
+<tr><td>Start outbox poller and test scheduler</td><td><span class="badge badge-blue">High</span></td></tr>
+<tr><td>Wire PYPTest to real API</td><td><span class="badge badge-blue">Medium</span></td></tr>
+<tr><td>Remove sample data fallbacks from ExamYear/ExamCompare</td><td><span class="badge badge-blue">Medium</span></td></tr>
+<tr><td>Fix or delete WebSocketProvider</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Fix QuizzesManager demo fallbacks</td><td><span class="badge badge-blue">Medium</span></td></tr>
+<tr><td>Wire PracticeQuestionsManager bulk upload</td><td><span class="badge badge-blue">Medium</span></td></tr>
+<tr><td>Delete orphaned files (ExamSeasonsManager, SubjectHierarchyManager)</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Fix dead exports (VideosManager, MediaLibrary)</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Deduplicate SECTION_PRESETS into shared module</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Remove duplicate config files + controllers</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Add admin-panel Dockerfile (missing)</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Fix security.yml Node version (18→20)</td><td><span class="badge badge-blue">Low</span></td></tr>
+<tr><td>Fix CONTRIBUTING.md Node version (18.20→20)</td><td><span class="badge badge-blue">Low</span></td></tr>
+</tbody></table>
+</div>
+</div>
+
+</div><!-- /main -->
+
+<script>
+// Tab switching
+document.querySelectorAll('.tabs').forEach(tabBar=>{
+  tabBar.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      const target=tab.dataset.tab
+      tabBar.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'))
+      tab.classList.add('active')
+      const parent=tabBar.parentElement
+      parent.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'))
+      const panel=document.getElementById(target)
+      if(panel)panel.classList.add('active')
+    })
+  })
+})
+
+// Sidebar active link
+document.querySelectorAll('.sidebar a').forEach(link=>{
+  link.addEventListener('click',()=>{
+    document.querySelectorAll('.sidebar a').forEach(l=>l.classList.remove('active'))
+    link.classList.add('active')
+    if(window.innerWidth<=768)document.querySelector('.sidebar').classList.remove('open')
+  })
+})
+
+// Collapsible sections
+function toggleCollapse(el){
+  el.classList.toggle('open')
+  const next=el.nextElementSibling
+  if(next&&next.classList.contains('collapse-content'))next.classList.toggle('open')
+}
+
+// Table filter
+function filterTable(input,sectionId){
+  const filter=input.value.toLowerCase()
+  const section=document.getElementById(sectionId)
+  if(!section)return
+  section.querySelectorAll('table tbody tr').forEach(tr=>{
+    const text=tr.textContent.toLowerCase()
+    tr.style.display=text.includes(filter)?'':'none'
+  })
+}
+
+// Scroll spy
+const sections=document.querySelectorAll('.section')
+const links=document.querySelectorAll('.sidebar a')
+window.addEventListener('scroll',()=>{
+  let current=''
+  sections.forEach(s=>{
+    if(window.scrollY>=s.offsetTop-100)current=s.id
+  })
+  links.forEach(l=>{
+    l.classList.toggle('active',l.getAttribute('href')==='#'+current)
+  })
+})
+</script>
+</body>
+</html>
