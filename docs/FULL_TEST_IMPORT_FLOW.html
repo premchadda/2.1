@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Test Import Flow — TestPrep 2.1</title>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text2: #888;
+    --accent: #4fc3f7;
+    --green: #66bb6a;
+    --yellow: #ffd54f;
+    --red: #ef5350;
+    --purple: #ab47bc;
+    --orange: #ffa726;
+    --cyan: #26c6da;
+    --pink: #ec407a;
+    --lime: #9ccc65;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+  
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p { font-size: 13px; color: var(--text2); }
+  .stats-bar {
+    display: flex;
+    gap: 16px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .stat strong { color: var(--accent); }
+
+  /* MAIN LAYOUT */
+  .main { padding: 24px 32px; }
+
+  /* FLOW CONTAINER */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* PHASE BLOCK */
+  .phase {
+    position: relative;
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+  }
+  .phase-timeline {
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .phase-dot {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+    z-index: 2;
+    border: 3px solid var(--bg);
+  }
+  .phase-line {
+    width: 3px;
+    flex: 1;
+    background: var(--border);
+    min-height: 20px;
+  }
+  .phase-content {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .phase-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .phase-subtitle {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 16px;
+  }
+
+  /* STEP CARDS */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .step {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+  .step:hover { border-color: var(--accent); }
+  .step-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .step-num {
+    background: rgba(79,195,247,0.15);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .step-title {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .step-file {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    margin-bottom: 8px;
+    word-break: break-all;
+  }
+  .step-file a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .step-file a:hover { text-decoration: underline; }
+  .step-desc {
+    font-size: 13px;
+    color: #bbb;
+    line-height: 1.5;
+  }
+  .step-desc code {
+    background: rgba(79,195,247,0.1);
+    color: var(--accent);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+  }
+
+  /* ARROW BETWEEN STEPS */
+  .arrow-down {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+  }
+  .arrow-down svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--border);
+  }
+
+  /* SIDE ANNOTATIONS */
+  .annotation {
+    background: rgba(255,165,0,0.08);
+    border-left: 3px solid var(--orange);
+    padding: 10px 14px;
+    border-radius: 0 6px 6px 0;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #ccc;
+  }
+  .annotation strong { color: var(--orange); }
+  .annotation.green {
+    background: rgba(102,187,106,0.08);
+    border-left-color: var(--green);
+  }
+  .annotation.green strong { color: var(--green); }
+  .annotation.red {
+    background: rgba(239,83,80,0.08);
+    border-left-color: var(--red);
+  }
+  .annotation.red strong { color: var(--red); }
+  .annotation.purple {
+    background: rgba(171,71,188,0.08);
+    border-left-color: var(--purple);
+  }
+  .annotation.purple strong { color: var(--purple); }
+
+  /* DB TABLES */
+  .db-tables {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .db-table {
+    background: rgba(171,71,188,0.1);
+    border: 1px solid rgba(171,71,188,0.3);
+    color: var(--purple);
+    font-size: 11px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .db-table.write {
+    background: rgba(239,83,80,0.1);
+    border-color: rgba(239,83,80,0.3);
+    color: var(--red);
+  }
+  .db-table.read {
+    background: rgba(79,195,247,0.1);
+    border-color: rgba(79,195,247,0.3);
+    color: var(--accent);
+  }
+
+  /* API BADGE */
+  .api-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(38,198,218,0.1);
+    border: 1px solid rgba(38,198,218,0.3);
+    color: var(--cyan);
+    font-size: 11px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-top: 8px;
+  }
+  .api-badge .method {
+    background: rgba(38,198,218,0.2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 700;
+    font-size: 10px;
+  }
+
+  /* FLOW DIAGRAM - SVG */
+  .flow-svg-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 24px;
+    overflow-x: auto;
+  }
+  .flow-svg-container h2 {
+    font-size: 15px;
+    margin-bottom: 16px;
+    color: var(--accent);
+  }
+
+  /* TABLE */
+  .info-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 10px;
+  }
+  .info-table th {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  .info-table td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+  }
+  .info-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  /* COLLAPSIBLE */
+  details { margin-top: 10px; }
+  details summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent);
+    padding: 6px 0;
+    list-style: none;
+  }
+  details summary::before {
+    content: '▸ ';
+    display: inline;
+  }
+  details[open] summary::before { content: '▾ '; }
+
+  /* TABS */
+  .tab-bar {
+    display: flex;
+    gap: 2px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    color: var(--text2);
+    font-size: 13px;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .header, .main { padding: 16px; }
+    .phase { flex-direction: column; }
+    .phase-timeline { width: 100%; flex-direction: row; height: 40px; }
+    .phase-line { width: auto; height: 3px; min-height: 3px; }
+    .stats-bar { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Full Test <span>Import</span> Flow</h1>
+  <p>Complete end-to-end flowchart: Frontend UI → API Routes → Import Engine → Database</p>
+  <div class="stats-bar">
+    <div class="stat"><strong>4</strong> Frontend Steps</div>
+    <div class="stat"><strong>6</strong> API Endpoints</div>
+    <div class="stat"><strong>5</strong> DB Tables Written</div>
+    <div class="stat"><strong>9</strong> Slug Resolvers</div>
+    <div class="stat"><strong>900</strong> Lines Core Engine</div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- HIGH-LEVEL FLOW DIAGRAM -->
+<div class="flow-svg-container">
+  <h2>High-Level Flow Overview</h2>
+  <svg viewBox="0 0 1100 620" style="width:100%;height:auto;font-family:'Segoe UI',system-ui,sans-serif;">
+    <!-- Background -->
+    <defs>
+      <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#4fc3f7"/>
+      </marker>
+      <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#ef5350"/>
+      </marker>
+      <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 10 3.5, 0 7" fill="#66bb6a"/>
+      </marker>
+      <linearGradient id="gPhase" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#1a1a2e"/>
+        <stop offset="100%" stop-color="#16213e"/>
+      </linearGradient>
+      <filter id="glow">
+        <feGaussianBlur stdDeviation="2" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+
+    <!-- Phase boxes -->
+    <!-- PHASE 1: Frontend -->
+    <rect x="20" y="20" width="250" height="130" rx="10" fill="url(#gPhase)" stroke="#4fc3f7" stroke-width="1.5"/>
+    <text x="145" y="45" text-anchor="middle" fill="#4fc3f7" font-size="13" font-weight="700">PHASE 1 — Frontend UI</text>
+    <text x="145" y="65" text-anchor="middle" fill="#888" font-size="10">FullTestImportModal.jsx (1183 lines)</text>
+    <rect x="35" y="78" width="105" height="24" rx="4" fill="rgba(79,195,247,0.1)" stroke="rgba(79,195,247,0.3)"/>
+    <text x="88" y="94" text-anchor="middle" fill="#4fc3f7" font-size="10">Step 1: Upload</text>
+    <rect x="148" y="78" width="105" height="24" rx="4" fill="rgba(79,195,247,0.1)" stroke="rgba(79,195,247,0.3)"/>
+    <text x="201" y="94" text-anchor="middle" fill="#4fc3f7" font-size="10">Step 2: Select</text>
+    <rect x="35" y="108" width="105" height="24" rx="4" fill="rgba(79,195,247,0.1)" stroke="rgba(79,195,247,0.3)"/>
+    <text x="88" y="124" text-anchor="middle" fill="#4fc3f7" font-size="10">Step 3: Preview</text>
+    <rect x="148" y="108" width="105" height="24" rx="4" fill="rgba(79,195,247,0.1)" stroke="rgba(79,195,247,0.3)"/>
+    <text x="201" y="124" text-anchor="middle" fill="#4fc3f7" font-size="10">Step 4: Import</text>
+
+    <!-- Arrow 1→2 -->
+    <line x1="270" y1="85" x2="310" y2="85" stroke="#4fc3f7" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+    <!-- PHASE 2: API Routes -->
+    <rect x="310" y="20" width="260" height="130" rx="10" fill="url(#gPhase)" stroke="#26c6da" stroke-width="1.5"/>
+    <text x="440" y="45" text-anchor="middle" fill="#26c6da" font-size="13" font-weight="700">PHASE 2 — API Routes</text>
+    <text x="440" y="65" text-anchor="middle" fill="#888" font-size="10">bulkImport.routes.js (465 lines)</text>
+    <text x="440" y="82" text-anchor="middle" fill="#ffa726" font-size="10">POST /import/full-test/upload</text>
+    <text x="440" y="96" text-anchor="middle" fill="#ffa726" font-size="10">GET  /import/full-test/preview-test/:idx</text>
+    <text x="440" y="110" text-anchor="middle" fill="#ffa726" font-size="10">POST /import/full-test/import-selected</text>
+    <text x="440" y="128" text-anchor="middle" fill="#888" font-size="10">Multer 150MB • protect + admin auth</text>
+
+    <!-- Arrow 2→3 -->
+    <line x1="440" y1="150" x2="440" y2="190" stroke="#26c6da" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+    <!-- PHASE 3: Import Engine -->
+    <rect x="270" y="190" width="340" height="180" rx="10" fill="url(#gPhase)" stroke="#66bb6a" stroke-width="1.5"/>
+    <text x="440" y="215" text-anchor="middle" fill="#66bb6a" font-size="13" font-weight="700">PHASE 3 — Import Engine</text>
+    <text x="440" y="235" text-anchor="middle" fill="#888" font-size="10">fullTestImporter.js (900 lines)</text>
+    
+    <rect x="285" y="248" width="145" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="358" y="263" text-anchor="middle" fill="#66bb6a" font-size="10">BEGIN Transaction</text>
+    <rect x="438" y="248" width="155" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="516" y="263" text-anchor="middle" fill="#66bb6a" font-size="10">Resolve 9 Slug FKs</text>
+    
+    <rect x="285" y="278" width="145" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="358" y="293" text-anchor="middle" fill="#66bb6a" font-size="10">Validate Schema</text>
+    <rect x="438" y="278" width="155" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="516" y="293" text-anchor="middle" fill="#66bb6a" font-size="10">Insert Tests (50+ cols)</text>
+
+    <rect x="285" y="308" width="145" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="358" y="323" text-anchor="middle" fill="#66bb6a" font-size="10">Insert Sections</text>
+    <rect x="438" y="308" width="155" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="516" y="323" text-anchor="middle" fill="#66bb6a" font-size="10">Insert Questions (SAVEPOINT)</text>
+
+    <rect x="285" y="338" width="145" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="358" y="353" text-anchor="middle" fill="#66bb6a" font-size="10">Link test_questions</text>
+    <rect x="438" y="338" width="155" height="22" rx="4" fill="rgba(102,187,106,0.1)" stroke="rgba(102,187,106,0.3)"/>
+    <text x="516" y="353" text-anchor="middle" fill="#66bb6a" font-size="10">COMMIT / ROLLBACK</text>
+
+    <!-- Arrow 3→4 -->
+    <line x1="440" y1="370" x2="440" y2="410" stroke="#66bb6a" stroke-width="1.5" marker-end="url(#arrowhead)"/>
+
+    <!-- PHASE 4: Database -->
+    <rect x="20" y="410" width="840" height="100" rx="10" fill="url(#gPhase)" stroke="#ab47bc" stroke-width="1.5"/>
+    <text x="440" y="435" text-anchor="middle" fill="#ab47bc" font-size="13" font-weight="700">PHASE 4 — Database</text>
+
+    <!-- DB Tables -->
+    <rect x="40" y="450" width="120" height="44" rx="6" fill="rgba(239,83,80,0.1)" stroke="rgba(239,83,80,0.4)"/>
+    <text x="100" y="468" text-anchor="middle" fill="#ef5350" font-size="11" font-weight="600">tests</text>
+    <text x="100" y="484" text-anchor="middle" fill="#888" font-size="9">INSERT • 50+ cols</text>
+
+    <rect x="175" y="450" width="130" height="44" rx="6" fill="rgba(239,83,80,0.1)" stroke="rgba(239,83,80,0.4)"/>
+    <text x="240" y="468" text-anchor="middle" fill="#ef5350" font-size="11" font-weight="600">test_sections</text>
+    <text x="240" y="484" text-anchor="middle" fill="#888" font-size="9">INSERT • 20+ cols</text>
+
+    <rect x="320" y="450" width="120" height="44" rx="6" fill="rgba(239,83,80,0.1)" stroke="rgba(239,83,80,0.4)"/>
+    <text x="380" y="468" text-anchor="middle" fill="#ef5350" font-size="11" font-weight="600">questions</text>
+    <text x="380" y="484" text-anchor="middle" fill="#888" font-size="9">INSERT • bilingual</text>
+
+    <rect x="455" y="450" width="140" height="44" rx="6" fill="rgba(239,83,80,0.1)" stroke="rgba(239,83,80,0.4)"/>
+    <text x="525" y="468" text-anchor="middle" fill="#ef5350" font-size="11" font-weight="600">test_questions</text>
+    <text x="525" y="484" text-anchor="middle" fill="#888" font-size="9">INSERT • junction</text>
+
+    <rect x="610" y="450" width="120" height="44" rx="6" fill="rgba(239,83,80,0.1)" stroke="rgba(239,83,80,0.4)"/>
+    <text x="670" y="468" text-anchor="middle" fill="#ef5350" font-size="11" font-weight="600">import_logs</text>
+    <text x="670" y="484" text-anchor="middle" fill="#888" font-size="9">INSERT • audit</text>
+
+    <rect x="745" y="450" width="100" height="44" rx="6" fill="rgba(79,195,247,0.1)" stroke="rgba(79,195,247,0.4)"/>
+    <text x="795" y="468" text-anchor="middle" fill="#4fc3f7" font-size="11" font-weight="600">+ 7 lookups</text>
+    <text x="795" y="484" text-anchor="middle" fill="#888" font-size="9">READ / UPSERT</text>
+
+    <!-- Slug resolver side box -->
+    <rect x="880" y="190" width="200" height="320" rx="10" fill="url(#gPhase)" stroke="#ffa726" stroke-width="1"/>
+    <text x="980" y="215" text-anchor="middle" fill="#ffa726" font-size="12" font-weight="700">9 Slug Resolvers</text>
+    <text x="980" y="235" text-anchor="middle" fill="#888" font-size="9">slugCache (Map)</text>
+    <text x="980" y="260" text-anchor="middle" fill="#ccc" font-size="10">exam_categories</text>
+    <text x="980" y="280" text-anchor="middle" fill="#ccc" font-size="10">exams</text>
+    <text x="980" y="300" text-anchor="middle" fill="#ccc" font-size="10">stages</text>
+    <text x="980" y="320" text-anchor="middle" fill="#ccc" font-size="10">test_categories</text>
+    <text x="980" y="340" text-anchor="middle" fill="#ccc" font-size="10">test_series</text>
+    <text x="980" y="360" text-anchor="middle" fill="#ccc" font-size="10">subjects</text>
+    <text x="980" y="380" text-anchor="middle" fill="#ccc" font-size="10">chapters</text>
+    <text x="980" y="400" text-anchor="middle" fill="#ccc" font-size="10">topics</text>
+    <text x="980" y="420" text-anchor="middle" fill="#ccc" font-size="10">subtopics</text>
+    <text x="980" y="450" text-anchor="middle" fill="#888" font-size="9">strict → findSlug()</text>
+    <text x="980" y="468" text-anchor="middle" fill="#888" font-size="9">lenient → upsertSlug()</text>
+    <line x1="610" y1="260" x2="880" y2="300" stroke="#ffa726" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrowhead)"/>
+
+    <!-- Error handling box -->
+    <rect x="20" y="530" width="540" height="80" rx="10" fill="url(#gPhase)" stroke="#ef5350" stroke-width="1"/>
+    <text x="290" y="555" text-anchor="middle" fill="#ef5350" font-size="12" font-weight="700">Error Handling Strategy</text>
+    <text x="40" y="578" fill="#ccc" font-size="10">• Each question: SAVEPOINT q{N} → ROLLBACK TO SAVEPOINT on failure</text>
+    <text x="40" y="596" fill="#ccc" font-size="10">• Each test: try/catch → push to failed[] + continue next test</text>
+    <text x="40" y="614" fill="#ccc" font-size="10">• Full import: single transaction → COMMIT or ROLLBACK</text>
+
+    <!-- Cache box -->
+    <rect x="580" y="530" width="280" height="80" rx="10" fill="url(#gPhase)" stroke="#9ccc65" stroke-width="1"/>
+    <text x="720" y="555" text-anchor="middle" fill="#9ccc65" font-size="12" font-weight="700">Caching</text>
+    <text x="595" y="578" fill="#ccc" font-size="10">• slugCache: slug→ID per import session</text>
+    <text x="595" y="596" fill="#ccc" font-size="10">• columnCache: table→columns per import</text>
+    <text x="595" y="614" fill="#ccc" font-size="10">• Temp file: uploads/test-imports/temp-{userId}.json</text>
+
+    <!-- Sync warning -->
+    <rect x="880" y="530" width="200" height="80" rx="10" fill="url(#gPhase)" stroke="#ffd54f" stroke-width="1"/>
+    <text x="980" y="555" text-anchor="middle" fill="#ffd54f" font-size="12" font-weight="700">⚠ Synchronous</text>
+    <text x="895" y="578" fill="#ccc" font-size="10">No BullMQ/Redis queue.</text>
+    <text x="895" y="596" fill="#ccc" font-size="10">Frontend loops sequentially</text>
+    <text x="895" y="614" fill="#ccc" font-size="10">one request per test.</text>
+  </svg>
+</div>
+
+<!-- DETAILED PHASE-BY-PHASE -->
+<div class="flow">
+
+  <!-- PHASE 1 -->
+  <div class="phase">
+    <div class="phase-timeline">
+      <div class="phase-dot" style="background:#4fc3f7;">1</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-title" style="color:#4fc3f7;">Phase 1 — Frontend Upload & Validation</div>
+      <div class="phase-subtitle">Multi-step wizard in admin panel</div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 1</span>
+            <span class="step-title">User clicks "Import JSON" button</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/admin-panel/src/features/admin/assessments-quizzes/TestsManager.jsx</a> :2291
+          </div>
+          <div class="step-desc">
+            Button in TestsManager opens the <code>FullTestImportModal</code> component with a 4-step wizard state machine.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 1A</span>
+            <span class="step-title">User selects JSON file → clicks "Upload & Validate"</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/admin-panel/src/features/admin/assessments-quizzes/components/FullTestImportModal.jsx</a> :87-115
+          </div>
+          <div class="step-desc">
+            Creates <code>FormData</code>, appends file, calls <code>adminAPI.uploadFullTestJson(fd)</code> with 5-minute timeout.
+          </div>
+          <div class="api-badge"><span class="method">POST</span> /api/import/full-test/upload</div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 1B</span>
+            <span class="step-title">Backend receives file via Multer (150MB max)</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :280-335
+          </div>
+          <div class="step-desc">
+            Parses JSON from buffer → saves to <code>uploads/test-imports/temp-{userId}.json</code> → analyzes structure (array vs single, counts sections/questions per test) → calls <code>validateJsonSchema()</code> → returns test list + schema warnings.
+          </div>
+          <div class="annotation">
+            <strong>Key:</strong> File is cached to disk so subsequent preview/import calls don't need re-upload.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 1C</span>
+            <span class="step-title">Schema validation checks fields</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/services/import/fullTestImporter.js</a> :804-899
+          </div>
+          <div class="step-desc">
+            <code>validateJsonSchema(json)</code> compares JSON keys against known expected keys for test, section, and question levels. Returns <code>{ extraFields, missingFields }</code>.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 2</span>
+            <span class="step-title">User selects tests from hierarchy tree</span>
+          </div>
+          <div class="step-file">
+            <a href="#">FullTestImportModal.jsx</a> :253-300
+          </div>
+          <div class="step-desc">
+            <code>buildHierarchy()</code> nests tests: Root → ExamCategory → Exam → Series → Stage → Subcategory → Test. User can select/deselect individual tests or entire branches. Search filtering by title, year, category.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">STEP 3</span>
+            <span class="step-title">User optionally previews a single test</span>
+          </div>
+          <div class="step-file">
+            <a href="#">FullTestImportModal.jsx</a> :153-168
+          </div>
+          <div class="step-desc">
+            Calls <code>adminAPI.previewSingleTest(index)</code>. Backend reads temp file, extracts test at index, returns full test with all sections and questions. Two preview tabs: "Test Details & Settings" and "Sections & Questions".
+          </div>
+          <div class="api-badge"><span class="method">GET</span> /api/import/full-test/preview-test/:index</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase">
+    <div class="phase-timeline">
+      <div class="phase-dot" style="background:#26c6da;">2</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-title" style="color:#26c6da;">Phase 2 — API Route Handling</div>
+      <div class="phase-subtitle">Express routes with auth + file upload middleware</div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">UPLOAD</span>
+            <span class="step-title">POST /api/import/full-test/upload</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :280-335
+          </div>
+          <div class="step-desc">
+            Middleware: <code>protect</code> → <code>admin</code> → <code>fullTestUpload.single('file')</code> (multer memory storage, 150MB). Parses JSON, saves temp file, validates schema, returns test list.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">PREVIEW</span>
+            <span class="step-title">GET /api/import/full-test/preview-test/:index</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :341-370
+          </div>
+          <div class="step-desc">
+            Reads temp file from disk, parses JSON, extracts test at given array index, returns full test object with all sections and questions.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">IMPORT</span>
+            <span class="step-title">POST /api/import/full-test/import-selected</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :376-463
+          </div>
+          <div class="step-desc">
+            Receives <code>{ indices: [0, 2, 5], strict: true }</code>. Reads temp file, iterates over selected indices, calls <code>importFullTest(test, config)</code> for each. Accumulates results per test into <code>imported[]</code> and <code>failed[]</code>.
+          </div>
+          <div class="api-badge"><span class="method">POST</span> /api/import/full-test/import-selected</div>
+          <div class="annotation">
+            <strong>Note:</strong> Frontend sends sequential requests (one per test) in a for-loop with progress tracking. No BullMQ queue — fully synchronous.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">ALT</span>
+            <span class="step-title">POST /api/import/full-test/import (direct single-test)</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :208-272
+          </div>
+          <div class="step-desc">
+            Simpler path: upload JSON file directly, calls <code>importFullTest(json, config)</code> immediately. On success, moves file to organized folder path: <code>uploads/test-imports/imported/{examCategoryId}/{examId}/{stageId}/...</code>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-header">
+            <span class="step-num">ALT</span>
+            <span class="step-title">POST /api/import/full-test/preview (dry-run)</span>
+          </div>
+          <div class="step-file">
+            <a href="#">apps/backend/src/modules/import/bulkImport.routes.js</a> :159-206
+          </div>
+          <div class="step-desc">
+            Calls <code>importFullTest(json, { dryRun: true })</code>. Returns summary without writing to database. Uses <code>ROLLBACK</code> at end instead of <code>COMMIT</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase">
+    <div class="phase-timeline">
+      <div class="phase-dot" style="background:#66bb6a;">3</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-title" style="color:#66bb6a;">Phase 3 — Core Import Engine</div>
+      <div class="phase-subtitle">fullTestImporter.js — 900 lines, single transaction</div>
+
+      <div class="steps">
+        <div class="step" style="border-left: 3px solid #ffa726;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(255,167,38,0.15);color:#ffa726;">3.1</span>
+            <span class="step-title">BEGIN Transaction + Clear Caches</span>
+          </div>
+          <div class="step-file"><a href="#">apps/backend/src/services/import/fullTestImporter.js</a> :373-377</div>
+          <div class="step-desc">
+            <code>await client.query("BEGIN")</code> — acquires DB client from pool. Clears <code>slugCache</code> (Map) and <code>columnCache</code> (Map).
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #ffa726;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(255,167,38,0.15);color:#ffa726;">3.2</span>
+            <span class="step-title">Resolve 9 Slug Foreign Keys</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :380-425</div>
+          <div class="step-desc">
+            Converts hierarchical slug strings to integer IDs using resolver functions. Each resolver uses either <code>findSlug()</code> (strict mode — find only) or <code>upsertSlug()</code> (lenient — find or create).
+          </div>
+          <div class="db-tables">
+            <span class="db-table read">exam_categories</span>
+            <span class="db-table read">exams</span>
+            <span class="db-table read">stages</span>
+            <span class="db-table read">test_categories</span>
+            <span class="db-table read">test_series</span>
+            <span class="db-table read">subjects</span>
+            <span class="db-table read">chapters</span>
+            <span class="db-table read">topics</span>
+            <span class="db-table read">subtopics</span>
+          </div>
+          <div class="annotation">
+            <strong>Aliases handled:</strong> "tier-1" → "tier-1-pre", "prelims" → "tier-1-pre", "pyqs" → "pyps", 4-digit years get parent "year-based".
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #ffa726;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(255,167,38,0.15);color:#ffa726;">3.3</span>
+            <span class="step-title">Pre-commit Validation</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :226-244</div>
+          <div class="step-desc">
+            <code>validateBeforeCommit(json, result)</code> — warns if <code>totalQuestions</code> doesn't match actual questions in sections, warns if section <code>questionCount</code> doesn't match actual questions array length.
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #ef5350;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(239,83,80,0.15);color:#ef5350;">3.4</span>
+            <span class="step-title">Insert Test Record (50+ columns)</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :431-542</div>
+          <div class="step-desc">
+            Builds massive <code>testRow</code> object with basic fields, categorization, 10+ JSONB config blocks (show_config, timing_config, proctoring, adaptive, features...), flags, legacy fields, and import tracking. SQL is dynamically built to skip columns that don't exist in actual DB via <code>information_schema.columns</code>.
+          </div>
+          <div class="db-tables">
+            <span class="db-table write">tests → INSERT</span>
+          </div>
+          <div class="annotation green">
+            <strong>Slug uniqueness:</strong> <code>ensureUniqueSlug()</code> appends timestamp if duplicate found.
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #ef5350;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(239,83,80,0.15);color:#ef5350;">3.5</span>
+            <span class="step-title">Process Sections (per section)</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :548-600</div>
+          <div class="step-desc">
+            For each section: resolve subjectId, build sectionRow (20+ fields including duration, time_limit, display_order with <code>SECTION_ORDER_MAP</code> for SSC CGL standard ordering, question_count, total_marks, negative_marking, flags, instructions JSONB, section_code).
+          </div>
+          <div class="db-tables">
+            <span class="db-table write">test_sections → INSERT</span>
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #ef5350;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(239,83,80,0.15);color:#ef5350;">3.6</span>
+            <span class="step-title">Process Questions (per question, with SAVEPOINT)</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :601-736</div>
+          <div class="step-desc">
+            For each question: <code>SAVEPOINT q{N}</code> → resolve FKs → extract bilingual text (English + Hindi from multiple field formats) → convert correct answer from 1-indexed to 0-indexed → skip if no text or text &lt; 3 chars → dedup check via <code>external_question_id</code> + <code>test_id</code> → INSERT into questions → INSERT into test_questions junction → on error: <code>ROLLBACK TO SAVEPOINT</code>, record error, skip question.
+          </div>
+          <div class="db-tables">
+            <span class="db-table write">questions → INSERT</span>
+            <span class="db-table write">test_questions → INSERT</span>
+          </div>
+          <div class="annotation red">
+            <strong>Error handling:</strong> Each question is independently rollback-safe. Failed questions are logged and skipped — processing continues.
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #9ccc65;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(156,204,101,0.15);color:#9ccc65;">3.7</span>
+            <span class="step-title">Update Test Totals</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :749-758</div>
+          <div class="step-desc">
+            <code>UPDATE tests SET total_questions = $1, total_marks = $2, updated_at = NOW() WHERE id = $3</code>
+          </div>
+        </div>
+
+        <div class="step" style="border-left: 3px solid #9ccc65;">
+          <div class="step-header">
+            <span class="step-num" style="background:rgba(156,204,101,0.15);color:#9ccc65;">3.8</span>
+            <span class="step-title">Log Import + COMMIT</span>
+          </div>
+          <div class="step-file"><a href="#">fullTestImporter.js</a> :760-793</div>
+          <div class="step-desc">
+            Inserts audit record into <code>import_logs</code> (imported_by, source, file_name, imported count, failed count, errors JSONB, metadata JSONB). Then <code>COMMIT</code> — or <code>ROLLBACK</code> if dryRun. Client released in <code>finally</code> block.
+          </div>
+          <div class="db-tables">
+            <span class="db-table write">import_logs → INSERT</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase">
+    <div class="phase-timeline">
+      <div class="phase-dot" style="background:#ab47bc;">4</div>
+      <div class="phase-line"></div>
+    </div>
+    <div class="phase-content">
+      <div class="phase-title" style="color:#ab47bc;">Phase 4 — Database Schema</div>
+      <div class="phase-subtitle">5 tables written, 9 tables read for slug resolution</div>
+
+      <table class="info-table">
+        <thead>
+          <tr><th>Table</th><th>Operation</th><th>Key Columns</th><th>Migration</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests</code></td>
+            <td style="color:#ef5350;">INSERT</td>
+            <td>id, title, slug, duration, total_questions, total_marks, status, series_id, stage_id, test_category_id, exam_id, show_config (JSONB), timing_config (JSONB), proctoring (JSONB), adaptive (JSONB), features (JSONB), imported_from, source_test_id, +30 more</td>
+            <td>061_audit_consolidation.sql</td>
+          </tr>
+          <tr>
+            <td><code>test_sections</code></td>
+            <td style="color:#ef5350;">INSERT</td>
+            <td>id, name, test_id, category_id, subject_id, duration, time_limit, display_order, question_count, total_marks, negative_marking, mandatory, optional, qualifying, shuffle_questions, section_code</td>
+            <td>007_create_test_sections.sql</td>
+          </tr>
+          <tr>
+            <td><code>questions</code></td>
+            <td style="color:#ef5350;">INSERT</td>
+            <td>id, question_text, question_text_hi, options, options_hi, correct_option, explanation, explanation_hi, difficulty, marks, negative_marks, type, subject_id, chapter_id, topic_id, subtopic_id, external_question_id</td>
+            <td>061_audit_consolidation.sql</td>
+          </tr>
+          <tr>
+            <td><code>test_questions</code></td>
+            <td style="color:#ef5350;">INSERT</td>
+            <td>test_id, question_id, section_id, question_number, created_at</td>
+            <td>058_fix_importer_bugs.sql</td>
+          </tr>
+          <tr>
+            <td><code>import_logs</code></td>
+            <td style="color:#ef5350;">INSERT</td>
+            <td>imported_by, source, file_name, imported, failed, errors (JSONB), metadata (JSONB)</td>
+            <td>025-schema-v3-hierarchy.sql</td>
+          </tr>
+          <tr style="opacity:0.6;">
+            <td><code>exam_categories, exams, stages, test_categories, test_series, subjects, chapters, topics, subtopics</code></td>
+            <td style="color:#4fc3f7;">READ / UPSERT</td>
+            <td colspan="2">Slug resolution — findSlug() in strict mode, upsertSlug() in lenient mode</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <details>
+        <summary>All API Endpoints (12 total)</summary>
+        <table class="info-table" style="margin-top:8px;">
+          <thead><tr><th>Method</th><th>Endpoint</th><th>Auth</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td>GET</td><td>/api/import/stats</td><td>admin</td><td>Import statistics by source</td></tr>
+            <tr><td>GET</td><td>/api/import/formats</td><td>none</td><td>Supported file formats</td></tr>
+            <tr><td>GET</td><td>/api/import/template</td><td>none</td><td>CSV/Excel template download</td></tr>
+            <tr><td>GET</td><td>/api/import/history</td><td>admin</td><td>Recent import logs</td></tr>
+            <tr><td>GET</td><td>/api/import/history/:id</td><td>admin</td><td>Single import log detail</td></tr>
+            <tr><td>POST</td><td>/api/import/validate</td><td>admin</td><td>Validate file without importing</td></tr>
+            <tr><td>POST</td><td>/api/import/import</td><td>admin</td><td>Standard question import (JSON/Excel/CSV)</td></tr>
+            <tr><td>POST</td><td>/api/import/full-test/preview</td><td>admin</td><td>Dry-run preview (ROLLBACK)</td></tr>
+            <tr><td>POST</td><td>/api/import/full-test/import</td><td>admin</td><td>Direct single-test import</td></tr>
+            <tr><td>POST</td><td>/api/import/full-test/upload</td><td>admin</td><td>Upload multi-test JSON, cache, return list</td></tr>
+            <tr><td>GET</td><td>/api/import/full-test/preview-test/:index</td><td>admin</td><td>Preview single test from cached file</td></tr>
+            <tr><td>POST</td><td>/api/import/full-test/import-selected</td><td>admin</td><td>Import selected tests from cached file</td></tr>
+          </tbody>
+        </table>
+      </details>
+
+      <details>
+        <summary>All Files Involved</summary>
+        <table class="info-table" style="margin-top:8px;">
+          <thead><tr><th>Layer</th><th>File</th><th>Lines</th></tr></thead>
+          <tbody>
+            <tr><td>Frontend</td><td>apps/admin-panel/src/features/admin/assessments-quizzes/TestsManager.jsx</td><td>2367</td></tr>
+            <tr><td>Frontend</td><td>apps/admin-panel/src/features/admin/assessments-quizzes/components/FullTestImportModal.jsx</td><td>1183</td></tr>
+            <tr><td>Frontend</td><td>apps/admin-panel/src/features/admin/assessments-quizzes/components/ImportHistoryModal.jsx</td><td>183</td></tr>
+            <tr><td>Frontend</td><td>apps/admin-panel/src/shared/lib/dataService.js</td><td>:507-520</td></tr>
+            <tr><td>Backend Routes</td><td>apps/backend/src/modules/import/bulkImport.routes.js</td><td>465</td></tr>
+            <tr><td>Backend Routes</td><td>apps/backend/src/api/routes/admin-import.js</td><td>316</td></tr>
+            <tr><td>Service</td><td>apps/backend/src/services/import/fullTestImporter.js</td><td>900</td></tr>
+            <tr><td>Service</td><td>apps/backend/src/services/import/classxImporter.js</td><td>459</td></tr>
+            <tr><td>Service</td><td>apps/backend/src/services/import/enhancedImporter.js</td><td>348</td></tr>
+            <tr><td>Service</td><td>apps/backend/src/modules/import/bulkImport.service.js</td><td>244</td></tr>
+            <tr><td>Migration</td><td>apps/backend/src/infrastructure/database/migrations/055_full_test_import_schema.sql</td><td>—</td></tr>
+            <tr><td>Migration</td><td>apps/backend/src/infrastructure/database/migrations/057b_full_test_import_phase1.sql</td><td>—</td></tr>
+            <tr><td>Migration</td><td>apps/backend/src/infrastructure/database/migrations/058_fix_importer_bugs.sql</td><td>—</td></tr>
+            <tr><td>Migration</td><td>apps/backend/src/infrastructure/database/migrations/061_audit_consolidation.sql</td><td>—</td></tr>
+          </tbody>
+        </table>
+      </details>
+
+      <details>
+        <summary>Known Issues</summary>
+        <div class="annotation red" style="margin-top:8px;">
+          <strong>Missing API function:</strong> ImportHistoryModal.jsx:15 calls <code>adminAPI.getImportHistory(20)</code> but this function is not defined in dataService.js. Would cause runtime error.
+        </div>
+        <div class="annotation red" style="margin-top:8px;">
+          <strong>Dead file:</strong> admin-import.js is never mounted in app-port5001.js. Legacy/dead code.
+        </div>
+        <div class="annotation" style="margin-top:8px;">
+          <strong>Synchronous bottleneck:</strong> No BullMQ/Redis queue. Frontend sends sequential requests in a for-loop. Could be slow for large multi-test imports.
+        </div>
+      </details>
+    </div>
+  </div>
+
+</div><!-- /flow -->
+
+</div><!-- /main -->
+
+<script>
+// Tab functionality (for any tabbed sections)
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.closest('.tab-bar');
+    const container = group.parentElement;
+    group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    container.querySelector(btn.dataset.target).classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
