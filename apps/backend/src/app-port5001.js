@@ -64,12 +64,14 @@ import intelligenceRoutes from "./api/routes/intelligence.js";
 import discussionsRoutes from "./api/routes/discussions.js";
 import promotionsRoutes from "./api/routes/promotions.js";
 import tagConfigRoutes from "./api/routes/tagConfigs.js";
+import pypHierarchyRoutes from "./api/routes/pyp-hierarchy.js";
 import leaderboardAdminRoutes from "./api/routes/leaderboards-admin.js";
 import enrollmentsAdminRoutes from "./api/routes/enrollments-admin.js";
 import communityRoutes from "./api/routes/community.js";
 import analyticsRoutes from "./api/routes/analytics.js";
 import auditRoutes from "./api/routes/admin-audit.js";
 import fortskyRoutes from "./api/routes/fortspy.js";
+import importRoutes from "./modules/import/bulkImport.routes.js";
 import {
   closeRedis,
   getRedisClient,
@@ -328,6 +330,11 @@ app.use("/assets/avatar", (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, "..", "uploads", "avatars")));
 
+app.use("/storage", (req, res, next) => {
+  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+}, express.static(path.join(__dirname, "..", "storage")));
+
 app.get("/api/health", async (req, res) => {
   try {
     const dbHealth = typeof dbHelpers.healthCheck === "function" ? await dbHelpers.healthCheck() : await (async () => {
@@ -442,12 +449,14 @@ app.use("/api/intelligence", validateCsrfToken, intelligenceRoutes);
 app.use("/api/discussions", validateCsrfToken, discussionsRoutes);
 app.use("/api/promotions", promotionsRoutes);
 app.use("/api/tag-configs", tagConfigRoutes);
+app.use("/api/pyps", pypHierarchyRoutes);
 app.use("/api/leaderboards", validateCsrfToken, leaderboardAdminRoutes);
 app.use("/api/enrollments", validateCsrfToken, enrollmentsAdminRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/analytics", validateCsrfToken, analyticsRoutes);
 app.use("/api/admin/audit-logs", adminLimiter, validateCsrfToken, auditRoutes);
 app.use("/api/fortspy", fortskyRoutes);
+app.use("/api/import", importRoutes);
 
 import sessionController from "./modules/sessions/session.controller.js";
 const sessionRouter = express.Router();

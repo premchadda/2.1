@@ -17,6 +17,8 @@ import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identi
 import { getPublicResponseId } from '../../shared/utils/public-id-response.js'
 import { isProUser, isProRestrictedTest } from '../../shared/utils/user-utils.js'
 import { findTestByIdentifier, filterQuestionsByTestId } from '../../shared/utils/test-utils.js'
+import { isPypSlug } from '../../utils/slug-helpers.js'
+import { readTestContent, readTestContentByPath } from '../../services/import/testContentStorage.js'
 
 // Fetch questions for a specific test from DB directly (avoids full-table scan)
 const fetchQuestionsByTestId = async (testId) => {
@@ -25,6 +27,70 @@ const fetchQuestionsByTestId = async (testId) => {
     [testId]
   )
   return result.rows.map(row => dbHelpers.toCamel(row))
+}
+
+// Fetch questions from JSON file (for json-file content source)
+const fetchQuestionsFromJsonFile = async (test) => {
+  const contentPath = test.contentPath || test.content_path
+  if (!contentPath) {
+    throw new Error('Test has content_source=json-file but no content_path set')
+  }
+  const content = await readTestContentByPath(contentPath)
+  const questions = []
+  for (const section of content.sections || []) {
+    for (const q of section.questions || []) {
+      questions.push({
+        id: q.id,
+        externalQuestionId: q.externalQuestionId,
+        questionText: q.questionText,
+        question_text: q.questionText,
+        questionTextHi: q.questionTextHi,
+        question_text_hi: q.questionTextHi,
+        options: q.options,
+        optionsHi: q.optionsHi,
+        options_hi: q.optionsHi,
+        correctOption: q.correctOption,
+        correct_option: q.correctOption,
+        correctAnswer: q.correctOption,
+        explanation: q.explanation,
+        explanationHi: q.explanationHi,
+        explanation_hi: q.explanationHi,
+        difficulty: q.difficulty,
+        marks: q.marks,
+        negativeMarks: q.negativeMarks,
+        negative_marks: q.negativeMarks,
+        type: q.type,
+        section: section.name,
+        subjectId: q.subjectId,
+        subject_id: q.subjectId,
+        chapterId: q.chapterId,
+        chapter_id: q.chapterId,
+        topicId: q.topicId,
+        topic_id: q.topicId,
+        subtopicId: q.subtopicId,
+        subtopic_id: q.subtopicId,
+        tags: q.tags || [],
+        estimatedTime: q.estimatedTime,
+        estimated_time: q.estimatedTime,
+        questionNumber: q.questionNumber,
+        question_number: q.questionNumber,
+        testId: content.testId,
+        test_id: content.testId,
+        isActive: true,
+        is_active: true,
+      })
+    }
+  }
+  return questions
+}
+
+// Unified question fetcher — picks DB or JSON based on test.content_source
+const fetchTestQuestions = async (test) => {
+  const source = test.contentSource || test.content_source
+  if (source === 'json-file') {
+    return fetchQuestionsFromJsonFile(test)
+  }
+  return fetchQuestionsByTestId(getInternalId(test))
 }
 
 const router = express.Router()
@@ -427,49 +493,53 @@ router.get('/series/:seriesId', async (req, res) => {
 router.get('/tag/:tag', async (req, res) => {
   try {
     const { tag } = req.params
+
+    if (tag === 'quizzes') {
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+        message: 'Use /api/quizzes endpoint for quiz content',
+      })
+    }
+
     let query = { isActive: true }
 
-    switch (tag) {
-      case 'live-tests':
-        query.isLive = true
-        break
-      case 'pyps':
-        query.category = 'PYPs'
-        break
-      case 'quizzes':
-        query.subCategory = { $regex: 'quiz', $options: 'i' }
-        break
-      case 'practice':
-        query.category = 'Practice'
-        break
-      default:
-        query.tags = { $regex: tag, $options: 'i' }
+    if (isPypSlug(tag)) {
+      query.category = 'PYPs'
+    } else {
+      switch (tag) {
+        case 'live-tests':
+          query.isLive = true
+          break
+        case 'practice':
+          query.category = 'Practice'
+          break
+        default:
+          query.tags = { $regex: tag, $options: 'i' }
+      }
     }
 
     const allTests = await dbHelpers.find('tests', { isActive: true })
     let filteredTests = allTests
 
-    switch (tag) {
-      case 'live-tests':
-        filteredTests = allTests.filter((test) => test.isLive === true)
-        break
-      case 'pyps':
-        filteredTests = allTests.filter((test) => test.category === 'PYPs')
-        break
-      case 'quizzes':
-        filteredTests = allTests.filter(
-          (test) => test.subCategory && test.subCategory.toLowerCase().includes('quiz')
-        )
-        break
-      case 'practice':
-        filteredTests = allTests.filter((test) => test.category === 'Practice')
-        break
-      default:
-        filteredTests = allTests.filter(
-          (test) =>
-            Array.isArray(test.tags) &&
-            test.tags.some((entry) => String(entry).toLowerCase().includes(tag.toLowerCase()))
-        )
+    if (isPypSlug(tag)) {
+      filteredTests = allTests.filter((test) => test.category === 'PYPs')
+    } else {
+      switch (tag) {
+        case 'live-tests':
+          filteredTests = allTests.filter((test) => test.isLive === true)
+          break
+        case 'practice':
+          filteredTests = allTests.filter((test) => test.category === 'Practice')
+          break
+        default:
+          filteredTests = allTests.filter(
+            (test) =>
+              Array.isArray(test.tags) &&
+              test.tags.some((t) => t.toLowerCase() === tag.toLowerCase())
+          )
+      }
     }
 
     const testSeries = await dbHelpers.find('testSeries')
@@ -573,7 +643,7 @@ router.get('/:testId/questions', protect, async (req, res) => {
       })
     }
 
-    const rawQuestions = await fetchQuestionsByTestId(getInternalId(test))
+    const rawQuestions = await fetchTestQuestions(test)
     const questions = rawQuestions
       .map(sanitizeQuestionForAttempt)
       .sort((a, b) => {
@@ -758,7 +828,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
       })
     }
 
-    const questions = await fetchQuestionsByTestId(getInternalId(test))
+    const questions = await fetchTestQuestions(test)
     const submittedAnswers = await normalizeSubmittedAnswers(answers)
 
     let correct = 0
@@ -869,7 +939,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
         notificationService.dispatchNotification(req.user.id, {
           title: 'Test result available',
           message: `Your result for ${test.title || 'test'} is now available.`,
-          type: 'test_result',
+          type: 'result_declared',
           metadata: { testId: test._id || test.id, attemptId: resolvedAttemptId },
         }),
       ])
@@ -931,7 +1001,7 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
 
     const test = testFromUrl || (await findTestByIdentifier(attempt.testId, dbHelpers))
 
-    const questions = await fetchQuestionsByTestId(attempt.testId || resolvedTestId)
+    const questions = await fetchTestQuestions(test)
 
     const rankData = await getRankAndPercentile(resolvedTestId || test._id || test.id || req.params.testId, attempt)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
@@ -997,7 +1067,7 @@ router.get('/:testId/result', protect, async (req, res) => {
       })
     }
 
-    const questions = await fetchQuestionsByTestId(attempt.testId || numericTestId)
+    const questions = await fetchTestQuestions(test)
     const rankData = await getRankAndPercentile(numericTestId || test._id || test.id || req.params.testId, attempt)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
