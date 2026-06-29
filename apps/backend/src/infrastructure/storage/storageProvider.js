@@ -74,13 +74,19 @@ const getS3Client = () => {
     throw new Error('Missing S3 configuration. Set S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.')
   }
 
-  return new S3Client({
+  const clientConfig = {
     region: getS3Region(),
     credentials: {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     }
-  })
+  }
+
+  if (process.env.S3_ENDPOINT) {
+    clientConfig.endpoint = process.env.S3_ENDPOINT
+  }
+
+  return new S3Client(clientConfig)
 }
 
 const toS3PublicUrl = (bucket, storageKey) => {
@@ -88,6 +94,14 @@ const toS3PublicUrl = (bucket, storageKey) => {
     .split('/')
     .map((part) => encodeURIComponent(part))
     .join('/')
+
+  if (process.env.S3_PUBLIC_URL) {
+    return `${process.env.S3_PUBLIC_URL.replace(/\/$/, '')}/${encodedKey}`
+  }
+
+  if (process.env.S3_ENDPOINT) {
+    return `${process.env.S3_ENDPOINT.replace(/\/$/, '')}/${bucket}/${encodedKey}`
+  }
 
   return `https://${bucket}.s3.${getS3Region()}.amazonaws.com/${encodedKey}`
 }
