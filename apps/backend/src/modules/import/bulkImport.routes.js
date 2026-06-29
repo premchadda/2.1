@@ -1,8 +1,10 @@
 import express from 'express'
 import multer from 'multer'
+import path from 'path'
+import fs from 'fs/promises'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import bulkImportService from './bulkImport.service.js'
-import { importFullTest } from '../../services/import/fullTestImporter.js'
+import { importFullTest, validateJsonSchema } from '../../services/import/fullTestImporter.js'
 
 const router = express.Router()
 
@@ -17,7 +19,7 @@ function extractYear(json) {
 
 const importUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 150 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     const ext = file.originalname.toLowerCase().slice(file.originalname.lastIndexOf('.'))
     const allowed = ['.json', '.xlsx', '.xls', '.csv']
@@ -132,7 +134,7 @@ router.post('/import', protect, admin, importUpload.single('file'), async (req, 
 
 const fullTestUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  limits: { fileSize: 150 * 1024 * 1024, files: 1 },
   fileFilter: (req, file, cb) => {
     if (!file.originalname.toLowerCase().endsWith('.json')) {
       return cb(new Error('Only JSON files are accepted for full-test import'))
@@ -222,6 +224,7 @@ router.post('/full-test/import', protect, admin, fullTestUpload.single('file'), 
       skipDuplicates: req.body.skipDuplicates !== false,
       dryRun: false,
       strict: req.body.strict === 'true',
+      storageMode: req.body.storageMode === 'json-file' ? 'json-file' : 'database',
     }
 
     const result = await importFullTest(json, config)
@@ -266,6 +269,200 @@ router.post('/full-test/import', protect, admin, fullTestUpload.single('file'), 
     })
   } catch (error) {
     res.status(400).json({ success: false, message: error.message })
+  }
+})
+
+// ─── Advanced Full-Test JSON Import Endpoints ───────────────────────────────
+
+/**
+ * @route   POST /api/import/full-test/upload
+ * @desc    Uploads a multi-test JSON file, caches it on the server, and returns test list & schema validation.
+ */
+router.post('/full-test/upload', protect, admin, fullTestUpload.single('file'), handleFullTestUploadError, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'No file uploaded' })
+    }
+
+    let json
+    try {
+      json = JSON.parse(req.file.buffer.toString('utf8'))
+    } catch (err) {
+      return res.status(400).json({ success: false, message: `Invalid JSON file: ${err.message}` })
+    }
+
+    // Save the file to a temp location on disk to avoid holding it in memory across requests
+    const tempDir = path.join(process.cwd(), 'uploads', 'test-imports')
+    await fs.mkdir(tempDir, { recursive: true })
+    const tempPath = path.join(tempDir, `temp-${req.user.id}.json`)
+    await fs.writeFile(tempPath, req.file.buffer)
+
+    // Analyze the JSON
+    const isArray = Array.isArray(json)
+    const tests = isArray ? json : [json]
+
+    const testList = tests.map((t, index) => {
+      const sectionsCount = (t.sections || []).length
+      const questionsCount = (t.sections || []).reduce((sum, s) => sum + (s.questions || []).length, 0)
+      return {
+        index,
+        id: t.id || `test-${index}`,
+        title: t.title || `Untitled Test ${index + 1}`,
+        slug: t.slug || '',
+        pyqYear: t.pyqYear || extractYear(t) || null,
+        sectionsCount,
+        questionsCount,
+        examCategoryId: t.examCategoryId || '',
+        examId: t.examId || '',
+        testSeriesId: t.testSeriesId || '',
+        stageId: t.stageId || '',
+        categoryId: t.categoryId || ''
+      }
+    })
+
+    const schemaValidation = validateJsonSchema(json)
+
+    res.json({
+      success: true,
+      message: `Parsed ${testList.length} test(s) successfully.`,
+      data: {
+        tests: testList,
+        schemaValidation
+      }
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+/**
+ * @route   GET /api/import/full-test/preview-test/:index
+ * @desc    Retrieves a single test from the cached temp file for preview.
+ */
+router.get('/full-test/preview-test/:index', protect, admin, async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10)
+    const tempPath = path.join(process.cwd(), 'uploads', 'test-imports', `temp-${req.user.id}.json`)
+
+    try {
+      await fs.access(tempPath)
+    } catch {
+      return res.status(404).json({ success: false, message: 'No uploaded file found. Please upload the file again.' })
+    }
+
+    const fileContent = await fs.readFile(tempPath, 'utf8')
+    const json = JSON.parse(fileContent)
+
+    const isArray = Array.isArray(json)
+    const tests = isArray ? json : [json]
+
+    if (index < 0 || index >= tests.length) {
+      return res.status(400).json({ success: false, message: 'Invalid test index' })
+    }
+
+    const test = tests[index]
+    res.json({
+      success: true,
+      data: test
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
+
+/**
+ * @route   POST /api/import/full-test/import-selected
+ * @desc    Imports only the selected tests from the cached temp file in sequence.
+ */
+router.post('/full-test/import-selected', protect, admin, async (req, res) => {
+  console.log('[Bulk Import] Received import-selected request. Body:', JSON.stringify(req.body, null, 2))
+  try {
+    const { indices, strict } = req.body
+    if (!Array.isArray(indices) || indices.length === 0) {
+      console.warn('[Bulk Import] No indices provided in request body')
+      return res.status(400).json({ success: false, message: 'No tests selected for import.' })
+    }
+
+    const storageMode = req.body.storageMode === 'json-file' ? 'json-file' : 'database'
+
+    const tempPath = path.join(process.cwd(), 'uploads', 'test-imports', `temp-${req.user.id}.json`)
+    console.log('[Bulk Import] Looking for temp file at:', tempPath)
+
+    try {
+      await fs.access(tempPath)
+    } catch {
+      console.error('[Bulk Import] Temp file not found at:', tempPath)
+      return res.status(404).json({ success: false, message: 'No uploaded file found. Please upload the file again.' })
+    }
+
+    const fileContent = await fs.readFile(tempPath, 'utf8')
+    const json = JSON.parse(fileContent)
+
+    const isArray = Array.isArray(json)
+    const tests = isArray ? json : [json]
+    console.log(`[Bulk Import] Loaded ${tests.length} tests from temp JSON file.`)
+
+    const results = {
+      imported: [],
+      failed: []
+    }
+
+    const isStrict = strict === true || strict === 'true'
+
+    for (const index of indices) {
+      const idx = parseInt(index, 10)
+      if (idx < 0 || idx >= tests.length) {
+        console.warn(`[Bulk Import] Index ${idx} is out of bounds (total tests: ${tests.length})`)
+        results.failed.push({ index: idx, error: 'Index out of bounds' })
+        continue
+      }
+
+      const test = tests[idx]
+      console.log(`[Bulk Import] Starting import for test index ${idx}: "${test.title}"`)
+      try {
+        const config = {
+          userId: req.user.id,
+          fileName: `selected-test-${idx}.json`,
+          skipDuplicates: req.body.skipDuplicates !== false,
+          dryRun: false,
+          strict: isStrict,
+          storageMode,
+        }
+
+        const importRes = await importFullTest(test, config)
+        console.log(`[Bulk Import] Successfully imported test index ${idx}. Test ID in DB: ${importRes.testId}`)
+        results.imported.push({
+          index: idx,
+          testId: importRes.testId,
+          testTitle: importRes.testTitle,
+          sectionsCreated: importRes.sectionsCreated,
+          questionsCreated: importRes.questionsCreated,
+          warnings: importRes.warnings,
+          errors: importRes.errors
+        })
+      } catch (err) {
+        console.error(`[Bulk Import] Error importing test index ${idx} ("${test.title}"):`, err)
+        results.failed.push({
+          index: idx,
+          testTitle: test.title || `Test ${idx + 1}`,
+          error: err.message
+        })
+      }
+    }
+    
+    console.log('[Bulk Import] Import process completed. Summary:', {
+      succeeded: results.imported.length,
+      failed: results.failed.length
+    })
+
+    res.json({
+      success: true,
+      message: `Processed ${indices.length} tests.`,
+      data: results
+    })
+  } catch (error) {
+    console.error('[Bulk Import] Critical error in import-selected handler:', error)
+    res.status(500).json({ success: false, message: error.message })
   }
 })
 

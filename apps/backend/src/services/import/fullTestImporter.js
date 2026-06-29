@@ -1,4 +1,5 @@
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import { saveTestContent } from "./testContentStorage.js";
 
 // ─── Slug → ID resolution helpers (with upsert) ─────────────────────────────
 
@@ -15,78 +16,113 @@ const TABLE_CONFIG = {
   subtopics:       { findCols: ["slug", "name"],                  nameCol: "name",  extraCols: ["is_active"] },
 };
 
+const slugCache = new Map();
+
 // ─── Find-only resolver (no auto-create) ────────────────────────────────────
 
 async function findSlug(client, table, slug) {
+  const cacheKey = `find:${table}:${slug}`;
+  if (slugCache.has(cacheKey)) return slugCache.get(cacheKey);
+
   const cfg = TABLE_CONFIG[table] || { findCols: ["slug", "name"], nameCol: "name" };
   const existingCols = await getTableColumns(client, table);
+  
+  let resultId = null;
   for (const col of cfg.findCols) {
     if (!existingCols.has(col)) continue;
     const { rows } = await client.query(`SELECT id FROM ${table} WHERE ${col} = $1 LIMIT 1`, [slug]);
-    if (rows[0]?.id) return rows[0].id;
+    if (rows[0]?.id) {
+      resultId = rows[0].id;
+      break;
+    }
   }
-  // Fuzzy: try matching normalized slug against title/name/label
-  const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
-  for (const nameCol of ["title", "name", "label"]) {
-    if (!existingCols.has(nameCol)) continue;
-    const { rows } = await client.query(
-      `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1 LIMIT 1`,
-      [normalizedSlug]
-    );
-    if (rows[0]?.id) return rows[0].id;
+
+  if (!resultId) {
+    // Fuzzy: try matching normalized slug against title/name/label
+    const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
+    for (const nameCol of ["title", "name", "label"]) {
+      if (!existingCols.has(nameCol)) continue;
+      const { rows } = await client.query(
+        `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1 LIMIT 1`,
+        [normalizedSlug]
+      );
+      if (rows[0]?.id) {
+        resultId = rows[0].id;
+        break;
+      }
+    }
   }
-  return null;
+
+  slugCache.set(cacheKey, resultId);
+  return resultId;
 }
 
 // ─── Upsert resolver (creates missing taxonomy rows) ─────────────────────────
 
 async function upsertSlug(client, table, slug, extra = {}) {
+  const cacheKey = `upsert:${table}:${slug}:${JSON.stringify(extra)}`;
+  if (slugCache.has(cacheKey)) return slugCache.get(cacheKey);
+
   const cfg = TABLE_CONFIG[table] || { findCols: ["slug", "name"], nameCol: "name", extraCols: [] };
 
   // Check which columns actually exist on this table
   const existingCols = await getTableColumns(client, table);
 
+  let resultId = null;
   // Try to find existing row by any of the findCols that exist
   for (const col of cfg.findCols) {
     if (!existingCols.has(col)) continue;
     const { rows } = await client.query(`SELECT id FROM ${table} WHERE ${col} = $1 LIMIT 1`, [slug]);
-    if (rows[0]?.id) return rows[0].id;
-  }
-
-  // Fuzzy: try matching normalized slug against title/name columns
-  const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
-  for (const nameCol of ["title", "name", "label"]) {
-    if (!existingCols.has(nameCol)) continue;
-    const { rows } = await client.query(
-      `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1 LIMIT 1`,
-      [normalizedSlug]
-    );
-    if (rows[0]?.id) return rows[0].id;
-  }
-
-  // Not found — insert new row with only columns that exist
-  const displayName = slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
-  const insertCols = [];
-  const insertVals = [];
-
-  const addCol = (col, val) => {
-    if (existingCols.has(col)) {
-      insertCols.push(col);
-      insertVals.push(val);
+    if (rows[0]?.id) {
+      resultId = rows[0].id;
+      break;
     }
-  };
+  }
 
-  addCol("slug", slug);
-  addCol(cfg.nameCol, displayName);
-  for (const ec of cfg.extraCols) addCol(ec, true);
-  for (const [k, v] of Object.entries(extra)) addCol(k, v);
+  if (!resultId) {
+    // Fuzzy: try matching normalized slug against title/name columns
+    const normalizedSlug = slug.replace(/[-_]/g, " ").toLowerCase().trim();
+    for (const nameCol of ["title", "name", "label"]) {
+      if (!existingCols.has(nameCol)) continue;
+      const { rows } = await client.query(
+        `SELECT id FROM ${table} WHERE LOWER(REPLACE(REPLACE(${nameCol}, '-', ' '), '_', ' ')) = $1 LIMIT 1`,
+        [normalizedSlug]
+      );
+      if (rows[0]?.id) {
+        resultId = rows[0].id;
+        break;
+      }
+    }
+  }
 
-  if (insertCols.length === 0) return null;
+  if (!resultId) {
+    // Not found — insert new row with only columns that exist
+    const displayName = slug.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+    const insertCols = [];
+    const insertVals = [];
 
-  const placeholders = insertCols.map((_, i) => `$${i + 1}`);
-  const ins = `INSERT INTO ${table} (${insertCols.map(c => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING id`;
-  const insResult = await client.query(ins, insertVals);
-  return insResult.rows[0]?.id ?? null;
+    const addCol = (col, val) => {
+      if (existingCols.has(col)) {
+        insertCols.push(col);
+        insertVals.push(val);
+      }
+    };
+
+    addCol("slug", slug);
+    addCol(cfg.nameCol, displayName);
+    for (const ec of cfg.extraCols) addCol(ec, true);
+    for (const [k, v] of Object.entries(extra)) addCol(k, v);
+
+    if (insertCols.length > 0) {
+      const placeholders = insertCols.map((_, i) => `$${i + 1}`);
+      const ins = `INSERT INTO ${table} (${insertCols.map(c => `"${c}"`).join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING id`;
+      const insResult = await client.query(ins, insertVals);
+      resultId = insResult.rows[0]?.id ?? null;
+    }
+  }
+
+  slugCache.set(cacheKey, resultId);
+  return resultId;
 }
 
 async function resolveExamCategoryId(client, slug, strict = false) {
@@ -129,7 +165,20 @@ async function resolveStageId(client, slug, examId, strict = false) {
 }
 
 async function resolveTestCategoryId(client, slug, strict = false) {
-  return strict ? findSlug(client, "test_categories", slug) : upsertSlug(client, "test_categories", slug);
+  if (!slug) return null;
+  const CATEGORY_ALIASES = {
+    "pyqs": "pyps",
+    "pyq": "pyps",
+  };
+  const resolved = CATEGORY_ALIASES[slug.toLowerCase()] || slug;
+
+  if (/^\d{4}$/.test(resolved)) {
+    const parentId = await findSlug(client, "test_categories", "year-based") || 7;
+    const extra = { parent_id: parentId };
+    return strict ? findSlug(client, "test_categories", resolved) : upsertSlug(client, "test_categories", resolved, extra);
+  }
+
+  return strict ? findSlug(client, "test_categories", resolved) : upsertSlug(client, "test_categories", resolved);
 }
 
 async function resolveTestSeriesId(client, slug, stageId, categorySlug, strict = false) {
@@ -143,19 +192,26 @@ async function resolveSubjectId(client, slug, strict = false) {
   return strict ? findSlug(client, "subjects", slug) : upsertSlug(client, "subjects", slug);
 }
 
-async function resolveChapterId(client, slug, strict = false) {
+async function resolveChapterId(client, slug, subjectId, strict = false) {
   if (!slug) return null;
-  return strict ? findSlug(client, "chapters", slug) : upsertSlug(client, "chapters", slug);
+  const extra = {};
+  if (subjectId) extra.subject_id = subjectId;
+  return strict ? findSlug(client, "chapters", slug) : upsertSlug(client, "chapters", slug, extra);
 }
 
-async function resolveTopicId(client, slug, strict = false) {
+async function resolveTopicId(client, slug, subjectSlug, subjectId, strict = false) {
   if (!slug) return null;
-  return strict ? findSlug(client, "topics", slug) : upsertSlug(client, "topics", slug);
+  const extra = {};
+  if (subjectSlug) extra.subject = subjectSlug;
+  if (subjectId) extra.subject_id = subjectId;
+  return strict ? findSlug(client, "topics", slug) : upsertSlug(client, "topics", slug, extra);
 }
 
-async function resolveSubtopicId(client, slug, strict = false) {
+async function resolveSubtopicId(client, slug, topicId, strict = false) {
   if (!slug) return null;
-  return strict ? findSlug(client, "subtopics", slug) : upsertSlug(client, "subtopics", slug);
+  const extra = {};
+  if (topicId) extra.topic_id = topicId;
+  return strict ? findSlug(client, "subtopics", slug) : upsertSlug(client, "subtopics", slug, extra);
 }
 
 // ─── Unique slug check ────────────────────────────────────────────────────────
@@ -208,6 +264,32 @@ async function hasColumn(client, table, column) {
   return cols.has(column);
 }
 
+// ─── Standard section ordering for SSC CGL exams ──────────────────────────────
+// Maps section/subject names to their standard display order in the actual exam
+const SECTION_ORDER_MAP = {
+  'logical reasoning': 1,
+  'reasoning': 1,
+  'general intelligence and reasoning': 1,
+  'general intelligence': 1,
+  'general awareness': 2,
+  'general knowledge': 2,
+  'general studies': 2,
+  'gk': 2,
+  'gs': 2,
+  'quantitative aptitude': 3,
+  'mathematics': 3,
+  'math': 3,
+  'maths': 3,
+  'english language': 4,
+  'english comprehension': 4,
+  'english': 4,
+};
+
+function getSectionDisplayOrder(sectionName, fallbackOrder) {
+  const key = String(sectionName || '').toLowerCase().trim();
+  return SECTION_ORDER_MAP[key] ?? fallbackOrder;
+}
+
 // ─── Year extraction ───────────────────────────────────────────────────────────
 
 function extractYear(json) {
@@ -225,6 +307,28 @@ function extractYear(json) {
 function mapStatus(jsonStatus) {
   const map = { published: "active", draft: "draft", archived: "archived" };
   return map[jsonStatus] || "draft";
+}
+
+async function getCategoryPath(client, categoryId) {
+  const pathIds = [];
+  const pathNames = [];
+  let currentId = categoryId;
+  
+  while (currentId) {
+    const res = await client.query(
+      'SELECT id, name, parent_id FROM test_categories WHERE id = $1',
+      [currentId]
+    );
+    if (res.rows.length > 0) {
+      const cat = res.rows[0];
+      pathIds.unshift(cat.id);
+      pathNames.unshift(cat.name);
+      currentId = cat.parent_id;
+    } else {
+      break;
+    }
+  }
+  return { pathIds, pathNames };
 }
 
 // ─── Helper: build INSERT dynamically based on existing columns ────────────────
@@ -253,7 +357,7 @@ async function safeInsert(client, table, row, columns) {
  * @returns {object}          - Import result with counts and errors
  */
 export async function importFullTest(json, config = {}) {
-  const { userId = null, fileName = "unknown.json", dryRun = false, skipDuplicates = true, strict = false } = config;
+  const { userId = null, fileName = "unknown.json", dryRun = false, skipDuplicates = true, strict = false, storageMode = "database" } = config;
 
   const client = await pool.connect();
   const result = {
@@ -266,8 +370,9 @@ export async function importFullTest(json, config = {}) {
     warnings: [],
   };
 
-  // Reset column cache per import (tables may have changed)
+  // Reset column cache and slug cache per import (tables may have changed)
   columnCache.clear();
+  slugCache.clear();
 
   try {
     await client.query("BEGIN");
@@ -293,9 +398,11 @@ export async function importFullTest(json, config = {}) {
       ? await resolveTestCategoryId(client, json.categoryId, strict)
       : null;
 
-    const subCatSlug = json.subCategoryId || json.subCategory;
+    const subCatSlug = json.subCategoryId || json.subCategory || json.subcategory;
     if (subCatSlug) {
-      const resolvedSub = await resolveTestCategoryId(client, subCatSlug, strict);
+      // Try to extract a year from slugs like "pyqs-year-based-2019"
+      const yearMatch = String(subCatSlug).match(/(\d{4})/);
+      const resolvedSub = await resolveTestCategoryId(client, yearMatch ? yearMatch[1] : subCatSlug, strict);
       if (resolvedSub) {
         testCategoryId = resolvedSub;
       }
@@ -330,6 +437,8 @@ export async function importFullTest(json, config = {}) {
     }
     const year = extractYear(json);
 
+    const { pathIds, pathNames } = await getCategoryPath(client, testCategoryId);
+
     const testRow = {
       title: json.title || "Untitled",
       short_title: json.shortTitle || null,
@@ -337,7 +446,7 @@ export async function importFullTest(json, config = {}) {
       description: json.description || "",
       thumbnail: json.thumbnail || null,
       banner: json.banner || null,
-      category: json.examCategoryId || null,
+      category: json.category || (json.isPyq ? "PYPs" : "Mock Tests"),
       sub_category: json.subCategory || (json.subCategoryId ? String(json.subCategoryId).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null),
       exam_category_id: examCategoryId || null,
       test_type: json.testType || "full-length",
@@ -362,6 +471,8 @@ export async function importFullTest(json, config = {}) {
       stage_id: stageId,
       test_category_id: testCategoryId,
       exam_id: examId ? String(examId) : null,
+      category_path_ids: JSON.stringify(pathIds),
+      category_path_names: JSON.stringify(pathNames),
       tags: json.tags || [],
       // Config JSONB blocks
       show_config: JSON.stringify({
@@ -402,6 +513,8 @@ export async function importFullTest(json, config = {}) {
       version: json.version || 1,
       imported_from: "full-test-json",
       source_test_id: String(json.id || ""),
+      content_source: storageMode === "json-file" ? "json-file" : "database",
+      content_path: null,
     };
 
     // Dynamic columns list (skip columns that don't exist in DB yet)
@@ -434,12 +547,110 @@ export async function importFullTest(json, config = {}) {
     const testDbId = testResult.rows[0].id;
     result.testId = testDbId;
 
+    // ── JSON-FILE MODE: save content to file, skip DB inserts for sections/questions ──
+
+    if (storageMode === "json-file" && !dryRun) {
+      const contentPayload = {
+        testId: testDbId,
+        title: json.title || "Untitled",
+        slug,
+        duration: json.duration || 60,
+        totalQuestions: json.totalQuestions || 0,
+        totalMarks: json.totalMarks || 0,
+        negativeMarking: json.negativeMarking || 0,
+        sections: (json.sections || []).map((section, sIdx) => ({
+          name: section.name || "Untitled Section",
+          subjectId: section.subjectId || null,
+          description: section.description || null,
+          duration: section.duration || null,
+          questionCount: section.questionCount || (section.questions || []).length,
+          maxMarks: section.maxMarks || 0,
+          negativeMarking: section.negativeMarking || 0,
+          mandatory: section.mandatory ?? true,
+          optional: section.optional ?? false,
+          qualifying: section.qualifying ?? false,
+          displayOrder: getSectionDisplayOrder(section.name, section.order ?? (sIdx + 1)),
+          instructions: section.instructions || [],
+          questions: (section.questions || []).map((q, qi) => {
+            const qText = q.text?.en || q.question || "";
+            const qTextHi = q.text?.hi || q.text?.hn || q.text?.hin || q.question_text_hi || null;
+            const qOptions = q.options_bilingual?.en || q.options || [];
+            const qOptionsHi = q.options_bilingual?.hi || q.options_bilingual?.hn || q.options_bilingual?.hin || null;
+            const qExplanation = q.solution_bilingual?.en || q.solution || q.explanation || "";
+            const qExplanationHi = q.solution_bilingual?.hi || q.solution_bilingual?.hn || q.solution_bilingual?.hin || null;
+            let qCorrect = typeof q.correctAnswer === "number" ? q.correctAnswer - 1 : (typeof q.correct_option_id === "number" ? q.correct_option_id : 0);
+            return {
+              id: q.id || `q-${sIdx}-${qi}`,
+              externalQuestionId: String(q.id || ""),
+              questionText: qText,
+              questionTextHi: qTextHi,
+              options: qOptions,
+              optionsHi: qOptionsHi,
+              correctOption: qCorrect,
+              explanation: qExplanation,
+              explanationHi: qExplanationHi,
+              difficulty: q.difficulty || "medium",
+              marks: q.marks || 2,
+              negativeMarks: q.negativeMarks || q.negative || 0,
+              type: q.questionType || "mcq",
+              subjectId: q.subjectId || section.subjectId || null,
+              chapterId: q.chapterId || null,
+              topicId: q.topicId || null,
+              subtopicId: q.subtopicId || null,
+              tags: q.tags || [],
+              estimatedTime: q.estimatedTime || null,
+              questionNumber: qi + 1,
+            };
+          }),
+        })),
+      };
+
+      const totalQs = contentPayload.sections.reduce((sum, s) => sum + s.questions.length, 0);
+      contentPayload.totalQuestions = totalQs;
+
+      const relPath = await saveTestContent(testDbId, contentPayload);
+
+      await client.query(
+        `UPDATE tests SET content_path = $1, total_questions = $2, total_marks = $3, updated_at = NOW() WHERE id = $4`,
+        [relPath, totalQs, json.totalMarks || 0, testDbId]
+      );
+
+      result.sectionsCreated = contentPayload.sections.length;
+      result.questionsCreated = totalQs;
+      result.contentPath = relPath;
+
+      // Log the import
+      await client.query(
+        `INSERT INTO import_logs (imported_by, source, file_name, imported, failed, errors, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+        [
+          userId,
+          "full-test-json-file",
+          fileName,
+          totalQs,
+          0,
+          JSON.stringify([]),
+          JSON.stringify({
+            testId: testDbId,
+            testTitle: result.testTitle,
+            sectionsCreated: result.sectionsCreated,
+            contentPath: relPath,
+            warnings: result.warnings,
+          }),
+        ]
+      );
+
+      await client.query("COMMIT");
+      return result;
+    }
+
     // ── 3. Process sections ────────────────────────────────────────────────
 
     const sections = json.sections || [];
     let globalQuestionNumber = 0;
 
-    for (const section of sections) {
+    for (let sIdx = 0; sIdx < sections.length; sIdx++) {
+      const section = sections[sIdx];
       const subjectId = section.subjectId
         ? await resolveSubjectId(client, section.subjectId, strict)
         : null;
@@ -451,7 +662,7 @@ export async function importFullTest(json, config = {}) {
         description: section.description || null,
         duration: section.duration ? Math.round(section.duration / 60) : null,
         time_limit: section.duration || null,
-        display_order: section.order || 0,
+        display_order: getSectionDisplayOrder(section.name, section.order ?? (sIdx + 1)),
         question_count: section.questionCount || 0,
         total_marks: section.maxMarks || 0,
         negative_marking: section.negativeMarking || 0,
@@ -497,24 +708,25 @@ export async function importFullTest(json, config = {}) {
           if (!dryRun) await client.query(`SAVEPOINT q${globalQuestionNumber}`);
 
           // ── Resolve subjectId on question level (may differ from section)
+          const qSubjectSlug = q.subjectId || section.subjectId || "general";
           const qSubjectId = q.subjectId
             ? await resolveSubjectId(client, q.subjectId, strict)
             : subjectId;
 
           // ── Resolve chapter/topic/subtopic slugs to INT FK IDs
-          const chapterId = q.chapterId ? await resolveChapterId(client, q.chapterId, strict) : null;
-          const topicId = q.topicId ? await resolveTopicId(client, q.topicId, strict) : null;
-          const subtopicId = q.subtopicId ? await resolveSubtopicId(client, q.subtopicId, strict) : null;
+          const chapterId = q.chapterId ? await resolveChapterId(client, q.chapterId, qSubjectId, strict) : null;
+          const topicId = q.topicId ? await resolveTopicId(client, q.topicId, qSubjectSlug, qSubjectId, strict) : null;
+          const subtopicId = q.subtopicId ? await resolveSubtopicId(client, q.subtopicId, topicId, strict) : null;
 
           // ── Bilingual text extraction (support Hindi-only questions)
           const questionText = q.text?.en || q.question || "";
-          const questionTextHi = q.text?.hn || q.question_text_hi || null;
+          const questionTextHi = q.text?.hi || q.text?.hn || q.text?.hin || q.question_text_hi || null;
 
           const options = q.options_bilingual?.en || q.options || [];
-          const optionsHi = q.options_bilingual?.hn || null;
+          const optionsHi = q.options_bilingual?.hi || q.options_bilingual?.hn || q.options_bilingual?.hin || null;
 
           const explanation = q.solution_bilingual?.en || q.solution || q.explanation || "";
-          const explanationHi = q.solution_bilingual?.hn || null;
+          const explanationHi = q.solution_bilingual?.hi || q.solution_bilingual?.hn || q.solution_bilingual?.hin || null;
 
           // ── correctAnswer: JSON is 1-indexed, DB is 0-indexed
           let correctOption = typeof q.correctAnswer === "number"
@@ -683,3 +895,106 @@ export async function importFullTest(json, config = {}) {
 
   return result;
 }
+
+/**
+ * Validates the schema of the uploaded JSON file against the expected schema of tests, sections, and questions.
+ * @param {object|array} json - The parsed JSON test data (single test or array of tests)
+ * @returns {object} - An object containing { extraFields, missingFields }
+ */
+export function validateJsonSchema(json) {
+  const sample = Array.isArray(json) ? json[0] : json;
+  
+  const extraFields = { test: [], section: [], question: [] };
+  const missingFields = { test: [], section: [], question: [] };
+
+  if (!sample) {
+    return { extraFields, missingFields };
+  }
+
+  // Core expected fields
+  const expectedTest = ['title', 'duration', 'totalQuestions', 'totalMarks', 'examCategoryId', 'examId', 'stageId', 'testSeriesId', 'categoryId'];
+  const expectedSection = ['name', 'subjectId', 'questions'];
+
+  // Check Test level
+  expectedTest.forEach(f => {
+    if (!(f in sample)) {
+      missingFields.test.push(f);
+    }
+  });
+
+  const knownTestKeys = new Set([
+    ...expectedTest,
+    'id', 'shortTitle', 'slug', 'description', 'thumbnail', 'banner', 'testType', 'status', 'difficulty', 
+    'isPyq', 'pyqYear', 'pyqShift', 'isLive', 'isComingSoon', 'isFeatured', 'passingMarks', 'cutoffMarks', 
+    'questionLanguageMode', 'languages', 'tags', 'showCalculator', 'showQuestionPalette', 'showSectionPalette', 
+    'showTimer', 'allowBookmark', 'allowReportIssue', 'timingConfig', 'optionalSectionConfig', 'attemptRules', 
+    'analysisConfig', 'access', 'availability', 'seo', 'proctoringEnabled', 'cameraMonitoring', 'tabSwitchLimit', 
+    'copyPasteDisabled', 'adaptiveTest', 'adaptiveAlgorithm', 'certificateEnabled', 'leaderboardEnabled', 
+    'shuffleQuestions', 'shuffleOptions', 'allowReview', 'instructions', 'version', 'sections', 'createdAt', 
+    'updatedAt', 'createdBy', 'updatedBy', 'statistics', 'resultPublished', 'analysisPublished', 'subcategory', 
+    'recommendedFor', 'aiGenerated', 'aiAlgorithm', 'cameraProctoring'
+  ]);
+
+  Object.keys(sample).forEach(k => {
+    if (!knownTestKeys.has(k)) {
+      extraFields.test.push(k);
+    }
+  });
+
+  // Check Section level
+  const section = sample.sections?.[0];
+  if (section) {
+    expectedSection.forEach(f => {
+      if (!(f in section)) {
+        missingFields.section.push(f);
+      }
+    });
+
+    const knownSectionKeys = new Set([
+      ...expectedSection,
+      'id', 'order', 'questionCount', 'maxMarks', 'negativeMarking', 'duration', 'mandatory', 'optional', 
+      'qualifying', 'allowNavigation', 'isLocked', 'shuffleQuestions', 'instructions', 'description'
+    ]);
+
+    Object.keys(section).forEach(k => {
+      if (!knownSectionKeys.has(k)) {
+        extraFields.section.push(k);
+      }
+    });
+
+    // Check Question level
+    const q = section.questions?.[0];
+    if (q) {
+      // Check for question text (english or bilingual)
+      if (!q.question && !q.text?.en && !q.text?.hn && !q.question_text_hi) {
+        missingFields.question.push('question (or text)');
+      }
+      // Check for options
+      if (!q.options && !q.options_bilingual?.en && !q.options_bilingual?.hn) {
+        missingFields.question.push('options (or options_bilingual)');
+      }
+      // Check for correct answer
+      if (q.correctAnswer === undefined && q.correct_option_id === undefined) {
+        missingFields.question.push('correctAnswer (or correct_option_id)');
+      }
+
+      const knownQuestionKeys = new Set([
+        'id', 'questionType', 'question', 'options', 'correctAnswer', 'correct_option_id', 'solution', 'explanation', 
+        'difficulty', 'estimatedTime', 'marks', 'negativeMarks', 'negative', 'languages', 'examCategoryIds', 'examIds', 
+        'stageIds', 'subjectId', 'chapterId', 'topicId', 'subtopicId', 'conceptIds', 'skillIds', 'tags', 'chapterIds', 
+        'topicIds', 'subtopicIds', 'aiGenerated', 'source', 'text', 'options_bilingual', 'solution_bilingual', 'section', 
+        'status', 'correct_option', 'explanation_hi', 'options_hi', 'question_text_hi', 'solution_hi',
+        'subtopicId'
+      ]);
+
+      Object.keys(q).forEach(k => {
+        if (!knownQuestionKeys.has(k)) {
+          extraFields.question.push(k);
+        }
+      });
+    }
+  }
+
+  return { extraFields, missingFields };
+}
+
