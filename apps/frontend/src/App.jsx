@@ -8,6 +8,7 @@ import ScrollToTop from './shared/components/common/ScrollToTop'
 import ProtectedRoute from './shared/components/auth/ProtectedRoute'
 import ErrorBoundary from './shared/components/common/ErrorBoundary'
 import MaintenanceMode from './shared/components/common/MaintenanceMode'
+import FeatureGate from './shared/components/common/FeatureGate'
 
 // PERF-03: Route-level code splitting via React.lazy.
 // Reduces initial JS bundle by 30-50% — each page is loaded on demand.
@@ -69,11 +70,10 @@ const ExamCategory = lazy(() => import('./pages/exams/ExamCategory'))
 const ExamYear = lazy(() => import('./pages/exams/ExamYear'))
 const ExamCompare = lazy(() => import('./pages/exams/ExamCompare'))
 const ExamUpdates = lazy(() => import('./pages/exams/ExamUpdates'))
-const ExamMasterPage = lazy(() => import('./pages/exams/ExamMasterPage'))
+
 
 // --- Test Pages (lazy) ---
 const TestSeries = lazy(() => import('./pages/tests/TestSeries'))
-const MockTests = lazy(() => import('./pages/tests/MockTests'))
 const TestDetails = lazy(() => import('./pages/tests/TestDetails'))
 const TestInterface = lazy(() => import('./pages/tests/TestInterface'))
 const TestResult = lazy(() => import('./pages/tests/TestResult'))
@@ -81,10 +81,12 @@ const TestReview = lazy(() => import('./pages/tests/TestReview'))
 const TestInstructions = lazy(() => import('./pages/tests/TestInstructions'))
 const SeriesLeaderboard = lazy(() => import('./pages/tests/SeriesLeaderboard'))
 const LiveTests = lazy(() => import('./pages/tests/LiveTests'))
-const PracticeQuestions = lazy(() => import('./pages/tests/PracticeQuestions'))
+const PracticeLab = lazy(() => import('./pages/tests/PracticeLab'))
 const PreviousYearPapers = lazy(() => import('./pages/tests/PreviousYearPapers'))
 const Leaderboard = lazy(() => import('./pages/tests/Leaderboard'))
 const PYPTest = lazy(() => import('./pages/tests/PYPTest'))
+const PypsLanding = lazy(() => import('./pages/pyps/PypsLanding'))
+const PypsExam = lazy(() => import('./pages/pyps/PypsExam'))
 const LiveTestInterface = lazy(() => import('./pages/tests/LiveTestInterface'))
 const LiveTestResults = lazy(() => import('./pages/tests/LiveTestResults'))
 const LiveTestLeaderboard = lazy(() => import('./pages/tests/LiveTestLeaderboard'))
@@ -121,7 +123,7 @@ function App() {
   const background = location.state?.backgroundLocation
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'dummy-client-id'}>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
       <ErrorBoundary>
       <MaintenanceMode>
       <ScrollToTop />
@@ -192,7 +194,7 @@ function App() {
           <Route path="/exam/:examId/year/:year" element={<ExamYear />} />
           <Route path="/exam/:examId/compare" element={<ExamCompare />} />
           <Route path="/tag/:tag" element={<TagPage />} />
-          <Route path="/videos" element={<Videos />} />
+          <Route path="/videos" element={<FeatureGate pageKey="videos"><Videos /></FeatureGate>} />
           <Route path="/videos/:id" element={<VideoDetail />} />
           <Route path="/analysis" element={
             <ProtectedRoute>
@@ -225,7 +227,7 @@ function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/live-tests" element={<TagPage tagProp="live-tests" />} />
+          <Route path="/live-tests" element={<FeatureGate pageKey="liveTests"><TagPage tagProp="live-tests" /></FeatureGate>} />
           <Route path="/live-tests/:liveTestId" element={
             <ProtectedRoute>
               <LiveTestInterface />
@@ -246,23 +248,28 @@ function App() {
               <LiveTestReview />
             </ProtectedRoute>
           } />
-          <Route path="/current-affairs" element={<CurrentAffairs />} />
+          <Route path="/current-affairs" element={<FeatureGate pageKey="currentAffairs"><CurrentAffairs /></FeatureGate>} />
           <Route path="/current-affairs/:caId" element={<CurrentAffairsDetail />} />
-          <Route path="/previous-year-papers" element={<PreviousYearPapers />} />
-          <Route path="/pyps" element={<TagPage tagProp="pyps" />} />
+          <Route path="/previous-year-papers" element={<PypsLanding />} />
+          <Route path="/pyps" element={<PypsLanding />} />
+          <Route path="/pyps/:examCategory" element={<PypsLanding />} />
+          <Route path="/pyps/:examCategory/:examSlug" element={<PypsExam />} />
+          <Route path="/tag/pyps" element={<PypsLanding />} />
+          <Route path="/tag/pyq" element={<PypsLanding />} />
+          <Route path="/tag/previous-year-papers" element={<PypsLanding />} />
           <Route path="/pyp/:pypId/test" element={
             <ProtectedRoute>
               <PYPTest />
             </ProtectedRoute>
           } />
           <Route path="/leaderboard" element={<Leaderboard />} />
-          <Route path="/refer-and-earn" element={<ReferAndEarn />} />
-          <Route path="/practice" element={<TagPage tagProp="practice" />} />
+          <Route path="/refer-and-earn" element={<FeatureGate pageKey="referAndEarn"><ReferAndEarn /></FeatureGate>} />
+          <Route path="/practice" element={<ProtectedRoute><PracticeLab /></ProtectedRoute>} />
           <Route path="/quizzes" element={<TagPage tagProp="quizzes" />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/blog/:id" element={<BlogDetail />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/community/groups/:id" element={<Community />} />
+          <Route path="/community" element={<FeatureGate pageKey="doubtForum"><Community /></FeatureGate>} />
+          <Route path="/community/groups/:id" element={<FeatureGate pageKey="studyGroups"><Community /></FeatureGate>} />
           <Route path="/notifications" element={
             <ProtectedRoute>
               <Notifications />
@@ -275,7 +282,7 @@ function App() {
           } />
           <Route path="/achievements" element={
             <ProtectedRoute>
-              <Achievements />
+              <FeatureGate pageKey="achievements"><Achievements /></FeatureGate>
             </ProtectedRoute>
           } />
           <Route path="/error-500" element={<ServerError />} />

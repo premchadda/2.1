@@ -25,13 +25,12 @@ function Pass() {
   useEffect(() => {
     const fetchPlatformStats = async () => {
       try {
-        const response = await getPublicStats()
-        if (response?.data) {
-          const s = response.data
+        const stats = await getPublicStats()
+        if (stats) {
           setPlatformStats({
-            activeLearners: s.activeLearners || 0,
-            mockTests: s.mockTests || 0,
-            satisfaction: s.satisfaction || null
+            activeLearners: stats.activeLearners || 0,
+            mockTests: stats.mockTests || 0,
+            satisfaction: stats.satisfaction || null
           })
         }
       } catch (err) {

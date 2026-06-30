@@ -14,6 +14,7 @@ import pypPublicRoutes from './pyp-public.js';
 import publicStatsRoutes from './public-stats.js';
 import testimonialsPublicRoutes from './testimonials-public.js';
 import practiceQuestionsPublicRoutes from './practice-questions-public.js';
+import settingsPublicRoutes from './settings.js';
 
 /**
  * Mount all extracted public routes on the Express app.
@@ -32,4 +33,5 @@ export function mountExtractedRoutes(app) {
   app.use('/api/public-stats', publicStatsRoutes);
   app.use('/api/testimonials', testimonialsPublicRoutes);
   app.use('/api/practice-questions', practiceQuestionsPublicRoutes);
+  app.use('/api/settings', settingsPublicRoutes);
 }

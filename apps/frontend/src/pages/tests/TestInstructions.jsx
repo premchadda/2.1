@@ -307,7 +307,7 @@ function TestInstructions() {
               <div className="flex items-center gap-2 text-sm">
                 <Award className="w-4 h-4 text-tcs-primary" />
                 <span className="text-tcs-text-secondary">Difficulty:</span>
-                <span className="font-semibold text-tcs-text-primary">{test.difficulty || 'Medium'}</span>
+                <span className="font-semibold text-tcs-text-primary">{test.difficulty ? test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1) : 'Medium'}</span>
               </div>
               {test.isPro && (
                 <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">

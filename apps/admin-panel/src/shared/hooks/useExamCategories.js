@@ -109,11 +109,16 @@ export function useExamCategories() {
           .map(v => String(v).toLowerCase())
         return examCategoryKeys.some(k => categoryKeys.includes(k))
       })
-      .map(exam => ({
-        value: exam.id || exam.examId,
-        label: exam.name || exam.title || exam.fullName || '',
-        fullName: exam.fullName || exam.description || exam.name || exam.title || ''
-      }))
+      .map(exam => {
+        const label = exam.name || exam.title || exam.fullName || ''
+        if (!label) return null
+        return {
+          value: exam.id || exam.examId,
+          label,
+          fullName: exam.fullName || exam.description || exam.name || exam.title || ''
+        }
+      })
+      .filter(Boolean)
 
     // Merge with examInfo fallback for missing exam rows in exams table.
     // NOTE: Do NOT fall back to exam.examId as label — if there's no title/fullName

@@ -154,6 +154,16 @@ router.put("/test-series/:id", validateBody(testSeriesSchema), async (req, res) 
     }
 
     const body = req.validatedBody || req.body;
+    if (body.slug && body.slug !== series.slug) {
+      const existingSlug = await dbHelpers.findOne("testSeries", { slug: body.slug });
+      if (existingSlug && String(existingSlug.id || existingSlug._id) !== String(series.id || series._id)) {
+        return res.status(400).json({
+          success: false,
+          message: "A test series with this slug already exists",
+        });
+      }
+    }
+
     const examId = body.exam_id || body.examId || body.subcategory;
     const payload = {
       ...Object.fromEntries(Object.entries(body).filter(([_, v]) => v != null)),

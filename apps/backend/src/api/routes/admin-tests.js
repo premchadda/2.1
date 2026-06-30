@@ -394,6 +394,16 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
       return res.status(404).json({ success: false, message: "Test not found" });
     }
 
+    if (req.body.slug && req.body.slug !== test.slug) {
+      const existingSlug = await dbHelpers.findOne("tests", { slug: req.body.slug });
+      if (existingSlug && String(existingSlug.id || existingSlug._id) !== String(test.id || test._id)) {
+        return res.status(400).json({
+          success: false,
+          message: "A test with this slug already exists",
+        });
+      }
+    }
+
     const testCategoryId = req.body.testCategoryId || req.body.test_category_id;
     if (testCategoryId) {
       const existingCat = await dbHelpers.findById("testCategories", testCategoryId);
@@ -500,8 +510,8 @@ router.post("/tests/:id/publish", async (req, res) => {
     const validationErrors = [];
 
     const questionsResult = await pool.query(
-      "SELECT COUNT(*)::int as c FROM questions WHERE (test_id = $1 OR test_id = $2::text) AND is_active = true",
-      [testId, testIdNum]
+      "SELECT COUNT(*)::int as c FROM questions WHERE test_id = $1 AND is_active = true",
+      [testIdNum]
     );
     const questionCount = questionsResult.rows[0]?.c ?? 0;
 
@@ -517,8 +527,8 @@ router.post("/tests/:id/publish", async (req, res) => {
       const questionsCheckResult = await pool.query(
         `SELECT q.id, q.question_number, q.correct_option, q.options 
          FROM questions q 
-         WHERE (q.test_id = $1 OR q.test_id = $2::text) AND q.is_active = true`,
-        [testId, testIdNum]
+         WHERE q.test_id = $1 AND q.is_active = true`,
+        [testIdNum]
       );
 
       const missingAnswers = [];
@@ -614,17 +624,16 @@ router.delete("/tests/:id", async (req, res) => {
     // Cascade: Flag questions as orphaned
     try {
       const allQuestions = await dbHelpers.find("questions", { testId, isActive: true });
-      const allQuestions2 = await dbHelpers.find("questions", { test_id: String(testId), isActive: true });
-      const combinedIds = new Set([...allQuestions.map((q) => q.id), ...allQuestions2.map((q) => q.id)]);
+      const combinedIds = new Set(allQuestions.map((q) => q.id));
 
       if (combinedIds.size > 0) {
-        for (const qId of combinedIds) {
-          await dbHelpers.updateById("questions", qId, {
-            _orphaned: true,
-            _deletedTestId: testId,
-            orphanedAt: new Date().toISOString(),
-          });
-        }
+        const idsArray = Array.from(combinedIds);
+        await pool.query(
+          `UPDATE questions 
+           SET _orphaned = true, _deleted_test_id = $1, orphaned_at = NOW(), updated_at = NOW() 
+           WHERE id = ANY($2)`,
+          [testId, idsArray]
+        );
         console.log(`[Cascade] Flagged ${combinedIds.size} questions as orphaned from test ${testId}`);
       }
     } catch (err) {

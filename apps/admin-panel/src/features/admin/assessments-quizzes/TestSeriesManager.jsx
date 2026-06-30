@@ -118,7 +118,7 @@ export default function TestSeriesManager() {
     description: "",
     isPro: false,
     price: 0,
-    difficulty: "Medium",
+    difficulty: "medium",
     tags: "",
     isActive: true,
     isPinned: false,
@@ -329,7 +329,7 @@ export default function TestSeriesManager() {
       isPro: item.isPro || false,
       price: item.price || 0,
       // FIX BUG-003: Don't set totalTests from API (backend calculates it)
-      difficulty: item.difficulty || "Medium",
+      difficulty: item.difficulty || "medium",
       tags: Array.isArray(item.tags) ? item.tags.join(", ") : item.tags || "",
       isActive: item.isActive !== undefined ? item.isActive : true,
       isPinned: item.isPinned || false,
@@ -406,7 +406,7 @@ export default function TestSeriesManager() {
       isPro: false,
       price: 0,
       // totalTests removed — backend calculates
-      difficulty: "Medium",
+      difficulty: "medium",
       tags: "",
       isActive: true,
       isPinned: false,
@@ -694,14 +694,14 @@ export default function TestSeriesManager() {
                       </span>
                       <span
                         className={`px-2 py-0.5 text-[10px] font-semibold rounded-full ${
-                          item.difficulty === "Easy"
+                          item.difficulty === "easy"
                             ? "bg-green-50 text-green-600"
-                            : item.difficulty === "Hard"
+                            : item.difficulty === "hard"
                               ? "bg-red-50 text-red-600"
                               : "bg-amber-50 text-amber-600"
                         }`}
                       >
-                        {item.difficulty || "Medium"}
+                        {item.difficulty || "medium"}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[11px] text-gray-500">
@@ -1024,9 +1024,9 @@ export default function TestSeriesManager() {
                     }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
                   </select>
                 </div>
 

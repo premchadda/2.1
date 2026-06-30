@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { getTestSeries, getTests, getUserAnalytics, getTopPerformers, testsAPI, userAPI, getExams } from '../../shared/lib/dataService'
 import { TestSeriesCard, AnimatedHero } from '../../shared/components'
 import { useDraggableScroll } from '../../shared/hooks/useDraggableScroll'
@@ -449,7 +449,7 @@ function Dashboard() {
       </AnimatedHero>
 
       {/* Quick Access - Overlaps welcome banner with -mt-6, matches homepage */}
-      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
+      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-9 relative z-20">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-4 md:p-6 animate-slide-in-up" style={{ animationDelay: '0.15s' }}>
           <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Quick Access</h2>
           <div className="grid grid-cols-4 md:grid-cols-8 gap-3">

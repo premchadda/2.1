@@ -105,7 +105,7 @@ router.delete('/', protect, admin, async (_req, res) => {
   let purged = 0
   for (const table of TRASH_TABLES) {
     try {
-      const rows = await dbHelpers.find(table, { _orphaned: true }, { limit: 500 })
+      const rows = await dbHelpers.find(table, { _orphaned: true }, 500)
       for (const row of rows) {
         const id = row.id || row._id
         if (id) {

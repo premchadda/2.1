@@ -1,17 +1,18 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { 
-  LayoutDashboard, FileText, BookOpen, 
-  Video, Users, Settings, LogOut, Menu, X, FolderTree, ChevronRight,
+  LayoutDashboard, BookOpen, 
+  Video, Settings, LogOut, Menu, X, FolderTree, ChevronRight,
   Tag, Navigation, Info, Layers, Trash2, Ticket, Bell, Star,
   Search, ChevronDown, BarChart3, Trophy, Clock, HelpCircle,
-  Database, Activity, Gift, Brain, Image, FileQuestion, UserCheck,
+  Database, Activity, Gift, Brain, Image, UserCheck,
   CreditCard, AlertTriangle, Zap, User, Crown, Moon, Sun
 } from 'lucide-react'
 import { useAuth } from '../providers/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import adminNavConfig, { getFlatNavItems, getBreadcrumbs } from '../config/adminNavConfig'
 import { Logo, CommandPalette } from './index.jsx'
+import AdminBottomNav from './AdminBottomNav.jsx'
 import { API_BASE_URL } from '../lib/apiBase.js'
 
 // Main site URL - can be changed via environment variable
@@ -492,7 +493,7 @@ export default function AdminLayout() {
                   {/* User Info Header */}
                   <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
                     <div className={`font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{user?.name || 'Admin User'}</div>
-                    <div className={`text-xs truncate mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email || 'admin@trstprep.com'}</div>
+                    <div className={`text-xs truncate mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email || 'admin'}</div>
                     {user?.hasProPass && (
                       <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-amber-500/20 text-amber-500 text-[10px] font-bold rounded-full border border-amber-500/30">
                         <Crown className="w-3 h-3" /> PRO Member
@@ -552,68 +553,7 @@ export default function AdminLayout() {
         </main>
       </div>
 
-      {/* Bottom Navigation Bar - Mobile Only */}
-      <nav aria-label="Mobile navigation" className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-2 py-2 flex justify-between items-center safe-area-bottom ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
-        <Link 
-          to="/admin" 
-          className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
-            isActive('/admin') && location.pathname === '/admin'
-              ? 'bg-indigo-600/20 text-indigo-500' 
-              : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-indigo-600'
-          }`}
-        >
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Home</span>
-        </Link>
-        
-        <Link 
-          to="/admin/tests" 
-          className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
-            isActive('/admin/tests') 
-              ? 'bg-indigo-600/20 text-indigo-500' 
-              : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-indigo-600'
-          }`}
-        >
-          <FileText className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Tests</span>
-        </Link>
-
-        <Link 
-          to="/admin/questions" 
-          className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
-            isActive('/admin/questions') 
-              ? 'bg-indigo-600/20 text-indigo-500' 
-              : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-indigo-600'
-          }`}
-        >
-          <FileQuestion className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Questions</span>
-        </Link>
-
-        <Link 
-          to="/admin/users" 
-          className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
-            isActive('/admin/users') 
-              ? 'bg-indigo-600/20 text-indigo-500' 
-              : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-indigo-600'
-          }`}
-        >
-          <Users className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Users</span>
-        </Link>
-
-        <button 
-          onClick={() => setMobileMenuOpen(true)}
-          className={`flex flex-col items-center gap-1 min-w-[3.5rem] p-2 rounded-lg transition-colors ${
-            mobileMenuOpen 
-              ? 'bg-indigo-600/20 text-indigo-500' 
-              : isDarkMode ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-indigo-600'
-          }`}
-        >
-          <Menu className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Menu</span>
-        </button>
-      </nav>
+      <AdminBottomNav onMenuClick={() => setMobileMenuOpen(true)} />
 
     </div>
   )

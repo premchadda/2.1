@@ -22,6 +22,7 @@ import { toast } from 'react-hot-toast'
 import { adminAPI, apiClient } from '../../../shared/lib/dataService'
 import api from '../../../shared/lib/api'
 import { useExamCategories } from '../../../shared/hooks/useExamCategories'
+import FullTestImportModal from './components/FullTestImportModal'
 
 const TEST_CATEGORY_TABS = [
   { id: 'mock-tests', label: 'Mock Tests', icon: CheckSquare },
@@ -280,7 +281,7 @@ const DEFAULT_TEST_FORM = {
   type: 'mock-tests',
   duration: 60,
   negativeMarking: 0.25,
-  difficulty: 'Medium',
+  difficulty: 'medium',
   isPro: false,
   isComingSoon: false,
   isLive: false,
@@ -331,7 +332,7 @@ const normalizeTest = (test) => ({
   totalQuestions: test.totalQuestions ?? test.total_questions ?? 0,
   totalMarks: test.totalMarks ?? test.total_marks ?? 0,
   negativeMarking: test.negativeMarking ?? test.negative_marking ?? 0.25,
-  difficulty: test.difficulty || 'Medium',
+  difficulty: test.difficulty || 'medium',
   isPro: Boolean(test.isPro ?? test.is_pro),
   isComingSoon: Boolean(test.isComingSoon ?? test.is_coming_soon),
   isLive: Boolean(test.isLive ?? test.is_live),
@@ -551,12 +552,25 @@ const EmptyState = ({ title, description, icon: Icon = FileText }) => (
   </div>
 )
 
-const StatCard = ({ icon: Icon, value, label, tone }) => {
+const StatCard = ({ icon: Icon, value, label, tone, compact }) => {
   const tones = {
     indigo: 'bg-indigo-50 text-indigo-600',
     green: 'bg-green-50 text-green-600',
     amber: 'bg-amber-50 text-amber-600',
     blue: 'bg-blue-50 text-blue-600',
+  }
+  if (compact) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm flex items-center gap-2.5 p-2.5">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${tones[tone] || tones.indigo}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-lg font-bold text-gray-900 leading-tight">{value}</p>
+          <p className="text-[10px] text-gray-500 leading-tight truncate">{label}</p>
+        </div>
+      </div>
+    )
   }
   return (
     <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm flex items-center gap-3">
@@ -667,211 +681,226 @@ const CascadingCategorySelect = ({ allSubCategories = [], flatTestCategories = [
 }
 
 
-const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editingId, contextLabel, saving, relationshipSummary, availableSections, allSubCategories, flatTestCategories }) => {
+const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editingId, contextLabel, saving, relationshipSummary, availableSections, allSubCategories, flatTestCategories, selectedPresetId, setSelectedPresetId, applySectionPreset }) => {
   if (!isOpen) return null
   const handleSubmit = (event) => {
     event.preventDefault()
     onSubmit(formData)
   }
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in">
+      <div className={`bg-white rounded-xl w-full ${editingId && relationshipSummary ? 'max-w-5xl' : 'max-w-3xl'} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`}>
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/50">
           <div>
             <h2 className="text-lg font-bold text-gray-900">{editingId ? 'Edit Test' : 'Create Test'}</h2>
             <p className="text-xs text-gray-500 mt-1">{contextLabel}</p>
           </div>
-          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors"><X className="w-5 h-5 text-gray-500" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-          {editingId && relationshipSummary && (
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Layers className="w-4 h-4 text-indigo-600" />
-                <h3 className="text-sm font-bold text-indigo-900">Linked Relationships</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {[
-                  ['Test Series', relationshipSummary.series],
-                  ['Stage', relationshipSummary.stage],
-                  ['Test Category', relationshipSummary.testCategory],
-                  ['Test Subcategory', relationshipSummary.testSubcategory],
-                  ['Test Sections', relationshipSummary.sections],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-white/80 bg-white px-3 py-2">
-                    <div className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</div>
-                    <div className="mt-1 text-sm font-semibold text-gray-900">{value || 'Not linked'}</div>
+        <form onSubmit={handleSubmit} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          {/* Scrollable Form Body */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className={editingId && relationshipSummary ? "grid grid-cols-1 md:grid-cols-3 gap-6 items-start" : "space-y-5"}>
+              
+              {/* LEFT COLUMN: Form Inputs & Configurations (Spans 2 columns if editing) */}
+              <div className={`${editingId && relationshipSummary ? 'md:col-span-2' : ''} space-y-5`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                    <input required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-              <input required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Slug (URL)</label>
-              <input value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="auto-generated if empty" />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Test Subcategory</label>
-              <CascadingCategorySelect
-                allSubCategories={allSubCategories}
-                flatTestCategories={flatTestCategories}
-                value={formData.testCategoryId || ''}
-                onChange={(selectedId) => {
-                  if (!selectedId) {
-                    setFormData({ ...formData, testCategoryId: '', subCategoryLevel1: '', subCategoryLevel2: '', subCategoryLevel3: '', subCategoryLevel4: '' })
-                    return
-                  }
-                  // Resolve path, filtering out the root (keep only items in allSubCategories)
-                  const subIds = new Set(allSubCategories.map(c => String(getEntityId(c) || '')))
-                  const path = getCategoryPath(selectedId, flatTestCategories).filter(p => subIds.has(String(getEntityId(p) || '')))
-                  setFormData({
-                    ...formData,
-                    testCategoryId: selectedId,
-                    subCategoryLevel1: path[0] ? String(getEntityId(path[0]) || '') : '',
-                    subCategoryLevel2: path[1] ? String(getEntityId(path[1]) || '') : '',
-                    subCategoryLevel3: path[2] ? String(getEntityId(path[2]) || '') : '',
-                    subCategoryLevel4: path[3] ? String(getEntityId(path[3]) || '') : '',
-                  })
-                }}
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Test Sections</label>
-              <select
-                multiple
-                value={parseIdList(formData.sectionIds)}
-                onChange={(e) => {
-                  const selected = Array.from(e.target.selectedOptions, opt => opt.value)
-                  setFormData({ ...formData, sectionIds: selected.join(', ') })
-                }}
-                disabled={availableSections.length === 0}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-400 h-24"
-              >
-                {(() => {
-                  // Group by source so users can see where each section came from.
-                  const groups = { test: [], series_stage: [], default: [] }
-                  availableSections.forEach(s => {
-                    const source = s.source || (s.test_id ? 'test' : (s.test_series_id ? 'series_stage' : 'default'))
-                    if (!groups[source]) groups[source] = []
-                    groups[source].push(s)
-                  })
-                  const labels = {
-                    test: '🔒 Test-specific',
-                    series_stage: '📚 From series + stage template',
-                    default: '🧩 Default templates',
-                  }
-                  return Object.entries(groups).flatMap(([source, items]) =>
-                    items.length === 0 ? [] : [
-                      <optgroup key={source} label={labels[source]}>
-                        {items.map((section) => (
-                          <option key={section.id} value={section.id}>
-                            {section.name} ({section.duration} min)
-                          </option>
-                        ))}
-                      </optgroup>
-                    ]
-                  )
-                })()}
-              </select>
-              <p className="text-xs text-gray-500 mt-2">
-                {availableSections.length > 0
-                  ? 'Auto-fetched by test → series+stage → defaults. Hold Ctrl/Cmd to select multiple sections.'
-                  : 'No sections available. Apply an exam scheme below to create sections.'}
-              </p>
-              {editingId && (
-                <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                    <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Exam Scheme:</label>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Slug (URL)</label>
+                    <input value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="auto-generated if empty" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Test Subcategory</label>
+                    <CascadingCategorySelect
+                      allSubCategories={allSubCategories}
+                      flatTestCategories={flatTestCategories}
+                      value={formData.testCategoryId || ''}
+                      onChange={(selectedId) => {
+                        if (!selectedId) {
+                          setFormData({ ...formData, testCategoryId: '', subCategoryLevel1: '', subCategoryLevel2: '', subCategoryLevel3: '', subCategoryLevel4: '' })
+                          return
+                        }
+                        const subIds = new Set(allSubCategories.map(c => String(getEntityId(c) || '')))
+                        const path = getCategoryPath(selectedId, flatTestCategories).filter(p => subIds.has(String(getEntityId(p) || '')))
+                        setFormData({
+                          ...formData,
+                          testCategoryId: selectedId,
+                          subCategoryLevel1: path[0] ? String(getEntityId(path[0]) || '') : '',
+                          subCategoryLevel2: path[1] ? String(getEntityId(path[1]) || '') : '',
+                          subCategoryLevel3: path[2] ? String(getEntityId(path[2]) || '') : '',
+                          subCategoryLevel4: path[3] ? String(getEntityId(path[3]) || '') : '',
+                        })
+                      }}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Test Sections</label>
                     <select
-                      value={selectedPresetId}
-                      onChange={(e) => setSelectedPresetId(e.target.value)}
-                      className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm"
+                      multiple
+                      value={parseIdList(formData.sectionIds)}
+                      onChange={(e) => {
+                        const selected = Array.from(e.target.selectedOptions, opt => opt.value)
+                        setFormData({ ...formData, sectionIds: selected.join(', ') })
+                      }}
+                      disabled={availableSections.length === 0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-400 h-28 transition-all"
                     >
-                      {SECTION_PRESETS.map(p => (
-                        <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
-                      ))}
+                      {(() => {
+                        const groups = { test: [], series_stage: [], default: [] }
+                        availableSections.forEach(s => {
+                          const source = s.source || (s.test_id ? 'test' : (s.test_series_id ? 'series_stage' : 'default'))
+                          if (!groups[source]) groups[source] = []
+                          groups[source].push(s)
+                        })
+                        const labels = {
+                          test: '🔒 Test-specific',
+                          series_stage: '📚 From series + stage template',
+                          default: '🧩 Default templates',
+                        }
+                        return Object.entries(groups).flatMap(([source, items]) =>
+                          items.length === 0 ? [] : [
+                            <optgroup key={source} label={labels[source]}>
+                              {items.map((section) => (
+                                <option key={section.id} value={section.id}>
+                                  {section.name} ({section.duration} min)
+                                </option>
+                              ))}
+                            </optgroup>
+                          ]
+                        )
+                      })()}
                     </select>
-                    <button
-                      type="button"
-                      onClick={applySectionPreset}
-                      disabled={saving}
-                      className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap"
-                    >
-                      Apply to Test
-                    </button>
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      {availableSections.length > 0
+                        ? 'Auto-fetched by test → series+stage → defaults. Hold Ctrl/Cmd to select multiple sections.'
+                        : 'No sections available. Apply an exam scheme below to create sections.'}
+                  </p>
+                    {editingId && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+                          <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Exam Scheme:</label>
+                          <select
+                            value={selectedPresetId}
+                            onChange={(e) => setSelectedPresetId(e.target.value)}
+                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                          >
+                            {SECTION_PRESETS.map(p => (
+                              <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={applySectionPreset}
+                            disabled={saving}
+                            className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap transition-colors"
+                          >
+                            Apply to Test
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {[
+                    ['duration', 'Duration (minutes)', 1, '1'],
+                    ['negativeMarking', 'Negative Marking', 0, '0.25'],
+                  ].map(([key, label, min, step]) => (
+                    <div key={key}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+                      <input type="number" min={min} step={step} value={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    </div>
+                  ))}
+                  {editingId && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Total Questions (Auto)</label>
+                        <input readOnly value={formData.totalQuestions || 0} className="w-full px-3 py-2 border border-gray-250 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Total Marks (Auto)</label>
+                        <input readOnly value={formData.totalMarks || 0} className="w-full px-3 py-2 border border-gray-250 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
+                      </div>
+                    </>
+                  )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+                    <select value={formData.difficulty} onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all">
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  {formData.isLive && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled At (Live)</label>
+                        <input type="datetime-local" value={formData.scheduledAt || ''} onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Max Participants (Live, 0 for unlimited)</label>
+                        <input type="number" min="0" value={formData.maxParticipants || 0} onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                      </div>
+                    </>
+                  )}
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                    <input value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="comma, separated, tags" />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-gray-200">
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Visibility & Access</h4>
+                  <div className="flex flex-wrap gap-4">
+                    {[
+                      ['isPro', 'Pro Pass Required'],
+                      ['isComingSoon', 'Coming Soon'],
+                      ['isLive', 'Live Test'],
+                    ].map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" checked={Boolean(formData[key])} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer" />
+                        <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* RIGHT COLUMN: Linked Relationships (Sticky sidebar) */}
+              {editingId && relationshipSummary && (
+                <div className="md:col-span-1 md:sticky md:top-0">
+                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 border-b border-indigo-100/55 pb-2.5">
+                      <Layers className="w-4.5 h-4.5 text-indigo-650" />
+                      <h3 className="text-sm font-bold text-indigo-900">Linked Relationships</h3>
+                    </div>
+                    <div className="space-y-3.5">
+                      {[
+                        ['Test Series', relationshipSummary.series],
+                        ['Stage', relationshipSummary.stage],
+                        ['Test Category', relationshipSummary.testCategory],
+                        ['Test Subcategory', relationshipSummary.testSubcategory],
+                        ['Test Sections', relationshipSummary.sections],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-white/90 bg-white px-3.5 py-3 shadow-sm">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{label}</div>
+                          <div className="mt-1 text-xs font-bold text-gray-800 break-words leading-relaxed">{value || 'Not linked'}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
-            </div>
-            {[
-              ['duration', 'Duration (minutes)', 1, '1'],
-              ['negativeMarking', 'Negative Marking', 0, '0.25'],
-            ].map(([key, label, min, step]) => (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                <input type="number" min={min} step={step} value={formData[key]} onChange={(e) => setFormData({ ...formData, [key]: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" />
-              </div>
-            ))}
-            {editingId && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Total Questions (Auto)</label>
-                  <input readOnly value={formData.totalQuestions || 0} className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">Total Marks (Auto)</label>
-                  <input readOnly value={formData.totalMarks || 0} className="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
-                </div>
-              </>
-            )}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-              <select value={formData.difficulty} onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none">
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select>
-            </div>
-            {formData.isLive && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled At (Live)</label>
-                  <input type="datetime-local" value={formData.scheduledAt || ''} onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Max Participants (Live, 0 for unlimited)</label>
-                  <input type="number" min="0" value={formData.maxParticipants || 0} onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" />
-                </div>
-              </>
-            )}
-            <div className={`md:col-span-2`}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-              <input value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" placeholder="comma, separated, tags" />
+
             </div>
           </div>
-          <div className="pt-4 border-t border-gray-200">
-            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Visibility & Access</h4>
-            <div className="flex flex-wrap gap-4">
-              {[
-                ['isPro', 'Pro Pass Required'],
-                ['isComingSoon', 'Coming Soon'],
-                ['isLive', 'Live Test'],
-              ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-2">
-                  <input type="checkbox" checked={Boolean(formData[key])} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                  <span className="text-sm text-gray-700">{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={saving} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+
+          {/* ACTION BUTTONS (Fixed Footer) */}
+          <div className="px-4 py-3 sm:px-6 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700">Cancel</button>
+            <button type="submit" disabled={saving} className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all text-sm font-semibold shadow-sm">
               <Save className="w-4 h-4" />
               {saving ? 'Saving...' : `${editingId ? 'Update' : 'Create'} Test`}
             </button>
@@ -1015,6 +1044,7 @@ export default function TestsManager() {
   const [sections, setSections] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showFullTestImport, setShowFullTestImport] = useState(false)
   const getInitialTab = () => {
     const urlTab = searchParams.get('tab')
     return urlTab && TEST_CATEGORY_TABS.some(t => t.id === urlTab) ? urlTab : 'mock-tests'
@@ -1642,7 +1672,7 @@ export default function TestsManager() {
       totalQuestions: test.totalQuestions || test.total_questions || 0,
       totalMarks: test.totalMarks || test.total_marks || 0,
       negativeMarking: test.negativeMarking || test.negative_marking || 0.25,
-      difficulty: test.difficulty || 'Medium',
+      difficulty: test.difficulty || 'medium',
       isPro: Boolean(test.isPro || test.is_pro),
       isComingSoon: Boolean(test.isComingSoon || test.is_coming_soon),
       isLive: Boolean(test.isLive || test.is_live),
@@ -1903,7 +1933,7 @@ export default function TestsManager() {
 
   return (
     <div className="p-3">
-      <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-4 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
+      <div className="flex flex-nowrap border-b border-gray-200 bg-white rounded-t-xl px-4 pt-4 overflow-x-auto overflow-y-hidden whitespace-nowrap scrollbar-hide">
         {TEST_CATEGORY_TABS.map(tab => {
           const isActive = activeTestCategory === tab.id
           const Icon = tab.icon
@@ -1923,11 +1953,11 @@ export default function TestsManager() {
         })}
       </div>
 
-      <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={CheckSquare} value={filteredScopeStats.totalTests} label={`Total ${activeCatLabel}`} tone="indigo" />
-        <StatCard icon={Layers} value={filteredScopeStats.activeSeries} label="Active Test Series" tone="green" />
-        <StatCard icon={FileText} value={filteredScopeStats.testCategories} label="Test Categories" tone="amber" />
-        <StatCard icon={Shield} value={filteredScopeStats.publishedTests} label="Published Tests" tone="blue" />
+      <div className="grid grid-cols-4 gap-2 p-3">
+        <StatCard icon={CheckSquare} value={filteredScopeStats.totalTests} label={`Total ${activeCatLabel}`} tone="indigo" compact />
+        <StatCard icon={Layers} value={filteredScopeStats.activeSeries} label="Active Test Series" tone="green" compact />
+        <StatCard icon={FileText} value={filteredScopeStats.testCategories} label="Test Categories" tone="amber" compact />
+        <StatCard icon={Shield} value={filteredScopeStats.publishedTests} label="Published Tests" tone="blue" compact />
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
@@ -1937,10 +1967,10 @@ export default function TestsManager() {
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Manager Filters</h3>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700">Exam Category:</span>
+          <div className="flex overflow-x-auto flex-nowrap items-center gap-3 scrollbar-thin pb-1">
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Exam Category:</span>
             {examCategories.length === 0 ? (
-              <span className="text-sm text-gray-400">No exam categories found</span>
+              <span className="text-sm text-gray-400 whitespace-nowrap">No exam categories found</span>
             ) : examCategories.map(category => {
               const categoryValue = category.categoryId || category.slug || category.id
               const isActive = idsEqual(activeExamCategoryId, categoryValue)
@@ -1953,7 +1983,7 @@ export default function TestsManager() {
                     setActiveExamId('')
                     setActiveStageId('')
                   }}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                     }`}
                 >
                   {category.label || category.name || categoryValue}
@@ -1962,16 +1992,15 @@ export default function TestsManager() {
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700">Exam:</span>
+          <div className="flex overflow-x-auto flex-nowrap items-center gap-3 scrollbar-thin pb-1">
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Exam:</span>
             {examsForActiveCategory.length === 0 ? (
-              <span className="text-sm text-gray-400">No exams found</span>
+              <span className="text-sm text-gray-400 whitespace-nowrap">No exams found</span>
             ) : examsForActiveCategory
               .filter(exam => {
-                // Skip entries with no meaningful label — they'd display as a raw numeric ID
+                // Skip entries with no meaningful label
                 const display = String(exam.label || exam.fullName || '').trim()
                 if (!display) return false
-                // Skip when label was just a fallback to the ID (label === value or numeric only)
                 if (display === String(exam.value)) return false
                 if (/^\d+$/.test(display)) return false
                 return true
@@ -1986,7 +2015,7 @@ export default function TestsManager() {
                       setActiveExamId(exam.value)
                       setActiveStageId('')
                     }}
-                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
                       }`}
                   >
                     {exam.label || exam.fullName || exam.value}
@@ -1995,27 +2024,27 @@ export default function TestsManager() {
               })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-gray-700">Stage:</span>
+          <div className="flex overflow-x-auto flex-nowrap items-center gap-3 scrollbar-thin pb-1">
+            <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">Stage:</span>
             {stagesForActiveExam.map(stage => {
               const stageId = getEntityId(stage)
               const isActive = idsEqual(activeStageId, stageId)
               return (
-                <button key={stageId} type="button" onClick={() => setActiveStageId(stageId)} className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
+                <button key={stageId} type="button" onClick={() => setActiveStageId(stageId)} className={`px-3 py-1.5 text-sm rounded-lg border transition-colors whitespace-nowrap ${isActive ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
                   {stage.name || stage.title || stage.slug || stageId}
                 </button>
               )
             })}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Selected Path</span>
+          <div className="flex overflow-x-auto flex-nowrap items-center gap-2 pt-3 border-t border-gray-100 scrollbar-thin pb-1">
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">Selected Path</span>
             {[selectedExamCategoryLabel, selectedExamLabel, selectedSeries?.title || selectedSeries?.name, selectedStageLabel, activeCatLabel, selectedTestSubCategoryLabel]
               .filter(label => label)
               .map((label, index) => (
-                <span key={`${label}-${index}`} className="inline-flex items-center gap-2">
-                  {index > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-300" />}
-                  <span className={`px-2.5 py-1 border rounded-lg text-xs ${label === activeCatLabel ? 'bg-indigo-50 border-indigo-100 font-semibold text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>{label}</span>
+                <span key={`${label}-${index}`} className="inline-flex items-center gap-2 whitespace-nowrap">
+                  {index > 0 && <ChevronRight className="w-3.5 h-3.5 text-gray-300 shrink-0" />}
+                  <span className={`px-2.5 py-1 border rounded-lg text-xs whitespace-nowrap ${label === activeCatLabel ? 'bg-indigo-50 border-indigo-100 font-semibold text-indigo-700' : 'bg-gray-50 border-gray-200 text-gray-700'}`}>{label}</span>
                 </span>
               ))}
           </div>
@@ -2259,6 +2288,9 @@ export default function TestsManager() {
                   <p className="text-sm text-gray-500">{workspaceTests.length} tests linked to the selected test subcategory.</p>
                 </div>
                 <div className="flex gap-2">
+                  <button type="button" onClick={() => setShowFullTestImport(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                    <Upload className="w-4 h-4" /> Import JSON
+                  </button>
                   <button type="button" onClick={() => setShowBulkUpload(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Bulk Create
                   </button>
@@ -2327,8 +2359,12 @@ export default function TestsManager() {
         availableSections={scopedSections}
         allSubCategories={activeTestSubCategories}
         flatTestCategories={flatTestCategories}
+        selectedPresetId={selectedPresetId}
+        setSelectedPresetId={setSelectedPresetId}
+        applySectionPreset={applySectionPreset}
       />
       <BulkUploadModal isOpen={showBulkUpload} onClose={() => setShowBulkUpload(false)} onUpload={handleBulkUpload} onValidate={validateBulkUpload} contextLabel={contextLabel} linkingInfo={linkingInfo} />
+      <FullTestImportModal isOpen={showFullTestImport} onClose={() => setShowFullTestImport(false)} onImported={fetchData} />
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">

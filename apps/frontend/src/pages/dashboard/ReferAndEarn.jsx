@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Gift, Users, Share2, Trophy, ArrowRight, Copy, CheckCircle, MessageCircle, Mail } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../shared/providers/AuthContext'
 import api from '../../shared/lib/dataService'
+
+const DEFAULT_REWARDS = [
+  { referrals: 1, discount: '10%', bonus: '₹100' },
+  { referrals: 3, discount: '15%', bonus: '₹250' },
+  { referrals: 5, discount: '20%', bonus: '₹500' },
+  { referrals: 10, discount: '25%', bonus: '₹1000' },
+  { referrals: 25, discount: '30%', bonus: '₹2500' },
+  { referrals: 50, discount: '40%', bonus: '₹5000' }
+]
 
 export default function ReferAndEarn() {
   const { user } = useAuth()
@@ -59,14 +69,17 @@ export default function ReferAndEarn() {
     }
   }
 
-  const rewards = [
-    { referrals: 1, discount: '10%', bonus: '₹100' },
-    { referrals: 3, discount: '15%', bonus: '₹250' },
-    { referrals: 5, discount: '20%', bonus: '₹500' },
-    { referrals: 10, discount: '25%', bonus: '₹1000' },
-    { referrals: 25, discount: '30%', bonus: '₹2500' },
-    { referrals: 50, discount: '40%', bonus: '₹5000' }
-  ]
+  const rewards = referralConfig?.rewards || DEFAULT_REWARDS
+
+  const { data: referralConfig } = useQuery({
+    queryKey: ['referral-config'],
+    queryFn: async () => {
+      const res = await api.get('/api/referrals/config')
+      return res.data?.data
+    },
+    staleTime: 1000 * 60 * 30,
+    retry: false,
+  })
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

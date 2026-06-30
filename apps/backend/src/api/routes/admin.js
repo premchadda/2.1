@@ -79,6 +79,24 @@ const rejectOnServerless = (req, res, next) => {
   next();
 };
 
+// Fetch the current Pro Pass price from the subscription_plans table.
+// Falls back to 999 only if the table/query fails (e.g. not yet seeded).
+async function getProPassPrice() {
+  try {
+    const result = await pool.query(
+      `SELECT price FROM subscription_plans
+       WHERE plan_id LIKE 'pro_pass%' OR plan_id LIKE 'pro-%'
+       ORDER BY price ASC LIMIT 1`
+    );
+    if (result.rows.length > 0) {
+      return parseFloat(result.rows[0].price) || 999;
+    }
+  } catch {
+    // Table may not exist yet — non-fatal
+  }
+  return 999;
+}
+
  // Apply field name normalization to all admin routes (POST/PUT/PATCH)
  // This converts all camelCase fields to snake_case consistently
  router.use(normalizeFields({ methods: ["POST", "PUT", "PATCH"] }));
@@ -377,7 +395,7 @@ router.get("/analytics/export", async (req, res) => {
       csv += "Metric,Value\n";
       const users = await dbHelpers.find("users");
       const proUsers = users.filter((u) => u.isProUser);
-      const proPassPrice = 999;
+      const proPassPrice = await getProPassPrice();
       csv += `Total Revenue,₹${proUsers.length * proPassPrice}\n`;
       csv += `Pro Subscribers,${proUsers.length}\n`;
       csv += `Average Revenue Per User,₹${users.length > 0 ? Math.round((proUsers.length * proPassPrice) / users.length) : 0}\n\n`;
@@ -1383,6 +1401,32 @@ const normalizeAssetRecord = (asset) => {
   };
 };
 
+// Resolve a list of asset IDs (numeric or string) to a Map<id, accessUrl>.
+// Null/undefined entries are skipped. Missing assets are omitted from the
+// map so callers fall back to their own bannerUrl/imageUrl fields.
+const buildAssetUrlMap = async (assetIds) => {
+  const ids = (assetIds || [])
+    .map(parseAssetId)
+    .filter((id) => id !== null && id !== undefined);
+
+  const map = new Map();
+  if (ids.length === 0) return map;
+
+  await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const asset = await dbHelpers.findById("assets", id);
+        if (asset) {
+          map.set(id, resolveAssetAccessUrl(asset) || asset.url || null);
+        }
+      } catch {
+        // Non-fatal — leave this ID absent from the map.
+      }
+    }),
+  );
+  return map;
+};
+
 const listAssets = async (req, res) => {
   try {
     const { category, type, search, page = 1, limit = 100 } = req.query;
@@ -1637,8 +1681,9 @@ router.post("/media/upload", upload.single("file"), handleAssetUpload);
 // ===== APP SETTINGS =====
 router.get("/settings", async (req, res) => {
   try {
-    const settings = await dbHelpers.find("appSettings");
-    res.json({ success: true, data: settings[0] || {} });
+    const { getFullSettings } = await import("../../services/SettingsService.js");
+    const settings = await getFullSettings();
+    res.json({ success: true, data: settings });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -1646,19 +1691,8 @@ router.get("/settings", async (req, res) => {
 
 router.put("/settings", async (req, res) => {
   try {
-    const existing = await dbHelpers.find("appSettings");
-    let updated;
-
-    if (existing.length > 0) {
-      updated = await dbHelpers.updateById(
-        "appSettings",
-        existing[0]._id,
-        req.body,
-      );
-    } else {
-      updated = await dbHelpers.insertOne("appSettings", req.body);
-    }
-
+    const { saveSettings } = await import("../../services/SettingsService.js");
+    const updated = await saveSettings(req.body);
     res.json({ success: true, data: updated });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -2937,10 +2971,12 @@ router.delete("/topics/:id", async (req, res) => {
 // Note: Uses 'questions' table with passage_id field for passage grouping
 // Passages are logical groupings, not a separate table
 router.get("/passages", async (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: "Passages feature is not implemented yet"
-  });
+  try {
+    const passages = await dbHelpers.find("passages", {});
+    res.json({ success: true, data: passages });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // ===== COUPONS MANAGEMENT =====
@@ -3597,8 +3633,8 @@ router.get("/realtime/revenue", async (req, res) => {
       return enrolled >= oneWeekAgo && u.enrolledSeries?.length > 0;
     }).length;
 
-    // Calculate revenue (assuming ₹999 per pro pass)
-    const proPassPrice = 999;
+    // Calculate revenue using actual Pro Pass price from DB
+    const proPassPrice = await getProPassPrice();
     const totalRevenue = proUsers.length * proPassPrice;
 
     // Revenue by period (estimated based on pro upgrades)

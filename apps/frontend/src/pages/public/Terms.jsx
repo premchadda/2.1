@@ -1,4 +1,5 @@
 export default function Terms() {
+  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@trstprep.com'
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
@@ -30,7 +31,7 @@ export default function Terms() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">7. Contact</h2>
-            <p className="text-gray-600">For questions about these Terms, contact us at support@trstprep.com</p>
+            <p className="text-gray-600">For questions about these Terms, contact us at {supportEmail}</p>
           </section>
           <p className="text-sm text-gray-500 pt-4">Last updated: February 17, 2026</p>
         </div>

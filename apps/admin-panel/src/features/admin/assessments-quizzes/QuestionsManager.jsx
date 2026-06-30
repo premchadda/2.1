@@ -38,17 +38,6 @@ const QUESTION_CATEGORIES = [
     ringColor: 'ring-amber-200'
   },
   {
-    id: 'practice',
-    label: 'Practice & Quiz',
-    icon: Sparkles,
-    description: 'Practice sets & quick quiz questions',
-    gradient: 'from-emerald-500 to-teal-600',
-    lightBg: 'bg-emerald-50',
-    lightText: 'text-emerald-600',
-    borderColor: 'border-emerald-500',
-    ringColor: 'ring-emerald-200'
-  },
-  {
     id: 'audit',
     label: 'Audit',
     icon: AlertTriangle,
@@ -363,7 +352,10 @@ const seriesMatchesTestCategory = (series, refs, testsInSeries = []) => {
 const QUESTION_TYPES = [
   { value: 'mcq', label: 'MCQ', description: 'Single correct answer' },
   { value: 'msq', label: 'MSQ', description: 'Multiple correct answers' },
-  { value: 'numerical', label: 'Numerical', description: 'Number answer' },
+  { value: 'numeric', label: 'Numeric', description: 'Number answer' },
+  { value: 'true-false', label: 'True/False', description: 'True or false answer' },
+  { value: 'match', label: 'Match', description: 'Match the following' },
+  { value: 'comprehension', label: 'Comprehension', description: 'Reading comprehension' },
   { value: 'descriptive', label: 'Descriptive', description: 'Text answer' }
 ]
 
@@ -376,7 +368,7 @@ const DIFFICULTY_LEVELS = [
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active', color: 'bg-green-100 text-green-700' },
   { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'disabled', label: 'Disabled', color: 'bg-red-100 text-red-700' }
+  { value: 'archived', label: 'Archived', color: 'bg-red-100 text-red-700' }
 ]
 
 const DEFAULT_FORM_DATA = {
@@ -413,7 +405,7 @@ const DEFAULT_TEST_FORM = {
   totalMarks: 100,
   passingMarks: 33,
   negativeMarking: 0.25,
-  difficulty: 'Medium',
+  difficulty: 'medium',
   type: 'mock',
   tags: '',
   isPro: false,
@@ -547,7 +539,7 @@ const CategoryTabBar = ({ activeCategory, onCategoryChange, categoryCounts }) =>
 const OptionEditor = ({ options, correctOption, onChange, onCorrectChange, type }) => {
   const letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
-  if (type === 'numerical') {
+  if (type === 'numeric') {
     return (
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1365,6 +1357,10 @@ export default function QuestionsManager() {
   const [selectedSeries, setSelectedSeries] = useState(null)
   const [selectedTest, setSelectedTest] = useState(null)
   const [selectedTestSubCategoryId, setSelectedTestSubCategoryId] = useState('all')
+  const [subCategoryLevel1, setSubCategoryLevel1] = useState('')
+  const [subCategoryLevel2, setSubCategoryLevel2] = useState('')
+  const [subCategoryLevel3, setSubCategoryLevel3] = useState('')
+  const [subCategoryLevel4, setSubCategoryLevel4] = useState('')
   const [showTestForm, setShowTestForm] = useState(false)
   const [editingTestId, setEditingTestId] = useState(null)
   const [testFormData, setTestFormData] = useState(DEFAULT_TEST_FORM)
@@ -1509,7 +1505,7 @@ export default function QuestionsManager() {
         setLoading(true)
         setErrors({})
         const [questionsRes, subjectsRes, chaptersRes, topicsRes, passagesRes, seriesRes, testsRes, categoriesRes, stagesRes, sectionsRes] = await Promise.allSettled([
-          questionsAPI.getAll(),
+          questionsAPI.getAll({ page: 1, limit: 2000 }),
           adminAPI.apiClient.get('/admin/subjects'),
           adminAPI.apiClient.get('/admin/chapters'),
           adminAPI.apiClient.get('/admin/topics'),
@@ -1633,6 +1629,43 @@ export default function QuestionsManager() {
       .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
   }, [activeTestCategoryRecord, flatTestCategories])
 
+  const subCategoryOptionsLevel1 = useMemo(() => {
+    if (!activeTestCategoryRecord) return []
+    const rootId = String(getEntityId(activeTestCategoryRecord) || '')
+    return flatTestCategories
+      .filter(cat => String(cat.parentId || cat.parent_id || '') === rootId && cat.isActive !== false)
+      .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
+  }, [activeTestCategoryRecord, flatTestCategories])
+
+  const subCategoryOptionsLevel2 = useMemo(() => {
+    if (!subCategoryLevel1) return []
+    return flatTestCategories
+      .filter(cat => String(cat.parentId || cat.parent_id || '') === String(subCategoryLevel1) && cat.isActive !== false)
+      .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
+  }, [subCategoryLevel1, flatTestCategories])
+
+  const subCategoryOptionsLevel3 = useMemo(() => {
+    if (!subCategoryLevel2) return []
+    return flatTestCategories
+      .filter(cat => String(cat.parentId || cat.parent_id || '') === String(subCategoryLevel2) && cat.isActive !== false)
+      .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
+  }, [subCategoryLevel2, flatTestCategories])
+
+  const subCategoryOptionsLevel4 = useMemo(() => {
+    if (!subCategoryLevel3) return []
+    return flatTestCategories
+      .filter(cat => String(cat.parentId || cat.parent_id || '') === String(subCategoryLevel3) && cat.isActive !== false)
+      .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
+  }, [subCategoryLevel3, flatTestCategories])
+
+  const getCategoryLabel = (category) => category?.label || category?.name || category?.slug || category?.categoryId || category?.id || 'Not linked'
+
+  const getCategoryTestCount = (categoryId) => {
+    if (!categoryId || categoryId === 'all') return seriesTests.length
+    const refs = buildCategorySelectionRefs(categoryId, flatTestCategories)
+    return seriesTests.filter(test => recordMatchesTestCategory(test, refs)).length
+  }
+
   const selectedTestSubCategoryRecord = useMemo(() => {
     if (selectedTestSubCategoryId === 'all') return null
     return flatTestCategories.find(cat =>
@@ -1663,9 +1696,8 @@ export default function QuestionsManager() {
   const activeStageRefs = useMemo(() => buildStageRefs(activeStageId), [activeStageId])
 
   const stagesForActiveExam = useMemo(() => {
-    if (!activeExamId || activeExamRefs.size === 0) return stages
-    const linked = stages.filter(stage => stageMatchesExam(stage, activeExamRefs))
-    return linked.length > 0 ? linked : stages
+    if (!activeExamId || activeExamRefs.size === 0) return []
+    return stages.filter(stage => stageMatchesExam(stage, activeExamRefs))
   }, [activeExamId, activeExamRefs, stages])
 
   useEffect(() => {
@@ -1697,6 +1729,22 @@ export default function QuestionsManager() {
     setSelectedSection('all')
   }, [activeCategory, activeExamCategoryId, activeExamId, activeStageId])
 
+  // Auto-select first stage when exam changes and no stage is selected
+  useEffect(() => {
+    if (!activeExamId) {
+      setActiveStageId('')
+      return
+    }
+    if (stagesForActiveExam.length === 0) {
+      setActiveStageId('')
+      return
+    }
+    const stillValid = stagesForActiveExam.some(stage => idsEqual(getEntityId(stage), activeStageId))
+    if (!stillValid) {
+      setActiveStageId(getEntityId(stagesForActiveExam[0]))
+    }
+  }, [activeExamId, stagesForActiveExam, activeStageId])
+
   useEffect(() => {
     setSelectedSection('all')
     setCurrentPage(1)
@@ -1704,6 +1752,10 @@ export default function QuestionsManager() {
 
   useEffect(() => {
     setSelectedTestSubCategoryId('all')
+    setSubCategoryLevel1('')
+    setSubCategoryLevel2('')
+    setSubCategoryLevel3('')
+    setSubCategoryLevel4('')
     setSelectedTest(null)
     resetTestForm()
     setShowTestBulkUpload(false)
@@ -1930,7 +1982,7 @@ export default function QuestionsManager() {
       }
 
       // Refresh questions
-      const res = await questionsAPI.getAll()
+      const res = await questionsAPI.getAll({ page: 1, limit: 2000 })
       if (res.data?.success) {
         const rawQuestions = res.data.data || []
         const normalizedQuestions = rawQuestions.map(normalizeQuestion)
@@ -2055,7 +2107,7 @@ export default function QuestionsManager() {
       totalMarks: test.totalMarks || test.total_marks || 100,
       passingMarks: test.passingMarks || test.passing_marks || 33,
       negativeMarking: test.negativeMarking || test.negative_marking || 0.25,
-      difficulty: test.difficulty || 'Medium',
+      difficulty: test.difficulty || 'medium',
       type: test.type || (activeCategory === 'pyp' ? 'pyp' : activeCategory === 'practice' ? 'practice' : 'mock'),
       tags: Array.isArray(test.tags) ? test.tags.join(', ') : (test.tags || ''),
       isPro: Boolean(test.isPro || test.is_pro),
@@ -2180,7 +2232,7 @@ export default function QuestionsManager() {
       setShowBulkImport(false)
 
       // Refresh questions
-      const res = await questionsAPI.getAll()
+      const res = await questionsAPI.getAll({ page: 1, limit: 2000 })
       if (res.data?.success) {
         const rawQuestions = res.data.data || []
         setQuestions(rawQuestions.map(normalizeQuestion))
@@ -2238,7 +2290,7 @@ export default function QuestionsManager() {
       toast.success('Question restored!')
       await loadTrashedQuestions()
       // Refresh active questions
-      const res = await questionsAPI.getAll()
+      const res = await questionsAPI.getAll({ page: 1, limit: 2000 })
       if (res.data?.success) {
         setQuestions(res.data.data.map(q => ({
           ...q,
@@ -2300,68 +2352,36 @@ export default function QuestionsManager() {
   // Breadcrumb labels
   const activeCatLabel = QUESTION_CATEGORIES.find(c => c.id === activeCategory)?.label || 'Questions'
 
-  const selectedExamCategoryLabel = examCategories.find(category => idsEqual(category.categoryId || category.slug || category.id, activeExamCategoryId))?.label || activeExamCategoryId || 'Select exam category'
-  const selectedExamLabel = examsForActiveCategory.find(exam => idsEqual(exam.value, activeExamId))?.label || activeExamId || 'Select exam'
-  const selectedStageLabel = stages.find(stage => idsEqual(getEntityId(stage), activeStageId))?.name || (activeStageId ? activeStageId : 'All Stages')
+  const selectedExamCategoryLabel = examCategories.find(category => idsEqual(category.categoryId || category.slug || category.id, activeExamCategoryId))?.label || (activeExamCategoryId || 'Select exam category')
+  const selectedExamLabel = examsForActiveCategory.find(exam => idsEqual(exam.value, activeExamId))?.label || examsForActiveCategory.find(exam => idsEqual(exam.value, activeExamId))?.fullName || 'Select exam'
+  const selectedStageLabel = stages.find(stage => idsEqual(getEntityId(stage), activeStageId))?.name || 'All Stages'
 
   const drillLevel = activeCategory === 'audit' ? 'audit' : selectedTest ? 'questions' : selectedSeries ? 'tests' : 'series'
 
 
   return (
     <div className="p-4 md:p-6">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-indigo-600" />
-            Questions Manager
-          </h1>
-          <p className="text-gray-600 mt-1">Manage your question bank with {questions.length} questions</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowActivityLog(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Activity className="w-4 h-4" />
-            Activity Log
-          </button>
-          <button
-            onClick={() => setLeftRailOpen(!leftRailOpen)}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${leftRailOpen ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold' : 'border-gray-300 hover:bg-gray-50'}`}
-          >
-            <Filter className="w-4 h-4" />
-            {leftRailOpen ? 'Hide Filters' : 'Show Filters'}
-          </button>
-          <button
-            onClick={() => { setShowTrash(!showTrash); if (!showTrash) loadTrashedQuestions() }}
-            className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${showTrash ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-gray-300 hover:bg-gray-50'}`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            {showTrash ? 'Back to Questions' : 'Trash'}
-          </button>
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-        </div>
+      {/* Top bar: tabs left, export right */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {!showTrash ? (
+          <CategoryTabBar
+            activeCategory={activeCategory}
+            onCategoryChange={handleCategoryChange}
+            categoryCounts={categoryCounts}
+          />
+        ) : <div />}
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors self-start sm:self-auto"
+        >
+          <Download className="w-4 h-4" />
+          Export
+        </button>
       </div>
-
-      {/* Category Tabs */}
-      {!showTrash && (
-        <CategoryTabBar
-          activeCategory={activeCategory}
-          onCategoryChange={handleCategoryChange}
-          categoryCounts={categoryCounts}
-        />
-      )}
 
       {/* Stats */}
       {!showTrash && (
-        <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <StatsCard icon={FileText} label="Total Questions" value={categoryStats.total.toLocaleString()} color="indigo" />
           <StatsCard icon={CheckCircle} label="Active" value={categoryStats.active.toLocaleString()} color="green" />
           <StatsCard icon={Clock} label="Drafts" value={categoryStats.draft.toLocaleString()} color="yellow" />
@@ -2369,1324 +2389,1357 @@ export default function QuestionsManager() {
         </div>
       )}
 
-      {/* Collapsible Filters Left Rail Layout (NF-04) */}
-      <div className="flex flex-col lg:flex-row gap-6 mt-4 items-start w-full">
-        {!showTrash && leftRailOpen && (
-          <div className="w-full lg:w-64 bg-white border border-gray-200 rounded-xl p-4 shrink-0 shadow-sm space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                <Filter className="w-4 h-4 text-indigo-500" />
-                Saved Filter Views
-              </h3>
-            </div>
-            
-            {/* Seed Filters */}
-            <div className="space-y-1">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">System Presets</p>
-              <button
-                onClick={() => {
-                  setActiveCategory('mock-tests')
-                  setActiveExamCategoryId('')
-                  setActiveExamId('')
-                  setActiveStageId('')
-                  setSelectedSection('all')
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-              >
-                <Layers className="w-4 h-4 text-indigo-400" />
-                All Mock Tests
-              </button>
-              <button
-                onClick={() => {
-                  setActiveCategory('pyp')
-                  setActiveExamCategoryId('')
-                  setActiveExamId('')
-                  setActiveStageId('')
-                  setSelectedSection('all')
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-              >
-                <ScrollText className="w-4 h-4 text-amber-400" />
-                Previous Year Papers
-              </button>
-              <button
-                onClick={() => {
-                  setActiveCategory('audit')
-                  setSelectedSection('all')
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
-              >
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
-                Incomplete Drafts
-              </button>
-            </div>
+      {/* Main Content */}
+      <div className="mt-4 w-full">
 
-            {/* Custom Saved Filters */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-2 mb-1">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">My Saved Views</p>
-                <button onClick={handleSaveFilter} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 uppercase hover:underline">
-                  + Save Current
-                </button>
+        {showTrash && (
+          <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">Trashed Questions</h2>
+              <p className="text-sm text-gray-500 mt-1">{trashedQuestions.length} questions in trash</p>
+            </div>
+            {trashedQuestions.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <Trash2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium">Trash is empty</p>
               </div>
-              
-              {savedFilters.length === 0 ? (
-                <p className="text-xs text-gray-400 italic px-2 py-1">No saved views yet</p>
-              ) : (
-                savedFilters.map(filter => (
-                  <div
-                    key={filter.id}
-                    onClick={() => handleApplyFilter(filter.filters)}
-                    className="group w-full text-left px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between cursor-pointer transition-colors"
-                  >
-                    <span className="truncate">{filter.name}</span>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {trashedQuestions.map((item, idx) => (
+                  <div key={item.id || idx} className="px-6 py-4 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-md">
+                        {item.data?.questionText || item.data?.question_text || `Question #${item.id}`}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Deleted: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Unknown'}
+                      </p>
+                    </div>
                     <button
-                      onClick={(e) => handleDeleteSavedFilter(e, filter.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-600 rounded"
-                      title="Delete Saved Filter"
+                      onClick={() => handleRestoreQuestion(item.id)}
+                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Save className="w-3.5 h-3.5" />
+                      Restore
                     </button>
                   </div>
-                ))
-              )}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Exam hierarchy filters */}
+        {!showTrash && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
+            <div className="p-4 flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-400" />
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Manager Filters</h3>
+                {examFiltersLoading && <span className="text-xs text-gray-400">Loading exam data...</span>}
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-700">Exam Category:</span>
+                  {examCategories.length === 0 ? (
+                    <span className="text-sm text-gray-400">No exam categories found</span>
+                  ) : examCategories.map(category => {
+                    const categoryValue = category.categoryId || category.slug || category.id
+                    const isActive = idsEqual(activeExamCategoryId, categoryValue)
+                    return (
+                      <button
+                        key={categoryValue}
+                        onClick={() => {
+                          setActiveExamCategoryId(categoryValue)
+                          setActiveExamId('')
+                          setActiveStageId('')
+                        }}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                          }`}
+                      >
+                        {category.label || category.name || categoryValue}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-700">Exam:</span>
+                  {examsForActiveCategory.length === 0 ? (
+                    <span className="text-sm text-gray-400">No exams found</span>
+                  ) : examsForActiveCategory.map(exam => {
+                    const isActive = idsEqual(activeExamId, exam.value)
+                    return (
+                      <button
+                        key={exam.value}
+                        onClick={() => {
+                          setActiveExamId(exam.value)
+                          setActiveStageId('')
+                        }}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                          }`}
+                      >
+                        {exam.label || exam.fullName || exam.value}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-semibold text-gray-700">Stage:</span>
+                  {stagesForActiveExam.length === 0 ? (
+                    <span className="text-sm text-gray-400">No stages available</span>
+                  ) : stagesForActiveExam.map(stage => {
+                    const stageId = getEntityId(stage)
+                    const isActive = idsEqual(activeStageId, stageId)
+                    return (
+                      <button
+                        key={stageId}
+                        onClick={() => setActiveStageId(stageId)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
+                          : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
+                          }`}
+                      >
+                        {stage.name || stage.title || stage.slug || stageId}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Selected Path</span>
+                  <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedExamCategoryLabel}</span>
+                  {activeExamId && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedExamLabel}</span>
+                    </>
+                  )}
+                  {activeStageId && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedStageLabel}</span>
+                    </>
+                  )}
+                  {selectedSeries && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedSeries?.title || selectedSeries?.name}</span>
+                    </>
+                  )}
+                  <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                  <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-xs font-semibold text-indigo-700">{activeCatLabel}</span>
+                  {selectedTestSubCategoryId !== 'all' && selectedTestSubCategoryRecord && (
+                    <>
+                      <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                      <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label}</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
-        
-        {/* Main Content Pane */}
-        <div className="flex-1 w-full min-w-0">
 
-      {showTrash && (
-        <div className="mb-6 bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-bold text-gray-900">Trashed Questions</h2>
-            <p className="text-sm text-gray-500 mt-1">{trashedQuestions.length} questions in trash</p>
-          </div>
-          {trashedQuestions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <Trash2 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="font-medium">Trash is empty</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {trashedQuestions.map((item, idx) => (
-                <div key={item.id || idx} className="px-6 py-4 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-md">
-                      {item.data?.questionText || item.data?.question_text || `Question #${item.id}`}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Deleted: {item.deletedAt ? new Date(item.deletedAt).toLocaleDateString() : 'Unknown'}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleRestoreQuestion(item.id)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 transition-colors"
-                  >
-                    <Save className="w-3.5 h-3.5" />
-                    Restore
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Exam hierarchy filters */}
-      {!showTrash && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm mb-6 overflow-hidden">
-          <div className="p-4 flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Manager Filters</h3>
-              {examFiltersLoading && <span className="text-xs text-gray-400">Loading exam data...</span>}
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700">Exam Category:</span>
-                {examCategories.length === 0 ? (
-                  <span className="text-sm text-gray-400">No exam categories found</span>
-                ) : examCategories.map(category => {
-                  const categoryValue = category.categoryId || category.slug || category.id
-                  const isActive = idsEqual(activeExamCategoryId, categoryValue)
-                  return (
-                    <button
-                      key={categoryValue}
-                      onClick={() => {
-                        setActiveExamCategoryId(categoryValue)
-                        setActiveExamId('')
-                        setActiveStageId('')
-                      }}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                        }`}
-                    >
-                      {category.label || category.name || categoryValue}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700">Exam:</span>
-                {examsForActiveCategory.length === 0 ? (
-                  <span className="text-sm text-gray-400">No exams found</span>
-                ) : examsForActiveCategory.map(exam => {
-                  const isActive = idsEqual(activeExamId, exam.value)
-                  return (
-                    <button
-                      key={exam.value}
-                      onClick={() => {
-                        setActiveExamId(exam.value)
-                        setActiveStageId('')
-                      }}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                        }`}
-                    >
-                      {exam.label || exam.fullName || exam.value}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-semibold text-gray-700">Stage:</span>
-                <button
-                  onClick={() => setActiveStageId('')}
-                  className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${!activeStageId
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                    : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                    }`}
-                >
-                  All Stages
-                </button>
-                {stagesForActiveExam.map(stage => {
-                  const stageId = getEntityId(stage)
-                  const isActive = idsEqual(activeStageId, stageId)
-                  return (
-                    <button
-                      key={stageId}
-                      onClick={() => setActiveStageId(stageId)}
-                      className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${isActive
-                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold'
-                        : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'
-                        }`}
-                    >
-                      {stage.name || stage.title || stage.slug || stageId}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-gray-100">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1">Selected Path</span>
-                <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedExamCategoryLabel}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedExamLabel}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedSeries?.title || selectedSeries?.name || `${filteredSeriesList.length} series`}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedStageLabel}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="px-2.5 py-1 bg-indigo-50 border border-indigo-100 rounded-lg text-xs font-semibold text-indigo-700">{activeCatLabel}</span>
-                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
-                <span className="px-2.5 py-1 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-700">{selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label || 'All test subcategories'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!showTrash && (
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Test Series</h2>
-            <p className="text-sm text-gray-500">
-              {filteredSeriesList.length} series match the current exam and stage selection.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* ===== LEVEL 0: Audit ===== */}
-      {!showTrash && drillLevel === 'audit' && (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200 bg-rose-50/30 flex justify-between items-center">
+        {!showTrash && (
+          <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 text-rose-900">Incomplete Audit Questions</h2>
-              <p className="text-sm text-gray-500 mt-1">Found {auditQuestions.length} questions that require review</p>
+              <h2 className="text-lg font-bold text-gray-900">Test Series</h2>
+              <p className="text-sm text-gray-500">
+                {filteredSeriesList.length} series match the current exam and stage selection.
+              </p>
             </div>
           </div>
-          {auditQuestions.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-400" />
-              <p className="font-medium text-green-700">All questions look good!</p>
+        )}
+
+        {/* ===== LEVEL 0: Audit ===== */}
+        {!showTrash && drillLevel === 'audit' && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+            <div className="px-6 py-4 border-b border-gray-200 bg-rose-50/30 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 text-rose-900">Incomplete Audit Questions</h2>
+                <p className="text-sm text-gray-500 mt-1">Found {auditQuestions.length} questions that require review</p>
+              </div>
             </div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {auditQuestions.map(q => (
-                <div key={q.id || q._id} className="p-4 flex items-center justify-between hover:bg-gray-50">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-2">{q.questionText || q.question_text || 'No Question Text'}</p>
-                    <div className="mt-2 flex gap-2">
-                      {(!q.questionText || String(q.questionText).trim() === '') && <Badge variant="danger">Missing Text</Badge>}
-                      {(!q.options || q.options.length < 2 || q.options.some(o => !o || String(o).trim() === '')) && <Badge variant="warning">Missing Options</Badge>}
-                      {(q.correctOption === null || q.correctOption === undefined || q.correctOption === '') && <Badge variant="warning">Missing Mark Scheme</Badge>}
-                      {(q.status === 'draft' || q.status === 'Inactive' || q.status === 'Draft' || !q.isActive) && <Badge variant="default">Draft Status</Badge>}
+            {auditQuestions.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-400" />
+                <p className="font-medium text-green-700">All questions look good!</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {auditQuestions.map(q => (
+                  <div key={q.id || q._id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-2">{q.questionText || q.question_text || 'No Question Text'}</p>
+                      <div className="mt-2 flex gap-2">
+                        {(!q.questionText || String(q.questionText).trim() === '') && <Badge variant="danger">Missing Text</Badge>}
+                        {(!q.options || q.options.length < 2 || q.options.some(o => !o || String(o).trim() === '')) && <Badge variant="warning">Missing Options</Badge>}
+                        {(q.correctOption === null || q.correctOption === undefined || q.correctOption === '') && <Badge variant="warning">Missing Mark Scheme</Badge>}
+                        {(q.status === 'draft' || q.status === 'Inactive' || q.status === 'Draft' || !q.isActive) && <Badge variant="default">Draft Status</Badge>}
+                      </div>
+                    </div>
+                    <div className="ml-4">
+                      <button onClick={() => handleEdit(q)} className="p-2 border rounded-md text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
                     </div>
                   </div>
-                  <div className="ml-4">
-                    <button onClick={() => handleEdit(q)} className="p-2 border rounded-md text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
+        {!showTrash && drillLevel === 'series' && (
+          <div className="flex flex-col gap-3">
+            {filteredSeriesList.length > 0 ? filteredSeriesList.map(series => {
+              const seriesId = getSeriesId(series)
+              const testsCount = testsList.filter(t => {
+                const tSeriesId = getTestSeriesIdFromTest(t)
+                return idsEqual(tSeriesId, seriesId)
+              }).length
+              const questionsCount = questions.filter(q => {
+                const qSeries = getTestSeriesIdFromQuestion(q)
+                if (idsEqual(qSeries, seriesId)) return true
+                const qTestId = getTestIdFromQuestion(q)
+                return testsList.some(t => idsEqual(getTestId(t), qTestId) && idsEqual(getTestSeriesIdFromTest(t), seriesId))
+              }).length
+
+              return (
+                <div
+                  key={seriesId}
+                  onClick={() => setSelectedSeries(series)}
+                  className="group bg-white border border-gray-200 rounded-xl cursor-pointer transition-all p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden hover:border-indigo-300 hover:shadow-md"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'none'
+                  }}
+                >
+                  {/* Top gradient accent */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '4px',
+                    background: 'linear-gradient(to right, #6366f1, #8b5cf6)',
+                    borderRadius: '16px 16px 0 0'
+                  }} />
+                  <div className="flex items-start gap-4 min-w-0 flex-1">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                      <FolderOpen style={{ width: '22px', height: '22px', color: '#6366f1' }} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+
+                      <h3 style={{
+                        fontSize: '16px',
+                        fontWeight: 700,
+                        color: '#1e293b',
+                        marginBottom: '6px',
+                        lineHeight: 1.3
+                      }}>
+                        {series.title || series.name || 'Untitled Series'}
+                      </h3>
+
+                      <p style={{
+                        fontSize: '13px',
+                        color: '#94a3b8',
+                        marginBottom: '16px',
+                        lineHeight: 1.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {series.description || 'No description available'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      backgroundColor: '#f1f5f9',
+                      borderRadius: '8px'
+                    }}>
+                      <List style={{ width: '14px', height: '14px', color: '#6366f1' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>{testsCount} tests</span>
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 10px',
+                      backgroundColor: '#f0fdf4',
+                      borderRadius: '8px'
+                    }}>
+                      <FileText style={{ width: '14px', height: '14px', color: '#16a34a' }} />
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#166534' }}>{questionsCount} Qs</span>
+                    </div>
+                    {series.category && (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '4px 10px',
+                        backgroundColor: '#faf5ff',
+                        color: '#7c3aed',
+                        borderRadius: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        {series.category}
+                      </span>
+                    )}
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 hidden md:block" />
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              )
+            }) : (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <EmptyState
+                  icon={FolderOpen}
+                  title="No Test Series Found"
+                  description="No test series match the selected test category, exam category, exam, and stage filters."
+                />
+              </div>
+            )}
+          </div>
+        )}
 
-      {/* ===== LEVEL 1: Test Series Grid (filtered by active category) ===== */}
-      {!showTrash && drillLevel === 'series' && (
-        <div className="flex flex-col gap-3">
-          {filteredSeriesList.length > 0 ? filteredSeriesList.map(series => {
-            const seriesId = getSeriesId(series)
-            const testsCount = testsList.filter(t => {
-              const tSeriesId = getTestSeriesIdFromTest(t)
-              return idsEqual(tSeriesId, seriesId)
-            }).length
-            const questionsCount = questions.filter(q => {
-              const qSeries = getTestSeriesIdFromQuestion(q)
-              if (idsEqual(qSeries, seriesId)) return true
-              const qTestId = getTestIdFromQuestion(q)
-              return testsList.some(t => idsEqual(getTestId(t), qTestId) && idsEqual(getTestSeriesIdFromTest(t), seriesId))
-            }).length
+        {/* ===== LEVEL 2: Test Listing ===== */}
+        {drillLevel === 'tests' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+            {seriesTests.length > 0 ? seriesTests.map(test => {
+              const testId = getTestId(test)
+              const qCount = questions.filter(q => {
+                const qTestId = getTestIdFromQuestion(q)
+                return idsEqual(qTestId, testId)
+              }).length
+              const activeCount = questions.filter(q => {
+                const qTestId = getTestIdFromQuestion(q)
+                return idsEqual(qTestId, testId) && q.status === 'active'
+              }).length
+              const isPublished = test.status === 'published' || test.status === 'active'
 
-            return (
-              <div
-                key={seriesId}
-                onClick={() => setSelectedSeries(series)}
-                className="group bg-white border border-gray-200 rounded-xl cursor-pointer transition-all p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden hover:border-indigo-300 hover:shadow-md"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'none'
-                }}
-              >
-                {/* Top gradient accent */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: '4px',
-                  background: 'linear-gradient(to right, #6366f1, #8b5cf6)',
-                  borderRadius: '16px 16px 0 0'
-                }} />
-                <div className="flex items-start gap-4 min-w-0 flex-1">
-                  <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                    <FolderOpen style={{ width: '22px', height: '22px', color: '#6366f1' }} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-
-                    <h3 style={{
-                      fontSize: '16px',
-                      fontWeight: 700,
-                      color: '#1e293b',
-                      marginBottom: '6px',
-                      lineHeight: 1.3
+              return (
+                <div
+                  key={testId}
+                  onClick={() => setSelectedTest(test)}
+                  style={{
+                    padding: '20px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#a78bfa'
+                    e.currentTarget.style.boxShadow = '0 6px 20px -4px rgba(139, 92, 246, 0.15)'
+                    e.currentTarget.style.transform = 'translateY(-2px)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0'
+                    e.currentTarget.style.boxShadow = 'none'
+                    e.currentTarget.style.transform = 'none'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '10px',
+                      background: qCount > 0
+                        ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)'
+                        : 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}>
-                      {series.title || series.name || 'Untitled Series'}
-                    </h3>
+                      <FileText style={{ width: '20px', height: '20px', color: qCount > 0 ? '#16a34a' : '#d97706' }} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '8px',
+                        height: '8px',
+                        borderRadius: '50%',
+                        backgroundColor: isPublished ? '#22c55e' : '#94a3b8'
+                      }} />
+                      <ChevronRight style={{ width: '18px', height: '18px', color: '#cbd5e1' }} />
+                    </div>
+                  </div>
 
+                  <h3 style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: '#1e293b',
+                    marginBottom: '4px',
+                    lineHeight: 1.3
+                  }}>
+                    {test.title || test.name || 'Untitled Test'}
+                  </h3>
+
+                  {test.description && (
                     <p style={{
                       fontSize: '13px',
                       color: '#94a3b8',
-                      marginBottom: '16px',
-                      lineHeight: 1.5,
+                      marginBottom: '14px',
+                      lineHeight: 1.4,
                       display: '-webkit-box',
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical',
                       overflow: 'hidden'
                     }}>
-                      {series.description || 'No description available'}
+                      {test.description}
                     </p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    backgroundColor: '#f1f5f9',
-                    borderRadius: '8px'
-                  }}>
-                    <List style={{ width: '14px', height: '14px', color: '#6366f1' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>{testsCount} tests</span>
-                  </div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    backgroundColor: '#f0fdf4',
-                    borderRadius: '8px'
-                  }}>
-                    <FileText style={{ width: '14px', height: '14px', color: '#16a34a' }} />
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#166534' }}>{questionsCount} Qs</span>
-                  </div>
-                  {series.category && (
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      padding: '4px 10px',
-                      backgroundColor: '#faf5ff',
-                      color: '#7c3aed',
-                      borderRadius: '8px',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    }}>
-                      {series.category}
-                    </span>
                   )}
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-indigo-500 hidden md:block" />
-                </div>
-              </div>
-            )
-          }) : (
-            <div style={{ gridColumn: '1 / -1' }}>
-              <EmptyState
-                icon={FolderOpen}
-                title="No Test Series Found"
-                description="No test series match the selected test category, exam category, exam, and stage filters."
-              />
-            </div>
-          )}
-        </div>
-      )}
 
-      {/* ===== LEVEL 2: Test Listing ===== */}
-      {drillLevel === 'tests' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-          {seriesTests.length > 0 ? seriesTests.map(test => {
-            const testId = getTestId(test)
-            const qCount = questions.filter(q => {
-              const qTestId = getTestIdFromQuestion(q)
-              return idsEqual(qTestId, testId)
-            }).length
-            const activeCount = questions.filter(q => {
-              const qTestId = getTestIdFromQuestion(q)
-              return idsEqual(qTestId, testId) && q.status === 'active'
-            }).length
-            const isPublished = test.status === 'published' || test.status === 'active'
-
-            return (
-              <div
-                key={testId}
-                onClick={() => setSelectedTest(test)}
-                style={{
-                  padding: '20px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '14px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = '#a78bfa'
-                  e.currentTarget.style.boxShadow = '0 6px 20px -4px rgba(139, 92, 246, 0.15)'
-                  e.currentTarget.style.transform = 'translateY(-2px)'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = '#e2e8f0'
-                  e.currentTarget.style.boxShadow = 'none'
-                  e.currentTarget.style.transform = 'none'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                  <div style={{
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '10px',
-                    background: qCount > 0
-                      ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)'
-                      : 'linear-gradient(135deg, #fef3c7, #fde68a)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <FileText style={{ width: '20px', height: '20px', color: qCount > 0 ? '#16a34a' : '#d97706' }} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{
-                      display: 'inline-block',
-                      width: '8px',
-                      height: '8px',
-                      borderRadius: '50%',
-                      backgroundColor: isPublished ? '#22c55e' : '#94a3b8'
-                    }} />
-                    <ChevronRight style={{ width: '18px', height: '18px', color: '#cbd5e1' }} />
-                  </div>
-                </div>
-
-                <h3 style={{
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  color: '#1e293b',
-                  marginBottom: '4px',
-                  lineHeight: 1.3
-                }}>
-                  {test.title || test.name || 'Untitled Test'}
-                </h3>
-
-                {test.description && (
-                  <p style={{
-                    fontSize: '13px',
-                    color: '#94a3b8',
-                    marginBottom: '14px',
-                    lineHeight: 1.4,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}>
-                    {test.description}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: test.description ? '0' : '14px', flexWrap: 'wrap' }}>
-                  <span style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    padding: '3px 10px',
-                    backgroundColor: '#f1f5f9',
-                    color: '#475569',
-                    borderRadius: '6px'
-                  }}>
-                    {qCount} questions
-                  </span>
-                  <span style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    padding: '3px 10px',
-                    backgroundColor: activeCount > 0 ? '#f0fdf4' : '#fef2f2',
-                    color: activeCount > 0 ? '#166534' : '#991b1b',
-                    borderRadius: '6px'
-                  }}>
-                    {activeCount} active
-                  </span>
-                  {(test.duration || test.time_limit) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: test.description ? '0' : '14px', flexWrap: 'wrap' }}>
                     <span style={{
                       fontSize: '12px',
                       fontWeight: 600,
                       padding: '3px 10px',
-                      backgroundColor: '#eff6ff',
-                      color: '#1e40af',
-                      borderRadius: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
+                      backgroundColor: '#f1f5f9',
+                      color: '#475569',
+                      borderRadius: '6px'
                     }}>
-                      <Clock style={{ width: '12px', height: '12px' }} />
-                      {test.duration || test.time_limit} min
+                      {qCount} questions
                     </span>
-                  )}
+                    <span style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      padding: '3px 10px',
+                      backgroundColor: activeCount > 0 ? '#f0fdf4' : '#fef2f2',
+                      color: activeCount > 0 ? '#166534' : '#991b1b',
+                      borderRadius: '6px'
+                    }}>
+                      {activeCount} active
+                    </span>
+                    {(test.duration || test.time_limit) && (
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '3px 10px',
+                        backgroundColor: '#eff6ff',
+                        color: '#1e40af',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        <Clock style={{ width: '12px', height: '12px' }} />
+                        {test.duration || test.time_limit} min
+                      </span>
+                    )}
+                  </div>
                 </div>
+              )
+            }) : (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <EmptyState
+                  icon={FileText}
+                  title="No Tests in this Series"
+                  description={`No tests found in "${selectedSeries?.title || selectedSeries?.name || 'this series'}". Create a test first.`}
+                />
               </div>
-            )
-          }) : (
-            <div style={{ gridColumn: '1 / -1' }}>
-              <EmptyState
-                icon={FileText}
-                title="No Tests in this Series"
-                description={`No tests found in "${selectedSeries?.title || selectedSeries?.name || 'this series'}". Create a test first.`}
-              />
-            </div>
-          )}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      {/* ===== LEVEL 3: Question Detail Cards ===== */}
-      {drillLevel === 'questions' && (
-        <div>
-          <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
-            <button
-              onClick={() => {
-                setSelectedSection('all')
-                setCurrentPage(1)
-              }}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSection === 'all'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-            >
-              All Sections ({testQuestions.length})
-            </button>
-            {[...sectionCounts.entries()].map(([section, count]) => (
+        {/* ===== LEVEL 3: Question Detail Cards ===== */}
+        {drillLevel === 'questions' && (
+          <div>
+            <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
               <button
-                key={section}
                 onClick={() => {
-                  setSelectedSection(section)
+                  setSelectedSection('all')
                   setCurrentPage(1)
                 }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSection === section
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSection === 'all'
                   ? 'bg-gray-900 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
               >
-                {section} ({count})
+                All Sections ({testQuestions.length})
               </button>
-            ))}
-          </div>
+              {[...sectionCounts.entries()].map(([section, count]) => (
+                <button
+                  key={section}
+                  onClick={() => {
+                    setSelectedSection(section)
+                    setCurrentPage(1)
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedSection === section
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                >
+                  {section} ({count})
+                </button>
+              ))}
+            </div>
 
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '16px',
-            padding: '12px 16px',
-            backgroundColor: '#f8fafc',
-            borderRadius: '12px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <span style={{ fontSize: '14px', color: '#64748b' }}>
-              <strong style={{ color: '#1e293b' }}>{filteredTestQuestions.length}</strong> questions
-              {selectedSection !== 'all' ? ` in ${selectedSection}` : ' in this test'}
-            </span>
-            <button
-              onClick={() => { resetForm(); setShowForm(true) }}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                backgroundColor: '#6366f1',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: 600,
-                fontFamily: 'inherit',
-                transition: 'background-color 0.15s'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6366f1'}
-            >
-              <Plus style={{ width: '16px', height: '16px' }} />
-              Add Question
-            </button>
-          </div>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: '16px',
+              padding: '12px 16px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <span style={{ fontSize: '14px', color: '#64748b' }}>
+                <strong style={{ color: '#1e293b' }}>{filteredTestQuestions.length}</strong> questions
+                {selectedSection !== 'all' ? ` in ${selectedSection}` : ' in this test'}
+              </span>
+              <button
+                onClick={() => { resetForm(); setShowForm(true) }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 16px',
+                  backgroundColor: '#6366f1',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  fontFamily: 'inherit',
+                  transition: 'background-color 0.15s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6366f1'}
+              >
+                <Plus style={{ width: '16px', height: '16px' }} />
+                Add Question
+              </button>
+            </div>
 
-          {filteredTestQuestions.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {paginatedQuestions.map((q, idx) => {
-                // Calculate actual index for question number display
-                const actualIdx = (currentPage - 1) * QUESTIONS_PER_PAGE + idx
-                const difficulty = DIFFICULTY_LEVELS.find(d => d.value === q.difficulty) || DIFFICULTY_LEVELS[1]
-                const status = STATUS_OPTIONS.find(s => s.value === q.status) || STATUS_OPTIONS[1]
-                const type = QUESTION_TYPES.find(t => t.value === q.type) || QUESTION_TYPES[0]
-                const letters = ['A', 'B', 'C', 'D', 'E', 'F']
+            {filteredTestQuestions.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {paginatedQuestions.map((q, idx) => {
+                  // Calculate actual index for question number display
+                  const actualIdx = (currentPage - 1) * QUESTIONS_PER_PAGE + idx
+                  const difficulty = DIFFICULTY_LEVELS.find(d => d.value === q.difficulty) || DIFFICULTY_LEVELS[1]
+                  const status = STATUS_OPTIONS.find(s => s.value === q.status) || STATUS_OPTIONS[1]
+                  const type = QUESTION_TYPES.find(t => t.value === q.type) || QUESTION_TYPES[0]
+                  const letters = ['A', 'B', 'C', 'D', 'E', 'F']
 
-                return (
-                  <div
-                    key={q._id || q.id || idx}
-                    style={{
-                      padding: '20px',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '14px',
-                      transition: 'border-color 0.15s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
-                    onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
-                  >
-                    {/* Question header */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '8px',
-                          backgroundColor: '#eef2ff',
-                          color: '#6366f1',
-                          fontSize: '13px',
-                          fontWeight: 700
-                        }}>
-                          {actualIdx + 1}
-                        </span>
-                        <Badge variant="info">{type.label}</Badge>
-                        <Badge className={difficulty.color}>{difficulty.label}</Badge>
-                        <Badge className={status.color}>{status.label}</Badge>
-                        {q.marks && (
-                          <span style={{ fontSize: '12px', color: '#64748b' }}>
-                            <strong style={{ color: '#059669' }}>+{q.marks}</strong>
-                            {q.negativeMarks > 0 && <span style={{ color: '#dc2626' }}> / -{q.negativeMarks}</span>}
+                  return (
+                    <div
+                      key={q._id || q.id || idx}
+                      style={{
+                        padding: '20px',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        transition: 'border-color 0.15s'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.borderColor = '#cbd5e1'}
+                      onMouseLeave={(e) => e.currentTarget.style.borderColor = '#e2e8f0'}
+                    >
+                      {/* Question header */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '8px',
+                            backgroundColor: '#eef2ff',
+                            color: '#6366f1',
+                            fontSize: '13px',
+                            fontWeight: 700
+                          }}>
+                            {actualIdx + 1}
                           </span>
-                        )}
+                          <Badge variant="info">{type.label}</Badge>
+                          <Badge className={difficulty.color}>{difficulty.label}</Badge>
+                          <Badge className={status.color}>{status.label}</Badge>
+                          {q.marks && (
+                            <span style={{ fontSize: '12px', color: '#64748b' }}>
+                              <strong style={{ color: '#059669' }}>+{q.marks}</strong>
+                              {q.negativeMarks > 0 && <span style={{ color: '#dc2626' }}> / -{q.negativeMarks}</span>}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                          <button
+                            onClick={() => handleQuestionPreview(q)}
+                            style={{
+                              padding: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5'; e.currentTarget.style.color = '#10b981' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
+                            title="Preview"
+                          >
+                            <Eye style={{ width: '16px', height: '16px' }} />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(q)}
+                            style={{
+                              padding: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#eef2ff'; e.currentTarget.style.color = '#6366f1' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
+                            title="Edit"
+                          >
+                            <Edit2 style={{ width: '16px', height: '16px' }} />
+                          </button>
+                          <button
+                            onClick={() => handleToggleStatus(q)}
+                            style={{
+                              padding: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f0fdf4'; e.currentTarget.style.color = '#16a34a' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
+                            title={q.status === 'active' ? 'Deactivate' : 'Activate'}
+                          >
+                            {q.status === 'active' ? <X style={{ width: '16px', height: '16px' }} /> : <CheckCircle style={{ width: '16px', height: '16px' }} />}
+                          </button>
+                          <button
+                            onClick={() => handleDelete(q._id || q.id)}
+                            style={{
+                              padding: '6px',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              color: '#94a3b8',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; e.currentTarget.style.color = '#dc2626' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
+                            title="Delete"
+                          >
+                            <Trash2 style={{ width: '16px', height: '16px' }} />
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+
+                      {/* Question text */}
+                      <p style={{
+                        fontSize: '15px',
+                        color: '#1e293b',
+                        lineHeight: 1.6,
+                        marginBottom: q.options?.length > 0 ? '16px' : '0'
+                      }}>
+                        {q.questionText}
+                      </p>
+
+                      {/* Options */}
+                      {q.options?.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px', marginBottom: q.explanation ? '14px' : '0' }}>
+                          {q.options.map((opt, oi) => {
+                            const isCorrect = Array.isArray(q.correctOption)
+                              ? q.correctOption.includes(oi)
+                              : q.correctOption === oi
+
+                            return (
+                              <div
+                                key={oi}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '10px',
+                                  padding: '10px 14px',
+                                  borderRadius: '10px',
+                                  border: `1px solid ${isCorrect ? '#86efac' : '#f1f5f9'}`,
+                                  backgroundColor: isCorrect ? '#f0fdf4' : '#f8fafc',
+                                  fontSize: '14px',
+                                  color: isCorrect ? '#166534' : '#475569'
+                                }}
+                              >
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  width: '24px',
+                                  height: '24px',
+                                  borderRadius: '50%',
+                                  backgroundColor: isCorrect ? '#22c55e' : '#e2e8f0',
+                                  color: isCorrect ? '#fff' : '#64748b',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  flexShrink: 0
+                                }}>
+                                  {isCorrect ? '✓' : letters[oi]}
+                                </span>
+                                <span>{opt}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Explanation */}
+                      {q.explanation && (
+                        <div style={{
+                          padding: '12px 16px',
+                          backgroundColor: '#fffbeb',
+                          border: '1px solid #fde68a',
+                          borderRadius: '10px',
+                          fontSize: '13px',
+                          color: '#92400e',
+                          lineHeight: 1.5
+                        }}>
+                          <strong style={{ display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b45309' }}>
+                            Explanation
+                          </strong>
+                          {q.explanation}
+                        </div>
+                      )}
+
+                      {/* Tags & Metadata footer */}
+                      {(q.subject || q.tags?.length > 0) && (
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          marginTop: '14px',
+                          paddingTop: '12px',
+                          borderTop: '1px solid #f1f5f9',
+                          flexWrap: 'wrap'
+                        }}>
+                          {q.subject && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '3px 8px',
+                              backgroundColor: '#f5f3ff',
+                              color: '#7c3aed',
+                              borderRadius: '6px'
+                            }}>
+                              {q.subjectName || q.subject}
+                            </span>
+                          )}
+                          {q.chapter && (
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              padding: '3px 8px',
+                              backgroundColor: '#f1f5f9',
+                              color: '#64748b',
+                              borderRadius: '6px'
+                            }}>
+                              {q.chapter}
+                            </span>
+                          )}
+                          {q.tags?.map((tag, ti) => (
+                            <span key={ti} style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              padding: '3px 8px',
+                              backgroundColor: '#f1f5f9',
+                              color: '#64748b',
+                              borderRadius: '6px'
+                            }}>
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+                {totalPages > 1 && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginTop: '20px',
+                    padding: '16px',
+                    backgroundColor: '#f8fafc',
+                    borderRadius: '12px',
+                    border: '1px solid #e2e8f0'
+                  }}>
+                    <span style={{ fontSize: '13px', color: '#64748b' }}>
+                      Showing {(currentPage - 1) * QUESTIONS_PER_PAGE + 1} - {Math.min(currentPage * QUESTIONS_PER_PAGE, filteredTestQuestions.length)} of {filteredTestQuestions.length} questions
+                    </span>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      <button
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                          opacity: currentPage === 1 ? 0.5 : 1,
+                          fontSize: '13px',
+                          color: '#374151'
+                        }}
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                          opacity: currentPage === 1 ? 0.5 : 1,
+                          fontSize: '13px',
+                          color: '#374151'
+                        }}
+                      >
+                        Previous
+                      </button>
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum
+                        if (totalPages <= 5) {
+                          pageNum = i + 1
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i
+                        } else {
+                          pageNum = currentPage - 2 + i
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            style={{
+                              width: '32px',
+                              height: '32px',
+                              backgroundColor: currentPage === pageNum ? '#6366f1' : '#fff',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: currentPage === pageNum ? 700 : 500,
+                              color: currentPage === pageNum ? '#fff' : '#374151'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      })}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                          opacity: currentPage === totalPages ? 0.5 : 1,
+                          fontSize: '13px',
+                          color: '#374151'
+                        }}
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                        style={{
+                          padding: '6px 12px',
+                          backgroundColor: '#fff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                          opacity: currentPage === totalPages ? 0.5 : 1,
+                          fontSize: '13px',
+                          color: '#374151'
+                        }}
+                      >
+                        Last
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title="No Questions in this Test"
+                description={`"${selectedTest?.title || selectedTest?.name || 'This test'}" has no questions yet. Add your first question.`}
+                action={
+                  <button
+                    onClick={() => { resetForm(); setShowForm(true) }}
+                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Question
+                  </button>
+                }
+              />
+            )}
+          </div>
+        )}
+
+        {selectedSeries && (
+          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+            <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 truncate">{selectedSeries.title || selectedSeries.name || 'Test Series'}</h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                    <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedExamCategoryLabel}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-300" />
+                    <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedExamLabel}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-300" />
+                    <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedStageLabel}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-300" />
+                    <span className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold rounded">{activeCatLabel}</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setSelectedSeries(null); setSelectedTest(null); resetTestForm() }}
+                  className="p-2 hover:bg-gray-200 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="border-b border-gray-200 p-3 flex flex-col gap-2">
+                {/* Level 1 - Top level row (Year Based, Exam Based) */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">Test Subcategory</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubCategoryLevel1('')
+                      setSubCategoryLevel2('')
+                      setSubCategoryLevel3('')
+                      setSubCategoryLevel4('')
+                      setSelectedTestSubCategoryId('all')
+                      setSelectedTest(null)
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${!subCategoryLevel1
+                      ? 'bg-gray-900 text-white border-gray-900'
+                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                  >
+                    All ({seriesTests.length})
+                  </button>
+                  {subCategoryOptionsLevel1.map((cat) => {
+                    const catId = getEntityId(cat) || ''
+                    const isSelected = subCategoryLevel1 === catId
+                    const count = getCategoryTestCount(catId)
+                    return (
+                      <button
+                        key={catId}
+                        type="button"
+                        onClick={() => {
+                          const newVal = isSelected ? '' : catId
+                          setSubCategoryLevel1(newVal)
+                          setSubCategoryLevel2('')
+                          setSubCategoryLevel3('')
+                          setSubCategoryLevel4('')
+                          setSelectedTestSubCategoryId(newVal || 'all')
+                          setSelectedTest(null)
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${isSelected
+                          ? 'bg-gray-900 text-white border-gray-900'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        {getCategoryLabel(cat)} ({count})
+                      </button>
+                    )
+                  })}
+                  {subCategoryOptionsLevel1.length === 0 && (
+                    <span className="text-sm text-gray-400 px-2">No child categories under {activeCatLabel}</span>
+                  )}
+                </div>
+
+                {/* Level 2 - Second row (2025, 2024, etc.) */}
+                {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap ml-4">
+                    {subCategoryOptionsLevel2.map((cat) => {
+                      const catId = getEntityId(cat) || ''
+                      const isSelected = subCategoryLevel2 === catId
+                      const count = getCategoryTestCount(catId)
+                      return (
                         <button
-                          onClick={() => handleQuestionPreview(q)}
-                          style={{
-                            padding: '6px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            color: '#94a3b8',
-                            transition: 'all 0.15s'
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? '' : catId
+                            setSubCategoryLevel2(newVal)
+                            setSubCategoryLevel3('')
+                            setSubCategoryLevel4('')
+                            setSelectedTestSubCategoryId(newVal || subCategoryLevel1 || 'all')
+                            setSelectedTest(null)
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#ecfdf5'; e.currentTarget.style.color = '#10b981' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
-                          title="Preview"
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                            }`}
                         >
-                          <Eye style={{ width: '16px', height: '16px' }} />
+                          {getCategoryLabel(cat)} ({count})
                         </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Level 3 - Third row */}
+                {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap ml-8">
+                    {subCategoryOptionsLevel3.map((cat) => {
+                      const catId = getEntityId(cat) || ''
+                      const isSelected = subCategoryLevel3 === catId
+                      const count = getCategoryTestCount(catId)
+                      return (
                         <button
-                          onClick={() => handleEdit(q)}
-                          style={{
-                            padding: '6px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            color: '#94a3b8',
-                            transition: 'all 0.15s'
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? '' : catId
+                            setSubCategoryLevel3(newVal)
+                            setSubCategoryLevel4('')
+                            setSelectedTestSubCategoryId(newVal || subCategoryLevel2 || subCategoryLevel1 || 'all')
+                            setSelectedTest(null)
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#eef2ff'; e.currentTarget.style.color = '#6366f1' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
-                          title="Edit"
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                            }`}
                         >
-                          <Edit2 style={{ width: '16px', height: '16px' }} />
+                          {getCategoryLabel(cat)} ({count})
                         </button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {/* Level 4 - Fourth row */}
+                {subCategoryLevel3 && subCategoryOptionsLevel4.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap ml-12">
+                    {subCategoryOptionsLevel4.map((cat) => {
+                      const catId = getEntityId(cat) || ''
+                      const isSelected = subCategoryLevel4 === catId
+                      const count = getCategoryTestCount(catId)
+                      return (
                         <button
-                          onClick={() => handleToggleStatus(q)}
-                          style={{
-                            padding: '6px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            color: '#94a3b8',
-                            transition: 'all 0.15s'
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? '' : catId
+                            setSubCategoryLevel4(newVal)
+                            setSelectedTestSubCategoryId(newVal || subCategoryLevel3 || subCategoryLevel2 || subCategoryLevel1 || 'all')
+                            setSelectedTest(null)
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f0fdf4'; e.currentTarget.style.color = '#16a34a' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
-                          title={q.status === 'active' ? 'Deactivate' : 'Activate'}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${isSelected
+                            ? 'bg-gray-900 text-white border-gray-900'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                            }`}
                         >
-                          {q.status === 'active' ? <X style={{ width: '16px', height: '16px' }} /> : <CheckCircle style={{ width: '16px', height: '16px' }} />}
+                          {getCategoryLabel(cat)} ({count})
                         </button>
-                        <button
-                          onClick={() => handleDelete(q._id || q.id)}
-                          style={{
-                            padding: '6px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            color: '#94a3b8',
-                            transition: 'all 0.15s'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fef2f2'; e.currentTarget.style.color = '#dc2626' }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#94a3b8' }}
-                          title="Delete"
-                        >
-                          <Trash2 style={{ width: '16px', height: '16px' }} />
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
+                {!selectedTest ? (
+                  <div>
+                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900">Tests</h3>
+                        <p className="text-sm text-gray-500">{workspaceTests.length} tests linked to the selected test subcategory.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowTestBulkUpload(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Upload className="w-4 h-4" /> Bulk Create
+                        </button>
+                        <button onClick={openCreateTestForm} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2">
+                          <Plus className="w-4 h-4" /> Create Test
                         </button>
                       </div>
                     </div>
 
-                    {/* Question text */}
-                    <p style={{
-                      fontSize: '15px',
-                      color: '#1e293b',
-                      lineHeight: 1.6,
-                      marginBottom: q.options?.length > 0 ? '16px' : '0'
-                    }}>
-                      {q.questionText}
-                    </p>
-
-                    {/* Options */}
-                    {q.options?.length > 0 && (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '8px', marginBottom: q.explanation ? '14px' : '0' }}>
-                        {q.options.map((opt, oi) => {
-                          const isCorrect = Array.isArray(q.correctOption)
-                            ? q.correctOption.includes(oi)
-                            : q.correctOption === oi
-
+                    {workspaceTests.length === 0 ? (
+                      <EmptyState
+                        icon={FileText}
+                        title="No Tests Linked"
+                        description="Create a test or bulk upload tests for this series and selected test subcategory."
+                      />
+                    ) : (
+                      <div className="flex flex-col gap-3">
+                        {workspaceTests.map(test => {
+                          const testId = getTestId(test)
+                          const qCount = questions.filter(q => idsEqual(getTestIdFromQuestion(q), testId)).length
                           return (
                             <div
-                              key={oi}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                padding: '10px 14px',
-                                borderRadius: '10px',
-                                border: `1px solid ${isCorrect ? '#86efac' : '#f1f5f9'}`,
-                                backgroundColor: isCorrect ? '#f0fdf4' : '#f8fafc',
-                                fontSize: '14px',
-                                color: isCorrect ? '#166534' : '#475569'
+                              key={testId}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setSelectedTest(test)}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Enter' || event.key === ' ') {
+                                  event.preventDefault()
+                                  setSelectedTest(test)
+                                }
                               }}
+                              className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                             >
-                              <span style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                backgroundColor: isCorrect ? '#22c55e' : '#e2e8f0',
-                                color: isCorrect ? '#fff' : '#64748b',
-                                fontSize: '12px',
-                                fontWeight: 700,
-                                flexShrink: 0
-                              }}>
-                                {isCorrect ? '✓' : letters[oi]}
-                              </span>
-                              <span>{opt}</span>
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                  <Badge variant={test.status === 'active' || test.status === 'published' ? 'success' : 'default'}>{test.status || 'draft'}</Badge>
+                                  <Badge variant="info">{test.type || activeCategory}</Badge>
+                                </div>
+                                <h4 className="font-bold text-gray-900 truncate">{test.title || test.name || 'Untitled Test'}</h4>
+                                <p className="text-xs text-gray-500 mt-1 truncate">{test.description || 'No description'}</p>
+                              </div>
+                              <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
+                                <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{test.duration || test.time_limit || '--'} min</span>
+                                <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{qCount} Qs</span>
+                                <button
+                                  type="button"
+                                  onClick={(event) => { event.stopPropagation(); handleTestPreview(test) }}
+                                  className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
+                                  title="Preview Test"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(event) => { event.stopPropagation(); openEditTestForm(test) }}
+                                  className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
+                                  title="Edit Test Setup"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <ChevronRight className="w-5 h-5 text-gray-300" />
+                              </div>
                             </div>
                           )
                         })}
                       </div>
                     )}
+                  </div>
+                ) : (
+                  <div>
+                    <button
+                      onClick={() => setSelectedTest(null)}
+                      className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <ArrowLeft className="w-4 h-4" /> Back to Tests
+                    </button>
+                    <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
+                      <button
+                        onClick={() => { setSelectedSection('all'); setCurrentPage(1) }}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                      >
+                        All Sections ({testQuestions.length})
+                      </button>
+                      {[...sectionCounts.entries()].map(([section, count]) => (
+                        <button
+                          key={section}
+                          onClick={() => { setSelectedSection(section); setCurrentPage(1) }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === section ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                        >
+                          {section} ({count})
+                        </button>
+                      ))}
+                    </div>
 
-                    {/* Explanation */}
-                    {q.explanation && (
-                      <div style={{
-                        padding: '12px 16px',
-                        backgroundColor: '#fffbeb',
-                        border: '1px solid #fde68a',
-                        borderRadius: '10px',
-                        fontSize: '13px',
-                        color: '#92400e',
-                        lineHeight: 1.5
-                      }}>
-                        <strong style={{ display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b45309' }}>
-                          Explanation
-                        </strong>
-                        {q.explanation}
+                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h3 className="font-bold text-gray-900">{selectedTest.title || selectedTest.name || 'Test'}</h3>
+                        <p className="text-sm text-gray-500">{filteredTestQuestions.length} questions in current section.</p>
                       </div>
-                    )}
+                      <div className="flex gap-2">
+                        <button onClick={() => setShowBulkImport(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                          <Upload className="w-4 h-4" /> Bulk Questions
+                        </button>
+                        <button onClick={() => { resetForm(); setShowForm(true) }} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2">
+                          <Plus className="w-4 h-4" /> Add Question
+                        </button>
+                      </div>
+                    </div>
 
-                    {/* Tags & Metadata footer */}
-                    {(q.subject || q.tags?.length > 0) && (
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        marginTop: '14px',
-                        paddingTop: '12px',
-                        borderTop: '1px solid #f1f5f9',
-                        flexWrap: 'wrap'
-                      }}>
-                        {q.subject && (
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            padding: '3px 8px',
-                            backgroundColor: '#f5f3ff',
-                            color: '#7c3aed',
-                            borderRadius: '6px'
-                          }}>
-                            {q.subjectName || q.subject}
-                          </span>
-                        )}
-                        {q.chapter && (
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            padding: '3px 8px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#64748b',
-                            borderRadius: '6px'
-                          }}>
-                            {q.chapter}
-                          </span>
-                        )}
-                        {q.tags?.map((tag, ti) => (
-                          <span key={ti} style={{
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            padding: '3px 8px',
-                            backgroundColor: '#f1f5f9',
-                            color: '#64748b',
-                            borderRadius: '6px'
-                          }}>
-                            #{tag}
-                          </span>
+                    {filteredTestQuestions.length === 0 ? (
+                      <EmptyState icon={FileText} title="No Questions in this Test" description="Add or bulk upload questions for this test." />
+                    ) : (
+                      <div className="space-y-3">
+                        {paginatedQuestions.map((q, idx) => (
+                          <div key={getQuestionId(q) || idx} className="bg-white border border-gray-200 rounded-xl p-4">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">{(currentPage - 1) * QUESTIONS_PER_PAGE + idx + 1}</span>
+                                  <Badge variant="info">{q.type || 'mcq'}</Badge>
+                                  <Badge className={(DIFFICULTY_LEVELS.find(d => d.value === q.difficulty) || DIFFICULTY_LEVELS[1]).color}>{q.difficulty || 'medium'}</Badge>
+                                  <Badge className={(STATUS_OPTIONS.find(s => s.value === q.status) || STATUS_OPTIONS[1]).color}>{q.status || 'draft'}</Badge>
+                                </div>
+                                <p className="text-sm text-gray-900 line-clamp-3">{q.questionText}</p>
+                              </div>
+                              <div className="flex gap-1 shrink-0">
+                                <button onClick={() => handleQuestionPreview(q)} className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Preview Question"><Eye className="w-4 h-4" /></button>
+                                <button onClick={() => handleEdit(q)} className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
+                                <button onClick={() => handleDelete(getQuestionId(q))} className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
+                              </div>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
-                )
-              })}
-              {totalPages > 1 && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  marginTop: '20px',
-                  padding: '16px',
-                  backgroundColor: '#f8fafc',
-                  borderRadius: '12px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  <span style={{ fontSize: '13px', color: '#64748b' }}>
-                    Showing {(currentPage - 1) * QUESTIONS_PER_PAGE + 1} - {Math.min(currentPage * QUESTIONS_PER_PAGE, filteredTestQuestions.length)} of {filteredTestQuestions.length} questions
-                  </span>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    <button
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                        opacity: currentPage === 1 ? 0.5 : 1,
-                        fontSize: '13px',
-                        color: '#374151'
-                      }}
-                    >
-                      First
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
-                        opacity: currentPage === 1 ? 0.5 : 1,
-                        fontSize: '13px',
-                        color: '#374151'
-                      }}
-                    >
-                      Previous
-                    </button>
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum
-                      if (totalPages <= 5) {
-                        pageNum = i + 1
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i
-                      } else {
-                        pageNum = currentPage - 2 + i
-                      }
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          style={{
-                            width: '32px',
-                            height: '32px',
-                            backgroundColor: currentPage === pageNum ? '#6366f1' : '#fff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: currentPage === pageNum ? 700 : 500,
-                            color: currentPage === pageNum ? '#fff' : '#374151'
-                          }}
-                        >
-                          {pageNum}
-                        </button>
-                      )
-                    })}
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                        opacity: currentPage === totalPages ? 0.5 : 1,
-                        fontSize: '13px',
-                        color: '#374151'
-                      }}
-                    >
-                      Next
-                    </button>
-                    <button
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: '#fff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
-                        opacity: currentPage === totalPages ? 0.5 : 1,
-                        fontSize: '13px',
-                        color: '#374151'
-                      }}
-                    >
-                      Last
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <EmptyState
-              icon={FileText}
-              title="No Questions in this Test"
-              description={`"${selectedTest?.title || selectedTest?.name || 'This test'}" has no questions yet. Add your first question.`}
-              action={
-                <button
-                  onClick={() => { resetForm(); setShowForm(true) }}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Question
-                </button>
-              }
-            />
-          )}
-        </div>
-      )}
-
-      {selectedSeries && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50">
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold text-gray-900 truncate">{selectedSeries.title || selectedSeries.name || 'Test Series'}</h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                  <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedExamCategoryLabel}</span>
-                  <ChevronRight className="w-3 h-3 text-gray-300" />
-                  <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedExamLabel}</span>
-                  <ChevronRight className="w-3 h-3 text-gray-300" />
-                  <span className="px-2 py-1 bg-white border border-gray-200 rounded">{selectedStageLabel}</span>
-                  <ChevronRight className="w-3 h-3 text-gray-300" />
-                  <span className="px-2 py-1 bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold rounded">{activeCatLabel}</span>
-                </div>
+                )}
               </div>
-              <button
-                onClick={() => { setSelectedSeries(null); setSelectedTest(null); resetTestForm() }}
-                className="p-2 hover:bg-gray-200 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="border-b border-gray-200 p-3 flex items-center gap-2 overflow-x-auto">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">Test Subcategory</span>
-              <button
-                onClick={() => { setSelectedTestSubCategoryId('all'); setSelectedTest(null) }}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${selectedTestSubCategoryId === 'all'
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                  }`}
-              >
-                All ({seriesTests.length})
-              </button>
-              {activeTestSubCategories.map(category => {
-                const categoryId = getEntityId(category)
-                const refs = buildCategorySelectionRefs(categoryId, flatTestCategories)
-                const count = seriesTests.filter(test => testMatchesSubCategory(test, category, refs)).length
-                return (
-                  <button
-                    key={categoryId}
-                    onClick={() => { setSelectedTestSubCategoryId(categoryId); setSelectedTest(null) }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${idsEqual(selectedTestSubCategoryId, categoryId)
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-                      }`}
-                  >
-                    {category.name || category.label || category.slug || categoryId} ({count})
-                  </button>
-                )
-              })}
-              {activeTestSubCategories.length === 0 && (
-                <span className="text-sm text-gray-400 px-2">No child categories under {activeCatLabel}</span>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
-              {!selectedTest ? (
-                <div>
-                  <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-gray-900">Tests</h3>
-                      <p className="text-sm text-gray-500">{workspaceTests.length} tests linked to the selected test subcategory.</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowTestBulkUpload(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                        <Upload className="w-4 h-4" /> Bulk Create
-                      </button>
-                      <button onClick={openCreateTestForm} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Create Test
-                      </button>
-                    </div>
-                  </div>
-
-                  {workspaceTests.length === 0 ? (
-                    <EmptyState
-                      icon={FileText}
-                      title="No Tests Linked"
-                      description="Create a test or bulk upload tests for this series and selected test subcategory."
-                    />
-                  ) : (
-                    <div className="flex flex-col gap-3">
-                      {workspaceTests.map(test => {
-                        const testId = getTestId(test)
-                        const qCount = questions.filter(q => idsEqual(getTestIdFromQuestion(q), testId)).length
-                        return (
-                          <div
-                            key={testId}
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => setSelectedTest(test)}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault()
-                                setSelectedTest(test)
-                              }
-                            }}
-                            className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex flex-wrap gap-2 mb-2">
-                                <Badge variant={test.status === 'active' || test.status === 'published' ? 'success' : 'default'}>{test.status || 'draft'}</Badge>
-                                <Badge variant="info">{test.type || activeCategory}</Badge>
-                              </div>
-                              <h4 className="font-bold text-gray-900 truncate">{test.title || test.name || 'Untitled Test'}</h4>
-                              <p className="text-xs text-gray-500 mt-1 truncate">{test.description || 'No description'}</p>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
-                              <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{test.duration || test.time_limit || '--'} min</span>
-                              <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{qCount} Qs</span>
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); handleTestPreview(test) }}
-                                className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
-                                title="Preview Test"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => { event.stopPropagation(); openEditTestForm(test) }}
-                                className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
-                                title="Edit Test Setup"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <ChevronRight className="w-5 h-5 text-gray-300" />
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div>
-                  <button
-                    onClick={() => setSelectedTest(null)}
-                    className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    <ArrowLeft className="w-4 h-4" /> Back to Tests
-                  </button>
-                  <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
-                    <button
-                      onClick={() => { setSelectedSection('all'); setCurrentPage(1) }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === 'all' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                    >
-                      All Sections ({testQuestions.length})
-                    </button>
-                    {[...sectionCounts.entries()].map(([section, count]) => (
-                      <button
-                        key={section}
-                        onClick={() => { setSelectedSection(section); setCurrentPage(1) }}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === section ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                      >
-                        {section} ({count})
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h3 className="font-bold text-gray-900">{selectedTest.title || selectedTest.name || 'Test'}</h3>
-                      <p className="text-sm text-gray-500">{filteredTestQuestions.length} questions in current section.</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setShowBulkImport(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
-                        <Upload className="w-4 h-4" /> Bulk Questions
-                      </button>
-                      <button onClick={() => { resetForm(); setShowForm(true) }} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2">
-                        <Plus className="w-4 h-4" /> Add Question
-                      </button>
-                    </div>
-                  </div>
-
-                  {filteredTestQuestions.length === 0 ? (
-                    <EmptyState icon={FileText} title="No Questions in this Test" description="Add or bulk upload questions for this test." />
-                  ) : (
-                    <div className="space-y-3">
-                      {paginatedQuestions.map((q, idx) => (
-                        <div key={getQuestionId(q) || idx} className="bg-white border border-gray-200 rounded-xl p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="mb-2 flex flex-wrap items-center gap-2">
-                                <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">{(currentPage - 1) * QUESTIONS_PER_PAGE + idx + 1}</span>
-                                <Badge variant="info">{q.type || 'mcq'}</Badge>
-                                <Badge className={(DIFFICULTY_LEVELS.find(d => d.value === q.difficulty) || DIFFICULTY_LEVELS[1]).color}>{q.difficulty || 'medium'}</Badge>
-                                <Badge className={(STATUS_OPTIONS.find(s => s.value === q.status) || STATUS_OPTIONS[1]).color}>{q.status || 'draft'}</Badge>
-                              </div>
-                              <p className="text-sm text-gray-900 line-clamp-3">{q.questionText}</p>
-                            </div>
-                            <div className="flex gap-1 shrink-0">
-                              <button onClick={() => handleQuestionPreview(q)} className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Preview Question"><Eye className="w-4 h-4" /></button>
-                              <button onClick={() => handleEdit(q)} className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
-                              <button onClick={() => handleDelete(getQuestionId(q))} className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {showTestForm && (
-        <div key={editingTestId || `create-${getSeriesId(selectedSeries) || 'none'}-${activeStageId || 'all'}-${selectedTestSubCategoryId}`} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b flex justify-between items-center">
-              <h3 className="font-bold text-gray-900">{editingTestId ? 'Edit Test' : 'Create Test'}</h3>
-              <button onClick={resetTestForm} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        {showTestForm && (
+          <div key={editingTestId || `create-${getSeriesId(selectedSeries) || 'none'}-${activeStageId || 'all'}-${selectedTestSubCategoryId}`} className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b flex justify-between items-center">
+                <h3 className="font-bold text-gray-900">{editingTestId ? 'Edit Test' : 'Create Test'}</h3>
+                <button onClick={resetTestForm} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleTestSubmit} className="p-6 overflow-y-auto space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <input required value={testFormData.title} onChange={(e) => setTestFormData({ ...testFormData, title: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea rows={3} value={testFormData.description} onChange={(e) => setTestFormData({ ...testFormData, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Duration</label><input type="number" value={testFormData.duration} onChange={(e) => setTestFormData({ ...testFormData, duration: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Questions</label><input type="number" value={testFormData.totalQuestions} onChange={(e) => setTestFormData({ ...testFormData, totalQuestions: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Marks</label><input type="number" value={testFormData.totalMarks} onChange={(e) => setTestFormData({ ...testFormData, totalMarks: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Negative</label><input type="number" step="0.25" value={testFormData.negativeMarking} onChange={(e) => setTestFormData({ ...testFormData, negativeMarking: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Type</label><input value={testFormData.type} onChange={(e) => setTestFormData({ ...testFormData, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label><select value={testFormData.difficulty} onChange={(e) => setTestFormData({ ...testFormData, difficulty: e.target.value })} className="w-full px-3 py-2 border rounded-lg"><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Passing Marks</label><input type="number" value={testFormData.passingMarks} onChange={(e) => setTestFormData({ ...testFormData, passingMarks: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                  <input value={testFormData.tags} onChange={(e) => setTestFormData({ ...testFormData, tags: e.target.value })} className="w-full px-3 py-2 border rounded-lg" placeholder="comma, separated, tags" />
+                </div>
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900">
+                  Linked to: {selectedSeries?.title || selectedSeries?.name} / {selectedStageLabel} / {activeCatLabel} / {selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label || 'All test subcategories'}
+                </div>
+                <div className="pt-4 border-t flex justify-end gap-3">
+                  <button type="button" onClick={resetTestForm} className="px-4 py-2 border rounded-lg">Cancel</button>
+                  <button type="submit" disabled={testSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">{testSaving ? 'Saving...' : 'Save Test'}</button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleTestSubmit} className="p-6 overflow-y-auto space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-                <input required value={testFormData.title} onChange={(e) => setTestFormData({ ...testFormData, title: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea rows={3} value={testFormData.description} onChange={(e) => setTestFormData({ ...testFormData, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Duration</label><input type="number" value={testFormData.duration} onChange={(e) => setTestFormData({ ...testFormData, duration: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Questions</label><input type="number" value={testFormData.totalQuestions} onChange={(e) => setTestFormData({ ...testFormData, totalQuestions: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Marks</label><input type="number" value={testFormData.totalMarks} onChange={(e) => setTestFormData({ ...testFormData, totalMarks: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Negative</label><input type="number" step="0.25" value={testFormData.negativeMarking} onChange={(e) => setTestFormData({ ...testFormData, negativeMarking: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Type</label><input value={testFormData.type} onChange={(e) => setTestFormData({ ...testFormData, type: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label><select value={testFormData.difficulty} onChange={(e) => setTestFormData({ ...testFormData, difficulty: e.target.value })} className="w-full px-3 py-2 border rounded-lg"><option>Easy</option><option>Medium</option><option>Hard</option></select></div>
-                <div><label className="block text-sm font-medium text-gray-700 mb-1">Passing Marks</label><input type="number" value={testFormData.passingMarks} onChange={(e) => setTestFormData({ ...testFormData, passingMarks: e.target.value })} className="w-full px-3 py-2 border rounded-lg" /></div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                <input value={testFormData.tags} onChange={(e) => setTestFormData({ ...testFormData, tags: e.target.value })} className="w-full px-3 py-2 border rounded-lg" placeholder="comma, separated, tags" />
-              </div>
-              <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900">
-                Linked to: {selectedSeries?.title || selectedSeries?.name} / {selectedStageLabel} / {activeCatLabel} / {selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label || 'All test subcategories'}
-              </div>
-              <div className="pt-4 border-t flex justify-end gap-3">
-                <button type="button" onClick={resetTestForm} className="px-4 py-2 border rounded-lg">Cancel</button>
-                <button type="submit" disabled={testSaving} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">{testSaving ? 'Saving...' : 'Save Test'}</button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        )}
 
-      {showTestBulkUpload && (
+        {showTestBulkUpload && (
+          <BulkImportModal
+            isOpen={showTestBulkUpload}
+            onClose={() => setShowTestBulkUpload(false)}
+            onImport={handleTestBulkUpload}
+            title="Bulk Create Tests"
+            expectedColumns="title, duration, totalQuestions, totalMarks, difficulty, type, tags"
+            context={{
+              testTitle: selectedSeries?.title || selectedSeries?.name || '',
+              section: selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label || 'All test subcategories',
+            }}
+          />
+        )}
+
+        {/* Form Modal */}
+        <QuestionForm
+          isOpen={showForm}
+          onClose={resetForm}
+          onSubmit={handleSubmit}
+          formData={formData}
+          setFormData={setFormData}
+          editingId={editingId}
+          subjects={subjects}
+          chapters={chapters}
+          topics={topics}
+          passages={passages}
+          sections={sections}
+          saving={saving}
+        />
+
+        {/* Bulk Import Modal */}
         <BulkImportModal
-          isOpen={showTestBulkUpload}
-          onClose={() => setShowTestBulkUpload(false)}
-          onImport={handleTestBulkUpload}
-          title="Bulk Create Tests"
-          expectedColumns="title, duration, totalQuestions, totalMarks, difficulty, type, tags"
+          isOpen={showBulkImport}
+          onClose={() => setShowBulkImport(false)}
+          onImport={handleBulkImport}
           context={{
-            testTitle: selectedSeries?.title || selectedSeries?.name || '',
-            section: selectedTestSubCategoryRecord?.name || selectedTestSubCategoryRecord?.label || 'All test subcategories',
+            testTitle: selectedTest?.title || selectedTest?.name || '',
+            section: selectedSection,
           }}
         />
-      )}
 
-      {/* Form Modal */}
-      <QuestionForm
-        isOpen={showForm}
-        onClose={resetForm}
-        onSubmit={handleSubmit}
-        formData={formData}
-        setFormData={setFormData}
-        editingId={editingId}
-        subjects={subjects}
-        chapters={chapters}
-        topics={topics}
-        passages={passages}
-        sections={sections}
-        saving={saving}
-      />
-
-      {/* Bulk Import Modal */}
-      <BulkImportModal
-        isOpen={showBulkImport}
-        onClose={() => setShowBulkImport(false)}
-        onImport={handleBulkImport}
-        context={{
-          testTitle: selectedTest?.title || selectedTest?.name || '',
-          section: selectedSection,
-        }}
-      />
-
-      {/* Activity Log Modal */}
-      {showActivityLog && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-indigo-600" />
-                  Activity Log
-                </h2>
-                <p className="text-sm text-gray-500 mt-1">Monitor user actions and system events</p>
+        {/* Activity Log Modal */}
+        {showActivityLog && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-indigo-600" />
+                    Activity Log
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">Monitor user actions and system events</p>
+                </div>
+                <button
+                  onClick={() => setShowActivityLog(false)}
+                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowActivityLog(false)}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto">
-              <UserActivityLog />
+              <div className="flex-1 overflow-y-auto">
+                <UserActivityLog />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Close Collapsible Filters Layout Wrapper */}
-        </div>
+        {/* Close Main Content */}
       </div>
 
       {/* Question Preview Drawer (NF-02) */}
@@ -3729,7 +3782,10 @@ export default function QuestionsManager() {
                     <div className="space-y-4">
                       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
                         <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">English Question</h4>
-                        <p className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed whitespace-pre-wrap">{previewQuestion.questionText}</p>
+                        <div
+                          className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: previewQuestion.questionText || '' }}
+                        />
                         {previewQuestion.imageUrl && (
                           <img src={previewQuestion.imageUrl} alt="Question Graphic" className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700" />
                         )}
@@ -3738,7 +3794,10 @@ export default function QuestionsManager() {
                       {previewQuestion.questionTextHi && (
                         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
                           <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Hindi Question (हिंदी प्रश्न)</h4>
-                          <p className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed whitespace-pre-wrap">{previewQuestion.questionTextHi}</p>
+                          <div
+                            className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: previewQuestion.questionTextHi || '' }}
+                          />
                         </div>
                       )}
                     </div>
@@ -3756,21 +3815,25 @@ export default function QuestionsManager() {
                             return (
                               <div
                                 key={idx}
-                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
-                                  isCorrect
+                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${isCorrect
                                     ? 'bg-green-50/75 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-300 font-semibold shadow-sm'
                                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
-                                }`}
+                                  }`}
                               >
-                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                                  isCorrect ? 'bg-green-200 dark:bg-green-950 text-green-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
-                                }`}>
+                                <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${isCorrect ? 'bg-green-200 dark:bg-green-950 text-green-700' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                                  }`}>
                                   {optionLetters[idx]}
                                 </span>
                                 <div className="flex-1">
-                                  <p className="text-sm">{opt}</p>
+                                  <div
+                                    className="text-sm text-gray-900 dark:text-gray-100"
+                                    dangerouslySetInnerHTML={{ __html: opt || '' }}
+                                  />
                                   {previewQuestion.optionsHi?.[idx] && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{previewQuestion.optionsHi[idx]}</p>
+                                    <div
+                                      className="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                                      dangerouslySetInnerHTML={{ __html: previewQuestion.optionsHi[idx] || '' }}
+                                    />
                                   )}
                                 </div>
                                 {isCorrect && (
@@ -3786,10 +3849,10 @@ export default function QuestionsManager() {
                     )}
 
                     {/* Numerical or Descriptive Correct Value */}
-                    {(previewQuestion.type === 'numerical' || previewQuestion.type === 'descriptive') && (
+                    {(previewQuestion.type === 'numeric' || previewQuestion.type === 'descriptive') && (
                       <div className="bg-green-50/75 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
                         <h4 className="text-xs font-bold text-green-800 dark:text-green-400 uppercase tracking-wider mb-2">
-                          {previewQuestion.type === 'numerical' ? 'Correct Numerical Value' : 'Model Answer'}
+                          {previewQuestion.type === 'numeric' ? 'Correct Numerical Value' : 'Model Answer'}
                         </h4>
                         <p className="text-sm text-green-900 dark:text-green-300 font-mono leading-relaxed whitespace-pre-wrap">{previewQuestion.correctOption}</p>
                       </div>
@@ -3800,7 +3863,10 @@ export default function QuestionsManager() {
                       <div className="space-y-2">
                         <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Explanation</h4>
                         <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4">
-                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">{previewQuestion.explanation}</p>
+                          <div
+                            className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: previewQuestion.explanation || '' }}
+                          />
                         </div>
                       </div>
                     )}
@@ -3881,7 +3947,7 @@ export default function QuestionsManager() {
                         <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">Difficulty & Status</p>
                         <div className="flex items-center gap-1.5 mt-1">
                           <Badge variant={previewTest.status === 'active' || previewTest.status === 'published' ? 'success' : 'default'}>{previewTest.status || 'draft'}</Badge>
-                          <Badge variant="info">{previewTest.difficulty || 'Medium'}</Badge>
+                          <Badge variant="info">{previewTest.difficulty || 'medium'}</Badge>
                         </div>
                       </div>
                       <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">

@@ -10,7 +10,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import api from '../../shared/lib/api'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import ComingSoon from '../../shared/components/common/ComingSoon'
 
 export default function ExamDetails() {
@@ -185,16 +185,17 @@ export default function ExamDetails() {
     }
   };
 
-  // Handle Coming Soon state
+  // Handle empty content state (no data published yet for this exam)
   if (!effectiveContent && !examData.description) {
     return (
       <ComingSoon
-        title={`${examData.title} Intelligence`}
-        message="Detailed syllabus, pattern and yearly trends are being indexed."
-        submessage="Our team is currently verifying the latest notification details for this exam. Check back in 24-48 hours."
+        title={`${examData.title} — Details Not Available Yet`}
+        message="Syllabus, exam pattern, and yearly trends haven't been published for this exam yet."
+        submessage="Our team is verifying the latest notification details. Check back in 24-48 hours."
         backLink="/exams"
         backText="Back to Exams"
         showNotificationButton={true}
+        notificationTopic={`feature:exam-details:${examData.id || examData._id}`}
         icon={Zap}
       />
     );

@@ -654,6 +654,7 @@ class PostgresHelpers {
       subjectVideos: "subject_videos",
       subjectPdfs: "subject_pdfs",
       topicTests: "topic_tests",
+      passages: "passages",
     };
   }
 
@@ -1427,32 +1428,6 @@ class PostgresHelpers {
           updated_at TIMESTAMP DEFAULT NOW()
         );
 
-        -- Practice Module Tables
-        CREATE TABLE IF NOT EXISTS "practice_questions" (
-          id SERIAL PRIMARY KEY,
-          question_text TEXT NOT NULL,
-          options JSONB NOT NULL,
-          correct_answer INTEGER NOT NULL,
-          explanation TEXT,
-          subject VARCHAR(255),
-          topic VARCHAR(255),
-          difficulty VARCHAR(50),
-          language VARCHAR(50) DEFAULT 'english',
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS "practice_answers" (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          question_id INTEGER REFERENCES practice_questions(id) ON DELETE CASCADE,
-          selected_answer INTEGER,
-          is_correct BOOLEAN,
-          time_spent INTEGER,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
         -- UI Tag Configurations
         CREATE TABLE IF NOT EXISTS "ui_tag_configs" (
           id SERIAL PRIMARY KEY,
@@ -1641,7 +1616,7 @@ class PostgresHelpers {
 
         -- User sessions for tracking login activity
         CREATE TABLE IF NOT EXISTS "user_sessions" (
-          id SERIAL PRIMARY KEY,
+          id VARCHAR(255) PRIMARY KEY,
           user_id INTEGER NOT NULL,
           session_id VARCHAR(255) UNIQUE NOT NULL,
           ip_address VARCHAR(45),
@@ -1704,6 +1679,105 @@ class PostgresHelpers {
             ALTER TABLE topic_tests ADD COLUMN topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL;
           END IF;
         END $$;
+      `);
+
+      // ═══════════════════════════════════════════════════
+      // 11. Practice Lab tables (see docs/PRACTICE_LAB_PRD.md)
+      // ═══════════════════════════════════════════════════
+      await this.pool.query(`
+        -- Tracks one practice session (a user practicing N questions in mode M on topic T)
+        CREATE TABLE IF NOT EXISTS "practice_sessions" (
+          id              SERIAL PRIMARY KEY,
+          user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          exam_id         VARCHAR(255),
+          subject_id      INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
+          chapter_id      INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
+          topic_id        INTEGER REFERENCES topics(id) ON DELETE SET NULL,
+          mode            VARCHAR(32) NOT NULL,
+          difficulty      VARCHAR(16),
+          target_count    INTEGER,
+          time_limit_sec  INTEGER,
+          questions_json  JSONB NOT NULL DEFAULT '[]'::jsonb,
+          current_index   INTEGER DEFAULT 0,
+          correct_count   INTEGER DEFAULT 0,
+          wrong_count      INTEGER DEFAULT 0,
+          skipped_count   INTEGER DEFAULT 0,
+          started_at      TIMESTAMP DEFAULT NOW(),
+          last_active_at  TIMESTAMP,
+          completed_at    TIMESTAMP,
+          is_active       BOOLEAN DEFAULT true
+        );
+        CREATE INDEX IF NOT EXISTS idx_practice_sessions_user ON practice_sessions(user_id, is_active);
+
+        -- Per-question answer log — this is the "wrong-question notebook" source
+        CREATE TABLE IF NOT EXISTS "practice_answers" (
+          id              SERIAL PRIMARY KEY,
+          user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          session_id      INTEGER REFERENCES practice_sessions(id) ON DELETE CASCADE,
+          question_id     INTEGER NOT NULL,
+          selected_option INTEGER,
+          is_correct      BOOLEAN,
+          is_skipped      BOOLEAN DEFAULT false,
+          time_taken_sec  INTEGER,
+          mode            VARCHAR(32),
+          created_at      TIMESTAMP DEFAULT NOW(),
+          UNIQUE(user_id, question_id, session_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_practice_answers_user_q ON practice_answers(user_id, question_id);
+        CREATE INDEX IF NOT EXISTS idx_practice_answers_wrong ON practice_answers(user_id, is_correct) WHERE is_correct = false;
+
+        -- Bookmark a question for later re-practice
+        CREATE TABLE IF NOT EXISTS "question_bookmarks" (
+          user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          question_id  INTEGER NOT NULL,
+          created_at   TIMESTAMP DEFAULT NOW(),
+          PRIMARY KEY (user_id, question_id)
+        );
+
+        -- One row per user, updated on every session completion (streak tracking)
+        CREATE TABLE IF NOT EXISTS "practice_streaks" (
+          user_id           INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+          current_streak    INTEGER DEFAULT 0,
+          longest_streak    INTEGER DEFAULT 0,
+          last_practice_date DATE,
+          total_sessions    INTEGER DEFAULT 0,
+          total_questions   INTEGER DEFAULT 0,
+          total_correct     INTEGER DEFAULT 0
+        );
+
+        -- Caches AI-generated extras per question so we only pay for the first generation
+        CREATE TABLE IF NOT EXISTS "practice_ai_cache" (
+          question_id    INTEGER NOT NULL,
+          feature        VARCHAR(32) NOT NULL,
+          content        JSONB NOT NULL,
+          model          VARCHAR(64),
+          generated_at   TIMESTAMP DEFAULT NOW(),
+          PRIMARY KEY (question_id, feature)
+        );
+
+        -- One curated set per user per day (Daily Practice mode)
+        CREATE TABLE IF NOT EXISTS "practice_daily_sets" (
+          id           SERIAL PRIMARY KEY,
+          user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          set_date     DATE NOT NULL,
+          questions    JSONB NOT NULL DEFAULT '[]'::jsonb,
+          is_completed BOOLEAN DEFAULT false,
+          score        INTEGER,
+          created_at   TIMESTAMP DEFAULT NOW(),
+          UNIQUE (user_id, set_date)
+        );
+
+        -- User reports a bad/ambiguous question
+        CREATE TABLE IF NOT EXISTS "question_reports" (
+          id           SERIAL PRIMARY KEY,
+          user_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          question_id  INTEGER NOT NULL,
+          reason       VARCHAR(100),
+          notes        TEXT,
+          status       VARCHAR(32) DEFAULT 'open',
+          created_at   TIMESTAMP DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_question_reports_q ON question_reports(question_id);
       `);
 
       console.log("✅ Database schema verified and initialized.");

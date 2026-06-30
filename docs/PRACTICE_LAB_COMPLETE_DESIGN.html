@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trstprep Practice Lab — Complete Design</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .mock-browser { box-shadow: 0 25px 50px -12px rgba(0,0,0,.25); }
+  .mock-card { transition: transform .2s, box-shadow .2s; }
+  .mock-card:hover { transform: translateY(-3px); }
+  .mode-card { transition: all .2s; cursor: pointer; }
+  .mode-card:hover { transform: translateY(-3px); box-shadow: 0 10px 25px -5px rgba(99,102,241,.25); }
+  .opt { transition: all .15s; }
+  .opt:hover:not(.locked) { border-color: #6366f1; background: #eef2ff; transform: translateX(2px); }
+  .opt.selected { border-color: #6366f1; background: #eef2ff; box-shadow: 0 0 0 2px #c7d2fe; }
+  .opt.correct { border-color: #10b981; background: #ecfdf5; }
+  .opt.wrong { border-color: #ef4444; background: #fef2f2; }
+  .opt.dimmed { opacity: .5; }
+  .ai-card { animation: slidein .3s ease-out; }
+  @keyframes slidein { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: translateY(0); } }
+  .ring { transform: rotate(-90deg); }
+  .progress-bar { transition: width .5s ease; }
+  .pulse-live { animation: pulse-live 2s infinite; }
+  @keyframes pulse-live { 0%,100% { opacity:1; } 50% { opacity:.5; } }
+  .breadcrumb-btn { transition: all .15s; }
+  .breadcrumb-btn:hover { background: #eef2ff; color: #4f46e5; }
+  .chip { transition: all .15s; }
+  .chip:hover { transform: scale(1.05); }
+  .chip.active { background: linear-gradient(135deg,#6366f1,#7c3aed); color: white; border-color: transparent; }
+  .gradient-trst { background: linear-gradient(135deg,#6366f1,#7c3aed,#9333ea); }
+  .badge-good { background:#dcfce7; color:#166534; }
+  .badge-bad  { background:#fee2e2; color:#991b1b; }
+  .badge-mid  { background:#fef9c3; color:#854d0e; }
+  .glow-indigo { box-shadow: 0 0 0 1px rgba(99,102,241,.1), 0 8px 24px -8px rgba(99,102,241,.3); }
+  .nav-tab.active { background: #4f46e5; color: white; }
+</style>
+</head>
+<body class="bg-slate-200 min-h-screen p-4 md:p-8">
+
+<div class="max-w-7xl mx-auto">
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- HEADER + TAB NAVIGATION                              -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <header class="mb-6 text-center">
+    <h1 class="text-3xl md:text-4xl font-black text-slate-800 mb-2">Trstprep Practice Lab — Complete Design</h1>
+    <p class="text-slate-500 max-w-2xl mx-auto text-sm">Interactive prototype + visual improvements + design system. All in one.</p>
+  </header>
+
+  <!-- Top-level tabs -->
+  <div class="flex justify-center gap-2 mb-6 flex-wrap">
+    <button onclick="goTab('prototype')" id="tab-prototype" class="nav-tab active px-5 py-2.5 rounded-xl text-sm font-black bg-white border border-slate-200 transition">
+      🎮 Interactive Prototype
+    </button>
+    <button onclick="goTab('compare')" id="tab-compare" class="nav-tab px-5 py-2.5 rounded-xl text-sm font-black bg-white border border-slate-200 transition">
+      ⚖️ Current vs Improved
+    </button>
+    <button onclick="goTab('system')" id="tab-system" class="nav-tab px-5 py-2.5 rounded-xl text-sm font-black bg-white border border-slate-200 transition">
+      🎨 Design System
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TAB 1: INTERACTIVE PROTOTYPE (4 screens)             -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-content-prototype" class="tab-content">
+
+    <!-- Sub-nav for the 4 prototype screens -->
+    <div class="flex justify-center gap-2 mb-4 text-xs">
+      <button onclick="goScreen('dashboard')" class="px-3 py-1.5 rounded-full font-bold breadcrumb-btn bg-white border border-slate-200">1. Dashboard</button>
+      <button onclick="goScreen('setup')" class="px-3 py-1.5 rounded-full font-bold breadcrumb-btn bg-white border border-slate-200">2. Setup Wizard</button>
+      <button onclick="goScreen('session')" class="px-3 py-1.5 rounded-full font-bold breadcrumb-btn bg-white border border-slate-200">3. Practice Session</button>
+      <button onclick="goScreen('complete')" class="px-3 py-1.5 rounded-full font-bold breadcrumb-btn bg-white border border-slate-200">4. Session Complete</button>
+    </div>
+
+    <!-- Browser frame -->
+    <div class="mock-browser bg-white rounded-2xl overflow-hidden border border-slate-300">
+      <!-- Browser chrome -->
+      <div class="bg-slate-100 px-4 py-2.5 border-b border-slate-200 flex items-center gap-2">
+        <div class="flex gap-1.5">
+          <div class="w-3 h-3 bg-red-400 rounded-full"></div>
+          <div class="w-3 h-3 bg-amber-400 rounded-full"></div>
+          <div class="w-3 h-3 bg-green-400 rounded-full"></div>
+        </div>
+        <div class="flex-1 mx-4">
+          <div class="bg-white rounded-md px-3 py-1 text-xs text-slate-400 font-medium border border-slate-200 max-w-md">🔒 trstprep.com/practice</div>
+        </div>
+        <span class="text-[10px] text-slate-400 font-bold">MOCKUP</span>
+      </div>
+
+      <!-- App navbar (slim) -->
+      <div class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white font-black text-sm">T</div>
+          <span class="font-black text-slate-800">Trstprep</span>
+        </div>
+        <div class="flex items-center gap-3 text-xs font-bold">
+          <span class="text-slate-400">Home</span>
+          <span class="text-slate-400">Tests</span>
+          <span class="text-indigo-600 border-b-2 border-indigo-600 pb-1">Practice</span>
+          <span class="text-slate-400">Study</span>
+          <span class="text-slate-400">Dashboard</span>
+          <div class="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-pink-500 flex items-center justify-center text-white text-[10px] font-black ml-2">RM</div>
+        </div>
+      </div>
+
+      <!-- ─────────── SCREEN 1: DASHBOARD ─────────── -->
+      <div id="screen-dashboard" class="screen active bg-slate-50 min-h-[600px]">
+        <div class="max-w-5xl mx-auto px-6 py-6 space-y-5">
+
+          <!-- Top row: title + streak -->
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-black text-slate-900">Practice Lab</h2>
+              <p class="text-sm text-slate-500">Build concepts, master topics, get exam-ready.</p>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
+                <span class="text-xl">🔥</span>
+                <div>
+                  <div class="text-lg font-black text-slate-900 leading-none">12</div>
+                  <div class="text-[9px] text-slate-400 font-bold uppercase">Day streak</div>
+                </div>
+              </div>
+              <div class="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
+                <span class="text-xl">⭐</span>
+                <div>
+                  <div class="text-lg font-black text-slate-900 leading-none">247</div>
+                  <div class="text-[9px] text-slate-400 font-bold uppercase">Mastery pts</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Today's goal -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-black text-slate-800 text-sm">Today's Goal</h3>
+              <span class="text-xs font-bold text-slate-400">20 / 50 questions</span>
+            </div>
+            <div class="h-3 bg-slate-100 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-indigo-500 to-violet-500 progress-bar" style="width: 40%"></div>
+            </div>
+            <p class="text-xs text-slate-500 mt-2">Complete 30 more questions to hit today's target. You're on a 12-day streak — don't break it!</p>
+          </div>
+
+          <!-- Continue where you left off -->
+          <div class="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100 p-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-black text-slate-800 text-sm">Continue where you left off</h3>
+              <span class="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full">LEARN MODE</span>
+            </div>
+            <div class="text-sm text-slate-700 mb-1 font-bold">SSC CGL › Quant › Percentage › Successive Percentage</div>
+            <div class="flex items-center gap-4 text-xs text-slate-500 mb-3">
+              <span>8 / 20 done</span><span>•</span>
+              <span class="text-emerald-600 font-bold">75% accuracy</span><span>•</span>
+              <span>Last: 2h ago</span>
+            </div>
+            <div class="h-1.5 bg-white rounded-full overflow-hidden mb-3">
+              <div class="h-full bg-indigo-600 progress-bar" style="width: 40%"></div>
+            </div>
+            <button onclick="goScreen('session')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2">▶ Resume Session</button>
+          </div>
+
+          <!-- Quick start - mode grid -->
+          <div>
+            <h3 class="font-black text-slate-800 text-sm mb-3">Quick start</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center">
+                <div class="text-3xl mb-2">📚</div><div class="font-black text-sm text-slate-800">Learn</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Default practice</div>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center">
+                <div class="text-3xl mb-2">🧠</div><div class="font-black text-sm text-slate-800">Adaptive</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">AI adjusts difficulty</div>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center relative">
+                <div class="text-3xl mb-2">❌</div><div class="font-black text-sm text-slate-800">Mistakes</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Retry wrong ones</div>
+                <span class="absolute top-2 right-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">7</span>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center relative">
+                <div class="text-3xl mb-2">⭐</div><div class="font-black text-sm text-slate-800">Bookmarks</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Saved questions</div>
+                <span class="absolute top-2 right-2 bg-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">12</span>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center">
+                <div class="text-3xl mb-2">📜</div><div class="font-black text-sm text-slate-800">PYQ</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Previous year Qs</div>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center">
+                <div class="text-3xl mb-2">⚡</div><div class="font-black text-sm text-slate-800">Speed</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">Beat the clock</div>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl border border-orange-200 p-4 text-center relative">
+                <div class="text-3xl mb-2">🔥</div><div class="font-black text-sm text-slate-800">Daily</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">20 fresh Qs today</div>
+                <span class="absolute top-2 right-2 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full pulse-live">NEW</span>
+              </div>
+              <div onclick="goScreen('setup')" class="mode-card bg-white rounded-2xl border border-slate-200 p-4 text-center">
+                <div class="text-3xl mb-2">🎯</div><div class="font-black text-sm text-slate-800">Weak Topics</div>
+                <div class="text-[10px] text-slate-400 mt-0.5">AI-curated</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mastery + Weak topics side by side -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-2xl border border-slate-200 p-5">
+              <h3 class="font-black text-slate-800 text-sm mb-4">Your mastery</h3>
+              <div class="space-y-3">
+                <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">Quant</span><span class="font-black text-slate-500">68% · 18 topics</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-indigo-500 rounded-full" style="width:68%"></div></div></div>
+                <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">Reasoning</span><span class="font-black text-emerald-600">92% · 22 topics</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-emerald-500 rounded-full" style="width:92%"></div></div></div>
+                <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">English</span><span class="font-black text-amber-600">48% · 8 topics</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-amber-500 rounded-full" style="width:48%"></div></div></div>
+                <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">GK</span><span class="font-black text-red-500">31% · 4 topics</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-red-500 rounded-full" style="width:31%"></div></div></div>
+              </div>
+            </div>
+            <div class="bg-white rounded-2xl border border-slate-200 p-5">
+              <h3 class="font-black text-slate-800 text-sm mb-4">Weak topics — practice these next</h3>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-red-50 border border-red-100">
+                  <div><div class="text-sm font-bold text-slate-800">Ratio & Proportion</div><div class="text-[10px] text-red-600 font-bold">42% accuracy · 14 attempts</div></div>
+                  <button onclick="goScreen('setup')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg">Practice 20</button>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-100">
+                  <div><div class="text-sm font-bold text-slate-800">Time-Speed-Distance</div><div class="text-[10px] text-amber-600 font-bold">48% accuracy · 22 attempts</div></div>
+                  <button onclick="goScreen('setup')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-3 py-1.5 rounded-lg">Practice 20</button>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded-xl bg-amber-50 border border-amber-100">
+                  <div><div class="text-sm font-bold text-slate-800">Spotting Errors (English)</div><div class="text-[10px] text-amber-600 font-bold">51% accuracy · 18 attempts</div></div>
+                  <button onclick="goScreen('setup')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-3 py-1.5 rounded-lg">Practice 20</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- From last test -->
+          <div class="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-2xl p-5 text-white">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="text-xl">📋</span><h3 class="font-black text-sm">From your last mock test</h3>
+              <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold ml-auto">SSC CGL Mock #3</span>
+            </div>
+            <p class="text-sm text-slate-300 mb-3">You scored <b class="text-white">142/200</b>. We identified <b class="text-white">6 weak topics</b> from your mistakes.</p>
+            <button onclick="goScreen('setup')" class="bg-white text-indigo-700 px-5 py-2.5 rounded-xl text-xs font-black hover:bg-indigo-50">🎯 Start AI Practice Plan — 40 questions</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ─────────── SCREEN 2: SETUP WIZARD ─────────── -->
+      <div id="screen-setup" class="screen bg-slate-50 min-h-[600px]">
+        <div class="max-w-3xl mx-auto px-6 py-6 space-y-5">
+          <div class="flex items-center gap-2 text-xs font-bold">
+            <button onclick="goScreen('dashboard')" class="text-slate-400 hover:text-indigo-600">← Back to Dashboard</button>
+          </div>
+          <div class="flex items-center gap-1.5 text-xs flex-wrap">
+            <span class="bg-indigo-600 text-white px-3 py-1 rounded-full font-black">1. Exam</span><span class="text-slate-300">→</span>
+            <span class="bg-indigo-600 text-white px-3 py-1 rounded-full font-black">2. Subject</span><span class="text-slate-300">→</span>
+            <span class="bg-indigo-600 text-white px-3 py-1 rounded-full font-black">3. Chapter</span><span class="text-slate-300">→</span>
+            <span class="bg-indigo-600 text-white px-3 py-1 rounded-full font-black">4. Topic</span><span class="text-slate-300">→</span>
+            <span class="bg-white border border-slate-200 text-slate-400 px-3 py-1 rounded-full font-black">5. Mode</span>
+          </div>
+
+          <!-- Selection summary -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-4">
+            <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">You selected</div>
+            <div class="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
+              <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">SSC CGL</span><span class="text-slate-300">›</span>
+              <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">Quant</span><span class="text-slate-300">›</span>
+              <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">Percentage</span><span class="text-slate-300">›</span>
+              <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">Successive Percentage</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-slate-500 mt-2">
+              <span>📊 42 questions</span><span>•</span>
+              <span>🟢 12 easy</span><span>🟡 18 medium</span><span>🔴 12 hard</span><span>•</span>
+              <span class="text-indigo-600 font-bold">Your mastery: 65%</span>
+            </div>
+          </div>
+
+          <!-- Mode selection -->
+          <div>
+            <h3 class="font-black text-slate-800 text-sm mb-3">Choose practice mode</h3>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div onclick="selectMode(this,'learn')" class="mode-card bg-white rounded-2xl border-2 border-indigo-600 p-4 text-center ring-2 ring-indigo-200">
+                <div class="text-2xl mb-1">📚</div><div class="font-black text-xs text-slate-800">Learn</div><div class="text-[9px] text-slate-400">Instant feedback</div>
+              </div>
+              <div onclick="selectMode(this,'adaptive')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">🧠</div><div class="font-black text-xs text-slate-800">Adaptive</div><div class="text-[9px] text-slate-400">AI difficulty</div>
+              </div>
+              <div onclick="selectMode(this,'mistakes')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center opacity-60">
+                <div class="text-2xl mb-1">❌</div><div class="font-black text-xs text-slate-800">Mistakes</div><div class="text-[9px] text-slate-400">No wrong Qs yet</div>
+              </div>
+              <div onclick="selectMode(this,'bookmark')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">⭐</div><div class="font-black text-xs text-slate-800">Bookmarks</div><div class="text-[9px] text-slate-400">3 saved</div>
+              </div>
+              <div onclick="selectMode(this,'pyq')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">📜</div><div class="font-black text-xs text-slate-800">PYQ</div><div class="text-[9px] text-slate-400">8 available</div>
+              </div>
+              <div onclick="selectMode(this,'speed')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">⚡</div><div class="font-black text-xs text-slate-800">Speed</div><div class="text-[9px] text-slate-400">10 Qs · 10 min</div>
+              </div>
+              <div onclick="selectMode(this,'daily')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">🔥</div><div class="font-black text-xs text-slate-800">Daily</div><div class="text-[9px] text-slate-400">20 fresh Qs</div>
+              </div>
+              <div onclick="selectMode(this,'weak')" class="mode-card bg-white rounded-2xl border-2 border-slate-200 p-4 text-center">
+                <div class="text-2xl mb-1">🎯</div><div class="font-black text-xs text-slate-800">Weak</div><div class="text-[9px] text-slate-400">AI-curated</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="font-black text-slate-800 text-sm mb-3">Difficulty</h3>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="selectChip(this,'diff')" class="chip active bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-black border-2 border-transparent">Mixed</button>
+              <button onclick="selectChip(this,'diff')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">🟢 Easy</button>
+              <button onclick="selectChip(this,'diff')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">🟡 Medium</button>
+              <button onclick="selectChip(this,'diff')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">🔴 Hard</button>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-4">
+            <div>
+              <h3 class="font-black text-slate-800 text-sm mb-3">Number of questions</h3>
+              <div class="flex gap-2 flex-wrap">
+                <button onclick="selectChip(this,'count')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">10</button>
+                <button onclick="selectChip(this,'count')" class="chip active bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-black border-2 border-transparent">20</button>
+                <button onclick="selectChip(this,'count')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">50</button>
+                <button onclick="selectChip(this,'count')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">∞ Unlimited</button>
+              </div>
+            </div>
+            <div>
+              <h3 class="font-black text-slate-800 text-sm mb-3">Timer</h3>
+              <div class="flex gap-2 flex-wrap">
+                <button onclick="selectChip(this,'timer')" class="chip active bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-black border-2 border-transparent">Off</button>
+                <button onclick="selectChip(this,'timer')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">5 min</button>
+                <button onclick="selectChip(this,'timer')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">10 min</button>
+                <button onclick="selectChip(this,'timer')" class="chip bg-white text-slate-600 px-4 py-2 rounded-xl text-xs font-black border-2 border-slate-200">15 min</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between bg-white rounded-2xl border border-slate-200 p-4 sticky bottom-4 shadow-lg">
+            <div class="text-xs">
+              <div class="text-slate-400 font-bold">Ready to practice</div>
+              <div class="font-black text-slate-800">20 questions · Successive Percentage · Learn mode · No timer</div>
+            </div>
+            <button onclick="goScreen('session')" class="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl text-sm font-black flex items-center gap-2 shadow-lg">▶ Start Practice</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SCREEN 3: PRACTICE SESSION ─────────── -->
+      <div id="screen-session" class="screen bg-white min-h-[600px]">
+        <!-- Session header -->
+        <div class="bg-slate-50 border-b border-slate-200 px-6 py-3 flex items-center justify-between sticky top-0">
+          <div class="flex items-center gap-3 text-xs">
+            <button onclick="goScreen('dashboard')" class="text-slate-400 hover:text-red-500 font-bold">✕ Exit</button>
+            <span class="text-slate-300">|</span>
+            <span class="font-bold text-slate-700">Successive Percentage</span>
+            <span class="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-black text-[10px]">LEARN</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs">
+            <div class="flex items-center gap-2"><span class="text-slate-400">Q</span><span class="font-black text-slate-800">3</span><span class="text-slate-400">/ 20</span></div>
+            <span class="text-emerald-600 font-black">✓ 2</span>
+            <span class="text-red-500 font-black">✗ 0</span>
+            <span class="text-slate-400 font-bold">— 0</span>
+          </div>
+        </div>
+        <div class="h-1 bg-slate-100"><div class="h-full bg-gradient-to-r from-indigo-500 to-violet-500 progress-bar" style="width: 15%"></div></div>
+
+        <div class="max-w-3xl mx-auto px-6 py-6">
+          <!-- Question card -->
+          <div class="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 mb-5 glow-indigo">
+            <div class="flex items-center justify-between mb-5">
+              <div class="flex items-center gap-2">
+                <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Quant · Percentage</span>
+                <span class="bg-amber-100 text-amber-700 px-2.5 py-1 rounded-full text-[10px] font-black uppercase">Medium</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button class="text-slate-300 hover:text-amber-500" title="Bookmark">⭐</button>
+                <button class="text-slate-300 hover:text-red-500" title="Report">🚩</button>
+                <button class="text-slate-300 hover:text-indigo-500" title="Discuss">💬</button>
+              </div>
+            </div>
+
+            <div class="prose prose-sm max-w-none mb-6">
+              <p class="text-lg font-bold text-slate-900">A shopkeeper marks his goods 40% above the cost price and then offers a 20% discount. What is his profit percentage on the sale?</p>
+            </div>
+
+            <div role="radiogroup" class="space-y-2.5 mb-5">
+              <button onclick="selectOption(this, 0)" class="opt locked w-full text-left p-3.5 rounded-xl border-2 border-slate-200 flex items-center gap-3">
+                <span class="w-7 h-7 rounded-lg border-2 border-slate-200 flex items-center justify-center text-xs font-black text-slate-400 flex-shrink-0">A</span>
+                <span class="text-sm font-bold text-slate-700">12% profit</span>
+              </button>
+              <button onclick="selectOption(this, 1)" class="opt selected w-full text-left p-3.5 rounded-xl border-2 flex items-center gap-3">
+                <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-black flex-shrink-0">B</span>
+                <span class="text-sm font-bold text-slate-700">12% profit</span>
+                <span class="ml-auto text-emerald-600 text-sm">✓</span>
+              </button>
+              <button onclick="selectOption(this, 2)" class="opt locked w-full text-left p-3.5 rounded-xl border-2 border-slate-200 flex items-center gap-3">
+                <span class="w-7 h-7 rounded-lg border-2 border-slate-200 flex items-center justify-center text-xs font-black text-slate-400 flex-shrink-0">C</span>
+                <span class="text-sm font-bold text-slate-700">20% profit</span>
+              </button>
+              <button onclick="selectOption(this, 3)" class="opt locked w-full text-left p-3.5 rounded-xl border-2 border-slate-200 flex items-center gap-3">
+                <span class="w-7 h-7 rounded-lg border-2 border-slate-200 flex items-center justify-center text-xs font-black text-slate-400 flex-shrink-0">D</span>
+                <span class="text-sm font-bold text-slate-700">8% profit</span>
+              </button>
+            </div>
+
+            <!-- Hint (before check) -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5 flex items-center justify-between">
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-lg">💡</span><span class="font-bold text-amber-800">Need a hint?</span>
+                <span class="text-amber-600">Get a nudge without revealing the answer.</span>
+              </div>
+              <button onclick="showAi('hint')" class="text-amber-700 font-black text-xs hover:underline">Show hint →</button>
+            </div>
+            <div id="ai-hint" class="ai-card hidden bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+              <div class="flex items-center gap-2 mb-1.5"><span class="text-base">💡</span><span class="font-black text-amber-900 text-xs uppercase tracking-widest">AI Hint</span></div>
+              <p class="text-sm text-amber-900">Think about what happens when you apply a 40% markup followed by a 20% discount — they don't cancel out. Try with ₹100 as the cost price.</p>
+            </div>
+
+            <!-- Result panel -->
+            <div class="border-t border-slate-100 pt-5">
+              <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mb-4 flex items-center gap-3">
+                <span class="text-2xl">✅</span>
+                <div><div class="font-black text-emerald-800 text-sm">Correct!</div>
+                  <div class="text-xs text-emerald-600">You solved this in 42 seconds (avg 55s — you're faster than usual 🎉)</div></div>
+              </div>
+
+              <div class="mb-4">
+                <div class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5">📖 Explanation</div>
+                <div class="prose prose-sm max-w-none text-slate-700"><p>Let CP = ₹100. Marked price = ₹140. Discount = 20% of ₹140 = ₹28. SP = ₹140 − ₹28 = ₹112. Profit = ₹12 → 12%.</p></div>
+              </div>
+
+              <div id="ai-formula" class="ai-card bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-3">
+                <div class="flex items-center gap-2 mb-2"><span class="text-base">🧮</span><span class="font-black text-indigo-900 text-xs uppercase tracking-widest">Formula Used</span><span class="ml-auto text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded-full font-bold">AI</span></div>
+                <div class="space-y-1.5 text-sm">
+                  <div class="font-mono bg-white rounded-lg p-2 border border-indigo-100"><b>Profit % = ((SP − CP) / CP) × 100</b></div>
+                  <div class="font-mono bg-white rounded-lg p-2 border border-indigo-100"><b>SP = MP × (1 − Discount%/100)</b></div>
+                </div>
+              </div>
+
+              <div id="ai-mistake" class="ai-card bg-rose-50 border border-rose-200 rounded-xl p-4 mb-3">
+                <div class="flex items-center gap-2 mb-2"><span class="text-base">⚠️</span><span class="font-black text-rose-900 text-xs uppercase tracking-widest">Common Mistake</span><span class="ml-auto text-[9px] bg-rose-500 text-white px-1.5 py-0.5 rounded-full font-bold">AI</span></div>
+                <p class="text-sm text-rose-900 mb-1"><b>Students often subtract 20% from 40% directly and get 20% profit.</b></p>
+                <p class="text-xs text-rose-700">This is wrong because the discount is applied on the marked price (₹140), not the cost price (₹100).</p>
+              </div>
+
+              <div id="ai-concept" class="ai-card bg-violet-50 border border-violet-200 rounded-xl p-4 mb-3">
+                <div class="flex items-center gap-2 mb-2"><span class="text-base">🎴</span><span class="font-black text-violet-900 text-xs uppercase tracking-widest">Concept Card</span><span class="ml-auto text-[9px] bg-violet-600 text-white px-1.5 py-0.5 rounded-full font-bold">AI</span></div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                  <div class="bg-white rounded-lg p-2.5 border border-violet-100"><div class="font-black text-violet-700 mb-0.5">Shortcut</div><div class="text-slate-700">Net % = a − b − (ab/100). Here: 40 − 20 − 8 = <b>+12%</b></div></div>
+                  <div class="bg-white rounded-lg p-2.5 border border-violet-100"><div class="font-black text-violet-700 mb-0.5">Memory Trick</div><div class="text-slate-700">"Markup-then-discount never cancels"</div></div>
+                  <div class="bg-white rounded-lg p-2.5 border border-violet-100"><div class="font-black text-violet-700 mb-0.5">Common Trap</div><div class="text-slate-700">Discount on MP, not CP</div></div>
+                  <div class="bg-white rounded-lg p-2.5 border border-violet-100"><div class="font-black text-violet-700 mb-0.5">Formula</div><div class="text-slate-700">SP = CP × (1+m/100)(1−d/100)</div></div>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-2 mb-5 flex-wrap">
+                <button onclick="showAi('similar')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-xs font-black flex items-center gap-1.5">🔁 Try Similar Question</button>
+                <button class="bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-lg text-xs font-black flex items-center gap-1.5">✨ Generate Similar (AI)</button>
+                <span class="text-[10px] text-slate-400 ml-1">5 AI generations left today</span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-5 border-t border-slate-100">
+              <button class="px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100">← Prev</button>
+              <button class="px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100">Skip</button>
+              <button onclick="goScreen('complete')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5">Next Question →</button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 rounded-2xl border border-slate-200 p-4 text-xs">
+            <div class="font-black text-slate-700 mb-2">📊 Live mastery: Successive Percentage</div>
+            <div class="h-2 bg-white rounded-full overflow-hidden mb-1.5"><div class="h-full bg-emerald-500 progress-bar" style="width:72%"></div></div>
+            <div class="flex justify-between text-slate-500"><span>72% mastered · 2 correct in this session</span><span class="text-emerald-600 font-black">+7% this session</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────── SCREEN 4: SESSION COMPLETE ─────────── -->
+      <div id="screen-complete" class="screen bg-slate-50 min-h-[600px]">
+        <div class="max-w-2xl mx-auto px-6 py-8">
+          <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center mb-5">
+            <div class="relative w-32 h-32 mx-auto mb-5">
+              <svg class="w-32 h-32 ring"><circle cx="64" cy="64" r="56" stroke="#e2e8f0" stroke-width="8" fill="none"/><circle cx="64" cy="64" r="56" stroke="#10b981" stroke-width="8" fill="none" stroke-dasharray="351.86" stroke-dashoffset="70.37" stroke-linecap="round"/></svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-3xl font-black text-emerald-600">80%</span><span class="text-[10px] text-slate-400 font-black uppercase">Accuracy</span></div>
+            </div>
+            <h2 class="text-2xl font-black text-slate-900 mb-1">Session Complete! 🎉</h2>
+            <p class="text-sm text-slate-500 mb-5">Successive Percentage · Learn mode · 20 questions · 14m 22s</p>
+            <div class="grid grid-cols-4 gap-2 mb-5">
+              <div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100"><div class="text-2xl font-black text-emerald-600 leading-none">16</div><div class="text-[9px] font-black text-emerald-700/60 uppercase tracking-widest mt-1">Correct</div></div>
+              <div class="bg-red-50 rounded-xl p-3 border border-red-100"><div class="text-2xl font-black text-red-600 leading-none">4</div><div class="text-[9px] font-black text-red-700/60 uppercase tracking-widest mt-1">Wrong</div></div>
+              <div class="bg-slate-50 rounded-xl p-3 border border-slate-100"><div class="text-2xl font-black text-slate-600 leading-none">0</div><div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">Skipped</div></div>
+              <div class="bg-blue-50 rounded-xl p-3 border border-blue-100"><div class="text-2xl font-black text-blue-600 leading-none">14m</div><div class="text-[9px] font-black text-blue-700/60 uppercase tracking-widest mt-1">Time</div></div>
+            </div>
+            <div class="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200 mb-4">
+              <div class="flex items-center justify-between">
+                <div class="text-left"><div class="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Mastery Update</div><div class="text-sm font-black text-slate-800 mt-0.5">Successive Percentage</div></div>
+                <div class="text-right"><div class="text-xs text-slate-500">65% → <span class="text-emerald-600 font-black text-lg">72%</span></div><div class="text-[10px] text-emerald-600 font-bold">+7% this session</div></div>
+              </div>
+              <div class="h-2 bg-white rounded-full overflow-hidden mt-2"><div class="h-full bg-emerald-500 progress-bar" style="width:72%"></div></div>
+            </div>
+            <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-3 border border-orange-200 mb-4 flex items-center gap-3">
+              <span class="text-2xl">🔥</span>
+              <div class="text-left flex-1"><div class="text-sm font-black text-slate-800">Streak extended to 13 days!</div><div class="text-xs text-slate-500">Practice again tomorrow to keep it alive</div></div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-black text-slate-800 text-sm">❌ Your wrong questions (4)</h3>
+              <button onclick="goScreen('setup')" class="bg-red-500 hover:bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg">Practice these 4 again →</button>
+            </div>
+            <div class="space-y-2">
+              <div class="flex items-center gap-3 p-2.5 rounded-xl bg-red-50 border border-red-100"><span class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center text-xs font-black">Q5</span><span class="text-xs font-bold text-slate-700 flex-1 truncate">If CP of 8 articles = SP of 10 articles, find the loss %…</span><span class="text-[10px] text-red-600 font-bold">Wrong</span></div>
+              <div class="flex items-center gap-3 p-2.5 rounded-xl bg-red-50 border border-red-100"><span class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center text-xs font-black">Q11</span><span class="text-xs font-bold text-slate-700 flex-1 truncate">A trader marks up 50%, then gives 2 successive discounts…</span><span class="text-[10px] text-red-600 font-bold">Wrong</span></div>
+              <div class="flex items-center gap-3 p-2.5 rounded-xl bg-red-50 border border-red-100"><span class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center text-xs font-black">Q14</span><span class="text-xs font-bold text-slate-700 flex-1 truncate">A shopkeeper sells at 25% profit but uses 900g weight…</span><span class="text-[10px] text-red-600 font-bold">Wrong</span></div>
+              <div class="flex items-center gap-3 p-2.5 rounded-xl bg-red-50 border border-red-100"><span class="w-7 h-7 rounded-lg bg-red-500 text-white flex items-center justify-center text-xs font-black">Q18</span><span class="text-xs font-bold text-slate-700 flex-1 truncate">Marked price 40% above CP. After 25% discount, profit is…</span><span class="text-[10px] text-red-600 font-bold">Wrong</span></div>
+            </div>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-3 mb-5">
+            <div class="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl border border-emerald-200 p-5">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">🎯</span><h3 class="font-black text-slate-800 text-sm">Mastery unlocked!</h3></div>
+              <p class="text-xs text-slate-600 mb-3">You've reached 72% on Successive Percentage. Ready to test yourself under exam conditions?</p>
+              <button class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg w-full">Take a 10-Q Topic Test →</button>
+            </div>
+            <div class="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-200 p-5">
+              <div class="flex items-center gap-2 mb-2"><span class="text-xl">🧠</span><h3 class="font-black text-slate-800 text-sm">Keep practicing</h3></div>
+              <p class="text-xs text-slate-600 mb-3">Move to the next topic: <b>Profit & Loss</b> (mastery 48%).</p>
+              <button onclick="goScreen('setup')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-lg w-full">Practice Profit & Loss →</button>
+            </div>
+          </div>
+
+          <div class="flex gap-3">
+            <button onclick="goScreen('dashboard')" class="flex-1 bg-white text-slate-700 py-3 rounded-xl text-sm font-black border-2 border-slate-200 hover:bg-slate-50">Back to Dashboard</button>
+            <button onclick="goScreen('setup')" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl text-sm font-black hover:bg-indigo-700">New Practice Session</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /browser frame -->
+  </div><!-- /tab-content-prototype -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TAB 2: CURRENT vs IMPROVED COMPARISONS              -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-content-compare" class="tab-content hidden space-y-12">
+
+    <!-- Comparison 1: Full page layout -->
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">1</span>Full page layout</h2>
+      <p class="text-slate-500 text-sm mb-6">Drop the heavy animated hero, slim the header, give the question card more room.</p>
+      <div class="grid lg:grid-cols-2 gap-6">
+        <!-- CURRENT -->
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b flex items-center gap-2"><div class="flex gap-1.5"><div class="w-2.5 h-2.5 bg-red-400 rounded-full"></div><div class="w-2.5 h-2.5 bg-amber-400 rounded-full"></div><div class="w-2.5 h-2.5 bg-green-400 rounded-full"></div></div><span class="text-[10px] font-bold text-slate-400 ml-2">CURRENT</span></div>
+          <div class="gradient-trst text-white px-6 py-10 text-center relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-12 -mt-12"></div>
+            <h3 class="text-xl font-black relative z-10">Interactive Practice Lab</h3>
+            <p class="text-xs opacity-80 mt-1 relative z-10">Master concepts with real-time feedback. Powered by AI.</p>
+          </div>
+          <div class="p-4 grid grid-cols-4 gap-3">
+            <div class="col-span-1 bg-white rounded-2xl border border-slate-100 p-3"><div class="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Select Topic</div><div class="space-y-1"><div class="text-[9px] font-black bg-indigo-600 text-white px-2 py-1.5 rounded-lg">All Topics</div><div class="text-[9px] font-black text-slate-500 px-2 py-1.5">Mathematics</div><div class="text-[9px] font-black text-slate-500 px-2 py-1.5">Reasoning</div><div class="text-[9px] font-black text-slate-500 px-2 py-1.5">English</div></div></div>
+            <div class="col-span-3 space-y-2">
+              <div class="bg-white rounded-2xl border p-2.5 flex items-center gap-2 text-[9px]"><span class="font-black text-slate-500">Q3/10</span><span class="text-emerald-600 font-black">✓2</span><span class="text-red-500 font-black">✗1</span><div class="flex-1 h-1.5 bg-slate-50 rounded-full"><div class="h-full w-1/3 gradient-trst rounded-full"></div></div></div>
+              <div class="bg-white rounded-[1.8rem] border p-4 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-indigo-50 rounded-full blur-2xl -mr-8 -mt-8"></div>
+                <div class="flex justify-between mb-2 relative"><span class="text-[8px] font-black bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full uppercase tracking-widest">Mathematics</span><div class="w-5 h-5 bg-slate-50 rounded text-slate-300 text-[8px] flex items-center justify-center">⚑</div></div>
+                <div class="text-[10px] font-extrabold text-slate-900 mb-3 relative">If CP of 10 = SP of 8, find profit %.</div>
+                <div class="grid grid-cols-2 gap-1.5 mb-2"><div class="p-2 rounded-xl border-2 border-slate-100 text-[9px] font-bold flex items-center gap-1.5"><span class="w-4 h-4 border rounded text-[7px] flex items-center justify-center">A</span>20%</div><div class="p-2 rounded-xl border-2 border-slate-100 text-[9px] font-bold flex items-center gap-1.5"><span class="w-4 h-4 border rounded text-[7px] flex items-center justify-center">B</span>25%</div><div class="p-2 rounded-xl border-2 border-slate-100 text-[9px] font-bold flex items-center gap-1.5"><span class="w-4 h-4 border rounded text-[7px] flex items-center justify-center">C</span>30%</div><div class="p-2 rounded-xl border-2 border-slate-100 text-[9px] font-bold flex items-center gap-1.5"><span class="w-4 h-4 border rounded text-[7px] flex items-center justify-center">D</span>15%</div></div>
+                <button class="w-full bg-indigo-600 text-white py-2 rounded-xl text-[9px] font-black">Check Answer</button>
+              </div>
+            </div>
+          </div>
+          <div class="bg-red-50 border-t px-4 py-3"><div class="text-[10px] font-black text-red-700 mb-1.5">⚠️ Visual problems:</div><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Heavy hero</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Over-rounded</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">font-black everywhere</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Low contrast</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Blur blobs</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No depth</span></div></div>
+        </div>
+        <!-- IMPROVED -->
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b flex items-center gap-2"><div class="flex gap-1.5"><div class="w-2.5 h-2.5 bg-red-400 rounded-full"></div><div class="w-2.5 h-2.5 bg-amber-400 rounded-full"></div><div class="w-2.5 h-2.5 bg-green-400 rounded-full"></div></div><span class="text-[10px] font-bold text-emerald-600 ml-2">IMPROVED</span></div>
+          <div class="bg-white border-b border-slate-100 px-5 py-2.5 flex items-center justify-between"><div class="flex items-center gap-2"><span class="text-sm font-black text-slate-900">Practice Lab</span><span class="text-[9px] text-slate-400 font-bold">/ Mathematics</span></div><div class="flex items-center gap-2 text-[9px] font-bold"><span class="bg-orange-50 text-orange-600 px-2 py-0.5 rounded-full flex items-center gap-1">🔥 12d</span><span class="bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full">⭐ 247</span></div></div>
+          <div class="p-4 grid grid-cols-4 gap-3 bg-slate-50">
+            <div class="col-span-1 bg-white rounded-xl border border-slate-200 p-3"><div class="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-2">Topics</div><div class="space-y-0.5"><div class="text-[9px] font-bold bg-indigo-600 text-white px-2 py-1.5 rounded-lg flex items-center justify-between">All Topics <span class="opacity-70">240</span></div><div class="text-[9px] font-medium text-slate-600 px-2 py-1.5 flex items-center justify-between">Mathematics <span class="text-slate-400">82</span></div><div class="text-[9px] font-medium text-slate-600 px-2 py-1.5 flex items-center justify-between">Reasoning <span class="text-slate-400">64</span></div><div class="text-[9px] font-medium text-slate-600 px-2 py-1.5 flex items-center justify-between">English <span class="text-slate-400">48</span></div><div class="text-[9px] font-medium text-slate-600 px-2 py-1.5 flex items-center justify-between">GK <span class="text-slate-400">46</span></div></div></div>
+            <div class="col-span-3 space-y-2">
+              <div class="bg-white rounded-xl border border-slate-200 p-2.5 flex items-center gap-3 text-[9px]"><span class="font-black text-slate-700">Q3/10</span><span class="text-emerald-600 font-black">✓2</span><span class="text-red-500 font-black">✗1</span><span class="text-blue-600 font-black">⏱ 0:42</span><div class="flex-1 h-1.5 bg-slate-100 rounded-full"><div class="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full" style="width:30%"></div></div><span class="text-slate-400">72%</span></div>
+              <div class="bg-white rounded-xl border border-slate-200 p-4 glow-indigo">
+                <div class="flex items-center justify-between mb-2.5"><div class="flex items-center gap-1.5"><span class="text-[8px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded uppercase">Percentage</span><span class="text-[8px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded uppercase">Medium</span></div><div class="flex items-center gap-2 text-slate-300"><span class="hover:text-amber-500 cursor-pointer">⭐</span><span class="hover:text-red-500 cursor-pointer">🚩</span></div></div>
+                <div class="text-[11px] font-bold text-slate-900 mb-3 leading-snug">If CP of 10 = SP of 8, find profit %.</div>
+                <div class="grid grid-cols-1 gap-1.5 mb-2.5"><div class="opt p-2.5 rounded-lg border-2 border-slate-200 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 border-2 border-slate-200 rounded text-[7px] flex items-center justify-center text-slate-400">A</span>20%</div><div class="opt selected p-2.5 rounded-lg border-2 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 bg-indigo-600 text-white rounded text-[7px] flex items-center justify-center">B</span>25%</div><div class="opt p-2.5 rounded-lg border-2 border-slate-200 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 border-2 border-slate-200 rounded text-[7px] flex items-center justify-center text-slate-400">C</span>30%</div><div class="opt p-2.5 rounded-lg border-2 border-slate-200 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 border-2 border-slate-200 rounded text-[7px] flex items-center justify-center text-slate-400">D</span>15%</div></div>
+                <div class="flex gap-1.5"><button class="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[9px] font-bold">← Prev</button><button class="flex-1 bg-indigo-600 text-white py-1.5 rounded-lg text-[9px] font-black">Check Answer</button><button class="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-lg text-[9px] font-bold">Skip</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-emerald-50 border-t px-4 py-3"><div class="text-[10px] font-black text-emerald-700 mb-1.5">✅ Visual fixes:</div><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Slim header</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Streak badge</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">16px radius</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Font hierarchy</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Q counts</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Timer+mastery</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Difficulty tag</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Prev/Skip</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Option hover</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison 2: Question card answered -->
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">2</span>Question card — answered state</h2>
+      <p class="text-slate-500 text-sm mb-6">Current: single explanation. Improved: result banner + formula + common mistake + concept card + AI actions.</p>
+      <div class="grid lg:grid-cols-2 gap-6">
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b"><span class="text-[10px] font-bold text-slate-400">CURRENT — after check</span></div>
+          <div class="p-5">
+            <div class="bg-white rounded-[1.8rem] border p-5 relative overflow-hidden">
+              <div class="absolute top-0 right-0 w-20 h-20 bg-indigo-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
+              <div class="flex justify-between mb-3 relative"><span class="text-[9px] font-black bg-indigo-50 text-indigo-700 px-2 py-1 rounded-full uppercase tracking-widest">Mathematics</span><div class="w-6 h-6 bg-slate-50 rounded-lg text-slate-300 text-[10px] flex items-center justify-center">⚑</div></div>
+              <div class="text-[11px] font-extrabold text-slate-900 mb-3 relative">If CP of 10 = SP of 8, find profit %.</div>
+              <div class="grid grid-cols-2 gap-1.5 mb-3"><div class="p-2.5 rounded-xl border-2 border-slate-100 opacity-60 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center">A</span>20%</div><div class="p-2.5 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-emerald-900 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 bg-emerald-500 text-white rounded text-[7px] flex items-center justify-center">B</span>25% ✓</div><div class="p-2.5 rounded-xl border-2 border-slate-100 opacity-60 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center">C</span>30%</div><div class="p-2.5 rounded-xl border-2 border-slate-100 opacity-60 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center">D</span>15%</div></div>
+              <div class="bg-indigo-50/50 border-l-4 border-indigo-500 rounded-2xl p-3 mb-3"><div class="text-[8px] font-black text-indigo-950 uppercase tracking-widest mb-1">📖 Explanation</div><div class="text-[9px] text-slate-700">Let CP of 1 = ₹x. CP of 10 = 10x = SP of 8 → SP of 1 = 1.25x → 25%.</div></div>
+              <button class="w-full bg-indigo-600 text-white py-2.5 rounded-xl text-[9px] font-black">Next Challenge →</button>
+              <button class="w-full bg-slate-50 text-slate-400 py-2 rounded-xl text-[9px] font-bold mt-1.5">Discuss</button>
+            </div>
+          </div>
+          <div class="bg-red-50 border-t px-4 py-3"><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Only 1 panel</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No formula</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No mistake</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No concept card</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No try similar</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">Dead Discuss</span></div></div>
+        </div>
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b"><span class="text-[10px] font-bold text-emerald-600">IMPROVED — after check</span></div>
+          <div class="p-5 bg-slate-50">
+            <div class="bg-white rounded-xl border border-slate-200 p-4">
+              <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 mb-3 flex items-center gap-2"><span class="text-lg">✅</span><div><div class="font-black text-emerald-800 text-[10px]">Correct!</div><div class="text-[9px] text-emerald-600">Solved in 42s (avg 55s — faster)</div></div></div>
+              <div class="flex items-center gap-1.5 mb-2"><span class="text-[8px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded uppercase">Percentage</span><span class="text-[8px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded uppercase">Medium</span></div>
+              <div class="text-[11px] font-bold text-slate-900 mb-3">If CP of 10 = SP of 8, find profit %.</div>
+              <div class="space-y-1.5 mb-3"><div class="p-2 rounded-lg border-2 border-slate-100 opacity-50 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center text-slate-400">A</span>20%</div><div class="p-2 rounded-lg border-2 border-emerald-500 bg-emerald-50 text-emerald-900 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 bg-emerald-500 text-white rounded text-[7px] flex items-center justify-center">B</span>25% <span class="ml-auto text-emerald-600">✓ Correct</span></div><div class="p-2 rounded-lg border-2 border-slate-100 opacity-50 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center text-slate-400">C</span>30%</div><div class="p-2 rounded-lg border-2 border-slate-100 opacity-50 text-[9px] font-bold flex items-center gap-1.5"><span class="w-5 h-5 border rounded text-[7px] flex items-center justify-center text-slate-400">D</span>15%</div></div>
+              <div class="mb-2.5"><div class="text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">📖 Explanation</div><div class="text-[9px] text-slate-700">Let CP of 1 = ₹x. CP of 10 = 10x = SP of 8 → SP of 1 = 1.25x → 25%.</div></div>
+              <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2.5 mb-2"><div class="flex items-center gap-1.5 mb-1"><span class="text-xs">🧮</span><span class="font-black text-indigo-900 text-[8px] uppercase tracking-wider">Formula</span><span class="ml-auto text-[7px] bg-indigo-600 text-white px-1 py-0.5 rounded font-bold">AI</span></div><div class="font-mono bg-white rounded p-1.5 border border-indigo-100 text-[8px] text-slate-800"><b>Profit % = ((SP − CP) / CP) × 100</b></div></div>
+              <div class="bg-rose-50 border border-rose-200 rounded-lg p-2.5 mb-2"><div class="flex items-center gap-1.5 mb-1"><span class="text-xs">⚠️</span><span class="font-black text-rose-900 text-[8px] uppercase tracking-wider">Common Mistake</span><span class="ml-auto text-[7px] bg-rose-500 text-white px-1 py-0.5 rounded font-bold">AI</span></div><div class="text-[8px] text-rose-900"><b>Students do (10−8)/10 = 20%.</b> Wrong — compare on CP, not article count.</div></div>
+              <div class="bg-violet-50 border border-violet-200 rounded-lg p-2.5 mb-3"><div class="flex items-center gap-1.5 mb-1.5"><span class="text-xs">🎴</span><span class="font-black text-violet-900 text-[8px] uppercase tracking-wider">Concept Card</span><span class="ml-auto text-[7px] bg-violet-600 text-white px-1 py-0.5 rounded font-bold">AI</span></div><div class="grid grid-cols-2 gap-1.5 text-[8px]"><div class="bg-white rounded p-1.5 border border-violet-100"><div class="font-bold text-violet-700">Shortcut</div><div class="text-slate-700">Net = (10−8)/8 × 100 = 25%</div></div><div class="bg-white rounded p-1.5 border border-violet-100"><div class="font-bold text-violet-700">Memory Trick</div><div class="text-slate-700">"SP-fewer = CP-more → profit on CP"</div></div></div></div>
+              <div class="flex items-center gap-1.5 mb-2 flex-wrap"><button class="bg-indigo-600 text-white px-2.5 py-1.5 rounded-md text-[8px] font-black">🔁 Try Similar</button><button class="bg-violet-600 text-white px-2.5 py-1.5 rounded-md text-[8px] font-black">✨ Generate Similar</button></div>
+              <div class="flex gap-1.5 pt-2 border-t border-slate-100"><button class="px-2.5 py-1.5 bg-slate-50 text-slate-600 rounded-md text-[8px] font-bold">← Prev</button><button class="flex-1 bg-emerald-600 text-white py-1.5 rounded-md text-[8px] font-black">Next →</button><button class="px-2.5 py-1.5 bg-slate-50 text-slate-600 rounded-md text-[8px] font-bold">Skip</button></div>
+            </div>
+          </div>
+          <div class="bg-emerald-50 border-t px-4 py-3"><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Result banner</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Time feedback</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Formula card</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Common mistake</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Concept card</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Try similar</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Generate similar</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Prev/Skip</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison 3: Completion screen -->
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">3</span>Session complete screen</h2>
+      <p class="text-slate-500 text-sm mb-6">Current: simple % + 3 stats. Improved: SVG ring + 4 stats + mastery delta + streak + wrong-Q list + next-step CTAs.</p>
+      <div class="grid lg:grid-cols-2 gap-6">
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b"><span class="text-[10px] font-bold text-slate-400">CURRENT</span></div>
+          <div class="p-5 bg-slate-50">
+            <div class="bg-white rounded-[2rem] shadow-xl p-5 text-center border border-indigo-50">
+              <div class="w-20 h-20 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-3"><span class="text-xl font-black text-emerald-600">80%</span></div>
+              <h3 class="text-base font-black text-slate-900 mb-1">Session Complete!</h3>
+              <p class="text-[9px] text-slate-500 mb-3">Stellar performance!</p>
+              <div class="grid grid-cols-3 gap-2 mb-3"><div class="bg-emerald-50/50 rounded-xl p-2 border border-emerald-100/50"><div class="text-base font-black text-emerald-600 leading-none">16</div><div class="text-[7px] font-black text-emerald-700/60 uppercase mt-1">Correct</div></div><div class="bg-red-50/50 rounded-xl p-2 border border-red-100/50"><div class="text-base font-black text-red-600 leading-none">4</div><div class="text-[7px] font-black text-red-700/60 uppercase mt-1">Missed</div></div><div class="bg-slate-50 rounded-xl p-2 border border-slate-100"><div class="text-base font-black text-slate-600 leading-none">20</div><div class="text-[7px] font-black text-slate-400 uppercase mt-1">Total</div></div></div>
+              <button class="w-full bg-indigo-600 text-white py-2 rounded-xl text-[9px] font-black mb-1.5">Restart Session</button>
+              <button class="w-full bg-white text-slate-700 py-2 rounded-xl text-[9px] font-black border-2 border-slate-100">Exit Practice</button>
+            </div>
+          </div>
+          <div class="bg-red-50 border-t px-4 py-3"><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No mastery update</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No streak</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No wrong-Q list</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No retry wrong</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-bad font-bold">No next step</span></div></div>
+        </div>
+        <div class="mock-card bg-white rounded-2xl shadow-lg overflow-hidden border border-emerald-200">
+          <div class="bg-slate-50 px-4 py-2.5 border-b"><span class="text-[10px] font-bold text-emerald-600">IMPROVED</span></div>
+          <div class="p-4 bg-slate-50">
+            <div class="bg-white rounded-xl border border-slate-200 p-4 text-center mb-2">
+              <div class="relative w-24 h-24 mx-auto mb-3"><svg class="w-24 h-24 ring"><circle cx="48" cy="48" r="42" stroke="#e2e8f0" stroke-width="6" fill="none"/><circle cx="48" cy="48" r="42" stroke="#10b981" stroke-width="6" fill="none" stroke-dasharray="263.89" stroke-dashoffset="52.78" stroke-linecap="round"/></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-xl font-black text-emerald-600">80%</span><span class="text-[7px] text-slate-400 font-bold uppercase">Accuracy</span></div></div>
+              <h3 class="text-sm font-black text-slate-900 mb-0.5">Session Complete! 🎉</h3>
+              <p class="text-[9px] text-slate-500 mb-3">Percentage · Learn · 20 Qs · 14m 22s</p>
+              <div class="grid grid-cols-4 gap-1.5 mb-3"><div class="bg-emerald-50 rounded-lg p-2 border border-emerald-100"><div class="text-base font-black text-emerald-600 leading-none">16</div><div class="text-[7px] font-bold text-emerald-700/60 uppercase mt-0.5">Correct</div></div><div class="bg-red-50 rounded-lg p-2 border border-red-100"><div class="text-base font-black text-red-600 leading-none">4</div><div class="text-[7px] font-bold text-red-700/60 uppercase mt-0.5">Wrong</div></div><div class="bg-slate-50 rounded-lg p-2 border border-slate-100"><div class="text-base font-black text-slate-600 leading-none">0</div><div class="text-[7px] font-bold text-slate-400 uppercase mt-0.5">Skip</div></div><div class="bg-blue-50 rounded-lg p-2 border border-blue-100"><div class="text-base font-black text-blue-600 leading-none">14m</div><div class="text-[7px] font-bold text-blue-700/60 uppercase mt-0.5">Time</div></div></div>
+              <div class="bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg p-2.5 border border-emerald-200 mb-2 text-left"><div class="flex items-center justify-between"><div class="text-[8px] font-bold text-emerald-700 uppercase">Mastery</div><div class="text-[9px]"><span class="text-slate-500">65% →</span> <span class="text-emerald-600 font-black text-sm">72%</span> <span class="text-emerald-600 text-[8px]">+7%</span></div></div><div class="h-1.5 bg-white rounded-full overflow-hidden mt-1"><div class="h-full bg-emerald-500 rounded-full" style="width:72%"></div></div></div>
+              <div class="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg p-2 border border-orange-200 mb-2 flex items-center gap-2 text-left"><span class="text-base">🔥</span><div class="flex-1"><div class="text-[9px] font-black text-slate-800">Streak: 13 days!</div><div class="text-[8px] text-slate-500">Practice tomorrow to keep it alive</div></div></div>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 p-3 mb-2"><div class="flex items-center justify-between mb-1.5"><span class="text-[9px] font-black text-slate-800">❌ Wrong questions (4)</span><button class="bg-red-500 text-white text-[8px] font-black px-2 py-1 rounded">Retry these →</button></div><div class="space-y-1"><div class="flex items-center gap-2 p-1.5 rounded bg-red-50 border border-red-100"><span class="w-5 h-5 rounded bg-red-500 text-white text-[7px] font-black flex items-center justify-center">Q5</span><span class="text-[8px] font-bold text-slate-700 flex-1 truncate">CP of 8 = SP of 10, find loss %…</span></div><div class="flex items-center gap-2 p-1.5 rounded bg-red-50 border border-red-100"><span class="w-5 h-5 rounded bg-red-500 text-white text-[7px] font-black flex items-center justify-center">Q11</span><span class="text-[8px] font-bold text-slate-700 flex-1 truncate">Markup 50%, 2 discounts…</span></div></div></div>
+            <div class="grid grid-cols-2 gap-1.5 mb-2"><div class="bg-emerald-50 rounded-lg border border-emerald-200 p-2.5"><div class="text-[8px] font-black text-slate-800 mb-1">🎯 Mastery unlocked!</div><div class="text-[7px] text-slate-600 mb-1.5">Ready for a topic test?</div><button class="w-full bg-emerald-600 text-white text-[8px] font-black py-1.5 rounded">Take Topic Test →</button></div><div class="bg-indigo-50 rounded-lg border border-indigo-200 p-2.5"><div class="text-[8px] font-black text-slate-800 mb-1">📚 Next: Profit & Loss</div><div class="text-[7px] text-slate-600 mb-1.5">Mastery 48% — keep going</div><button class="w-full bg-indigo-600 text-white text-[8px] font-black py-1.5 rounded">Practice →</button></div></div>
+            <div class="flex gap-1.5"><button class="flex-1 bg-white text-slate-700 py-2 rounded-lg text-[9px] font-bold border border-slate-200">Dashboard</button><button class="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-[9px] font-black">New Session</button></div>
+          </div>
+          <div class="bg-emerald-50 border-t px-4 py-3"><div class="flex flex-wrap gap-1.5"><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">SVG ring</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Mastery delta</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Streak</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Wrong-Q list</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Retry CTA</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Topic test CTA</span><span class="text-[9px] px-2 py-0.5 rounded-full badge-good font-bold">Next topic CTA</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 15 tweaks table -->
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">4</span>15 visual tweaks — do today</h2>
+      <p class="text-slate-500 text-sm mb-6">Pure visual changes, no backend work. ~2.5 hours total.</p>
+      <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 border-b"><tr><th class="px-4 py-3 text-left font-black text-slate-700 w-8">#</th><th class="px-4 py-3 text-left font-black text-slate-700">Tweak</th><th class="px-4 py-3 text-left font-black text-slate-700">Current</th><th class="px-4 py-3 text-left font-black text-slate-700">Improved</th><th class="px-4 py-3 text-center font-black text-slate-700">Effort</th></tr></thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">1</td><td class="px-4 py-2.5 font-bold">Card radius</td><td class="px-4 py-2.5 text-slate-600"><code>rounded-[2.5rem]</code></td><td class="px-4 py-2.5 text-slate-600"><code>rounded-2xl</code> (16px)</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">1 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">2</td><td class="px-4 py-2.5 font-bold">Hero → slim header</td><td class="px-4 py-2.5 text-slate-600">Animated gradient + particles</td><td class="px-4 py-2.5 text-slate-600">Static 48px header + streak</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">15 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">3</td><td class="px-4 py-2.5 font-bold">Font weight hierarchy</td><td class="px-4 py-2.5 text-slate-600"><code>font-black</code> everywhere</td><td class="px-4 py-2.5 text-slate-600">Body 500-700, numbers/CTAs 900</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">20 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">4</td><td class="px-4 py-2.5 font-bold">Small-text contrast</td><td class="px-4 py-2.5 text-slate-600"><code>text-gray-400</code> (3.2:1)</td><td class="px-4 py-2.5 text-slate-600"><code>text-gray-500</code> (4.6:1)</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">5 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">5</td><td class="px-4 py-2.5 font-bold">Decorative blur blobs</td><td class="px-4 py-2.5 text-slate-600"><code>blur-3xl</code> circles</td><td class="px-4 py-2.5 text-slate-600">Remove</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">2 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">6</td><td class="px-4 py-2.5 font-bold">Option grid</td><td class="px-4 py-2.5 text-slate-600">Always 2-col</td><td class="px-4 py-2.5 text-slate-600">1-col if opt >120 chars</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">10 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">7</td><td class="px-4 py-2.5 font-bold">Option hover</td><td class="px-4 py-2.5 text-slate-600">Border only</td><td class="px-4 py-2.5 text-slate-600">Border + bg + translateX nudge</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">3 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">8</td><td class="px-4 py-2.5 font-bold">Prose styling</td><td class="px-4 py-2.5 text-slate-600">Raw HTML</td><td class="px-4 py-2.5 text-slate-600"><code>prose prose-sm</code></td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">10 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">9</td><td class="px-4 py-2.5 font-bold">Difficulty tag</td><td class="px-4 py-2.5 text-slate-600">None</td><td class="px-4 py-2.5 text-slate-600">Easy/Medium/Hard pill</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">5 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">10</td><td class="px-4 py-2.5 font-bold">Sidebar counts</td><td class="px-4 py-2.5 text-slate-600">Just names</td><td class="px-4 py-2.5 text-slate-600">Name + question count</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">15 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">11</td><td class="px-4 py-2.5 font-bold">Progress bar</td><td class="px-4 py-2.5 text-slate-600">Gradient, thin</td><td class="px-4 py-2.5 text-slate-600">Add timer + mastery %</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">15 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">12</td><td class="px-4 py-2.5 font-bold">Completion % circle</td><td class="px-4 py-2.5 text-slate-600">Solid color circle</td><td class="px-4 py-2.5 text-slate-600">SVG ring + animated stroke</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">20 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">13</td><td class="px-4 py-2.5 font-bold">Stat grid</td><td class="px-4 py-2.5 text-slate-600">3 stats</td><td class="px-4 py-2.5 text-slate-600">4 stats (+time)</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">5 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">14</td><td class="px-4 py-2.5 font-bold">Nav buttons</td><td class="px-4 py-2.5 text-slate-600">Check / Next only</td><td class="px-4 py-2.5 text-slate-600">Prev / Check / Skip</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-mid px-2 py-0.5 rounded-full">15 min</span></td></tr>
+            <tr class="hover:bg-slate-50"><td class="px-4 py-2.5 font-bold text-slate-400">15</td><td class="px-4 py-2.5 font-bold">Card shadows</td><td class="px-4 py-2.5 text-slate-600"><code>shadow-sm</code></td><td class="px-4 py-2.5 text-slate-600">Indigo-tinted glow</td><td class="px-4 py-2.5 text-center"><span class="text-[10px] font-black badge-good px-2 py-0.5 rounded-full">3 min</span></td></tr>
+          </tbody>
+        </table>
+        <div class="bg-slate-50 border-t px-4 py-3 text-xs text-slate-500"><b class="text-slate-700">Total:</b> ~2.5 hours of pure visual work. No features, no backend.</div>
+      </div>
+    </section>
+  </div><!-- /tab-content-compare -->
+
+  <!-- ═══════════════════════════════════════════════════ -->
+  <!-- TAB 3: DESIGN SYSTEM                               -->
+  <!-- ═══════════════════════════════════════════════════ -->
+  <div id="tab-content-system" class="tab-content hidden space-y-8">
+
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">1</span>Color palette</h2>
+      <p class="text-slate-500 text-sm mb-6">Consistent color tokens for the entire Practice page.</p>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div class="space-y-4 text-xs">
+          <div><div class="font-bold text-slate-700 mb-1.5">Primary (actions, selected)</div><div class="flex gap-2"><div class="flex-1 h-12 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-[10px] font-black">600</div><div class="flex-1 h-12 rounded-lg bg-indigo-700 flex items-center justify-center text-white text-[10px] font-black">700</div><div class="flex-1 h-12 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 text-[10px] font-black">50</div></div></div>
+          <div><div class="font-bold text-slate-700 mb-1.5">Success (correct, mastered)</div><div class="flex gap-2"><div class="flex-1 h-12 rounded-lg bg-emerald-500 flex items-center justify-center text-white text-[10px] font-black">500</div><div class="flex-1 h-12 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-700 text-[10px] font-black">50</div></div></div>
+          <div><div class="font-bold text-slate-700 mb-1.5">Error (wrong, weak)</div><div class="flex gap-2"><div class="flex-1 h-12 rounded-lg bg-red-500 flex items-center justify-center text-white text-[10px] font-black">500</div><div class="flex-1 h-12 rounded-lg bg-red-50 border border-red-100 flex items-center justify-center text-red-700 text-[10px] font-black">50</div></div></div>
+          <div><div class="font-bold text-slate-700 mb-1.5">Warning (medium, streak)</div><div class="flex gap-2"><div class="flex-1 h-12 rounded-lg bg-amber-500 flex items-center justify-center text-white text-[10px] font-black">500</div><div class="flex-1 h-12 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 text-[10px] font-black">100</div></div></div>
+          <div><div class="font-bold text-slate-700 mb-1.5">AI accents (one per AI card type)</div><div class="flex gap-2"><div class="flex-1 h-12 rounded-lg bg-indigo-50 border border-indigo-200 flex items-center justify-center text-[9px] font-black text-indigo-700">Formula</div><div class="flex-1 h-12 rounded-lg bg-rose-50 border border-rose-200 flex items-center justify-center text-[9px] font-black text-rose-700">Mistake</div><div class="flex-1 h-12 rounded-lg bg-violet-50 border border-violet-200 flex items-center justify-center text-[9px] font-black text-violet-700">Concept</div><div class="flex-1 h-12 rounded-lg bg-amber-50 border border-amber-200 flex items-center justify-center text-[9px] font-black text-amber-700">Hint</div></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">2</span>Typography scale</h2>
+      <p class="text-slate-500 text-sm mb-6">Reserve font-black (900) for numbers, CTAs, headings only.</p>
+      <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+        <div class="space-y-2.5 text-xs">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-lg font-black text-slate-900">Question text</span><code class="text-[10px] text-slate-400">text-lg font-bold</code></div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-base font-black text-slate-900">Section heading</span><code class="text-[10px] text-slate-400">text-base font-black</code></div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-sm font-bold text-slate-700">Option text</span><code class="text-[10px] text-slate-400">text-sm font-bold</code></div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-sm font-medium text-slate-600">Explanation body</span><code class="text-[10px] text-slate-400">text-sm font-medium</code></div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-xs font-bold text-slate-500 uppercase tracking-wider">META LABEL</span><code class="text-[10px] text-slate-400">text-xs font-bold uppercase</code></div>
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100"><span class="text-2xl font-black text-indigo-600">42</span><code class="text-[10px] text-slate-400">text-2xl font-black (numbers)</code></div>
+          <div class="flex items-center justify-between"><span class="text-3xl font-black text-emerald-600">80%</span><code class="text-[10px] text-slate-400">text-3xl font-black (hero number)</code></div>
+        </div>
+        <div class="mt-4 p-3 bg-slate-50 rounded-lg text-[10px] text-slate-600"><b>Rule:</b> Reserve <code>font-black</code> (900) for numbers, CTAs, and section headings. Body uses <code>font-medium</code> (500) or <code>font-bold</code> (700). This restores visual hierarchy.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">3</span>Spacing, layout & radius</h2>
+      <p class="text-slate-500 text-sm mb-6">Consistent scales across the page.</p>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Spacing scale</h3>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center gap-3"><div class="w-1 h-1 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">4px</span><span class="text-slate-400">tight (option gap)</span></div>
+            <div class="flex items-center gap-3"><div class="w-2 h-2 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">8px</span><span class="text-slate-400">default (card inner)</span></div>
+            <div class="flex items-center gap-3"><div class="w-3 h-3 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">12px</span><span class="text-slate-400">card padding</span></div>
+            <div class="flex items-center gap-3"><div class="w-4 h-4 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">16px</span><span class="text-slate-400">section gap</span></div>
+            <div class="flex items-center gap-3"><div class="w-6 h-6 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">24px</span><span class="text-slate-400">block gap</span></div>
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-500 rounded-full"></div><span class="font-mono text-slate-600">32px</span><span class="text-slate-400">page section</span></div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Layout grid</h3>
+          <div class="space-y-2 text-xs text-slate-600">
+            <div><b class="text-slate-800">Max width:</b> <code>max-w-5xl</code> (1024px)</div>
+            <div><b class="text-slate-800">Sidebar:</b> 240px (col-span-1 of 4)</div>
+            <div><b class="text-slate-800">Main:</b> flex-1 (col-span-3 of 4)</div>
+            <div><b class="text-slate-800">Question card:</b> <code>max-w-2xl</code> mx-auto</div>
+            <div><b class="text-slate-800">Mobile:</b> single column, sidebar → horizontal chips</div>
+          </div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Radius scale</h3>
+          <div class="space-y-2 text-xs">
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 rounded-md"></div><span class="font-mono text-slate-600">6px</span><span class="text-slate-400">badges, pills</span></div>
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 rounded-lg"></div><span class="font-mono text-slate-600">8px</span><span class="text-slate-400">buttons, inputs</span></div>
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 rounded-xl"></div><span class="font-mono text-slate-600">12px</span><span class="text-slate-400">option buttons</span></div>
+            <div class="flex items-center gap-3"><div class="w-8 h-8 bg-indigo-100 rounded-2xl"></div><span class="font-mono text-slate-600">16px</span><span class="text-slate-400">cards</span></div>
+          </div>
+          <div class="mt-3 p-2.5 bg-red-50 rounded-lg text-[10px] text-red-700"><b>Dropped:</b> <code>rounded-[2.5rem]</code> (40px) — too marketing-y</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-xl font-black text-slate-800 mb-1 flex items-center gap-2"><span class="bg-indigo-600 text-white w-7 h-7 rounded-lg flex items-center justify-center text-sm">4</span>Component patterns</h2>
+      <p class="text-slate-500 text-sm mb-6">Reusable patterns with their token combinations.</p>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Question card</h3>
+          <div class="bg-white rounded-xl border border-slate-200 p-4 glow-indigo mb-3">
+            <div class="flex items-center justify-between mb-2"><span class="text-[8px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded uppercase">Topic</span><span class="text-[8px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded uppercase">Medium</span></div>
+            <div class="text-[11px] font-bold text-slate-900 mb-2">Sample question text here</div>
+            <div class="space-y-1.5"><div class="p-2 rounded-lg border-2 border-slate-200 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 border-2 border-slate-200 rounded text-[7px] flex items-center justify-center text-slate-400">A</span>Option A</div><div class="opt selected p-2 rounded-lg border-2 text-[9px] font-bold flex items-center gap-2"><span class="w-5 h-5 bg-indigo-600 text-white rounded text-[7px] flex items-center justify-center">B</span>Option B (selected)</div></div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono bg-slate-50 p-2 rounded">rounded-xl border border-slate-200 glow-indigo</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">AI card (4 types)</h3>
+          <div class="space-y-2 mb-3">
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-2 text-[9px]"><b class="text-indigo-900">🧮 Formula</b> — bg-indigo-50 border-indigo-200</div>
+            <div class="bg-rose-50 border border-rose-200 rounded-lg p-2 text-[9px]"><b class="text-rose-900">⚠️ Mistake</b> — bg-rose-50 border-rose-200</div>
+            <div class="bg-violet-50 border border-violet-200 rounded-lg p-2 text-[9px]"><b class="text-violet-900">🎴 Concept</b> — bg-violet-50 border-violet-200</div>
+            <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-[9px]"><b class="text-amber-900">💡 Hint</b> — bg-amber-50 border-amber-200</div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono bg-slate-50 p-2 rounded">Each AI card: bg-{color}-50 border-{color}-200 rounded-lg p-4 + "AI" badge top-right</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Mode card</h3>
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 text-center mb-3" style="max-width:120px"><div class="text-2xl mb-1">📚</div><div class="font-black text-xs text-slate-800">Learn</div><div class="text-[9px] text-slate-400">Default</div></div>
+          <div class="text-[10px] text-slate-500 font-mono bg-slate-50 p-2 rounded">rounded-2xl border p-4 text-center + hover:translateY(-3px)</div>
+        </div>
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+          <h3 class="font-black text-slate-800 text-sm mb-3">Mastery bar</h3>
+          <div class="space-y-2 mb-3">
+            <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">Quant</span><span class="font-black text-slate-500">68%</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-indigo-500 rounded-full" style="width:68%"></div></div></div>
+            <div><div class="flex justify-between text-xs mb-1"><span class="font-bold text-slate-700">Reasoning</span><span class="font-black text-emerald-600">92%</span></div><div class="h-2 bg-slate-100 rounded-full"><div class="h-full bg-emerald-500 rounded-full" style="width:92%"></div></div></div>
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono bg-slate-50 p-2 rounded">h-2 bg-slate-100 rounded-full + inner bg-{color}-500</div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /tab-content-system -->
+
+  <footer class="text-center text-xs text-slate-400 py-6 mt-8 border-t">
+    Combined design document for Trstprep Practice Lab · PRD at <code>docs/PRACTICE_LAB_PRD.md</code>
+  </footer>
+
+</div>
+
+<script>
+function goTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+  document.getElementById('tab-content-' + tab).classList.remove('hidden');
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function goScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function selectMode(el, mode) {
+  el.parentElement.querySelectorAll('.mode-card').forEach(c => { c.classList.remove('border-indigo-600','ring-2','ring-indigo-200'); c.classList.add('border-slate-200'); });
+  el.classList.remove('border-slate-200'); el.classList.add('border-indigo-600','ring-2','ring-indigo-200');
+}
+function selectChip(el, group) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => { c.classList.remove('active','bg-indigo-600','text-white','border-transparent'); c.classList.add('bg-white','text-slate-600','border-slate-200'); });
+  el.classList.add('active','bg-indigo-600','text-white','border-transparent'); el.classList.remove('bg-white','text-slate-600','border-slate-200');
+}
+function selectOption(el, idx) {}
+function showAi(which) {
+  const map = { hint: 'ai-hint', formula: 'ai-formula', mistake: 'ai-mistake', concept: 'ai-concept', similar: 'ai-formula' };
+  const el = document.getElementById(map[which] || 'ai-hint');
+  if (el) el.classList.remove('hidden');
+}
+</script>
+
+</body>
+</html>

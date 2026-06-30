@@ -42,7 +42,7 @@ export class NotFoundError extends DataError {
   }
 }
 
-const apiUrl = API_BASE_URL
+const apiUrl = (API_BASE_URL || '').replace(/\/api\/?$/, '')
 console.log('🔗 API URL:', apiUrl)
 
 export const apiClient = axios.create({
@@ -87,9 +87,12 @@ apiClient.interceptors.response.use(
          case 400:
            return Promise.reject(new ValidationError(message, data))
          case 401:
-           // Clear session data via event (sessionStorage, CSRF token, user state)
-           window.dispatchEvent(new Event('unauthorized'))
-           return Promise.reject(new AuthenticationError(message, data))
+            // Clear session data via event (sessionStorage, CSRF token, user state)
+            window.dispatchEvent(new Event('unauthorized'))
+            if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+              window.location.href = '/login'
+            }
+            return Promise.reject(new AuthenticationError(message, data))
          case 403:
            return Promise.reject(new AuthenticationError('Access forbidden', data))
          case 404:
@@ -1088,7 +1091,10 @@ export const deleteBookmark = (id) => adminAPI.deleteBookmark(id)
 // Public Data functions
 export const getExamUpdates = examAPI.getExamUpdates
 export const getExamYearlyData = examAPI.getExamYearlyData
-export const getPublicStats = () => examAPI.getPublicStats()
+export const getPublicStats = async () => {
+  const response = await examAPI.getPublicStats()
+  return response.data?.data || response.data
+}
 export const getTestimonials = () => examAPI.getTestimonials()
 export const getPromotions = () => examAPI.getPromotions()
 
@@ -1133,5 +1139,68 @@ export const getTopPerformers = (limit = 10, seriesId = null) => {
 
 // Export apiClient as 'api' for compatibility with existing imports
 export const api = apiClient
+
+// PYP Hierarchy API functions
+export const getPypCategories = async () => {
+  const response = await apiClient.get('/api/pyps/categories')
+  return response.data
+}
+
+export const getPypCategoryExams = async (catSlug) => {
+  const response = await apiClient.get(`/api/pyps/categories/${catSlug}/exams`)
+  return response.data
+}
+
+export const getPypExamPapers = async (examSlug, params = {}) => {
+  const query = new URLSearchParams()
+  if (params.year && params.year !== 'all') query.set('year', params.year)
+  if (params.tier && params.tier !== 'all') query.set('tier', params.tier)
+  if (params.page) query.set('page', params.page)
+  if (params.limit) query.set('limit', params.limit)
+  const response = await apiClient.get(`/api/pyps/exams/${examSlug}?${query.toString()}`)
+  return response.data
+}
+
+export const getPypExamInsights = async (examSlug) => {
+  const response = await apiClient.get(`/api/pyps/exams/${examSlug}/insights`)
+  return response.data
+}
+
+// ═══════════════════════════════════════════════════
+// PRACTICE LAB API (Phase 1) — see docs/PRACTICE_LAB_PRD.md
+// ═══════════════════════════════════════════════════
+export const practiceAPI = {
+  // Tree & metadata
+  getTree: () => apiClient.get('/api/practice/tree').then(r => r.data?.data),
+  getTopicStats: (topicId) => apiClient.get(`/api/practice/topics/${topicId}/stats`).then(r => r.data?.data),
+
+  // Sessions
+  startSession: (payload) => apiClient.post('/api/practice/sessions', payload).then(r => r.data?.data),
+  getActiveSession: () => apiClient.get('/api/practice/sessions/active').then(r => r.data?.data),
+  getSession: (id) => apiClient.get(`/api/practice/sessions/${id}`).then(r => r.data?.data),
+  patchSession: (id, patch) => apiClient.patch(`/api/practice/sessions/${id}`, patch).then(r => r.data),
+  completeSession: (id, summary) => apiClient.post(`/api/practice/sessions/${id}/complete`, summary).then(r => r.data?.data),
+
+  // Questions within a session
+  getQuestion: (sessionId, idx) => apiClient.get(`/api/practice/sessions/${sessionId}/questions/${idx}`).then(r => r.data?.data),
+  checkAnswer: (sessionId, idx, payload) => apiClient.post(`/api/practice/sessions/${sessionId}/questions/${idx}/check`, payload).then(r => r.data?.data),
+  skipQuestion: (sessionId, idx, payload) => apiClient.post(`/api/practice/sessions/${sessionId}/questions/${idx}/skip`, payload).then(r => r.data),
+
+  // Bookmarks
+  getBookmarks: (page = 1, limit = 20) => apiClient.get(`/api/practice/bookmarks?page=${page}&limit=${limit}`).then(r => r.data),
+  getBookmarksCount: () => apiClient.get('/api/practice/bookmarks/count').then(r => r.data?.data),
+  addBookmark: (questionId) => apiClient.post(`/api/practice/bookmarks/${questionId}`).then(r => r.data),
+  removeBookmark: (questionId) => apiClient.delete(`/api/practice/bookmarks/${questionId}`).then(r => r.data),
+
+  // Mistakes notebook
+  getMistakes: (page = 1, limit = 20) => apiClient.get(`/api/practice/mistakes?page=${page}&limit=${limit}`).then(r => r.data),
+  getMistakesCount: () => apiClient.get('/api/practice/mistakes/count').then(r => r.data?.data),
+
+  // Dashboard
+  getDashboard: () => apiClient.get('/api/practice/dashboard').then(r => r.data?.data),
+
+  // Report a bad question
+  reportQuestion: (questionId, payload) => apiClient.post(`/api/practice/questions/${questionId}/report`, payload).then(r => r.data),
+}
 
 export default apiClient

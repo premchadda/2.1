@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { getTestSeries, getStudyMaterials, getTests, examAPI, testsAPI } from '../../shared/lib/dataService'
 import { TestSeriesCard, AnimatedHero } from '../../shared/components'
 import { useTestCategories } from '../../shared/hooks/useTestCategories'
@@ -47,8 +47,8 @@ function Home() {
         const categories = categoriesResponse.data?.data || []
         setExamCategories(categories)
         
-        if (statsResponse?.data) {
-          const s = statsResponse.data
+        if (statsResponse?.data?.data) {
+          const s = statsResponse.data.data
           setPlatformStats({
             activeLearners: s.activeLearners || 0,
             mockTests: s.mockTests || 0,
@@ -221,7 +221,7 @@ function Home() {
       </AnimatedHero>
 
       {/* Quick Access */}
-      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
+      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-9 relative z-20">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-4 md:p-6 animate-slide-in-up">
           <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-4">Quick Access</h2>
           <div className="grid grid-cols-4 md:grid-cols-8 gap-3">

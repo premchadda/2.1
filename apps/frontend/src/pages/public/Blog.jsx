@@ -19,7 +19,7 @@ export default function Blog() {
         const stats = await getPublicStats()
         if (stats && stats.activeLearners) {
            // Convert e.g. "5L+" to "5,00,000+"
-           setLearnerCount(stats.activeLearners.replace('L+', ',00,000+').replace('k+', ',000+'))
+           setLearnerCount(String(stats.activeLearners).replace('L+', ',00,000+').replace('k+', ',000+'))
         }
       } catch (error) {
         console.error('Failed to fetch stats:', error)
@@ -140,18 +140,18 @@ export default function Blog() {
              <div className="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6">
                <AlertCircle className="w-10 h-10 text-red-400" />
              </div>
-             <h3 className="text-2xl font-black text-gray-900 mb-2">Blog Coming Soon</h3>
+             <h3 className="text-2xl font-black text-gray-900 mb-2">Couldn't Load Articles</h3>
              <p className="text-gray-500 font-medium max-w-sm mx-auto mb-8">
-               Our content team is preparing articles for you. Check back soon!
+               Something went wrong while fetching blog posts. Please try again.
              </p>
              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-               <button 
+               <button
                  onClick={() => window.location.reload()}
                  className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
                >
                  TRY AGAIN
                </button>
-               <a 
+               <a
                  href="/"
                  className="bg-gray-100 text-gray-700 px-8 py-3 rounded-2xl font-black text-xs hover:bg-gray-200 transition-all"
                >

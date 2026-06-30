@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, X } from 'lucide-react'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { GoogleLogin } from '@react-oauth/google'
 import AnimatedHero from '../../shared/components/common/AnimatedHero'
 import { Logo } from '../../shared/components'
@@ -38,6 +38,14 @@ function Login() {
     fetchStats()
   }, [])
 
+  const handleClose = useCallback(() => {
+    if (location.state?.from?.pathname) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }, [location, navigate])
+
   useEffect(() => {
     document.body.style.overflow = 'hidden'
     const onKey = (e) => { if (e.key === 'Escape') handleClose() }
@@ -46,22 +54,13 @@ function Login() {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', onKey)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [handleClose])
 
   const from = location.state?.from?.pathname || '/dashboard'
 
   // Declarative redirect: only fires when user is confirmed set after a fresh login
   if (justLoggedIn && user) {
     return <Navigate to={from} replace />
-  }
-
-  const handleClose = () => {
-    if (location.state?.from?.pathname) {
-      navigate(-1)
-    } else {
-      navigate('/')
-    }
   }
 
   const handleSubmit = async (e) => {

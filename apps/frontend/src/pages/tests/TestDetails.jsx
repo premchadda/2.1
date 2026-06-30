@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { TestCard } from '../../shared/components'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import {
   getTestSeriesById,
   getTestsBySeriesId,

@@ -11,7 +11,7 @@ import {
   AlignRight, Bold, Italic
 } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import api from '../../shared/lib/api'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import ComingSoon from '../../shared/components/common/ComingSoon'

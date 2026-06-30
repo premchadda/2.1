@@ -1,10 +1,19 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { AnimatedHero, Card, Badge, Button, ScrollReveal } from '../../shared/components'
-import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, PieChart, Activity, Target, Clock, Award, Brain, Zap, AlertTriangle, CheckCircle, BookOpen, ChevronRight, Sparkles } from 'lucide-react'
+import { api } from '../../shared/lib/dataService'
+import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, PieChart, Activity, Target, Clock, Award, Brain, Zap, AlertTriangle, CheckCircle, BookOpen, ChevronRight, Sparkles, Loader2 } from 'lucide-react'
 
 const timeframeOptions = ['This Week', 'This Month', 'This Quarter', 'All Time']
+
+const TIMEFRAME_MAP = {
+  'This Week': 'week',
+  'This Month': 'month',
+  'This Quarter': 'quarter',
+  'All Time': 'all',
+}
 
 function PerformanceInsights() {
   const { user } = useAuth()
@@ -15,34 +24,81 @@ function PerformanceInsights() {
     setExpandedSection(expandedSection === key ? null : key)
   }
 
+  const { data: perfData, isLoading: loadingPerf } = useQuery({
+    queryKey: ['intelligence-performance', timeframe],
+    queryFn: async () => {
+      const period = TIMEFRAME_MAP[timeframe] || 'month'
+      const res = await api.get(`/api/intelligence/performance?period=${period}`)
+      return res.data?.data || {}
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const { data: weakTopics = [], isLoading: loadingWeak } = useQuery({
+    queryKey: ['intelligence-weak-topics'],
+    queryFn: async () => {
+      const res = await api.get('/api/intelligence/weak-topics?minAttempts=3&limit=10')
+      return res.data?.data || []
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const { data: recommendations = [], isLoading: loadingRecs } = useQuery({
+    queryKey: ['intelligence-recommendations'],
+    queryFn: async () => {
+      const res = await api.get('/api/intelligence/recommendations?limit=6')
+      return res.data?.data || []
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const { data: streakData } = useQuery({
+    queryKey: ['intelligence-streak'],
+    queryFn: async () => {
+      const res = await api.get('/api/intelligence/streak')
+      return res.data?.data || { current: 0, longest: 0 }
+    },
+    staleTime: 1000 * 60 * 5,
+  })
+
+  const isLoading = loadingPerf || loadingWeak || loadingRecs
+
   const overviewStats = [
-    { label: 'Tests Taken', value: '47', change: '+8', trend: 'up', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-    { label: 'Avg. Accuracy', value: '72%', change: '+5%', trend: 'up', icon: Target, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/20' },
-    { label: 'Avg. Score', value: '68.5', change: '+3.2', trend: 'up', icon: Award, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-    { label: 'Time Spent', value: '42h', change: '+12h', trend: 'up', icon: Clock, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-    { label: 'Streak', value: '7 days', change: 'Best: 14', trend: 'neutral', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
-    { label: 'Rank', value: '#128', change: '+15', trend: 'up', icon: Award, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+    { label: 'Tests Taken', value: perfData?.totalTests ?? 0, change: perfData?.testsChange ? `${perfData.testsChange > 0 ? '+' : ''}${perfData.testsChange}` : null, trend: perfData?.testsChange >= 0 ? 'up' : 'down', icon: BookOpen, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+    { label: 'Avg. Accuracy', value: `${perfData?.avgAccuracy ?? 0}%`, change: perfData?.accuracyChange ? `${perfData.accuracyChange > 0 ? '+' : ''}${perfData.accuracyChange}%` : null, trend: perfData?.accuracyChange >= 0 ? 'up' : 'down', icon: Target, color: 'text-green-500', bg: 'bg-green-50 dark:bg-green-900/20' },
+    { label: 'Avg. Score', value: perfData?.avgScore?.toFixed(1) ?? '0.0', change: perfData?.scoreChange ? `${perfData.scoreChange > 0 ? '+' : ''}${perfData.scoreChange}` : null, trend: perfData?.scoreChange >= 0 ? 'up' : 'down', icon: Award, color: 'text-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+    { label: 'Time Spent', value: `${perfData?.totalHours ?? 0}h`, change: perfData?.hoursChange ? `${perfData.hoursChange > 0 ? '+' : ''}${perfData.hoursChange}h` : null, trend: perfData?.hoursChange >= 0 ? 'up' : 'down', icon: Clock, color: 'text-orange-500', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+    { label: 'Streak', value: `${streakData?.current ?? 0} days`, change: streakData?.longest ? `Best: ${streakData.longest}` : null, trend: 'neutral', icon: Zap, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-900/20' },
+    { label: 'Rank', value: perfData?.rank ? `#${perfData.rank}` : '—', change: perfData?.rankChange ? `${perfData.rankChange > 0 ? '+' : ''}${perfData.rankChange}` : null, trend: perfData?.rankChange >= 0 ? 'up' : 'down', icon: Award, color: 'text-indigo-500', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
   ]
 
-  const subjectBreakdown = [
-    { name: 'Quantitative Aptitude', accuracy: 68, tests: 14, trend: 'up', color: 'from-blue-400 to-blue-600' },
-    { name: 'Reasoning', accuracy: 75, tests: 11, trend: 'up', color: 'from-purple-400 to-purple-600' },
-    { name: 'General Awareness', accuracy: 58, tests: 9, trend: 'down', color: 'from-orange-400 to-orange-600' },
-    { name: 'English', accuracy: 82, tests: 8, trend: 'up', color: 'from-green-400 to-green-600' },
-    { name: 'Computer Knowledge', accuracy: 45, tests: 5, trend: 'down', color: 'from-red-400 to-red-600' },
-  ]
+  const subjectBreakdown = (perfData?.subjectWise || []).map(s => ({
+    name: s.name,
+    accuracy: s.accuracy || 0,
+    tests: s.attempted || 0,
+    trend: (s.accuracy || 0) >= (s.prevAccuracy || 0) ? 'up' : 'down',
+    color: s.color || 'from-indigo-400 to-indigo-600',
+  }))
 
-  const weakAreas = [
-    { topic: 'Data Interpretation', subject: 'Quant', attempts: 12, accuracy: 42, priority: 'high' },
-    { topic: 'Computer Fundamentals', subject: 'Computer', attempts: 5, accuracy: 35, priority: 'high' },
-    { topic: 'Current Affairs', subject: 'GK', attempts: 8, accuracy: 48, priority: 'medium' },
-  ]
+  const weakAreas = weakTopics.map(t => ({
+    topic: t.topic || t.name,
+    subject: t.subject,
+    attempts: t.attempts || 0,
+    accuracy: t.accuracy || 0,
+    priority: (t.accuracy || 0) < 40 ? 'high' : 'medium',
+  }))
 
-  const recommendations = [
-    { icon: Brain, title: 'Focus on Data Interpretation', desc: 'Your accuracy is 42%. Try 10 practice sets this week.', action: 'Practice Now', route: '/practice' },
-    { icon: BookOpen, title: 'Attempt Full-Length Mock', desc: 'You haven\'t taken a full mock this week. Build endurance.', action: 'Take Mock', route: '/test-series' },
-    { icon: Target, title: 'Review Computer Basics', desc: 'Computer Knowledge is your weakest subject at 35%.', action: 'Study Now', route: '/study' },
-  ]
+  const recList = Array.isArray(recommendations)
+    ? recommendations
+    : (recommendations?.dashboardSuggestions || recommendations?.recommendedTests || [])
+
+  const recs = recList.map(r => ({
+    icon: Brain,
+    title: r.title || r.recommendation || (r.topic ? `Improve ${r.topic}` : ''),
+    desc: r.description || r.reason || r.desc || '',
+    action: r.actionLabel || 'Practice Now',
+    route: r.route || r.actionUrl || '/test-series',
+  }))
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-20 md:pb-8">
@@ -95,13 +151,17 @@ function PerformanceInsights() {
                   <div className={`w-8 h-8 rounded-lg ${stat.bg} flex items-center justify-center`}>
                     <stat.icon className={`w-4 h-4 ${stat.color}`} />
                   </div>
-                  <span className={`text-xs font-medium ${stat.trend === 'up' ? 'text-green-600' : stat.trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
-                    {stat.trend === 'up' && <TrendingUp className="w-3 h-3 inline" />}
-                    {stat.trend === 'down' && <TrendingDown className="w-3 h-3 inline" />}
-                    {stat.change}
-                  </span>
+                  {stat.change && (
+                    <span className={`text-xs font-medium ${stat.trend === 'up' ? 'text-green-600' : stat.trend === 'down' ? 'text-red-600' : 'text-gray-500'}`}>
+                      {stat.trend === 'up' && <TrendingUp className="w-3 h-3 inline" />}
+                      {stat.trend === 'down' && <TrendingDown className="w-3 h-3 inline" />}
+                      {stat.change}
+                    </span>
+                  )}
                 </div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {isLoading ? <span className="inline-block w-12 h-6 bg-gray-100 dark:bg-gray-700 rounded animate-pulse" /> : stat.value}
+                </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">{stat.label}</p>
               </Card>
             </ScrollReveal>
@@ -119,34 +179,40 @@ function PerformanceInsights() {
                     Subject-wise Performance
                   </h3>
                 </div>
-                <div className="space-y-4">
-                  {subjectBreakdown.map((subject) => (
-                    <div key={subject.name}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{subject.name}</span>
-                          <span className="text-xs text-gray-400">({subject.tests} tests)</span>
+                {loadingPerf ? (
+                  <LoadingPlaceholder />
+                ) : subjectBreakdown.length > 0 ? (
+                  <div className="space-y-4">
+                    {subjectBreakdown.map((subject) => (
+                      <div key={subject.name}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{subject.name}</span>
+                            <span className="text-xs text-gray-400">({subject.tests} tests)</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-sm font-bold ${subject.accuracy >= 70 ? 'text-green-600' : subject.accuracy >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                              {subject.accuracy}%
+                            </span>
+                            {subject.trend === 'up' ? (
+                              <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                            ) : (
+                              <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-sm font-bold ${subject.accuracy >= 70 ? 'text-green-600' : subject.accuracy >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
-                            {subject.accuracy}%
-                          </span>
-                          {subject.trend === 'up' ? (
-                            <TrendingUp className="w-3.5 h-3.5 text-green-500" />
-                          ) : (
-                            <TrendingDown className="w-3.5 h-3.5 text-red-500" />
-                          )}
+                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full bg-gradient-to-r ${subject.color} transition-all duration-500`}
+                            style={{ width: `${subject.accuracy}%` }}
+                          />
                         </div>
                       </div>
-                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full bg-gradient-to-r ${subject.color} transition-all duration-500`}
-                          style={{ width: `${subject.accuracy}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyHint icon={PieChart} message="Complete tests to see subject-wise performance" />
+                )}
               </Card>
             </ScrollReveal>
           </div>
@@ -161,29 +227,35 @@ function PerformanceInsights() {
                     Areas to Improve
                   </h3>
                 </div>
-                <div className="space-y-3">
-                  {weakAreas.map((area) => (
-                    <div key={area.topic} className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-800">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-sm text-gray-900 dark:text-white">{area.topic}</span>
-                        <Badge variant={area.priority === 'high' ? 'error' : 'warning'} size="xs">{area.priority}</Badge>
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{area.subject} · {area.attempts} attempts</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-red-500 rounded-full transition-all"
-                            style={{ width: `${area.accuracy}%` }}
-                          />
+                {loadingWeak ? (
+                  <LoadingPlaceholder />
+                ) : weakAreas.length > 0 ? (
+                  <div className="space-y-3">
+                    {weakAreas.map((area) => (
+                      <div key={area.topic} className="p-3 bg-red-50 dark:bg-red-900/10 rounded-xl border border-red-100 dark:border-red-800">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-medium text-sm text-gray-900 dark:text-white">{area.topic}</span>
+                          <Badge variant={area.priority === 'high' ? 'error' : 'warning'} size="xs">{area.priority}</Badge>
                         </div>
-                        <span className="text-xs font-bold text-red-600">{area.accuracy}%</span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{area.subject} · {area.attempts} attempts</p>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-red-500 rounded-full transition-all"
+                              style={{ width: `${area.accuracy}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-red-600">{area.accuracy}%</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-                <Button variant="ghost" size="sm" fullWidth className="mt-3 text-brand-start">
-                  View All Weak Areas <ChevronRight className="w-3 h-3" />
-                </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <CheckCircle className="w-10 h-10 text-green-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400">No weak areas detected. Keep practicing!</p>
+                  </div>
+                )}
               </Card>
             </ScrollReveal>
           </div>
@@ -197,20 +269,26 @@ function PerformanceInsights() {
               <h3 className="font-bold text-gray-900 dark:text-white">Smart Recommendations</h3>
               <Badge variant="primary" size="xs">AI-Powered</Badge>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {recommendations.map((rec) => (
-                <div key={rec.title} className="p-4 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-750 rounded-xl border border-gray-200 dark:border-gray-700">
-                  <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
-                    <rec.icon className="w-5 h-5 text-brand-start" />
+            {loadingRecs ? (
+              <LoadingPlaceholder />
+            ) : recs.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {recs.map((rec) => (
+                  <div key={rec.title} className="p-4 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-750 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center mb-3">
+                      <rec.icon className="w-5 h-5 text-brand-start" />
+                    </div>
+                    <h4 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">{rec.title}</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{rec.desc}</p>
+                    <Link to={rec.route} className="text-xs font-semibold text-brand-start dark:text-indigo-400 hover:underline">
+                      {rec.action} →
+                    </Link>
                   </div>
-                  <h4 className="font-semibold text-sm text-gray-900 dark:text-white mb-1">{rec.title}</h4>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">{rec.desc}</p>
-                  <Link to={rec.route} className="text-xs font-semibold text-brand-start dark:text-indigo-400 hover:underline">
-                    {rec.action} →
-                  </Link>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyHint icon={Sparkles} message="Complete more tests to unlock AI recommendations" />
+            )}
           </Card>
         </ScrollReveal>
 
@@ -218,9 +296,9 @@ function PerformanceInsights() {
         <ScrollReveal delay={0.2}>
           <Card variant="elevated" className="mb-6">
             {[
-              { key: 'accuracy', icon: Target, title: 'Accuracy Trends', content: 'Your accuracy has improved by 5% this month. Focus on General Awareness to maintain upward trajectory.' },
-              { key: 'speed', icon: Clock, title: 'Speed Analysis', content: 'Average time per question: 45s. Target: 35s. Practice speed drills for Quantitative Aptitude.' },
-              { key: 'consistency', icon: Activity, title: 'Consistency Score', content: 'Your consistency score is 7.4/10. Attempt tests regularly to build momentum.' },
+              { key: 'accuracy', icon: Target, title: 'Accuracy Trends', content: perfData?.accuracyTrend || `Your accuracy is ${perfData?.avgAccuracy || 0}%. ${perfData?.avgAccuracy >= 70 ? 'Great work — maintain consistency.' : 'Focus on weak areas to improve.'}` },
+              { key: 'speed', icon: Clock, title: 'Speed Analysis', content: perfData?.speedAnalysis || `Average time per question: ${perfData?.avgTimePerQuestion || 0}s. ${perfData?.avgTimePerQuestion > 60 ? 'Practice speed drills to reduce time.' : 'Good speed — keep it up.'}` },
+              { key: 'consistency', icon: Activity, title: 'Consistency Score', content: perfData?.consistencyNote || `Your current streak is ${streakData?.current || 0} days (best: ${streakData?.longest || 0}). Attempt tests regularly to build momentum.` },
             ].map((section) => (
               <div key={section.key} className="border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                 <button
@@ -243,6 +321,26 @@ function PerformanceInsights() {
           </Card>
         </ScrollReveal>
       </div>
+    </div>
+  )
+}
+
+function LoadingPlaceholder() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <Loader2 className="w-6 h-6 text-brand-start animate-spin" />
+    </div>
+  )
+}
+
+function EmptyHint({ icon: Icon, message }) {
+  return (
+    <div className="text-center py-10">
+      <Icon className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-3" />
+      <p className="text-sm text-gray-400">{message}</p>
+      <Link to="/test-series" className="mt-3 inline-block text-brand-start font-bold text-sm hover:underline">
+        Start practicing →
+      </Link>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { AnimatedHero, Breadcrumb } from '../../shared/components'
 import api from '../../shared/lib/api'
 import {

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PYP Final Hierarchy — All Features</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0b1120; color: #e2e8f0; }
+  .panel { background:#1e293b; border:1px solid #334155; border-radius:16px; overflow:hidden; }
+  .panel-h { padding:12px 16px; border-bottom:1px solid #334155; }
+  .tag { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; }
+  .lvl-1 { background: linear-gradient(135deg,#1e3a8a,#1d4ed8); }
+  .lvl-2 { background: linear-gradient(135deg,#312e81,#4f46e5); }
+  .lvl-3 { background: linear-gradient(135deg,#0c4a6e,#0e7490); }
+  .lvl-4 { background: linear-gradient(135deg,#134e4a,#0f766e); }
+  .mini { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px 12px; }
+  .feat { display:flex; align-items:flex-start; gap:6px; padding:4px 0; font-size:11px; border-bottom:1px solid rgba(51,65,85,0.4); }
+  .feat:last-child{border-bottom:none;}
+  .ok{color:#34d399;} .no{color:#f87171;} .wn{color:#fbbf24;} .nw{color:#38bdf8;}
+  .arrow { color:#475569; font-size:18px; }
+  .doc-pattern { background-image: repeating-linear-gradient(0deg,rgba(255,255,255,0.03) 0,rgba(255,255,255,0.03) 1px,transparent 1px,transparent 20px), repeating-linear-gradient(90deg,rgba(255,255,255,0.03) 0,rgba(255,255,255,0.03) 1px,transparent 1px,transparent 20px); }
+  @keyframes pulse{0%,100%{opacity:.5}50%{opacity:.9}}
+  .pulse{animation:pulse 3s infinite;}
+  .route { font-family: ui-monospace,monospace; font-size:11px; background:#0f172a; padding:2px 8px; border-radius:6px; color:#7dd3fc; border:1px solid #1e3a5f; }
+</style>
+</head>
+<body>
+<div class="max-w-7xl mx-auto px-4 py-8">
+
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-white">PYP Final Hierarchy — All Features</h1>
+    <p class="text-slate-400 mt-2">Exam Categories → Exams → Year/Shift → Paper. Every competitor feature mapped to your data model.</p>
+  </div>
+
+  <!-- ============ HIERARCHY TREE ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">1. Route & Navigation Hierarchy</h2>
+  <div class="panel mb-8">
+    <div class="p-5 space-y-3">
+
+      <!-- Level 1 -->
+      <div class="flex items-center gap-3">
+        <div class="lvl-1 px-4 py-2 rounded-lg text-white font-bold text-sm flex-shrink-0">L1</div>
+        <div class="flex-1">
+          <div class="text-white font-semibold">PYP Landing — All Exam Categories</div>
+          <div class="route mt-1">/pyps</div>
+        </div>
+        <div class="text-xs text-slate-400 max-w-xs">Shows exam-category grid (SSC, Banking, Railways, UPSC…) with PYP counts per category. Like Testbook's main PYP page.</div>
+      </div>
+      <div class="arrow text-center">↓</div>
+
+      <!-- Level 2 -->
+      <div class="flex items-center gap-3">
+        <div class="lvl-2 px-4 py-2 rounded-lg text-white font-bold text-sm flex-shrink-0">L2</div>
+        <div class="flex-1">
+          <div class="text-white font-semibold">Exam Category — All Exams with PYPs</div>
+          <div class="route mt-1">/pyps/:examCategory &nbsp; (e.g. /pyps/ssc)</div>
+        </div>
+        <div class="text-xs text-slate-400 max-w-xs">Lists all exams in SSC that have PYPs (CGL, CHSL, MTS, CPO, GD, JE…). Each exam card shows total paper count + year range + latest paper badge.</div>
+      </div>
+      <div class="arrow text-center">↓</div>
+
+      <!-- Level 3 -->
+      <div class="flex items-center gap-3">
+        <div class="lvl-3 px-4 py-2 rounded-lg text-white font-bold text-sm flex-shrink-0">L3</div>
+        <div class="flex-1">
+          <div class="text-white font-semibold">Exam PYPs — Year-Grouped Paper List</div>
+          <div class="route mt-1">/pyps/:examCategory/:examSlug &nbsp; (e.g. /pyps/ssc/cgl)</div>
+        </div>
+        <div class="text-xs text-slate-400 max-w-xs">The core page. Tier filter + year chips + year-grouped sections. Each card: date+shift, Q/marks/min, attempts, Attempt+PDF CTA. <b>This is where 90% of competitor features live.</b></div>
+      </div>
+      <div class="arrow text-center">↓</div>
+
+      <!-- Level 4 -->
+      <div class="flex items-center gap-3">
+        <div class="lvl-4 px-4 py-2 rounded-lg text-white font-bold text-sm flex-shrink-0">L4</div>
+        <div class="flex-1">
+          <div class="text-white font-semibold">Paper Attempt — Test Interface</div>
+          <div class="route mt-1">/pyp/:pypId/test &nbsp; (already exists)</div>
+        </div>
+        <div class="text-xs text-slate-400 max-w-xs">Full-screen test interface. Post-attempt: AI analysis, topic weightage, cut-off comparison, re-attempt mode.</div>
+      </div>
+    </div>
+
+    <!-- Existing routes to keep/deprecate -->
+    <div class="border-t border-slate-700 p-4 bg-slate-800/40">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">Route Migration</div>
+      <div class="grid md:grid-cols-2 gap-3 text-xs">
+        <div>
+          <div class="font-semibold text-emerald-400 mb-1">KEEP</div>
+          <div class="text-slate-300">/pyps → becomes L1 landing (repurpose TagPage or new PypsLanding)</div>
+          <div class="text-slate-300">/pyp/:pypId/test → L4 (unchanged)</div>
+          <div class="text-slate-300">/exams → keep for exam info (not PYPs)</div>
+          <div class="text-slate-300">/exam/:examId → keep, add "PYPs" tab linking to /pyps/:cat/:slug</div>
+        </div>
+        <div>
+          <div class="font-semibold text-rose-400 mb-1">REPLACE / REDIRECT</div>
+          <div class="text-slate-300">/previous-year-papers → redirect to /pyps</div>
+          <div class="text-slate-300">/tag/pyps, /tag/pyq → redirect to /pyps</div>
+          <div class="text-slate-300">ExamInfoNew "PYPs" CTA → link to /pyps/:cat/:examSlug instead of /pyps</div>
+          <div class="text-slate-300">ExamYear.jsx → consume exam.routes /:slug/year API, link to /pyps/:cat/:slug?year=</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ L1 MOCKUP ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">2. Level 1 — PYP Landing <span class="route ml-2">/pyps</span></h2>
+  <div class="panel mb-8">
+    <div class="panel-h bg-slate-800 flex justify-between">
+      <span class="font-bold text-slate-300 text-sm">/pyps — Exam Category Grid</span>
+      <span class="tag bg-blue-600 text-white">Testbook-style</span>
+    </div>
+    <!-- hero -->
+    <div class="relative h-28 px-5 py-3 overflow-hidden lvl-1 doc-pattern">
+      <div class="absolute top-2 right-4 w-8 h-10 bg-white/10 rounded pulse flex items-center justify-center text-white/70">📄</div>
+      <div class="text-white text-lg font-bold">📋 Previous Year Papers</div>
+      <div class="text-white/80 text-xs mt-0.5">Real exam questions — all exams, all years</div>
+      <div class="mt-1.5 flex gap-1.5">
+        <span class="tag bg-white/20 text-white">12,450+ Papers</span>
+        <span class="tag bg-white/20 text-white">18 Exam Categories</span>
+        <span class="tag bg-white/20 text-white">2016–2025</span>
+      </div>
+      <div class="mt-1 text-[10px] text-white/60">2.3M attempts this year</div>
+    </div>
+    <!-- search -->
+    <div class="px-5 py-2.5 border-b border-slate-700">
+      <div class="bg-slate-800 rounded px-3 py-1.5 text-xs text-slate-500">🔍 Search exams or papers... (your advantage — keep)</div>
+    </div>
+    <!-- category grid -->
+    <div class="p-4">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">Popular Exam Categories</div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="mini text-center"><div class="text-2xl">🔵</div><div class="text-xs font-semibold text-slate-200 mt-1">SSC</div><div class="text-[10px] text-cyan-400">3,200 papers</div><div class="text-[10px] text-slate-500">CGL, CHSL, MTS…</div></div>
+        <div class="mini text-center"><div class="text-2xl">🟢</div><div class="text-xs font-semibold text-slate-200 mt-1">Banking</div><div class="text-[10px] text-cyan-400">1,800 papers</div><div class="text-[10px] text-slate-500">SBI, IBPS, RBI…</div></div>
+        <div class="mini text-center"><div class="text-2xl">🟠</div><div class="text-xs font-semibold text-slate-200 mt-1">Railways</div><div class="text-[10px] text-cyan-400">950 papers</div><div class="text-[10px] text-slate-500">RRB NTPC, Group D…</div></div>
+        <div class="mini text-center"><div class="text-2xl">🔴</div><div class="text-xs font-semibold text-slate-200 mt-1">UPSC</div><div class="text-[10px] text-cyan-400">420 papers</div><div class="text-[10px] text-slate-500">CSE, CDS, NDA…</div></div>
+        <div class="mini text-center"><div class="text-2xl">🟣</div><div class="text-xs font-semibold text-slate-200 mt-1">Teaching</div><div class="text-[10px] text-cyan-400">680 papers</div><div class="text-[10px] text-slate-500">CTET, UGC NET…</div></div>
+        <div class="mini text-center"><div class="text-2xl">⚔️</div><div class="text-xs font-semibold text-slate-200 mt-1">Defence</div><div class="text-[10px] text-cyan-400">340 papers</div><div class="text-[10px] text-slate-500">AFCAT, CDS, Agniveer…</div></div>
+      </div>
+      <div class="text-center text-xs text-slate-500 mt-3">+ 12 more categories →</div>
+    </div>
+    <!-- why attempt -->
+    <div class="border-t border-slate-700 p-4 bg-slate-800/30">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">Why Attempt PYPs? <span class="text-slate-600">(Oliveboard feature)</span></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="mini text-center text-[10px] text-slate-300">📝 Real exam pattern & difficulty</div>
+        <div class="mini text-center text-[10px] text-slate-300">📊 Identify high-weightage topics</div>
+        <div class="mini text-center text-[10px] text-slate-300">⏱️ Build time management</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ L2 MOCKUP ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">3. Level 2 — Exam Category <span class="route ml-2">/pyps/ssc</span></h2>
+  <div class="panel mb-8">
+    <div class="panel-h bg-slate-800 flex justify-between">
+      <span class="font-bold text-slate-300 text-sm">/pyps/:examCategory — Exam List</span>
+      <span class="tag bg-indigo-600 text-white">new</span>
+    </div>
+    <!-- breadcrumb -->
+    <div class="px-5 py-2 border-b border-slate-700 text-[10px] text-slate-500">Home / PYPs / <span class="text-slate-300">SSC</span></div>
+    <!-- hero -->
+    <div class="relative h-24 px-5 py-3 lvl-2 doc-pattern">
+      <div class="text-white text-base font-bold">🔵 SSC Previous Year Papers</div>
+      <div class="text-white/80 text-xs mt-0.5">3,200 papers across 8 exams · 2016–2025</div>
+      <div class="mt-1.5 flex gap-1.5">
+        <span class="tag bg-white/20 text-white">8 Exams</span>
+        <span class="tag bg-white/20 text-white">Most: CGL (501)</span>
+      </div>
+    </div>
+    <!-- exam cards -->
+    <div class="p-4">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">Exams with PYPs</div>
+      <div class="space-y-2">
+        <div class="mini flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600/30 flex items-center justify-center text-lg">📘</div>
+            <div>
+              <div class="text-sm font-semibold text-slate-200">SSC CGL</div>
+              <div class="text-[10px] text-slate-500">501 papers · Tier I + Tier II · 2016–2025</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="tag bg-rose-600 text-white text-[9px]">12 NEW (2025)</div>
+            <div class="text-[10px] text-cyan-400 mt-1">845k attempts</div>
+          </div>
+        </div>
+        <div class="mini flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600/30 flex items-center justify-center text-lg">📗</div>
+            <div>
+              <div class="text-sm font-semibold text-slate-200">SSC CHSL</div>
+              <div class="text-[10px] text-slate-500">897 papers · 2016–2025</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="tag bg-emerald-600 text-white text-[9px]">FREE</div>
+            <div class="text-[10px] text-cyan-400 mt-1">420k attempts</div>
+          </div>
+        </div>
+        <div class="mini flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600/30 flex items-center justify-center text-lg">📙</div>
+            <div>
+              <div class="text-sm font-semibold text-slate-200">SSC MTS</div>
+              <div class="text-[10px] text-slate-500">747 papers · 2018–2025</div>
+            </div>
+          </div>
+          <div class="text-right"><div class="text-[10px] text-cyan-400">210k attempts</div></div>
+        </div>
+        <div class="mini flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600/30 flex items-center justify-center text-lg">📕</div>
+            <div>
+              <div class="text-sm font-semibold text-slate-200">SSC GD Constable</div>
+              <div class="text-[10px] text-slate-500">445 papers · 2016–2025</div>
+            </div>
+          </div>
+          <div class="text-right"><div class="text-[10px] text-cyan-400">180k attempts</div></div>
+        </div>
+      </div>
+      <div class="text-center text-xs text-slate-500 mt-3">+ 4 more SSC exams →</div>
+    </div>
+  </div>
+
+  <!-- ============ L3 MOCKUP (CORE) ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">4. Level 3 — Exam PYPs (Core Page) <span class="route ml-2">/pyps/ssc/cgl</span></h2>
+  <div class="panel mb-8 border-2 border-cyan-500/40">
+    <div class="panel-h bg-cyan-900/30 flex justify-between">
+      <span class="font-bold text-cyan-300 text-sm">/pyps/:examCategory/:examSlug — THE page with all features</span>
+      <span class="tag bg-cyan-500 text-slate-900">all features</span>
+    </div>
+    <!-- breadcrumb -->
+    <div class="px-5 py-2 border-b border-slate-700 text-[10px] text-slate-500">Home / PYPs / SSC / <span class="text-cyan-300">CGL</span></div>
+    <!-- hero -->
+    <div class="relative h-32 px-5 py-3 overflow-hidden lvl-3 doc-pattern">
+      <div class="absolute top-2 right-4 w-9 h-11 bg-white/10 rounded pulse flex items-center justify-center text-white/70">📄</div>
+      <div class="absolute -bottom-6 -right-3 w-20 h-20 border border-white/15 rounded-full pulse"><div class="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-cyan-300/70 rounded-full"></div></div>
+      <div class="text-white text-lg font-bold">📘 SSC CGL Previous Year Papers</div>
+      <div class="text-white/80 text-xs mt-0.5">501 papers · Tier I & Tier II · 2016–2025</div>
+      <div class="mt-1.5 flex flex-wrap gap-1.5">
+        <span class="tag bg-white/20 text-white">501 Papers</span>
+        <span class="tag bg-white/20 text-white">4 Free</span>
+        <span class="tag bg-rose-500/80 text-white">12 NEW</span>
+      </div>
+      <div class="mt-1 text-[10px] text-white/60">845k students improved · 23.7k attempted last week</div>
+    </div>
+
+    <!-- Tier selector + Year chips -->
+    <div class="px-5 py-2.5 border-b border-slate-700 space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] text-slate-500 font-bold uppercase">Tier</span>
+        <span class="tag bg-cyan-500 text-slate-900">Tier I</span>
+        <span class="tag bg-slate-800 text-slate-400">Tier II</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-[10px] text-slate-500 font-bold uppercase">Year</span>
+        <span class="tag bg-cyan-500 text-slate-900">All</span>
+        <span class="tag bg-slate-800 text-slate-400">2025</span>
+        <span class="tag bg-slate-800 text-slate-400">2024</span>
+        <span class="tag bg-slate-800 text-slate-400">2023</span>
+        <span class="tag bg-slate-800 text-slate-400">2022</span>
+        <span class="tag bg-slate-800 text-slate-400">2021</span>
+        <span class="tag bg-slate-800 text-slate-400">2016–2020</span>
+      </div>
+    </div>
+
+    <!-- Search + filter (your advantage kept) -->
+    <div class="px-5 py-2 border-b border-slate-700">
+      <div class="flex gap-2">
+        <div class="flex-1 bg-slate-800 rounded px-3 py-1.5 text-xs text-slate-500">🔍 Search by date, shift...</div>
+        <div class="bg-slate-800 rounded px-2 py-1.5 text-[11px] text-slate-400">All Languages</div>
+        <div class="bg-slate-800 rounded px-2 py-1.5 text-[11px] text-slate-400">All Access</div>
+      </div>
+    </div>
+
+    <!-- Year-grouped sections -->
+    <div class="p-4 space-y-4">
+      <!-- 2025 -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-xs font-bold text-cyan-400 uppercase">2025 — 98 Papers <span class="text-slate-500 normal-case font-normal">(12 new)</span></div>
+          <span class="text-[10px] text-slate-500">Sort: Newest first ▾</span>
+        </div>
+        <div class="space-y-2">
+          <div class="mini border-cyan-500/30">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm font-semibold text-slate-100">SSC CGL 2025 Tier-I — 12 Sept, Shift 1</div>
+                <div class="flex gap-2 text-[10px] text-slate-400 mt-0.5">
+                  <span>100 Q</span>·<span>200 Marks</span>·<span>60 min</span>·<span>Neg: -0.5</span>·<span>EN/HI</span>
+                </div>
+                <div class="text-[10px] text-cyan-400 mt-1">84.0k users attempted</div>
+              </div>
+              <div class="flex flex-col gap-1 items-end">
+                <div class="flex gap-1"><span class="tag bg-rose-600 text-white text-[9px]">NEW</span><span class="tag bg-amber-500 text-slate-900 text-[9px]">PRO</span></div>
+                <div class="flex gap-1 mt-1"><span class="tag bg-emerald-600 text-white text-[9px]">Attempt</span><span class="tag bg-slate-700 text-slate-300 text-[9px]">PDF</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="mini">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm font-semibold text-slate-100">SSC CGL 2025 Tier-I — 12 Sept, Shift 2</div>
+                <div class="flex gap-2 text-[10px] text-slate-400 mt-0.5"><span>100 Q</span>·<span>200 M</span>·<span>60 min</span>·<span>EN/HI</span></div>
+                <div class="text-[10px] text-cyan-400 mt-1">42.8k users</div>
+              </div>
+              <div class="flex flex-col gap-1 items-end">
+                <span class="tag bg-amber-500 text-slate-900 text-[9px]">PRO</span>
+                <div class="flex gap-1 mt-1"><span class="tag bg-emerald-600 text-white text-[9px]">Attempt</span><span class="tag bg-slate-700 text-slate-300 text-[9px]">PDF</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="mini">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm font-semibold text-slate-100">SSC CGL 2025 Tier-I — 12 Sept, Shift 3</div>
+                <div class="flex gap-2 text-[10px] text-slate-400 mt-0.5"><span>100 Q</span>·<span>200 M</span>·<span>60 min</span></div>
+                <div class="text-[10px] text-cyan-400 mt-1">32.6k users</div>
+              </div>
+              <div class="flex gap-1"><span class="tag bg-emerald-600 text-white text-[9px]">Attempt</span><span class="tag bg-slate-700 text-slate-300 text-[9px]">PDF</span></div>
+            </div>
+          </div>
+          <div class="text-center text-[11px] text-cyan-400 py-1">+ 95 more 2025 papers · Load More →</div>
+        </div>
+      </div>
+
+      <!-- 2024 -->
+      <div>
+        <div class="text-xs font-bold text-slate-400 uppercase mb-2">2024 — 74 Papers</div>
+        <div class="space-y-2">
+          <div class="mini">
+            <div class="flex items-start justify-between">
+              <div>
+                <div class="text-sm font-semibold text-slate-100">SSC CGL 2024 Tier-I — 09 Sept, Shift 1</div>
+                <div class="flex gap-2 text-[10px] text-slate-400 mt-0.5"><span>100 Q</span>·<span>200 M</span>·<span>60 min</span></div>
+                <div class="text-[10px] text-cyan-400 mt-1">9.2k users</div>
+              </div>
+              <div class="flex gap-1"><span class="tag bg-emerald-600 text-white text-[9px]">Attempt</span><span class="tag bg-slate-700 text-slate-300 text-[9px]">PDF</span></div>
+            </div>
+          </div>
+          <div class="text-center text-[11px] text-slate-500 py-1">+ 73 more · Load More →</div>
+        </div>
+      </div>
+
+      <div class="text-center text-[11px] text-slate-500 py-2 border-t border-slate-700">Load More Years (2023, 2022, 2021...) →</div>
+    </div>
+
+    <!-- Insights section -->
+    <div class="border-t border-slate-700 p-4 bg-slate-800/30">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">📊 Insights & Analysis <span class="text-slate-600">(Testbook feature)</span></div>
+      <div class="grid md:grid-cols-2 gap-3">
+        <div class="mini">
+          <div class="text-[11px] font-semibold text-slate-300 mb-1">Topic Weightage (Last 5 Years)</div>
+          <div class="space-y-1 text-[10px]">
+            <div class="flex justify-between"><span class="text-slate-400">English</span><span class="text-cyan-400">25-28 Q</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Quant</span><span class="text-cyan-400">20-24 Q</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Reasoning</span><span class="text-cyan-400">23-25 Q</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">GK/GS</span><span class="text-cyan-400">15-19 Q</span></div>
+          </div>
+        </div>
+        <div class="mini">
+          <div class="text-[11px] font-semibold text-slate-300 mb-1">Cut-Off Trend (Tier I, UR)</div>
+          <div class="space-y-1 text-[10px]">
+            <div class="flex justify-between"><span class="text-slate-400">2025</span><span class="text-emerald-400">136.83 ↓</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">2024</span><span class="text-amber-400">152.97</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">2023</span><span class="text-amber-400">150.04</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">2022</span><span class="text-slate-500">144.20</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Why attempt -->
+    <div class="border-t border-slate-700 p-4">
+      <div class="text-xs font-bold text-slate-400 uppercase mb-2">Why Attempt SSC CGL PYPs? <span class="text-slate-600">(Oliveboard)</span></div>
+      <div class="grid grid-cols-3 gap-2">
+        <div class="mini text-center text-[10px] text-slate-300">📝 Exact exam pattern & difficulty</div>
+        <div class="mini text-center text-[10px] text-slate-300">🎯 Identify repeated topics</div>
+        <div class="mini text-center text-[10px] text-slate-300">⏱️ Master time management</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FEATURE MATRIX ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">5. Complete Feature Checklist (All Levels)</h2>
+  <div class="panel mb-8 overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-800 text-slate-400 uppercase">
+        <tr>
+          <th class="text-left px-4 py-2">Feature</th>
+          <th class="text-center px-2 py-2">Source</th>
+          <th class="text-center px-2 py-2">L1</th>
+          <th class="text-center px-2 py-2">L2</th>
+          <th class="text-center px-2 py-2">L3</th>
+          <th class="text-center px-2 py-2">L4</th>
+          <th class="text-left px-3 py-2">Data Needed</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-700">
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Animated hero (pyqPaper theme)</td><td class="text-center text-slate-500">yours</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">fix decoratives in AnimatedHero.jsx</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Particle animation</td><td class="text-center text-slate-500">yours</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">keep canvas particles</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Search input</td><td class="text-center text-slate-500">yours</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">keep (competitors lack this)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Series filter dropdown</td><td class="text-center text-slate-500">yours</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">keep on L3</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Breadcrumb navigation</td><td class="text-center text-slate-500">yours</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">extend with category+exam</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Exam-category grid</td><td class="text-center text-blue-400">Testbook</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">exam_categories table + PYP count agg</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Exam cards with paper count + year range</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">COUNT tests GROUP BY exam_id</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">"NEW" badge for latest year papers</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">pyq_year = max(year) per exam</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Year-grouped sections</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">pyq_year on tests (migration 055 ✓)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Date + shift in card title</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-amber-400">NEW: shift column on tests OR parse title</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Attempt count per paper</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-amber-400">test.attempt_count (col exists ✓, populate)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Tier / Stage selector</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">stages table + tests.stage_id (✓)</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Year chip quick-filter</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">distinct pyq_year WHERE exam_id=X</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">"Load More" per year + "Load More Years"</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">pagination per year group</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Dual CTA: Attempt + Download PDF</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-amber-400">PDF asset field on test (or generate)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Social proof (X students attempted)</td><td class="text-center text-blue-400">Testbook</td><td class="text-center"><span class="nw">+</span></td><td class="text-center"><span class="nw">+</span></td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-amber-400">SUM(attempt_count) per exam/category</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Topic weightage trend table</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-rose-400">NEW: aggregate from question tags</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Cut-off trend table</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-amber-400">examYearlyData.cutoff (may need field)</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">"Why Attempt PYPs" feature row</td><td class="text-center text-emerald-400">Oliveboard</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">static content</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Language filter (EN/HI/bilingual)</td><td class="text-center text-slate-500">both</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">tests.languages JSONB (✓)</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Access filter (Free/Pro/Live)</td><td class="text-center text-slate-500">yours+</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">is_pro, is_live, is_active (✓)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">Pass/Pro upsell banner</td><td class="text-center text-slate-500">both</td><td class="text-center"><span class="nw">+</span></td><td class="text-center">—</td><td class="text-center"><span class="ok">✓</span></td><td class="text-center">—</td><td class="px-3 py-2 text-slate-500">keep in TestCard</td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-slate-200">Re-attempt mode</td><td class="text-center text-blue-400">Testbook</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="px-3 py-2 text-slate-500">max_attempts field (✓)</td></tr>
+        <tr><td class="px-4 py-2 text-slate-200">AI performance analysis post-attempt</td><td class="text-center text-emerald-400">Oliveboard</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center">—</td><td class="text-center"><span class="nw">+</span></td><td class="px-3 py-2 text-slate-500">attempts table (✓) + analysis_config</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ DATA MODEL GAPS ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">6. Data Model Gaps to Fill</h2>
+  <div class="grid md:grid-cols-2 gap-4 mb-8">
+    <div class="panel p-4">
+      <div class="font-bold text-rose-400 mb-2">Critical (blocks hierarchy)</div>
+      <div class="space-y-2 text-xs text-slate-300">
+        <div class="mini"><b class="text-rose-300">tests.exam_id</b> — seed PYPs have <code>exam_id: null</code>. Must populate for exam-scoped PYP pages. Run a migration/script to link existing PYPs to their exam by parsing title or tag.</div>
+        <div class="mini"><b class="text-rose-300">tests.exam_category_id</b> — same gap. Populate from exam.categoryId lookup.</div>
+        <div class="mini"><b class="text-rose-300">tests.pyq_year</b> — column exists (migration 055) but ensure every PYP has it. Parse from sub_category or title if missing.</div>
+      </div>
+    </div>
+    <div class="panel p-4">
+      <div class="font-bold text-amber-400 mb-2">Important (enables features)</div>
+      <div class="space-y-2 text-xs text-slate-300">
+        <div class="mini"><b class="text-amber-300">tests.shift</b> — NEW column (VARCHAR or INT). Currently shift is only in the title string. Add column for clean filtering/display.</div>
+        <div class="mini"><b class="text-amber-300">tests.attempt_count</b> — column exists but must be kept updated (increment on each attempt).</div>
+        <div class="mini"><b class="text-amber-300">tests.pdf_asset_id</b> — NEW or reuse banner_asset_id. For "Download PDF" CTA.</div>
+        <div class="mini"><b class="text-amber-300">exam_yearly_data.cutoff</b> — may need a dedicated JSONB field for cut-off trend table.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ API ENDPOINTS ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">7. API Endpoints Needed</h2>
+  <div class="panel mb-8 overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead class="bg-slate-800 text-slate-400 uppercase">
+        <tr><th class="text-left px-4 py-2">Endpoint</th><th class="text-left px-3 py-2">Level</th><th class="text-left px-3 py-2">Returns</th><th class="text-left px-3 py-2">Status</th></tr>
+      </thead>
+      <tbody class="divide-y divide-slate-700">
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/pyps/categories</td><td class="px-3 py-2 text-slate-400">L1</td><td class="px-3 py-2 text-slate-400">exam categories with PYP count + year range</td><td class="px-3 py-2"><span class="tag bg-amber-600 text-white text-[9px]">BUILD</span></td></tr>
+        <tr><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/pyps/categories/:catSlug/exams</td><td class="px-3 py-2 text-slate-400">L2</td><td class="px-3 py-2 text-slate-400">exams in category with paper counts, year range, NEW badge</td><td class="px-3 py-2"><span class="tag bg-amber-600 text-white text-[9px]">BUILD</span></td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/pyps/exams/:examSlug?tier=&year=&page=</td><td class="px-3 py-2 text-slate-400">L3</td><td class="px-3 py-2 text-slate-400">year-grouped PYPs with shift, attempts, availableYears, availableTiers</td><td class="px-3 py-2"><span class="tag bg-emerald-700 text-white text-[9px]">EXTEND pyp-public.js</span></td></tr>
+        <tr><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/pyps/exams/:examSlug/insights</td><td class="px-3 py-2 text-slate-400">L3</td><td class="px-3 py-2 text-slate-400">topic weightage + cutoff trend</td><td class="px-3 py-2"><span class="tag bg-amber-600 text-white text-[9px]">BUILD (later)</span></td></tr>
+        <tr class="bg-slate-800/20"><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/exams/:slug/year?year=</td><td class="px-3 py-2 text-slate-400">L3</td><td class="px-3 py-2 text-slate-400">scoped PYPs by exam+year</td><td class="px-3 py-2"><span class="tag bg-emerald-700 text-white text-[9px]">EXISTS (unused)</span></td></tr>
+        <tr><td class="px-4 py-2 text-cyan-300 font-mono">GET /api/tests/:id/pdf</td><td class="px-3 py-2 text-slate-400">L3</td><td class="px-3 py-2 text-slate-400">PDF download</td><td class="px-3 py-2"><span class="tag bg-amber-600 text-white text-[9px]">BUILD</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ FILE STRUCTURE ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">8. Frontend File Structure</h2>
+  <div class="panel p-4 mb-8">
+    <pre class="text-xs text-slate-300 leading-relaxed">apps/frontend/src/pages/pyps/
+├── PypsLanding.jsx          <span class="text-slate-500"># L1 — /pyps (exam category grid)</span>
+├── PypsCategory.jsx         <span class="text-slate-500"># L2 — /pyps/:examCategory (exam list)</span>
+├── PypsExam.jsx             <span class="text-slate-500"># L3 — /pyps/:examCategory/:examSlug (core page)</span>
+└── components/
+    ├── PypHero.jsx           <span class="text-slate-500"># Shared animated hero (fix decoratives)</span>
+    ├── YearGroupSection.jsx  <span class="text-slate-500"># Year-grouped collapsible section + Load More</span>
+    ├── PypPaperCard.jsx      <span class="text-slate-500"># Date+shift, Q/marks/min, attempts, dual CTA</span>
+    ├── TierSelector.jsx      <span class="text-slate-500"># Tier I / Tier II chips</span>
+    ├── YearChips.jsx         <span class="text-slate-500"># Year quick-filter chips</span>
+    ├── InsightsPanel.jsx     <span class="text-slate-500"># Topic weightage + cutoff trend</span>
+    └── WhyAttemptRow.jsx     <span class="text-slate-500"># 3-card feature row (Oliveboard)</span>
+
+apps/frontend/src/App.jsx routes:
+  /pyps                          → PypsLanding
+  /pyps/:examCategory            → PypsCategory
+  /pyps/:examCategory/:examSlug  → PypsExam
+  /pyp/:pypId/test              → PYPTest (keep)</pre>
+  </div>
+
+  <!-- ============ IMPLEMENTATION PRIORITY ============ -->
+  <h2 class="text-xl font-bold text-white mb-4">9. Implementation Phases</h2>
+  <div class="grid md:grid-cols-4 gap-4 mb-8">
+    <div class="panel p-4 border-l-4 border-rose-500">
+      <div class="tag bg-rose-500 text-white mb-2">Phase 1 — Data</div>
+      <ul class="text-xs text-slate-300 space-y-1">
+        <li>1. Backfill tests.exam_id on PYPs</li>
+        <li>2. Backfill tests.exam_category_id</li>
+        <li>3. Ensure pyq_year populated on all PYPs</li>
+        <li>4. Add tests.shift column + populate</li>
+        <li>5. Verify attempt_count is incrementing</li>
+      </ul>
+    </div>
+    <div class="panel p-4 border-l-4 border-amber-500">
+      <div class="tag bg-amber-500 text-slate-900 mb-2">Phase 2 — L3 Core</div>
+      <ul class="text-xs text-slate-300 space-y-1">
+        <li>6. Build PypsExam.jsx (year grouping)</li>
+        <li>7. PypPaperCard (date+shift+attempts)</li>
+        <li>8. TierSelector + YearChips</li>
+        <li>9. Fix AnimatedHero decoratives</li>
+        <li>10. Extend pyp-public.js API</li>
+      </ul>
+    </div>
+    <div class="panel p-4 border-l-4 border-cyan-500">
+      <div class="tag bg-cyan-500 text-slate-900 mb-2">Phase 3 — L1+L2</div>
+      <ul class="text-xs text-slate-300 space-y-1">
+        <li>11. PypsLanding (category grid)</li>
+        <li>12. PypsCategory (exam list)</li>
+        <li>13. Build /api/pyps/categories</li>
+        <li>14. Social proof aggregation</li>
+        <li>15. Redirect old routes</li>
+      </ul>
+    </div>
+    <div class="panel p-4 border-l-4 border-emerald-500">
+      <div class="tag bg-emerald-500 text-slate-900 mb-2">Phase 4 — Polish</div>
+      <ul class="text-xs text-slate-300 space-y-1">
+        <li>16. WhyAttemptRow component</li>
+        <li>17. InsightsPanel (weightage+cutoff)</li>
+        <li>18. PDF download CTA + endpoint</li>
+        <li>19. Re-attempt mode in test interface</li>
+        <li>20. AI analysis post-attempt</li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="text-center text-xs text-slate-500 mt-6">
+    Hierarchy based on: exam_categories → exams → tests (PYPs via is_pyq/pyq_year) ·
+    Competitor features: Testbook + Oliveboard · Your data model: Postgres (migration 055/061)
+  </p>
+</div>
+</body>
+</html>

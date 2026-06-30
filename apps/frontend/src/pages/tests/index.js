@@ -1,6 +1,6 @@
 // Test Pages - Test series and test-taking pages
 export { default as TestSeries } from './TestSeries'
-export { default as MockTests } from './MockTests'
+
 export { default as TestDetails } from './TestDetails'
 export { default as TestInstructions } from './TestInstructions'
 export { default as TestInterface } from './TestInterface'

@@ -64,9 +64,9 @@ export default function Faq() {
             <div className="w-20 h-20 bg-amber-50 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertCircle className="w-10 h-10 text-amber-500" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">FAQs Coming Soon</h3>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">No FAQs Available Yet</h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              We're preparing comprehensive FAQs for you. Our admin team is still adding questions and answers.
+              FAQs haven't been published yet. Our admin team is still adding questions and answers.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a 

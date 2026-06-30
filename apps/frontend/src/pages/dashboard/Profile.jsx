@@ -1528,15 +1528,15 @@ function Profile({ initialTab = 'personal' }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <CompactFeatureCard icon={<Trophy className="w-5 h-5 text-yellow-500" />} iconBg="#FEF3C7" title="Achievements & Badges" description="Track your milestones" onClick={() => navigate('/achievements')} badge="New" />
                   <CompactFeatureCard icon={<BarChart2 className="w-5 h-5 text-blue-500" />} iconBg="#DBEAFE" title="Study Analytics" description="Performance insights" onClick={() => navigate('/dashboard/analysis')} />
-                  <CompactFeatureCard icon={<Brain className="w-5 h-5 text-purple-500" />} iconBg="#EDE9FE" title="AI Study Planner" description="Personalized schedules" comingSoon />
-                  <CompactFeatureCard icon={<Target className="w-5 h-5 text-red-500" />} iconBg="#FEE2E2" title="Weak Area Analysis" description="Focus on weak topics" comingSoon />
+                  <CompactFeatureCard icon={<Brain className="w-5 h-5 text-purple-500" />} iconBg="#EDE9FE" title="AI Study Planner" description="Personalized schedules" onClick={() => navigate('/dashboard/ai-planner')} />
+                  <CompactFeatureCard icon={<Target className="w-5 h-5 text-red-500" />} iconBg="#FEE2E2" title="Weak Area Analysis" description="Focus on weak topics" onClick={() => navigate('/dashboard/insights')} />
                 </div>
               </div>
 
               <div>
                 <SectionLabel>Social & Community</SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <CompactFeatureCard icon={<Gift className="w-5 h-5 text-green-500" />} iconBg="#D1FAE5" title="Refer & Earn" description="Invite friends" onClick={() => navigate('/refer')} badge="New" />
+                  <CompactFeatureCard icon={<Gift className="w-5 h-5 text-green-500" />} iconBg="#D1FAE5" title="Refer & Earn" description="Invite friends" onClick={() => navigate('/refer-and-earn')} badge="New" />
                   <CompactFeatureCard icon={<Users className="w-5 h-5 text-indigo-500" />} iconBg="#E0E7FF" title="Community" description="Learn together" onClick={() => navigate('/community')} />
                   <CompactFeatureCard icon={<Share2 className="w-5 h-5 text-pink-500" />} iconBg="#FCE7F3" title="Leaderboard Sharing" description="Share your rank" comingSoon />
                 </div>
@@ -1549,7 +1549,7 @@ function Profile({ initialTab = 'personal' }) {
                 </SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <CompactFeatureCard icon={<Rocket className="w-5 h-5 text-orange-500" />} iconBg="#FFEDD5" title="Priority Support" description="Faster responses" badge="Pro" comingSoon={!user?.hasProPass} />
-                  <CompactFeatureCard icon={<LineChart className="w-5 h-5 text-emerald-500" />} iconBg="#D1FAE5" title="Advanced Analytics" description="Deep performance data" badge="Pro" comingSoon={!user?.hasProPass} />
+                  <CompactFeatureCard icon={<LineChart className="w-5 h-5 text-emerald-500" />} iconBg="#D1FAE5" title="Advanced Analytics" description="Deep performance data" badge="Pro" onClick={() => navigate('/analysis')} comingSoon={!user?.hasProPass} />
                   <CompactFeatureCard icon={<Download className="w-5 h-5 text-violet-500" />} iconBg="#EDE9FE" title="Offline Access" description="Download tests" badge="Pro" comingSoon />
                   <CompactFeatureCard icon={<PieChartIcon className="w-5 h-5 text-rose-500" />} iconBg="#FFE4E6" title="Custom Test Builder" description="Create your own tests" badge="Pro" comingSoon />
                 </div>

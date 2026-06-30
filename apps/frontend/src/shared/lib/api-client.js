@@ -10,7 +10,7 @@
 
 import axios from 'axios'
 import { API_BASE_URL } from './apiBase.js'
-import { getCsrfToken } from '../providers/AuthContext.jsx'
+import { getCsrfToken } from '../providers/AuthContext'
 import { NetworkError, AuthenticationError, ValidationError, NotFoundError, DataError } from './errors.js'
 
 /**
