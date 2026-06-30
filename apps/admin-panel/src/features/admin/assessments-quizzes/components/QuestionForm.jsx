@@ -5,10 +5,12 @@ import { questionSchema, validateForm } from '../../../../shared/lib/validationS
 
 const QUESTION_TYPES = [
   { value: 'mcq', label: 'Multiple Choice' },
+  { value: 'msq', label: 'Multiple Select' },
   { value: 'numeric', label: 'Numeric Answer' },
   { value: 'true-false', label: 'True/False' },
   { value: 'match', label: 'Match the Following' },
-  { value: 'comprehension', label: 'Comprehension' }
+  { value: 'comprehension', label: 'Comprehension' },
+  { value: 'descriptive', label: 'Descriptive' }
 ]
 
 const DIFFICULTY_OPTIONS = [

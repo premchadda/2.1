@@ -1,4 +1,5 @@
 export default function Refund() {
+  const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@trstprep.com'
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4">
@@ -14,7 +15,7 @@ export default function Refund() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">3. How to Request a Refund</h2>
-            <p className="text-gray-600">To request a refund, contact our support team at support@trstprep.com with your order details. Refunds are processed within 5-7 business days.</p>
+            <p className="text-gray-600">To request a refund, contact our support team at {supportEmail} with your order details. Refunds are processed within 5-7 business days.</p>
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">4. Cancellation</h2>
@@ -22,7 +23,7 @@ export default function Refund() {
           </section>
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-3">5. Contact</h2>
-            <p className="text-gray-600">For refund inquiries, email support@trstprep.com</p>
+            <p className="text-gray-600">For refund inquiries, email {supportEmail}</p>
           </section>
           <p className="text-sm text-gray-500 pt-4">Last updated: February 17, 2026</p>
         </div>

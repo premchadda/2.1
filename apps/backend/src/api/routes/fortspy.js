@@ -1,6 +1,7 @@
 import express from 'express';
 import multer from 'multer';
-import { protect } from '../../middleware/auth.middleware.js';
+import jwt from 'jsonwebtoken';
+import { protect, admin } from '../../middleware/auth.middleware.js';
 import { validateCsrfToken } from '../../middleware/csrf.middleware.js';
 import { fortskyService } from '../../services/fortspyService.js';
 
@@ -18,6 +19,41 @@ const upload = multer({
     }
   },
 });
+
+// Verify a short-lived fortspy-stream JWT issued by /generate-stream-token.
+// The decryption key is carried inside the signed token payload — never in
+// the URL query string — so it is not leaked into access logs, browser
+// history, or proxy/CDN logs.
+const verifyStreamToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader && authHeader.startsWith('Bearer ') && authHeader.split(' ')[1]) ||
+    req.query.token;
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Stream token is required',
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (decoded.type !== 'fortspy-stream') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid stream token type',
+      });
+    }
+    req.streamToken = decoded;
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Stream token is invalid or expired',
+    });
+  }
+};
 
 /**
  * @route   GET /api/fortspy/health
@@ -48,7 +84,7 @@ router.get('/health', async (req, res) => {
  * @desc    Generate a new AES-256 encryption key
  * @access  Private (Admin)
  */
-router.post('/keygen', protect, validateCsrfToken, async (req, res) => {
+router.post('/keygen', protect, admin, validateCsrfToken, async (req, res) => {
   try {
     const result = await fortskyService.generateKey();
     res.json({ success: true, data: result });
@@ -66,7 +102,7 @@ router.post('/keygen', protect, validateCsrfToken, async (req, res) => {
  * @desc    Encrypt a video file using FortSpy AES-256
  * @access  Private (Admin)
  */
-router.post('/encrypt', protect, validateCsrfToken, upload.single('file'), async (req, res) => {
+router.post('/encrypt', protect, admin, validateCsrfToken, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -96,7 +132,7 @@ router.post('/encrypt', protect, validateCsrfToken, upload.single('file'), async
  * @desc    Decrypt an encrypted video
  * @access  Private (Admin)
  */
-router.post('/decrypt', protect, validateCsrfToken, async (req, res) => {
+router.post('/decrypt', protect, admin, validateCsrfToken, async (req, res) => {
   try {
     const { id, key } = req.body;
 
@@ -124,17 +160,22 @@ router.post('/decrypt', protect, validateCsrfToken, async (req, res) => {
 /**
  * @route   GET /api/fortspy/stream/:id
  * @desc    Stream decrypted video frames (MJPEG)
- * @access  Private
+ * @access  Private (requires valid fortspy-stream token)
+ *
+ * The decryption key is supplied via a short-lived signed JWT issued by
+ * /generate-stream-token (Authorization: Bearer <token> or ?token=<token>).
+ * The key is never accepted as a raw query parameter to avoid leakage into
+ * logs, browser history, and referer headers.
  */
-router.get('/stream/:id', protect, async (req, res) => {
+router.get('/stream/:id', protect, verifyStreamToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { key } = req.query;
+    const { videoId, key } = req.streamToken;
 
-    if (!key) {
-      return res.status(400).json({
+    if (String(videoId) !== String(id)) {
+      return res.status(403).json({
         success: false,
-        message: 'Decryption key is required',
+        message: 'Stream token does not match this video',
       });
     }
 
@@ -196,9 +237,10 @@ router.post('/generate-stream-token', protect, async (req, res) => {
       });
     }
 
-    // Generate a short-lived token for streaming (expires in 1 hour)
-    const jwt = await import('jsonwebtoken');
-    const token = jwt.default.sign(
+    // Generate a short-lived token for streaming (expires in 1 hour).
+    // The key is embedded in the signed payload so it can be transmitted
+    // without leaking through the URL query string.
+    const token = jwt.sign(
       {
         videoId,
         key,
@@ -212,7 +254,7 @@ router.post('/generate-stream-token', protect, async (req, res) => {
       success: true,
       data: {
         token,
-        streamUrl: `/api/fortspy/stream/${videoId}?token=${token}`,
+        streamUrl: `/api/fortspy/stream/${videoId}`,
         expiresIn: 3600,
       },
     });

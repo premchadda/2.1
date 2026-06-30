@@ -63,9 +63,27 @@ export const parseUserAgent = (ua = '') => {
 // Run at module load — creates or migrates the user_sessions table
 const ensureUserSessionsTable = async () => {
   try {
+    // Note: id is VARCHAR not SERIAL — captureSession generates explicit
+    // string ids like 'sess_<timestamp>_<random>'. If the table already
+    // exists with SERIAL id, migrate it to VARCHAR.
+    // Check if the table exists with SERIAL (integer) id and alter it to VARCHAR
+    try {
+      const idColCheck = await pool.query(`
+        SELECT data_type FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'user_sessions' AND column_name = 'id'
+      `)
+      if (idColCheck.rows.length > 0 && 
+          (idColCheck.rows[0].data_type === 'integer' || idColCheck.rows[0].data_type === 'bigint')) {
+        console.log('[Sessions] Migrating user_sessions.id from SERIAL to VARCHAR')
+        await pool.query(`ALTER TABLE user_sessions ALTER COLUMN id TYPE VARCHAR(255)`)
+        // Drop the default sequence after changing type
+        await pool.query(`ALTER TABLE user_sessions ALTER COLUMN id DROP DEFAULT`)
+      }
+    } catch (_) { /* table may not exist yet, ignore */ }
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_sessions (
-        id          SERIAL PRIMARY KEY,
+        id          VARCHAR(255) PRIMARY KEY,
         session_id  VARCHAR(255) UNIQUE,
         user_id     VARCHAR(255) NOT NULL,
         device_info JSONB        DEFAULT '{}',

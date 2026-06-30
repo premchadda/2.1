@@ -77,11 +77,17 @@ function TagPage({ tagProp }) {
       // Dynamic filtering based on config filterKey and filterValue
       if (tagConfig.filterKey && tagConfig.filterValue) {
          const testVal = test[tagConfig.filterKey]
+         // Support comma-separated filterValue (e.g. "6,7,8" for multiple testCategoryIds)
+         const allowedValues = String(tagConfig.filterValue)
+           .split(',')
+           .map(v => v.trim())
+           .filter(Boolean)
+         const compare = (a, b) => String(a).toLowerCase() === String(b).toLowerCase()
          if (Array.isArray(testVal)) {
-            return testVal.includes(tagConfig.filterValue)
+            return testVal.some(v => allowedValues.some(av => compare(v, av)))
          }
-         if (typeof testVal === 'string') {
-            return testVal.toLowerCase() === tagConfig.filterValue.toLowerCase()
+         if (testVal !== null && testVal !== undefined) {
+            return allowedValues.some(av => compare(testVal, av))
          }
          return false
       }

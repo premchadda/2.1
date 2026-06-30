@@ -13,14 +13,13 @@ export default function About() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await getPublicStats()
-        if (response?.data) {
-          const s = response.data
+        const stats = await getPublicStats()
+        if (stats) {
           setStats([
-            { value: s.activeLearners || 0, label: 'Students' },
-            { value: s.mockTests || 0, label: 'Tests' },
-            { value: s.examsCovered || 0, label: 'Exams Covered' },
-            { value: s.satisfaction ? `${s.satisfaction}%` : 'N/A', label: 'Satisfaction' }
+            { value: stats.activeLearners || 0, label: 'Students' },
+            { value: stats.mockTests || 0, label: 'Tests' },
+            { value: stats.examsCovered || 0, label: 'Exams Covered' },
+            { value: stats.satisfaction ? `${stats.satisfaction}%` : 'N/A', label: 'Satisfaction' }
           ])
         }
       } catch (error) {

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const questionSchema = z.object({
   questionText: z.string().min(10, 'Question must be at least 10 characters'),
-  type: z.enum(['mcq', 'msq', 'numeric', 'numerical', 'true-false', 'match', 'comprehension', 'descriptive']),
+  type: z.enum(['mcq', 'msq', 'numeric', 'true-false', 'match', 'comprehension', 'descriptive']),
   difficulty: z.enum(['easy', 'medium', 'hard']),
   options: z.array(z.string()).min(2, 'At least 2 options required').optional(),
   correctOption: z.number().min(0).optional(),
@@ -66,18 +66,18 @@ export const stageSchema = z.object({
 })
 
 export const testSeriesSchema = z.object({
-  name: z.string().min(3, 'Name must be at least 3 characters'),
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  slug: z.string().optional(),
+  category: z.string().optional(),
+  subcategory: z.string().optional(),
+  stages: z.array(z.string()).optional(),
   description: z.string().optional(),
   examId: z.string().min(1, 'Exam is required'),
-  categoryId: z.string().optional(),
-  price: z.number().min(0).default(0),
-  originalPrice: z.number().min(0).optional(),
-  discount: z.number().min(0).max(100).optional(),
-  validity: z.number().min(1, 'Validity must be at least 1 day').optional(),
   isPro: z.boolean().default(false),
-  image: z.string().optional(),
+  price: z.number().min(0).default(0),
   difficulty: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  isActive: z.boolean().default(true),
   isPinned: z.boolean().optional(),
 })
 
@@ -95,11 +95,14 @@ export const sectionSchema = z.object({
 export const quizSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional(),
-  testId: z.string().optional(),
-  sectionId: z.string().optional(),
-  questionCount: z.number().min(0).default(0),
-  timeLimit: z.number().min(0).optional(),
-  passingScore: z.number().min(0).max(100).optional(),
+  subject: z.string().optional(),
+  topic: z.string().optional(),
+  duration: z.number().min(0).optional(),
+  difficulty: z.enum(['easy', 'medium', 'hard']).optional(),
+  instructions: z.string().optional(),
+  isPublic: z.boolean().default(true),
+  shuffleQuestions: z.boolean().default(true),
+  showAnswers: z.boolean().default(true),
   status: z.enum(['draft', 'active', 'archived']).default('draft'),
   isPro: z.boolean().default(false)
 })

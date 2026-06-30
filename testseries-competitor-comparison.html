@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Test Series Page — Current vs Competitor Design</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+  /* Trstprep current hero gradient: from-blue-600 via-indigo-600 to-purple-600 */
+  .gradient-trstprep {
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #9333ea 100%);
+  }
+  /* Testbook palette: deep blue → sky */
+  .gradient-testbook {
+    background: linear-gradient(135deg, #1e3a8a 0%, #1d4ed8 60%, #0ea5e9 100%);
+  }
+  /* Oliveboard palette: forest green */
+  .gradient-oliveboard {
+    background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
+  }
+  /* Recommended enhanced Trstprep hero */
+  .gradient-recommended {
+    background:
+      radial-gradient(circle at 15% 20%, rgba(56,189,248,0.18), transparent 45%),
+      radial-gradient(circle at 85% 75%, rgba(129,140,248,0.18), transparent 45%),
+      linear-gradient(135deg, #0c1e4a 0%, #1e2a78 50%, #5b21b6 100%);
+  }
+  .doc-pattern {
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 22px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.035) 0px, rgba(255,255,255,0.035) 1px, transparent 1px, transparent 22px);
+  }
+  @keyframes floatDot { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+  .float-dot { animation: floatDot 3s ease-in-out infinite; }
+  @keyframes pulseGlow { 0%,100%{opacity:.45; transform:scale(1)} 50%{opacity:.85; transform:scale(1.05)} }
+  .pulse-glow { animation: pulseGlow 4s ease-in-out infinite; }
+  @keyframes orbit { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .orbit { animation: orbit 30s linear infinite; }
+  @keyframes livePing { 0%{transform:scale(1);opacity:1} 70%,100%{transform:scale(2.2);opacity:0} }
+  .live-ping { animation: livePing 1.6s ease-out infinite; }
+  .card-shadow { box-shadow: 0 4px 20px rgba(0,0,0,0.25); }
+  .tag-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+  .panel { background:#1e293b; border:1px solid #334155; border-radius:16px; overflow:hidden; }
+  .panel-header { padding:12px 16px; border-bottom:1px solid #334155; display:flex; align-items:center; justify-content:space-between; }
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; opacity:0.6; }
+  .mini-card { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:10px 12px; }
+  .scroll-hint { font-size:10px; opacity:0.4; }
+  .stat-pill { background:rgba(255,255,255,0.12); backdrop-filter:blur(6px); padding:3px 10px; border-radius:8px; font-size:11px; font-weight:700; color:#fff; }
+  .feature-row { display:flex; align-items:flex-start; gap:8px; padding:6px 0; border-bottom:1px solid rgba(51,65,85,0.5); font-size:12px; }
+  .feature-row:last-child { border-bottom:none; }
+  .check { color:#34d399; font-weight:bold; }
+  .cross { color:#f87171; font-weight:bold; }
+  .warn { color:#fbbf24; font-weight:bold; }
+  .new { color:#38bdf8; font-weight:bold; }
+  /* horizontal scroll mockup */
+  .h-scroll { display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
+  .h-scroll::-webkit-scrollbar { height:4px; }
+  .h-scroll::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+  .series-chip { flex:0 0 auto; width:200px; }
+</style>
+</head>
+<body>
+
+<div class="max-w-7xl mx-auto px-4 py-8">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-white">Test Series Page — Competitor Visual Comparison</h1>
+    <p class="text-slate-400 mt-2">How <code class="bg-slate-700 px-1.5 py-0.5 rounded text-sm text-cyan-300">/test-series</code> (TestSeries.jsx) compares to Testbook &amp; Oliveboard — and an enhanced recommended redesign</p>
+    <p class="text-xs text-slate-500 mt-1">Open in a browser. No live server required.</p>
+  </div>
+
+  <!-- Research Summary Cards -->
+  <div class="grid md:grid-cols-3 gap-4 mb-8">
+    <!-- Trstprep -->
+    <div class="panel p-4">
+      <div class="text-2xl mb-1">🟣</div>
+      <div class="font-bold text-indigo-300">Trstprep (Current)</div>
+      <div class="text-xs text-slate-400 mt-1">/test-series — TestSeries.jsx</div>
+      <ul class="mt-3 space-y-1 text-xs text-slate-300">
+        <li>• Animated hero with 4 feature chips (Zap/Analytics/Languages/Target)</li>
+        <li>• "My Series" enrolled strip (horizontal scroll, progress bars)</li>
+        <li>• Live Tests &amp; Free Quizzes — two-column block</li>
+        <li>• "Recommended for You" horizontal scroll</li>
+        <li>• Popular Test Series — horizontal scroll of TestSeriesCard (280px)</li>
+        <li>• Browse by Category grid (3-col)</li>
+        <li>• Right sidebar: Categories, Recent Activity, Why Pro CTA</li>
+        <li>• Sort dropdown: Custom / Popular / Rating / Tests</li>
+      </ul>
+    </div>
+    <!-- Testbook -->
+    <div class="panel p-4">
+      <div class="text-2xl mb-1">🔵</div>
+      <div class="font-bold text-cyan-300">Testbook</div>
+      <div class="text-xs text-slate-400 mt-1">testbook.com/test-series</div>
+      <ul class="mt-3 space-y-1 text-xs text-slate-300">
+        <li>• Exam-targeted hero: "SSC CGL Test Series — 240 Tests"</li>
+        <li>• Exam selector pills (SSC / Banking / Railways / UPSC…)</li>
+        <li>• "Full Tests / Sectional / Chapterwise / Live" tab switcher</li>
+        <li>• Per-test card: attempts, rating, marks, duration, language</li>
+        <li>• "Most Popular" / "New" badges on cards</li>
+        <li>• Leaderboard teaser + Topper talk testimonials</li>
+        <li>• "X students improved" social proof banner</li>
+        <li>• Pass upsell strip ("Unlock 44,000+ tests")</li>
+        <li>• Topic weightage + Cut-off trend mini-tables</li>
+      </ul>
+    </div>
+    <!-- Oliveboard -->
+    <div class="panel p-4">
+      <div class="text-2xl mb-1">🟢</div>
+      <div class="font-bold text-emerald-300">Oliveboard</div>
+      <div class="text-xs text-slate-400 mt-1">oliveboard.in/test-series</div>
+      <ul class="mt-3 space-y-1 text-xs text-slate-300">
+        <li>• Green gradient hero with single exam CTA</li>
+        <li>• "Free Mock Test" lead magnet card</li>
+        <li>• Difficulty badges (Easy / Moderate / Tough)</li>
+        <li>• "Concept Card" + "Smart Analysis" upsell</li>
+        <li>• Per-test performance sparkline thumbnail</li>
+        <li>• Daily challenge / streak gamification row</li>
+        <li>• All-India rank predictor teaser</li>
+        <li>• Compact footer with "Trusted by N students"</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Visual mockup comparison -->
+  <div class="grid md:grid-cols-2 gap-6 mb-8">
+
+    <!-- ============ CURRENT TRSTPREP ============ -->
+    <div class="panel">
+      <div class="panel-header bg-slate-800">
+        <span class="font-bold text-slate-200">CURRENT — Trstprep</span>
+        <span class="tag-pill bg-slate-700 text-slate-300">as-is</span>
+      </div>
+
+      <!-- Mini hero -->
+      <div class="gradient-trstprep relative h-44 px-4 py-3 overflow-hidden">
+        <div class="absolute top-2 right-4 w-16 h-16 bg-white/10 rounded-full"></div>
+        <div class="text-white text-base font-bold">🎯 Find Your Exam</div>
+        <div class="text-white/70 text-[11px] mt-1">Comprehensive test preparation platform</div>
+        <div class="mt-2 inline-flex bg-white/20 backdrop-blur px-2 py-1 rounded text-white text-[10px]">🔍 Search exams, series, or topics…</div>
+        <div class="absolute bottom-2 left-3 grid grid-cols-2 gap-1.5 w-[180px]">
+          <span class="stat-pill flex items-center gap-1">⚡ Instant</span>
+          <span class="stat-pill flex items-center gap-1">📊 Analytics</span>
+          <span class="stat-pill flex items-center gap-1">📻 8 Langs</span>
+          <span class="stat-pill flex items-center gap-1">🎯 Target</span>
+        </div>
+        <div class="absolute bottom-3 right-6 w-1.5 h-1.5 bg-white/40 rounded-full float-dot"></div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="px-4 py-2 border-b border-slate-700 text-[11px] text-slate-400">Home / <span class="text-slate-200 font-medium">Test Series</span></div>
+
+      <!-- My Series strip -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-sm">✅</span>
+          <span class="text-xs font-bold text-slate-200">My Series</span>
+          <span class="tag-pill bg-emerald-500/20 text-emerald-300">2 Active</span>
+        </div>
+        <div class="h-scroll">
+          <div class="mini-card series-chip">
+            <div class="text-[11px] font-bold text-slate-100">SSC CGL Tier 1</div>
+            <div class="text-[10px] text-slate-400">25 Tests</div>
+            <div class="h-1.5 bg-slate-700 rounded mt-1.5"><div class="h-full bg-indigo-400 rounded" style="width:40%"></div></div>
+            <div class="text-[9px] text-slate-500 mt-1">10/25 • 40%</div>
+          </div>
+          <div class="mini-card series-chip">
+            <div class="text-[11px] font-bold text-slate-100">IBPS PO Prelims</div>
+            <div class="text-[10px] text-slate-400">30 Tests</div>
+            <div class="h-1.5 bg-slate-700 rounded mt-1.5"><div class="h-full bg-emerald-400 rounded" style="width:75%"></div></div>
+            <div class="text-[9px] text-slate-500 mt-1">22/30 • 75%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live + Quizzes -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex items-center gap-1.5 mb-1.5">
+          <span class="relative inline-block"><span class="text-sm">🔴</span><span class="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full live-ping"></span></span>
+          <span class="text-xs font-bold text-slate-200">Live Tests &amp; Quizzes</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div class="mini-card border-red-500/30 bg-red-500/5">
+            <div class="flex justify-between"><span class="tag-pill bg-red-500 text-white">LIVE</span><span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">CGL Live Mock #4</div>
+            <div class="text-[9px] text-slate-400">⏱ 60m • 100 Q</div>
+          </div>
+          <div class="mini-card border-blue-500/30 bg-blue-500/5">
+            <div class="flex justify-between"><span class="tag-pill bg-blue-500 text-white">QUIZ</span><span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">Daily GA Quiz</div>
+            <div class="text-[9px] text-slate-400">⏱ 15m • 20 Q</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Popular series horizontal scroll -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex items-center justify-between mb-1.5">
+          <div class="flex items-center gap-1.5"><span class="text-sm">🔥</span><span class="text-xs font-bold text-slate-200">Popular Test Series</span></div>
+          <span class="text-[10px] text-slate-400">Sort: 📋 Custom ▾</span>
+        </div>
+        <div class="h-scroll">
+          <div class="mini-card series-chip">
+            <div class="flex justify-between"><span>📘</span><span class="tag-pill bg-amber-500/20 text-amber-300">👑 PRO</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">SSC CGL 2026 Tier 1</div>
+            <div class="text-[9px] text-slate-400">👥 12k • 25 Tests • 5 Free</div>
+            <div class="text-[9px] text-slate-500 mt-1">Full · Sectional · PYP</div>
+          </div>
+          <div class="mini-card series-chip">
+            <div class="flex justify-between"><span>🏦</span><span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">IBPS PO Prelims</div>
+            <div class="text-[9px] text-slate-400">👥 8k • 30 Tests • 8 Free</div>
+          </div>
+          <div class="mini-card series-chip opacity-70">
+            <div class="flex justify-between"><span>🚂</span><span class="tag-pill bg-amber-500/20 text-amber-300">PRO</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">RRB NTPC CBT 1</div>
+            <div class="text-[9px] text-slate-400">👥 6k • 20 Tests • 0 Free</div>
+          </div>
+          <span class="scroll-hint self-center">→</span>
+        </div>
+      </div>
+
+      <!-- Sidebar teaser -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="text-[10px] font-bold text-slate-500 uppercase mb-1">Right Sidebar (desktop)</div>
+        <div class="space-y-1.5">
+          <div class="mini-card flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-indigo-500/30 flex items-center justify-center text-[10px]">📁</div>
+            <div class="text-[10px] text-slate-300">Categories chips: SSC · Banking · Railways · +5</div>
+          </div>
+          <div class="mini-card flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-emerald-500/30 flex items-center justify-center text-[10px]">✓</div>
+            <div class="text-[10px] text-slate-300">Recent Activity: 4 attempts · accuracies</div>
+          </div>
+          <div class="mini-card bg-gradient-to-br from-indigo-600 to-pink-600 border-0">
+            <div class="text-[10px] font-bold text-white">👑 Why Trstprep Pro?</div>
+            <div class="text-[9px] text-white/80 mt-1">All series · AI · 8 langs · rank predictor</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature status -->
+      <div class="px-4 py-3 bg-slate-800/50">
+        <div class="section-title mb-2">Feature Status</div>
+        <ul class="space-y-0">
+          <li class="feature-row"><span class="check">✓</span> Blue→indigo→purple animated hero (AnimatedHero)</li>
+          <li class="feature-row"><span class="check">✓</span> Enrolled "My Series" strip with progress bars</li>
+          <li class="feature-row"><span class="check">✓</span> Live Tests &amp; Free Quizzes two-column block</li>
+          <li class="feature-row"><span class="check">✓</span> Recommended-for-You horizontal scroll</li>
+          <li class="feature-row"><span class="check">✓</span> Popular Test Series horizontal-scroll cards (280px)</li>
+          <li class="feature-row"><span class="check">✓</span> Browse-by-Category 3-col grid</li>
+          <li class="feature-row"><span class="check">✓</span> Sort dropdown (custom/popular/rating/tests)</li>
+          <li class="feature-row"><span class="check">✓</span> Right sidebar (Categories/Activity/Pro CTA)</li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">exam selector pills</span></li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">per-test attempts/rating/marks</span></li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">tab switcher Full/Sectional/Chapterwise/Live</span></li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">leaderboard / topper testimonial</span></li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">social proof banner / topic weightage</span></li>
+          <li class="feature-row"><span class="cross">✗</span> <span class="line-through opacity-60">difficulty &amp; daily-challenge gamification</span></li>
+          <li class="feature-row"><span class="warn">⚠</span> Cards show only emoji + count — no per-test metadata</li>
+          <li class="feature-row"><span class="warn">⚠</span> Horizontal scroll hides content on mobile (no grid fallback)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============ RECOMMENDED ENHANCED ============ -->
+    <div class="panel border-indigo-500/40">
+      <div class="panel-header bg-indigo-900/40">
+        <span class="font-bold text-indigo-200">ENHANCED — Recommended</span>
+        <span class="tag-pill bg-indigo-600 text-white">proposed</span>
+      </div>
+
+      <!-- Mini hero enhanced -->
+      <div class="gradient-recommended doc-pattern relative h-44 px-4 py-3 overflow-hidden">
+        <!-- orbit decorative -->
+        <div class="absolute -bottom-10 -right-6 w-28 h-28 border border-white/15 rounded-full orbit">
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-300/70 rounded-full"></div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white/50 rounded-full"></div>
+        </div>
+        <!-- file-icon-glow decorative -->
+        <div class="absolute top-3 right-4 w-11 h-13 bg-white/10 rounded pulse-glow flex items-center justify-center">
+          <span class="text-white/70 text-base">🎯</span>
+        </div>
+        <div class="text-white text-base font-bold">🎯 Find Your Exam</div>
+        <div class="text-white/80 text-[11px] mt-1">AI-powered test series across 8 languages</div>
+        <div class="mt-2 inline-flex bg-white/20 backdrop-blur px-2 py-1 rounded text-white text-[10px]">🔍 Search exams, series, or topics…</div>
+        <div class="absolute bottom-2 left-3 flex gap-1.5">
+          <span class="stat-pill flex items-center gap-1">⚡ Instant</span>
+          <span class="stat-pill flex items-center gap-1">📊 AI Analytics</span>
+          <span class="stat-pill flex items-center gap-1">📻 8 Langs</span>
+          <span class="stat-pill flex items-center gap-1">🏆 Rank Predict</span>
+        </div>
+        <div class="absolute bottom-3 right-6 w-1.5 h-1.5 bg-white/50 rounded-full float-dot"></div>
+      </div>
+
+      <!-- Exam selector pills (NEW) -->
+      <div class="px-4 py-2 border-b border-slate-700 bg-slate-800/40">
+        <div class="text-[10px] font-bold text-slate-500 uppercase mb-1.5">Exam Target</div>
+        <div class="flex gap-1.5 flex-wrap">
+          <span class="tag-pill bg-indigo-600 text-white">📘 SSC</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">🏦 Banking</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">🚂 Railways</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">⚖ UPSC</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">🟢 Teaching</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">🛡 Defence</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">+ More</span>
+        </div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="px-4 py-2 border-b border-slate-700 text-[11px] text-slate-400">Home / Test Series / <span class="text-indigo-300 font-medium">SSC</span></div>
+
+      <!-- My Series strip (kept) -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-sm">✅</span>
+          <span class="text-xs font-bold text-slate-200">My Series</span>
+          <span class="tag-pill bg-emerald-500/20 text-emerald-300">2 Active</span>
+          <span class="ml-auto text-[10px] text-indigo-300">View Progress →</span>
+        </div>
+        <div class="h-scroll">
+          <div class="mini-card series-chip border-indigo-500/40">
+            <div class="text-[11px] font-bold text-slate-100">SSC CGL Tier 1</div>
+            <div class="text-[10px] text-slate-400">25 Tests • ⭐ 4.6</div>
+            <div class="h-1.5 bg-slate-700 rounded mt-1.5"><div class="h-full bg-gradient-to-r from-indigo-400 to-purple-400 rounded" style="width:40%"></div></div>
+            <div class="text-[9px] text-slate-500 mt-1">10/25 • 40% • Rank 142</div>
+          </div>
+          <div class="mini-card series-chip border-emerald-500/40">
+            <div class="text-[11px] font-bold text-slate-100">IBPS PO Prelims</div>
+            <div class="text-[10px] text-slate-400">30 Tests • ⭐ 4.8</div>
+            <div class="h-1.5 bg-slate-700 rounded mt-1.5"><div class="h-full bg-gradient-to-r from-emerald-400 to-teal-400 rounded" style="width:75%"></div></div>
+            <div class="text-[9px] text-slate-500 mt-1">22/30 • 75% • Rank 58</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab switcher (NEW) -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex gap-1.5 mb-2">
+          <span class="tag-pill bg-indigo-600 text-white">Full Tests</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">Sectional</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">Chapterwise</span>
+          <span class="tag-pill bg-red-500/20 text-red-300">🔴 Live</span>
+        </div>
+        <div class="h-scroll">
+          <div class="mini-card series-chip border-indigo-500/40">
+            <div class="flex justify-between"><span>📘</span>
+              <div class="flex gap-1"><span class="tag-pill bg-amber-500/20 text-amber-300">👑 PRO</span><span class="tag-pill bg-rose-500/20 text-rose-300">🔥 Hot</span></div>
+            </div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">SSC CGL 2026 Tier 1</div>
+            <div class="text-[9px] text-slate-400 mt-0.5">⭐ 4.6 · 👥 12k · ⏱ 60m · 💯 100 Q</div>
+            <div class="text-[9px] text-slate-500 mt-1">Full 12 · Sectional 8 · PYP 5</div>
+          </div>
+          <div class="mini-card series-chip">
+            <div class="flex justify-between"><span>🏦</span><span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">IBPS PO Prelims</div>
+            <div class="text-[9px] text-slate-400 mt-0.5">⭐ 4.8 · 👥 8k · ⏱ 45m · 💯 80 Q</div>
+            <div class="text-[9px] text-slate-500 mt-1">Full 18 · Sectional 6 · Quiz 6</div>
+          </div>
+          <div class="mini-card series-chip">
+            <div class="flex justify-between"><span>🚂</span><div class="flex gap-1"><span class="tag-pill bg-amber-500/20 text-amber-300">PRO</span><span class="tag-pill bg-cyan-500/20 text-cyan-300">NEW</span></div></div>
+            <div class="text-[11px] font-bold mt-1 text-slate-100">RRB NTPC CBT 1</div>
+            <div class="text-[9px] text-slate-400 mt-0.5">⭐ 4.2 · 👥 6k · ⏱ 90m · 💯 100 Q</div>
+          </div>
+          <span class="scroll-hint self-center">→</span>
+        </div>
+      </div>
+
+      <!-- Social proof banner (NEW) -->
+      <div class="px-4 py-2 border-b border-slate-700 bg-gradient-to-r from-indigo-900/40 to-purple-900/30">
+        <div class="flex items-center justify-between">
+          <div class="text-[11px] text-slate-200"><span class="font-bold text-cyan-300">11,356 students</span> improved their scores last month</div>
+          <span class="tag-pill bg-emerald-500/20 text-emerald-300">+18% avg</span>
+        </div>
+      </div>
+
+      <!-- Sidebar teaser enhanced -->
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="text-[10px] font-bold text-slate-500 uppercase mb-1">Right Sidebar (desktop)</div>
+        <div class="space-y-1.5">
+          <div class="mini-card flex items-center gap-2">
+            <div class="w-6 h-6 rounded bg-indigo-500/30 flex items-center justify-center text-[10px]">📁</div>
+            <div class="text-[10px] text-slate-300">Categories chips (kept)</div>
+          </div>
+          <div class="mini-card border-emerald-500/30 bg-emerald-500/5">
+            <div class="text-[10px] font-bold text-emerald-300 mb-1">🏆 Leaderboard Teaser</div>
+            <div class="text-[9px] text-slate-300">#1 Aman (98%) · #2 Riya (96%) · #3 …</div>
+          </div>
+          <div class="mini-card border-cyan-500/30 bg-cyan-500/5">
+            <div class="text-[10px] font-bold text-cyan-300 mb-1">📊 Topic Weightage</div>
+            <div class="text-[9px] text-slate-300">GA 25% · Quant 35% · Eng 15% …</div>
+          </div>
+          <div class="mini-card bg-gradient-to-br from-indigo-600 to-pink-600 border-0">
+            <div class="text-[10px] font-bold text-white">👑 Why Trstprep Pro?</div>
+            <div class="text-[9px] text-white/80 mt-1">All series · AI · 8 langs · rank predictor</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature status -->
+      <div class="px-4 py-3 bg-indigo-900/20">
+        <div class="section-title mb-2 text-indigo-300">Feature Status</div>
+        <ul class="space-y-0">
+          <li class="feature-row"><span class="check">✓</span> Deeper navy→indigo→purple hero + doc-pattern overlay</li>
+          <li class="feature-row"><span class="new">+</span> <b>Exam selector pills</b> (SSC/Banking/Railways/UPSC…)</li>
+          <li class="feature-row"><span class="check">✓</span> "My Series" strip with progress <b>+ rating + rank</b></li>
+          <li class="feature-row"><span class="new">+</span> <b>Tab switcher</b> Full / Sectional / Chapterwise / Live</li>
+          <li class="feature-row"><span class="new">+</span> Per-card <b>attempts · rating · marks · duration · lang</b></li>
+          <li class="feature-row"><span class="new">+</span> "Hot" / "New" badges on cards (Testbook-style)</li>
+          <li class="feature-row"><span class="new">+</span> <b>Social proof banner</b> ("11,356 students improved")</li>
+          <li class="feature-row"><span class="new">+</span> <b>Leaderboard teaser</b> in sidebar</li>
+          <li class="feature-row"><span class="new">+</span> <b>Topic weightage</b> mini-table in sidebar</li>
+          <li class="feature-row"><span class="check">✓</span> orbit + file-icon-glow decoratives (from pyps reuse)</li>
+          <li class="feature-row"><span class="check">✓</span> Right sidebar Categories/Activity/Pro CTA (kept)</li>
+          <li class="feature-row"><span class="warn">⚠</span> Mobile: convert horizontal scrolls to 2-col grid</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Competitor screenshots row -->
+  <div class="grid md:grid-cols-2 gap-6 mb-8">
+    <!-- Testbook mockup -->
+    <div class="panel">
+      <div class="panel-header bg-blue-900/40">
+        <span class="font-bold text-cyan-200">TESTBOOK — Reference</span>
+        <span class="tag-pill bg-cyan-600 text-white">competitor</span>
+      </div>
+      <div class="gradient-testbook relative h-40 px-4 py-3 overflow-hidden">
+        <div class="text-white text-base font-bold">SSC CGL Test Series</div>
+        <div class="text-white/80 text-[11px] mt-1">240 Full Tests · 120 Sectional · Live Mocks</div>
+        <div class="mt-2 flex gap-1.5 flex-wrap">
+          <span class="stat-pill bg-white/20">SSC</span>
+          <span class="stat-pill bg-white/20">Banking</span>
+          <span class="stat-pill bg-white/20">Railways</span>
+          <span class="stat-pill bg-white/20">UPSC</span>
+        </div>
+      </div>
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="flex gap-1.5 mb-2">
+          <span class="tag-pill bg-cyan-600 text-white">Full Tests</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">Sectional</span>
+          <span class="tag-pill bg-slate-700 text-slate-300">Chapterwise</span>
+          <span class="tag-pill bg-red-500/30 text-red-200">Live</span>
+        </div>
+        <div class="space-y-1.5">
+          <div class="mini-card flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-bold text-slate-100">CGL Full Mock #42 <span class="tag-pill bg-rose-500/30 text-rose-200 ml-1">HOT</span></div>
+              <div class="text-[9px] text-slate-400">⭐ 4.7 · 👥 18.2k attempts · 💯 200/200 · ⏱ 60m</div>
+            </div>
+            <span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span>
+          </div>
+          <div class="mini-card flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-bold text-slate-100">CGL Sectional — Quant</div>
+              <div class="text-[9px] text-slate-400">⭐ 4.5 · 👥 9.6k · 💯 50 · ⏱ 30m</div>
+            </div>
+            <span class="tag-pill bg-amber-500/20 text-amber-300">PRO</span>
+          </div>
+        </div>
+      </div>
+      <div class="px-4 py-2 bg-slate-800/50">
+        <div class="text-[10px] font-bold text-slate-500 uppercase mb-1">Takeaways to Adopt</div>
+        <ul class="space-y-0.5 text-[11px] text-slate-300">
+          <li><span class="new">+</span> Tab switcher (Full/Sectional/Chapterwise/Live)</li>
+          <li><span class="new">+</span> Per-card attempts + rating + marks + duration</li>
+          <li><span class="new">+</span> "Hot" badge for trending tests</li>
+          <li><span class="new">+</span> Social proof banner</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Oliveboard mockup -->
+    <div class="panel">
+      <div class="panel-header bg-emerald-900/40">
+        <span class="font-bold text-emerald-200">OLIVEBOARD — Reference</span>
+        <span class="tag-pill bg-emerald-600 text-white">competitor</span>
+      </div>
+      <div class="gradient-oliveboard relative h-40 px-4 py-3 overflow-hidden">
+        <div class="text-white text-base font-bold">Free SSC Mock Tests</div>
+        <div class="text-white/80 text-[11px] mt-1">Concept-card driven · Smart analysis</div>
+        <div class="mt-2 inline-flex bg-white/20 backdrop-blur px-2 py-1 rounded text-white text-[10px]">🎁 Start Free Mock</div>
+      </div>
+      <div class="px-4 py-2 border-b border-slate-700">
+        <div class="space-y-1.5">
+          <div class="mini-card flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-bold text-slate-100">SSC CGL Pre Mock #1</div>
+              <div class="text-[9px] text-slate-400">Difficulty: <span class="text-amber-300">Moderate</span> · 8.2k attempts</div>
+            </div>
+            <span class="tag-pill bg-emerald-500/20 text-emerald-300">FREE</span>
+          </div>
+          <div class="mini-card flex items-center justify-between">
+            <div>
+              <div class="text-[11px] font-bold text-slate-100">Daily Challenge — Reasoning</div>
+              <div class="text-[9px] text-slate-400">🔥 Streak: 6 days · 1.4k playing now</div>
+            </div>
+            <span class="tag-pill bg-amber-500/20 text-amber-300">PRO</span>
+          </div>
+        </div>
+      </div>
+      <div class="px-4 py-2 bg-slate-800/50">
+        <div class="text-[10px] font-bold text-slate-500 uppercase mb-1">Takeaways to Adopt</div>
+        <ul class="space-y-0.5 text-[11px] text-slate-300">
+          <li><span class="new">+</span> Difficulty badge (Easy/Moderate/Tough)</li>
+          <li><span class="new">+</span> Daily challenge / streak gamification</li>
+          <li><span class="new">+</span> Rank predictor teaser</li>
+          <li><span class="new">+</span> Free-mock lead magnet card</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Element-by-Element Diff table -->
+  <div class="panel mb-8">
+    <div class="panel-header">
+      <span class="font-bold text-slate-200">Element-by-Element Diff</span>
+      <span class="tag-pill bg-slate-700 text-slate-300">/test-series</span>
+    </div>
+    <table class="w-full text-sm">
+      <thead class="bg-slate-800/60 text-slate-400 text-xs uppercase">
+        <tr>
+          <th class="text-left px-4 py-2 w-1/5">Element</th>
+          <th class="text-left px-4 py-2 w-1/3">Current (Trstprep)</th>
+          <th class="text-left px-4 py-2 w-1/3">Enhanced (Recommended)</th>
+          <th class="text-center px-3 py-2">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-700/50 text-slate-300">
+        <tr><td class="px-4 py-2 font-medium">Hero gradient</td><td class="px-4 py-2">blue→indigo→purple</td><td class="px-4 py-2">deeper navy + radial accents + doc-pattern</td><td class="text-center"><span class="tag-pill bg-amber-500/20 text-amber-300">tweak</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Hero decoratives</td><td class="px-4 py-2">floating dots only</td><td class="px-4 py-2">+ orbit ring + file-icon-glow</td><td class="text-center"><span class="tag-pill bg-rose-500/20 text-rose-300">add</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Hero feature chips</td><td class="px-4 py-2">4 chips (Zap/Analytics/Langs/Target)</td><td class="px-4 py-2">4 chips (kept) + rank-predict swapped in</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Exam selector</td><td class="px-4 py-2 text-slate-500">— (none)</td><td class="px-4 py-2">exam-target pills row</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Breadcrumb</td><td class="px-4 py-2">Home / Test Series</td><td class="px-4 py-2">Home / Test Series / &lt;Exam&gt;</td><td class="text-center"><span class="tag-pill bg-indigo-500/20 text-indigo-300">enhance</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">My Series strip</td><td class="px-4 py-2">title + progress bar</td><td class="px-4 py-2">+ rating + all-India rank</td><td class="text-center"><span class="tag-pill bg-indigo-500/20 text-indigo-300">enhance</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Live + Quizzes block</td><td class="px-4 py-2">two-column cards</td><td class="px-4 py-2">kept (folded into Live tab)</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Tab switcher</td><td class="px-4 py-2 text-slate-500">— (none)</td><td class="px-4 py-2">Full / Sectional / Chapterwise / Live</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Popular cards</td><td class="px-4 py-2">emoji + tests count + languages</td><td class="px-4 py-2">+ attempts · rating · duration · Q-count · badges</td><td class="text-center"><span class="tag-pill bg-indigo-500/20 text-indigo-300">enhance</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Card badges</td><td class="px-4 py-2">PRO / FREE / COMING SOON</td><td class="px-4 py-2">+ HOT / NEW</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Layout (mobile)</td><td class="px-4 py-2 text-amber-300">horizontal scroll hides cards</td><td class="px-4 py-2">2-col grid fallback</td><td class="text-center"><span class="tag-pill bg-rose-500/20 text-rose-300">fix</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sort dropdown</td><td class="px-4 py-2">custom/popular/rating/tests</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Browse by Category</td><td class="px-4 py-2">3-col grid</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sidebar — Categories</td><td class="px-4 py-2">chips panel</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sidebar — Activity</td><td class="px-4 py-2">recent attempts list</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sidebar — Leaderboard</td><td class="px-4 py-2 text-slate-500">— (none)</td><td class="px-4 py-2">top-3 teaser panel</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sidebar — Topic weightage</td><td class="px-4 py-2 text-slate-500">— (none)</td><td class="px-4 py-2">mini-table per exam</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Sidebar — Why Pro CTA</td><td class="px-4 py-2">gradient card</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Social proof banner</td><td class="px-4 py-2 text-slate-500">— (none)</td><td class="px-4 py-2">"11,356 students improved" strip</td><td class="text-center"><span class="tag-pill bg-cyan-500/20 text-cyan-300">new</span></td></tr>
+        <tr><td class="px-4 py-2 font-medium">Empty state</td><td class="px-4 py-2">📭 No Test Series Found</td><td class="px-4 py-2">kept</td><td class="text-center"><span class="tag-pill bg-emerald-500/20 text-emerald-300">same</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Adoption priority -->
+  <div class="panel p-4">
+    <div class="font-bold text-slate-200 mb-2">Adoption Priority</div>
+    <div class="grid md:grid-cols-3 gap-3 text-xs">
+      <div>
+        <div class="section-title text-rose-300 mb-1.5">P0 — Fix now</div>
+        <ul class="space-y-1 text-slate-300">
+          <li><span class="cross">✗</span> Mobile horizontal-scroll → 2-col grid</li>
+          <li><span class="cross">✗</span> Add per-card metadata (attempts/rating/duration)</li>
+        </ul>
+      </div>
+      <div>
+        <div class="section-title text-amber-300 mb-1.5">P1 — High value</div>
+        <ul class="space-y-1 text-slate-300">
+          <li><span class="new">+</span> Tab switcher Full/Sectional/Chapterwise/Live</li>
+          <li><span class="new">+</span> Exam-target selector pills</li>
+          <li><span class="new">+</span> Social proof banner</li>
+          <li><span class="new">+</span> HOT / NEW badges</li>
+        </ul>
+      </div>
+      <div>
+        <div class="section-title text-cyan-300 mb-1.5">P2 — Nice to have</div>
+        <ul class="space-y-1 text-slate-300">
+          <li><span class="new">+</span> Sidebar leaderboard teaser</li>
+          <li><span class="new">+</span> Topic weightage mini-table</li>
+          <li><span class="new">+</span> Rank predictor teaser</li>
+          <li><span class="new">+</span> Daily challenge / streak</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <p class="text-center text-xs text-slate-500 mt-6">Generated from <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">TestSeries.jsx</code> + <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">TestSeriesCard.jsx</code> + <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">AnimatedHero.jsx</code> — competitor patterns from Testbook &amp; Oliveboard.</p>
+</div>
+
+</body>
+</html>

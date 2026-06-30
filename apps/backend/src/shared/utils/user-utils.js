@@ -111,7 +111,7 @@ export const mapEnrolledSeriesIdsForResponse = async (
  * @returns {boolean}
  */
 export const isProUser = (user) => {
-  return Boolean(user?.isProUser || user?.isPro || user?.is_pro);
+  return Boolean(user?.isProUser || user?.isPro || user?.is_pro || user?.role === 'admin');
 };
 
 /**

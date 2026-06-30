@@ -81,7 +81,7 @@ function Layout() {
          tabIndex={-1}
          className={`
            transition-all duration-300 ease-in-out
-           pb-[88px] md:pb-0
+           pb-[80px] md:pb-0
            ${isLeftNavMode ? 'lg:ml-[260px]' : ''}
          `}
        >

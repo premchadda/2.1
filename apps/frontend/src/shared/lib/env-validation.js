@@ -7,7 +7,7 @@ const REQUIRED_ENV_VARS = [
 ]
 
 const WARNINGS = [
-  { key: 'VITE_BACKEND_URL', description: 'Backend URL for development proxy (optional in production)' }
+  { key: 'VITE_API_URL', description: 'Backend API URL (optional in development — relative URLs use the Vite proxy)' }
 ]
 
 export function validateEnvVars() {

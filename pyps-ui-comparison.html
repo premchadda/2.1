@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PYPS Page — Current vs Enhanced</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, sans-serif; background: #f1f5f9; }
+  .gradient-pyps {
+    background: linear-gradient(135deg, #2563eb 0%, #4f46e5 50%, #0891b2 100%);
+  }
+  .gradient-pyps-enhanced {
+    background:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 40%),
+      radial-gradient(circle at 80% 80%, rgba(34,211,238,0.15), transparent 40%),
+      linear-gradient(135deg, #1e3a8a 0%, #3730a3 45%, #0e7490 100%);
+  }
+  .doc-pattern {
+    background-image:
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 24px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 24px);
+  }
+  @keyframes floatDot { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .float-dot { animation: floatDot 3s ease-in-out infinite; }
+  @keyframes pulseGlow { 0%,100%{opacity:.4; transform:scale(1)} 50%{opacity:.8; transform:scale(1.05)} }
+  .pulse-glow { animation: pulseGlow 4s ease-in-out infinite; }
+  @keyframes orbit { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .orbit { animation: orbit 30s linear infinite; }
+  .card-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04); }
+  .badge-strike { text-decoration: line-through; color:#94a3b8; }
+  .tag-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; }
+</style>
+</head>
+<body class="text-slate-800">
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+
+  <!-- Header -->
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-slate-900">PYPS Page UI — Current vs Enhanced</h1>
+    <p class="text-slate-500 mt-2">Visual comparison of <code class="bg-slate-200 px-1.5 py-0.5 rounded text-sm">/pyps</code> route (<code class="bg-slate-200 px-1.5 py-0.5 rounded text-sm">TagPage.jsx</code> + <code class="bg-slate-200 px-1.5 py-0.5 rounded text-sm">AnimatedHero.jsx</code>)</p>
+  </div>
+
+  <!-- Comparison Grid -->
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <!-- ============ CURRENT ============ -->
+    <div class="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden card-shadow">
+      <div class="bg-slate-100 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
+        <span class="font-bold text-slate-700">CURRENT</span>
+        <span class="tag-pill bg-slate-200 text-slate-600">as-is</span>
+      </div>
+
+      <!-- Mini hero mockup -->
+      <div class="gradient-pyps relative h-44 px-5 py-4 overflow-hidden">
+        <div class="absolute top-2 right-3 w-16 h-16 bg-white/10 rounded-full"></div>
+        <div class="text-white text-lg font-bold">📋 PYQ Papers</div>
+        <div class="text-white/70 text-xs mt-1">Browse all available tests</div>
+        <div class="mt-3 inline-flex bg-white/20 backdrop-blur px-2.5 py-1 rounded text-white text-[11px] font-bold">12 Tests Available</div>
+        <!-- floating dots -->
+        <div class="absolute bottom-3 left-6 w-1.5 h-1.5 bg-white/40 rounded-full float-dot"></div>
+        <div class="absolute bottom-8 left-20 w-1 h-1 bg-white/30 rounded-full float-dot" style="animation-delay:.5s"></div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="px-5 py-2 border-b border-slate-100 text-xs text-slate-500">Home / <span class="text-slate-700 font-medium">PYQ Papers</span></div>
+
+      <!-- Search bar mockup -->
+      <div class="px-5 py-3 border-b border-slate-100">
+        <div class="flex gap-2">
+          <div class="flex-1 border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-400">🔍 Search pyq papers...</div>
+          <div class="border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600">All Series ▾</div>
+          <div class="border border-slate-200 rounded px-2 py-1.5 text-xs text-slate-600">All Types ▾</div>
+        </div>
+      </div>
+
+      <!-- Cards mockup -->
+      <div class="px-5 py-3 space-y-2">
+        <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-sm">SSC CGL 2023 PYP Set 1</div>
+            <div class="text-xs text-slate-500">100 Q • 60 min</div>
+          </div>
+          <span class="tag-pill bg-emerald-100 text-emerald-700">FREE</span>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-sm">SSC CGL 2022 PYP Set 2</div>
+            <div class="text-xs text-slate-500">100 Q • 60 min</div>
+          </div>
+          <span class="tag-pill bg-indigo-100 text-indigo-700">PRO</span>
+        </div>
+        <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between opacity-60">
+          <div>
+            <div class="font-semibold text-sm">SSC CGL 2021 PYP Set 3</div>
+            <div class="text-xs text-slate-500">100 Q • 60 min</div>
+          </div>
+          <span class="tag-pill bg-indigo-100 text-indigo-700">PRO</span>
+        </div>
+      </div>
+
+      <!-- Feature status -->
+      <div class="px-5 py-4 bg-slate-50 border-t border-slate-100">
+        <div class="text-xs font-bold text-slate-500 uppercase mb-2">Feature Status</div>
+        <ul class="space-y-1.5 text-sm">
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Blue→indigo→cyan gradient</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> 30 floating-dot particles (canvas)</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Breadcrumb + search/filter bar</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> TestCard list (vertical stack)</li>
+          <li class="flex items-center gap-2"><span class="text-rose-500">✗</span> <span class="badge-strike">document-pattern background</span></li>
+          <li class="flex items-center gap-2"><span class="text-rose-500">✗</span> <span class="badge-strike">file-icon-glow decorative</span></li>
+          <li class="flex items-center gap-2"><span class="text-rose-500">✗</span> <span class="badge-strike">history-orbit decorative</span></li>
+          <li class="flex items-center gap-2"><span class="text-rose-500">✗</span> <span class="badge-strike">float-up keyframe animation</span></li>
+          <li class="flex items-center gap-2"><span class="text-amber-500">⚠</span> Decoratives configured but never rendered</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ============ ENHANCED ============ -->
+    <div class="bg-white rounded-2xl border-2 border-indigo-300 overflow-hidden card-shadow">
+      <div class="bg-indigo-50 px-5 py-3 border-b border-indigo-200 flex items-center justify-between">
+        <span class="font-bold text-indigo-700">ENHANCED</span>
+        <span class="tag-pill bg-indigo-600 text-white">proposed</span>
+      </div>
+
+      <!-- Mini hero mockup enhanced -->
+      <div class="gradient-pyps-enhanced doc-pattern relative h-44 px-5 py-4 overflow-hidden">
+        <!-- file-icon-glow -->
+        <div class="absolute top-3 right-4 w-12 h-14 bg-white/10 rounded pulse-glow flex items-center justify-center">
+          <span class="text-white/70 text-lg">📄</span>
+        </div>
+        <!-- history-orbit -->
+        <div class="absolute -bottom-10 -right-6 w-28 h-28 border border-white/15 rounded-full orbit">
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-cyan-300/70 rounded-full"></div>
+          <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-white/50 rounded-full"></div>
+        </div>
+        <div class="text-white text-lg font-bold">📋 PYQ Papers</div>
+        <div class="text-white/80 text-xs mt-1">Previous Year Papers — practice with real exam questions</div>
+        <div class="mt-3 flex gap-2">
+          <div class="inline-flex bg-white/20 backdrop-blur px-2.5 py-1 rounded text-white text-[11px] font-bold">12 Papers</div>
+          <div class="inline-flex bg-cyan-400/30 backdrop-blur px-2.5 py-1 rounded text-white text-[11px] font-bold">2018 – 2024</div>
+        </div>
+        <div class="absolute bottom-3 left-6 w-1.5 h-1.5 bg-white/50 rounded-full float-dot"></div>
+        <div class="absolute bottom-8 left-20 w-1 h-1 bg-cyan-200/60 rounded-full float-dot" style="animation-delay:.5s"></div>
+      </div>
+
+      <!-- Breadcrumb -->
+      <div class="px-5 py-2 border-b border-slate-100 text-xs text-slate-500">Home / PYQ Papers / <span class="text-indigo-600 font-medium">All Years</span></div>
+
+      <!-- Search bar mockup enhanced with year chips -->
+      <div class="px-5 py-3 border-b border-slate-100 space-y-2">
+        <div class="flex gap-2">
+          <div class="flex-1 border border-indigo-200 rounded px-2 py-1.5 text-xs text-slate-400">🔍 Search by year / paper...</div>
+          <div class="border border-indigo-200 rounded px-2 py-1.5 text-xs text-slate-600">All Series ▾</div>
+        </div>
+        <div class="flex gap-1.5 flex-wrap">
+          <span class="tag-pill bg-indigo-600 text-white">2024</span>
+          <span class="tag-pill bg-white border border-slate-300 text-slate-600">2023</span>
+          <span class="tag-pill bg-white border border-slate-300 text-slate-600">2022</span>
+          <span class="tag-pill bg-white border border-slate-300 text-slate-600">2021</span>
+          <span class="tag-pill bg-white border border-slate-300 text-slate-600">Older</span>
+        </div>
+      </div>
+
+      <!-- Cards mockup enhanced (year-grouped) -->
+      <div class="px-5 py-3 space-y-3">
+        <div>
+          <div class="text-xs font-bold text-indigo-600 uppercase mb-1.5">2024</div>
+          <div class="border border-indigo-200 rounded-lg p-3 flex items-center justify-between bg-indigo-50/40">
+            <div>
+              <div class="font-semibold text-sm">SSC CGL 2024 PYP Set 1</div>
+              <div class="text-xs text-slate-500">100 Q • 60 min • ⬇ 8.2k attempts</div>
+            </div>
+            <span class="tag-pill bg-rose-100 text-rose-700">LIVE</span>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase mb-1.5">2023</div>
+          <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-sm">SSC CGL 2023 PYP Set 1</div>
+              <div class="text-xs text-slate-500">100 Q • 60 min • ⬇ 5.4k attempts</div>
+            </div>
+            <span class="tag-pill bg-emerald-100 text-emerald-700">FREE</span>
+          </div>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase mb-1.5">2022</div>
+          <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-sm">SSC CGL 2022 PYP Set 2</div>
+              <div class="text-xs text-slate-500">100 Q • 60 min</div>
+            </div>
+            <span class="tag-pill bg-indigo-100 text-indigo-700">PRO</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature status -->
+      <div class="px-5 py-4 bg-indigo-50 border-t border-indigo-100">
+        <div class="text-xs font-bold text-indigo-500 uppercase mb-2">Feature Status</div>
+        <ul class="space-y-1.5 text-sm">
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Deeper blue gradient + document grid pattern</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> <b>file-icon-glow</b> decorative (📄 pulse glow)</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> <b>history-orbit</b> decorative (rotating ring)</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> <b>float-up</b> keyframe defined + applied</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Year-range badge in hero (2018–2024)</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Year-chip quick filters (2024 / 2023 / …)</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Year-grouped card list with attempt counts</li>
+          <li class="flex items-center gap-2"><span class="text-emerald-500">✓</span> Richer breadcrumb (All Years segment)</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Summary table -->
+  <div class="mt-8 bg-white rounded-2xl border border-slate-200 overflow-hidden card-shadow">
+    <div class="px-5 py-3 border-b border-slate-200 font-bold text-slate-700">Element-by-Element Diff</div>
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 text-xs uppercase">
+        <tr>
+          <th class="text-left px-5 py-2 w-1/4">Element</th>
+          <th class="text-left px-5 py-2 w-1/3">Current</th>
+          <th class="text-left px-5 py-2 w-1/3">Enhanced</th>
+          <th class="text-center px-3 py-2">Status</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <tr><td class="px-5 py-2 font-medium">Hero gradient</td><td class="px-5 py-2 text-slate-600">blue→indigo→cyan</td><td class="px-5 py-2 text-slate-600">deeper navy + radial accents</td><td class="text-center"><span class="tag-pill bg-amber-100 text-amber-700">tweak</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Background pattern</td><td class="px-5 py-2 text-slate-500">generic radial (document-pattern NOT rendered)</td><td class="px-5 py-2 text-slate-600">document grid overlay active</td><td class="text-center"><span class="tag-pill bg-rose-100 text-rose-700">fix</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Particles</td><td class="px-5 py-2 text-slate-600">30 floating dots</td><td class="px-5 py-2 text-slate-600">30 floating dots (kept)</td><td class="text-center"><span class="tag-pill bg-emerald-100 text-emerald-700">same</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">file-icon-glow</td><td class="px-5 py-2 text-slate-500">configured, never rendered</td><td class="px-5 py-2 text-slate-600">📄 icon with pulse-glow</td><td class="text-center"><span class="tag-pill bg-rose-100 text-rose-700">fix</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">history-orbit</td><td class="px-5 py-2 text-slate-500">configured, never rendered</td><td class="px-5 py-2 text-slate-600">rotating orbit ring</td><td class="text-center"><span class="tag-pill bg-rose-100 text-rose-700">fix</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">float-up animation</td><td class="px-5 py-2 text-slate-500">class referenced, keyframe missing</td><td class="px-5 py-2 text-slate-600">keyframe defined + applied</td><td class="text-center"><span class="tag-pill bg-rose-100 text-rose-700">fix</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Hero meta badge</td><td class="px-5 py-2 text-slate-600">"N Tests Available"</td><td class="px-5 py-2 text-slate-600">"N Papers" + year-range chip</td><td class="text-center"><span class="tag-pill bg-indigo-100 text-indigo-700">enhance</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Breadcrumb</td><td class="px-5 py-2 text-slate-600">Home > PYQ Papers</td><td class="px-5 py-2 text-slate-600">Home > PYQ Papers > All Years</td><td class="text-center"><span class="tag-pill bg-indigo-100 text-indigo-700">enhance</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Filter bar</td><td class="px-5 py-2 text-slate-600">search + 2 dropdowns</td><td class="px-5 py-2 text-slate-600">search + series + year chips</td><td class="text-center"><span class="tag-pill bg-indigo-100 text-indigo-700">enhance</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Test list</td><td class="px-5 py-2 text-slate-600">flat vertical stack</td><td class="px-5 py-2 text-slate-600">year-grouped sections + attempt counts</td><td class="text-center"><span class="tag-pill bg-indigo-100 text-indigo-700">enhance</span></td></tr>
+        <tr><td class="px-5 py-2 font-medium">Empty state</td><td class="px-5 py-2 text-slate-600">📭 No Tests Found</td><td class="px-5 py-2 text-slate-600">same (kept)</td><td class="text-center"><span class="tag-pill bg-emerald-100 text-emerald-700">same</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="text-center text-xs text-slate-400 mt-6">Generated from TagPage.jsx &amp; AnimatedHero.jsx — no live server required</p>
+</div>
+
+</body>
+</html>

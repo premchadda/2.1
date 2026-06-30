@@ -85,7 +85,7 @@ export const handleNotificationJob = async (jobName, payload = {}) => {
     return dispatchNotification(payload.userId, {
       title: 'Test result available',
       message: `Your result for test #${payload.testId} is ready. Score: ${payload.score ?? 'N/A'}.`,
-      type: 'test_result',
+      type: 'result_declared',
       metadata: payload,
     })
   }

@@ -11,7 +11,7 @@
  *   logger.error('Error', error)
  */
 
-const isDevelopment = import.meta.env.DEV
+const isDevelopment = import.meta.env?.DEV ?? (process.env.NODE_ENV !== 'production')
 
 // Log levels: 0=error only, 1=warn, 2=info, 3=debug
 const LOG_LEVELS = {

@@ -6,7 +6,7 @@ import {
   MessageCircle, Download, Shield, CheckCircle, ArrowLeft,
   User, Calendar, Tag, ExternalLink, Copy, Check, AlertTriangle
 } from 'lucide-react'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { AnimatedHero } from '../../shared/components'
 import VideoPlayer from '../../shared/components/common/VideoPlayer'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'

@@ -1,8 +1,51 @@
 import express from 'express'
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 
 const router = express.Router()
+
+// Default referral reward tiers (used when DB config is not available)
+const DEFAULT_REFERRAL_REWARDS = [
+  { referrals: 1, discount: '10%', bonus: '₹100' },
+  { referrals: 3, discount: '15%', bonus: '₹250' },
+  { referrals: 5, discount: '20%', bonus: '₹500' },
+  { referrals: 10, discount: '25%', bonus: '₹1000' },
+  { referrals: 25, discount: '30%', bonus: '₹2500' },
+  { referrals: 50, discount: '40%', bonus: '₹5000' },
+]
+
+// @route   GET /api/referrals/config
+// @desc    Get referral program configuration (reward tiers)
+// @access  Public
+router.get('/config', async (req, res) => {
+  try {
+    let rewards = DEFAULT_REFERRAL_REWARDS
+    let config = null
+
+    try {
+      const result = await pool.query(
+        "SELECT value FROM app_settings WHERE key = 'referral_rewards'"
+      )
+      if (result.rows.length > 0) {
+        config = typeof result.rows[0].value === 'string'
+          ? JSON.parse(result.rows[0].value)
+          : result.rows[0].value
+        if (config?.rewards && Array.isArray(config.rewards)) {
+          rewards = config.rewards
+        }
+      }
+    } catch {
+      // app_settings table may not exist yet — use defaults
+    }
+
+    res.json({
+      success: true,
+      data: { rewards, ...(config || {}) },
+    })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+})
 
 // @route   GET /api/referrals
 // @desc    Get user's referral stats

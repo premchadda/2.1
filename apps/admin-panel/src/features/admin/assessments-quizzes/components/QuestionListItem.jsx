@@ -15,10 +15,12 @@ const STATUS_OPTIONS = [
 
 const QUESTION_TYPES = [
   { value: 'mcq', label: 'MCQ' },
+  { value: 'msq', label: 'MSQ' },
   { value: 'numeric', label: 'Numeric' },
   { value: 'true-false', label: 'True/False' },
   { value: 'match', label: 'Match' },
-  { value: 'comprehension', label: 'Comprehension' }
+  { value: 'comprehension', label: 'Comprehension' },
+  { value: 'descriptive', label: 'Descriptive' }
 ]
 
 export default function QuestionListItem({

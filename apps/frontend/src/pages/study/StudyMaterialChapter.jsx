@@ -604,8 +604,8 @@ export default function StudyMaterialChapter() {
                       ) : (
                         <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                           <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <h3 className="font-bold text-gray-900">Overview Coming Soon</h3>
-                          <p className="text-gray-500 text-sm">This chapter exists, but the detailed topic outline is not available yet.</p>
+                          <h3 className="font-bold text-gray-900">No Topic Outline Yet</h3>
+                          <p className="text-gray-500 text-sm">This chapter exists, but the detailed topic outline hasn't been published yet.</p>
                         </div>
                       )}
                     </div>

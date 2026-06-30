@@ -3,6 +3,7 @@ import { BookOpen, Clock, CheckCircle, XCircle, ChevronRight, Loader2, Search, B
 import { useQuery } from '@tanstack/react-query'
 import api from '../../shared/lib/api'
 import { AnimatedHero, Breadcrumb } from '../../shared/components'
+import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 
 export default function PracticeQuestions() {
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -263,9 +264,10 @@ export default function PracticeQuestions() {
                       </button>
                     </div>
 
-                    <h2 className="text-xl md:text-2xl font-extrabold text-gray-900 mb-10 leading-snug">
-                      {currentQ.question}
-                    </h2>
+                    <h2 
+                      className="text-xl md:text-2xl font-extrabold text-gray-900 mb-10 leading-snug"
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.question || '') }}
+                    />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
                       {currentQ.options?.map((option, index) => (
@@ -280,7 +282,10 @@ export default function PracticeQuestions() {
                           }`}>
                             {String.fromCharCode(65 + index)}
                           </div>
-                          <span className="font-bold text-sm md:text-base pt-1">{option}</span>
+                          <span 
+                            className="font-bold text-sm md:text-base pt-1"
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(option || '') }}
+                          />
                           
                           {showResult && index === (typeof currentQ.correctAnswer === 'string' ? parseInt(currentQ.correctAnswer) : currentQ.correctAnswer) && (
                             <div className="absolute top-3 right-3 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white">
@@ -297,9 +302,10 @@ export default function PracticeQuestions() {
                         <h4 className="flex items-center gap-2 font-black text-indigo-950 text-xs uppercase tracking-widest mb-3">
                           <BookOpen className="w-4 h-4" /> Explanation
                         </h4>
-                        <p className="text-gray-700 text-sm md:text-base leading-relaxed">
-                          {currentQ.explanation || 'No explanation provided for this question.'}
-                        </p>
+                        <div 
+                          className="text-gray-700 text-sm md:text-base leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.explanation || 'No explanation provided for this question.') }}
+                        />
                       </div>
                     </div>
 

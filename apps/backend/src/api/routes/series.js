@@ -7,6 +7,7 @@ import {
 } from "../../shared/utils/identifier-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { isPypSlug } from "../../utils/slug-helpers.js"
 
 const router = express.Router();
 
@@ -431,9 +432,10 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
 // @access  Public
 router.get("/category/:category", async (req, res) => {
   try {
+    const categoryQuery = isPypSlug(req.params.category) ? 'PYPs' : req.params.category;
     const series = (
       await dbHelpers.find("testSeries", {
-        category: req.params.category,
+        category: categoryQuery,
         isActive: true,
       })
     ).sort((a, b) => {

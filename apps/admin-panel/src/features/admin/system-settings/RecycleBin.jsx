@@ -3,7 +3,8 @@ import {
   Trash2, RotateCcw, Search, Filter, 
   Calendar, User, Package, FileText, 
   BookOpen, FolderTree, Tag, Navigation, Info,
-  ChevronRight, MoreVertical, X 
+  ChevronRight, MoreVertical, X,
+  AlertTriangle 
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { adminAPI } from '../../../shared/lib/dataService.js'
@@ -36,6 +37,7 @@ export default function RecycleBin() {
     total: 0,
     byType: {}
   });
+  const [confirmModal, setConfirmModal] = useState({ open: false, action: null, title: '', message: '', confirmLabel: '', danger: false });
 
   const navigate = useNavigate();
 
@@ -63,10 +65,10 @@ export default function RecycleBin() {
   const calculateStats = (items) => {
     const byType = {};
     items.forEach(item => {
-      const type = item.originalCollection;
+      const type = item.originalCollection || 'unknown';
       byType[type] = (byType[type] || 0) + 1;
     });
-    
+
     setStats({
       total: items.length,
       byType
@@ -82,7 +84,7 @@ export default function RecycleBin() {
       filtered = filtered.filter(item =>
         item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.originalCollection.toLowerCase().includes(searchTerm.toLowerCase())
+        (item.originalCollection || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -124,10 +126,17 @@ export default function RecycleBin() {
 
   // Permanently delete an item
   const deletePermanently = async (itemId) => {
-    if (!window.confirm('Are you sure you want to permanently delete this item? This action cannot be undone.')) {
-      return;
-    }
+    setConfirmModal({
+      open: true,
+      action: () => performDeletePermanently(itemId),
+      title: 'Delete Permanently',
+      message: 'Are you sure you want to permanently delete this item? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+  };
 
+  const performDeletePermanently = async (itemId) => {
     try {
       const response = await adminAPI.deleteTrashItem(itemId)
 
@@ -147,10 +156,17 @@ export default function RecycleBin() {
 
   // Empty entire trash
   const emptyTrash = async () => {
-    if (!window.confirm('Are you sure you want to empty the entire trash? This action cannot be undone.')) {
-      return;
-    }
+    setConfirmModal({
+      open: true,
+      action: performEmptyTrash,
+      title: 'Empty Trash',
+      message: 'Are you sure you want to empty the entire trash? This action cannot be undone.',
+      confirmLabel: 'Empty Trash',
+      danger: true,
+    });
+  };
 
+  const performEmptyTrash = async () => {
     try {
       const response = await adminAPI.emptyTrash()
 
@@ -272,7 +288,7 @@ export default function RecycleBin() {
             <div key={type} className="bg-white rounded-lg shadow-sm p-6 border">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 capitalize">{type.replace(/([A-Z])/g, ' $1')}</p>
+                  <p className="text-sm font-medium text-gray-600 capitalize">{(type || 'unknown').replace(/([A-Z])/g, ' $1')}</p>
                   <p className="text-2xl font-bold text-gray-900">{count}</p>
                 </div>
                 <div className="p-3 bg-gray-100 rounded-full">
@@ -347,7 +363,7 @@ export default function RecycleBin() {
                           {getItemTitle(item)}
                         </h3>
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          {item.originalCollection.replace(/([A-Z])/g, ' $1')}
+                          {(item.originalCollection || 'unknown').replace(/([A-Z])/g, ' $1')}
                         </span>
                       </div>
                       
@@ -408,6 +424,50 @@ export default function RecycleBin() {
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
+            <div className="flex items-start gap-4 mb-5">
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${confirmModal.danger ? 'bg-red-100' : 'bg-amber-100'}`}>
+                <AlertTriangle className={`w-6 h-6 ${confirmModal.danger ? 'text-red-600' : 'text-amber-600'}`} />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-gray-900 mb-1">{confirmModal.title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{confirmModal.message}</p>
+              </div>
+              <button
+                onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-6">
+              <button
+                onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+                className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  setConfirmModal(prev => ({ ...prev, open: false }));
+                  if (confirmModal.action) await confirmModal.action();
+                }}
+                className={`px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-lg transition-all ${confirmModal.danger ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
+              >
+                {confirmModal.confirmLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -185,7 +185,7 @@ export class TestAttemptController {
 
   async getAttempt(attemptId, userId) {
     const res = await this.db.query(`
-      SELECT * FROM attempts WHERE id = $1 AND (user_id = $2 OR user_id = $2::text)
+      SELECT * FROM attempts WHERE id = $1 AND user_id = $2
     `, [attemptId, userId])
     return res.rows[0] || null
   }

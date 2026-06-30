@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Save, X, CheckCircle, AlertTriangle, Globe, Shield, Users, CreditCard, Bell, Mail, Key, Lock, Eye, EyeOff } from 'lucide-react'
+import { Save, X, CheckCircle, AlertTriangle, Globe, Shield, Users, CreditCard, Bell, Mail, Key, Lock, Eye, EyeOff, Zap, Wrench, Clock, Radio } from 'lucide-react'
 import { apiClient } from '../../../shared/lib/dataService.js'
 import { toast } from 'react-hot-toast'
 
@@ -13,8 +13,8 @@ export default function SiteSettingsManager() {
     metaTitle: 'Trstprep - SSC & Railway Test Series',
     metaDescription: 'Best online test series for SSC, Railway, Banking and other government exams',
     keywords: 'ssc, railway, banking, government exams, test series, mock tests',
-    contactEmail: 'support@trstprep.com',
-    contactPhone: '+91-9999999999',
+    contactEmail: '',
+    contactPhone: '',
     address: '123 Education Street, City, State 123456',
     socialLinks: {
       facebook: '',
@@ -30,8 +30,32 @@ export default function SiteSettingsManager() {
       paymentGateway: true,
       analytics: true,
       seoEnabled: true,
-      maintenanceMode: false,
       demoMode: false
+    },
+    maintenance: {
+      enabled: false,
+      message: "We're performing scheduled maintenance to improve your experience.",
+      endTime: '',
+      allowAdminAccess: true,
+      estimatedDowntime: '30 minutes'
+    },
+    comingSoon: {
+      // Page-level
+      liveTests: { enabled: false, title: 'Live Tests', message: "We're preparing exciting live tests for you!", estimatedTime: 'Coming in 2 weeks', icon: 'Radio', type: 'page' },
+      practiceQuestions: { enabled: false, title: 'Practice Questions', message: 'Our question bank is being updated with latest patterns.', estimatedTime: 'Available soon', icon: 'Target', type: 'page' },
+      videos: { enabled: false, title: 'Video Lectures', message: 'High-quality video lectures are being recorded.', estimatedTime: 'Coming in 1 month', icon: 'Video', type: 'page' },
+      currentAffairs: { enabled: false, title: 'Current Affairs', message: 'Daily current affairs will be available here.', estimatedTime: 'Available daily at 8 AM', icon: 'Newspaper', type: 'page' },
+      doubtForum: { enabled: false, title: 'Doubt Forum', message: 'Community doubt resolution feature coming soon!', estimatedTime: 'Coming in 3 weeks', icon: 'MessageCircle', type: 'page' },
+      studyGroups: { enabled: false, title: 'Study Groups', message: 'Join study groups and learn together.', estimatedTime: 'Coming in 1 month', icon: 'Users', type: 'page' },
+      achievements: { enabled: false, title: 'Achievements & Badges', message: 'Earn badges for your accomplishments!', estimatedTime: 'Available now', icon: 'Award', type: 'page' },
+      referAndEarn: { enabled: false, title: 'Refer & Earn', message: 'Invite friends and earn rewards.', estimatedTime: 'Coming soon', icon: 'Gift', type: 'page' },
+      // Section-level (within a page)
+      'leaderboard:performance': { enabled: false, title: 'Performance Rankings', message: 'Performance rankings are being calculated.', estimatedTime: 'Available soon', icon: 'Trophy', type: 'section' },
+      'analysis:difficulty': { enabled: false, title: 'Difficulty Analysis', message: 'Difficulty breakdown is being analyzed.', estimatedTime: 'Available soon', icon: 'Gauge', type: 'section' },
+      'analysis:speedMatrix': { enabled: false, title: 'Speed Matrix', message: 'Speed vs accuracy matrix coming soon.', estimatedTime: 'Available soon', icon: 'Wind', type: 'section' },
+      'community:discussions': { enabled: false, title: 'Group Discussions', message: 'Discussions feature is being built.', estimatedTime: 'Coming soon', icon: 'FileText', type: 'section' },
+      'dashboard:aiPlanner': { enabled: false, title: 'AI Study Planner', message: 'AI-powered study planner is being configured.', estimatedTime: 'Coming soon', icon: 'Brain', type: 'section' },
+      'profile:customTests': { enabled: false, title: 'Custom Test Builder', message: 'Create your own tests — coming soon.', estimatedTime: 'Coming soon', icon: 'PieChart', type: 'section' },
     },
     appearance: {
       primaryColor: '#667eea',
@@ -78,16 +102,18 @@ export default function SiteSettingsManager() {
   });
 
   const [loading, setLoading] = useState(true);
-const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error' | null
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null);
+  const [activeTab, setActiveTab] = useState('general');
   const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestResult, setEmailTestResult] = useState(null);
   const [showPassword, setShowPassword] = useState({});
 
   const handleTestEmail = async () => {
     try {
       setTestingEmail(true);
       setEmailTestResult(null);
-      const response = await api.post('/admin/settings/test-email', {
+      const response = await apiClient.post('/admin/settings/test-email', {
         smtpHost: settings.email.smtpHost,
         smtpPort: settings.email.smtpPort,
         smtpUsername: settings.email.smtpUsername,
@@ -110,15 +136,23 @@ const [saving, setSaving] = useState(false);
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/admin/settings');
+      const response = await apiClient.get('/admin/settings');
       if (response.data.success && response.data.data) {
-        // Deep merge fetched settings with defaults to ensure all nested objects exist
         const fetchedSettings = response.data.data;
+        // Normalize snake_case feature keys to camelCase to match defaults
+        const fetchedFeatures = fetchedSettings.features || {};
+        const normalizedFeatures = {};
+        const snakeToCamel = (s) => s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+        for (const [key, value] of Object.entries(fetchedFeatures)) {
+          normalizedFeatures[snakeToCamel(key)] = value;
+        }
         setSettings(prev => ({
           ...prev,
           ...fetchedSettings,
           socialLinks: { ...prev.socialLinks, ...(fetchedSettings.socialLinks || {}) },
-          features: { ...prev.features, ...(fetchedSettings.features || {}) },
+          features: { ...prev.features, ...normalizedFeatures },
+          maintenance: { ...prev.maintenance, ...(fetchedSettings.maintenance || {}) },
+          comingSoon: { ...prev.comingSoon, ...(fetchedSettings.comingSoon || fetchedSettings.coming_soon || {}) },
           appearance: { ...prev.appearance, ...(fetchedSettings.appearance || {}) },
           security: { ...prev.security, ...(fetchedSettings.security || {}) },
           email: { ...prev.email, ...(fetchedSettings.email || {}) },
@@ -128,7 +162,6 @@ const [saving, setSaving] = useState(false);
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
-      // Use default settings if fetch fails
     } finally {
       setLoading(false);
     }
@@ -138,7 +171,7 @@ const [saving, setSaving] = useState(false);
     try {
       setSaving(true);
       setSaveStatus(null);
-      const response = await api.put('/admin/settings', settings);
+      const response = await apiClient.put('/admin/settings', settings);
       if (response.data?.success) {
         toast.success('Settings saved successfully')
         setSaveStatus('success');
@@ -189,6 +222,7 @@ const [saving, setSaving] = useState(false);
 
   const tabs = [
     { id: 'general', label: 'General', icon: Globe },
+    { id: 'features', label: 'Features', icon: Zap },
     { id: 'appearance', label: 'Appearance', icon: Eye },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'email', label: 'Email', icon: Mail },
@@ -359,32 +393,144 @@ const [saving, setSaving] = useState(false);
               </div>
             </div>
 
+          </div>
+        )}
+
+        {activeTab === 'features' && (
+          <div className="space-y-6">
+            {/* Feature Toggles */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5 text-indigo-500" />
-                Features
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-indigo-500" />
+                Feature Toggles
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(settings.features).map(([key, value]) => (
-                  <div key={key} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-gray-900 capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {key.replace(/([A-Z])/g, ' $1').trim()} feature
-                      </p>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
+              <p className="text-sm text-gray-500 mb-4">Enable or disable platform features. Changes take effect immediately on the frontend.</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {Object.entries(settings.features).map(([key, value]) => {
+                  const FEATURE_META = {
+                    userRegistration: { label: 'User Registration', desc: 'Allow new users to sign up' },
+                    emailVerification: { label: 'Email Verification', desc: 'Require email confirmation on signup' },
+                    smsNotifications: { label: 'SMS Notifications', desc: 'Send SMS alerts via Twilio' },
+                    paymentGateway: { label: 'Payment Gateway', desc: 'Enable Razorpay/Stripe checkout' },
+                    analytics: { label: 'Analytics', desc: 'Track user engagement and metrics' },
+                    seoEnabled: { label: 'SEO Enabled', desc: 'Serve meta tags and sitemap' },
+                    demoMode: { label: 'Demo Mode', desc: 'Show sample data instead of real content' },
+                  }
+                  const meta = FEATURE_META[key] || { label: key.replace(/([A-Z])/g, ' $1').trim(), desc: '' }
+                  return (
+                    <div key={key} className={`flex items-center justify-between p-3 rounded-lg border ${value ? 'bg-indigo-50/50 border-indigo-100' : 'bg-gray-50 border-gray-100'}`}>
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 text-sm">{meta.label}</p>
+                        <p className="text-xs text-gray-500">{meta.desc}</p>
+                      </div>
+                      <ToggleSwitch
                         checked={value}
-                        onChange={(e) => handleInputChange(`features.${key}`, e.target.checked)}
-                        className="sr-only peer"
+                        onChange={(val) => handleInputChange(`features.${key}`, val)}
                       />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Maintenance Mode */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-amber-500" />
+                Maintenance Mode
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">When enabled, the entire site shows a maintenance page. Admins can still access the admin panel.</p>
+              <div className="bg-amber-50/50 border border-amber-100 rounded-lg p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Enable Maintenance Mode</p>
+                    <p className="text-xs text-gray-500">Blocks all frontend pages for non-admin users</p>
                   </div>
+                  <ToggleSwitch
+                    checked={settings.maintenance.enabled}
+                    onChange={(val) => handleInputChange('maintenance.enabled', val)}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Maintenance Message</label>
+                    <textarea
+                      value={settings.maintenance.message}
+                      onChange={(e) => handleInputChange('maintenance.message', e.target.value)}
+                      rows={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Downtime</label>
+                    <input
+                      type="text"
+                      value={settings.maintenance.estimatedDowntime}
+                      onChange={(e) => handleInputChange('maintenance.estimatedDowntime', e.target.value)}
+                      placeholder="e.g., 30 minutes"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Expected End Time</label>
+                    <input
+                      type="datetime-local"
+                      value={settings.maintenance.endTime ? new Date(settings.maintenance.endTime).toISOString().slice(0, 16) : ''}
+                      onChange={(e) => handleInputChange('maintenance.endTime', e.target.value ? new Date(e.target.value).toISOString() : '')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-amber-100">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">Allow Admin Access During Maintenance</p>
+                    <p className="text-xs text-gray-500">Admin users can bypass the maintenance page</p>
+                  </div>
+                  <ToggleSwitch
+                    checked={settings.maintenance.allowAdminAccess}
+                    onChange={(val) => handleInputChange('maintenance.allowAdminAccess', val)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Coming Soon — Pages */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-purple-500" />
+                Coming Soon — Pages
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">Toggle which <b>entire pages</b> show a "Coming Soon" placeholder instead of their real content.</p>
+              <div className="space-y-3">
+                {Object.entries(settings.comingSoon).filter(([, c]) => (c.type || 'page') === 'page').map(([key, config]) => (
+                  <ComingSoonCard
+                    key={key}
+                    keyName={key}
+                    config={config}
+                    onToggle={(val) => handleInputChange(`comingSoon.${key}.enabled`, val)}
+                    onChange={(field, val) => handleInputChange(`comingSoon.${key}.${field}`, val)}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Coming Soon — Sections */}
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-pink-500" />
+                Coming Soon — Sections
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">Toggle which <b>sections within a page</b> show a "Coming Soon" placeholder. The rest of the page remains visible.</p>
+              <div className="space-y-3">
+                {Object.entries(settings.comingSoon).filter(([, c]) => c.type === 'section').map(([key, config]) => (
+                  <ComingSoonCard
+                    key={key}
+                    keyName={key}
+                    config={config}
+                    onToggle={(val) => handleInputChange(`comingSoon.${key}.enabled`, val)}
+                    onChange={(field, val) => handleInputChange(`comingSoon.${key}.${field}`, val)}
+                    showPageHint
+                  />
                 ))}
               </div>
             </div>
@@ -940,4 +1086,73 @@ const [saving, setSaving] = useState(false);
       </div>
     </div>
   );
+}
+
+function ToggleSwitch({ checked, onChange }) {
+  return (
+    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="sr-only peer"
+      />
+      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+    </label>
+  );
+}
+
+function ComingSoonCard({ keyName, config, onToggle, onChange, showPageHint }) {
+  const pageName = keyName.includes(':') ? keyName.split(':')[0] : null
+  const sectionName = keyName.includes(':') ? keyName.split(':')[1] : null
+
+  return (
+    <div className={`rounded-lg border p-4 ${config.enabled ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100 bg-gray-50'}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Radio className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="font-medium text-gray-900 text-sm truncate">{config.title}</p>
+            {showPageHint && pageName && (
+              <p className="text-[10px] text-gray-400 truncate">
+                on <span className="font-mono font-bold text-gray-500">/{pageName}</span> page → <span className="font-mono">{sectionName}</span> section
+              </p>
+            )}
+          </div>
+        </div>
+        <ToggleSwitch checked={config.enabled} onChange={onToggle} />
+      </div>
+      {config.enabled && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Message</label>
+            <input
+              type="text"
+              value={config.message}
+              onChange={(e) => onChange('message', e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Estimated Time</label>
+            <input
+              type="text"
+              value={config.estimatedTime}
+              onChange={(e) => onChange('estimatedTime', e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Icon (Lucide name)</label>
+            <input
+              type="text"
+              value={config.icon}
+              onChange={(e) => onChange('icon', e.target.value)}
+              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }

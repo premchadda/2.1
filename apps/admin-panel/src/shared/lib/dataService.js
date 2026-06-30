@@ -412,28 +412,9 @@ export const studyAPI = {
 
 // ===== QUESTIONS API =====
 export const questionsAPI = {
-  /** Fetches all questions using server-side pagination (backend limit max 2000 per request). */
-  getAll: async () => {
-    const pageSize = 2000
-    let offset = 0
-    const all = []
-    let last
-    for (;;) {
-      const res = await apiClient.get('/admin/questions', { params: { limit: pageSize, offset } })
-      last = res
-      const batch = res.data?.data ?? []
-      const total = res.data?.total ?? 0
-      all.push(...batch)
-      if (batch.length === 0 || all.length >= total) break
-      offset += pageSize
-    }
-    return {
-      data: {
-        success: last?.data?.success ?? true,
-        data: all,
-        total: last?.data?.total ?? all.length
-      }
-    }
+  getAll: async ({ page = 1, limit = 50 } = {}) => {
+    const res = await apiClient.get('/admin/questions', { params: { limit, offset: (page - 1) * limit } })
+    return res
   },
   getByTestId: (testId) => {
     if (!testId) throw new ValidationError('Test ID is required')
@@ -511,15 +492,32 @@ export const adminAPI = {
   getTestCategories: (params) => apiClient.get('/admin/test-categories', { params }),
   createTest: (data) => apiClient.post('/admin/tests', data),
   updateTest: (id, data) => apiClient.put(`/admin/tests/${id}`, data),
-  deleteTest: (id) => apiClient.delete(`/admin/tests/${id}`),
-  publishTest: (id) => apiClient.post(`/admin/tests/${id}/publish`),
-  unpublishTest: (id) => apiClient.post(`/admin/tests/${id}/unpublish`),
+  deleteTest: (id) => apiClient.delete(`/admin/tests/${id}`, { timeout: 60000 }),
+  publishTest: (id) => apiClient.post(`/admin/tests/${id}/publish`, {}, { timeout: 60000 }),
+  unpublishTest: (id) => apiClient.post(`/admin/tests/${id}/unpublish`, {}, { timeout: 60000 }),
   bulkUploadTests: (formData) => apiClient.post('/admin/tests/bulk', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
   bulkUploadQuizzes: (formData) => apiClient.post('/admin/quizzes/bulk', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
   }),
+  
+  // Full Test JSON Import
+  previewFullTest: (formData) => apiClient.post('/import/full-test/preview', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
+  }),
+  importFullTest: (formData) => apiClient.post('/import/full-test/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
+  }),
+  uploadFullTestJson: (formData) => apiClient.post('/import/full-test/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000
+  }),
+  previewSingleTest: (index) => apiClient.get(`/import/full-test/preview-test/${index}`, { timeout: 300000 }),
+  importSelectedTests: (data) => apiClient.post('/import/full-test/import-selected', data, { timeout: 300000 }),
   
   // Test Categories
   createTestCategory: (data) => apiClient.post('/admin/test-categories', data),
@@ -527,7 +525,6 @@ export const adminAPI = {
   deleteTestCategory: (id) => apiClient.delete(`/admin/test-categories/${id}`),
   
   // Exams
-  getExamCategories: () => apiClient.get('/admin/exam-categories'),
   getExams: () => apiClient.get('/exams'),
 
   // Test Sections
@@ -539,7 +536,7 @@ export const adminAPI = {
       }
     })
     const qs = query.toString()
-    return apiClient.get(`/admin/sections${qs ? `?${qs}` : ''}`)
+    return apiClient.get(`/admin/sections${qs ? `?${qs}` : ''}`, { timeout: 60000 })
   },
   getSectionsForTest: (params = {}) => {
     const query = new URLSearchParams()
@@ -549,7 +546,7 @@ export const adminAPI = {
       }
     })
     const qs = query.toString()
-    return apiClient.get(`/admin/sections/for-test${qs ? `?${qs}` : ''}`)
+    return apiClient.get(`/admin/sections/for-test${qs ? `?${qs}` : ''}`, { timeout: 60000 })
   },
   createSection: (data) => apiClient.post('/admin/sections', data),
   updateSection: (id, data) => apiClient.put(`/admin/sections/${id}`, data),
@@ -672,6 +669,20 @@ export const adminAPI = {
   createQuiz: (data) => apiClient.post('/admin/quizzes', data),
   updateQuiz: (id, data) => apiClient.put(`/admin/quizzes/${id}`, data),
   deleteQuiz: (id) => apiClient.delete(`/admin/quizzes/${id}`),
+
+  // Live Tests
+  getLiveTests: () => apiClient.get('/admin/live-tests'),
+  createLiveTest: (data) => apiClient.post('/admin/live-tests', data),
+  updateLiveTest: (id, data) => apiClient.put(`/admin/live-tests/${id}`, data),
+  deleteLiveTest: (id) => apiClient.delete(`/admin/live-tests/${id}`),
+  bulkUploadLiveTests: (data) => apiClient.post('/admin/live-tests/bulk', data, { timeout: 300000 }),
+
+  // PYPs (Previous Year Papers)
+  getPYPs: () => apiClient.get('/admin/pyp'),
+  createPYP: (data) => apiClient.post('/admin/pyp', data),
+  updatePYP: (id, data) => apiClient.put(`/admin/pyp/${id}`, data),
+  deletePYP: (id) => apiClient.delete(`/admin/pyp/${id}`),
+  bulkUploadPYP: (data) => apiClient.post('/admin/pyp/bulk', data, { timeout: 300000 }),
   
   // Enrollments
   getEnrollments: () => apiClient.get('/admin/enrollments'),

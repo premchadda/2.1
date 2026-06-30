@@ -6,14 +6,31 @@ import { lockoutMiddleware } from '../../middleware/lockout.middleware.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
 import { buildPublicIdLookup, mapLookupId } from '../../shared/utils/public-id-response.js'
 import { getUserAttempts } from '../../shared/utils/attempt-utils.js'
+import { isFeatureEnabled } from '../../services/SettingsService.js'
 
 const router = Router()
 
+// Middleware: block registration if userRegistration feature is disabled
+const requireRegistrationEnabled = async (req, res, next) => {
+  try {
+    const enabled = await isFeatureEnabled('userRegistration')
+    if (!enabled) {
+      return res.status(403).json({
+        success: false,
+        message: 'New registrations are currently disabled. Please try again later.',
+      })
+    }
+    next()
+  } catch {
+    // If settings can't be loaded, allow registration (fail open)
+    next()
+  }
+}
+
 // HIGH-09 FIX: Apply strict rate limiting to auth endpoints
-// Also apply lockout middleware to check for account lockout before processing
 router.post('/login', lockoutMiddleware, authRateLimiter, authController.login)
 router.post('/google', lockoutMiddleware, authRateLimiter, authController.googleLogin)
-router.post('/register', authRateLimiter, authController.register)
+router.post('/register', requireRegistrationEnabled, authRateLimiter, authController.register)
 router.post('/logout', authController.logout)
 router.post('/refresh', authRateLimiter, authController.refreshToken)
 router.post('/forgot-password', authRateLimiter, authController.forgotPassword)

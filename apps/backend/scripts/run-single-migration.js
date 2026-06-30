@@ -1,8 +1,12 @@
 import 'dotenv/config';
+import dns from 'dns';
 import pg from 'pg';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+
+// Force IPv4-first DNS resolution (Supabase IPv6 often times out on local networks)
+dns.setDefaultResultOrder('ipv4first');
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

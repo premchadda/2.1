@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { AnimatedHero } from '../../shared/components'
 import { getExamCategories, getExams, getTestSeries, getPublicStats } from '../../shared/lib/dataService'

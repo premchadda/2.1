@@ -1,6 +1,7 @@
 import User from './user/User.js'
 import TestSeries from './test/TestSeries.js'
 import Test from './test/Test.js'
+import TestTemplate from './test/TestTemplate.js'
 import Question from './question/Question.js'
 import Chapter from './syllabus/Chapter.js'
 import Exam from './exam/Exam.js'
@@ -28,6 +29,7 @@ export {
   User,
   TestSeries,
   Test,
+  TestTemplate,
   Question,
   Chapter,
   Exam,

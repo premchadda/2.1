@@ -355,6 +355,104 @@ function AnimatedHero({
       )
     }
 
+    if (config.decorative.includes('file-icon-glow')) {
+      elements.push(
+        <div
+          key="file-icon-glow"
+          className="absolute top-3 right-4 md:top-5 md:right-8 w-12 h-14 md:w-16 md:h-20 bg-white/10 rounded-lg flex items-center justify-center animate-pulse-slow"
+          style={{ animationDuration: '4s' }}
+        >
+          <svg className="w-6 h-6 md:w-8 md:h-8 text-white/70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+          </svg>
+        </div>
+      );
+    }
+
+    if (config.decorative.includes('history-orbit')) {
+      elements.push(
+        <div
+          key="history-orbit"
+          className="absolute -bottom-12 -right-8 md:-bottom-16 md:-right-12 w-36 h-36 md:w-48 md:h-48 border border-white/15 rounded-full animate-spin-slow pointer-events-none"
+          style={{ animationDuration: '30s' }}
+        >
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white/40 rounded-full" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-cyan-300/50 rounded-full" />
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1.5 h-1.5 bg-white/30 rounded-full" />
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1.5 h-1.5 bg-indigo-300/40 rounded-full" />
+        </div>
+      );
+    }
+
+    if (config.decorative.includes('timer-pulse') && !config.decorative.includes('arena-glow')) {
+      elements.push(
+        <div
+          key="timer-pulse"
+          className="absolute top-4 right-6 w-20 h-20 bg-white/5 rounded-full blur-2xl animate-pulse-slow"
+          style={{ animationDuration: '3s' }}
+        />
+      );
+    }
+
+    if (config.decorative.includes('arena-glow')) {
+      elements.push(
+        <div
+          key="arena-glow"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-red-400/10 rounded-full blur-3xl animate-pulse-slow"
+          style={{ animationDuration: '5s' }}
+        />
+      );
+    }
+
+    if (config.decorative.includes('target-glow')) {
+      elements.push(
+        <div
+          key="target-glow"
+          className="absolute top-1/2 right-12 -translate-y-1/2 w-32 h-32 border-2 border-white/10 rounded-full animate-pulse-slow"
+        >
+          <div className="absolute inset-3 border border-white/10 rounded-full" />
+          <div className="absolute inset-6 border border-white/10 rounded-full" />
+        </div>
+      );
+    }
+
+    if (config.decorative.includes('question-glow')) {
+      elements.push(
+        <div
+          key="question-glow"
+          className="absolute top-1/3 right-10 w-20 h-20 bg-pink-400/20 rounded-full blur-3xl animate-pulse-slow"
+        />
+      );
+    }
+
+    if (config.decorative.includes('book-stack')) {
+      elements.push(
+        <div key="book-stack" className="absolute bottom-4 right-6 flex flex-col-reverse gap-1 opacity-20 pointer-events-none">
+          <div className="w-16 h-3 bg-white/40 rounded-sm" />
+          <div className="w-14 h-3 bg-white/30 rounded-sm ml-2" />
+          <div className="w-12 h-3 bg-white/20 rounded-sm ml-1" />
+        </div>
+      );
+    }
+
+    if (config.decorative.includes('floating-cards')) {
+      elements.push(
+        <div key="floating-cards" className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/4 right-1/4 w-12 h-16 bg-white/10 rounded-lg animate-float" style={{ animationDuration: '18s' }} />
+          <div className="absolute bottom-1/4 left-1/4 w-10 h-14 bg-white/5 rounded-lg animate-float" style={{ animationDuration: '22s', animationDelay: '3s' }} />
+        </div>
+      );
+    }
+
+    if (config.decorative.includes('exam-icons') || config.decorative.includes('category-badges')) {
+      elements.push(
+        <div key="exam-icons" className="absolute inset-0 overflow-hidden pointer-events-none opacity-15">
+          <div className="absolute top-1/4 right-1/3 text-2xl animate-float" style={{ animationDuration: '15s' }}>📋</div>
+          <div className="absolute bottom-1/3 right-1/4 text-xl animate-float" style={{ animationDuration: '20s', animationDelay: '2s' }}>📝</div>
+        </div>
+      );
+    }
+
     // Default decorative elements for all pages
     elements.push(
       <div 
@@ -467,6 +565,13 @@ function AnimatedHero({
           to { transform: translate(-50%, -50%) rotate(360deg); }
         }
         
+        @keyframes float-up {
+          0% { transform: translateY(0) rotate(0deg); opacity: 0; }
+          10% { opacity: 0.6; }
+          90% { opacity: 0.6; }
+          100% { transform: translateY(-100px) rotate(10deg); opacity: 0; }
+        }
+        
         .animate-float { animation: float 6s ease-in-out infinite; }
         .animate-float-slow { animation: float-slow 20s ease-in-out infinite; }
         .animate-slide-up { animation: slide-up 0.6s ease-out forwards; opacity: 0; }
@@ -478,6 +583,7 @@ function AnimatedHero({
         .animate-twinkle { animation: twinkle 2s ease-in-out infinite; }
         .animate-pulse-slow { animation: pulse-slow 4s ease-in-out infinite; }
         .animate-spin-slow { animation: spin-slow 30s linear infinite; }
+        .animate-float-up { animation: float-up 25s linear infinite; }
       `}</style>
     </section>
   )

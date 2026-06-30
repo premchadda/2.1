@@ -2,16 +2,19 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle, X } from 'lucide-react'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { GoogleLogin } from '@react-oauth/google'
 import AnimatedHero from '../../shared/components/common/AnimatedHero'
 import { Logo } from '../../shared/components'
 import { getPublicStats } from '../../shared/lib/dataService'
+import { usePublicSettings } from '../../shared/hooks/usePublicSettings'
 
 function Signup() {
   const navigate = useNavigate()
   const location = useLocation()
   const { signup, googleLogin, loading, error } = useAuth()
+  const { isFeatureEnabled } = usePublicSettings()
+  const registrationEnabled = isFeatureEnabled('userRegistration')
 
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -29,7 +32,9 @@ function Signup() {
         const stats = await getPublicStats()
         if (stats) {
           setPlatformStats({
-            activeLearners: stats.activeLearners?.replace('L+', ' Lakh+') || '5 Lakh+',
+            activeLearners: stats.activeLearners
+              ? String(stats.activeLearners).replace('L+', ' Lakh+')
+              : '5 Lakh+',
             mockTests: stats.mockTests || '50+'
           })
         }
@@ -48,7 +53,6 @@ function Signup() {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', onKey)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleClose = () => {
@@ -123,6 +127,24 @@ function Signup() {
     } else {
       setFormError(result.error)
     }
+  }
+
+  if (!registrationEnabled) {
+    return createPortal(
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={handleClose}>
+        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center animate-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-amber-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Registration Unavailable</h2>
+          <p className="text-sm text-gray-500 mb-6">New account registration is temporarily disabled. Please check back later.</p>
+          <button onClick={handleClose} className="w-full py-3 bg-gray-100 text-gray-700 rounded-xl font-bold text-sm hover:bg-gray-200 transition">
+            Close
+          </button>
+        </div>
+      </div>,
+      document.body
+    )
   }
 
   return createPortal(

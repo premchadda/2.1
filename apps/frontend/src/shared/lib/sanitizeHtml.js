@@ -12,9 +12,8 @@ export function sanitizeHtml(input) {
   // Use DOMPurify with default strict configuration
   // This removes XSS vectors: script tags, event handlers, javascript: URLs, etc.
   return DOMPurify.sanitize(dirty, {
-    // Keep the default allowed tags and attributes
-    // DOMPurify's default config is already very strict and secure
-    // No need to customize unless specific tags/attributes are required
+    // Allow style attributes for inline-styled tables, cells, etc.
+    ADD_ATTR: ['style', 'cellspacing'],
   })
 }
 

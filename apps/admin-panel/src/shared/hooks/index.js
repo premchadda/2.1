@@ -15,3 +15,4 @@ export {
 } from '@trstprep/shared-hooks'
 
 export { useForm } from './useForm.js'
+export { useSubjects } from './useSubjects.js'

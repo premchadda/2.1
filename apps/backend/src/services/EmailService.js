@@ -120,7 +120,7 @@ class EmailService {
               </a>
             </p>
             <p style="color: #666; font-size: 12px;">
-              Need help? Contact us at support@trstprep.com
+              Need help? Contact us at ${process.env.SMTP_FROM_ADDRESS || process.env.SMTP_USER || 'support@trstprep.com'}
             </p>
           </div>
         </body>

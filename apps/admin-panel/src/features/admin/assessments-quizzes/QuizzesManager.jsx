@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import AdminPageHeader from '../../../shared/components/admin/AdminPageHeader'
 import { adminAPI } from '../../../shared/lib/dataService'
+import { useSubjects } from '../../../shared/hooks/useSubjects.js'
 import toast from 'react-hot-toast'
 
 export default function QuizzesManager() {
@@ -19,12 +20,8 @@ export default function QuizzesManager() {
   const [showDeleteModal, setShowDeleteModal] = useState(null)
   const [editingQuiz, setEditingQuiz] = useState(null)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
-  const [subjects] = useState([
-    { id: '1', name: 'Reasoning' },
-    { id: '2', name: 'Quantitative Aptitude' },
-    { id: '3', name: 'English' },
-    { id: '4', name: 'General Awareness' }
-  ])
+  const { subjects: apiSubjects, loading: subjectsLoading } = useSubjects()
+  const subjects = apiSubjects.map(s => ({ id: s.id, name: s.label }))
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -86,7 +83,7 @@ export default function QuizzesManager() {
   const handleToggleStatus = async (quiz) => {
     try {
       const newStatus = quiz.status === 'active' ? 'draft' : 'active'
-      await adminAPI.apiClient.patch(`/admin/quizzes/${quiz.id}`, { status: newStatus })
+      await adminAPI.updateQuiz(quiz.id, { status: newStatus, is_active: newStatus === 'active' })
       toast.success(`Quiz ${newStatus === 'active' ? 'activated' : 'deactivated'}`)
       fetchQuizzes()
     } catch (error) {
@@ -101,8 +98,8 @@ export default function QuizzesManager() {
 
 
   const downloadProforma = () => {
-    const headers = ['title', 'description', 'subject', 'topic', 'difficulty', 'duration', 'passingScore', 'isPro']
-    const sample = ['Reasoning Quiz 01', 'Test your reasoning skills', 'Reasoning', 'Analogies', 'medium', '30', '60', 'false']
+    const headers = ['title', 'description', 'subject', 'topic', 'difficulty', 'duration', 'instructions', 'isPublic', 'shuffleQuestions', 'showAnswers', 'isPro', 'status']
+    const sample = ['Reasoning Quiz 01', 'Test your reasoning skills', 'Reasoning', 'Analogies', 'medium', '30', 'Read each question carefully', 'true', 'true', 'true', 'false', 'draft']
     const csvContent = [headers.join(','), sample.join(',')].join('\n')
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
@@ -203,7 +200,7 @@ export default function QuizzesManager() {
               <Users className="w-5 h-5 text-purple-400" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-white">{quizzes.reduce((sum, q) => sum + q.attempts, 0)}</p>
+              <p className="text-2xl font-bold text-white">{quizzes.reduce((sum, q) => sum + (q.attempts || 0), 0)}</p>
               <p className="text-xs text-gray-500">Total Attempts</p>
             </div>
           </div>
@@ -284,20 +281,20 @@ export default function QuizzesManager() {
                     <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400">
                       <span className="flex items-center gap-1">
                         <FileText className="w-3 h-3" />
-                        {quiz.questionCount} questions
+                        {quiz.questionCount || 0} questions
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock className="w-3 h-3" />
-                        {quiz.duration} mins
+                        {quiz.duration || 0} mins
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {quiz.attempts} attempts
+                        {quiz.attempts || 0} attempts
                       </span>
-                      {quiz.avgScore > 0 && (
+                      {(quiz.avgScore || 0) > 0 && (
                         <span className="flex items-center gap-1">
                           <CheckCircle className="w-3 h-3" />
-                          {quiz.avgScore}% avg
+                          {quiz.avgScore || 0}% avg
                         </span>
                       )}
                     </div>
@@ -431,6 +428,18 @@ export default function QuizzesManager() {
           </div>
         </div>
       )}
+
+      {/* Bulk Upload Modal */}
+      {isBulkModalOpen && (
+        <BulkUploadModal
+          onClose={() => setIsBulkModalOpen(false)}
+          onDownloadTemplate={downloadProforma}
+          onSuccess={() => {
+            fetchQuizzes()
+            setIsBulkModalOpen(false)
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -443,11 +452,13 @@ function QuizFormModal({ quiz, subjects, onClose, onSave }) {
     subject: quiz?.subject || '',
     topic: quiz?.topic || '',
     duration: quiz?.duration || 30,
-    difficulty: quiz?.difficulty || 'Medium',
+    difficulty: quiz?.difficulty || 'medium',
     instructions: quiz?.instructions || '',
     isPublic: quiz?.isPublic ?? true,
     shuffleQuestions: quiz?.shuffleQuestions ?? true,
-    showAnswers: quiz?.showAnswers ?? true
+    showAnswers: quiz?.showAnswers ?? true,
+    status: quiz?.status || 'draft',
+    isPro: quiz?.isPro ?? false
   })
   const [loading, setLoading] = useState(false)
 
@@ -456,10 +467,10 @@ function QuizFormModal({ quiz, subjects, onClose, onSave }) {
     setLoading(true)
     try {
       if (quiz) {
-        await adminAPI.patch(`/admin/quizzes/${quiz.id}`, formData)
+        await adminAPI.apiClient.patch(`/admin/quizzes/${quiz.id}`, formData)
         toast.success('Quiz updated successfully')
       } else {
-        await adminAPI.post('/admin/quizzes', formData)
+        await adminAPI.apiClient.post('/admin/quizzes', formData)
         toast.success('Quiz created successfully')
       }
       onSave()
@@ -529,9 +540,9 @@ function QuizFormModal({ quiz, subjects, onClose, onSave }) {
                   onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
                   className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-indigo-500"
                 >
-                  <option value="Easy">Easy</option>
-                  <option value="Medium">Medium</option>
-                  <option value="Hard">Hard</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
                 </select>
               </div>
             </div>
@@ -599,6 +610,27 @@ function QuizFormModal({ quiz, subjects, onClose, onSave }) {
                 />
                 <span className="text-sm text-gray-300">Show Answers After Quiz</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isPro}
+                  onChange={(e) => setFormData({ ...formData, isPro: e.target.checked })}
+                  className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-300">Pro Only</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="px-3 py-1 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <span className="text-sm text-gray-300">Status</span>
+              </label>
             </div>
 
             <div className="flex gap-3 pt-4">
@@ -620,17 +652,6 @@ function QuizFormModal({ quiz, subjects, onClose, onSave }) {
           </form>
         </div>
       </div>
-      {/* Bulk Upload Modal */}
-      {isBulkModalOpen && (
-        <BulkUploadModal 
-          onClose={() => setIsBulkModalOpen(false)} 
-          onDownloadTemplate={downloadProforma}
-          onSuccess={() => {
-            fetchQuizzes()
-            setIsBulkModalOpen(false)
-          }}
-        />
-      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../../shared/providers/AuthContext.jsx'
+import { useAuth } from '../../shared/providers/AuthContext'
 import { getStudyMaterials, getUserAnalytics, forceRefreshAll } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { AnimatedHero } from '../../shared/components'
@@ -140,16 +140,17 @@ function StudyMaterial() {
     )
   }
 
-  // Show Coming Soon if no study materials available yet
+  // Show empty state if no study materials available yet
   if ((!subjects || subjects.length === 0) && !error && !loading) {
     return (
       <ComingSoon
-        title="Study Materials - Coming Soon"
-        message="We're preparing comprehensive study materials including video lectures, PDF notes, and practice questions."
-        submessage="Our content team is working on high-quality study resources to help you prepare better."
+        title="No Study Materials Yet"
+        message="Study materials haven't been published for this subject yet. Our content team is adding new resources regularly."
+        submessage="Get notified when new study materials are available."
         backLink="/"
         backText="Back to Home"
         showNotificationButton={true}
+        notificationTopic="feature:study-materials"
         icon={BookX}
       />
     )

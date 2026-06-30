@@ -7,7 +7,7 @@ import {
   Users, Award, Gift, BarChart, BookOpen, Zap,
   Trophy, Star, Flame, CheckCircle, XCircle, Loader2
 } from 'lucide-react'
-import { useAuth } from '../../providers/AuthContext.jsx'
+import { useAuth } from '../../providers/AuthContext'
 import { apiClient } from '../../lib/api.js'
 
 // Icon mapping for string-based icon selection

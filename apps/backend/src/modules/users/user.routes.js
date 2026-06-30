@@ -806,6 +806,8 @@ router.get('/attempts', protect, async (req, res) => {
         timeSpent: attempt.timeSpent || attempt.timeTaken || 0,
         date: attempt.submittedAt || attempt.createdAt,
         submittedAt: attempt.submittedAt || attempt.createdAt,
+        isReattempt: !!(attempt.isReattempt || attempt.is_reattempt),
+        is_reattempt: !!(attempt.isReattempt || attempt.is_reattempt),
       }
       return formatted
     })

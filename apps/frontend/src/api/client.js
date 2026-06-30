@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { getCsrfToken, clearCsrfToken } from '@trstprep/shared-config'
+import { API_BASE_URL } from '../shared/lib/apiBase.js'
 
 // DX-01: Centralized API client with auth token injection,
 // 401 auto-retry, and 5xx exponential backoff.
@@ -7,7 +9,7 @@ const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 1000
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:5001',
+  baseURL: API_BASE_URL || 'http://localhost:5001',
   withCredentials: true,
   timeout: 30000,
 })
@@ -41,7 +43,7 @@ api.interceptors.response.use(
       try {
         // Attempt refresh via cookie-based session
         await axios.post(
-          `${api.defaults.baseURL}/api/auth/refresh-token`,
+          `${api.defaults.baseURL}/api/auth/refresh`,
           {},
           { withCredentials: true },
         )
@@ -49,6 +51,7 @@ api.interceptors.response.use(
         return api(config)
       } catch (refreshErr) {
         // Refresh failed — clear local state, let the caller handle 401
+        clearCsrfToken()
         localStorage.removeItem('token')
         return Promise.reject(err)
       }
@@ -68,10 +71,5 @@ api.interceptors.response.use(
     return Promise.reject(err)
   },
 )
-
-function getCsrfToken() {
-  const match = document.cookie.match(/csrf_token=([^;]+)/)
-  return match ? match[1] : null
-}
 
 export default api

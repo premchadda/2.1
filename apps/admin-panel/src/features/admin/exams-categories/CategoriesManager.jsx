@@ -91,21 +91,23 @@ function getDescendantIdSet(rootId, flatCategories) {
 }
 
 // Dropdown Multi-Select Component for Test Series
-function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntityId }) {
+function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, isSameEntityId }) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dropdownRef = useRef(null)
 
+  const safeSelectedIds = selectedIds || []
+
   // Get selected series names for display
   const selectedNames = useMemo(() => {
-    return testSeries
-      .filter(s => s.isActive !== false && selectedIds.some(id => isSameEntityId(id, s._id || s.id)))
+    return (testSeries || [])
+      .filter(s => s.isActive !== false && safeSelectedIds.some(id => isSameEntityId(id, s._id || s.id)))
       .map(s => s.title || s.name)
-  }, [testSeries, selectedIds, isSameEntityId])
+  }, [testSeries, safeSelectedIds, isSameEntityId])
 
   // Filter available series based on search
   const filteredSeries = useMemo(() => {
-    return testSeries.filter(s => {
+    return (testSeries || []).filter(s => {
       if (s.isActive === false) return false
       const name = (s.title || s.name || '').toLowerCase()
       return !searchQuery || name.includes(searchQuery.toLowerCase())
@@ -114,18 +116,18 @@ function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntity
 
   // Toggle selection of a series
   const toggleSeries = (seriesId) => {
-    const isSelected = selectedIds.some(id => isSameEntityId(id, seriesId))
+    const isSelected = safeSelectedIds.some(id => isSameEntityId(id, seriesId))
     if (isSelected) {
-      onChange(selectedIds.filter(id => !isSameEntityId(id, seriesId)))
+      onChange(safeSelectedIds.filter(id => !isSameEntityId(id, seriesId)))
     } else {
-      onChange([...selectedIds, seriesId])
+      onChange([...safeSelectedIds, seriesId])
     }
   }
 
   // Remove a specific selection
   const removeSelection = (e, seriesId) => {
     e.stopPropagation()
-    onChange(selectedIds.filter(id => !isSameEntityId(id, seriesId)))
+    onChange(safeSelectedIds.filter(id => !isSameEntityId(id, seriesId)))
   }
 
   // Close dropdown when clicking outside
@@ -165,7 +167,7 @@ function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntity
                 <button
                   type="button"
                   onClick={(e) => {
-                    const series = testSeries.find(s => (s.title || s.name) === name)
+                    const series = (testSeries || []).find(s => (s.title || s.name) === name)
                     if (series) removeSelection(e, series._id || series.id)
                   }}
                   className="hover:text-purple-900"
@@ -183,7 +185,7 @@ function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntity
       {isOpen && (
         <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-hidden">
           {/* Search Input */}
-          {testSeries.length > 5 && (
+          {(testSeries || []).length > 5 && (
             <div className="p-2 border-b border-gray-100">
               <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -201,14 +203,14 @@ function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntity
 
           {/* Options List */}
           <div className="overflow-y-auto max-h-48">
-            {testSeries.length === 0 ? (
+            {(testSeries || []).length === 0 ? (
               <div className="p-3 text-sm text-gray-500 text-center">No test series found.</div>
             ) : filteredSeries.length === 0 ? (
               <div className="p-3 text-sm text-gray-500 text-center">No matching series found.</div>
             ) : (
               filteredSeries.map(series => {
                 const seriesId = series._id || series.id
-                const isSelected = selectedIds.some(id => isSameEntityId(id, seriesId))
+                const isSelected = safeSelectedIds.some(id => isSameEntityId(id, seriesId))
                 return (
                   <label
                     key={seriesId}
@@ -235,10 +237,10 @@ function TestSeriesMultiSelect({ testSeries, selectedIds, onChange, isSameEntity
           </div>
 
           {/* Footer with count */}
-          {selectedIds.length > 0 && (
+          {safeSelectedIds.length > 0 && (
             <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
               <span className="text-xs text-gray-500">
-                {selectedIds.length} selected
+                {safeSelectedIds.length} selected
               </span>
               <button
                 type="button"
@@ -866,7 +868,8 @@ export default function CategoriesManager() {
       examCategoryId: parent.examCategoryId || '',
       stageIds: Array.isArray(parent.stageIds) ? parent.stageIds : [], 
       displayOrder: 0,
-      isActive: true 
+      isActive: true,
+      testSeriesId: []
     })
     setEditingId(null)
     setSlugError('')
@@ -1170,7 +1173,8 @@ export default function CategoriesManager() {
       examCategoryId: '',
       stageIds: [], 
       displayOrder: 0, 
-      isActive: true 
+      isActive: true,
+      testSeriesId: []
     })
     setShowForm(true)
   }

@@ -115,7 +115,7 @@ class SubscriptionService {
   async getAttemptCount(userId, testId) {
     const result = await getPool().query(
       `SELECT COUNT(*) as count FROM attempts 
-       WHERE user_id = $1 AND (test_id = $2 OR test_id::text = $2::text)`,
+       WHERE user_id = $1 AND test_id = $2`,
       [userId, testId]
     )
     return parseInt(result.rows[0].count)
@@ -349,10 +349,15 @@ break;
 
   async getAttemptHistory(userId, testId) {
     const result = await getPool().query(
-      `SELECT id, attempt_number, score, total_marks, percentage, accuracy, correct_count, wrong_count, unattempted_count, total_time_spent, started_at, submitted_at, is_reattempt, reattempt_type
-       FROM attempts 
+      `SELECT id,
+              ROW_NUMBER() OVER (ORDER BY created_at DESC) AS attempt_number,
+              score, total_marks,
+              CASE WHEN total_marks > 0 THEN ROUND((score / total_marks) * 100, 1) ELSE 0 END AS percentage,
+              accuracy, correct, wrong, unattempted, total_time_spent,
+              start_time, submitted_at, is_reattempt, reattempt_type
+       FROM attempts
        WHERE user_id = $1 AND test_id = $2
-       ORDER BY attempt_number DESC`,
+       ORDER BY created_at DESC`,
       [userId, testId]
     )
     return result.rows

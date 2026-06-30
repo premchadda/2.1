@@ -1,6 +1,7 @@
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import { apiClient } from '../../shared/lib/dataService'
+import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { 
   Trophy, Target, Clock, CheckCircle, XCircle, MinusCircle,
   BarChart2, ArrowRight, RefreshCw, Eye, Share2,
@@ -719,7 +720,10 @@ function TestResult() {
                               isSkipped ? 'bg-slate-100 text-slate-500 border border-slate-200' : isCorrect ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' : 'bg-rose-100 text-rose-700 border border-rose-200'
                             }`}>Q{idx + 1}</span>
                             <div>
-                              <span className="text-base font-bold text-gray-800 line-clamp-2 leading-relaxed">{(q.text || q.questionText || '')}</span>
+                              <span 
+                                className="text-base font-bold text-gray-800 line-clamp-2 leading-relaxed"
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.text || q.questionText || '') }}
+                              />
                               {q.section && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-2 bg-gray-100 px-2.5 py-1 rounded-md">{q.section}</span>}
                             </div>
                           </div>
@@ -751,7 +755,10 @@ function TestResult() {
                                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black ${
                                       isCorrectOpt ? 'bg-emerald-500 text-white' : isUserChoice ? 'bg-rose-500 text-white' : 'bg-gray-100 text-gray-500'
                                     }`}>{String.fromCharCode(65 + optIdx)}</span>
-                                    <span className="flex-1">{opt}</span>
+                                    <span 
+                                      className="flex-1"
+                                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(opt) }}
+                                    />
                                     {isCorrectOpt && <CheckCircle className="w-5 h-5 text-emerald-500" />}
                                     {isUserChoice && !isCorrectOpt && <XCircle className="w-5 h-5 text-rose-500" />}
                                   </div>
@@ -761,9 +768,10 @@ function TestResult() {
                             {q.explanation && (
                               <div className="mt-4 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100 relative">
                                 <div className="absolute top-0 left-4 -translate-y-1/2 bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider flex items-center gap-1"><Lightbulb className="w-3 h-3" /> Explanation</div>
-                                <div className="text-sm text-indigo-900 leading-relaxed pt-2">
-                                  {q.explanation}
-                                </div>
+                                  <div 
+                                    className="text-sm text-indigo-900 leading-relaxed pt-2"
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.explanation) }}
+                                  />
                               </div>
                             )}
                           </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { apiClient, getTestById, getQuestionsByTestId } from '../../shared/lib/dataService'
+import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { useAuth } from '../../shared/providers/AuthContext'
 import {
   Clock, ChevronLeft, ChevronRight, Flag, Check,
@@ -996,11 +997,21 @@ function TestInterface() {
                       />
                     </div>
                   )}
-                  <div className="text-gray-900 text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words font-medium antialiased">
+                  <div className="text-gray-900 text-sm md:text-base leading-relaxed break-words font-medium antialiased">
                     {/* Render text safely - handle both object and string formats */}
-                    {currentQ?.text ?
-                      (typeof currentQ.text === 'object' ? currentQ.text[language] || currentQ.text.en || JSON.stringify(currentQ.text) : currentQ.text)
-                      : 'Loading question...'}
+                    {currentQ?.text ? (
+                      <div
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeHtml(
+                            typeof currentQ.text === 'object'
+                              ? currentQ.text[language] || currentQ.text.en || JSON.stringify(currentQ.text)
+                              : currentQ.text
+                          )
+                        }}
+                      />
+                    ) : (
+                      'Loading question...'
+                    )}
                   </div>
                 </div>
 
@@ -1078,9 +1089,10 @@ function TestInterface() {
                                 </span>
                               )}
                             </div>
-                            <span className={`text-sm pt-0.5 leading-snug break-words min-w-0 flex-1 ${optionTextClass}`}>
-                              {option}
-                            </span>
+                            <span 
+                              className={`text-sm pt-0.5 leading-snug break-words min-w-0 flex-1 ${optionTextClass}`}
+                              dangerouslySetInnerHTML={{ __html: sanitizeHtml(option) }}
+                            />
                             {reviewMode && (
                               <div className="ml-2 flex gap-1">
                                 {revealReviewAnswers && isSelected && (
@@ -1118,11 +1130,14 @@ function TestInterface() {
                 {reviewMode && currentQ?.explanation && showReviewExplanation && (
                   <div className="mt-4 rounded-lg border border-sky-100 bg-sky-50 p-4">
                     <div className="text-xs font-bold uppercase tracking-wide text-sky-700 mb-2">Explanation</div>
-                    <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                      {typeof currentQ.explanation === 'object'
-                        ? currentQ.explanation[language] || currentQ.explanation.en || Object.values(currentQ.explanation)[0] || ''
-                        : currentQ.explanation}
-                    </div>
+                    <div 
+                      className="text-sm text-gray-700 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(
+                        typeof currentQ.explanation === 'object'
+                          ? currentQ.explanation[language] || currentQ.explanation.en || Object.values(currentQ.explanation)[0] || ''
+                          : currentQ.explanation
+                      ) }}
+                    />
                   </div>
                 )}
 
