@@ -62,7 +62,6 @@ export {
   LiveTests,
   LiveTestInterface,
   LiveTestResults,
-  PracticeQuestions,
   PreviousYearPapers,
   Leaderboard,
   SeriesLeaderboard,
