@@ -933,20 +933,26 @@ export default function ExamInfoNew() {
                   <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6">
                     <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                       <Layout className="w-5 h-5 text-indigo-600" />
-                      Exam Pattern
+                      Exam Pattern &amp; Syllabus
                     </h2>
-                    <div className="prose prose-indigo max-w-none">
-                      <p className="text-gray-600">
-                        The exam is conducted in multiple tiers. Each tier has a specific pattern and qualifying criteria. Refer to the official notification for the latest details.
-                      </p>
-                      <h3 className="text-lg font-semibold text-gray-900 mt-4">Key Points:</h3>
-                      <ul className="list-disc list-inside text-gray-600 space-y-2">
-                        <li>Exam pattern and structure vary by examination. Please refer to the official notification.</li>
-                        <li>Negative marking details are subject to official guidelines for each exam.</li>
-                        <li>Exam mode (CBT or pen-and-paper) is specified in the official notification.</li>
-                        <li>Tier/Stage qualification criteria are announced with each exam cycle.</li>
-                      </ul>
-                    </div>
+                    {examData?.syllabus ? (
+                      <div className="prose prose-indigo max-w-none">
+                        <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 bg-gray-50 rounded-xl p-4 border border-gray-100">{examData.syllabus}</pre>
+                      </div>
+                    ) : (
+                      <div className="prose prose-indigo max-w-none">
+                        <p className="text-gray-600">
+                          The exam is conducted in multiple tiers. Each tier has a specific pattern and qualifying criteria. Refer to the official notification for the latest details.
+                        </p>
+                        <h3 className="text-lg font-semibold text-gray-900 mt-4">Key Points:</h3>
+                        <ul className="list-disc list-inside text-gray-600 space-y-2">
+                          <li>Exam pattern and structure vary by examination. Please refer to the official notification.</li>
+                          <li>Negative marking details are subject to official guidelines for each exam.</li>
+                          <li>Exam mode (CBT or pen-and-paper) is specified in the official notification.</li>
+                          <li>Tier/Stage qualification criteria are announced with each exam cycle.</li>
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
