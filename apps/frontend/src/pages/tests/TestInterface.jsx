@@ -992,7 +992,7 @@ function TestInterface() {
                     </span>
                     <div className="hidden md:block h-3 w-px bg-gray-300"></div>
                     <span className="hidden md:inline text-gray-500 text-[11px] font-medium">
-                      +2.00 / -0.50
+                      +{(test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? (test.totalMarks / test.totalQuestions) : 2)).toFixed(2)} / -{(test?.negativeMarking ?? 0.25).toFixed(2)}
                     </span>
                     {(!reviewMode || !interactiveReviewEnabled || reviewCurrentResponse !== undefined) && (
                       <>
