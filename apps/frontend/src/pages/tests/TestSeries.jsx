@@ -20,6 +20,8 @@ function TestSeries() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [sortBy, setSortBy] = useState('custom')
+  const [freeOnly, setFreeOnly] = useState(false)
+  const [hindiOnly, setHindiOnly] = useState(false)
   const [enrollingId, setEnrollingId] = useState(null)
 
   // Get categories with their hierarchy information
@@ -272,6 +274,21 @@ function TestSeries() {
       result = result.filter(s => (s.categoryName || s.category) === selectedCategory)
     }
 
+    // Filter: free tests only
+    if (freeOnly) {
+      result = result.filter(s => (s.freeTests || 0) > 0 || s.isPro === false)
+    }
+
+    // Filter: Hindi language series
+    if (hindiOnly) {
+      result = result.filter(s => {
+        const langs = s.languages || s.language
+        if (Array.isArray(langs)) return langs.some(l => String(l).toLowerCase().includes('hi'))
+        if (typeof langs === 'string') return langs.toLowerCase().includes('hi')
+        return false
+      })
+    }
+
     // Sort - admin order is respected for all items, then secondary sorting
     if (sortBy === 'custom') {
       result.sort((a, b) => {
@@ -313,7 +330,7 @@ function TestSeries() {
     }
 
     return result
-  }, [searchQuery, selectedCategory, sortBy, allSeries])
+  }, [searchQuery, selectedCategory, sortBy, freeOnly, hindiOnly, allSeries])
 
   // Group series by category for browse section
   const seriesByCategory = useMemo(() => {
@@ -397,6 +414,20 @@ function TestSeries() {
           </div>
         </div>
       </AnimatedHero>
+
+      {/* Cross-link to Exams catalog — bridges the test-series-first and exam-first paradigms */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <Link to="/exams" className="flex items-center justify-between gap-3 bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-900/20 dark:to-violet-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl px-4 py-3 hover:shadow-md transition-all group">
+          <div className="flex items-center gap-3">
+            <span className="text-xl">🎓</span>
+            <div>
+              <span className="text-sm font-bold text-gray-900 dark:text-white">Browse by Exam</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 block sm:inline sm:ml-2">SSC, Railway, Banking &amp; more — find series for your specific exam</span>
+            </div>
+          </div>
+          <ArrowRight className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform flex-shrink-0" />
+        </Link>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
@@ -627,8 +658,21 @@ function TestSeries() {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Sort By:</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Filters */}
+                  <button
+                    onClick={() => setFreeOnly(v => !v)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${freeOnly ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-white text-gray-500 border-gray-200 hover:border-emerald-300'}`}
+                  >
+                    🆓 Free Only
+                  </button>
+                  <button
+                    onClick={() => setHindiOnly(v => !v)}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all ${hindiOnly ? 'bg-orange-50 text-orange-700 border-orange-300' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-300'}`}
+                  >
+                    📝 Hindi
+                  </button>
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-tight">Sort:</span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
