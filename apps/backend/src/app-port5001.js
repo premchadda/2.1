@@ -7,7 +7,7 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import { initWebSocket } from "./infrastructure/websocket/websocketManager.js";
 import jwt from "jsonwebtoken";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
@@ -72,6 +72,21 @@ import analyticsRoutes from "./api/routes/analytics.js";
 import auditRoutes from "./api/routes/admin-audit.js";
 import fortskyRoutes from "./api/routes/fortspy.js";
 import importRoutes from "./modules/import/bulkImport.routes.js";
+import adaptiveTestRoutes from "./modules/adaptive/adaptiveTest.routes.js";
+import aiMentorRoutes from "./modules/ai/aiMentor.routes.js";
+import aiExplanationRoutes from "./modules/ai/aiExplanation.routes.js";
+import aiGenerationLogRoutes from "./modules/ai/aiGenerationLog.routes.js";
+import topicAnalyticsRoutes from "./modules/analytics/topicAnalytics.routes.js";
+import weakAreaDetectionRoutes from "./modules/analytics/weakAreaDetection.routes.js";
+import liveMockRoutes from "./modules/live/liveMock.routes.js";
+import rankingRoutes from "./modules/ranking/ranking.routes.js";
+import smartRevisionRoutes from "./modules/revision/smartRevision.routes.js";
+import questionSearchRoutes from "./modules/search/questionSearch.routes.js";
+import vectorSearchRoutes from "./modules/search/vectorSearch.routes.js";
+import testTemplateRoutes from "./modules/templates/testTemplate.routes.js";
+import questionBuilderRoutes from "./modules/questions/questionBuilder.routes.js";
+import testBuilderRoutes from "./modules/tests/testBuilder.routes.js";
+import sectionRoutes from "./modules/sections/section.routes.js";
 import {
   closeRedis,
   getRedisClient,
@@ -100,7 +115,7 @@ const __dirname = path.dirname(__filename);
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET", "FRONTEND_URL"];
 const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
 if (missingEnvVars.length > 0) {
-  console.error("❌ Missing required environment variables:", missingEnvVars);
+  logger.error("Missing required environment variables", { missing: missingEnvVars });
   process.exit(1);
 }
 
@@ -181,13 +196,23 @@ const allowedOrigins = [
 ].filter(Boolean);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
+// Explicit LAN host allowlist (comma-separated host[:port] entries via env).
+// Never wildcard-match private IP ranges — only explicitly-listed hosts are trusted.
+const ALLOWED_LAN_HOSTS = (process.env.ALLOWED_LAN_HOSTS || "")
+  .split(",")
+  .map((h) => h.trim())
+  .filter(Boolean);
+const allowedLanOrigins = new Set(
+  ALLOWED_LAN_HOSTS.map((host) => host.startsWith("http") ? host : `http://${host}`),
+);
+
 const isLocalNetworkOrigin = (origin) => {
   if (!origin) return false;
+  // Only allow origins explicitly listed in ALLOWED_LAN_HOSTS env var.
+  if (allowedLanOrigins.has(origin)) return true;
   try {
     const hostname = new URL(origin).hostname;
     if (hostname === "localhost" || hostname === "127.0.0.1") return true;
-    if (PRIVATE_IP_REGEX.test(hostname)) return true;
-    if (localIPs.includes(hostname)) return true;
     return false;
   } catch { return false; }
 };
@@ -215,7 +240,11 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => isAdminRequest(req) ? `admin-${req.ip}` : req.ip,
-  skip: (req) => req.path === "/health" || isAdminRequest(req) || isAdminPanelRequest(req),
+  // AUDIT-2026-07-01: removed isAdminPanelRequest(req) skip — admin panel
+  // requests are subject to the general limiter. /api/admin/* is separately
+  // governed by adminLimiter. Bypassing rate limits for any localhost origin
+  // is unsafe if admin auth ever breaks.
+  skip: (req) => req.path === "/health" || isAdminRequest(req),
 });
 
 // DX-05 / NEW-03: All rate-limiter values env-var driven for ops tuning.
@@ -230,7 +259,7 @@ const authLimiter = rateLimit({
   message: { success: false, message: "Too many authentication attempts, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === "/health" || isAdminPanelRequest(req) || isAdminRequest(req) || (req.method === "GET" && (req.path === "/me" || req.path === "/csrf")),
+  skip: (req) => req.path === "/health" || isAdminRequest(req) || (req.method === "GET" && (req.path === "/me" || req.path === "/csrf")),
 });
 
 const adminLimiter = rateLimit({
@@ -265,26 +294,26 @@ app.get("/", (req, res) => {
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (isDevelopment && origin && process.env.REQUEST_METHOD !== "OPTIONS") console.log(`[CORS Check] Origin: ${origin}`);
+    if (isDevelopment && origin && process.env.REQUEST_METHOD !== "OPTIONS") logger.debug(`[CORS Check] Origin: ${origin}`);
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
     if (isDevelopment && isLocalNetworkOrigin(origin)) {
-      console.log(`✅ [CORS] Allowed LAN: ${origin}`);
+      logger.debug(`[CORS] Allowed LAN: ${origin}`);
       return callback(null, true);
     }
     if (isDevelopment) {
       try {
         const hostname = new URL(origin).hostname;
         const devOrigins = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"];
-        if (devOrigins.includes(hostname) || PRIVATE_IP_REGEX.test(hostname)) {
-          console.log(`✅ [CORS] Allowed Dev Host: ${origin}`);
+        if (devOrigins.includes(hostname)) {
+          logger.debug(`[CORS] Allowed Dev Host: ${origin}`);
           return callback(null, true);
         }
       } catch { /* ignore */ }
-      console.warn(`❌ [CORS] Blocked unknown origin: ${origin}`);
+      logger.warn(`[CORS] Blocked unknown origin: ${origin}`);
       return callback(new Error(`Origin ${origin} not in development allowlist`));
     }
-    console.warn(`❌ [CORS] Blocked origin: ${origin}`);
+    logger.warn(`[CORS] Blocked origin: ${origin}`);
     callback(new Error("Not allowed by CORS"));
   },
   credentials: true,
@@ -468,7 +497,24 @@ app.use("/api/sessions", sessionRouter);
 // MAINT-03 / NEW-01: Mount extracted public routes (formerly inline above).
 // These modules live in api/routes/*-public.js with SQL-level filtering (PERF-02).
 import { mountExtractedRoutes } from "./api/routes/public-routes-index.js";
+import logger from "./infrastructure/logger/logger.js";
 mountExtractedRoutes(app);
+
+app.use("/api/adaptive-test", adaptiveTestRoutes);
+app.use("/api/ai/mentor", aiMentorRoutes);
+app.use("/api/ai/explanation", aiExplanationRoutes);
+app.use("/api/ai/logs", aiGenerationLogRoutes);
+app.use("/api/topic-analytics", topicAnalyticsRoutes);
+app.use("/api/weak-areas", weakAreaDetectionRoutes);
+app.use("/api/live-mock", liveMockRoutes);
+app.use("/api/ranking", rankingRoutes);
+app.use("/api/smart-revision", smartRevisionRoutes);
+app.use("/api/search/questions", questionSearchRoutes);
+app.use("/api/search/vector", vectorSearchRoutes);
+app.use("/api/test-templates", testTemplateRoutes);
+app.use("/api/question-builder", questionBuilderRoutes);
+app.use("/api/test-builder", testBuilderRoutes);
+app.use("/api/sections", sectionRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -476,45 +522,45 @@ app.use(errorHandler);
 const startServer = async () => {
   try {
     const connected = await testConnection(5, 3000);
-    if (!connected) { console.error("❌ Failed to connect to database after multiple attempts"); process.exit(1); }
-    console.log("🔌 Initializing WebSocket server...");
+    if (!connected) { logger.error("Failed to connect to database after multiple attempts"); process.exit(1); }
+    logger.info("Initializing WebSocket server...");
     const server = createServer(app);
     initWebSocket(server);
-    console.log("👂 Starting server listener...");
+    logger.info("Starting server listener...");
     server.listen(PORT, "0.0.0.0", async () => {
       const localIPs = getLocalNetworkIPs();
       const primaryIP = localIPs[0] || "localhost";
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      localIPs.forEach((ip) => console.log(`🌐 Network access: http://${ip}:${PORT}`));
-      console.log(`💡 TIP: Frontend (port 3000) is configured to proxy requests here.`);
-      console.log(`🔌 WebSocket enabled: ws://${primaryIP}:${PORT}`);
-      console.log(`📝 API Health: http://${primaryIP}:${PORT}/api/health`);
+      logger.info(`Server running on http://localhost:${PORT}`);
+      localIPs.forEach((ip) => logger.info(`Network access: http://${ip}:${PORT}`));
+      logger.info(`Frontend (port 3000) is configured to proxy requests here.`);
+      logger.info(`WebSocket enabled: ws://${primaryIP}:${PORT}`);
+      logger.info(`API Health: http://${primaryIP}:${PORT}/api/health`);
       try {
-        console.log("🏗️  Running background database initialization...");
+        logger.info("Running background database initialization...");
         await dbHelpers.initTables();
-        console.log("📡 Initializing Redis and background queues...");
+        logger.info("Initializing Redis and background queues...");
         await initRedis();
         global.redis = getRedisClient();
         initQueues();
         if (isQueueEnabled()) setInterval(async () => { try { await addJob(QUEUE_NAMES.NOTIFICATIONS, "notifications.scheduled-reminders", { name: "scheduled_reminder", payload: { inactivityHours: 24 }, emittedAt: new Date().toISOString() }); } catch { /* non-fatal */ } }, 6 * 60 * 60 * 1000);
-        console.log(`[Redis] ${getRedisStatus().message}`);
-        console.log(`[Queue] ${isQueueEnabled() ? "Enabled" : "Disabled"}`);
-        console.log(`✅ Background initialization complete.`);
-      } catch (error) { console.error(`❌ Background initialization error: ${error.message}`); }
-      console.log(`🔐 Available endpoints: /api/auth/*, /api/admin/*, /api/tests/*, /api/study/*`);
+        logger.info(`[Redis] ${getRedisStatus().message}`);
+        logger.info(`[Queue] ${isQueueEnabled() ? "Enabled" : "Disabled"}`);
+        logger.info(`Background initialization complete.`);
+      } catch (error) { logger.error(`Background initialization error: ${error.message}`); }
+      logger.info(`Available endpoints: /api/auth/*, /api/admin/*, /api/tests/*, /api/study/*`);
     });
-  } catch (error) { console.error(`❌ Server startup error: ${error.message}`); process.exit(1); }
+  } catch (error) { logger.error(`Server startup error: ${error.message}`); process.exit(1); }
 };
 
 const gracefulShutdown = async (signal) => {
-  console.log(`\n📤 ${signal} received. Shutting down gracefully...`);
-  try { await closeQueueResources(); await closeRedis(); await dbHelpers.close(); console.log("✅ Database connections closed"); process.exit(0); } catch (error) { console.error("❌ Error during shutdown:", error.message); process.exit(1); }
+  logger.info(`${signal} received. Shutting down gracefully...`);
+  try { await closeQueueResources(); await closeRedis(); await dbHelpers.close(); logger.info("Database connections closed"); process.exit(0); } catch (error) { logger.error(`Error during shutdown: ${error.message}`); process.exit(1); }
 };
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("uncaughtException", (error) => { console.error("❌ Uncaught Exception:", error.message); if (process.env.NODE_ENV === "production") process.exit(1); });
-process.on("unhandledRejection", (reason, promise) => { console.error("❌ Unhandled Rejection at:", promise, "reason:", reason); if (process.env.NODE_ENV === "production") process.exit(1); });
+process.on("uncaughtException", (error) => { logger.error("Uncaught Exception", { message: error.message, stack: error.stack }); if (process.env.NODE_ENV === "production") process.exit(1); });
+process.on("unhandledRejection", (reason, promise) => { logger.error("Unhandled Rejection", { reason: reason?.message || String(reason) }); if (process.env.NODE_ENV === "production") process.exit(1); });
 
 startServer();
 export default app;
