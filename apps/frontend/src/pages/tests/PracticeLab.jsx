@@ -4,6 +4,7 @@ import { practiceAPI } from '../../shared/lib/dataService'
 import { useAuth } from '../../shared/providers/AuthContext'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
+import { getOnboardingPrefs } from '../../shared/components/common/OnboardingWizard'
 import {
   BookOpen, Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft,
   Loader2, Bookmark, Target, AlertCircle, Flame, Star, TrendingUp,
@@ -87,7 +88,9 @@ function PracticeDashboard({ user, onStartSetup, onResume }) {
   }
 
   const streak = dash.streak || {}
-  const goal = dash.todaysGoal || { done: 0, target: 50 }
+  const onboardingPrefs = getOnboardingPrefs()
+  const userDailyGoal = onboardingPrefs?.dailyGoal || 50
+  const goal = dash.todaysGoal || { done: 0, target: userDailyGoal }
   const counts = dash.counts || { mistakes: 0, bookmarks: 0 }
   const mastery = dash.mastery || []
   const weakTopics = dash.weakTopics || []
