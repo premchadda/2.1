@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell, Trash2, Check, CheckCheck, Filter, Clock, BookOpen, Trophy, Gift, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { 
-  getNotifications, 
-  markNotificationRead, 
-  markAllNotificationsRead, 
-  deleteNotification 
+import {
+  getNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+  clearAllNotifications
 } from '../../shared/lib/dataService'
 
 export default function Notifications() {
@@ -84,10 +85,7 @@ export default function Notifications() {
   const clearAll = async () => {
     if (confirm('Are you sure you want to clear all notifications?')) {
       try {
-        // Delete all notifications one by one
-        await Promise.all(
-          notifications.map(n => deleteNotification(n._id || n.id))
-        )
+        await clearAllNotifications()
         setNotifications([])
       } catch (err) {
         console.error('Failed to clear notifications:', err)

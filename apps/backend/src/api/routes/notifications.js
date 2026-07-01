@@ -164,6 +164,42 @@ router.put('/read-all', protect, async (req, res) => {
   }
 })
 
+// @route   DELETE /api/notifications/clear-all
+// @desc    Clear (soft-delete) all notifications for the authenticated user
+// @access  Private
+router.delete('/clear-all', protect, async (req, res) => {
+  try {
+    // Use the ORM so column-name mapping (camelCase <-> snake_case) is handled
+    // consistently with the single-delete route. Avoids raw SQL pitfalls where
+    // columns like `deleted_at` may not exist on the notifications table.
+    const notifications = await dbHelpers.find('notifications', {
+      userId: req.user.id,
+      isActive: true
+    })
+
+    await Promise.all(
+      notifications.map(n =>
+        dbHelpers.updateById('notifications', n._id || n.id, {
+          isActive: false,
+          updatedAt: new Date().toISOString()
+        })
+      )
+    )
+
+    res.json({
+      success: true,
+      message: 'All notifications cleared',
+      count: notifications.length
+    })
+  } catch (error) {
+    console.error('Clear all notifications error:', error)
+    res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+})
+
 // @route   DELETE /api/notifications/:id
 // @desc    Delete notification
 // @access  Private
