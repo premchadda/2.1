@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
@@ -184,12 +184,12 @@ function App() {
           <Route path="/study/:subjectId" element={<StudyMaterialDetail />} />
           <Route path="/study/:subjectId/:chapterId" element={<StudyMaterialChapter />} />
           <Route path="/exams" element={<Exams />} />
-          <Route path="/exams-old" element={<ExamsNew />} />
+          <Route path="/exams-old" element={<Navigate to="/exams" replace />} />
           <Route path="/exams/category/:categoryId" element={<ExamCategory />} />
           <Route path="/exams/category/:categoryId/exam/:examId" element={<ExamInfoNew />} />
           <Route path="/exams/category/:categoryId/exam/:examId/year/:year" element={<ExamYear />} />
           <Route path="/exam/:examId" element={<ExamInfoNew />} />
-          <Route path="/exam-old/:examId" element={<ExamInfoNew />} />
+          <Route path="/exam-old/:examId" element={<Navigate to="/exam/:examId" replace />} />
           <Route path="/exam/:examId/updates" element={<ExamUpdates />} />
           <Route path="/exam/:examId/year/:year" element={<ExamYear />} />
           <Route path="/exam/:examId/compare" element={<ExamCompare />} />
