@@ -491,6 +491,14 @@ function TestInterface() {
     }
   }, [showPauseModal])
 
+  useEffect(() => {
+    if (showSubmitSummary) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [showSubmitSummary])
+
   // Keyboard shortcuts for power users (1-4 to select options, arrows to
   // navigate, M to mark for review, C to clear, Ctrl+Enter for next).
   // Disabled during review mode, while paused, or when an input/textarea has focus.
@@ -1469,6 +1477,11 @@ function TestInterface() {
                   <div className="flex items-center gap-1.5">
                     <span className="uppercase text-[10px] tracking-wider opacity-80 bg-sky-100 px-1.5 py-0.5 rounded">Section</span>
                     <span className="font-semibold text-gray-900">{currentSection}</span>
+                    {getSectionTimeRemaining(currentSection) !== null && (
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getSectionTimeColor(getSectionTimeRemaining(currentSection))}`}>
+                        {formatSectionTime(getSectionTimeRemaining(currentSection))}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs bg-white/60 px-1.5 py-0.5 rounded-md font-medium text-sky-800">
                     {currentSectionIndexes.length} Qs
@@ -1530,7 +1543,7 @@ function TestInterface() {
         </aside>
 
       {/* Mobile Fixed Bottom Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-1.5 z-50 flex gap-1.5 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-1.5 z-50 flex gap-1.5 safe-area-bottom shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]" style={{ paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}>
         <button
           onClick={prevQuestion}
           disabled={currentQuestion === 0}
@@ -1592,6 +1605,49 @@ function TestInterface() {
 
       {/* On-screen calculator for quantitative questions */}
       <CalculatorWidget isOpen={showCalculator} onToggle={() => setShowCalculator(false)} />
+
+      {/* Submit Summary Modal */}
+      {showSubmitSummary && (
+        <div className="fixed inset-0 z-[100] bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-5">
+            <h2 className="text-lg font-bold text-gray-900 mb-1">Submit Test</h2>
+            <p className="text-sm text-gray-500 mb-4">Review your progress before submitting.</p>
+            <div className="bg-gray-50 rounded-lg p-4 mb-5 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Total Questions</span>
+                <span className="font-bold text-gray-900">{questions.length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Answered</span>
+                <span className="font-bold text-green-600">{Object.keys(answers).length}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Marked for Review</span>
+                <span className="font-bold text-purple-600">{markedForReview.size}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Unanswered</span>
+                <span className="font-bold text-red-600">{questions.length - Object.keys(answers).length}</span>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSubmitSummary(false)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Go Back
+              </button>
+              <button
+                onClick={() => { setShowSubmitSummary(false); handleSubmit() }}
+                disabled={isSubmitting}
+                className="flex-1 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-lg hover:shadow-md transition-all disabled:opacity-50 text-sm"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Image zoom overlay */}
       {showImageZoom && questionImageUrl && (
