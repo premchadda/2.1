@@ -145,7 +145,7 @@ router.put('/read-all', protect, async (req, res) => {
   try {
     const result = await dbHelpers.pool.query(
       `UPDATE notifications 
-       SET is_read = true, read_at = NOW(), updated_at = NOW() 
+       SET is_read = true, updated_at = NOW() 
        WHERE user_id = $1 AND is_active = true AND is_read = false`,
       [String(req.user.id)]
     )
