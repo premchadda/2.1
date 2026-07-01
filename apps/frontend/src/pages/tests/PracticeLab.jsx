@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-hot-toast'
 import { practiceAPI } from '../../shared/lib/dataService'
 import { useAuth } from '../../shared/providers/AuthContext'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
@@ -21,6 +22,23 @@ export default function PracticeLab() {
   const [setupConfig, setSetupConfig] = useState(null)
   const [activeSession, setActiveSession] = useState(null)
   const [completeSummary, setCompleteSummary] = useState(null)
+  const [repracticing, setRepracticing] = useState(false)
+
+  // Start a 'mistakes' session directly from the completion screen —
+  // pulls the user's wrong answers from practice_answers via backend mode.
+  const startRepracticeWrong = async () => {
+    try {
+      setRepracticing(true)
+      const session = await practiceAPI.startSession({ mode: 'mistakes', targetCount: 20 })
+      setActiveSession(session)
+      setCompleteSummary(null)
+      setScreen('session')
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'No wrong questions found to re-practice yet.')
+    } finally {
+      setRepracticing(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -62,6 +80,7 @@ export default function PracticeLab() {
           summary={completeSummary}
           onDashboard={() => setScreen('dashboard')}
           onNewSession={() => { setSetupConfig(null); setScreen('setup') }}
+          onRepracticeWrong={() => startRepracticeWrong()}
         />
       )}
     </div>
@@ -328,7 +347,7 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
   const startMutation = useMutation({
     mutationFn: practiceAPI.startSession,
     onSuccess: (data) => onStart(data),
-    onError: (err) => alert(err?.response?.data?.error || 'Failed to start session'),
+    onError: (err) => toast.error(err?.response?.data?.error || 'Failed to start session'),
   })
 
   const handleStart = () => {
@@ -594,10 +613,20 @@ function PracticeSession({ session, onExit, onComplete }) {
   const [bookmarked, setBookmarked] = useState(new Set())
   const [timeLeft, setTimeLeft] = useState(session.timeLimitSec || 0)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
+  const [questionElapsed, setQuestionElapsed] = useState(0)
   const timerRef = useRef(null)
 
   const currentQ = questions[currentIdx]
   const total = questions.length
+
+  // Per-question elapsed timer (ticks every second, resets on question change)
+  useEffect(() => {
+    setQuestionElapsed(0)
+    const interval = setInterval(() => {
+      setQuestionElapsed(Math.floor((Date.now() - questionStartTime) / 1000))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [questionStartTime])
 
   // Timer
   useEffect(() => {
@@ -657,7 +686,7 @@ function PracticeSession({ session, onExit, onComplete }) {
         setWrongQuestionIds((ids) => [...ids, currentQ.id])
       }
     } catch (err) {
-      alert(err?.response?.data?.error || 'Failed to check answer')
+      toast.error(err?.response?.data?.error || 'Failed to check answer')
     }
   }
 
@@ -667,7 +696,7 @@ function PracticeSession({ session, onExit, onComplete }) {
       setScore((s) => ({ ...s, skipped: s.skipped + 1 }))
       goNext()
     } catch (err) {
-      alert('Failed to skip')
+      toast.error('Failed to skip')
     }
   }
 
@@ -710,7 +739,7 @@ function PracticeSession({ session, onExit, onComplete }) {
         total,
       })
     } catch (err) {
-      alert('Failed to save session results')
+      toast.error('Failed to save session results')
       onComplete({
         session: { ...session, correctCount: score.correct, wrongCount: score.wrong, skippedCount: score.skipped },
         wrongQuestionIds,
@@ -807,12 +836,17 @@ function PracticeSession({ session, onExit, onComplete }) {
                   {currentQ.difficulty}
                 </span>
               )}
+              {/* Per-question timer */}
+              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tabular-nums flex items-center gap-1 ${questionElapsed > 90 ? 'bg-red-50 text-red-600' : questionElapsed > 60 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`} title="Time on this question">
+                <Clock className="w-3 h-3" />
+                {Math.floor(questionElapsed / 60)}:{(questionElapsed % 60).toString().padStart(2, '0')}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={toggleBookmark} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${bookmarked.has(currentQ.id) ? 'bg-amber-100 text-amber-500' : 'bg-slate-50 text-slate-300 hover:text-amber-500'}`}>
                 <Bookmark className="w-4 h-4" fill={bookmarked.has(currentQ.id) ? 'currentColor' : 'none'} />
               </button>
-              <button onClick={() => practiceAPI.reportQuestion(currentQ.id, { reason: 'unclear' }).then(() => alert('Reported. Thanks!'))} className="w-8 h-8 rounded-lg bg-slate-50 text-slate-300 hover:text-red-500 flex items-center justify-center transition-all">
+              <button onClick={() => practiceAPI.reportQuestion(currentQ.id, { reason: 'unclear' }).then(() => toast.success('Reported. Thanks!'))} className="w-8 h-8 rounded-lg bg-slate-50 text-slate-300 hover:text-red-500 flex items-center justify-center transition-all">
                 <Flag className="w-4 h-4" />
               </button>
             </div>
@@ -959,7 +993,7 @@ function PracticeSession({ session, onExit, onComplete }) {
 // ═══════════════════════════════════════════════════
 // SCREEN 4: SESSION COMPLETE
 // ═══════════════════════════════════════════════════
-function PracticeComplete({ summary, onDashboard, onNewSession }) {
+function PracticeComplete({ summary, onDashboard, onNewSession, onRepracticeWrong }) {
   const { session, streak, mastery, wrongQuestionIds = [], total } = summary
   const correct = session.correctCount || 0
   const wrong = session.wrongCount || 0
@@ -1049,7 +1083,7 @@ function PracticeComplete({ summary, onDashboard, onNewSession }) {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-black text-slate-800 text-sm">❌ Your wrong questions ({wrongQuestionIds.length})</h3>
             <button
-              onClick={onNewSession}
+              onClick={onRepracticeWrong}
               className="bg-red-500 hover:bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg"
             >
               Practice these again →
