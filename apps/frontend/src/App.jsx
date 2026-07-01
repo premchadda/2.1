@@ -9,6 +9,7 @@ import ProtectedRoute from './shared/components/auth/ProtectedRoute'
 import ErrorBoundary from './shared/components/common/ErrorBoundary'
 import MaintenanceMode from './shared/components/common/MaintenanceMode'
 import FeatureGate from './shared/components/common/FeatureGate'
+import OnboardingWizard from './shared/components/common/OnboardingWizard'
 
 // PERF-03: Route-level code splitting via React.lazy.
 // Reduces initial JS bundle by 30-50% — each page is loaded on demand.
@@ -303,6 +304,7 @@ function App() {
         </Routes>
       )}
       </Suspense>
+      <OnboardingWizard />
       </MaintenanceMode>
     </ErrorBoundary>
     </GoogleOAuthProvider>

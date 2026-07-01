@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getTestSeries, getTests, getUserAnalytics, getTopPerformers, testsAPI, userAPI, getExams } from '../../shared/lib/dataService'
 import { TestSeriesCard, AnimatedHero } from '../../shared/components'
+import { getOnboardingPrefs } from '../../shared/components/common/OnboardingWizard'
 import { useDraggableScroll } from '../../shared/hooks/useDraggableScroll'
 import api from '../../shared/lib/api'
 import { isSeriesEnrolled } from '../../shared/lib/enrollment'
@@ -539,8 +540,14 @@ function Dashboard() {
               ) : (
                 <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl">
                   <div className="text-4xl mb-3">📚</div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">You haven't enrolled in any test series yet</p>
-                  <Link to="/test-series" className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition">
+                  {(() => {
+                    const prefs = getOnboardingPrefs()
+                    if (prefs && prefs.selectedExam) {
+                      return <p className="text-gray-700 dark:text-gray-200 text-sm mb-1 font-semibold">Welcome! Start your {prefs.selectedExam.name} prep here.</p>
+                    }
+                    return <p className="text-gray-500 dark:text-gray-400 text-sm mb-3">You haven't enrolled in any test series yet</p>
+                  })()}
+                  <Link to="/test-series" className="inline-flex items-center gap-2 px-4 py-2 bg-brand-start text-white text-sm font-semibold rounded-lg hover:opacity-90 transition mt-2">
                     Browse Test Series <ArrowRight className="w-4 h-4" />
                   </Link>
                 </div>
