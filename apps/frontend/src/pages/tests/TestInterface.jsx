@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 import { apiClient, getTestById, getQuestionsByTestId } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { useAuth } from '../../shared/providers/AuthContext'
@@ -261,13 +262,28 @@ function TestInterface() {
 
 
   // Auto-save progress
+  // NOTE: Previously this effect listed `timeLeft` (which ticks every second)
+  // and `answers`/`markedForReview`/`currentSection` in its deps, causing the
+  // 30s setInterval to be torn down and recreated on every state change. That
+  // meant the interval closure often captured stale values and the timer could
+  // reset before firing. We now keep the latest mutable state in a ref and only
+  // gate the effect on the flags that actually control whether autosave runs.
+  const autosaveStateRef = useRef({})
+  useEffect(() => {
+    autosaveStateRef.current = {
+      answers, markedForReview, timeLeft, test, questions, testId,
+      attemptId, computeSectionTimers, currentSection
+    }
+  })
+
   useEffect(() => {
     if (reviewMode || !attemptId || isSubmitting || timeLeft <= 0 || loading || isPaused) return
 
     const autosave = async () => {
       try {
-        const currentAnswers = questions.map((question, index) => {
-          const selectedOption = answers[index]
+        const s = autosaveStateRef.current
+        const currentAnswers = s.questions.map((question, index) => {
+          const selectedOption = s.answers[index]
           if (selectedOption === undefined || selectedOption === null) return null
           return {
             questionId: question.id || question._id,
@@ -276,19 +292,19 @@ function TestInterface() {
           }
         }).filter(Boolean)
 
-        let actualTestId = test?.id || test?._id || testId
+        let actualTestId = s.test?.id || s.test?._id || s.testId
         if (typeof actualTestId === 'string' && actualTestId.includes('-')) {
-          if (typeof test?.id === 'number') actualTestId = test.id
-          else if (typeof test?._id === 'number') actualTestId = test._id
+          if (typeof s.test?.id === 'number') actualTestId = s.test.id
+          else if (typeof s.test?._id === 'number') actualTestId = s.test._id
         }
 
         await apiClient.put(`/api/tests/${actualTestId}/autosave`, {
-          attemptId,
-          timeSpent: (test?.duration || 60) * 60 - timeLeft,
+          attemptId: s.attemptId,
+          timeSpent: (s.test?.duration || 60) * 60 - s.timeLeft,
           answers: currentAnswers,
-          markedForReview: Array.from(markedForReview),
-          sectionTimers: computeSectionTimers(),
-          currentSection
+          markedForReview: Array.from(s.markedForReview),
+          sectionTimers: s.computeSectionTimers(),
+          currentSection: s.currentSection
         })
       } catch (err) {
         console.warn('Autosave failed:', err)
@@ -297,7 +313,7 @@ function TestInterface() {
 
     const interval = setInterval(autosave, 30000) // autosave every 30 seconds
     return () => clearInterval(interval)
-  }, [answers, markedForReview, timeLeft, attemptId, isSubmitting, loading, isPaused, test, questions, testId, computeSectionTimers, currentSection])
+  }, [reviewMode, attemptId, isSubmitting, timeLeft <= 0, loading, isPaused])
 
   // Question status
   const getQuestionStatus = (index) => {
@@ -439,6 +455,7 @@ function TestInterface() {
       if (document.hidden) {
         tabSwitchCountRef.current += 1
         logAntiCheatEvent('tab_switch', { count: tabSwitchCountRef.current })
+        toast.error(`Tab switching detected (${tabSwitchCountRef.current}). This may disqualify your attempt.`, { duration: 4000, icon: '⚠️' })
       }
     }
 
@@ -460,6 +477,15 @@ function TestInterface() {
       window.removeEventListener('focus', handleFocus)
     }
   }, [loading, isPaused, logAntiCheatEvent])
+
+  // Lock background scrolling while the pause modal is open
+  useEffect(() => {
+    if (showPauseModal) {
+      const prev = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => { document.body.style.overflow = prev }
+    }
+  }, [showPauseModal])
 
   // Track question time when changing questions
   useEffect(() => {
