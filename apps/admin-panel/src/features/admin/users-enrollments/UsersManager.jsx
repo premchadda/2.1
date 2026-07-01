@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
-  Users, Search, Plus, Edit, Eye,
-  Ban, CheckCircle, XCircle, Clock,
-  TrendingUp, Award, Star,
-  Download, MoreHorizontal, X, Shield,
-  BookOpen, TestTube2, CreditCard, ChevronRight, AlertCircle, Smartphone, Trash2, RefreshCw
+  Users, Search, Eye,
+  Ban, CheckCircle,
+  Award,
+  Download, X, Shield,
+  BookOpen, TestTube2, CreditCard, AlertCircle, Smartphone, Trash2, RefreshCw
 } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 import api from '../../../shared/lib/api'
 
 export default function UsersManagerEnhanced() {
@@ -24,31 +25,65 @@ export default function UsersManagerEnhanced() {
   const [actionError, setActionError] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
   const [activeModalTab, setActiveModalTab] = useState('enrollments') // 'enrollments' | 'sessions'
-  
-  // FIX 1: Pagination state
+  const [exporting, setExporting] = useState(false)
+
+  // FIX UX-1: Replace window.prompt/confirm for Pro Pass grant/revoke with a
+  // proper modal + dropdown. Previously used window.prompt which is blocked in
+  // some iframe contexts and provides no validation.
+  const [proPassModal, setProPassModal] = useState({ open: false, user: null, action: 'grant' })
+  const [proPassType, setProPassType] = useState('pro_yearly')
+
+  // FIX PERF-5: Server-side pagination + search. The backend now supports
+  // ?page=&limit=&search=&role=&status=&pro= and returns the filtered page,
+  // so we no longer load the entire user table into the browser.
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(20)
+  const [totalUsers, setTotalUsers] = useState(0)
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize))
+
+  // Debounce search so we don't fire a request on every keystroke
+  const searchDebounceRef = useRef(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim())
+      setCurrentPage(1)
+    }, 350)
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current) }
+  }, [searchTerm])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [filterStatus, filterRole])
 
   const [systemRoles, setSystemRoles] = useState([])
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (pageToFetch = currentPage) => {
     try {
       setLoading(true)
+      const params = { page: pageToFetch, limit: pageSize }
+      if (debouncedSearch) params.search = debouncedSearch
+      if (filterStatus === 'active') params.status = 'active'
+      else if (filterStatus === 'inactive') { params.status = 'inactive'; params.includeInactive = 'true' }
+      if (filterRole === 'admin') params.role = 'admin'
+      else if (filterRole === 'user') params.role = 'user'
+      else if (filterRole === 'pro') params.pro = 'true'
+
       const [usersRes, rolesRes] = await Promise.allSettled([
-        api.get('/admin/users'),
+        api.get('/admin/users', { params }),
         api.get('/admin/roles')
       ])
-      
+
       if (usersRes.status === 'fulfilled') {
-        const usersData = usersRes.value.data?.data;
+        const usersData = usersRes.value.data?.data
         setUsers(Array.isArray(usersData) ? usersData : (usersData?.users || []))
+        const serverTotal = usersRes.value.data?.total
+        if (typeof serverTotal === 'number') setTotalUsers(serverTotal)
       }
       if (rolesRes.status === 'fulfilled') {
-        const rolesData = rolesRes.value.data?.data;
+        const rolesData = rolesRes.value.data?.data
         setSystemRoles(Array.isArray(rolesData) ? rolesData : (rolesData?.roles || []))
       }
     } catch (error) {
@@ -58,27 +93,13 @@ export default function UsersManagerEnhanced() {
     }
   }
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const matchesSearch = (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesStatus = filterStatus === 'all' ||
-                           (filterStatus === 'active' && user.isActive !== false) ||
-                           (filterStatus === 'inactive' && user.isActive === false)
-      const matchesRole = filterRole === 'all' ||
-                         (filterRole === 'admin' && user.role === 'admin') ||
-                         (filterRole === 'user' && user.role !== 'admin') ||
-                         (filterRole === 'pro' && user.isProUser)
-      return matchesSearch && matchesStatus && matchesRole
-    })
-  }, [users, searchTerm, filterStatus, filterRole])
-
-  const totalPages = Math.ceil(filteredUsers.length / pageSize)
-  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-
+  // Refetch whenever the server-side inputs change
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchTerm, filterStatus, filterRole])
+    fetchUsers(currentPage)
+  }, [currentPage, debouncedSearch, filterStatus, filterRole])
+
+  // The server already filtered + paginated, so `users` IS the current page.
+  const paginatedUsers = users
 
   const toggleUserSelection = (userId) => {
     setSelectedUsers(prev =>
@@ -111,18 +132,21 @@ export default function UsersManagerEnhanced() {
 
   const updateUserStatus = (userId, isActive) => doAction(userId, 'status', { isActive }, { isActive })
   const updateUserRole = (userId, role) => doAction(userId, 'role', { role }, { role })
+
   const toggleProPass = (user) => {
-    const userId = user.id || user._id;
-    const newPro = !user.isProUser;
-    let passType = null;
-    if (newPro) {
-      const input = window.prompt('Enter Pass Type to grant (e.g., pro_yearly, pro_monthly):', 'pro_yearly');
-      if (input === null) return;
-      passType = input.trim();
-    } else {
-      if (!window.confirm(`Revoke Pro Pass for ${user.name}?`)) return;
-    }
-    doAction(userId, 'pro-pass', { isProUser: newPro, passType }, { isProUser: newPro, passType });
+    const newPro = !user.isProUser
+    setProPassModal({ open: true, user, action: newPro ? 'grant' : 'revoke' })
+    if (newPro) setProPassType('pro_yearly')
+  }
+
+  const confirmProPass = async () => {
+    const { user, action } = proPassModal
+    if (!user) return
+    const userId = user.id || user._id
+    const newPro = action === 'grant'
+    const passType = newPro ? proPassType : null
+    setProPassModal({ open: false, user: null, action: 'grant' })
+    await doAction(userId, 'pro-pass', { isProUser: newPro, passType }, { isProUser: newPro, passType })
   }
 
   const viewEnrollments = async (user) => {
@@ -192,6 +216,66 @@ export default function UsersManagerEnhanced() {
     return `${diffDays}d ago`
   }
 
+  const exportUsersAsCSV = async () => {
+    try {
+      setExporting(true)
+      let allUsers = []
+      let page = 1
+      const limit = 100
+      let hasMore = true
+
+      while (hasMore) {
+        const params = { page, limit }
+        if (debouncedSearch) params.search = debouncedSearch
+        if (filterStatus === 'active') params.status = 'active'
+        else if (filterStatus === 'inactive') { params.status = 'inactive'; params.includeInactive = 'true' }
+        if (filterRole === 'admin') params.role = 'admin'
+        else if (filterRole === 'user') params.role = 'user'
+        else if (filterRole === 'pro') params.pro = 'true'
+
+        const res = await api.get('/admin/users', { params })
+        const pageUsers = res.data?.data?.users || res.data?.data || []
+        allUsers = allUsers.concat(pageUsers)
+
+        const serverTotal = res.data?.total || 0
+        if (page * limit >= serverTotal || pageUsers.length === 0) {
+          hasMore = false
+        } else {
+          page++
+        }
+      }
+
+      const headers = ['ID', 'Name', 'Email', 'Phone', 'Role', 'Created At', 'Last Login']
+      const rows = allUsers.map(u => [
+        u.id || u._id || '',
+        (u.name || '').replace(/,/g, ' '),
+        u.email || '',
+        u.phone || '',
+        u.role || 'user',
+        u.createdAt || '',
+        u.lastLogin || u.last_login || ''
+      ])
+
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `users_export_${Date.now()}.csv`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      toast.success(`Exported ${allUsers.length} users to CSV`)
+    } catch (error) {
+      console.error('Failed to export users:', error)
+      toast.error('Failed to export users')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -209,8 +293,12 @@ export default function UsersManagerEnhanced() {
           <p className="text-gray-600">Manage user accounts, roles, and subscriptions</p>
         </div>
         <div className="flex items-center gap-4 mt-4 md:mt-0">
-          <button onClick={fetchUsers} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+          <button onClick={exportUsersAsCSV} disabled={exporting} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
             <Download className="w-4 h-4" />
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </button>
+          <button onClick={fetchUsers} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors">
+            <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
         </div>
@@ -299,7 +387,7 @@ export default function UsersManagerEnhanced() {
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="px-4 py-3 text-left">
-                  <input type="checkbox" checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                  <input type="checkbox" checked={paginatedUsers.length > 0 && selectedUsers.length >= paginatedUsers.length}
                     onChange={toggleSelectAll} className="rounded border-gray-300 text-indigo-600" />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">User</th>
@@ -407,7 +495,7 @@ export default function UsersManagerEnhanced() {
             </tbody>
           </table>
         </div>
-        {filteredUsers.length === 0 && (
+        {paginatedUsers.length === 0 && (
           <div className="text-center py-12 text-gray-500">
             <Users className="mx-auto h-10 w-10 mb-2 opacity-40" />
             <p className="text-sm">No users found</p>
@@ -419,7 +507,7 @@ export default function UsersManagerEnhanced() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500">
-            Showing <strong>{(currentPage - 1) * pageSize + 1}</strong>-<strong>{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong>{filteredUsers.length}</strong> users
+            Showing <strong>{(currentPage - 1) * pageSize + 1}</strong>-<strong>{Math.min(currentPage * pageSize, totalUsers)}</strong> of <strong>{totalUsers}</strong> users
           </p>
           <div className="flex items-center gap-1">
             <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
@@ -448,7 +536,7 @@ export default function UsersManagerEnhanced() {
 
       {/* Pagination */}
       <div className="text-sm text-gray-500 text-right">
-        Showing <strong>{filteredUsers.length}</strong> of <strong>{users.length}</strong> users
+        Showing <strong>{paginatedUsers.length}</strong> of <strong>{totalUsers}</strong> users
       </div>
 
       {/* User Detail Modal (Enrollments + Sessions) */}
@@ -666,6 +754,58 @@ export default function UsersManagerEnhanced() {
               {activeModalTab === 'enrollments' 
                 ? `Total: ${viewingEnrollments?.totalEnrollments ?? '...'} enrollment(s)`
                 : `${userSessions?.length ?? '...'} active session(s)`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pro Pass Grant/Revoke Modal */}
+      {proPassModal.open && proPassModal.user && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setProPassModal({ open: false, user: null, action: 'grant' })}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {proPassModal.action === 'grant' ? 'Grant Pro Pass' : 'Revoke Pro Pass'}
+              </h3>
+              <button onClick={() => setProPassModal({ open: false, user: null, action: 'grant' })} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                {proPassModal.action === 'grant'
+                  ? `Grant a Pro Pass to ${proPassModal.user.name || proPassModal.user.email}?`
+                  : `Revoke the Pro Pass from ${proPassModal.user.name || proPassModal.user.email}? This will remove Pro access immediately.`}
+              </p>
+              {proPassModal.action === 'grant' && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Pass Type</label>
+                  <select
+                    value={proPassType}
+                    onChange={(e) => setProPassType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="pro_yearly">Pro Yearly</option>
+                    <option value="pro_monthly">Pro Monthly</option>
+                    <option value="pro_half_yearly">Pro Half-Yearly</option>
+                    <option value="pro_quarterly">Pro Quarterly</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50 rounded-b-2xl">
+              <button
+                onClick={() => setProPassModal({ open: false, user: null, action: 'grant' })}
+                className="px-4 py-2 text-sm border rounded-lg hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmProPass}
+                className={`px-4 py-2 text-sm rounded-lg text-white ${proPassModal.action === 'grant' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-red-600 hover:bg-red-700'}`}
+              >
+                {proPassModal.action === 'grant' ? 'Grant' : 'Revoke'}
+              </button>
             </div>
           </div>
         </div>
