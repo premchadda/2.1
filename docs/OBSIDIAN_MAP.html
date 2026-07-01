@@ -1,0 +1,1650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Obsidian Map — TestPrep 2.1 Issues & Enhancements</title>
+<script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e0e0e0;
+    --text2: #888;
+    --accent: #4fc3f7;
+    --green: #66bb6a;
+    --yellow: #ffd54f;
+    --red: #ef5350;
+    --purple: #ab47bc;
+    --orange: #ffa726;
+    --cyan: #26c6da;
+    --pink: #ec407a;
+    --lime: #9ccc65;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+  .header {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 4px;
+  }
+  .header h1 span { color: var(--accent); }
+  .header p { font-size: 13px; color: var(--text2); }
+  .stats-bar {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .stat {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+  .stat strong { color: var(--accent); }
+  .main { padding: 24px 32px; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .tab {
+    background: transparent;
+    border: none;
+    color: var(--text2);
+    font-size: 13px;
+    padding: 10px 18px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .network-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    height: 700px;
+    position: relative;
+  }
+  #network-graph {
+    width: 100%;
+    height: 100%;
+  }
+  .legend {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(20,20,20,0.92);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11px;
+    z-index: 10;
+  }
+  .legend h4 { font-size: 11px; margin-bottom: 6px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .controls {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    background: rgba(20,20,20,0.92);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 11px;
+    z-index: 10;
+  }
+  .controls input, .controls select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .filter-row { margin-bottom: 6px; }
+  .filter-row label { font-size: 10px; color: var(--text2); text-transform: uppercase; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .badge.critical { background: rgba(239,83,80,0.15); color: var(--red); }
+  .badge.high { background: rgba(255,167,38,0.15); color: var(--orange); }
+  .badge.medium { background: rgba(255,213,79,0.15); color: var(--yellow); }
+  .badge.low { background: rgba(102,187,106,0.15); color: var(--green); }
+  .badge.user { background: rgba(79,195,247,0.15); color: var(--accent); }
+  .badge.admin { background: rgba(171,71,188,0.15); color: var(--purple); }
+  .badge.both { background: rgba(156,204,101,0.15); color: var(--lime); }
+  .badge.quick { background: rgba(38,198,218,0.15); color: var(--cyan); }
+  .badge.major { background: rgba(236,64,122,0.15); color: var(--pink); }
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .card-desc {
+    font-size: 12px;
+    color: #bbb;
+    margin-bottom: 8px;
+  }
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 10px;
+    color: var(--text2);
+  }
+  .card-meta span {
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+  .card-meta .effort { color: var(--cyan); }
+  .card-meta .impact { color: var(--lime); }
+
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 24px 0 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-subtitle {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 12px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+  th {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text2);
+  }
+  td {
+    border: 1px solid var(--border);
+    padding: 6px 10px;
+    color: #ccc;
+  }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+  }
+  details summary {
+    cursor: pointer;
+    padding: 14px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    list-style: none;
+  }
+  details summary::before { content: '▸ '; }
+  details[open] summary::before { content: '▾ '; }
+  details[open] summary { border-bottom: 1px solid var(--border); }
+  details[open] > div { padding: 16px 18px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Obsidian <span>Map</span> — TestPrep 2.1 Issues & Enhancements</h1>
+  <p>Interactive relationship map showing connections between code, features, bugs, and improvements</p>
+  <div class="stats-bar">
+    <div class="stat"><strong>100+</strong> Issues Found</div>
+    <div class="stat"><strong>4</strong> Critical (security)</div>
+    <div class="stat"><strong>15+</strong> Critical (UX/perf)</div>
+    <div class="stat"><strong>20+</strong> Quick Wins (&lt; 1 day)</div>
+    <div class="stat"><strong>15+</strong> Major Features (1-4 weeks)</div>
+    <div class="stat"><strong>~50 days</strong> Total Effort</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="tabs">
+    <button class="tab active" data-target="obsidian">🕸️ Obsidian Map</button>
+    <button class="tab" data-target="user">👤 User Issues</button>
+    <button class="tab" data-target="admin">⚙️ Admin Issues</button>
+    <button class="tab" data-target="quickwins">⚡ Quick Wins</button>
+    <button class="tab" data-target="major">🚀 Major Features</button>
+    <button class="tab" data-target="security">🔒 Security</button>
+    <button class="tab" data-target="roadmap">📅 Roadmap</button>
+  </div>
+
+  <!-- OBSIDIAN MAP TAB -->
+  <div class="tab-panel active" id="obsidian">
+    <div class="section-subtitle">Each node is a feature, file, or issue. Edges show relationships. Click any node to see details. Filter by category to focus on specific areas.</div>
+    <div class="network-container">
+      <div id="network-graph"></div>
+      <div class="legend">
+        <h4>Legend</h4>
+        <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7;"></div>User Feature</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ab47bc;"></div>Admin Feature</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ef5350;"></div>Critical Bug</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffa726;"></div>High Bug</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#ffd54f;"></div>Medium Issue</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#66bb6a;"></div>Low/Quick Win</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#26c6da;"></div>Performance</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#9ccc65;"></div>Major Feature</div>
+      </div>
+      <div class="controls">
+        <div class="filter-row">
+          <label>Filter by layer</label>
+          <select id="filter-layer">
+            <option value="all">All layers</option>
+            <option value="frontend">Frontend</option>
+            <option value="backend">Backend</option>
+            <option value="admin">Admin panel</option>
+            <option value="db">Database</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <label>Filter by severity</label>
+          <select id="filter-severity">
+            <option value="all">All severities</option>
+            <option value="critical">Critical only</option>
+            <option value="high">High only</option>
+            <option value="medium">Medium only</option>
+            <option value="quick">Quick wins</option>
+          </select>
+        </div>
+        <div class="filter-row">
+          <label>Highlight</label>
+          <select id="filter-audience">
+            <option value="all">All</option>
+            <option value="user">User-facing</option>
+            <option value="admin">Admin-facing</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">📊 Key Insights from the Map</div>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="badge critical">Critical</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Empty dashboard after signup</div>
+        <div class="card-desc">No onboarding wizard. User signs up, sees empty dashboard, no guidance, leaves. Highest impact retention fix.</div>
+        <div class="card-meta">
+          <span class="effort">3-5 days</span>
+          <span class="impact">Very High</span>
+          <span>User journey</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge critical">Critical</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">@gmail.com signup blocker</div>
+        <div class="card-desc">Signup.jsx:98 hardcodes email to end with @gmail.com. Blocks all Outlook/college email users.</div>
+        <div class="card-meta">
+          <span class="effort">1 hour</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge critical">Critical</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Search is broken</div>
+        <div class="card-desc">Top search bar searches hardcoded 24 items, not real content. Backend searchAll exists but isn't wired.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge critical">Critical</span>
+          <span class="badge both">Both</span>
+        </div>
+        <div class="card-title">Real .env credentials in git</div>
+        <div class="card-desc">Supabase password, JWT secrets committed. Already removed from latest commit but in history. CRITICAL SECURITY.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 hours</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge high">High</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">No re-import / update existing tests</div>
+        <div class="card-desc">Re-importing a fixed PYP creates a new duplicate. Admins can't easily correct mistakes. 30-60min wasted per fix.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge high">High</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">No syllabus/curriculum tree</div>
+        <div class="card-desc">Only 2 exams have syllabus shown. No way to browse "SSC CGL → Quant → Algebra → chapter 1" tree.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 weeks</span>
+          <span class="impact">Very High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge high">High</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">No image upload for questions</div>
+        <div class="card-desc">Questions support imageUrl but admin must host images externally. No drag-drop. Blocks math/figure questions.</div>
+        <div class="card-meta">
+          <span class="effort">1 week</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge high">High</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">No doubts/community moderation</div>
+        <div class="card-desc">Backend has the data model but no admin UI to review/approve/merge/delete user-generated content.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- USER ISSUES TAB -->
+  <div class="tab-panel" id="user">
+    <div class="section-title">👤 User Experience Issues</div>
+    <div class="section-subtitle">Issues affecting students using the platform. Prioritized by impact.</div>
+
+    <details open>
+      <summary>🔴 CRITICAL — Blocks user flow</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Effort</th><th>Impact</th></tr>
+          <tr><td><strong>@gmail.com-only signup</strong></td><td>Signup.jsx:98</td><td>1 hour</td><td>Critical</td></tr>
+          <tr><td><strong>No onboarding wizard</strong> — user sees empty dashboard</td><td>Dashboard.jsx (new user state)</td><td>3-5 days</td><td>Very High</td></tr>
+          <tr><td><strong>Search is broken</strong> — searches 24 hardcoded items</td><td>Navbar.jsx:98-123</td><td>1-2 days</td><td>High</td></tr>
+          <tr><td><strong>No syllabus tree</strong> — only 2 exams show syllabus</td><td>ExamInfoNew.jsx</td><td>1-2 weeks</td><td>Very High</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟠 HIGH — Hurts UX significantly</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Effort</th><th>Impact</th></tr>
+          <tr><td><strong>No calculator in test</strong> — advertised but missing</td><td>TestInstructions.jsx:407, TestInterface</td><td>1-2 days</td><td>High</td></tr>
+          <tr><td><strong>No keyboard shortcuts</strong> in test</td><td>TestInterface.jsx</td><td>1-2 days</td><td>High</td></tr>
+          <tr><td><strong>No image zoom</strong> for question images</td><td>TestInterface.jsx:990-998</td><td>0.5 day</td><td>High</td></tr>
+          <tr><td><strong>Tab switch logged but no warning shown</strong></td><td>TestInterface.jsx:432-459</td><td>0.25 day</td><td>High</td></tr>
+          <tr><td><strong>Hardcoded streak fallback to 3</strong> for all new users</td><td>Dashboard.jsx:382</td><td>1 hour</td><td>High (trust)</td></tr>
+          <tr><td><strong>Two practice pages coexist</strong> (old has dead buttons)</td><td>PracticeLab.jsx + PracticeQuestions.jsx</td><td>0.5 day</td><td>High</td></tr>
+          <tr><td><strong>Marking scheme inconsistent</strong> (instructions +1/-0.25, test uses +2/-0.5)</td><td>TestInterface.jsx:966</td><td>0.5 day</td><td>High</td></tr>
+          <tr><td><strong>Language setting saved but not read</strong></td><td>Settings.jsx:790</td><td>0.5 day</td><td>High</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟡 MEDIUM — Polish & completeness</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Effort</th></tr>
+          <tr><td>No "Continue where you left off" deep link</td><td>Dashboard series card</td><td>1 day</td></tr>
+          <tr><td>No section-wise breakdown on instructions</td><td>TestInstructions.jsx</td><td>1-2 days</td></tr>
+          <tr><td>No countdown before test starts</td><td>TestInstructions → TestInterface</td><td>0.5 day</td></tr>
+          <tr><td>No language picker on instructions</td><td>TestInstructions.jsx</td><td>0.5 day</td></tr>
+          <tr><td>No PDF download of result</td><td>TestResult.jsx</td><td>1-2 days</td></tr>
+          <tr><td>No "Compare with toppers" view</td><td>TestResult.jsx</td><td>1-2 weeks</td></tr>
+          <tr><td>No "Report this question" button</td><td>TestInterface.jsx</td><td>1 day</td></tr>
+          <tr><td>No PWA / offline support</td><td>(missing)</td><td>1-2 weeks</td></tr>
+          <tr><td>No "My Notes" on study material</td><td>ContentReader.jsx</td><td>2-4 weeks</td></tr>
+          <tr><td>Old PracticeQuestions.jsx dead buttons</td><td>PracticeQuestions.jsx:262,330</td><td>0.5 day (delete)</td></tr>
+          <tr><td>Synthetic difficulty breakdown in Analysis</td><td>Analysis.jsx:152-158</td><td>Backend fix</td></tr>
+          <tr><td>alert() for achievement check</td><td>Achievements.jsx:57</td><td>0.5 day</td></tr>
+          <tr><td>No bookmarks within a test (only markedForReview)</td><td>TestInterface.jsx</td><td>1 day</td></tr>
+          <tr><td>Test load is 2-request waterfall</td><td>TestInterface.jsx:133-138</td><td>Backend</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟢 LOW — Nice to have</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Effort</th></tr>
+          <tr><td>Subject color heuristic wasted (single test = one subject)</td><td>—</td></tr>
+          <tr><td>"Needs Practice" label harsh, no encouragement copy</td><td>0.5 day</td></tr>
+          <tr><td>No trend chart on Test Result (Analysis has it)</td><td>1 day</td></tr>
+          <tr><td>Time analysis has no per-section time</td><td>1 day</td></tr>
+          <tr><td>totalReviewTime math fragile (defaults to 60)</td><td>0.5 day</td></tr>
+          <tr><td>Pause modal doesn't lock body scroll</td><td>0.25 day</td></tr>
+          <tr><td>No re-attempt history comparison</td><td>1 week</td></tr>
+          <tr><td>No cohort comparison on result</td><td>2 weeks</td></tr>
+          <tr><td>No Expected cutoff projection</td><td>1 week</td></tr>
+          <tr><td>No "I disagree" / "Report this answer" button</td><td>1 day</td></tr>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <!-- ADMIN ISSUES TAB -->
+  <div class="tab-panel" id="admin">
+    <div class="section-title">⚙️ Admin Experience Issues</div>
+    <div class="section-subtitle">Issues affecting content team and administrators. Prioritized by time impact.</div>
+
+    <details open>
+      <summary>🔴 CRITICAL — Blocks admin productivity</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Time Wasted</th><th>Effort</th></tr>
+          <tr><td><strong>No re-import / update existing test</strong></td><td>FullTestImportModal.jsx</td><td>30-60 min per PYP fix</td><td>2-3 days</td></tr>
+          <tr><td><strong>/admin/recent-activity does full table scan</strong></td><td>admin.js:2666</td><td>5-15s load w/ 100k users</td><td>1 day</td></tr>
+          <tr><td><strong>All /admin/realtime/* endpoints O(n) on attempts</strong></td><td>admin.js:3463, 3533, 3613, 3784</td><td>1-5s per dashboard load</td><td>2-3 days</td></tr>
+          <tr><td><strong>/admin/users returns all users (no pagination)</strong></td><td>UsersManager.jsx:47</td><td>~50MB payload for 10k</td><td>2-3 days</td></tr>
+          <tr><td><strong>No doubts/community moderation UI</strong></td><td>(missing)</td><td>Required for safety</td><td>2-3 weeks</td></tr>
+          <tr><td><strong>No refund / transaction monitoring</strong></td><td>(missing)</td><td>Required for support</td><td>1-2 weeks</td></tr>
+          <tr><td><strong>Temp file race condition</strong> (temp-{userId}.json)</td><td>bulkImport.routes.js:297</td><td>Multi-tab breakage</td><td>1 day</td></tr>
+          <tr><td><strong>No 2FA despite toggle existing</strong></td><td>AdminSettings.jsx:70</td><td>Security promise broken</td><td>2-3 weeks</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟠 HIGH — Major time-sinks</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Time Wasted</th><th>Effort</th></tr>
+          <tr><td><strong>Sequential test import</strong> (5-15min for 100 tests)</td><td>FullTestImportModal.jsx:190</td><td>5-15 min per bulk</td><td>2-3 days</td></tr>
+          <tr><td><strong>No image upload for questions</strong></td><td>QuestionForm.jsx</td><td>Blocks math/figure Qs</td><td>1 week</td></tr>
+          <tr><td><strong>No bulk question edit</strong></td><td>QuestionsManager.jsx</td><td>Hours per series</td><td>2-3 days</td></tr>
+          <tr><td><strong>No "duplicate test" button</strong></td><td>TestsManager.jsx</td><td>30-60 min per clone</td><td>1 day</td></tr>
+          <tr><td><strong>No way to mass-publish drafts</strong></td><td>TestsManager.jsx:2322</td><td>Time-consuming</td><td>1 day</td></tr>
+          <tr><td><strong>UserActivityLog mis-maps data</strong> (shows title as userName)</td><td>UserActivityLog.jsx:32-39</td><td>Looks broken</td><td>1 day</td></tr>
+          <tr><td><strong>No CSV export of users</strong></td><td>UsersManager.jsx</td><td>Required for ops</td><td>0.5 day</td></tr>
+          <tr><td><strong>No bulk Pro pass grant</strong></td><td>UsersManager.jsx:114-126</td><td>One-at-a-time</td><td>1 day</td></tr>
+          <tr><td><strong>No live test monitoring page</strong></td><td>(missing)</td><td>No real-time oversight</td><td>2-3 days</td></tr>
+          <tr><td><strong>No per-test analytics drill-down</strong></td><td>AdminAnalytics.jsx</td><td>Can't diagnose failing tests</td><td>3-5 days</td></tr>
+          <tr><td><strong>Coming Soon in 2 places</strong> (drift risk)</td><td>AdminSettings + ComingSoonManager</td><td>Confusing</td><td>1 day</td></tr>
+          <tr><td><strong>SMTP password shown in plain text</strong></td><td>AdminSettings.jsx</td><td>Security issue</td><td>0.5 day</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟡 MEDIUM — Polish & completeness</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Effort</th></tr>
+          <tr><td>No sort in UsersManager (name, date, etc.)</td><td>UsersManager.jsx</td><td>1 day</td></tr>
+          <tr><td>No phone/2FA reset for locked users</td><td>UsersManager.jsx</td><td>2-3 days</td></tr>
+          <tr><td>No impersonate user for support</td><td>UsersManager.jsx</td><td>2-3 days (audit-heavy)</td></tr>
+          <tr><td>Hard-coded section presets in 2 files (drift)</td><td>TestsManager + SectionsManager</td><td>0.5 day</td></tr>
+          <tr><td>No question version history (only audit log diffs)</td><td>audit_logs table</td><td>2-3 weeks</td></tr>
+          <tr><td>Recycle bin: only 7 tables, 50-row cap</td><td>RecycleBin.jsx</td><td>1 day</td></tr>
+          <tr><td>No bulk restore in recycle bin</td><td>RecycleBin.jsx</td><td>1 day</td></tr>
+          <tr><td>Settings spread across 3 places</td><td>AdminSettings + ComingSoonManager + config.js</td><td>1 day</td></tr>
+          <tr><td>CategoriesManager has 6 tabs (bloated)</td><td>CategoriesManager.jsx (86KB)</td><td>2-3 days</td></tr>
+          <tr><td>No alerts panel on dashboard (WebSocket exists)</td><td>AdminDashboard.jsx</td><td>2-3 days</td></tr>
+          <tr><td>No "what changed since I last logged in" digest</td><td>AdminDashboard.jsx</td><td>2-3 days</td></tr>
+          <tr><td>No "send password reset email" from admin</td><td>UsersManager.jsx</td><td>0.5 day</td></tr>
+          <tr><td>No webhook configuration UI</td><td>AdminSettings.jsx</td><td>2-3 days</td></tr>
+          <tr><td>No admin Hindi UI</td><td>(missing)</td><td>1-2 weeks</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟢 LOW — Nice to have</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Effort</th></tr>
+          <tr><td>No bulk-add admin (one at a time)</td><td>1 day</td></tr>
+          <tr><td>No "force logout all admins"</td><td>1 day</td></tr>
+          <tr><td>Audit log shows first 10 actions only (sliced)</td><td>0.5 day</td></tr>
+          <tr><td>Pro pass grant uses window.prompt (ugly)</td><td>0.5 day</td></tr>
+          <tr><td>No copy-to-clipboard for IDs/slugs</td><td>0.5 day</td></tr>
+          <tr><td>CSV exports no timestamp in filename (collisions)</td><td>0.5 day</td></tr>
+          <tr><td>No "are you sure" guard on long forms</td><td>1 day</td></tr>
+          <tr><td>Hardcoded chart placeholder bar heights (not data-driven)</td><td>0.5 day</td></tr>
+          <tr><td>No skeleton loaders (full-screen spinner)</td><td>1 day</td></tr>
+          <tr><td>Engagement chart capped at 15 users</td><td>0.5 day</td></tr>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <!-- QUICK WINS TAB -->
+  <div class="tab-panel" id="quickwins">
+    <div class="section-title">⚡ Quick Wins (1 hour - 1 day)</div>
+    <div class="section-subtitle">High-impact fixes that take less than a day. Start here for fast ROI.</div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Remove @gmail.com signup restriction</div>
+        <div class="card-desc">Signup.jsx:98 — change to allow any email. Move validation server-side.</div>
+        <div class="card-meta">
+          <span class="effort">1 hour</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Fix hardcoded streak fallback</div>
+        <div class="card-desc">Dashboard.jsx:382 — remove `|| 3` fallback. New users should see 0.</div>
+        <div class="card-meta">
+          <span class="effort">1 hour</span>
+          <span class="impact">High (trust)</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Add tab-switch warning toast</div>
+        <div class="card-desc">TestInterface.jsx:432-459 — show "⚠ Tab switch detected" so users know they're monitored.</div>
+        <div class="card-meta">
+          <span class="effort">0.25 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Wire language setting to TestInterface</div>
+        <div class="card-desc">Settings.jsx:790 writes trstprep_language to localStorage but nothing reads it. Wire it up.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Delete dead PracticeQuestions.jsx</div>
+        <div class="card-desc">Has dead Discuss/Bookmark buttons, only "Next" button. Tree still has it. Just remove the file.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Fix marking scheme inconsistency</div>
+        <div class="card-desc">Instructions say +1/-0.25 but test uses +2.00/-0.50. Make consistent.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge both">Both</span>
+        </div>
+        <div class="card-title">Rotate .env secrets + scrub git history</div>
+        <div class="card-desc">Supabase password, JWT secrets are in git history. Rotate ALL and use git-filter-repo.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 hours</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge both">Both</span>
+        </div>
+        <div class="card-title">Fix path traversal in uploads</div>
+        <div class="card-desc">bulkImport.routes.js:249 and storageProvider.js:243 — use UUID filenames, verify containment.</div>
+        <div class="card-meta">
+          <span class="effort">1.5 hours</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Fix /admin/recent-activity SQL</div>
+        <div class="card-desc">admin.js:2666 — change `dbHelpers.find("users")` to `SELECT ... ORDER BY created_at DESC LIMIT 3`.</div>
+        <div class="card-meta">
+          <span class="effort">1 day</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Fix temp file race condition</div>
+        <div class="card-desc">Use UUID per upload instead of `temp-{userId}.json` so multi-tab doesn't clobber.</div>
+        <div class="card-meta">
+          <span class="effort">1 day</span>
+          <span class="impact">Critical</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Add "Duplicate test" button</div>
+        <div class="card-desc">TestsManager — copy test + sections + questions with new slug. Saves 30-60 min per clone.</div>
+        <div class="card-meta">
+          <span class="effort">1 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Fix UserActivityLog data mapping bug</div>
+        <div class="card-desc">UserActivityLog.jsx:32-39 — `activity.title` is not userName. Looks broken.</div>
+        <div class="card-meta">
+          <span class="effort">1 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Add ErrorBoundary to admin panel</div>
+        <div class="card-desc">Frontend has it, admin-panel App.jsx doesn't. A bug whitescreens entire admin.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Add CSV export to UsersManager</div>
+        <div class="card-desc">EnrollmentsManager has it, UsersManager doesn't. Add simple CSV download.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Mask SMTP password in AdminSettings</div>
+        <div class="card-desc">Currently shown in plain text in fetch response. Mask on client.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Add bulk publish/unpublish</div>
+        <div class="card-desc">TestsManager — currently one at a time. Add multi-select bulk action.</div>
+        <div class="card-meta">
+          <span class="effort">1 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge both">Both</span>
+        </div>
+        <div class="card-title">Sanitize all dangerouslySetInnerHTML</div>
+        <div class="card-desc">FullTestImportModal.jsx:1014, QuestionsManager.jsx:3787 — wrap with sanitizeHtml().</div>
+        <div class="card-meta">
+          <span class="effort">2 hours</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Pause modal locks body scroll</div>
+        <div class="card-desc">TestInterface pause modal — body still scrollable. Add overflow:hidden.</div>
+        <div class="card-meta">
+          <span class="effort">0.25 day</span>
+          <span class="impact">Low</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Replace alert() in Achievements</div>
+        <div class="card-desc">Achievements.jsx:57 — use react-hot-toast + confetti for check action.</div>
+        <div class="card-meta">
+          <span class="effort">0.5 day</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge quick">Quick Win</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Use execFile in backup routes</div>
+        <div class="card-desc">admin.js:3932, 3947 — replace child_process.exec with execFile to prevent shell injection.</div>
+        <div class="card-meta">
+          <span class="effort">2 hours</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAJOR FEATURES TAB -->
+  <div class="tab-panel" id="major">
+    <div class="section-title">🚀 Major Features (1 week - 1 month)</div>
+    <div class="section-subtitle">Big features that transform the platform. Plan as separate projects.</div>
+
+    <h3 style="color:var(--accent); margin: 20px 0 12px 0;">👤 User-Facing</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">3-step onboarding wizard</div>
+        <div class="card-desc">Pick exam → pick sub-categories → set daily goal. Personalized home. Most critical UX fix.</div>
+        <div class="card-meta">
+          <span class="effort">3-5 days</span>
+          <span class="impact">Very High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Working search across all content</div>
+        <div class="card-desc">Backend searchAll exists. Wire to UI. Search tests, study material, topics, etc.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Syllabus/curriculum tree for all exams</div>
+        <div class="card-desc">Browse SSC CGL → Tier 1 → Quant → Algebra → chapter 1. Only 2 exams have it now.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 weeks</span>
+          <span class="impact">Very High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">PWA + offline practice</div>
+        <div class="card-desc">Service worker, manifest, install prompt, offline cache for daily practice.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Calculator + keyboard shortcuts in test</div>
+        <div class="card-desc">On-screen calculator widget. Keys 1-4 to select, Ctrl+Enter to next, B for bookmark.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">PDF download of result + social share</div>
+        <div class="card-desc">Print-friendly PDF result card. Open Graph image for viral WhatsApp share.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Spaced repetition flashcards (SRS)</div>
+        <div class="card-desc">SM-2 algorithm for study material. Review hard questions at right interval.</div>
+        <div class="card-meta">
+          <span class="effort">2-4 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">Per-question timer + re-practice wrong</div>
+        <div class="card-desc">In PracticeLab. Show time spent per question. After session, "Re-do all wrong" CTA.</div>
+        <div class="card-meta">
+          <span class="effort">1 week</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge user">User</span>
+        </div>
+        <div class="card-title">"Compare with toppers" on result</div>
+        <div class="card-desc">Show where user stands vs avg topper. Testbook/Adda247 have this.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="color:var(--purple); margin: 20px 0 12px 0;">⚙️ Admin-Facing</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Re-import / update existing test</div>
+        <div class="card-desc">Add updateMode to FullTestImportModal: merge | replace | skip_existing. Match by source_test_id.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Parallel test import (Promise.allSettled pool)</div>
+        <div class="card-desc">100 tests in 1-3 min instead of 5-15 min. Concurrency 5.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Question image upload (S3/R2 + drag-drop)</div>
+        <div class="card-desc">Drag image into QuestionForm. Auto-upload to R2. Insert imageUrl. Required for math/figure Qs.</div>
+        <div class="card-meta">
+          <span class="effort">1 week</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Bulk question edit (multi-select)</div>
+        <div class="card-desc">Change difficulty/subject/tags across 50+ questions at once. Save hours per series.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Doubts/community moderation UI</div>
+        <div class="card-desc">Review queue, approve/merge/delete, flag system. Required for community safety.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Refund + transaction monitoring</div>
+        <div class="card-desc">List payments, refund action, dispute handling, webhook event log. Required for support.</div>
+        <div class="card-meta">
+          <span class="effort">1-2 weeks</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Server-side user pagination + search</div>
+        <div class="card-desc">/admin/users with limit/offset/search. 200-500ms vs 5-10s for 10k users.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Move all /admin/realtime/* to SQL</div>
+        <div class="card-desc">Replace `find("attempts")` in JS with `WHERE timestamp > $1 GROUP BY ...`.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Live test monitoring page</div>
+        <div class="card-desc">Real-time "users taking Test X now" view. WebSocket already exists, needs UI.</div>
+        <div class="card-meta">
+          <span class="effort">2-3 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="badge major">Major</span>
+          <span class="badge admin">Admin</span>
+        </div>
+        <div class="card-title">Per-test analytics drill-down</div>
+        <div class="card-desc">Score distribution, time histogram, hardest question, completion funnel.</div>
+        <div class="card-meta">
+          <span class="effort">3-5 days</span>
+          <span class="impact">High</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECURITY TAB -->
+  <div class="tab-panel" id="security">
+    <div class="section-title">🔒 Security Issues</div>
+    <div class="section-subtitle">Critical security issues that must be fixed. Order by severity.</div>
+
+    <details open>
+      <summary>🔴 CRITICAL — Act now</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Fix</th><th>Effort</th></tr>
+          <tr>
+            <td><strong>Real .env credentials in git history</strong></td>
+            <td>apps/backend/.env (committed in `abf91cd`)</td>
+            <td>1. Rotate Supabase password<br>2. Rotate JWT_SECRET, JWT_REFRESH_SECRET<br>3. `git rm --cached` all .env files<br>4. `git filter-repo` to scrub history<br>5. Regenerate secrets</td>
+            <td>2-3 hours</td>
+          </tr>
+          <tr>
+            <td><strong>Path traversal in file upload</strong></td>
+            <td>bulkImport.routes.js:249</td>
+            <td>Use UUID filename, not user-controlled originalname</td>
+            <td>1 hour</td>
+          </tr>
+          <tr>
+            <td><strong>Path traversal in deleteLocal</strong></td>
+            <td>storageProvider.js:243-253</td>
+            <td>Verify resolved path starts with uploads base</td>
+            <td>30 min</td>
+          </tr>
+          <tr>
+            <td><strong>No 2FA despite toggle existing</strong></td>
+            <td>AdminSettings.jsx:70</td>
+            <td>Implement TOTP 2FA (or remove toggle)</td>
+            <td>2-3 weeks</td>
+          </tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟠 HIGH — Fix this sprint</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Fix</th><th>Effort</th></tr>
+          <tr><td>Unsanitized dangerouslySetInnerHTML</td><td>FullTestImportModal.jsx:1014, QuestionsManager.jsx:3787</td><td>Wrap with sanitizeHtml()</td><td>2 hours</td></tr>
+          <tr><td>Shell command injection in backup</td><td>admin.js:3932, 3947, 4185, 4201, 4265, 4277</td><td>Use execFile instead of exec</td><td>2 hours</td></tr>
+          <tr><td>CORS in dev allows any private IP</td><td>app-port5001.js:266-289</td><td>Restrict via env allowlist</td><td>1 hour</td></tr>
+          <tr><td>Missing ErrorBoundary in admin panel</td><td>admin-panel App.jsx</td><td>Wrap Routes in ErrorBoundary</td><td>30 min</td></tr>
+          <tr><td>Public practice routes return explanations</td><td>practice.js:895, 910</td><td>Strip explanation from public payload</td><td>1 hour</td></tr>
+          <tr><td>XSS via email template render</td><td>EmailTemplatesManager.jsx:235</td><td>Sanitize on render or use react-renderer</td><td>1 hour</td></tr>
+          <tr><td>avatar extension not whitelisted</td><td>user.routes.js:67-89</td><td>Whitelist ['png','jpg','jpeg','gif','webp']</td><td>30 min</td></tr>
+          <tr><td>138 DROP statements in migrations</td><td>050, 051, 056a, 059, 061</td><td>Staging dry-run + safety check</td><td>1 day</td></tr>
+          <tr><td>SMTP password in plain text</td><td>AdminSettings.jsx</td><td>Mask on client</td><td>0.5 day</td></tr>
+        </table>
+      </div>
+    </details>
+
+    <details>
+      <summary>🟡 MEDIUM — Plan & schedule</summary>
+      <div>
+        <table>
+          <tr><th>Issue</th><th>Where</th><th>Fix</th><th>Effort</th></tr>
+          <tr><td>Insecure table identifier interpolation (currently safe, but risky)</td><td>admin-sections.js, postgres-helpers.js</td><td>Whitelist table/column names</td><td>1 hour</td></tr>
+          <tr><td>Rate limiter skips admin panel</td><td>app-port5001.js:218, 233</td><td>Remove skip, use adminLimiter</td><td>1 hour</td></tr>
+          <tr><td>CSRF tightly coupled to JWT_SECRET</td><td>csrf.middleware.js, auth.middleware.js</td><td>2-key rollover with kid claim</td><td>1 day</td></tr>
+          <tr><td>bcryptjs slower than bcrypt (5x)</td><td>package.json</td><td>Replace with native bcrypt</td><td>1 hour</td></tr>
+          <tr><td>511 console.log/error calls</td><td>Throughout backend</td><td>Wrap with structured logger</td><td>1 day</td></tr>
+          <tr><td>Admin API key validation in production</td><td>origin.middleware.js</td><td>Audit + enforce</td><td>1 hour</td></tr>
+          <tr><td>WebSocket event bus not typed</td><td>websocketManager.js</td><td>Validate with zod schemas</td><td>4 hours</td></tr>
+          <tr><td>Public PYPs return full question + explanation</td><td>pyp-hierarchy.js:62, 114, 193, 401</td><td>Strip explanation from public payload</td><td>1 hour</td></tr>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <!-- ROADMAP TAB -->
+  <div class="tab-panel" id="roadmap">
+    <div class="section-title">📅 90-Day Roadmap</div>
+    <div class="section-subtitle">Prioritized 3-month plan. Execute top to bottom.</div>
+
+    <h3 style="color:var(--red); margin: 20px 0 12px 0;">🚨 Sprint 1 (Days 1-7): Critical Fixes & Quick Wins</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 1</span></div>
+        <div class="card-title">Rotate .env secrets + git filter-repo</div>
+        <div class="card-meta"><span>2-3 hours</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 1</span></div>
+        <div class="card-title">Remove @gmail.com signup restriction</div>
+        <div class="card-meta"><span>1 hour</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 1</span></div>
+        <div class="card-title">Fix path traversal in uploads + storageProvider</div>
+        <div class="card-meta"><span>1.5 hours</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 2</span></div>
+        <div class="card-title">Fix /admin/recent-activity SQL</div>
+        <div class="card-meta"><span>1 day</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 2</span></div>
+        <div class="card-title">Fix temp file race condition (UUID)</div>
+        <div class="card-meta"><span>1 day</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 3</span></div>
+        <div class="card-title">Sanitize all dangerouslySetInnerHTML</div>
+        <div class="card-meta"><span>2 hours</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 3</span></div>
+        <div class="card-title">Add ErrorBoundary to admin panel</div>
+        <div class="card-meta"><span>0.5 day</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 3</span></div>
+        <div class="card-title">Fix hardcoded streak fallback (Dashboard.jsx:382)</div>
+        <div class="card-meta"><span>1 hour</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 4</span></div>
+        <div class="card-title">Delete dead PracticeQuestions.jsx</div>
+        <div class="card-meta"><span>0.5 day</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 4</span></div>
+        <div class="card-title">Add "Duplicate test" button</div>
+        <div class="card-meta"><span>1 day</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 5</span></div>
+        <div class="card-title">Wire language setting to TestInterface</div>
+        <div class="card-meta"><span>0.5 day</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 5</span></div>
+        <div class="card-title">Tab switch warning toast</div>
+        <div class="card-meta"><span>0.25 day</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge critical">Day 6-7</span></div>
+        <div class="card-title">Quick win bundle (15+ small fixes)</div>
+        <div class="card-meta"><span>2 days</span><span class="impact">High</span></div>
+      </div>
+    </div>
+
+    <h3 style="color:var(--orange); margin: 20px 0 12px 0;">🎯 Sprint 2 (Days 8-30): High-Impact Features</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 2</span></div>
+        <div class="card-title">3-step onboarding wizard</div>
+        <div class="card-desc">Pick exam → pick sub-categories → set daily goal. Most critical UX fix.</div>
+        <div class="card-meta"><span class="effort">3-5 days</span><span class="impact">Very High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 2</span></div>
+        <div class="card-title">Working search (wire backend searchAll)</div>
+        <div class="card-desc">1-2 days. Search across tests, study material, topics.</div>
+        <div class="card-meta"><span class="effort">1-2 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 2-3</span></div>
+        <div class="card-title">Server-side user pagination + search</div>
+        <div class="card-desc">/admin/users with limit/offset/search. 200-500ms vs 5-10s.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 3</span></div>
+        <div class="card-title">Re-import / update existing test</div>
+        <div class="card-desc">Add updateMode to import modal. Saves 30-60 min per fix.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 3</span></div>
+        <div class="card-title">Parallel test import</div>
+        <div class="card-desc">Promise.allSettled with concurrency=5. 100 tests in 1-3 min.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 4</span></div>
+        <div class="card-title">Move all /admin/realtime/* to SQL</div>
+        <div class="card-desc">Replace `find("attempts")` with `WHERE ... GROUP BY`.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge high">Week 4</span></div>
+        <div class="card-title">Calculator + keyboard shortcuts in test</div>
+        <div class="card-desc">On-screen calculator. Keys 1-4 to select, B for bookmark.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+    </div>
+
+    <h3 style="color:var(--accent); margin: 20px 0 12px 0;">🌟 Sprint 3 (Days 31-60): Major Features</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 5-6</span></div>
+        <div class="card-title">Syllabus/curriculum tree for all exams</div>
+        <div class="card-desc">Browse SSC CGL → Tier 1 → Quant → Algebra → chapter 1. Only 2 exams have it now.</div>
+        <div class="card-meta"><span class="effort">1-2 weeks</span><span class="impact">Very High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 6</span></div>
+        <div class="card-title">Question image upload (S3/R2 + drag-drop)</div>
+        <div class="card-desc">Required for math/figure questions.</div>
+        <div class="card-meta"><span class="effort">1 week</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 7</span></div>
+        <div class="card-title">Bulk question edit (multi-select)</div>
+        <div class="card-desc">Change difficulty/subject/tags across 50+ questions at once.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 7-8</span></div>
+        <div class="card-title">Per-test analytics drill-down</div>
+        <div class="card-desc">Score distribution, time histogram, hardest question, completion funnel.</div>
+        <div class="card-meta"><span class="effort">3-5 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 8</span></div>
+        <div class="card-title">PDF download of result + social share</div>
+        <div class="card-desc">Viral loop for marketing.</div>
+        <div class="card-meta"><span class="effort">1-2 days</span><span class="impact">High</span></div>
+      </div>
+    </div>
+
+    <h3 style="color:var(--lime); margin: 20px 0 12px 0;">🎨 Sprint 4 (Days 61-90): Polish & Advanced</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-header"><span class="badge both">Week 9-10</span></div>
+        <div class="card-title">Doubts/community moderation UI</div>
+        <div class="card-desc">Required for community safety at scale.</div>
+        <div class="card-meta"><span class="effort">2-3 weeks</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge both">Week 9-10</span></div>
+        <div class="card-title">Refund + transaction monitoring</div>
+        <div class="card-desc">Required for support operations.</div>
+        <div class="card-meta"><span class="effort">1-2 weeks</span><span class="impact">Critical</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 10-11</span></div>
+        <div class="card-title">PWA + offline practice</div>
+        <div class="card-desc">Service worker, manifest, install prompt, offline cache.</div>
+        <div class="card-meta"><span class="effort">1-2 weeks</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 11-12</span></div>
+        <div class="card-title">"Compare with toppers" on result</div>
+        <div class="card-desc">Show where user stands vs avg topper.</div>
+        <div class="card-meta"><span class="effort">1-2 weeks</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 12</span></div>
+        <div class="card-title">Live test monitoring page</div>
+        <div class="card-desc">Real-time view of users in current test.</div>
+        <div class="card-meta"><span class="effort">2-3 days</span><span class="impact">High</span></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="badge major">Week 12</span></div>
+        <div class="card-title">Spaced repetition flashcards (SRS)</div>
+        <div class="card-desc">SM-2 algorithm for review scheduling.</div>
+        <div class="card-meta"><span class="effort">2-4 weeks</span><span class="impact">High</span></div>
+      </div>
+    </div>
+
+    <h3 style="color:var(--purple); margin: 20px 0 12px 0;">🛠️ Ongoing (Continuous)</h3>
+    <table>
+      <tr><th>Task</th><th>Effort</th><th>Priority</th></tr>
+      <tr><td>Split admin.js mega-router (5,478 lines)</td><td>5-7 days</td><td>Maintainability</td></tr>
+      <tr><td>Split QuestionsManager.jsx (4,031 lines)</td><td>3-4 days</td><td>Maintainability</td></tr>
+      <tr><td>Add tests (currently 4% coverage → target 50%)</td><td>12-16 days</td><td>Quality</td></tr>
+      <tr><td>Implement 2FA (currently toggle without impl)</td><td>2-3 weeks</td><td>Security</td></tr>
+      <tr><td>Refactor god files (TestsManager, Profile, etc.)</td><td>5-7 days</td><td>Maintainability</td></tr>
+      <tr><td>Replace console.log with structured logger</td><td>1 day</td><td>Quality</td></tr>
+      <tr><td>Enable ESLint no-unused-vars</td><td>1 hour config + 4h cleanup</td><td>Quality</td></tr>
+    </table>
+
+    <div class="section-title">📊 Effort Summary</div>
+    <table>
+      <tr><th>Phase</th><th>Effort</th><th>Impact</th></tr>
+      <tr><td>Sprint 1 (Critical fixes + quick wins)</td><td>7 days</td><td>Critical</td></tr>
+      <tr><td>Sprint 2 (High-impact features)</td><td>15-20 days</td><td>Very High</td></tr>
+      <tr><td>Sprint 3 (Major features)</td><td>15-20 days</td><td>High</td></tr>
+      <tr><td>Sprint 4 (Polish + advanced)</td><td>15-20 days</td><td>High</td></tr>
+      <tr><td>Ongoing refactoring & tests</td><td>20-30 days</td><td>Quality</td></tr>
+      <tr><td><strong>Total (3 sprints + ongoing)</strong></td><td><strong>~80-100 dev days</strong></td><td>Complete transformation</td></tr>
+    </table>
+  </div>
+</div>
+
+<script>
+// Network data
+const nodes = [
+  // User issues (front-end)
+  { id: 'signup', label: 'Signup\nFlow', group: 'user', color: '#4fc3f7' },
+  { id: 'dashboard', label: 'Dashboard\n(empty for new users)', group: 'user', color: '#ef5350' },
+  { id: 'onboarding', label: 'Onboarding\nWizard', group: 'major', color: '#9ccc65' },
+  { id: 'search', label: 'Broken\nSearch', group: 'user', color: '#ef5350' },
+  { id: 'gmail-only', label: '@gmail.com\nRestriction', group: 'user', color: '#ef5350' },
+  { id: 'streak', label: 'Hardcoded\nStreak=3', group: 'user', color: '#ffa726' },
+  { id: 'syllabus', label: 'No Syllabus\nTree', group: 'user', color: '#ef5350' },
+  { id: 'test', label: 'TestInterface\n(1.4k lines)', group: 'user', color: '#4fc3f7' },
+  { id: 'calculator', label: 'Missing\nCalculator', group: 'user', color: '#ffa726' },
+  { id: 'shortcuts', label: 'No Keyboard\nShortcuts', group: 'user', color: '#ffa726' },
+  { id: 'bilingual', label: 'Bilingual\nEN/HI', group: 'user', color: '#4fc3f7' },
+  { id: 'result', label: 'TestResult\nAnalytics', group: 'user', color: '#4fc3f7' },
+  { id: 'practice', label: 'PracticeLab\n(1.1k lines)', group: 'user', color: '#4fc3f7' },
+  { id: 'old-practice', label: 'Dead\nPracticeQuestions', group: 'user', color: '#ffa726' },
+  { id: 'pwa', label: 'PWA /\nOffline', group: 'major', color: '#9ccc65' },
+  { id: 'study', label: 'Study\nMaterials', group: 'user', color: '#4fc3f7' },
+  { id: 'leaderboard', label: 'Leaderboard\n(gated)', group: 'user', color: '#4fc3f7' },
+  { id: 'live-test', label: 'Live\nTest', group: 'user', color: '#4fc3f7' },
+
+  // Admin issues
+  { id: 'admin-dashboard', label: 'Admin\nDashboard', group: 'admin', color: '#ab47bc' },
+  { id: 'recent-activity', label: 'recent-activity\nFull Table Scan', group: 'admin', color: '#ef5350' },
+  { id: 'realtime', label: 'realtime/*\nO(n) JS filters', group: 'admin', color: '#ef5350' },
+  { id: 'users-manager', label: 'UsersManager\n(no pagination)', group: 'admin', color: '#ab47bc' },
+  { id: 'import-modal', label: 'FullTest\nImport Modal', group: 'admin', color: '#ab47bc' },
+  { id: 'reimport', label: 'No Re-import\nUpdate Mode', group: 'admin', color: '#ef5350' },
+  { id: 'sequential', label: 'Sequential\nImport (slow)', group: 'admin', color: '#ffa726' },
+  { id: 'questions-mgr', label: 'QuestionsManager\n(4k lines)', group: 'admin', color: '#ab47bc' },
+  { id: 'image-upload', label: 'No Question\nImage Upload', group: 'admin', color: '#ffa726' },
+  { id: 'bulk-edit', label: 'No Bulk\nQuestion Edit', group: 'admin', color: '#ffa726' },
+  { id: 'duplicate-test', label: 'No Duplicate\nTest Button', group: 'admin', color: '#ffa726' },
+  { id: 'moderation', label: 'No Moderation\nUI', group: 'admin', color: '#ef5350' },
+  { id: 'refund', label: 'No Refund\nMonitoring', group: 'admin', color: '#ef5350' },
+  { id: 'recycle', label: 'Recycle Bin\n(7 tables, 50 cap)', group: 'admin', color: '#ab47bc' },
+  { id: 'admin-settings', label: 'AdminSettings\n(8 tabs)', group: 'admin', color: '#ab47bc' },
+  { id: 'coming-soon', label: 'Coming Soon\n(in 2 places)', group: 'admin', color: '#ffa726' },
+
+  // Backend core
+  { id: 'admin-js', label: 'admin.js\n(5,478 lines)', group: 'backend', color: '#ef5350' },
+  { id: 'postgres', label: 'postgres-helpers\n(2,456 lines)', group: 'backend', color: '#ffa726' },
+  { id: 'data-svc', label: 'dataService.js\n(1,150 lines)', group: 'backend', color: '#ffa726' },
+
+  // Security
+  { id: 'env', label: 'Real .env\nIn Git History', group: 'security', color: '#ef5350' },
+  { id: 'path-trav', label: 'Path\nTraversal', group: 'security', color: '#ef5350' },
+  { id: 'xss', label: 'XSS in\nAdmin HTML', group: 'security', color: '#ef5350' },
+  { id: 'cors', label: 'CORS\nWildcard', group: 'security', color: '#ffa726' },
+  { id: '2fa', label: '2FA Not\nImplemented', group: 'security', color: '#ef5350' },
+  { id: 'shell', label: 'Shell\nInjection', group: 'security', color: '#ffa726' },
+  { id: 'migrations', label: '138 DROP\nStatements', group: 'security', color: '#ffa726' },
+
+  // Performance
+  { id: 'n+1', label: 'N+1 Queries\n(bulk ops)', group: 'perf', color: '#26c6da' },
+  { id: 'no-pag', label: 'Missing\nPagination', group: 'perf', color: '#26c6da' },
+  { id: 'image-opt', label: 'No Image\nOptimization', group: 'perf', color: '#26c6da' },
+  { id: 'no-sw', label: 'No Service\nWorker', group: 'perf', color: '#26c6da' },
+
+  // Major features
+  { id: 'onboarding-mjr', label: 'Onboarding\nWizard', group: 'major', color: '#9ccc65' },
+  { id: 'srs', label: 'Spaced\nRepetition', group: 'major', color: '#9ccc65' },
+  { id: 'topper', label: 'Compare\nWith Toppers', group: 'major', color: '#9ccc65' },
+  { id: 'ai-tutor', label: 'AI Tutor\n(ask Q)', group: 'major', color: '#9ccc65' },
+];
+
+const edges = [
+  // User flow
+  { from: 'signup', to: 'gmail-only', label: 'blocks' },
+  { from: 'signup', to: 'dashboard', label: 'lands on' },
+  { from: 'dashboard', to: 'streak', label: 'shows wrong' },
+  { from: 'dashboard', to: 'onboarding', label: 'needs' },
+  { from: 'dashboard', to: 'search', label: 'has broken' },
+  { from: 'dashboard', to: 'syllabus', label: 'no link' },
+  { from: 'test', to: 'calculator', label: 'missing' },
+  { from: 'test', to: 'shortcuts', label: 'missing' },
+  { from: 'test', to: 'bilingual', label: 'supports' },
+  { from: 'test', to: 'result', label: 'submits' },
+  { from: 'practice', to: 'old-practice', label: 'duplicate' },
+  { from: 'practice', to: 'pwa', label: 'needs' },
+  { from: 'study', to: 'leaderboard', label: 'related' },
+  { from: 'syllabus', to: 'study', label: 'informs' },
+  { from: 'syllabus', to: 'practice', label: 'targets' },
+
+  // Admin flow
+  { from: 'admin-dashboard', to: 'recent-activity', label: 'fetches' },
+  { from: 'admin-dashboard', to: 'realtime', label: 'fetches' },
+  { from: 'admin-dashboard', to: 'realtime', label: 'fetches' },
+  { from: 'admin-dashboard', to: 'realtime', label: 'fetches' },
+  { from: 'users-manager', to: 'no-pag', label: 'lacks' },
+  { from: 'import-modal', to: 'reimport', label: 'needs' },
+  { from: 'import-modal', to: 'sequential', label: 'slow' },
+  { from: 'import-modal', to: 'path-trav', label: 'has' },
+  { from: 'questions-mgr', to: 'image-upload', label: 'needs' },
+  { from: 'questions-mgr', to: 'bulk-edit', label: 'needs' },
+  { from: 'questions-mgr', to: 'duplicate-test', label: 'needs' },
+  { from: 'admin-settings', to: 'coming-soon', label: 'duplicates' },
+  { from: 'admin-settings', to: '2fa', label: 'toggles' },
+  { from: 'recycle', to: 'admin-js', label: 'routes in' },
+  { from: 'moderation', to: 'realtime', label: 'missing' },
+
+  // Backend code quality
+  { from: 'admin-js', to: 'realtime', label: 'contains' },
+  { from: 'admin-js', to: 'recent-activity', label: 'contains' },
+  { from: 'admin-js', to: 'users-manager', label: 'serves' },
+  { from: 'admin-js', to: 'shell', label: 'has' },
+  { from: 'postgres', to: 'n+1', label: 'enables' },
+  { from: 'data-svc', to: 'users-manager', label: 'consumed by' },
+
+  // Security
+  { from: 'env', to: 'admin-js', label: 'in history' },
+  { from: 'path-trav', to: 'import-modal', label: 'via' },
+  { from: 'path-trav', to: 'admin-js', label: 'in' },
+  { from: 'xss', to: 'import-modal', label: 'in' },
+  { from: 'xss', to: 'questions-mgr', label: 'in' },
+  { from: 'cors', to: 'env', label: 'auth issues' },
+  { from: '2fa', to: 'admin-settings', label: 'promised' },
+  { from: 'migrations', to: 'postgres', label: 'mutates' },
+
+  // Performance
+  { from: 'n+1', to: 'users-manager', label: 'hurts' },
+  { from: 'n+1', to: 'admin-dashboard', label: 'hurts' },
+  { from: 'no-pag', to: 'users-manager', label: 'lacks' },
+  { from: 'no-pag', to: 'admin-dashboard', label: 'lacks' },
+  { from: 'no-sw', to: 'pwa', label: 'blocks' },
+  { from: 'image-opt', to: 'image-upload', label: 'related' },
+
+  // Major features
+  { from: 'onboarding-mjr', to: 'onboarding', label: 'fixes' },
+  { from: 'pwa', to: 'no-sw', label: 'requires' },
+  { from: 'srs', to: 'study', label: 'enhances' },
+  { from: 'topper', to: 'result', label: 'enhances' },
+  { from: 'ai-tutor', to: 'study', label: 'enhances' },
+];
+
+// Initialize network
+const container = document.getElementById('network-graph');
+const data = {
+  nodes: new vis.DataSet(nodes),
+  edges: new vis.DataSet(edges)
+};
+const options = {
+  physics: {
+    enabled: true,
+    solver: 'forceAtlas2Based',
+    forceAtlas2Based: {
+      gravitationalConstant: -50,
+      centralGravity: 0.005,
+      springLength: 200,
+      springConstant: 0.08,
+      damping: 0.4
+    },
+    stabilization: { iterations: 200 }
+  },
+  interaction: {
+    hover: true,
+    tooltipDelay: 200,
+    zoomView: true
+  },
+  nodes: {
+    shape: 'dot',
+    size: 18,
+    font: { color: '#e0e0e0', size: 11, face: 'Segoe UI' },
+    borderWidth: 2,
+    shadow: true
+  },
+  edges: {
+    width: 1,
+    color: { color: '#2a2a2a', highlight: '#4fc3f7' },
+    smooth: { type: 'continuous' },
+    font: { color: '#666', size: 9, strokeWidth: 0 }
+  }
+};
+const network = new vis.Network(container, data, options);
+
+// Filter controls
+function applyFilters() {
+  const layer = document.getElementById('filter-layer').value;
+  const severity = document.getElementById('filter-severity').value;
+  const audience = document.getElementById('filter-audience').value;
+
+  const allNodes = nodes;
+  const filtered = allNodes.filter(n => {
+    // Layer filter (frontend/backend/admin/db)
+    if (layer === 'frontend' && !['user', 'perf'].includes(n.group)) return false;
+    if (layer === 'admin' && n.group !== 'admin') return false;
+    if (layer === 'db' && !['backend', 'security'].includes(n.group)) return false;
+
+    // Severity filter
+    if (severity !== 'all') {
+      if (severity === 'quick' && n.color !== '#66bb6a' && n.color !== '#26c6da' && n.color !== '#ffd54f') return false;
+      if (severity === 'critical' && n.color !== '#ef5350') return false;
+      if (severity === 'high' && n.color !== '#ffa726') return false;
+      if (severity === 'medium' && n.color !== '#ffd54f' && n.color !== '#26c6da') return false;
+    }
+
+    // Audience filter
+    if (audience === 'user' && n.group !== 'user' && n.group !== 'major' && n.group !== 'perf' && n.group !== 'backend' && n.group !== 'security') return false;
+    if (audience === 'admin' && n.group !== 'admin' && n.group !== 'major' && n.group !== 'perf' && n.group !== 'backend' && n.group !== 'security') return false;
+
+    return true;
+  });
+
+  const visible = new vis.DataSet(filtered);
+  const visibleIds = new Set(filtered.map(n => n.id));
+  const filteredEdges = edges.filter(e => visibleIds.has(e.from) && visibleIds.has(e.to));
+  network.setData({ nodes: visible, edges: new vis.DataSet(filteredEdges) });
+}
+
+document.getElementById('filter-layer').addEventListener('change', applyFilters);
+document.getElementById('filter-severity').addEventListener('change', applyFilters);
+document.getElementById('filter-audience').addEventListener('change', applyFilters);
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.target).classList.add('active');
+  });
+});
+</script>
+
+</body>
+</html>
