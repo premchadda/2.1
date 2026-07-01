@@ -324,15 +324,17 @@ router.post('/admin/broadcast', protect, admin, async (req, res) => {
     if (users.length > 0) {
       const userIds = users.map(u => String(u._id || u.id)).filter(Boolean)
       
+      const metadata = JSON.stringify({ link: link || null })
+
       const insertQuery = `
-        INSERT INTO notifications (user_id, title, message, type, link, is_read, is_active, created_at, updated_at)
+        INSERT INTO notifications (user_id, title, message, type, metadata, is_read, is_active, created_at, updated_at)
         SELECT u.id, $1, $2, $3, $4, false, true, $5, $5
         FROM UNNEST($6::text[]) as u(id)
       `
       
       try {
         const result = await dbHelpers.pool.query(insertQuery, [
-          title, message, type, link || null, now, userIds
+          title, message, type, metadata, now, userIds
         ])
         createdCount = result.rowCount
       } catch (err) {
