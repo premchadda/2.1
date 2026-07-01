@@ -6,6 +6,8 @@ import { Test } from "../../data/models/index.js";
 import { createSchema, validateBody } from "../../middleware/validation/inputValidation.js";
 import { memoryUpload as bulkQuestionUpload } from "../../infrastructure/storage/upload.js";
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
+import { logAuditEvent } from "../../middleware/audit.middleware.js";
+import { asyncHandler } from "../../middleware/asyncHandler.js";
 
 const router = express.Router();
 
@@ -166,63 +168,57 @@ const mapBulkRowToTestPayload = (row, config) => {
 
 // GET /api/admin/tests/orphaned - List orphaned tests
 // NOTE: Must be defined BEFORE /tests/:id to avoid being matched by the param route
-router.get("/tests/orphaned", async (req, res) => {
-  try {
-    const rawLimit = Number(req.query.limit);
-    const rawOffset = Number(req.query.offset);
-    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
-    const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
+router.get("/tests/orphaned", asyncHandler(async (req, res) => {
+  const rawLimit = Number(req.query.limit);
+  const rawOffset = Number(req.query.offset);
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
+  const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
 
-    const countRows = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
-    );
-    const total = countRows.rows[0]?.c ?? 0;
+  const countRows = await pool.query(
+    "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
+  );
+  const total = countRows.rows[0]?.c ?? 0;
 
-    const tests = await dbHelpers.find("tests", { _orphaned: true, isActive: true });
-    const normalized = tests.slice(offset, offset + limit).map(withTestSeriesAliases);
+  const tests = await dbHelpers.find("tests", { _orphaned: true, isActive: true });
+  const normalized = tests.slice(offset, offset + limit).map(withTestSeriesAliases);
 
-    res.json({ success: true, data: normalized, total, limit, offset });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  res.json({ success: true, data: normalized, total, limit, offset });
+})
 });
 
 // GET /api/admin/tests - List all tests
-router.get("/tests", async (req, res) => {
-  try {
-    const rawLimit = Number(req.query.limit);
-    const rawOffset = Number(req.query.offset);
-    const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
-    const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
+router.get("/tests", asyncHandler(async (req, res) => {
+  const rawLimit = Number(req.query.limit);
+  const rawOffset = Number(req.query.offset);
+  const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
+  const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
 
-    const filters = { isActive: true };
-    const queryTestSeriesId = getTestSeriesId(req.query);
-    if (queryTestSeriesId) filters.seriesId = queryTestSeriesId;
-    if (req.query.stageId) filters.stageId = req.query.stageId;
-    if (req.query.testCategoryId) filters.testCategoryId = req.query.testCategoryId;
-    if (req.query.categoryId) filters.categoryId = req.query.categoryId;
-    if (req.query._orphaned === "true") filters._orphaned = true;
+  const filters = { isActive: true };
+  const queryTestSeriesId = getTestSeriesId(req.query);
+  if (queryTestSeriesId) filters.seriesId = queryTestSeriesId;
+  if (req.query.stageId) filters.stageId = req.query.stageId;
+  if (req.query.testCategoryId) filters.testCategoryId = req.query.testCategoryId;
+  if (req.query.categoryId) filters.categoryId = req.query.categoryId;
+  if (req.query._orphaned === "true") filters._orphaned = true;
 
-    const countRows = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM tests WHERE is_active = true",
-    );
-    const total = countRows.rows[0]?.c ?? 0;
+  const countRows = await pool.query(
+    "SELECT COUNT(*)::int AS c FROM tests WHERE is_active = true",
+  );
+  const total = countRows.rows[0]?.c ?? 0;
 
-    let tests = await dbHelpers.find("tests", filters, limit, offset);
+  let tests = await dbHelpers.find("tests", filters, limit, offset);
 
-    // Normalize fields
-    const normalized = tests.map(withTestSeriesAliases);
+  // Normalize fields
+  const normalized = tests.map(withTestSeriesAliases);
 
-    res.json({
-      success: true,
-      data: normalized,
-      total,
-      limit,
-      offset,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
+  res.json({
+    success: true,
+    data: normalized,
+    total,
+    limit,
+    offset,
+  });
+})
 });
 
 // GET /api/admin/tests/export - Export tests to CSV
@@ -464,7 +460,7 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
   }
 });
 
-// POST /api/admin/tests/:id/duplicate - Duplicate test
+// POST /api/admin/tests/:id/duplicate - Duplicate test (deep copy: sections + questions + junction links)
 router.post("/tests/:id/duplicate", async (req, res) => {
   try {
     const test = await Test.findByIdentifier(req.params.id);
@@ -472,26 +468,152 @@ router.post("/tests/:id/duplicate", async (req, res) => {
       return res.status(404).json({ success: false, message: "Test not found" });
     }
 
+    const sourceTestId = test.id || test._id;
     const baseSlug = test.slug || `test-${Date.now()}`;
     const duplicateSlug = `${baseSlug}-copy-${Date.now()}`;
+    const newTitle = `${test.title || test.name || "Untitled"} (Copy)`;
 
-    const duplicateData = {
-      ...test,
-      title: `${test.title} (Copy)`,
-      slug: duplicateSlug,
-      isActive: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+    const result = await dbHelpers.withTransaction(async (client) => {
+      // 1. Insert the duplicated test row (preserve all columns, override identity/audit fields)
+      const testColsResult = await client.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'tests' AND column_name NOT IN
+         ('id','_id','public_id','created_at','updated_at','published_at','live_at','archived_at','expired_at','attempt_count')
+         ORDER BY ordinal_position`,
+      );
+      const testCols = testColsResult.rows.map((r) => r.column_name);
+      const testColList = testCols.join(", ");
+      const testParamList = testCols.map((_, i) => `$${i + 1}`).join(", ");
 
-    delete duplicateData.id;
-    delete duplicateData._id;
-    delete duplicateData.created_at;
-    delete duplicateData.updated_at;
+      const testSelectCols = testCols
+        .map((c) => {
+          if (c === "title") return `$${testCols.length + 1} AS title`;
+          if (c === "slug") return `$${testCols.length + 2} AS slug`;
+          if (c === "status") return `'draft' AS status`;
+          if (c === "is_active") return `false AS is_active`;
+          if (c === "is_live") return `false AS is_live`;
+          if (c === "is_coming_soon") return `false AS is_coming_soon`;
+          return c;
+        })
+        .join(", ");
 
-    const newTest = await dbHelpers.insertOne("tests", normalizeTestPayloadForDb(duplicateData));
-    res.status(201).json({ success: true, data: newTest });
+      const insertTestSql = `INSERT INTO tests (${testColList}) SELECT ${testSelectCols} FROM tests WHERE id = $${testCols.length + 3} RETURNING id, title`;
+      const insertedTest = await client.query(insertTestSql, [newTitle, duplicateSlug, sourceTestId]);
+      const newTestId = insertedTest.rows[0].id;
+
+      // 2. Copy test_sections linked to the source test
+      const sectionColsResult = await client.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'test_sections'
+         AND column_name NOT IN ('id','_id','created_at','updated_at')
+         ORDER BY ordinal_position`,
+      );
+      const sectionCols = sectionColsResult.rows.map((r) => r.column_name);
+      if (sectionCols.length > 0) {
+        const sectionSelectCols = sectionCols
+          .map((c) => (c === "test_id" ? `$1 AS test_id` : c))
+          .join(", ");
+        const sectionColList = sectionCols.join(", ");
+        await client.query(
+          `INSERT INTO test_sections (${sectionColList}) SELECT ${sectionSelectCols} FROM test_sections WHERE test_id = $2`,
+          [newTestId, sourceTestId],
+        );
+      }
+
+      // 3. Copy questions linked to the source test (via questions.test_id) and re-link via test_questions
+      const questionsResult = await client.query(
+        `SELECT * FROM questions WHERE test_id = $1 AND is_active = true`,
+        [sourceTestId],
+      );
+
+      const sectionIdMap = new Map();
+      if (sectionCols.includes("test_id")) {
+        const newSections = await client.query(
+          `SELECT id, name FROM test_sections WHERE test_id = $1`,
+          [newTestId],
+        );
+        const oldSections = await client.query(
+          `SELECT id, name FROM test_sections WHERE test_id = $1`,
+          [sourceTestId],
+        );
+        const oldByName = new Map(oldSections.rows.map((r) => [r.name, r.id]));
+        for (const ns of newSections.rows) {
+          const oldId = oldByName.get(ns.name);
+          if (oldId) sectionIdMap.set(oldId, ns.id);
+        }
+      }
+
+      const questionColsResult = await client.query(
+        `SELECT column_name FROM information_schema.columns
+         WHERE table_name = 'questions'
+         AND column_name NOT IN ('id','_id','created_at','updated_at','deleted_at','deleted_by')
+         ORDER BY ordinal_position`,
+      );
+      const questionCols = questionColsResult.rows.map((r) => r.column_name);
+      const questionColList = questionCols.join(", ");
+
+      const oldToNewQuestionIds = new Map();
+      for (const q of questionsResult.rows) {
+        const overrides = {
+          test_id: newTestId,
+          external_question_id: q.external_question_id ? `${q.external_question_id}-copy` : null,
+          status: "draft",
+          is_active: false,
+        };
+        const selectParts = questionCols.map((c) => {
+          if (c in overrides) {
+            const idx = questionCols.indexOf(c) + 1;
+            return `$${idx} AS ${c}`;
+          }
+          return c;
+        });
+        const selectSql = `SELECT ${selectParts.join(", ")} FROM questions WHERE id = $${questionCols.length + 1}`;
+        const params = questionCols.map((c) => overrides[c] ?? null);
+        params.push(q.id);
+        const insertSql = `INSERT INTO questions (${questionColList}) ${selectSql} RETURNING id`;
+        const inserted = await client.query(insertSql, params);
+        if (inserted.rows[0]) oldToNewQuestionIds.set(q.id, inserted.rows[0].id);
+      }
+
+      // 4. Re-link via test_questions junction (preserve section_id mapping + order)
+      const junctionResult = await client.query(
+        `SELECT * FROM test_questions WHERE test_id = $1`,
+        [sourceTestId],
+      );
+      for (const tq of junctionResult.rows) {
+        const newQuestionId = oldToNewQuestionIds.get(tq.question_id);
+        if (!newQuestionId) continue;
+        const newSectionId = tq.section_id ? (sectionIdMap.get(tq.section_id) || null) : null;
+        await client.query(
+          `INSERT INTO test_questions (test_id, question_id, section_id, order_index, marks, negative_marks)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT DO NOTHING`,
+          [newTestId, newQuestionId, newSectionId, tq.order_index || 0, tq.marks, tq.negative_marks],
+        ).catch(() => { /* ignore junction conflicts */ });
+      }
+
+      return { newTestId, newTitle };
+    });
+
+    await logAuditEvent({
+      action: "create",
+      resource: "tests",
+      resourceId: String(result.newTestId),
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      adminName: req.user?.name,
+      ipAddress: req.headers["x-forwarded-for"]?.split(",")[0] || req.socket?.remoteAddress,
+      userAgent: req.headers["user-agent"],
+      details: { duplicatedFrom: String(sourceTestId), newTitle: result.newTitle, slug: duplicateSlug },
+      status: "success",
+      requestMethod: req.method,
+      requestPath: req.originalUrl,
+      description: `Duplicated test ${sourceTestId} -> ${result.newTestId}`,
+    });
+
+    res.status(201).json({ success: true, data: { newTestId: result.newTestId, newTitle: result.newTitle } });
   } catch (error) {
+    console.error("[Tests] Error duplicating test:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -686,6 +808,47 @@ router.put("/tests/:id/reassign", async (req, res) => {
     const updated = await dbHelpers.updateById("tests", test.id, updateData);
     res.json({ success: true, data: updated });
   } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/admin/tests/bulk-publish - Bulk publish/unpublish tests
+router.post("/tests/bulk-publish", async (req, res) => {
+  try {
+    const { testIds, active } = req.body;
+    if (!Array.isArray(testIds) || testIds.length === 0) {
+      return res.status(400).json({ success: false, message: "testIds array is required" });
+    }
+    if (typeof active !== "boolean") {
+      return res.status(400).json({ success: false, message: "active boolean is required" });
+    }
+
+    const params = [testIds];
+    const result = await pool.query(
+      `UPDATE tests SET is_active = $2, status = $3, updated_at = NOW()
+       WHERE id = ANY($1::int[]) AND is_active != $2`,
+      [testIds, active, active ? "published" : "draft"]
+    );
+
+    await logAuditEvent({
+      action: "update",
+      resource: "tests",
+      resourceId: `bulk:${testIds.length}`,
+      adminId: req.user?.id,
+      adminEmail: req.user?.email,
+      adminName: req.user?.name,
+      ipAddress: req.headers["x-forwarded-for"]?.split(",")[0] || req.socket?.remoteAddress,
+      userAgent: req.headers["user-agent"],
+      details: { testIds, active, updatedCount: result.rowCount },
+      status: "success",
+      requestMethod: req.method,
+      requestPath: req.originalUrl,
+      description: `Bulk ${active ? "published" : "unpublished"} ${result.rowCount} tests`,
+    });
+
+    res.json({ success: true, updated: result.rowCount });
+  } catch (error) {
+    console.error("[Tests] Error bulk publishing:", error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
