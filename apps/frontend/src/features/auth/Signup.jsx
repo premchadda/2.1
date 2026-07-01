@@ -95,8 +95,10 @@ function Signup() {
       return
     }
 
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
-      setFormError('Only Gmail addresses (@gmail.com) are allowed')
+    // Basic email format validation; any provider is allowed (gmail, yahoo, outlook, college mail, etc.)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setFormError('Please enter a valid email address')
       return
     }
 
