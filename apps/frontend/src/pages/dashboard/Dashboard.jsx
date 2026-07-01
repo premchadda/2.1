@@ -379,8 +379,8 @@ function Dashboard() {
     accuracy: analytics?.avgAccuracy || user?.avgAccuracy || user?.accuracy || 0,
     rank: analytics?.rank || user?.rank || user?.bestRank || '-',
     timeSpent: analytics?.totalHours || user?.timeSpent || user?.hoursSpent || 0,
-    streak: analytics?.streak || user?.streak || 3,
-    improvement: analytics?.improvement || '+12%'
+    streak: analytics?.streak || user?.streak || 0,
+    improvement: analytics?.improvement || (analytics?.totalTests > 0 ? '+5%' : '0%')
   }), [analytics, user])
 
   // Helper function to get category emoji for dashboard
