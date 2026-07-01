@@ -10,7 +10,7 @@ import {
   BookOpen, Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft,
   Loader2, Bookmark, Target, AlertCircle, Flame, Star, TrendingUp,
   Zap, Award, RotateCcw, ArrowRight, ArrowLeft, Flag, Lightbulb,
-  Menu, X, Sparkles,
+  ThumbsUp, Menu, X, Sparkles,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════
@@ -614,6 +614,11 @@ function PracticeSession({ session, onExit, onComplete }) {
   const [timeLeft, setTimeLeft] = useState(session.timeLimitSec || 0)
   const [questionStartTime, setQuestionStartTime] = useState(Date.now())
   const [questionElapsed, setQuestionElapsed] = useState(0)
+  const [difficultyHistory, setDifficultyHistory] = useState([])
+  const [markedForReview, setMarkedForReview] = useState(new Set())
+  const [hintsShown, setHintsShown] = useState(new Set())
+  const [tooEasyQuestions, setTooEasyQuestions] = useState(new Set())
+  const [showShortcutsTooltip, setShowShortcutsTooltip] = useState(false)
   const timerRef = useRef(null)
 
   const currentQ = questions[currentIdx]
@@ -649,6 +654,51 @@ function PracticeSession({ session, onExit, onComplete }) {
     return () => clearInterval(t)
   }, [currentIdx, score, session.id])
 
+  // Track difficulty history for adaptive mode feedback
+  useEffect(() => {
+    if (session.mode === 'adaptive' && currentQ?.difficulty) {
+      setDifficultyHistory((h) => [...h, currentQ.difficulty].slice(-5))
+    }
+  }, [currentIdx, currentQ?.difficulty, session.mode])
+
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = (e.target?.tagName || '').toLowerCase()
+      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
+      if (showResult) {
+        if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') { e.preventDefault(); goNext() }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
+        else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); toggleBookmark() }
+        else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleMarkedForReview() }
+        else if (e.key === 's' || e.key === 'S') { e.preventDefault(); handleSkip() }
+        return
+      }
+      const opts = currentQ?.options || []
+      if (e.key >= '1' && e.key <= '4') {
+        const idx = parseInt(e.key, 10) - 1
+        if (idx < opts.length) { e.preventDefault(); setSelectedAnswer(idx) }
+      } else if (e.key === 'Enter') {
+        if (selectedAnswer !== null) { e.preventDefault(); handleCheck() }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault(); goNext()
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault(); goPrev()
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault(); toggleBookmark()
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault(); toggleMarkedForReview()
+      } else if (e.key === 'c' || e.key === 'C') {
+        e.preventDefault(); setSelectedAnswer(null)
+      } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault(); toggleHint()
+      } else if (e.key === 's' || e.key === 'S') {
+        e.preventDefault(); handleSkip()
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [showResult, selectedAnswer, currentIdx, currentQ])
+
   // Guard against out-of-range
   if (!currentQ) {
     // Session ended
@@ -681,9 +731,11 @@ function PracticeSession({ session, onExit, onComplete }) {
       setShowResult(true)
       if (data.isCorrect) {
         setScore((s) => ({ ...s, correct: s.correct + 1 }))
+        toast.success('Correct!', { duration: 3000, icon: '✅' })
       } else {
         setScore((s) => ({ ...s, wrong: s.wrong + 1 }))
         setWrongQuestionIds((ids) => [...ids, currentQ.id])
+        toast.error(`Incorrect — answer: ${String.fromCharCode(65 + data.correctOption)}`, { duration: 3000 })
       }
     } catch (err) {
       toast.error(err?.response?.data?.error || 'Failed to check answer')
@@ -759,6 +811,24 @@ function PracticeSession({ session, onExit, onComplete }) {
     }
   }
 
+  const toggleMarkedForReview = () => {
+    setMarkedForReview((prev) => {
+      const next = new Set(prev)
+      if (next.has(currentIdx)) next.delete(currentIdx)
+      else next.add(currentIdx)
+      return next
+    })
+  }
+
+  const toggleHint = () => {
+    setHintsShown((prev) => {
+      const next = new Set(prev)
+      if (next.has(currentIdx)) next.delete(currentIdx)
+      else next.add(currentIdx)
+      return next
+    })
+  }
+
   const getOptionClass = (index) => {
     if (!showResult) {
       return selectedAnswer === index
@@ -800,6 +870,9 @@ function PracticeSession({ session, onExit, onComplete }) {
           <span className="text-emerald-600 font-black">✓ {score.correct}</span>
           <span className="text-red-500 font-black">✗ {score.wrong}</span>
           <span className="text-slate-400 font-bold hidden sm:inline">— {score.skipped}</span>
+          <span className={`font-bold tabular-nums hidden sm:inline ${questionElapsed > 90 ? 'text-red-500' : questionElapsed > 60 ? 'text-amber-500' : 'text-slate-500'}`}>
+            {Math.floor(questionElapsed / 60)}:{(questionElapsed % 60).toString().padStart(2, '0')}
+          </span>
           {timeLeft > 0 && (
             <span className={`font-black ${timeLeft < 60 ? 'text-red-500' : 'text-slate-600'}`}>⏱ {formatTime(timeLeft)}</span>
           )}
@@ -843,8 +916,27 @@ function PracticeSession({ session, onExit, onComplete }) {
               </span>
             </div>
             <div className="flex items-center gap-2">
+              {markedForReview.has(currentIdx) && (
+                <span className="bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Marked</span>
+              )}
               <button onClick={toggleBookmark} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${bookmarked.has(currentQ.id) ? 'bg-amber-100 text-amber-500' : 'bg-slate-50 text-slate-300 hover:text-amber-500'}`}>
                 <Bookmark className="w-4 h-4" fill={bookmarked.has(currentQ.id) ? 'currentColor' : 'none'} />
+              </button>
+              <button
+                onClick={() => {
+                  if (!tooEasyQuestions.has(currentIdx)) {
+                    setTooEasyQuestions((s) => new Set(s).add(currentIdx))
+                    toast.success('Feedback recorded', { duration: 2000, icon: '👍' })
+                  }
+                }}
+                disabled={tooEasyQuestions.has(currentIdx)}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
+                  tooEasyQuestions.has(currentIdx)
+                    ? 'bg-emerald-100 text-emerald-500 cursor-not-allowed'
+                    : 'bg-slate-50 text-slate-300 hover:text-emerald-500'
+                }`}
+              >
+                <ThumbsUp className="w-4 h-4" />
               </button>
               <button onClick={() => practiceAPI.reportQuestion(currentQ.id, { reason: 'unclear' }).then(() => toast.success('Reported. Thanks!'))} className="w-8 h-8 rounded-lg bg-slate-50 text-slate-300 hover:text-red-500 flex items-center justify-center transition-all">
                 <Flag className="w-4 h-4" />
@@ -859,6 +951,19 @@ function PracticeSession({ session, onExit, onComplete }) {
               dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.questionText || currentQ.question || '') }}
             />
           </div>
+
+          {hintsShown.has(currentIdx) && (currentQ.hint || currentQ.explanation) && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Lightbulb className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-black text-amber-700 uppercase tracking-wider">Hint</span>
+              </div>
+              <div
+                className="text-sm text-amber-800 prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.hint || currentQ.explanation || '') }}
+              />
+            </div>
+          )}
 
           {/* Options */}
           <div role="radiogroup" className="space-y-2.5 mb-5">
@@ -949,6 +1054,19 @@ function PracticeSession({ session, onExit, onComplete }) {
                 >
                   Check Answer
                 </button>
+                {(currentQ.hint || currentQ.explanation) && (
+                  <button
+                    type="button"
+                    onClick={toggleHint}
+                    className={`px-3 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1 transition-all ${
+                      hintsShown.has(currentIdx)
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Lightbulb className="w-3.5 h-3.5" /> {hintsShown.has(currentIdx) ? 'Hide Hint' : 'Hint'}
+                  </button>
+                )}
                 <button
                   onClick={handleSkip}
                   className="px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100"
@@ -964,6 +1082,39 @@ function PracticeSession({ session, onExit, onComplete }) {
                 {currentIdx + 1 >= total ? 'Finish Session →' : 'Next Question →'}
               </button>
             )}
+          </div>
+
+          <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-slate-400 font-medium">
+            <span>⌨️ Shortcuts: 1-4 select, Enter check, ← → navigate, M mark, C clear, H hint</span>
+            <div className="relative">
+              <button
+                onClick={() => setShowShortcutsTooltip((v) => !v)}
+                className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-black flex items-center justify-center hover:bg-slate-300 transition-colors"
+              >
+                ?
+              </button>
+              {showShortcutsTooltip && (
+                <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900 text-white text-[10px] rounded-xl p-3 shadow-lg z-20">
+                  <div className="font-black mb-1.5 text-xs">Keyboard Shortcuts</div>
+                  <div className="space-y-1">
+                    <div><span className="font-bold text-indigo-300">1-4</span> Select answer</div>
+                    <div><span className="font-bold text-indigo-300">← →</span> Prev / Next</div>
+                    <div><span className="font-bold text-indigo-300">Enter</span> Check answer</div>
+                    <div><span className="font-bold text-indigo-300">M</span> Mark for review</div>
+                    <div><span className="font-bold text-indigo-300">C</span> Clear response</div>
+                    <div><span className="font-bold text-indigo-300">H</span> Toggle hint</div>
+                    <div><span className="font-bold text-indigo-300">B</span> Bookmark</div>
+                    <div><span className="font-bold text-indigo-300">S</span> Skip</div>
+                  </div>
+                  <button
+                    onClick={() => setShowShortcutsTooltip(false)}
+                    className="absolute top-1 right-2 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
