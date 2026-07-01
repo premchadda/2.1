@@ -191,8 +191,6 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:3001",
   "http://localhost:3002",
-  ...localIPs.map((ip) => `http://${ip}:3000`),
-  ...localIPs.map((ip) => `http://${ip}:5173`),
 ].filter(Boolean);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -297,7 +295,7 @@ app.use(cors({
     if (isDevelopment && origin && process.env.REQUEST_METHOD !== "OPTIONS") logger.debug(`[CORS Check] Origin: ${origin}`);
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
-    if (isDevelopment && isLocalNetworkOrigin(origin)) {
+    if (isLocalNetworkOrigin(origin)) {
       logger.debug(`[CORS] Allowed LAN: ${origin}`);
       return callback(null, true);
     }
@@ -500,7 +498,7 @@ import { mountExtractedRoutes } from "./api/routes/public-routes-index.js";
 import logger from "./infrastructure/logger/logger.js";
 mountExtractedRoutes(app);
 
-app.use("/api/adaptive-test", adaptiveTestRoutes);
+app.use("/api/adaptive", adaptiveTestRoutes);
 app.use("/api/ai/mentor", aiMentorRoutes);
 app.use("/api/ai/explanation", aiExplanationRoutes);
 app.use("/api/ai/logs", aiGenerationLogRoutes);
