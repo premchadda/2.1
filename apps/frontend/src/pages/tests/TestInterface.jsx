@@ -112,7 +112,7 @@ function TestInterface() {
             id: testId,
             _id: testId,
             title: reviewResultData.testTitle || 'Test Review',
-            duration: Math.ceil((reviewResultData.timeSpent || reviewResultData.timeTaken || 0) / 60) || 60
+            duration: Math.ceil((reviewResultData.timeSpent || reviewResultData.timeTaken || 0) / 60)
           })
           setQuestions(normalizedQuestions)
           setCurrentSection(normalizedQuestions[0]?.section || 'General')

@@ -140,32 +140,22 @@ function Analysis() {
     }))
   }, [analytics])
 
-  // Difficulty breakdown (derived or fallback to calculated estimates)
+  // Difficulty breakdown — uses real backend data when available; otherwise
+  // returns zeros rather than fabricating a 40/35/25 split that misleads users
+  // into thinking we have per-difficulty stats when we don't.
   const difficultyBreakdown = useMemo(() => {
     if (analytics?.difficultyBreakdown) {
       return analytics.difficultyBreakdown
     }
-    // Derive from overall stats if backend doesn't provide it
-    const total = analytics?.totalQuestions || 0
-    if (total === 0) return { easy: 0, medium: 0, hard: 0, easyAcc: 0, mediumAcc: 0, hardAcc: 0 }
-    return {
-      easy: Math.round(total * 0.4),
-      medium: Math.round(total * 0.35),
-      hard: Math.round(total * 0.25),
-      easyAcc: Math.min(95, (analytics?.avgAccuracy || 0) + 15),
-      mediumAcc: analytics?.avgAccuracy || 0,
-      hardAcc: Math.max(10, (analytics?.avgAccuracy || 0) - 25),
-    }
+    return { easy: 0, medium: 0, hard: 0, easyAcc: 0, mediumAcc: 0, hardAcc: 0 }
   }, [analytics])
 
-  // Score trend over recent tests (sparkline data)
+  // Score trend over recent tests (sparkline data) — empty array when no data
   const scoreTrend = useMemo(() => {
     if (analytics?.recentTests && analytics.recentTests.length > 0) {
       return analytics.recentTests.slice(0, 10).map(t => t.score || 0)
     }
-    // Fallback: generate from avg accuracy with slight variation
-    const base = analytics?.avgScore || analytics?.avgAccuracy || 0
-    return Array.from({ length: 5 }, (_, i) => Math.max(0, base + (i - 2) * 3))
+    return []
   }, [analytics])
 
   // Consistency tracker: last 7 days activity (derived from recentTests dates or streak)
@@ -485,11 +475,17 @@ function Analysis() {
                 </div>
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">Score Trend</h2>
               </div>
-              <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
-                {scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? '↗' : '↘'} {Math.abs(scoreTrend[scoreTrend.length - 1] - scoreTrend[0])} pts
-              </span>
+              {scoreTrend.length > 1 && (
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+                  {scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? '↗' : '↘'} {Math.abs(scoreTrend[scoreTrend.length - 1] - scoreTrend[0])} pts
+                </span>
+              )}
             </div>
-            <ScoreSparkline data={scoreTrend} />
+            {scoreTrend.length > 0 ? (
+              <ScoreSparkline data={scoreTrend} />
+            ) : (
+              <p className="text-xs text-gray-400 py-8 text-center">No tests attempted yet</p>
+            )}
             <div className="flex justify-between text-[10px] text-gray-400 mt-2">
               <span>Oldest</span>
               <span>Recent Tests →</span>

@@ -25,8 +25,9 @@ function Home() {
   const [liveTestsLoading, setLiveTestsLoading] = useState(true)
   const [platformStats, setPlatformStats] = useState({ activeLearners: 0, mockTests: 0, examsCovered: 0, satisfaction: null })
 
-  // Fetch data from API
+  // Fetch data from API — skip for authenticated users (they get redirected to /dashboard)
   useEffect(() => {
+    if (isAuthenticated) return
     const fetchData = async () => {
       try {
         const [series, allTests, materials, examsResponse, categoriesResponse, statsResponse] = await Promise.all([
@@ -63,7 +64,7 @@ function Home() {
       }
     }
     fetchData()
-  }, [])
+  }, [isAuthenticated])
 
   // Redirect logged-in users to dashboard
   useEffect(() => {
@@ -72,8 +73,9 @@ function Home() {
     }
   }, [navigate, isAuthenticated])
 
-  // Fetch live tests and free quizzes
+  // Fetch live tests and free quizzes — skip for authenticated users (redirected to /dashboard)
   useEffect(() => {
+    if (isAuthenticated) return
     const fetchLiveTests = async () => {
       try {
         setLiveTestsLoading(true)
@@ -92,7 +94,7 @@ function Home() {
       }
     }
     fetchLiveTests()
-  }, [])
+  }, [isAuthenticated])
 
   // Create category map for quick lookup
   const categoryMap = useMemo(() => {
