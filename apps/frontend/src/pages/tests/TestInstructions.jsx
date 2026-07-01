@@ -158,7 +158,7 @@ function TestInstructions() {
     {
       icon: BarChart3,
       title: 'Marking Scheme',
-      description: '+1 correct, -0.25 incorrect',
+      description: `+${(test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? (test.totalMarks / test.totalQuestions) : 2))} correct, -${(test?.negativeMarking ?? 0.25)} incorrect`,
       detail: 'Negative marking applies for wrong answers. No marks deducted for unattempted questions.'
     },
     {
