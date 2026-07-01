@@ -4,10 +4,11 @@ import { toast } from 'react-hot-toast'
 import { apiClient, getTestById, getQuestionsByTestId } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { useAuth } from '../../shared/providers/AuthContext'
+import CalculatorWidget from '../../shared/components/common/Calculator'
 import {
   Clock, ChevronLeft, ChevronRight, Flag, Check,
   AlertTriangle, Menu, X, Globe, BookOpen, Eye, EyeOff,
-  Pause, Play, ArrowLeft, LayoutDashboard
+  Pause, Play, ArrowLeft, LayoutDashboard, Calculator as CalcIcon
 } from 'lucide-react'
 
 function TestInterface() {
@@ -41,6 +42,7 @@ function TestInterface() {
   const [interactiveReviewEnabled, setInteractiveReviewEnabled] = useState(false)
   const [showReviewExplanation, setShowReviewExplanation] = useState(true)
   const [reviewComparisons, setReviewComparisons] = useState({})
+  const [showCalculator, setShowCalculator] = useState(false)
 
   // Question time tracking
   const [questionTimers, setQuestionTimers] = useState({})
@@ -486,6 +488,77 @@ function TestInterface() {
       return () => { document.body.style.overflow = prev }
     }
   }, [showPauseModal])
+
+  // Keyboard shortcuts for power users (1-4 to select options, arrows to
+  // navigate, M to mark for review, C to clear, Ctrl+Enter for next).
+  // Disabled during review mode, while paused, or when an input/textarea has focus.
+  useEffect(() => {
+    if (reviewMode || loading || isPaused || showPauseModal) return
+
+    const handleKeyDown = (e) => {
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target?.isContentEditable) return
+      if (showCalculator) return // let calculator handle its own keys
+
+      const currentQ = questions[currentQuestion]
+      if (!currentQ) return
+
+      // 1-4 / 1-6: select option by index
+      if (/^[1-9]$/.test(e.key)) {
+        const idx = parseInt(e.key) - 1
+        const opts = currentQ.options
+        const optCount = Array.isArray(opts) ? opts.length : (typeof opts === 'object' ? Object.keys(opts).length : 0)
+        if (idx < optCount) {
+          e.preventDefault()
+          handleAnswer(idx)
+        }
+        return
+      }
+
+      // ArrowLeft/ArrowRight: navigate questions
+      if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        nextQuestion()
+        return
+      }
+      if (e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        prevQuestion()
+        return
+      }
+
+      // M: toggle mark for review
+      if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        toggleReview()
+        return
+      }
+
+      // C: clear response
+      if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault()
+        clearResponse()
+        return
+      }
+
+      // Ctrl/Cmd + Enter: next question
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault()
+        nextQuestion()
+        return
+      }
+
+      // Ctrl/Cmd + Shift + Enter: submit
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'Enter') {
+        e.preventDefault()
+        confirmSubmit()
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [reviewMode, loading, isPaused, showPauseModal, showCalculator, questions, currentQuestion, handleAnswer, nextQuestion, prevQuestion, toggleReview, clearResponse, confirmSubmit])
 
   // Track question time when changing questions
   useEffect(() => {
@@ -973,6 +1046,16 @@ function TestInterface() {
                         <Globe className="w-3 h-3 text-gray-400" />
                         <span className="text-[11px] font-bold text-gray-600">{language.toUpperCase()}</span>
                       </button>
+                      {!reviewMode && (
+                        <button
+                          onClick={() => setShowCalculator(s => !s)}
+                          title="Calculator (for quantitative questions)"
+                          className={`flex items-center gap-1 h-7 px-2 rounded-md border transition-colors ${showCalculator ? 'border-indigo-600 bg-indigo-50 text-indigo-700' : 'border-gray-200 bg-gray-50 hover:bg-indigo-50 hover:border-indigo-300 text-gray-600'}`}
+                        >
+                          <CalcIcon className="w-3 h-3" />
+                          <span className="text-[11px] font-bold hidden sm:inline">Calc</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1468,6 +1551,9 @@ function TestInterface() {
           </div>
         </div>
       )}
+
+      {/* On-screen calculator for quantitative questions */}
+      <CalculatorWidget isOpen={showCalculator} onToggle={() => setShowCalculator(false)} />
     </div>
   )
 }
