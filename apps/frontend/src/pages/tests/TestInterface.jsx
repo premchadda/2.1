@@ -28,7 +28,10 @@ function TestInterface() {
   const [visitedQuestions, setVisitedQuestions] = useState(new Set([0]))
   const [timeLeft, setTimeLeft] = useState(0)
   const [showPalette, setShowPalette] = useState(false)
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState(() => {
+    const saved = localStorage.getItem('trstprep_language')
+    return saved === 'hi' ? 'hi' : 'en'
+  })
   const [showInstructions, setShowInstructions] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isPaused, setIsPaused] = useState(false)

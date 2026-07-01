@@ -777,7 +777,7 @@ export default function Settings() {
                       { code: 'hi', name: 'Hindi', native: 'हिंदी' },
                     ].map(({ code, name, native }) => (
                       <button key={code}
-                        onClick={() => { localStorage.setItem('trstprep_language', code); }}
+                        onClick={() => { localStorage.setItem('trstprep_language', code); setSelectedLanguage(code); }}
                         className={`w-full flex items-center justify-between py-3 px-4 rounded-xl transition-colors ${selectedLanguage === code ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'}`}>
                         <div>
                           <p className="text-sm font-medium text-gray-900 dark:text-white">{name}</p>
