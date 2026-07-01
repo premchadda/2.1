@@ -50,8 +50,6 @@ function Dashboard() {
           .slice(0, 3)
         setTopPerformers(sortedPerformers)
       } catch (error) {
-        console.error('Failed to fetch top performers:', error)
-        // Show empty state instead of fake data
         setTopPerformers([])
       } finally {
         setTopPerformersLoading(false)
@@ -250,8 +248,6 @@ function Dashboard() {
         })
         setLiveTests(mappedLiveTests)
       } catch (error) {
-        console.error('Failed to fetch live tests:', error)
-        // Set empty array on error - no mock data
         setLiveTests([])
       } finally {
         setLiveTestsLoading(false)
@@ -286,8 +282,6 @@ function Dashboard() {
           })
         setFreeQuizzes(mappedQuizzes)
       } catch (error) {
-        console.error('Failed to fetch free quizzes:', error)
-        // Set empty array on error - no mock data
         setFreeQuizzes([])
       } finally {
         setFreeQuizzesLoading(false)

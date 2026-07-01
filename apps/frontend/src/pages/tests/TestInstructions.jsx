@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getTests, getTestSeries, getQuestionsByTestId } from '../../shared/lib/dataService'
@@ -6,7 +6,7 @@ import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { toast } from 'react-hot-toast'
 import { 
   Clock, AlertCircle, CheckCircle, BookOpen, Eye,
-  ChevronRight, ArrowRight, FileText, BarChart3, Timer, AlertTriangle, Info,
+  ChevronRight, ChevronDown, ArrowRight, FileText, BarChart3, Timer, AlertTriangle, Info,
   Shield, Monitor, Award, Zap, Construction
 } from 'lucide-react'
 import { checkFeatureAccess } from '../../shared/utils/pass-helpers'
@@ -29,6 +29,16 @@ function TestInstructions() {
   const [actualQuestionCount, setActualQuestionCount] = useState(null)
   const [questionsLoading, setQuestionsLoading] = useState(true)
   const [noQuestions, setNoQuestions] = useState(false)
+  const [showSyllabus, setShowSyllabus] = useState(false)
+  const [countdown, setCountdown] = useState(null)
+  const [startDateCountdown, setStartDateCountdown] = useState(null)
+  const [language, setLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('trstprep_language') || 'EN'
+    } catch {
+      return 'EN'
+    }
+  })
 
   // Check if user came back from test interface with no questions
   useEffect(() => {
@@ -71,7 +81,6 @@ function TestInstructions() {
                 setNoQuestions(true)
               }
             } catch (err) {
-              console.error('Error fetching questions:', err)
               setActualQuestionCount(0)
               setNoQuestions(true)
             }
@@ -82,7 +91,7 @@ function TestInstructions() {
           setQuestionsLoading(false)
         }
       } catch (error) {
-        console.error('Error fetching test:', error)
+        // test fetch failed silently
       } finally {
         setLoading(false)
       }
@@ -131,11 +140,81 @@ function TestInstructions() {
 
   const handleStartTest = () => {
     if (agreedToRules && !noQuestions) {
-      toast.success('Test starting... get ready!')
-      navigate(`/test/${seriesId}/${testId}`)
+      setCountdown(3)
     } else if (!noQuestions) {
       toast.error('Please agree to the rules first')
     }
+  }
+
+  useEffect(() => {
+    if (countdown === null) return
+    if (countdown === 0) {
+      toast.success('Test starting... get ready!')
+      navigate(`/test/${seriesId}/${testId}`)
+      return
+    }
+    const id = setInterval(() => {
+      setCountdown((prev) => (prev === null ? null : prev - 1))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [countdown, navigate, seriesId, testId])
+
+  const cancelCountdown = useCallback(() => {
+    setCountdown(null)
+  }, [])
+
+  useEffect(() => {
+    if (!test?.startDate) {
+      setStartDateCountdown(null)
+      return
+    }
+    const startTime = new Date(test.startDate).getTime()
+    if (isNaN(startTime)) {
+      setStartDateCountdown(null)
+      return
+    }
+    const updateCountdown = () => {
+      const now = Date.now()
+      const diff = startTime - now
+      if (diff <= 0) {
+        setStartDateCountdown({ hours: 0, minutes: 0, seconds: 0, expired: true })
+        return
+      }
+      const hours = Math.floor(diff / 3600000)
+      const minutes = Math.floor((diff % 3600000) / 60000)
+      const seconds = Math.floor((diff % 60000) / 1000)
+      setStartDateCountdown({ hours, minutes, seconds, expired: false })
+    }
+    updateCountdown()
+    const id = setInterval(updateCountdown, 1000)
+    return () => clearInterval(id)
+  }, [test?.startDate])
+
+  const handleLanguageChange = (lang) => {
+    setLanguage(lang)
+    try {
+      localStorage.setItem('trstprep_language', lang)
+    } catch (err) {
+      // language save failed silently
+    }
+  }
+
+  const testType = useMemo(() => {
+    if (!test) return 'Mock Test'
+    const tags = Array.isArray(test.tags) ? test.tags.map((t) => String(t).toLowerCase()) : []
+    if (test.isLive) return 'Live Test'
+    if (tags.includes('quiz')) return 'Quiz'
+    if (tags.includes('pyq') || tags.includes('pyp')) return 'Previous Year Paper'
+    if (test.isPractice) return 'Practice'
+    return 'Mock Test'
+  }, [test])
+
+  const testTypeStyles = {
+    'Live Test': 'bg-red-100 text-red-700',
+    Quiz: 'bg-purple-100 text-purple-700',
+    'Previous Year Paper': 'bg-blue-100 text-blue-700',
+    Practice: 'bg-green-100 text-green-700',
+    'Mock Test': 'bg-tcs-primary/10 text-tcs-primary',
   }
 
   const handleGoBack = useCallback(() => {
@@ -273,8 +352,13 @@ function TestInstructions() {
               <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
                 <FileText className="w-5 h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-lg font-semibold text-white">{test.title}</h1>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg font-semibold text-white">{test.title}</h1>
+                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${testTypeStyles[testType] || testTypeStyles['Mock Test']}`}>
+                    {testType}
+                  </span>
+                </div>
                 <p className="text-tcs-text-secondary text-sm opacity-90">{series?.title || 'Test Series'}</p>
               </div>
             </div>
@@ -314,8 +398,98 @@ function TestInstructions() {
                   PRO
                 </span>
               )}
+              {startDateCountdown && !startDateCountdown.expired && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Timer className="w-4 h-4 text-red-500 animate-pulse" />
+                  <span className="text-tcs-text-secondary">Starts in:</span>
+                  <span className="font-mono font-bold text-tcs-text-primary">
+                    {String(startDateCountdown.hours).padStart(2, '0')}:{String(startDateCountdown.minutes).padStart(2, '0')}:{String(startDateCountdown.seconds).padStart(2, '0')}
+                  </span>
+                </div>
+              )}
+              <div className="flex items-center gap-1 ml-auto">
+                <span className="text-tcs-text-secondary text-sm">Language:</span>
+                {Array.isArray(test.languages) && test.languages.length > 1 ? (
+                  <select
+                    value={language}
+                    onChange={(e) => handleLanguageChange(e.target.value)}
+                    className="px-2 py-1 text-xs font-semibold rounded-lg border border-tcs-border bg-white text-tcs-text-primary focus:outline-none focus:ring-2 focus:ring-tcs-primary"
+                  >
+                    {test.languages.map((lang) => (
+                      <option key={typeof lang === 'string' ? lang : lang.code || lang.value} value={typeof lang === 'string' ? lang : lang.code || lang.value}>
+                        {typeof lang === 'string' ? lang : lang.label || lang.name || lang.code || lang.value}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="inline-flex rounded-lg border border-tcs-border overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => handleLanguageChange('EN')}
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        language === 'EN' || language === 'en'
+                          ? 'bg-tcs-primary text-white'
+                          : 'bg-white text-tcs-text-secondary hover:bg-tcs-surface'
+                      }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLanguageChange('HI')}
+                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        language === 'HI' || language === 'hi'
+                          ? 'bg-tcs-primary text-white'
+                          : 'bg-white text-tcs-text-secondary hover:bg-tcs-surface'
+                      }`}
+                    >
+                      HI
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Section Breakdown */}
+          {Array.isArray(test.sections) && test.sections.length > 0 && (
+            <div className="bg-white border-b border-tcs-border px-5 py-4">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-tcs-primary" />
+                <h2 className="text-sm font-semibold text-tcs-text-primary">Section Breakdown</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-tcs-border">
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Section Name</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Questions</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Marks</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Time Limit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {test.sections.map((section, index) => (
+                      <tr key={index} className="border-b border-tcs-border last:border-b-0 hover:bg-tcs-surface/50 transition-colors">
+                        <td className="py-2.5 px-3 font-medium text-tcs-text-primary">
+                          {section.name || `Section ${index + 1}`}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
+                          {section.questionCount ?? 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
+                          {section.totalMarks ?? 0}
+                        </td>
+                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
+                          {section.timeLimit != null ? `${section.timeLimit} min` : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Questions Not Available Warning Banner */}
           {noQuestions && (

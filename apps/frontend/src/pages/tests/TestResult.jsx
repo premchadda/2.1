@@ -1,5 +1,6 @@
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
+import { toast } from 'react-hot-toast'
 import { apiClient } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { 
@@ -22,6 +23,9 @@ function TestResult() {
   const [solutionFilter, setSolutionFilter] = useState('all')
   const [expandedSolutions, setExpandedSolutions] = useState({})
   const [isProUser, setIsProUser] = useState(false)
+  const [reportingQuestionId, setReportingQuestionId] = useState(null)
+  const [reportReason, setReportReason] = useState('')
+  const [reportedQuestions, setReportedQuestions] = useState(new Set())
 
   const attemptIdFromState = location.state?.attemptId
   const [showConfetti, setShowConfetti] = useState(false)
@@ -67,7 +71,6 @@ function TestResult() {
           setError('Test result not found')
         }
       } catch (err) {
-        console.error('Error fetching result:', err)
         setError('Failed to load test result')
       } finally {
         setLoading(false)
@@ -85,7 +88,7 @@ function TestResult() {
       const response = await apiClient.get('/api/subscriptions/status')
       setIsProUser(response.data.isProUser || false)
     } catch (err) {
-      console.error('Error fetching subscription status:', err)
+      // subscription status fetch failed silently
     }
   }
 
@@ -227,6 +230,11 @@ function TestResult() {
     })
   }
 
+  const handleReportQuestion = (qId) => {
+    setReportedQuestions(prev => new Set([...prev, qId]))
+    toast.success('Question reported for review')
+  }
+
   const maxScore = (result.totalQuestions || 0) * 2
   const scorePct = maxScore > 0 ? ((result.score || 0) / maxScore) * 100 : 0
   const getBadge = (pct) => {
@@ -237,6 +245,24 @@ function TestResult() {
   }
   const perfBadge = getBadge(scorePct)
   const BadgeIcon = perfBadge.icon
+
+  const getEncouragingCopy = () => {
+    if (scorePct >= 90) return "Outstanding! You're exam-ready!"
+    if (scorePct >= 70) return "Great performance! A bit more practice and you'll ace it."
+    if (scorePct >= 50) return "Good foundation. Focus on your weak areas to level up."
+    return "Keep going! Every attempt makes you stronger."
+  }
+
+  const getAttemptDelta = () => {
+    if (result.previousScore === undefined || result.previousScore === null) return null
+    if (maxScore <= 0) return null
+    const previousPct = (result.previousScore / maxScore) * 100
+    return Math.round(scorePct - previousPct)
+  }
+
+  const attemptDelta = getAttemptDelta()
+  const sectionTimings = result.sectionTimings || null
+
   const radius = 45
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference - (scorePct / 100) * circumference
@@ -296,6 +322,11 @@ function TestResult() {
                   <BadgeIcon className="w-3.5 h-3.5" />{perfBadge.label}
                 </span>
                 <span className="text-slate-400 text-sm font-medium">{(result.score || 0).toFixed(1)} / {maxScore}</span>
+                {attemptDelta !== null && (
+                  <span className={`text-xs font-black px-2 py-0.5 rounded-full ${attemptDelta >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                    {attemptDelta >= 0 ? '+' : ''}{attemptDelta}%
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -402,8 +433,13 @@ function TestResult() {
                   <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-xs font-bold mb-3 shadow-lg shadow-black/20`}>
                     <BadgeIcon className="w-3.5 h-3.5" />{perfBadge.label}
                   </div>
+                  {attemptDelta !== null && (
+                    <span className={`inline-flex items-center ml-2 px-2 py-0.5 rounded-full text-xs font-black ${attemptDelta >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                      {attemptDelta >= 0 ? '+' : ''}{attemptDelta}%
+                    </span>
+                  )}
                   <h2 className="text-2xl md:text-3xl font-extrabold mb-1 tracking-tight">{result.testTitle || 'Test Completed!'}</h2>
-                  <p className="text-slate-400 text-sm max-w-lg">Detailed breakdown of your performance, accuracy, and areas for improvement.</p>
+                  <p className="text-emerald-300 text-sm font-bold max-w-lg">{getEncouragingCopy()}</p>
                 </div>
               </div>
               {/* Quick stat pills */}
@@ -666,6 +702,41 @@ function TestResult() {
                 </div>
               </div>
             )}
+
+            {sectionTimings && sectionTimings.length > 0 && (
+              <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mt-4">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2"><Timer className="w-4 h-4" /> Per-Section Time Breakdown</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100">
+                        <th className="text-left py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Section</th>
+                        <th className="text-right py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Time Spent</th>
+                        <th className="text-right py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avg Time/Q</th>
+                        <th className="text-right py-2 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sectionTimings.map((s, i) => {
+                        const sectionName = s.section || s.name || `Section ${i + 1}`
+                        const timeSpent = s.timeSpent || s.time || 0
+                        const questionCount = s.questions || s.total || 0
+                        const avgTime = questionCount > 0 ? Math.round(timeSpent / questionCount) : 0
+                        const score = s.score !== undefined ? s.score : (s.accuracy !== undefined ? s.accuracy : null)
+                        return (
+                          <tr key={i} className="border-b border-gray-50 last:border-0">
+                            <td className="py-2.5 font-bold text-gray-800">{sectionName}</td>
+                            <td className="py-2.5 text-right text-gray-600 font-medium">{formatTime(timeSpent)}</td>
+                            <td className="py-2.5 text-right text-gray-600 font-medium">{avgTime}s</td>
+                            <td className="py-2.5 text-right font-bold text-gray-800">{score !== null ? `${score}%` : '-'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* ── Section: Solutions ── */}
@@ -729,6 +800,19 @@ function TestResult() {
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {q.isMarked && <Flag className="w-4 h-4 text-purple-500" />}
+                            {reportedQuestions.has(q.id || q._id || idx) ? (
+                              <span className="w-7 h-7 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center" title="Reported">
+                                <Flag className="w-3.5 h-3.5 fill-amber-500" />
+                              </span>
+                            ) : (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleReportQuestion(q.id || q._id || idx) }}
+                                className="w-7 h-7 rounded-lg bg-gray-100 text-gray-400 hover:bg-amber-50 hover:text-amber-500 flex items-center justify-center transition-colors"
+                                title="Report question"
+                              >
+                                <Flag className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <span className={`px-2 py-1 text-[10px] font-black uppercase tracking-wider rounded-md ${
                               isSkipped ? 'bg-slate-100 text-slate-600' : isCorrect ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
                             }`}>{isSkipped ? 'Skipped' : isCorrect ? 'Correct' : 'Wrong'}</span>

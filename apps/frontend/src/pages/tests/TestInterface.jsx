@@ -8,7 +8,7 @@ import CalculatorWidget from '../../shared/components/common/Calculator'
 import {
   Clock, ChevronLeft, ChevronRight, Flag, Check,
   AlertTriangle, Menu, X, Globe, BookOpen, Eye, EyeOff,
-  Pause, Play, ArrowLeft, LayoutDashboard, Calculator as CalcIcon
+  Pause, Play, ArrowLeft, LayoutDashboard, Calculator as CalcIcon, ZoomIn
 } from 'lucide-react'
 
 function TestInterface() {
@@ -43,6 +43,9 @@ function TestInterface() {
   const [showReviewExplanation, setShowReviewExplanation] = useState(true)
   const [reviewComparisons, setReviewComparisons] = useState({})
   const [showCalculator, setShowCalculator] = useState(false)
+  const [showImageZoom, setShowImageZoom] = useState(false)
+  const [showSubmitSummary, setShowSubmitSummary] = useState(false)
+  const [disableNegativeMarking, setDisableNegativeMarking] = useState(false)
 
   // Question time tracking
   const [questionTimers, setQuestionTimers] = useState({})
@@ -216,7 +219,6 @@ function TestInterface() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch test:', error)
         // Check if unauthorized - redirect to login
         if (error?.response?.status === 401) {
           navigate('/login', { state: { from: `/test/${seriesId}/${testId}`, message: 'Please login to access this test' } })
@@ -309,7 +311,7 @@ function TestInterface() {
           currentSection: s.currentSection
         })
       } catch (err) {
-        console.warn('Autosave failed:', err)
+        // autosave failed silently
       }
     }
 
@@ -368,7 +370,7 @@ function TestInterface() {
       })
       lastSaveRef.current = Date.now()
     } catch (err) {
-      console.warn('Question progress save failed:', err)
+      // progress save failed silently
     }
   }, [attemptId, answers, timeLeft, questions, markedForReview, questionTimers, trackQuestionTime, computeSectionTimers, currentSection])
 
@@ -382,7 +384,7 @@ function TestInterface() {
         eventData: { ...data, timestamp: Date.now() }
       })
     } catch (err) {
-      console.warn('Anti-cheat event logging failed:', err)
+      // anti-cheat event logging failed silently
     }
   }, [attemptId, currentQuestion])
 
@@ -411,7 +413,7 @@ function TestInterface() {
       setShowPauseModal(true)
       await logAntiCheatEvent('pause', { timeLeft })
     } catch (err) {
-      console.error('Pause failed:', err)
+      // pause failed silently
     }
   }, [attemptId, timeLeft, currentQuestion, questions, questionTimers, trackQuestionTime, logAntiCheatEvent])
 
@@ -445,7 +447,7 @@ function TestInterface() {
       questionStartTimeRef.current = Date.now()
       await logAntiCheatEvent('resume', { pausedDuration: 0 })
     } catch (err) {
-      console.error('Resume failed:', err)
+      // resume failed silently
     }
   }, [attemptId, logAntiCheatEvent, questions, computeSectionTimers])
 
@@ -621,7 +623,7 @@ function TestInterface() {
         })
         lastSaveRef.current = now
       } catch (err) {
-        console.warn('Periodic save failed:', err)
+        // periodic save failed silently
       }
     }
 
@@ -675,6 +677,26 @@ function TestInterface() {
     review: markedForReview.size
   }
 
+  const getSectionTimeRemaining = (section) => {
+    if (reviewMode) return null
+    const limit = test?.sectionTimeLimits?.[section]
+    if (!limit) return null
+    const spent = sectionTimers[section] || 0
+    return Math.max(0, limit - spent)
+  }
+
+  const getSectionTimeColor = (remaining) => {
+    if (remaining > 300) return 'bg-green-100 text-green-700 border-green-200'
+    if (remaining > 120) return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+    return 'bg-red-100 text-red-700 border-red-200'
+  }
+
+  const formatSectionTime = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
+
   const totalReviewTime = reviewResultData?.timeSpent || reviewResultData?.timeTaken || 0
   const reviewCurrentResponse = reviewComparisons[currentQuestion]
 
@@ -724,9 +746,7 @@ function TestInterface() {
 
   const confirmSubmit = () => {
     if (reviewMode) return
-    if (window.confirm('Are you sure you want to submit the test?')) {
-      handleSubmit()
-    }
+    setShowSubmitSummary(true)
   }
 
   const handleSubmit = async () => {
@@ -783,7 +803,6 @@ function TestInterface() {
         state: { attemptId: submittedAttemptId }
       })
     } catch (error) {
-      console.error('Submit failed:', error)
       alert(error?.response?.data?.message || 'Failed to submit test. Please try again.')
     } finally {
       setIsSubmitting(false)
@@ -826,7 +845,7 @@ function TestInterface() {
   }
 
   const currentQ = questions[currentQuestion]
-  const questionImageUrl = currentQ?.imageUrl || currentQ?.questionImageUrl || currentQ?.image_url || null
+  const questionImageUrl = currentQ?.image || currentQ?.imageUrl || currentQ?.questionImageUrl || currentQ?.image_url || null
   const currentSectionIndexes = questions
     .map((question, index) => ({ question, index }))
     .filter(({ question }) => question.section === currentSection)
@@ -1018,6 +1037,7 @@ function TestInterface() {
                       <span className="w-px h-3 bg-gray-300 hidden sm:inline mr-1" />
                       {sections.map(section => {
                         const isActive = currentSection === section
+                        const sectionRemaining = getSectionTimeRemaining(section)
                         return (
                           <button
                             key={section}
@@ -1031,6 +1051,11 @@ function TestInterface() {
                             <span className={`text-xs font-bold leading-none truncate max-w-[120px]`}>
                               {section}
                             </span>
+                            {sectionRemaining !== null && (
+                              <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isActive ? 'bg-white/20 text-white' : getSectionTimeColor(sectionRemaining)}`}>
+                                {formatSectionTime(sectionRemaining)}
+                              </span>
+                            )}
                           </button>
                         )
                       })}
@@ -1077,6 +1102,12 @@ function TestInterface() {
                     <span className="hidden md:inline text-gray-500 text-[11px] font-medium">
                       +{(test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? (test.totalMarks / test.totalQuestions) : 2)).toFixed(2)} / -{(test?.negativeMarking ?? 0.25).toFixed(2)}
                     </span>
+                    {!reviewMode && (test?.negativeMarking ?? 0.25) > 0 && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-bold">
+                        <AlertTriangle className="w-3 h-3" />
+                        -{(test?.negativeMarking ?? 0.25).toFixed(2)} for wrong
+                      </span>
+                    )}
                     {(!reviewMode || !interactiveReviewEnabled || reviewCurrentResponse !== undefined) && (
                       <>
                         <div className="h-3 w-px bg-gray-300"></div>
@@ -1100,13 +1131,20 @@ function TestInterface() {
                 {/* Question Text */}
                 <div className="prose max-w-none mb-5 w-full overflow-hidden">
                   {questionImageUrl && (
-                    <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-1.5">
+                    <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-1.5 relative">
                       <img
                         src={questionImageUrl}
                         alt={`Question ${currentQuestion + 1}`}
-                        className="max-h-60 w-full object-contain rounded"
+                        className="max-h-60 w-full object-contain rounded cursor-zoom-in"
                         loading="lazy"
+                        onClick={() => setShowImageZoom(true)}
                       />
+                      <button
+                        onClick={() => setShowImageZoom(true)}
+                        className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center transition-colors"
+                      >
+                        <ZoomIn className="w-3.5 h-3.5 text-white" />
+                      </button>
                     </div>
                   )}
                   <div className="text-gray-900 text-sm md:text-base leading-relaxed break-words font-medium antialiased">
@@ -1554,6 +1592,20 @@ function TestInterface() {
 
       {/* On-screen calculator for quantitative questions */}
       <CalculatorWidget isOpen={showCalculator} onToggle={() => setShowCalculator(false)} />
+
+      {/* Image zoom overlay */}
+      {showImageZoom && questionImageUrl && (
+        <div
+          onClick={() => setShowImageZoom(false)}
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 cursor-zoom-out"
+        >
+          <img
+            src={questionImageUrl}
+            alt={`Question ${currentQuestion + 1} (zoomed)`}
+            className="max-w-full max-h-full object-contain"
+          />
+        </div>
+      )}
     </div>
   )
 }
