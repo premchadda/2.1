@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -17,9 +17,11 @@ import {
   Star,
   Edit,
   Trash2,
+  Target,
+  Printer,
 } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { apiClient, getStudyMaterialById } from '../../shared/lib/dataService'
+import { apiClient, getStudyMaterialById, getTestSeries } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import PDFViewer from '../../shared/components/common/PDFViewer'
 import VideoPlayer from '../../shared/components/common/VideoPlayer'
@@ -63,6 +65,12 @@ export default function StudyMaterialChapter() {
   const [editingId, setEditingId] = useState(null)
   const [editContent, setEditContent] = useState('')
   const { user: currentUser, isAdmin } = useAuth()
+  const [relatedTests, setRelatedTests] = useState([])
+  const [scrollProgress, setScrollProgress] = useState(0)
+  const [showResumeBar, setShowResumeBar] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  const resumeTimerRef = useRef(null)
+  const mainContentRef = useRef(null)
 
   const chapters = subject?.chapters || []
   const chapterIndex = chapters.findIndex((item, index) =>
@@ -134,6 +142,92 @@ export default function StudyMaterialChapter() {
     }
     fetchAnalytics()
   }, [])
+
+  useEffect(() => {
+    if (!subject) return
+    const fetchRelatedTests = async () => {
+      try {
+        const allSeries = await getTestSeries()
+        const subjectTitle = (subject.title || subject.name || '').toLowerCase()
+        const subjectGroup = (subject.subjectGroup || '').toLowerCase()
+        const matches = allSeries.filter(s => {
+          const cat = (s.categoryName || s.category || '').toLowerCase()
+          return cat === subjectTitle || cat === subjectGroup ||
+            subjectTitle.includes(cat) || cat.includes(subjectTitle)
+        }).slice(0, 3)
+        setRelatedTests(matches)
+      } catch {
+        setRelatedTests([])
+      }
+    }
+    fetchRelatedTests()
+  }, [subject])
+
+  const chapterIdKey = chapter ? `chapter-scroll-${chapter._id || chapter.id || chapterId}` : null
+
+  useEffect(() => {
+    if (!chapterIdKey) return
+    const stored = localStorage.getItem(chapterIdKey)
+    if (stored && !dismissed) {
+      const pct = parseFloat(stored)
+      if (!isNaN(pct) && pct > 2 && pct < 95) {
+        setShowResumeBar(true)
+        resumeTimerRef.current = setTimeout(() => setShowResumeBar(false), 5000)
+      }
+    }
+    return () => { if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current) }
+  }, [chapterIdKey, dismissed])
+
+  useEffect(() => {
+    if (!chapterIdKey) return
+    let ticking = false
+    const handleScroll = () => {
+      if (ticking) return
+      ticking = true
+      setTimeout(() => {
+        const el = document.documentElement
+        const scrollTop = window.scrollY
+        const docHeight = el.scrollHeight - window.innerHeight
+        if (docHeight > 0) {
+          const pct = Math.round((scrollTop / docHeight) * 100)
+          setScrollProgress(Math.min(pct, 100))
+          localStorage.setItem(chapterIdKey, String(pct))
+        }
+        ticking = false
+      }, 1000)
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [chapterIdKey])
+
+  const handleResume = useCallback(() => {
+    const stored = localStorage.getItem(chapterIdKey)
+    if (stored) {
+      const pct = parseFloat(stored)
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      window.scrollTo({ top: (pct / 100) * docHeight, behavior: 'smooth' })
+    }
+    setShowResumeBar(false)
+  }, [chapterIdKey])
+
+  const handlePrint = useCallback(() => {
+    if (!chapter) return
+    const topicsHtml = chapterTopics.map(t =>
+      `<div style="margin-bottom:12px"><h3 style="font-size:14px;font-weight:700;margin:0 0 4px">${t.name || t.title || ''}</h3><p style="font-size:12px;color:#555;margin:0">${t.description || ''}</p></div>`
+    ).join('')
+    const videosHtml = chapterVideos.length > 0
+      ? `<h2 style="font-size:16px;font-weight:700;margin:24px 0 8px">Video Lessons</h2>${chapterVideos.map(v => `<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:13px">${v.title || v.name || 'Video'}</div>`).join('')}`
+      : ''
+    const pdfsHtml = chapterPdfs.length > 0
+      ? `<h2 style="font-size:16px;font-weight:700;margin:24px 0 8px">Notes & PDFs</h2>${chapterPdfs.map(p => `<div style="padding:6px 0;border-bottom:1px solid #eee;font-size:13px">${p.title || p.name || 'PDF'}</div>`).join('')}`
+      : ''
+    const html = `<!DOCTYPE html><html><head><title>${chapter.title || 'Chapter'}</title><style>body{font-family:system-ui,-apple-system,sans-serif;max-width:800px;margin:40px auto;padding:0 24px;color:#111;line-height:1.6}h1{font-size:28px;margin:0 0 8px}h2{border-bottom:2px solid #eee;padding-bottom:4px}p{margin:8px 0}.btn{display:none}@media print{.btn{display:none!important}}</style></head><body><div class="btn"><button onclick="window.print()" style="padding:8px 16px;background:#4f46e5;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">Print</button></div><h1>${chapter.title || chapter.name || 'Chapter'}</h1><p style="color:#666">${chapter.description || ''}</p>${topicsHtml}${videosHtml}${pdfsHtml}<p style="font-size:11px;color:#999;margin-top:32px;border-top:1px solid #eee;padding-top:8px">Printed from Trstprep - ${new Date().toLocaleDateString()}</p></body></html>`
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(html)
+      printWindow.document.close()
+    }
+  }, [chapter, chapterTopics, chapterVideos, chapterPdfs])
 
   const handleDiscussionSubmit = async () => {
     if (!newDiscussion.trim() || isSubmitting) return
@@ -319,6 +413,12 @@ export default function StudyMaterialChapter() {
 
   return (
     <div className="min-h-screen bg-gray-50 page-transition fade-in">
+      <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-transparent" style={{ pointerEvents: 'none' }}>
+        <div
+          className="h-full bg-gradient-to-r from-indigo-500 to-blue-500 transition-all duration-300"
+          style={{ width: `${scrollProgress}%`, pointerEvents: 'auto' }}
+        />
+      </div>
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
@@ -389,7 +489,7 @@ export default function StudyMaterialChapter() {
                   </div>
                 </div>
 
-                {/* Save / Share buttons stacked on right */}
+                {/* Save / Share / Print buttons stacked on right */}
                 <div className="flex flex-col gap-2 shrink-0">
                   <button
                     type="button"
@@ -411,10 +511,18 @@ export default function StudyMaterialChapter() {
                     <Share2 className="w-3 h-3" />
                     Share
                   </button>
+                  <button
+                    type="button"
+                    onClick={handlePrint}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 rounded-xl bg-white/5 text-white text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all print:hidden"
+                  >
+                    <Printer className="w-3 h-3" />
+                    Print
+                  </button>
                 </div>
               </div>
 
-              {/* Desktop: Save/Share inline */}
+              {/* Desktop: Save/Share/Print inline */}
               <div className="hidden lg:flex items-center gap-2">
                 <button
                   type="button"
@@ -435,6 +543,14 @@ export default function StudyMaterialChapter() {
                 >
                   <Share2 className="w-3 h-3" />
                   Share
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePrint}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-white/5 text-white text-[10px] font-black uppercase tracking-widest border border-white/10 hover:bg-white/10 transition-all print:hidden"
+                >
+                  <Printer className="w-3 h-3" />
+                  Print
                 </button>
               </div>
             </div>
@@ -850,6 +966,45 @@ export default function StudyMaterialChapter() {
               </div>
             )}
 
+            {relatedTests.length > 0 && (
+              <section className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-3xl border border-purple-100 p-6 mt-8">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-purple-100 text-purple-600 rounded-xl">
+                    <BarChartBig className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black text-gray-900">Practice What You&apos;ve Learned</h2>
+                    <p className="text-sm text-gray-500">Test your knowledge with these related series</p>
+                  </div>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                  {relatedTests.map((s) => (
+                    <Link
+                      key={s._id || s.id}
+                      to={`/test-series/${s.slug || s.id || s._id}`}
+                      className="flex-shrink-0 w-64 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm hover:shadow-lg hover:border-purple-200 transition-all group"
+                    >
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-lg group-hover:scale-110 transition-transform">
+                          <BarChartBig className="w-5 h-5 text-purple-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-gray-900 text-sm truncate group-hover:text-purple-600 transition-colors">{s.title}</h3>
+                          <p className="text-[10px] text-gray-500 font-medium">{s.totalTests || 0} Tests</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wider">{s.categoryName || s.category || 'Exam'}</span>
+                        <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                          Attempt <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Discussion Forum */}
             <section className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden mt-8">
               <div className="p-6 border-b border-gray-50 bg-gradient-to-r from-white to-amber-50/30">
@@ -1166,6 +1321,34 @@ export default function StudyMaterialChapter() {
         onClose={() => setPdfViewer({ isOpen: false, data: null })}
         pdfData={pdfViewer.data}
       />
+
+      {showResumeBar && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-slide-in-up">
+          <div className="bg-gray-900 text-white rounded-2xl px-5 py-3 shadow-2xl flex items-center gap-4 border border-gray-700">
+            <p className="text-sm font-bold">Continue reading from where you left off?</p>
+            <button
+              type="button"
+              onClick={handleResume}
+              className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+            >
+              Resume
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowResumeBar(false); setDismissed(true) }}
+              className="text-gray-400 hover:text-white transition-colors text-xs font-bold"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @media print {
+          .print\\:hidden { display: none !important; }
+        }
+      `}</style>
     </div>
   )
 }
