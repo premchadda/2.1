@@ -514,6 +514,40 @@ function TestInstructions() {
             </div>
           )}
 
+          {/* Mock Test Disclaimer */}
+          {testType === 'Mock Test' && (
+            <div className="bg-yellow-50 border-b border-yellow-200 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-yellow-800 text-sm">Mock Test</h3>
+                  <p className="text-yellow-700 text-sm mt-1">
+                    This is a mock test. Your performance will be simulated under real exam conditions.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Syllabus Section */}
+          {test.syllabus && (
+            <div className="bg-white border-b border-tcs-border px-5 py-4">
+              <button
+                onClick={() => setShowSyllabus(!showSyllabus)}
+                className="flex items-center gap-2 w-full text-left"
+              >
+                <BookOpen className="w-4 h-4 text-tcs-primary" />
+                <h2 className="text-sm font-semibold text-tcs-text-primary flex-1">Syllabus</h2>
+                <ChevronDown className={`w-4 h-4 text-tcs-text-muted transition-transform duration-200 ${showSyllabus ? 'rotate-180' : ''}`} />
+              </button>
+              {showSyllabus && (
+                <div className="mt-3 text-sm text-tcs-text-secondary leading-relaxed whitespace-pre-wrap">
+                  {test.syllabus}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Content Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-3">
             {/* Main Content */}
