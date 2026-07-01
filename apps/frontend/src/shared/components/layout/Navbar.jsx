@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Menu, X, Search, Bell, Moon, Sun, ChevronDown, User, LogOut, Settings, Crown, BarChart2, LayoutTemplate, PanelLeft } from 'lucide-react'
 import { useAuth } from '../../providers/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
-import { getNotifications, markNotificationRead, markAllNotificationsRead } from '../../lib/dataService'
+import { getNotifications, markNotificationRead, markAllNotificationsRead, searchAll } from '../../lib/dataService'
 import { Logo } from '../index'
 
 function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
@@ -84,54 +84,79 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
     }
   }, [userId])
 
-  // Debounced search function
-  const performSearch = useCallback((query) => {
-    if (!query.trim()) {
+  // Debounced search function — combines local page shortcuts with real
+  // backend content search (tests, series, exams, study materials).
+  const performSearch = useCallback(async (query) => {
+    const trimmed = query.trim()
+    if (!trimmed) {
       setSearchResults([])
       setIsSearching(false)
       return
     }
 
     setIsSearching(true)
-    
-    // Local quick search through common routes/pages
-    const allSearchableItems = [
+
+    // Local navigation shortcuts (always available, instant)
+    const pageShortcuts = [
       { title: 'Home', path: '/', category: 'Pages', icon: '🏠' },
       { title: 'Exams', path: '/exams', category: 'Pages', icon: '🎓' },
       { title: 'Test Series', path: '/test-series', category: 'Pages', icon: '📝' },
       { title: 'Study Materials', path: '/study', category: 'Pages', icon: '📚' },
       { title: 'Dashboard', path: '/dashboard', category: 'Pages', icon: '📊' },
       { title: 'Live Tests', path: '/live-tests', category: 'Tests', icon: '🔴' },
-      { title: 'Practice Tests', path: '/practice', category: 'Tests', icon: '🎯' },
+      { title: 'Practice Lab', path: '/practice', category: 'Tests', icon: '🎯' },
       { title: 'PYQ Papers', path: '/pyps', category: 'Tests', icon: '📄' },
-      { title: 'Quizzes', path: '/quizzes', category: 'Tests', icon: '❓' },
       { title: 'Video Lectures', path: '/videos', category: 'Resources', icon: '🎥' },
       { title: 'Analysis & Reports', path: '/analysis', category: 'Pages', icon: '📈' },
       { title: 'Attempted Tests', path: '/attempted-tests', category: 'Pages', icon: '✅' },
       { title: 'Pro Pass', path: '/pass', category: 'Pages', icon: '👑' },
       { title: 'My Profile', path: '/profile', category: 'Account', icon: '👤' },
-      { title: 'SSC CGL', path: '/exams', category: 'Exams', icon: '📝' },
-      { title: 'SSC CHSL', path: '/exams', category: 'Exams', icon: '📝' },
-      { title: 'SSC MTS', path: '/exams', category: 'Exams', icon: '📝' },
-      { title: 'Railway NTPC', path: '/exams', category: 'Exams', icon: '🚂' },
-      { title: 'Railway Group D', path: '/exams', category: 'Exams', icon: '🚂' },
-      { title: 'Banking', path: '/exams', category: 'Exams', icon: '💰' },
-      { title: 'General Knowledge', path: '/study', category: 'Subjects', icon: '📖' },
-      { title: 'Quantitative Aptitude', path: '/study', category: 'Subjects', icon: '🔢' },
-      { title: 'English Language', path: '/study', category: 'Subjects', icon: '🔤' },
-      { title: 'Reasoning', path: '/study', category: 'Subjects', icon: '🧠' },
     ]
-    
-    const lowerQuery = query.toLowerCase()
-    const results = allSearchableItems.filter(item => 
+    const lowerQuery = trimmed.toLowerCase()
+    const localResults = pageShortcuts.filter(item =>
       item.title.toLowerCase().includes(lowerQuery) ||
       item.category.toLowerCase().includes(lowerQuery)
-    ).slice(0, 8)
+    ).slice(0, 5)
 
-    setTimeout(() => {
-      setSearchResults(results)
-      setIsSearching(false)
-    }, 200)
+    // Backend content search
+    let contentResults = []
+    try {
+      const response = await searchAll(trimmed, 'all', { limit: 15 })
+      const data = response.data?.data || response.data || {}
+      const raw = [
+        ...(data.tests || []).map(t => ({
+          title: t.title || t.name || 'Untitled Test',
+          path: `/test-series/${t.seriesId || t.testSeriesId || ''}#${t.id || t._id}`,
+          category: 'Tests',
+          icon: '📝',
+        })),
+        ...(data.series || []).map(s => ({
+          title: s.name || s.title || 'Untitled Series',
+          path: `/test-series/${s.id || s._id}`,
+          category: 'Test Series',
+          icon: '📚',
+        })),
+        ...(data.exams || []).map(e => ({
+          title: e.fullName || e.title || e.name || 'Untitled Exam',
+          path: `/exam/${e.id || e._id || e.slug}`,
+          category: 'Exams',
+          icon: '🎓',
+        })),
+        ...(data.studyMaterials || []).map(m => ({
+          title: m.title || m.name || 'Untitled Material',
+          path: `/study/${m.id || m._id}`,
+          category: 'Study Materials',
+          icon: '📖',
+        })),
+      ]
+      contentResults = raw.slice(0, 10)
+    } catch (err) {
+      console.warn('Backend search failed, showing local results only:', err)
+    }
+
+    const combined = [...localResults, ...contentResults].slice(0, 8)
+    setSearchResults(combined)
+    setIsSearching(false)
   }, [])
 
   // Handle search input change with debounce
