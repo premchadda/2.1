@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 import { Trophy, Medal, Star, Crown, Award, Download, Calendar, Target, Zap, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getAchievements, checkAchievements } from '../../shared/lib/dataService'
@@ -53,12 +54,11 @@ export default function Achievements() {
       const response = await checkAchievements()
       
       if (response.newAchievements && response.newAchievements.length > 0) {
-        // Show success message or notification
-        alert(`Congratulations! You earned ${response.newAchievements.length} new achievement(s)!`)
+        toast.success(`Congratulations! You earned ${response.newAchievements.length} new achievement${response.newAchievements.length > 1 ? 's' : ''}!`, { duration: 5000, icon: '🏆' })
         // Refresh achievements list
         fetchAchievements()
       } else {
-        alert('No new achievements yet. Keep practicing!')
+        toast('No new achievements yet. Keep practicing!', { icon: '💪' })
       }
     } catch (err) {
       console.error('Failed to check achievements:', err)
