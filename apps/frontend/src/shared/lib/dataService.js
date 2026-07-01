@@ -611,6 +611,7 @@ export const adminAPI = {
   markNotificationRead: (id) => apiClient.put(`/api/notifications/${id}/read`),
   markAllNotificationsRead: () => apiClient.put('/api/notifications/read-all'),
   deleteNotification: (id) => apiClient.delete(`/api/notifications/${id}`),
+  clearAllNotifications: () => apiClient.delete('/api/notifications/clear-all'),
   
   // Achievements
   getAchievements: () => apiClient.get('/api/achievements'),
@@ -1103,6 +1104,7 @@ export const getNotifications = (params) => adminAPI.getNotifications(params)
 export const markNotificationRead = (id) => adminAPI.markNotificationRead(id)
 export const markAllNotificationsRead = () => adminAPI.markAllNotificationsRead()
 export const deleteNotification = (id) => adminAPI.deleteNotification(id)
+export const clearAllNotifications = () => adminAPI.clearAllNotifications()
 
 // Leaderboard functions
 export const getLeaderboard = (seriesId) => adminAPI.getLeaderboard(seriesId)
