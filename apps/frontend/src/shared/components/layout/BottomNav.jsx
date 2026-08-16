@@ -52,11 +52,13 @@ function BottomNav() {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed bottom-0 left-0 right-0 z-[10000] pointer-events-none block md:hidden"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
+      className="fixed inset-x-0 bottom-0 z-[10000] pointer-events-none block md:hidden px-3"
+      style={{
+        paddingBottom: 'max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px))',
+      }}
     >
       <div
-        className="pointer-events-auto relative flex items-center justify-around px-1.5 py-1 mx-2 dark:bg-gray-900 rounded-full shadow-lg border border-gray-200/60 dark:border-gray-700/60 bg-white dark:bg-gray-900"
+        className="pointer-events-auto relative flex items-center justify-around px-2 py-1.5 max-w-md mx-auto bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-200/80 dark:border-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         {navItems.map(({ icon: Icon, label, path, hasLiveDot, _isAdmin }, index) => {
