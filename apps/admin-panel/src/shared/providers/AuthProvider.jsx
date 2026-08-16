@@ -79,6 +79,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const handleUnauthorized = () => {
       sessionStorage.removeItem(SESSION_META_KEY)
+      sessionStorage.removeItem('trstprep_auth_token')
+      localStorage.removeItem('trstprep_token')
       clearCsrfToken()
       setUser(null)
     }
@@ -160,8 +162,12 @@ export function AuthProvider({ children }) {
     setLoading(true)
 
     try {
-      const response = await authAPI.login(email, password)
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data
+      const { user: userData, token, csrfToken: newCsrfToken } = response.data.data
+
+      if (token) {
+        sessionStorage.setItem('trstprep_auth_token', token)
+        localStorage.setItem('trstprep_token', token)
+      }
 
       if (newCsrfToken) {
         setCsrfToken(newCsrfToken)
@@ -250,6 +256,8 @@ export function AuthProvider({ children }) {
       logger.error('Logout API call failed:', err)
     } finally {
       sessionStorage.removeItem(SESSION_META_KEY)
+      sessionStorage.removeItem('trstprep_auth_token')
+      localStorage.removeItem('trstprep_token')
       clearCsrfToken()
       setUser(null)
       setError(null)

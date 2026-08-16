@@ -119,7 +119,7 @@ function LegacyExamRedirect() {
 }
 
 // Admin Panel URL (change this in production)
-const ADMIN_PANEL_URL = import.meta.env.VITE_ADMIN_URL || 'http://localhost:3002'
+const ADMIN_PANEL_URL = import.meta.env.VITE_ADMIN_URL || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? 'https://trstprep-admin.vercel.app' : 'http://localhost:3002')
 
 // Component to handle cross-origin redirect to admin panel
 function AdminPanelRedirect() {

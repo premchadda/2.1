@@ -76,13 +76,22 @@ export function createApiClient(options = {}) {
     withCredentials
   })
 
-  // ---- Request interceptor: attach CSRF token for mutations ----
+  // ---- Request interceptor: attach CSRF token and Authorization header ----
   instance.interceptors.request.use(
     (config) => {
       if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
         delete config.headers['Content-Type']
         delete config.headers['content-type']
       }
+
+      // Attach Authorization token as fallback for cross-domain cookie restrictions
+      if (typeof window !== 'undefined') {
+        const token = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token')
+        if (token && !config.headers.Authorization && !config.headers.authorization) {
+          config.headers.Authorization = `Bearer ${token}`
+        }
+      }
+
       const method = config.method?.toUpperCase()
       if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
         const csrfToken = getCsrfToken()

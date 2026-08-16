@@ -18,9 +18,10 @@ export const generateToken = (id, role = 'user', options = {}) => {
 // (and shared across subdomains when COOKIE_DOMAIN is set). For fully
 // cross-site deployments (different registrable domains) set
 // COOKIE_SAMESITE=none together with COOKIE_SECURE=true (or NODE_ENV=production).
-const cookieSameSite = process.env.COOKIE_SAMESITE || 'lax'
+const isProduction = ['production', 'staging'].includes(process.env.NODE_ENV)
+const cookieSameSite = process.env.COOKIE_SAMESITE || (isProduction ? 'none' : 'lax')
 const cookieDomain = process.env.COOKIE_DOMAIN || undefined
-const cookieSecure = process.env.COOKIE_SECURE === 'true' || ['production', 'staging'].includes(process.env.NODE_ENV)
+const cookieSecure = process.env.COOKIE_SECURE === 'true' || isProduction
 
 export const CookieOptions = {
   httpOnly: true, // Prevents JavaScript access (XSS protection)
