@@ -65,7 +65,7 @@ function Layout() {
   const isLeftNavMode = navMode === 'left' && !isMobile && !isAuthPage && !!user
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${isLeftNavMode ? 'desktop-left-nav-mode' : ''}`}>
+    <div className={`min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-full ${isLeftNavMode ? 'desktop-left-nav-mode' : ''}`}>
       {/* Skip to main content */}
       <a
         href="#main-content"
