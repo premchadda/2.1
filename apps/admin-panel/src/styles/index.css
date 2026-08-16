@@ -4525,3 +4525,129 @@ textarea:focus-visible,
     box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.3) !important;
 }
 
+/* ===== Rich Question & Explanation Tables Styling ===== */
+.math-rendered,
+.math-renderer-content,
+.question-html-content,
+.explanation-content,
+.rich-text-content {
+  line-height: 1.65;
+}
+
+.math-rendered table,
+.math-renderer-content table,
+.question-html-content table,
+.explanation-content table,
+.rich-text-content table,
+table.MsoTableGrid {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  margin: 0.85rem 0 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 0.5rem !important;
+  overflow: hidden !important;
+  background-color: #ffffff !important;
+  font-size: 0.85rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.dark .math-rendered table,
+.dark .math-renderer-content table,
+.dark .question-html-content table,
+.dark .explanation-content table,
+.dark .rich-text-content table,
+.dark table.MsoTableGrid {
+  border-color: #334155 !important;
+  background-color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+.math-rendered table thead tr,
+.math-rendered table tr:first-child:not(:last-child),
+.math-renderer-content table thead tr,
+.math-renderer-content table tr:first-child:not(:last-child),
+.question-html-content table tr:first-child:not(:last-child),
+.explanation-content table tr:first-child:not(:last-child),
+table.MsoTableGrid tr:first-child:not(:last-child) {
+  background-color: #f1f5f9 !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+}
+
+.dark .math-rendered table thead tr,
+.dark .math-rendered table tr:first-child:not(:last-child),
+.dark .math-renderer-content table thead tr,
+.dark .math-renderer-content table tr:first-child:not(:last-child),
+.dark .question-html-content table tr:first-child:not(:last-child),
+.dark .explanation-content table tr:first-child:not(:last-child),
+.dark table.MsoTableGrid tr:first-child:not(:last-child) {
+  background-color: #1e293b !important;
+  color: #f1f5f9 !important;
+}
+
+.math-rendered table th,
+.math-rendered table td,
+.math-renderer-content table th,
+.math-renderer-content table td,
+.question-html-content table th,
+.question-html-content table td,
+.explanation-content table th,
+.explanation-content table td,
+table.MsoTableGrid td {
+  padding: 0.65rem 0.9rem !important;
+  border: 1px solid #e2e8f0 !important;
+  vertical-align: top !important;
+  text-align: left !important;
+  line-height: 1.55 !important;
+}
+
+.dark .math-rendered table th,
+.dark .math-rendered table td,
+.dark .math-renderer-content table th,
+.dark .math-renderer-content table td,
+.dark .question-html-content table th,
+.dark .question-html-content table td,
+.dark .explanation-content table th,
+.dark .explanation-content table td,
+.dark table.MsoTableGrid td {
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+
+.math-rendered table tr:first-child td p,
+.math-renderer-content table tr:first-child td p,
+.question-html-content table tr:first-child td p,
+.explanation-content table tr:first-child td p,
+table.MsoTableGrid tr:first-child td p {
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-bottom: 0 !important;
+}
+
+.dark .math-rendered table tr:first-child td p,
+.dark .math-renderer-content table tr:first-child td p,
+.dark .question-html-content table tr:first-child td p,
+.dark .explanation-content table tr:first-child td p,
+.dark table.MsoTableGrid tr:first-child td p {
+  color: #f8fafc !important;
+}
+
+.math-rendered table td p,
+.math-renderer-content table td p,
+.question-html-content table td p,
+.explanation-content table td p,
+table.MsoTableGrid td p {
+  margin-bottom: 0.35rem;
+}
+
+.math-rendered table td p:last-child,
+.math-renderer-content table td p:last-child,
+.question-html-content table td p:last-child,
+.explanation-content table td p:last-child,
+table.MsoTableGrid td p:last-child {
+  margin-bottom: 0;
+}
+
+

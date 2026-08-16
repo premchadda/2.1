@@ -1,8 +1,62 @@
 import { Pool } from "pg";
 import dotenv from "dotenv";
 import { setTimeout as sleep } from "timers/promises";
-import { randomUUID } from "crypto";
+import crypto, { randomUUID } from "crypto";
 import { parseNumericId } from "../../shared/utils/db-utils.js";
+import {
+  ENTITY_PREFIXES,
+  PUBLIC_ID_PATTERNS,
+  JSONB_COLUMNS,
+  TIMESTAMP_COLUMNS,
+} from "./db/constants.js";
+import { RELATIONSHIP_DEFINITIONS } from "./db/relationships.js";
+import { getReadPool, getWritePool } from "../../../config/database-replicas.js";
+
+const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+
+// Configurable default row limit for query helpers. Override via the
+// DEFAULT_QUERY_LIMIT env var (falls back to 1000 to avoid loading whole
+// tables into memory).
+const DEFAULT_QUERY_LIMIT = process.env.DEFAULT_QUERY_LIMIT
+  ? Number(process.env.DEFAULT_QUERY_LIMIT)
+  : 1000;
+const getEncryptionKey = () => {
+  const secret = process.env.DB_ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('FATAL: DB_ENCRYPTION_KEY or JWT_SECRET must be configured with at least 32 characters');
+  }
+  return crypto.createHash('sha256').update(secret).digest();
+};
+
+export const encryptValue = (text) => {
+  if (text === null || text === undefined) return text;
+  if (typeof text !== 'string') text = String(text);
+  
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return `${iv.toString('hex')}:${encrypted}`;
+};
+
+export const decryptValue = (encryptedText) => {
+  if (!encryptedText || typeof encryptedText !== 'string') return encryptedText;
+  if (!encryptedText.includes(':')) return encryptedText;
+
+  try {
+    const [ivHex, encryptedHex] = encryptedText.split(':');
+    if (!ivHex || !encryptedHex) return encryptedText;
+    
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (err) {
+    return encryptedText;
+  }
+};
+
 
 dotenv.config();
 
@@ -13,144 +67,24 @@ const parsePositiveInt = (value, fallback) => {
 
 const quoteIdentifier = (value) => `"${String(value).replace(/"/g, '""')}"`;
 
-// Entity prefix registry for public_id generation
-// CRITICAL: Each prefix must be GLOBALLY UNIQUE to prevent collisions
-const ENTITY_PREFIXES = Object.freeze({
-  users: "usr_",
-  tests: "tst_",
-  questions: "qst_",
-  attempts: "att_",
-  test_series: "ser_",
-  exams: "exm_",
-  subjects: "subj_", // Changed from 'sub_' to avoid collision with subscriptions
-  chapters: "chp_",
-  topics: "tpc_",
-  subtopics: "stp_",
-  stages: "stg_",
-  bookmarks: "bkm_",
-  doubts: "dbt_",
-  doubt_replies: "dbr_",
-  notifications: "nfy_",
-  subscriptions: "subs_", // Changed from 'sub_' to avoid collision with subjects
-  study_streaks: "sts_",
-  user_achievements: "uac_",
-  enrollments: "enr_",
-  leaderboard_entries: "lbe_",
-  results: "res_",
-  daily_quizzes: "dqz_",
-  revision_queue: "rvq_",
-  wrong_questions: "wq_",
-  test_categories: "tct_",
-  exam_categories: "ect_",
-});
+// PHASE 1: Columns that must NEVER be returned by generic reads (auth secrets / PII).
+// Used by getSelectColumns() to build a safe allowlist for the `users` table.
+const SENSITIVE_USER_COLUMNS = [
+  'password',
+  'refresh_token',
+  'refresh_token_version',
+  'otp',
+  'otp_secret',
+  'email_verification_token',
+  'reset_token',
+];
 
-// Regex patterns for validating public_id format per entity type
-const PUBLIC_ID_PATTERNS = Object.freeze({
-  users: /^usr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  tests: /^tst_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  questions:
-    /^qst_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  attempts:
-    /^att_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  test_series:
-    /^ser_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  exams: /^exm_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  subjects:
-    /^subj_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  chapters:
-    /^chp_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  topics: /^tpc_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  subtopics:
-    /^stp_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  stages: /^stg_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  bookmarks:
-    /^bkm_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  doubts: /^dbt_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  doubt_replies:
-    /^dbr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  notifications:
-    /^nfy_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  subscriptions:
-    /^subs_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  study_streaks:
-    /^sts_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  user_achievements:
-    /^uac_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  enrollments:
-    /^enr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  leaderboard_entries:
-    /^lbe_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  results:
-    /^res_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  daily_quizzes:
-    /^dqz_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  revision_queue:
-    /^rvq_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  wrong_questions:
-    /^wq_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  test_categories:
-    /^tct_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  exam_categories:
-    /^ect_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-});
+// Column cache per table - populated once per table at startup
+const tableColumnsCache = new Map();
 
-// JSONB columns per table - arrays in these columns must be stringified for PostgreSQL
-const JSONB_COLUMNS = Object.freeze({
-  tests: ["languages"],
-  test_series: [
-    "sections",
-    "languages",
-    "category_path_ids",
-    "category_path_names",
-  ],
-  attempts: [
-    "questions",
-    "answers",
-    "question_results",
-    "solutions",
-    "marked_for_review",
-    "section_timers",
-  ],
-  live_tests: [
-    "questions",
-    "answers",
-    "question_results",
-    "solutions",
-    "category_path_ids",
-    "category_path_names",
-  ],
-  pyp_papers: ["category_path_ids", "category_path_names"],
-  exam_yearly_data: ["vacancy_breakup", "cutoff", "important_dates"],
-  exam_info: ["exam_pattern", "important_dates", "salary_structure"],
-  achievement_definitions: ["criteria"],
-  activity_logs: ["metadata"],
-  affiliates: ["social_links", "features", "payment"],
-  app_settings: ["metadata"],
-  attempt_events: ["event_data"],
-  coupons: ["used_by_users"],
-  daily_quiz_attempts: ["answers"],
-  doubts: ["metadata"],
-  exams: ["tags"],
-  leaderboards: ["metadata"],
-  leaderboard_entries: ["rankings"],
-  media: ["metadata"],
-  messages: ["metadata"],
-  question_options: ["options"],
-  results: ["answers"],
-  revision_queue: ["metadata"],
-  subscription_plans: ["features"],
-  topics: ["related_chapters"],
-  users: ["attempted_tests", "notification_preferences", "privacy"],
-  wrong_questions: ["metadata"],
-});
 
-// Timestamp columns per table - empty strings must be converted to NULL for PostgreSQL
-const TIMESTAMP_COLUMNS = Object.freeze({
-  tests: ["coming_soon_date"],
-  live_tests: ["start_time", "end_time", "result_time"],
-  users: ["pro_expiry"],
-  pro_passes: ["start_date", "end_date"],
-});
+
+
 
 // Helper to stringify JSONB values (objects and arrays) for PostgreSQL
 const stringifyJsonbValue = (value) => {
@@ -181,339 +115,7 @@ const prepareDbValues = (table, dbData) => {
   return result;
 };
 
-const RELATIONSHIP_DEFINITIONS = Object.freeze([
-  {
-    table: "assets",
-    column: "uploaded_by",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "assets_uploaded_by_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_assets_uploaded_by",
-  },
-  {
-    table: "attempt_events",
-    column: "attempt_id",
-    foreignTable: "attempts",
-    foreignColumn: "id",
-    constraintName: "attempt_events_attempt_id_fkey",
-    onDelete: "CASCADE",
-  },
-  {
-    table: "attempt_events",
-    column: "question_id",
-    foreignTable: "questions",
-    foreignColumn: "id",
-    constraintName: "attempt_events_question_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_attempt_events_question_id",
-  },
-  {
-    table: "attempt_answers",
-    column: "attempt_id",
-    foreignTable: "attempts",
-    foreignColumn: "id",
-    constraintName: "attempt_answers_attempt_id_fkey",
-    onDelete: "CASCADE",
-    dropIfMismatch: true,
-    indexName: "idx_attempt_answers_attempt_id",
-  },
-  {
-    table: "attempt_answers",
-    column: "question_id",
-    foreignTable: "questions",
-    foreignColumn: "id",
-    constraintName: "attempt_answers_question_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_attempt_answers_question_id",
-  },
-  {
-    table: "attempts",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "attempts_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_attempts_user_id",
-  },
-  {
-    table: "attempts",
-    column: "test_id",
-    foreignTable: "tests",
-    foreignColumn: "id",
-    constraintName: "attempts_test_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_attempts_test_id",
-  },
-  {
-    table: "attempts",
-    column: "series_id",
-    foreignTable: "test_series",
-    foreignColumn: "id",
-    constraintName: "attempts_series_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_attempts_series_id",
-  },
-  {
-    table: "banners",
-    column: "asset_id",
-    foreignTable: "assets",
-    foreignColumn: "id",
-    constraintName: "banners_asset_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_banners_asset_id",
-  },
-  {
-    table: "bookmarks",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "bookmarks_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_bookmarks_user_id",
-  },
-  {
-    table: "doubts",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "doubts_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_doubts_user_id",
-  },
-  {
-    table: "doubt_replies",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "doubt_replies_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_doubt_replies_user_id",
-  },
-  {
-    table: "promotions",
-    column: "banner_asset_id",
-    foreignTable: "assets",
-    foreignColumn: "id",
-    constraintName: "promotions_banner_asset_id_fkey",
-    onDelete: "SET NULL",
-  },
-  {
-    table: "question_options",
-    column: "question_id",
-    foreignTable: "questions",
-    foreignColumn: "id",
-    constraintName: "question_options_question_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_question_options_question_id",
-  },
-  {
-    table: "questions",
-    column: "chapter_id",
-    foreignTable: "chapters",
-    foreignColumn: "id",
-    constraintName: "questions_chapter_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_questions_chapter_id",
-  },
-  {
-    table: "questions",
-    column: "image_asset_id",
-    foreignTable: "assets",
-    foreignColumn: "id",
-    constraintName: "questions_image_asset_id_fkey",
-    onDelete: "SET NULL",
-  },
-  {
-    table: "study_group_members",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "study_group_members_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_study_group_members_user_id",
-  },
-  {
-    table: "study_groups",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "study_groups_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_study_groups_user_id",
-  },
-  {
-    table: "subscriptions",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "subscriptions_user_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_subscriptions_user_id",
-  },
-  // test_attempts is a VIEW (migration 039/048), not a table — FK constraints
-  // belong on the underlying "attempts" table. Skipping to avoid
-  // "ALTER action ADD CONSTRAINT cannot be performed on relation" errors.
-  {
-    table: "test_categories",
-    column: "exam_category_id",
-    foreignTable: "exam_categories",
-    foreignColumn: "category_id",
-    constraintName: "test_categories_exam_category_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_test_categories_exam_category_id",
-  },
-  {
-    table: "tests",
-    column: "banner_asset_id",
-    foreignTable: "assets",
-    foreignColumn: "id",
-    constraintName: "tests_banner_asset_id_fkey",
-    onDelete: "SET NULL",
-  },
-  {
-    table: "tests",
-    column: "promotion_banner_asset_id",
-    foreignTable: "assets",
-    foreignColumn: "id",
-    constraintName: "tests_promotion_banner_asset_id_fkey",
-    onDelete: "SET NULL",
-  },
-  {
-    table: "test_questions",
-    column: "test_id",
-    foreignTable: "tests",
-    foreignColumn: "id",
-    constraintName: "test_questions_test_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_test_questions_test_id",
-  },
-  {
-    table: "test_questions",
-    column: "question_id",
-    foreignTable: "questions",
-    foreignColumn: "id",
-    constraintName: "test_questions_question_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_test_questions_question_id",
-  },
-  {
-    table: "tests",
-    column: "subject_id",
-    foreignTable: "subjects",
-    foreignColumn: "id",
-    constraintName: "tests_subject_id_fkey",
-    onDelete: "SET NULL",
-    dropIfMismatch: true,
-  },
-  {
-    table: "user_achievements",
-    column: "user_id",
-    foreignTable: "users",
-    foreignColumn: "id",
-    constraintName: "user_achievements_user_id_fkey",
-    onDelete: "CASCADE",
-  },
-  {
-    table: "tests",
-    column: "series_id",
-    foreignTable: "test_series",
-    foreignColumn: "id",
-    constraintName: "tests_series_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_tests_series_id",
-  },
-  {
-    table: "tests",
-    column: "stage_id",
-    foreignTable: "stages",
-    foreignColumn: "id",
-    constraintName: "tests_stage_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_tests_stage_id",
-  },
-  {
-    table: "subject_parts",
-    column: "subject_id",
-    foreignTable: "subjects",
-    foreignColumn: "id",
-    constraintName: "subject_parts_subject_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_subject_parts_subject_id",
-  },
-  {
-    table: "units",
-    column: "part_id",
-    foreignTable: "subject_parts",
-    foreignColumn: "id",
-    constraintName: "units_part_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_units_part_id",
-  },
-  {
-    table: "chapters",
-    column: "unit_id",
-    foreignTable: "units",
-    foreignColumn: "id",
-    constraintName: "chapters_unit_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_chapters_unit_id",
-  },
-  {
-    table: "topics",
-    column: "chapter_id",
-    foreignTable: "chapters",
-    foreignColumn: "id",
-    constraintName: "topics_chapter_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_topics_chapter_id",
-  },
-  {
-    table: "subtopics",
-    column: "topic_id",
-    foreignTable: "topics",
-    foreignColumn: "id",
-    constraintName: "subtopics_topic_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_subtopics_topic_id",
-  },
-  {
-    table: "subjects",
-    column: "parent_id",
-    foreignTable: "subjects",
-    foreignColumn: "id",
-    constraintName: "subjects_parent_id_fkey",
-    onDelete: "CASCADE",
-    indexName: "idx_subjects_parent_id",
-  },
-  {
-    table: "test_sections",
-    column: "category_id",
-    foreignTable: "test_categories",
-    foreignColumn: "id",
-    constraintName: "test_sections_category_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_test_sections_category",
-  },
-  {
-    table: "tests",
-    column: "section_id",
-    foreignTable: "test_sections",
-    foreignColumn: "id",
-    constraintName: "tests_section_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_tests_section_id",
-  },
-  {
-    table: "test_questions",
-    column: "section_id",
-    foreignTable: "test_sections",
-    foreignColumn: "id",
-    constraintName: "test_questions_section_id_fkey",
-    onDelete: "SET NULL",
-    indexName: "idx_test_questions_section_id",
-  },
-]);
+
 
 // Use environment-provided DATABASE_URL for credentials (safer for secrets)
 // Always require SSL for Supabase connections
@@ -521,25 +123,18 @@ const RELATIONSHIP_DEFINITIONS = Object.freeze([
 // Only skip validation in development environments
 const isDev =
   process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.PG_SSL_REJECT_UNAUTHORIZED === "false"
-      ? { rejectUnauthorized: false }
-      : { rejectUnauthorized: !isDev },
-  connectionTimeoutMillis: parsePositiveInt(
-    process.env.PG_CONNECTION_TIMEOUT_MS,
-    10000,
-  ),
-  idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 30000),
-  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
-  max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
-  allowExitOnIdle: false,
-})
 
-pool.on('error', (err) => {
-  console.error('[Pool] Idle client error (non-fatal):', err.message)
-})
+if (process.env.PG_SSL_REJECT_UNAUTHORIZED === 'false') {
+  if (process.env.NODE_ENV === 'production') {
+    console.error('WARNING: SSL certificate validation disabled in production — this is a security risk');
+  } else {
+    console.warn('SSL certificate validation disabled (development only)');
+  }
+}
+
+// Use replica pool configuration for read/write separation
+const pool = getWritePool();
+const readPool = getReadPool();
 
 let ensureTestSectionsSchemaPromise = null;
 
@@ -584,6 +179,14 @@ const runEnsureTestSectionsSchema = async () => {
         AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attempts' AND column_name = 'section_times') THEN
         ALTER TABLE attempts ADD COLUMN section_times JSONB DEFAULT '{}'::jsonb;
       END IF;
+
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'bookmarks' AND column_name = 'item_id' AND data_type LIKE '%integer%') THEN
+        ALTER TABLE bookmarks ALTER COLUMN item_id TYPE VARCHAR(255) USING item_id::varchar;
+      END IF;
+
+      IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'csrf_tokens' AND column_name = 'auth_token_hash') THEN
+        ALTER TABLE csrf_tokens ALTER COLUMN auth_token_hash TYPE VARCHAR(255) USING auth_token_hash::varchar;
+      END IF;
     END $$;
   `);
 };
@@ -605,6 +208,9 @@ class PostgresHelpers {
   constructor(pool) {
     this.pool = pool;
     this.columnExistsCache = new Map();
+    this.foreignKeysCache = new Map();
+    this.indexExistsCache = new Set();
+    this.metadataPrefetched = false;
     this.tableMap = {
       users: "users",
       testSeries: "test_series",
@@ -614,8 +220,8 @@ class PostgresHelpers {
       examCategories: "exam_categories",
       exams: "exams",
       examInfo: "exam_info",
-      navigationMenu: "navigation_menu",
-      tagConfigs: "ui_tag_configs",
+      navigationMenu: "navigation_config",
+      tagConfigs: "tag_configs",
       media: "media",
       appSettings: "app_settings",
       testCategories: "test_categories",
@@ -628,33 +234,57 @@ class PostgresHelpers {
       attemptEvents: "attempt_events",
       subscriptionPlans: "subscription_plans",
       subjects: "subjects",
+      units: "subject_units",
+      chapters: "subject_chapters",
+      topics: "subject_topics",
+      subtopics: "subject_subtopics",
       subjectParts: "subject_parts",
-      units: "units",
-      chapters: "chapters",
-      topics: "topics",
-      subtopics: "subtopics",
       stages: "stages",
       // Added missing tables
       liveTests: "live_tests",
       leaderboards: "leaderboards",
       examYearlyData: "exam_yearly_data",
       examUpdates: "exam_updates",
+      examSeasons: "exam_seasons",
       bookmarks: "bookmarks",
       userAchievements: "user_achievements",
       attempts: "attempts",
       questionAttempts: "question_attempts",
+      questionVersions: "question_versions",
+      studyProgress: "study_progress",
       activityLogs: "activity_logs",
       blogs: "blogs",
       referrals: "referrals",
       doubts: "doubts",
       doubtReplies: "doubt_replies",
+      questionDiscussions: "discussions",
+      discussionReplies: "discussion_replies",
+      discussionVotes: "discussion_votes",
       studyGroups: "study_groups",
       studyGroupMembers: "study_group_members",
+      studyGroupMessages: "study_group_messages",
+      // Community/group routing mappings
+      communityGroups: "study_groups",
+      communityPosts: "group_posts",
+      communityComments: "community_comments",
+      communityVotes: "community_votes",
       // Study material related tables
       subjectVideos: "subject_videos",
       subjectPdfs: "subject_pdfs",
       topicTests: "topic_tests",
       passages: "passages",
+      currentAffairs: "current_affairs",
+      // Admin-managed tables
+      faqs: "faqs",
+      backups: "backups",
+      emailTemplates: "email_templates",
+      promotions: "promotions",
+      banners: "banners",
+      auditLogs: "audit_logs",
+      userRoles: "user_roles",
+      rolePermissions: "role_permissions",
+      permissions: "permissions",
+      roles: "roles",
     };
   }
 
@@ -662,9 +292,12 @@ class PostgresHelpers {
     try {
       return await this.pool.query(sql, params);
     } catch (error) {
+      // M3: never log bound parameters — they can contain PII (emails, phones,
+      // tokens). Log only the error and a parameter COUNT so operators can still
+      // diagnose without leaking user data.
       console.error("DB Query Error:", error.message);
       console.error("SQL:", sql);
-      console.error("Params:", params);
+      console.error("Param count:", Array.isArray(params) ? params.length : 0);
       throw error;
     }
   }
@@ -684,10 +317,66 @@ class PostgresHelpers {
     }
   }
 
+  async prefetchMetadata() {
+    try {
+      const columnsResult = await this.pool.query(`
+        SELECT table_name, column_name 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public'
+      `);
+      this.columnExistsCache.clear();
+      for (const row of columnsResult.rows) {
+        const cacheKey = `${row.table_name}.${row.column_name}`;
+        this.columnExistsCache.set(cacheKey, true);
+      }
+
+      const fkResult = await this.pool.query(`
+        SELECT
+            tc.table_name,
+            kcu.column_name,
+            tc.constraint_name,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+        FROM
+            information_schema.table_constraints AS tc
+            JOIN information_schema.key_column_usage AS kcu
+              ON tc.constraint_name = kcu.constraint_name
+             AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage AS ccu
+              ON ccu.constraint_name = tc.constraint_name
+             AND ccu.table_schema = tc.table_schema
+        WHERE tc.table_schema = 'public'
+          AND tc.constraint_type = 'FOREIGN KEY'
+      `);
+      this.foreignKeysCache = new Map();
+      for (const row of fkResult.rows) {
+        const cacheKey = `${row.table_name}.${row.column_name}`;
+        this.foreignKeysCache.set(cacheKey, row);
+      }
+
+      const indexResult = await this.pool.query(`
+        SELECT indexname 
+        FROM pg_indexes 
+        WHERE schemaname = 'public'
+      `);
+      this.indexExistsCache.clear();
+      for (const row of indexResult.rows) {
+        this.indexExistsCache.add(row.indexname);
+      }
+
+      this.metadataPrefetched = true;
+    } catch (error) {
+      console.error('[DB] Prefetch Metadata Error:', error.message);
+    }
+  }
+
   async columnExists(tableName, columnName) {
     const cacheKey = `${tableName}.${columnName}`;
     if (this.columnExistsCache.has(cacheKey)) {
       return this.columnExistsCache.get(cacheKey);
+    }
+    if (this.metadataPrefetched) {
+      return false;
     }
 
     const result = await this.pool.query(
@@ -702,6 +391,42 @@ class PostgresHelpers {
     const exists = result.rowCount > 0;
     this.columnExistsCache.set(cacheKey, exists);
     return exists;
+  }
+
+  // Filter a prepared-values object down to columns that actually exist in
+  // the table. Cached per-table in tableColumnsCache. Unknown keys are
+  // silently dropped so client payloads cannot crash INSERT/UPDATE.
+  async filterToExistingColumns(table, prepared) {
+    if (!tableColumnsCache.has(table)) {
+      try {
+        const colResult = await this.pool.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
+          [table],
+        );
+        if (colResult.rows.length === 0) return prepared; // view/unknown table — leave untouched
+        tableColumnsCache.set(table, new Set(colResult.rows.map((r) => r.column_name)));
+      } catch (error) {
+        console.error(`[DB] filterToExistingColumns fallback for "${table}":`, error.message);
+        return prepared;
+      }
+    }
+    const existingColumns = tableColumnsCache.get(table);
+    const filtered = {};
+    for (const key of Object.keys(prepared)) {
+      if (existingColumns.has(key)) filtered[key] = prepared[key];
+    }
+    return filtered;
+  }
+
+  clearColumnExistsCache() {
+    this.columnExistsCache.clear();
+    if (this.foreignKeysCache) {
+      this.foreignKeysCache.clear();
+    }
+    if (this.indexExistsCache) {
+      this.indexExistsCache.clear();
+    }
+    this.metadataPrefetched = false;
   }
 
   async getColumnDataType(tableName, columnName) {
@@ -727,6 +452,11 @@ class PostgresHelpers {
   }
 
   async getForeignKeyForColumn(tableName, columnName) {
+    if (this.metadataPrefetched && this.foreignKeysCache) {
+      const cacheKey = `${tableName}.${columnName}`;
+      return this.foreignKeysCache.get(cacheKey) || null;
+    }
+
     const result = await this.pool.query(
       `
         SELECT
@@ -754,9 +484,14 @@ class PostgresHelpers {
   async ensureIndex(tableName, columnName, indexName) {
     if (!indexName) return;
 
+    if (this.indexExistsCache.has(indexName)) {
+      return;
+    }
+
     await this.pool.query(
       `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(indexName)} ON ${quoteIdentifier(tableName)} (${quoteIdentifier(columnName)})`,
     );
+    this.indexExistsCache.add(indexName);
   }
 
   async countForeignKeyOrphans(
@@ -857,14 +592,13 @@ class PostgresHelpers {
   }
 
   async reconcileRelationships() {
-    let changes = 0;
+    await this.prefetchMetadata();
 
-    for (const definition of RELATIONSHIP_DEFINITIONS) {
-      const applied = await this.ensureForeignKey(definition);
-      if (applied) {
-        changes += 1;
-      }
-    }
+    const results = await Promise.all(
+      RELATIONSHIP_DEFINITIONS.map((definition) => this.ensureForeignKey(definition))
+    );
+
+    const changes = results.filter((applied) => applied).length;
     if (changes > 0)
       console.log(
         `[DB] Finished relations reconciliation. Applied ${changes} changes.`,
@@ -872,941 +606,13 @@ class PostgresHelpers {
     return changes;
   }
 
+  // DEAD CODE — DO NOT CALL.
+  // Schema is fully managed via SQL migrations (migrations/000-0xx). This method is a
+  // no-op kept for backward-compat only. Calling it does NOT create any tables. Any new
+  // DDL MUST go through a migration file, never here. See migrations/048 + README.md.
   async initTables() {
-    try {
-      // 0. Ensure tests table has required columns for the new schema
-      await this.pool.query(`
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'test_category_id') THEN
-            ALTER TABLE tests ADD COLUMN test_category_id INTEGER;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'exam_id') THEN
-            ALTER TABLE tests ADD COLUMN exam_id VARCHAR(255);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'slug') THEN
-            ALTER TABLE tests ADD COLUMN slug VARCHAR(255) UNIQUE;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'stage_ids') THEN
-            ALTER TABLE tests ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'tags') THEN
-            ALTER TABLE tests ADD COLUMN tags TEXT[] DEFAULT '{}';
-          END IF;
-
-          -- Migration: Populate slugs for existing tests that don't have one
-          UPDATE tests 
-          SET slug = LOWER(REGEXP_REPLACE(title, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || id
-          WHERE slug IS NULL OR slug = '';
-        END $$;
-      `);
-
-      // 1. Create stages table (essential for various route handlers)
-      // FIXED: All columns now use snake_case (PostgreSQL convention)
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS stages (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL UNIQUE,
-          description TEXT,
-          icon VARCHAR(50),
-          exam_ids VARCHAR(255)[] DEFAULT '{}',
-          "order" INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-
-      // 2. Ensure users table has pro-pass and subscription-related columns
-      await this.pool.query(`
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_pro_user') THEN
-            ALTER TABLE users ADD COLUMN is_pro_user BOOLEAN DEFAULT false;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'pro_expiry') THEN
-            ALTER TABLE users ADD COLUMN pro_expiry TIMESTAMP;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'pass_type') THEN
-            ALTER TABLE users ADD COLUMN pass_type VARCHAR(50) DEFAULT 'free';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'enrolled_series') THEN
-            ALTER TABLE users ADD COLUMN enrolled_series INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'enrolled_exams') THEN
-            ALTER TABLE users ADD COLUMN enrolled_exams INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'enrolled_study_materials') THEN
-            ALTER TABLE users ADD COLUMN enrolled_study_materials INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'avatar') THEN
-            ALTER TABLE users ADD COLUMN avatar TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'banner') THEN
-            ALTER TABLE users ADD COLUMN banner TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone') THEN
-            ALTER TABLE users ADD COLUMN phone VARCHAR(20);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'date_of_birth') THEN
-            ALTER TABLE users ADD COLUMN date_of_birth VARCHAR(20);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'location') THEN
-            ALTER TABLE users ADD COLUMN location VARCHAR(200);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'education') THEN
-            ALTER TABLE users ADD COLUMN education VARCHAR(200);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'bio') THEN
-            ALTER TABLE users ADD COLUMN bio TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'notification_preferences') THEN
-            ALTER TABLE users ADD COLUMN notification_preferences JSONB DEFAULT '{}'::jsonb;
-          END IF;
-           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'privacy') THEN
-             ALTER TABLE users ADD COLUMN privacy JSONB DEFAULT '{"profileVisibility":"public","showProgress":true,"showOnLeaderboard":true,"allowMessages":true}'::jsonb;
-           END IF;
-           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'refresh_token_version') THEN
-             ALTER TABLE users ADD COLUMN refresh_token_version INTEGER DEFAULT 0;
-           END IF;
-           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'reset_password_token') THEN
-             ALTER TABLE users ADD COLUMN reset_password_token TEXT;
-           END IF;
-           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'reset_password_expires') THEN
-             ALTER TABLE users ADD COLUMN reset_password_expires TIMESTAMP;
-           END IF;
-           IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'is_email_verified') THEN
-             ALTER TABLE users ADD COLUMN is_email_verified BOOLEAN NOT NULL DEFAULT true;
-             -- Backfill existing users so they are not locked out
-             UPDATE users SET is_email_verified = true WHERE is_email_verified IS NULL;
-           END IF;
-         END $$;
-      `);
-
-      // 3. Ensure attempts table has review and reattempt functionality columns
-      await this.pool.query(`
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attempts' AND column_name = 'marked_for_review') THEN
-            ALTER TABLE attempts ADD COLUMN marked_for_review JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attempts' AND column_name = 'is_completed') THEN
-            ALTER TABLE attempts ADD COLUMN is_completed BOOLEAN DEFAULT false;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attempts' AND column_name = 'is_reattempt') THEN
-            ALTER TABLE attempts ADD COLUMN is_reattempt BOOLEAN DEFAULT false;
-          END IF;
-        END $$;
-      `);
-
-      // 4. Ensure test_series & test_categories have required columns
-      await this.pool.query(`
-        DO $$ 
-        BEGIN 
-          -- stages updates
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stages' AND column_name = 'icon') THEN
-            ALTER TABLE stages ADD COLUMN icon VARCHAR(50);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stages' AND column_name = 'exam_ids') THEN
-            ALTER TABLE stages ADD COLUMN exam_ids VARCHAR(255)[] DEFAULT '{}';
-          ELSIF (SELECT udt_name FROM information_schema.columns WHERE table_name = 'stages' AND column_name = 'exam_ids') = '_int4' THEN
-            ALTER TABLE stages ALTER COLUMN exam_ids TYPE VARCHAR(255)[] USING exam_ids::VARCHAR(255)[];
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'stages' AND column_name = 'category_ids') THEN
-            ALTER TABLE stages ADD COLUMN category_ids VARCHAR(255)[] DEFAULT '{}';
-          ELSIF (SELECT udt_name FROM information_schema.columns WHERE table_name = 'stages' AND column_name = 'category_ids') = '_int4' THEN
-            ALTER TABLE stages ALTER COLUMN category_ids TYPE VARCHAR(255)[] USING category_ids::VARCHAR(255)[];
-          END IF;
-
-          -- test_series updates
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'sections') THEN
-            ALTER TABLE test_series ADD COLUMN sections JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'languages') THEN
-            ALTER TABLE test_series ADD COLUMN languages JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'colour_hex') THEN
-            ALTER TABLE test_series ADD COLUMN colour_hex VARCHAR(20);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'total_attempts') THEN
-            ALTER TABLE test_series ADD COLUMN total_attempts INTEGER DEFAULT 0;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'stages') THEN
-            ALTER TABLE test_series ADD COLUMN stages INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'is_coming_soon') THEN
-            ALTER TABLE test_series ADD COLUMN is_coming_soon BOOLEAN DEFAULT false;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'order') THEN
-            ALTER TABLE test_series ADD COLUMN "order" INTEGER DEFAULT 0;
-          END IF;
-
-          -- study_materials updates (add order column)
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'study_materials' AND column_name = 'order') THEN
-            ALTER TABLE study_materials ADD COLUMN "order" INTEGER DEFAULT 0;
-          END IF;
-
-          -- tests updates (add category path columns)
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'category_path_ids') THEN
-            ALTER TABLE tests ADD COLUMN category_path_ids TEXT[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'category_path_names') THEN
-            ALTER TABLE tests ADD COLUMN category_path_names TEXT[] DEFAULT '{}';
-          END IF;
-
-          -- test_categories updates
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'exam_category_id') THEN
-            ALTER TABLE test_categories ADD COLUMN exam_category_id VARCHAR(255);
-          END IF;
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'stage_id') THEN
-            ALTER TABLE test_categories DROP COLUMN stage_id;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'stage_ids') THEN
-            ALTER TABLE test_categories ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'display_order') THEN
-            ALTER TABLE test_categories ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-          IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'order_index') THEN
-            UPDATE test_categories SET display_order = order_index WHERE display_order = 0 AND order_index != 0;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'is_deleted') THEN
-            ALTER TABLE test_categories ADD COLUMN is_deleted BOOLEAN DEFAULT FALSE;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'deleted_by') THEN
-            ALTER TABLE test_categories ADD COLUMN deleted_by INTEGER;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'deleted_at') THEN
-            ALTER TABLE test_categories ADD COLUMN deleted_at TIMESTAMP;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'public_id_uuid') THEN
-            ALTER TABLE test_categories ADD COLUMN public_id_uuid UUID DEFAULT gen_random_uuid();
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'public_id') THEN
-            ALTER TABLE test_categories ADD COLUMN public_id TEXT GENERATED ALWAYS AS ('tct_' || public_id_uuid::text) STORED;
-          END IF;
-
-          -- NEW: Add test series relationship (replace exam category linkage)
-          -- Support multiple test series per category using array
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'test_series_id') THEN
-            ALTER TABLE test_categories ADD COLUMN test_series_id INTEGER[] DEFAULT '{}';
-            CREATE INDEX IF NOT EXISTS idx_test_categories_test_series_id ON test_categories USING GIN(test_series_id);
-          ELSIF (SELECT udt_name FROM information_schema.columns WHERE table_name = 'test_categories' AND column_name = 'test_series_id') = 'int4' THEN
-            -- Drop any FK constraints on this column BEFORE altering its type.
-            -- PostgreSQL cannot change a column's type while a FK constraint is active.
-            -- FKs on INTEGER[] array columns are not supported by PostgreSQL anyway.
-            ALTER TABLE test_categories DROP CONSTRAINT IF EXISTS test_categories_test_series_id_fkey;
-            -- Convert existing integer column to array
-            ALTER TABLE test_categories ALTER COLUMN test_series_id TYPE INTEGER[] USING ARRAY[test_series_id];
-            ALTER TABLE test_categories ALTER COLUMN test_series_id SET DEFAULT '{}';
-            CREATE INDEX IF NOT EXISTS idx_test_categories_test_series_id ON test_categories USING GIN(test_series_id);
-          END IF;
-
-
-          -- exam_categories updates (stage_ids removed - exam categories should not be linked to stages)
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exam_categories' AND column_name = 'display_order') THEN
-            ALTER TABLE exam_categories ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-
-          -- exams table (acts as subcategories in current schema)
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exams' AND column_name = 'stage_ids') THEN
-            ALTER TABLE exams ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exams' AND column_name = 'display_order') THEN
-            ALTER TABLE exams ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-        END $$;
-      `);
-
-      // 5. Create New Hierarchy Tables
-      await this.pool.query(`
-        -- Subject Parts
-        CREATE TABLE IF NOT EXISTS "subject_parts" (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
-          stage_ids INTEGER[] DEFAULT '{}',
-          order_index INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Units
-        CREATE TABLE IF NOT EXISTS "units" (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          part_id INTEGER REFERENCES subject_parts(id) ON DELETE SET NULL,
-          subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
-          stage_ids INTEGER[] DEFAULT '{}',
-          order_index INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Migration 056: Backfill part_id on pre-existing units tables
-        DO $$
-        BEGIN
-          IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'units')
-             AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'units' AND column_name = 'part_id') THEN
-            ALTER TABLE units ADD COLUMN part_id INTEGER REFERENCES subject_parts(id) ON DELETE SET NULL;
-            CREATE INDEX IF NOT EXISTS idx_units_part_id ON units(part_id);
-          END IF;
-        END $$;
-
-        -- Subtopics
-        CREATE TABLE IF NOT EXISTS "subtopics" (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          topic_id INTEGER REFERENCES topics(id) ON DELETE CASCADE,
-          stage_ids INTEGER[] DEFAULT '{}',
-          order_index INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-
-      // 6. Update existing tables for Hierarchy and Stages
-      await this.pool.query(`
-        DO $$ 
-        BEGIN 
-          -- Update Subjects
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'stage_ids') THEN
-            ALTER TABLE subjects ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-          
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'parent_id') THEN
-            ALTER TABLE subjects ADD COLUMN parent_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE;
-          END IF;
-
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subjects' AND column_name = 'color') THEN
-            ALTER TABLE subjects ADD COLUMN color VARCHAR(7) DEFAULT '#667eea';
-          END IF;
-
-          -- Update Chapters
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chapters' AND column_name = 'unit_id') THEN
-            ALTER TABLE chapters ADD COLUMN unit_id INTEGER REFERENCES units(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'chapters' AND column_name = 'stage_ids') THEN
-            ALTER TABLE chapters ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-
-          -- Update Topics
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topics' AND column_name = 'chapter_id') THEN
-            ALTER TABLE topics ADD COLUMN chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topics' AND column_name = 'stage_ids') THEN
-            ALTER TABLE topics ADD COLUMN stage_ids INTEGER[] DEFAULT '{}';
-          END IF;
-
-          -- Update Questions and Tests for Hub-based model
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'series_id') THEN
-            ALTER TABLE tests ADD COLUMN series_id INTEGER REFERENCES test_series(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'stage_id') THEN
-            ALTER TABLE tests ADD COLUMN stage_id INTEGER REFERENCES stages(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'category_path_ids') THEN
-            ALTER TABLE tests ADD COLUMN category_path_ids JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'category_path_names') THEN
-            ALTER TABLE tests ADD COLUMN category_path_names JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'is_coming_soon') THEN
-            ALTER TABLE tests ADD COLUMN is_coming_soon BOOLEAN DEFAULT false;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'languages') THEN
-            ALTER TABLE tests ADD COLUMN languages JSONB DEFAULT '[]'::jsonb;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tests' AND column_name = 'coming_soon_date') THEN
-            ALTER TABLE tests ADD COLUMN coming_soon_date TIMESTAMP WITHOUT TIME ZONE;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'series_id') THEN
-            ALTER TABLE questions ADD COLUMN series_id INTEGER REFERENCES test_series(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'category_id') THEN
-            ALTER TABLE questions ADD COLUMN category_id VARCHAR(255);
-            -- Clean invalid category_id values before adding constraint
-            UPDATE questions SET category_id = NULL WHERE category_id IS NOT NULL AND category_id NOT IN (SELECT category_id FROM exam_categories);
-            ALTER TABLE questions ADD CONSTRAINT questions_category_id_fkey FOREIGN KEY (category_id) REFERENCES exam_categories(category_id) ON DELETE SET NULL;
-          END IF;
-          -- sub_category_id removed (exam_sub_categories table no longer exists)
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'sub_category_id') THEN
-            ALTER TABLE questions ADD COLUMN sub_category_id VARCHAR(255);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'study_material_id') THEN
-            ALTER TABLE questions ADD COLUMN study_material_id INTEGER REFERENCES study_materials(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'topic_id') THEN
-            ALTER TABLE questions ADD COLUMN topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'quiz_id') THEN
-            ALTER TABLE questions ADD COLUMN quiz_id INTEGER;
-          END IF;
-
-          -- FIX PQ-01/PQ-02: Add explicit is_practice flag to questions table
-          -- This replaces the fragile pattern of relying on null testId to distinguish practice questions
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'is_practice') THEN
-            ALTER TABLE questions ADD COLUMN is_practice BOOLEAN DEFAULT false;
-            -- Backfill: mark existing practice questions (category='practice' or no test_id)
-            UPDATE questions SET is_practice = true WHERE category = 'practice' OR test_id IS NULL;
-          END IF;
-
-          -- Update Subject Parts
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_parts' AND column_name = 'description') THEN
-            ALTER TABLE subject_parts ADD COLUMN description TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_parts' AND column_name = 'icon') THEN
-            ALTER TABLE subject_parts ADD COLUMN icon VARCHAR(100);
-          END IF;
-
-          -- Update Units
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'units' AND column_name = 'description') THEN
-            ALTER TABLE units ADD COLUMN description TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'units' AND column_name = 'icon') THEN
-            ALTER TABLE units ADD COLUMN icon VARCHAR(100);
-          END IF;
-
-          -- Update Subtopics
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subtopics' AND column_name = 'description') THEN
-            ALTER TABLE subtopics ADD COLUMN description TEXT;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subtopics' AND column_name = 'icon') THEN
-            ALTER TABLE subtopics ADD COLUMN icon VARCHAR(100);
-          END IF;
-        END $$;
-      `);
-
-      // 7. Ensure exam_info table exists
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS "exam_info" (
-          id SERIAL PRIMARY KEY,
-          category_id VARCHAR(255),
-          exam_id VARCHAR(255),
-          year INTEGER,
-          title VARCHAR(255),
-          full_name VARCHAR(500),
-          description TEXT,
-          notification TEXT,
-          series_id VARCHAR(255),
-          eligibility TEXT,
-          age_limit VARCHAR(255),
-          syllabus TEXT,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-      `);
-
-      // 8. Ensure core curriculum tables exist
-      await this.pool.query(`
-        -- Subjects table (study materials)
-        CREATE TABLE IF NOT EXISTS "subjects" (
-          id SERIAL PRIMARY KEY,
-          public_id_uuid UUID DEFAULT gen_random_uuid(),
-          public_id TEXT GENERATED ALWAYS AS ('subj_' || public_id_uuid::text) STORED,
-          title VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL UNIQUE,
-          description TEXT,
-          icon VARCHAR(100),
-          color VARCHAR(7) DEFAULT '#667eea',
-          parent_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
-          "order" INTEGER DEFAULT 0,
-          stage_ids INTEGER[] DEFAULT '{}',
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Chapters table
-        CREATE TABLE IF NOT EXISTS "chapters" (
-          id SERIAL PRIMARY KEY,
-          public_id_uuid UUID DEFAULT gen_random_uuid(),
-          public_id TEXT GENERATED ALWAYS AS ('chp_' || public_id_uuid::text) STORED,
-          title VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          study_material_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE,
-          unit_id INTEGER REFERENCES units(id) ON DELETE SET NULL,
-          stage_ids INTEGER[] DEFAULT '{}',
-          order_index INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Topics table
-        CREATE TABLE IF NOT EXISTS "topics" (
-          id SERIAL PRIMARY KEY,
-          public_id_uuid UUID DEFAULT gen_random_uuid(),
-          public_id TEXT GENERATED ALWAYS AS ('tpc_' || public_id_uuid::text) STORED,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          chapter_id INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
-          stage_ids INTEGER[] DEFAULT '{}',
-          order_index INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Backups table
-        CREATE TABLE IF NOT EXISTS "backups" (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          type VARCHAR(50) DEFAULT 'manual',
-          status VARCHAR(50) DEFAULT 'completed',
-          size VARCHAR(50) DEFAULT '0 MB',
-          created_by INTEGER,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_subjects_public_id ON subjects(public_id);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_chapters_public_id ON chapters(public_id);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_topics_public_id ON topics(public_id);
-      `);
-
-      // 9. Ensure pyp_papers table exists and has linking columns
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS "pyp_papers" (
-          id SERIAL PRIMARY KEY,
-          exam_id VARCHAR(255),
-          year INTEGER,
-          shift VARCHAR(100),
-          title VARCHAR(255) NOT NULL,
-          duration INTEGER,
-          total_marks INTEGER,
-          questions JSONB DEFAULT '[]'::jsonb,
-          solutions JSONB DEFAULT '[]'::jsonb,
-          difficulty VARCHAR(50),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS "pyp_attempts" (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          pyp_id INTEGER REFERENCES pyp_papers(id) ON DELETE CASCADE,
-          answers JSONB DEFAULT '[]'::jsonb,
-          score NUMERIC(10, 2),
-          percentage NUMERIC(5, 2),
-          correct_count INTEGER,
-          time_spent INTEGER,
-          question_results JSONB DEFAULT '[]'::jsonb,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Live Tests Table
-        CREATE TABLE IF NOT EXISTS "live_tests" (
-          id SERIAL PRIMARY KEY,
-          test_id INTEGER REFERENCES tests(id) ON DELETE CASCADE,
-          start_time TIMESTAMP NOT NULL,
-          end_time TIMESTAMP NOT NULL,
-          result_time TIMESTAMP,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- UI Tag Configurations
-        CREATE TABLE IF NOT EXISTS "ui_tag_configs" (
-          id SERIAL PRIMARY KEY,
-          tag_id VARCHAR(100) NOT NULL UNIQUE,
-          label VARCHAR(255) NOT NULL,
-          description TEXT,
-          icon VARCHAR(100),
-          color VARCHAR(50) DEFAULT 'blue',
-          route VARCHAR(255),
-          filter_key VARCHAR(100),
-          filter_value VARCHAR(100),
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pyp_papers' AND column_name = 'series_id') THEN
-            ALTER TABLE pyp_papers ADD COLUMN series_id INTEGER REFERENCES test_series(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pyp_papers' AND column_name = 'stage_id') THEN
-            ALTER TABLE pyp_papers ADD COLUMN stage_id INTEGER REFERENCES stages(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pyp_papers' AND column_name = 'category_id') THEN
-            ALTER TABLE pyp_papers ADD COLUMN category_id VARCHAR(255);
-            -- Optional: ALTER TABLE pyp_papers ADD CONSTRAINT pyp_category_fkey FOREIGN KEY (category_id) REFERENCES exam_categories(category_id);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pyp_papers' AND column_name = 'sub_category_id') THEN
-            ALTER TABLE pyp_papers ADD COLUMN sub_category_id VARCHAR(255);
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pyp_papers' AND column_name = 'category_path_ids') THEN
-            ALTER TABLE pyp_papers ADD COLUMN category_path_ids JSONB DEFAULT '[]'::jsonb;
-          END IF;
-        END $$;
-      `);
-
-      // 10. Audit Notifications and Attempt-Events Tables
-      await this.pool.query(`
-        -- Audit Notifications
-        CREATE TABLE IF NOT EXISTS "notifications" (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          title VARCHAR(255) NOT NULL,
-          message TEXT NOT NULL,
-          type VARCHAR(50) DEFAULT 'info',
-          channel VARCHAR(50) DEFAULT 'in_app',
-          read BOOLEAN DEFAULT false,
-          is_active BOOLEAN DEFAULT true,
-          metadata JSONB DEFAULT '{}'::jsonb,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'notifications' AND column_name = 'channel') THEN
-            ALTER TABLE notifications ADD COLUMN channel VARCHAR(50) DEFAULT 'in_app';
-          END IF;
-        END $$;
-
-        -- Audit Attempt Events (for anti-cheat)
-        CREATE TABLE IF NOT EXISTS "attempt_events" (
-          id SERIAL PRIMARY KEY,
-          attempt_id INTEGER REFERENCES attempts(id) ON DELETE CASCADE,
-          event_type VARCHAR(100) NOT NULL,
-          question_id INTEGER REFERENCES questions(id) ON DELETE SET NULL,
-          event_data JSONB DEFAULT '{}'::jsonb,
-          event_timestamp TIMESTAMP DEFAULT NOW(),
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Audit Question Attempts (per question analytics)
-        CREATE TABLE IF NOT EXISTS "question_attempts" (
-          id SERIAL PRIMARY KEY,
-          attempt_id INTEGER REFERENCES attempts(id) ON DELETE CASCADE,
-          question_id INTEGER REFERENCES questions(id) ON DELETE CASCADE,
-          selected_option INTEGER,
-          is_marked_for_review BOOLEAN DEFAULT false,
-          time_spent_seconds INTEGER DEFAULT 0,
-          visits_count INTEGER DEFAULT 0,
-          last_viewed_at TIMESTAMP,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'question_attempts' AND column_name = 'time_spent_seconds') THEN
-            ALTER TABLE question_attempts ADD COLUMN time_spent_seconds INTEGER DEFAULT 0;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'question_attempts' AND column_name = 'visits_count') THEN
-            ALTER TABLE question_attempts ADD COLUMN visits_count INTEGER DEFAULT 0;
-          END IF;
-        END $$;
-
-        -- Audit Subscriptions and Plans
-        CREATE TABLE IF NOT EXISTS "subscription_plans" (
-          id SERIAL PRIMARY KEY,
-          plan_id VARCHAR(50) UNIQUE NOT NULL,
-          name VARCHAR(100) NOT NULL,
-          price DECIMAL(10, 2) NOT NULL,
-          original_price DECIMAL(10, 2),
-          period VARCHAR(20) NOT NULL,
-          features JSONB DEFAULT '[]'::jsonb,
-          button_text VARCHAR(50),
-          button_class VARCHAR(50),
-          popular BOOLEAN DEFAULT false,
-          savings VARCHAR(20),
-          is_active BOOLEAN DEFAULT true,
-          sort_order INTEGER DEFAULT 0,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS "subscriptions" (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          plan_type VARCHAR(50) NOT NULL,
-          start_date TIMESTAMP DEFAULT NOW(),
-          expiry_date TIMESTAMP NOT NULL,
-          status VARCHAR(20) DEFAULT 'active',
-          auto_renew BOOLEAN DEFAULT false,
-          payment_method VARCHAR(50),
-          transaction_id VARCHAR(100),
-          amount_paid DECIMAL(10, 2),
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        CREATE TABLE IF NOT EXISTS "subscription_features" (
-          id SERIAL PRIMARY KEY,
-          plan_type VARCHAR(50) NOT NULL,
-          feature_key VARCHAR(100) NOT NULL,
-          is_enabled BOOLEAN DEFAULT true,
-          limit_value INTEGER,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW(),
-          UNIQUE(plan_type, feature_key)
-        );
-
-        -- Audit Activity Logs
-        CREATE TABLE IF NOT EXISTS "activity_logs" (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-          type VARCHAR(100) NOT NULL,
-          description TEXT,
-          metadata JSONB DEFAULT '{}'::jsonb,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-
-        -- Admin Audit Logs (for security compliance)
-        CREATE TABLE IF NOT EXISTS "audit_logs" (
-          id SERIAL PRIMARY KEY,
-          action VARCHAR(50) NOT NULL,
-          resource VARCHAR(100) NOT NULL,
-          resource_id VARCHAR(255),
-          admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          admin_email VARCHAR(255),
-          admin_name VARCHAR(255),
-          ip_address VARCHAR(100),
-          user_agent TEXT,
-          details JSONB DEFAULT '{}'::jsonb,
-          status VARCHAR(20) DEFAULT 'success',
-          request_method VARCHAR(10),
-          request_path TEXT,
-          response_status_code INTEGER,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_admin_id ON audit_logs(admin_id);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(created_at DESC);
-
-        -- Login attempts tracking for brute force protection
-        CREATE TABLE IF NOT EXISTS "login_attempts" (
-          id SERIAL PRIMARY KEY,
-          email VARCHAR(255) NOT NULL,
-          ip_address VARCHAR(100) NOT NULL,
-          attempted_at TIMESTAMP DEFAULT NOW(),
-          successful BOOLEAN DEFAULT false
-        );
-        CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email);
-        CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address);
-        CREATE INDEX IF NOT EXISTS idx_login_attempts_time ON login_attempts(attempted_at DESC);
-
-        -- User sessions for tracking login activity
-        CREATE TABLE IF NOT EXISTS "user_sessions" (
-          id VARCHAR(255) PRIMARY KEY,
-          user_id INTEGER NOT NULL,
-          session_id VARCHAR(255) UNIQUE NOT NULL,
-          ip_address VARCHAR(45),
-          user_agent TEXT,
-          device_type VARCHAR(50),
-          browser VARCHAR(50),
-          os VARCHAR(50),
-          country VARCHAR(100),
-          country_code VARCHAR(10),
-          city VARCHAR(100),
-          region VARCHAR(100),
-          session_type VARCHAR(50) DEFAULT 'web',
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        );
-        CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id);
-        CREATE INDEX IF NOT EXISTS idx_user_sessions_is_active ON user_sessions(is_active);
-
-        -- Audit Test Series and relationship in Attempts
-        CREATE TABLE IF NOT EXISTS "test_series" (
-          id SERIAL PRIMARY KEY,
-          name VARCHAR(255) NOT NULL,
-          slug VARCHAR(255) NOT NULL UNIQUE,
-          description TEXT,
-          image TEXT,
-          total_attempts INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT true,
-          created_at TIMESTAMP DEFAULT NOW(),
-          updated_at TIMESTAMP DEFAULT NOW()
-        );
-
-        DO $$ 
-        BEGIN 
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'attempts' AND column_name = 'series_id') THEN
-            ALTER TABLE attempts ADD COLUMN series_id INTEGER;
-          END IF;
-
-          -- Add display_order to resource tables for reordering
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_videos' AND column_name = 'display_order') THEN
-            ALTER TABLE subject_videos ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_pdfs' AND column_name = 'display_order') THEN
-            ALTER TABLE subject_pdfs ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topic_tests' AND column_name = 'display_order') THEN
-            ALTER TABLE topic_tests ADD COLUMN display_order INTEGER DEFAULT 0;
-          END IF;
-
-          -- Add topic_id to resource tables so content can be linked to a specific topic
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_videos' AND column_name = 'topic_id') THEN
-            ALTER TABLE subject_videos ADD COLUMN topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'subject_pdfs' AND column_name = 'topic_id') THEN
-            ALTER TABLE subject_pdfs ADD COLUMN topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL;
-          END IF;
-          IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topic_tests' AND column_name = 'topic_id') THEN
-            ALTER TABLE topic_tests ADD COLUMN topic_id INTEGER REFERENCES topics(id) ON DELETE SET NULL;
-          END IF;
-        END $$;
-      `);
-
-      // ═══════════════════════════════════════════════════
-      // 11. Practice Lab tables (see docs/PRACTICE_LAB_PRD.md)
-      // ═══════════════════════════════════════════════════
-      await this.pool.query(`
-        -- Tracks one practice session (a user practicing N questions in mode M on topic T)
-        CREATE TABLE IF NOT EXISTS "practice_sessions" (
-          id              SERIAL PRIMARY KEY,
-          user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          exam_id         VARCHAR(255),
-          subject_id      INTEGER REFERENCES subjects(id) ON DELETE SET NULL,
-          chapter_id      INTEGER REFERENCES chapters(id) ON DELETE SET NULL,
-          topic_id        INTEGER REFERENCES topics(id) ON DELETE SET NULL,
-          mode            VARCHAR(32) NOT NULL,
-          difficulty      VARCHAR(16),
-          target_count    INTEGER,
-          time_limit_sec  INTEGER,
-          questions_json  JSONB NOT NULL DEFAULT '[]'::jsonb,
-          current_index   INTEGER DEFAULT 0,
-          correct_count   INTEGER DEFAULT 0,
-          wrong_count      INTEGER DEFAULT 0,
-          skipped_count   INTEGER DEFAULT 0,
-          started_at      TIMESTAMP DEFAULT NOW(),
-          last_active_at  TIMESTAMP,
-          completed_at    TIMESTAMP,
-          is_active       BOOLEAN DEFAULT true
-        );
-        CREATE INDEX IF NOT EXISTS idx_practice_sessions_user ON practice_sessions(user_id, is_active);
-
-        -- Per-question answer log — this is the "wrong-question notebook" source
-        CREATE TABLE IF NOT EXISTS "practice_answers" (
-          id              SERIAL PRIMARY KEY,
-          user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          session_id      INTEGER REFERENCES practice_sessions(id) ON DELETE CASCADE,
-          question_id     INTEGER NOT NULL,
-          selected_option INTEGER,
-          is_correct      BOOLEAN,
-          is_skipped      BOOLEAN DEFAULT false,
-          time_taken_sec  INTEGER,
-          mode            VARCHAR(32),
-          created_at      TIMESTAMP DEFAULT NOW(),
-          UNIQUE(user_id, question_id, session_id)
-        );
-        CREATE INDEX IF NOT EXISTS idx_practice_answers_user_q ON practice_answers(user_id, question_id);
-        CREATE INDEX IF NOT EXISTS idx_practice_answers_wrong ON practice_answers(user_id, is_correct) WHERE is_correct = false;
-
-        -- Bookmark a question for later re-practice
-        CREATE TABLE IF NOT EXISTS "question_bookmarks" (
-          user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          question_id  INTEGER NOT NULL,
-          created_at   TIMESTAMP DEFAULT NOW(),
-          PRIMARY KEY (user_id, question_id)
-        );
-
-        -- One row per user, updated on every session completion (streak tracking)
-        CREATE TABLE IF NOT EXISTS "practice_streaks" (
-          user_id           INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-          current_streak    INTEGER DEFAULT 0,
-          longest_streak    INTEGER DEFAULT 0,
-          last_practice_date DATE,
-          total_sessions    INTEGER DEFAULT 0,
-          total_questions   INTEGER DEFAULT 0,
-          total_correct     INTEGER DEFAULT 0
-        );
-
-        -- Caches AI-generated extras per question so we only pay for the first generation
-        CREATE TABLE IF NOT EXISTS "practice_ai_cache" (
-          question_id    INTEGER NOT NULL,
-          feature        VARCHAR(32) NOT NULL,
-          content        JSONB NOT NULL,
-          model          VARCHAR(64),
-          generated_at   TIMESTAMP DEFAULT NOW(),
-          PRIMARY KEY (question_id, feature)
-        );
-
-        -- One curated set per user per day (Daily Practice mode)
-        CREATE TABLE IF NOT EXISTS "practice_daily_sets" (
-          id           SERIAL PRIMARY KEY,
-          user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-          set_date     DATE NOT NULL,
-          questions    JSONB NOT NULL DEFAULT '[]'::jsonb,
-          is_completed BOOLEAN DEFAULT false,
-          score        INTEGER,
-          created_at   TIMESTAMP DEFAULT NOW(),
-          UNIQUE (user_id, set_date)
-        );
-
-        -- User reports a bad/ambiguous question
-        CREATE TABLE IF NOT EXISTS "question_reports" (
-          id           SERIAL PRIMARY KEY,
-          user_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
-          question_id  INTEGER NOT NULL,
-          reason       VARCHAR(100),
-          notes        TEXT,
-          status       VARCHAR(32) DEFAULT 'open',
-          created_at   TIMESTAMP DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_question_reports_q ON question_reports(question_id);
-      `);
-
-      console.log("✅ Database schema verified and initialized.");
-      await ensureTestSectionsSchema();
-      const relationshipChanges = await this.reconcileRelationships();
-      if (relationshipChanges > 0) {
-        console.log(
-          `[DB] Applied ${relationshipChanges} relationship fix(es).`,
-        );
-       }
-
-       // Create CSRF tokens table for token-based CSRF protection (Issue #8)
-       await this.pool.query(`
-         CREATE TABLE IF NOT EXISTS "csrf_tokens" (
-           id SERIAL PRIMARY KEY,
-           csrf_token TEXT UNIQUE NOT NULL,
-           user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-           expires_at TIMESTAMP NOT NULL,
-           created_at TIMESTAMP DEFAULT NOW()
-         )
-       `);
-       await this.pool.query(`CREATE INDEX IF NOT EXISTS idx_csrf_tokens_expires ON csrf_tokens(expires_at)`);
-
-       return true;
-    } catch (error) {
-      console.error("❌ Database Initialization Error:", error.message);
-      // Don't crash here, as tables might already be present or being managed externally
-      return false;
-    }
+    console.log("[DB] Skip runtime table creation (DDL): Database schema is managed via SQL migrations.");
+    return true;
   }
 
   getTableName(collection) {
@@ -1816,9 +622,14 @@ class PostgresHelpers {
   toCamel(row) {
     if (!row) return null;
     const newRow = {};
+    const sensitiveColumns = ['phone', 'date_of_birth', 'location', 'education', 'bio'];
     for (const key in row) {
       const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
-      newRow[camelKey] = row[key];
+      let val = row[key];
+      if (sensitiveColumns.includes(key) && val) {
+        val = decryptValue(val);
+      }
+      newRow[camelKey] = val;
       if (key === "id") newRow._id = row[key];
     }
     return newRow;
@@ -1826,19 +637,95 @@ class PostgresHelpers {
 
   toSnake(obj, collection = null) {
     if (!obj) return null;
+    if (typeof obj === 'string') {
+      return obj.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
+    }
     const newObj = {};
+    const sensitiveColumns = ['phone', 'dateOfBirth', 'date_of_birth', 'location', 'education', 'bio'];
+    const isUsersTable = collection === 'users' || !collection;
     for (const key in obj) {
       if (key === "_id") continue;
-      const snakeKey = key.replace(
-        /[A-Z]/g,
-        (letter) => `_${letter.toLowerCase()}`,
-      );
-      newObj[snakeKey] = obj[key];
+      const snakeKey = key
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+        .toLowerCase();
+      let val = obj[key];
+      if (isUsersTable && sensitiveColumns.includes(key) && val) {
+        val = encryptValue(val);
+      }
+      newObj[snakeKey] = val;
     }
     return newObj;
   }
 
-  async find(collection, query = {}, limit = null, offset = null) {
+  /**
+   * H16 — build the column expression for a SELECT clause.
+   * @param {string} table - resolved table name
+   * @param {string|string[]|null} columns - optional explicit allowlist
+   * @returns {Promise<string>} e.g. "*", `"a", "b"`, or the resolved column list
+   *
+   * - If `columns` is provided (string or array), build an explicit, identifier-quoted list.
+   * - Otherwise resolve the table's real column list from the DB catalog
+   *   (cached per-table in the module-level `tableColumnsCache` Map) and build an
+   *   explicit `SELECT col1, col2, ...` projection. This eliminates `SELECT *` at
+   *   the framework level for ALL tables.
+   *   - For the `users` table only, SENSITIVE_USER_COLUMNS are excluded so
+   *     password/refresh-token/otp secrets are never returned by generic reads.
+   * - CRITICAL FALLBACK: if the catalog lookup throws OR resolves to zero usable
+   *   columns (e.g. views/CTEs/functions not present in information_schema, or a
+   *   table whose only columns are sensitive), we return `*` so behavior is
+   *   unchanged and nothing breaks. This method NEVER throws.
+   */
+  async getSelectColumns(table, columns) {
+    if (columns) {
+      const cols = Array.isArray(columns) ? columns : [columns];
+      const safe = cols.filter((c) => typeof c === 'string' && c.length > 0);
+      if (safe.length > 0) {
+        return safe.map((c) => quoteIdentifier(c)).join(', ');
+      }
+    }
+
+    try {
+      // Resolve (and cache) the real column list for this table from the catalog.
+      if (!tableColumnsCache.has(table)) {
+        const colResult = await this.pool.query(
+          `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'`,
+          [table],
+        );
+        tableColumnsCache.set(
+          table,
+          new Set(colResult.rows.map((r) => r.column_name)),
+        );
+      }
+
+      const cols = tableColumnsCache.get(table);
+      // FALLBACK: catalog returned nothing (view/cte/function/unknown) -> SELECT *.
+      if (!cols || cols.size === 0) {
+        return '*';
+      }
+
+      // Only the users table strips secrets; every other table keeps all columns.
+      const allowed =
+        table === 'users'
+          ? [...cols].filter((c) => !SENSITIVE_USER_COLUMNS.includes(c))
+          : [...cols];
+
+      if (allowed.length > 0) {
+        return allowed.map((c) => quoteIdentifier(c)).join(', ');
+      }
+    } catch (error) {
+      // Never throw from getSelectColumns — degrade safely to SELECT *.
+      console.error(
+        `[DB] getSelectColumns fallback to * for "${table}":`,
+        error.message,
+      );
+    }
+
+    // FALLBACK: nothing usable resolved -> SELECT * (unchanged behavior).
+    return '*';
+  }
+
+  async find(collection, query = {}, limit = null, offset = null, columns = null) {
     const table = this.getTableName(collection);
 
     // Extract includeInactive/include_inactive to support opt-out
@@ -1853,7 +740,8 @@ class PostgresHelpers {
       cleanQuery.is_active = true;
     }
 
-    let sql = `SELECT * FROM "${table}"`;
+    const selectCols = await this.getSelectColumns(table, columns);
+    let sql = `SELECT ${selectCols} FROM "${table}"`;
     const values = [];
     const conditions = [];
     let i = 1;
@@ -1922,15 +810,13 @@ class PostgresHelpers {
     }
 
     // Default ordering to ensure consistent pagination if limit/offset is used
-    if (limit !== null || offset !== null) {
-      sql += ` ORDER BY id ASC`;
-    }
+    sql += ` ORDER BY id ASC`;
 
-    if (limit !== null) {
-      sql += ` LIMIT $${i}`;
-      values.push(limit);
-      i++;
-    }
+    // Default limit of 1000 to prevent loading entire tables into memory
+    const effectiveLimit = limit !== null ? limit : DEFAULT_QUERY_LIMIT;
+    sql += ` LIMIT $${i}`;
+    values.push(effectiveLimit);
+    i++;
     if (offset !== null) {
       sql += ` OFFSET $${i}`;
       values.push(offset);
@@ -1946,7 +832,114 @@ class PostgresHelpers {
     }
   }
 
-  async findById(collection, id) {
+  async findReadOnly(collection, query = {}, limit = null, offset = null, columns = null) {
+    const table = this.getTableName(collection);
+
+    // Extract includeInactive/include_inactive to support opt-out
+    const cleanQuery = { ...query };
+    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    delete cleanQuery.includeInactive;
+    delete cleanQuery.include_inactive;
+
+    // Default isActive: true scope if the table contains 'is_active'
+    const hasActive = await this.columnExists(table, "is_active");
+    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+      cleanQuery.is_active = true;
+    }
+
+    const selectCols = await this.getSelectColumns(table, columns);
+    let sql = `SELECT ${selectCols} FROM "${table}"`;
+    const values = [];
+    const conditions = [];
+    let i = 1;
+
+    const snakeQuery = this.toSnake(cleanQuery, collection);
+
+    for (const key in snakeQuery) {
+      const value = snakeQuery[key];
+
+      if (
+        (key === "id" || key === "_id") &&
+        typeof value === "string" &&
+        value.includes("-")
+      ) {
+        continue;
+      }
+
+      let processedValue = value;
+      if (
+        (key === "id" || key === "_id") &&
+        typeof value === "string" &&
+        /^[0-9]+$/.test(value)
+      ) {
+        processedValue = parseInt(value, 10);
+      }
+      if (processedValue === null) {
+        conditions.push(`"${key}" IS NULL`);
+      } else if (typeof processedValue !== "object") {
+        conditions.push(`"${key}" = $${i}`);
+        values.push(processedValue);
+        i++;
+      } else {
+        // Handle operators
+        if (processedValue.$gt) {
+          conditions.push(`"${key}" > $${i}`);
+          values.push(processedValue.$gt);
+          i++;
+        } else if (processedValue.$lt) {
+          conditions.push(`"${key}" < $${i}`);
+          values.push(processedValue.$lt);
+          i++;
+        } else if (processedValue.$gte) {
+          conditions.push(`"${key}" >= $${i}`);
+          values.push(processedValue.$gte);
+          i++;
+        } else if (processedValue.$lte) {
+          conditions.push(`"${key}" <= $${i}`);
+          values.push(processedValue.$lte);
+          i++;
+        } else if (processedValue.$in && Array.isArray(processedValue.$in)) {
+          if (processedValue.$in.length > 0) {
+            const placeholders = processedValue.$in
+              .map(() => `$${i++}`)
+              .join(", ");
+            conditions.push(`"${key}" IN (${placeholders})`);
+            values.push(...processedValue.$in);
+          } else {
+            conditions.push("1=0"); // Always false for empty IN
+          }
+        }
+      }
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    // Default ordering to ensure consistent pagination if limit/offset is used
+    sql += ` ORDER BY id ASC`;
+
+    // Default limit of 1000 to prevent loading entire tables into memory
+    const effectiveLimit = limit !== null ? limit : DEFAULT_QUERY_LIMIT;
+    sql += ` LIMIT $${i}`;
+    values.push(effectiveLimit);
+    i++;
+    if (offset !== null) {
+      sql += ` OFFSET $${i}`;
+      values.push(offset);
+      i++;
+    }
+
+    try {
+      const result = await readPool.query(sql, values);
+      return result.rows.map((row) => this.toCamel(row));
+    } catch (error) {
+      console.error(`DB FindReadOnly Error (${collection}):`, error.message);
+      return [];
+    }
+  }
+
+  async findById(collection, id, columns = null) {
     const table = this.getTableName(collection);
 
     if (typeof id === "string") {
@@ -1970,8 +963,9 @@ class PostgresHelpers {
     }
 
     try {
+      const selectCols = await this.getSelectColumns(table, columns);
       const result = await this.pool.query(
-        `SELECT * FROM "${table}" WHERE id = $1`,
+        `SELECT ${selectCols} FROM "${table}" WHERE id = $1`,
         [numericId],
       );
       return this.toCamel(result.rows[0]);
@@ -1981,9 +975,132 @@ class PostgresHelpers {
     }
   }
 
-  async findOne(collection, query) {
-    const items = await this.find(collection, query);
-    return items[0] || null;
+  async findByIdReadOnly(collection, id, columns = null) {
+    const table = this.getTableName(collection);
+
+    if (typeof id === "string") {
+      const trimmedId = id.trim();
+      if (!trimmedId) {
+        return null;
+      }
+
+      if (this.isValidPublicId(trimmedId, table)) {
+        return this.findByPublicIdReadOnly(collection, trimmedId);
+      }
+
+      if (trimmedId.includes("-")) {
+        return null;
+      }
+    }
+
+    const numericId = parseNumericId(id);
+    if (numericId === null) {
+      return null;
+    }
+
+    try {
+      const selectCols = await this.getSelectColumns(table, columns);
+      const result = await readPool.query(
+        `SELECT ${selectCols} FROM "${table}" WHERE id = $1`,
+        [numericId],
+      );
+      return this.toCamel(result.rows[0]);
+    } catch (error) {
+      console.error(`DB FindByIdReadOnly Error (${collection}):`, error.message);
+      return null;
+    }
+  }
+
+  async findOne(collection, query, columns = null) {
+    const table = this.getTableName(collection);
+
+    const cleanQuery = { ...query };
+    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    delete cleanQuery.includeInactive;
+    delete cleanQuery.include_inactive;
+
+    const hasActive = await this.columnExists(table, "is_active");
+    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+      cleanQuery.is_active = true;
+    }
+
+    const selectCols = await this.getSelectColumns(table, columns);
+    let sql = `SELECT ${selectCols} FROM "${table}"`;
+    const values = [];
+    const conditions = [];
+    let i = 1;
+
+    const snakeQuery = this.toSnake(cleanQuery, collection);
+
+    for (const key in snakeQuery) {
+      const value = snakeQuery[key];
+
+      if (
+        (key === "id" || key === "_id") &&
+        typeof value === "string" &&
+        value.includes("-")
+      ) {
+        continue;
+      }
+
+      let processedValue = value;
+      if (
+        (key === "id" || key === "_id") &&
+        typeof value === "string" &&
+        /^[0-9]+$/.test(value)
+      ) {
+        processedValue = parseInt(value, 10);
+      }
+      if (processedValue === null) {
+        conditions.push(`"${key}" IS NULL`);
+      } else if (typeof processedValue !== "object") {
+        conditions.push(`"${key}" = $${i}`);
+        values.push(processedValue);
+        i++;
+      } else {
+        if (processedValue.$gt) {
+          conditions.push(`"${key}" > $${i}`);
+          values.push(processedValue.$gt);
+          i++;
+        } else if (processedValue.$lt) {
+          conditions.push(`"${key}" < $${i}`);
+          values.push(processedValue.$lt);
+          i++;
+        } else if (processedValue.$gte) {
+          conditions.push(`"${key}" >= $${i}`);
+          values.push(processedValue.$gte);
+          i++;
+        } else if (processedValue.$lte) {
+          conditions.push(`"${key}" <= $${i}`);
+          values.push(processedValue.$lte);
+          i++;
+        } else if (processedValue.$in && Array.isArray(processedValue.$in)) {
+          if (processedValue.$in.length > 0) {
+            const placeholders = processedValue.$in
+              .map(() => `$${i++}`)
+              .join(", ");
+            conditions.push(`"${key}" IN (${placeholders})`);
+            values.push(...processedValue.$in);
+          } else {
+            conditions.push("1=0");
+          }
+        }
+      }
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    sql += ` ORDER BY id ASC LIMIT 1`;
+
+    try {
+      const result = await this.pool.query(sql, values);
+      return this.toCamel(result.rows[0]) || null;
+    } catch (error) {
+      console.error(`DB FindOne Error (${collection}):`, error.message);
+      return null;
+    }
   }
 
   /**
@@ -2118,13 +1235,42 @@ class PostgresHelpers {
     try {
       // CRITICAL: Use exact match only - NEVER use LIKE or partial matching
       // The public_id TEXT column has a unique index for fast lookups
+      const selectCols = await this.getSelectColumns(table);
       const result = await this.pool.query(
-        `SELECT * FROM "${table}" WHERE public_id = $1 LIMIT 1`,
+        `SELECT ${selectCols} FROM "${table}" WHERE public_id = $1 LIMIT 1`,
         [publicId],
       );
       return this.toCamel(result.rows[0]);
     } catch (error) {
       console.error(`DB findByPublicId Error (${collection}):`, error.message);
+      return null;
+    }
+  }
+
+  async findByPublicIdReadOnly(collection, publicId) {
+    const table = this.getTableName(collection);
+
+    if (!publicId) return null;
+
+    if (!(await this.columnExists(table, "public_id"))) {
+      return null;
+    }
+
+    // Validate format before querying (fail fast)
+    if (!this.isValidPublicId(publicId)) {
+      console.warn(`Invalid public_id format: ${publicId}`);
+      return null;
+    }
+
+    try {
+      const selectCols = await this.getSelectColumns(table);
+      const result = await readPool.query(
+        `SELECT ${selectCols} FROM "${table}" WHERE public_id = $1 LIMIT 1`,
+        [publicId],
+      );
+      return this.toCamel(result.rows[0]);
+    } catch (error) {
+      console.error(`DB findByPublicIdReadOnly Error (${collection}):`, error.message);
       return null;
     }
   }
@@ -2146,8 +1292,9 @@ class PostgresHelpers {
 
     try {
       // Direct UUID lookup - fastest possible (16 bytes binary index)
+      const selectCols = await this.getSelectColumns(table);
       const result = await this.pool.query(
-        `SELECT * FROM "${table}" WHERE public_id_uuid = $1 LIMIT 1`,
+        `SELECT ${selectCols} FROM "${table}" WHERE public_id_uuid = $1 LIMIT 1`,
         [uuid],
       );
       return this.toCamel(result.rows[0]);
@@ -2238,21 +1385,61 @@ class PostgresHelpers {
   }
 
   /**
-   * Increment metrics for observability (stub - implement with your metrics provider)
+   * Increment metrics for observability.
+   *
+   * No metrics provider (Prometheus/DataDog/CloudWatch) is wired into the
+   * codebase yet, so this is a best-effort, fire-and-forget increment in
+   * Redis (key: `metrics:<metricName>`). It never throws and is safe to call
+   * from hot paths like toApi().
+   *
+   * TODO: replace with a real metrics provider if/when one is adopted.
+   *
    * @param {string} metricName - Name of metric to increment
    */
   incrementMetric(metricName) {
-    // Implement with your metrics provider (DataDog, Prometheus, CloudWatch, etc.)
-    // Example: metrics.increment(metricName)
-    // For now, just log in development
-    if (process.env.NODE_ENV === "development") {
-      // Silent in production, but could be hooked to a metrics service
-    }
+    if (!metricName) return;
+    import("../cache/redisClient.js")
+      .then(({ getRedisClient, isRedisReady }) => {
+        if (isRedisReady()) {
+          getRedisClient()
+            .incr(`metrics:${metricName}`)
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
   }
 
-  async count(collection, query = {}) {
-    const items = await this.find(collection, query);
-    return items.length;
+  async count(table, filter = {}) {
+    let tableName = table
+    let filterObj = filter
+
+    if (typeof table === 'object' && table !== null) {
+      tableName = filter
+      filterObj = table
+    }
+
+    const resolvedTable = typeof tableName === 'string' ? (this.tableMap[tableName] || tableName) : 'bookmarks'
+    const quotedTable = quoteIdentifier(resolvedTable)
+    const conditions = []
+    const values = []
+    let paramIndex = 1
+
+    if (filterObj && typeof filterObj === 'object') {
+      for (const [key, value] of Object.entries(filterObj)) {
+        const snakeKey = typeof key === 'string' ? key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`) : String(key)
+        if (value === null) {
+          conditions.push(`${quoteIdentifier(snakeKey)} IS NULL`)
+        } else {
+          conditions.push(`${quoteIdentifier(snakeKey)} = $${paramIndex}`)
+          values.push(value)
+          paramIndex++
+        }
+      }
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+    const result = await this.pool.query(`SELECT COUNT(*)::int AS count FROM ${quotedTable} ${whereClause}`, values)
+    return result.rows[0]?.count || 0
   }
 
   async resolveForeignKeys(table, dbData) {
@@ -2294,8 +1481,11 @@ class PostgresHelpers {
 
     // Prepare values - stringify JSONB columns, keep PostgreSQL arrays as-is
     const prepared = prepareDbValues(table, dbData);
-    const keys = Object.keys(prepared);
-    const values = Object.values(prepared);
+    // Filter to only columns that actually exist in the table (same behavior
+    // as updateById; unknown fields from client payloads must not crash inserts)
+    const filteredPrepared = await this.filterToExistingColumns(table, prepared);
+    const keys = Object.keys(filteredPrepared);
+    const values = Object.values(filteredPrepared);
 
     if (keys.length === 0) return null;
 
@@ -2305,7 +1495,13 @@ class PostgresHelpers {
     try {
       const db = client || this.pool;
       const result = await db.query(sql, values);
-      return this.toCamel(result.rows[0]);
+      const inserted = this.toCamel(result.rows[0]);
+      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
+        this.getSubjectIdForCurriculumItem(collection, inserted.id || inserted._id, inserted).then(subjectId => {
+          if (subjectId) this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
+        }).catch(console.error);
+      }
+      return inserted;
     } catch (error) {
       console.error(`DB Insert Error (${collection}):`, error.message);
       throw error;
@@ -2313,25 +1509,55 @@ class PostgresHelpers {
   }
 
   async insertMany(collection, items, client = null) {
-    if (client) {
-      const results = [];
-      for (const item of items) {
-        results.push(await this.insertOne(collection, item, client));
-      }
-      return results;
-    }
+    if (!items || items.length === 0) return [];
 
-    // Default to transactional behavior for insertMany if no client provided
-    return await this.withTransaction(async (dbClient) => {
-      const results = [];
-      for (const item of items) {
-        results.push(await this.insertOne(collection, item, dbClient));
+    const table = this.getTableName(collection);
+    // Process all items to get consistent column sets
+    const processedItems = items.map(item => {
+      const dbData = this.toSnake(item, collection);
+      delete dbData.id;
+      delete dbData.created_at;
+      delete dbData.updated_at;
+      if (Array.isArray(dbData.stage_ids)) {
+        dbData.stage_ids = dbData.stage_ids.filter(
+          (id) => typeof id === "number" || /^\d+$/.test(String(id)),
+        );
       }
-      return results;
+      return prepareDbValues(table, dbData);
     });
+
+    // Use the column set from the first item, restricted to columns that
+    // actually exist in the table (unknown fields from client payloads must
+    // not crash bulk inserts — same behavior as updateById)
+    await this.filterToExistingColumns(table, {}); // warms tableColumnsCache
+    const firstKeys = Object.keys(processedItems[0]);
+    if (firstKeys.length === 0) return [];
+    const existingColumns = tableColumnsCache.get(table);
+    const keys = existingColumns
+      ? firstKeys.filter((k) => existingColumns.has(k))
+      : firstKeys;
+    if (keys.length === 0) return [];
+
+    const allValues = [];
+    const valuePlaceholders = processedItems.map((item, rowIdx) => {
+      const placeholders = keys.map((_, colIdx) => `$${rowIdx * keys.length + colIdx + 1}`);
+      keys.forEach((key) => allValues.push(item[key]));
+      return `(${placeholders.join(', ')})`;
+    }).join(', ');
+
+    const sql = `INSERT INTO "${table}" (${keys.map((k) => `"${k}"`).join(', ')}) VALUES ${valuePlaceholders} RETURNING *`;
+
+    const db = client || this.pool;
+    try {
+      const result = await db.query(sql, allValues);
+      return result.rows.map((row) => this.toCamel(row));
+    } catch (error) {
+      console.error(`DB InsertMany Error (${collection}):`, error.message);
+      throw error;
+    }
   }
 
-  async updateById(collection, id, data) {
+  async updateById(collection, id, data, client = null) {
     const table = this.getTableName(collection);
     const dbData = this.toSnake(data, collection);
 
@@ -2353,14 +1579,10 @@ class PostgresHelpers {
     // Prepare values - stringify JSONB columns, keep PostgreSQL arrays as-is
     const prepared = prepareDbValues(table, dbData);
 
-    // Filter to only columns that actually exist in the table
-    const colResult = await this.pool.query(
-      `SELECT column_name FROM information_schema.columns WHERE table_name = $1`,
-      [table],
-    );
-    const existingColumns = new Set(colResult.rows.map((r) => r.column_name));
-    const keys = Object.keys(prepared).filter((k) => existingColumns.has(k));
-    const values = keys.map((k) => prepared[k]);
+    // Filter to only columns that actually exist in the table (cached per table)
+    const filtered = await this.filterToExistingColumns(table, prepared);
+    const keys = Object.keys(filtered);
+    const values = keys.map((k) => filtered[k]);
 
     if (keys.length === 0) return null;
 
@@ -2385,10 +1607,17 @@ class PostgresHelpers {
     console.log(`   ──`.repeat(25));
 
     try {
-      const result = await this.pool.query(sql, values);
+      const db = client || this.pool;
+      const result = await db.query(sql, values);
       if (result.rows.length === 0) return null;
       console.log(`   ✅ Updated 1 row in ${table}`);
-      return this.toCamel(result.rows[0]);
+      const updated = this.toCamel(result.rows[0]);
+      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
+        this.getSubjectIdForCurriculumItem(collection, numericId || id || updated.id || updated._id, updated).then(subjectId => {
+          if (subjectId) this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
+        }).catch(console.error);
+      }
+      return updated;
     } catch (error) {
       console.error(`   ❌ DB Update Error (${collection}):`, error.message);
       throw error;
@@ -2402,9 +1631,16 @@ class PostgresHelpers {
       if (numericId === null) {
         return false;
       }
+      let subjectId = null;
+      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
+        subjectId = await this.getSubjectIdForCurriculumItem(collection, numericId || id);
+      }
       await this.pool.query(`DELETE FROM "${table}" WHERE id = $1`, [
         numericId,
       ]);
+      if (subjectId) {
+        this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
+      }
       return true;
     } catch (error) {
       console.error(`DB Delete Error (${collection}):`, error.message);
@@ -2472,20 +1708,16 @@ class PostgresHelpers {
   }
 
   async softDelete(collection, id, userId) {
-    try {
-      const table = this.getTableName(collection);
-      // USE STANDARDIZED SOFT-DELETE PATTERN (Migration 008)
-      // This uses the columns added by Migration 008: is_deleted, deleted_by, deleted_at
-      return await this.updateById(collection, id, { 
-        isActive: false, 
-        is_deleted: true, 
-        deleted_by: userId || null, 
-        deleted_at: new Date() 
-      });
-    } catch (e) {
-      console.warn(`Soft delete failed for ${collection}:`, e.message);
-      return await this.deleteById(collection, id);
-    }
+    const table = this.getTableName(collection);
+    // USE STANDARDIZED SOFT-DELETE PATTERN (Migration 032)
+    // Keep is_deleted and is_active/isActive in sync to support consistent queries.
+    return await this.updateById(collection, id, { 
+      is_deleted: true, 
+      is_active: false,
+      isActive: false,
+      deleted_by: userId || null, 
+      deleted_at: new Date() 
+    });
   }
 
   async getTrashItems(filter = {}) {
@@ -2495,6 +1727,9 @@ class PostgresHelpers {
       "tests",
       "questions",
       "studyMaterials",
+      "units",
+      "chapters",
+      "subtopics",
       "examCategories",
       "exams",
       "testCategories",
@@ -2510,22 +1745,23 @@ class PostgresHelpers {
       "navigationMenu",
       "tagConfigs",
     ];
-    const allTrashItems = [];
 
-    for (const collection of collections) {
-      try {
-        const items = await this.find(collection, { isActive: false });
-        items.forEach((item) => {
-          allTrashItems.push({
+    const results = await Promise.all(
+      collections.map(async (collection) => {
+        try {
+          const items = await this.find(collection, { isActive: false });
+          return items.map((item) => ({
             ...item,
             originalCollection: collection,
             deletedAt: item.updatedAt || item.updated_at,
-          });
-        });
-      } catch (e) {
-        // Collection might not exist, skip
-      }
-    }
+          }));
+        } catch (e) {
+          return [];
+        }
+      })
+    );
+
+    const allTrashItems = results.flat();
 
     // Apply filter if type is specified
     if (filter.originalCollection) {
@@ -2543,6 +1779,9 @@ class PostgresHelpers {
       "tests",
       "questions",
       "studyMaterials",
+      "units",
+      "chapters",
+      "subtopics",
       "examCategories",
       "exams",
       "testCategories",
@@ -2562,9 +1801,12 @@ class PostgresHelpers {
     for (const collection of collections) {
       try {
         const item = await this.findById(collection, id);
-        if (item && item.isActive === false) {
+        if (item && (item.is_deleted === true || item.isActive === false)) {
           const restored = await this.updateById(collection, id, {
+            is_deleted: false,
             isActive: true,
+            deleted_by: null,
+            deleted_at: null,
           });
           return { ...restored, originalCollection: collection };
         }
@@ -2582,6 +1824,9 @@ class PostgresHelpers {
       "tests",
       "questions",
       "studyMaterials",
+      "units",
+      "chapters",
+      "subtopics",
       "examCategories",
       "exams",
       "examInfo",
@@ -2620,6 +1865,9 @@ class PostgresHelpers {
       "tests",
       "questions",
       "studyMaterials",
+      "units",
+      "chapters",
+      "subtopics",
       "examCategories",
       "exams",
       "examInfo",
@@ -2647,6 +1895,194 @@ class PostgresHelpers {
     }
     return true;
   }
+
+  async getSubjectIdForCurriculumItem(collection, id, data) {
+    try {
+      if (collection === 'units') {
+        if (data && (data.subjectId || data.subject_id)) return data.subjectId || data.subject_id;
+        const unit = await this.findById('units', id);
+        return unit?.subjectId || unit?.subject_id;
+      }
+      if (collection === 'chapters') {
+        if (data && (data.subjectId || data.subject_id)) return data.subjectId || data.subject_id;
+        if (data && (data.unitId || data.unit_id)) {
+          const unit = await this.findById('units', data.unitId || data.unit_id);
+          if (unit?.subjectId || unit?.subject_id) return unit.subjectId || unit.subject_id;
+        }
+        const ch = await this.findById('chapters', id);
+        if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+        if (ch?.unitId || ch?.unit_id) {
+          const unit = await this.findById('units', ch.unitId || ch.unit_id);
+          return unit?.subjectId || unit?.subject_id;
+        }
+      }
+      if (collection === 'topics') {
+        let chId = data?.chapterId || data?.chapter_id;
+        if (!chId && id) {
+          const t = await this.findById('topics', id);
+          chId = t?.chapterId || t?.chapter_id;
+        }
+        if (chId) {
+          const ch = await this.findById('chapters', chId);
+          if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+          if (ch?.unitId || ch?.unit_id) {
+            const unit = await this.findById('units', ch.unitId || ch.unit_id);
+            return unit?.subjectId || unit?.subject_id;
+          }
+        }
+      }
+      if (collection === 'subtopics') {
+        let topicId = data?.topicId || data?.topic_id;
+        if (!topicId && id) {
+          const st = await this.findById('subtopics', id);
+          topicId = st?.topicId || st?.topic_id;
+        }
+        if (topicId) {
+          const t = await this.findById('topics', topicId);
+          if (t?.chapterId || t?.chapter_id) {
+            const ch = await this.findById('chapters', t.chapterId || t.chapter_id);
+            if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+            if (ch?.unitId || ch?.unit_id) {
+              const unit = await this.findById('units', ch.unitId || ch.unit_id);
+              return unit?.subjectId || unit?.subject_id;
+            }
+          }
+        }
+      }
+    } catch (_) {
+      // ignore — non-fatal; returns null below
+    }
+    return null;
+  }
+
+  async resequenceAndPrefixCurriculum(subjectId) {
+    if (!subjectId) return;
+    try {
+      const prefixRegex = /^(?:Unit|Chapter|Topic|Subtopic|Ch|U|T|St)\s*\d+[\s:]\s*/i;
+      const cleanName = (name) => {
+        if (!name) return '';
+        return name.replace(prefixRegex, '').trim();
+      };
+
+      // 1. Resequence & Prefix Units
+      const units = (await this.pool.query(`
+        SELECT id, name, order_index FROM subject_units
+        WHERE subject_id = $1 AND (is_deleted = false OR is_deleted IS NULL)
+        ORDER BY order_index, id
+      `, [subjectId])).rows;
+
+      for (let i = 0; i < units.length; i++) {
+        const u = units[i];
+        const unitOrder = i + 1;
+        const cleaned = cleanName(u.name);
+        const newName = `Unit ${unitOrder}: ${cleaned}`;
+        await this.pool.query(`
+          UPDATE subject_units SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
+        `, [newName, unitOrder, u.id]);
+      }
+
+      // 2. Resequence & Prefix Chapters (Continuous Global Index)
+      const chapters = (await this.pool.query(`
+        SELECT c.id, c.title, c.order_index, c.unit_id, u.order_index as unit_order
+        FROM subject_chapters c
+        LEFT JOIN subject_units u ON c.unit_id = u.id
+        WHERE c.subject_id = $1 AND (c.is_deleted = false OR c.is_deleted IS NULL)
+        ORDER BY COALESCE(u.order_index, 9999), c.order_index, c.id
+      `, [subjectId])).rows;
+
+      for (let i = 0; i < chapters.length; i++) {
+        const c = chapters[i];
+        const globalChapNum = i + 1;
+        const cleaned = cleanName(c.title);
+        const newTitle = `Chapter ${globalChapNum}: ${cleaned}`;
+        await this.pool.query(`
+          UPDATE subject_chapters SET title = $1, order_index = $2, updated_at = NOW() WHERE id = $3
+        `, [newTitle, globalChapNum, c.id]);
+      }
+
+      // 3. Resequence & Prefix Topics (Per Chapter Index)
+      const chapterIds = chapters.map(c => c.id);
+      if (chapterIds.length > 0) {
+        const topics = (await this.pool.query(`
+          SELECT id, name, order_index, chapter_id FROM subject_topics
+          WHERE chapter_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
+          ORDER BY chapter_id, order_index, id
+        `, [chapterIds])).rows;
+
+        const topicsByChapter = {};
+        for (const t of topics) {
+          if (!topicsByChapter[t.chapter_id]) topicsByChapter[t.chapter_id] = [];
+          topicsByChapter[t.chapter_id].push(t);
+        }
+
+        for (const chId in topicsByChapter) {
+          const chTopics = topicsByChapter[chId];
+          for (let i = 0; i < chTopics.length; i++) {
+            const t = chTopics[i];
+            const topicOrder = i + 1;
+            const cleaned = cleanName(t.name);
+            const newName = `Topic ${topicOrder}: ${cleaned}`;
+            await this.pool.query(`
+              UPDATE subject_topics SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
+            `, [newName, topicOrder, t.id]);
+          }
+        }
+
+        // 4. Resequence & Prefix Subtopics (Per Topic Index)
+        const topicIds = topics.map(t => t.id);
+        if (topicIds.length > 0) {
+          const subtopics = (await this.pool.query(`
+            SELECT id, name, order_index, topic_id FROM subject_subtopics
+            WHERE topic_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
+            ORDER BY topic_id, order_index, id
+          `, [topicIds])).rows;
+
+          const subtopicsByTopic = {};
+          for (const st of subtopics) {
+            if (!subtopicsByTopic[st.topic_id]) subtopicsByTopic[st.topic_id] = [];
+            subtopicsByTopic[st.topic_id].push(st);
+          }
+
+          for (const tId in subtopicsByTopic) {
+            const tSubtopics = subtopicsByTopic[tId];
+            for (let i = 0; i < tSubtopics.length; i++) {
+              const st = tSubtopics[i];
+              const subtopicOrder = i + 1;
+              const cleaned = cleanName(st.name);
+              const newName = `Subtopic ${subtopicOrder}: ${cleaned}`;
+              await this.pool.query(`
+                UPDATE subject_subtopics SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
+              `, [newName, subtopicOrder, st.id]);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error auto-prefixing/resequencing curriculum:', err);
+    }
+  }
+
+  /**
+   * Gracefully close the underlying connection pools (write + read replicas).
+   * Safe to call multiple times; no-ops if a pool is already closed. Used by the
+   * process graceful-shutdown handler (app-port5001.js).
+   * @returns {Promise<void>}
+   */
+  async close() {
+    const errors = [];
+    // Close read replica pool first, then the primary write pool.
+    for (const p of [readPool, this.pool]) {
+      if (!p || typeof p.end !== "function") continue;
+      try {
+        await p.end();
+      } catch (err) {
+        errors.push(err && err.message ? err.message : String(err));
+      }
+    }
+    if (errors.length > 0) {
+      console.error("[DB] Error while closing pools:", errors.join("; "));
+    }
+  }
 }
 
 export const testConnection = async (maxAttempts = 1, initialDelayMs = 0) => {
@@ -2671,6 +2107,28 @@ export const testConnection = async (maxAttempts = 1, initialDelayMs = 0) => {
   }
 
   return false;
+};
+
+// Run a set of operations atomically on a single connection. The callback
+// receives the live `client` and should pass it to dbHelpers methods that
+// accept an optional `client` argument (e.g. insertOne/updateById) so every
+// write shares the same transaction. Automatically rolls back on error.
+export const withTransaction = async (fn, options = {}) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (options.lockTimeout) {
+      await client.query(`SET LOCAL lock_timeout = '${options.lockTimeout}'`);
+    }
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
 };
 
 export const dbHelpers = new PostgresHelpers(pool);

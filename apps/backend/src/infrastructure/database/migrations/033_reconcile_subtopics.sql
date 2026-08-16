@@ -103,19 +103,19 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes
                   WHERE tablename = 'subtopics'
                     AND indexname = 'idx_subtopics_public_id') THEN
-    CREATE UNIQUE INDEX idx_subtopics_public_id ON subtopics(public_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_subtopics_public_id ON subtopics(public_id);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_indexes
                   WHERE tablename = 'subtopics'
                     AND indexname = 'idx_subtopics_stage_ids') THEN
-    CREATE INDEX idx_subtopics_stage_ids ON subtopics USING GIN(stage_ids);
+    CREATE INDEX IF NOT EXISTS idx_subtopics_stage_ids ON subtopics USING GIN(stage_ids);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_indexes
                   WHERE tablename = 'subtopics'
                     AND indexname = 'idx_subtopics_order_index') THEN
-    CREATE INDEX idx_subtopics_order_index ON subtopics(order_index);
+    CREATE INDEX IF NOT EXISTS idx_subtopics_order_index ON subtopics(order_index);
   END IF;
 END $$;
 

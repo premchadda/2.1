@@ -8,7 +8,7 @@ const __dirname = dirname(__filename)
 // HIGH-10 FIX: Startup env validation script
 // Checks all required env vars from turbo.json globalEnv
 
-const REQUIRED_VARS = ['DATABASE_URL', 'JWT_SECRET', 'FRONTEND_URL']
+const REQUIRED_VARS = ['DATABASE_URL', 'JWT_SECRET', 'DB_ENCRYPTION_KEY', 'FRONTEND_URL']
 const RECOMMENDED_VARS = ['NODE_ENV', 'PORT', 'ADMIN_PANEL_URL', 'VITE_API_URL', 'VITE_SOCKET_URL']
 const OPTIONAL_VARS = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'VITE_FRONTEND_URL', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS']
 
@@ -40,6 +40,10 @@ for (const v of REQUIRED_VARS) {
 // JWT_SECRET additional length check
 if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
   errors.push('JWT_SECRET must be at least 32 characters long')
+}
+// DB_ENCRYPTION_KEY additional length check
+if (process.env.DB_ENCRYPTION_KEY && process.env.DB_ENCRYPTION_KEY.length < 32) {
+  errors.push('DB_ENCRYPTION_KEY must be at least 32 characters long')
 }
 // NODE_ENV format check
 if (process.env.NODE_ENV && !['development', 'production', 'test'].includes(process.env.NODE_ENV)) {

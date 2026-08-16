@@ -35,6 +35,23 @@ const REDIS_KEYS = {
 // Response time samples to keep in Redis (last 1000)
 const MAX_RESPONSE_SAMPLES = 1000
 
+// PERF FIX (H9): cap the number of distinct path buckets kept in memory.
+// Path normalization only collapses numeric/hex segments, so arbitrary
+// (e.g. attacker-supplied) alpha path segments could otherwise grow the
+// byPath map without bound and eventually OOM the process. Once the cap is
+// reached, further unseen paths are folded into a single "__other__" bucket.
+const MAX_TRACKED_PATHS = 500
+const MAX_TRACKED_METHODS = 500
+const MAX_TRACKED_STATUSES = 500
+
+const trackBounded = (bucket, key, cap) => {
+  if (bucket[key] === undefined && Object.keys(bucket).length >= cap) {
+    bucket.__other__ = (bucket.__other__ || 0) + 1
+    return
+  }
+  bucket[key] = (bucket[key] || 0) + 1
+}
+
 /**
  * Get Redis client if available
  */
@@ -85,6 +102,12 @@ const recordResponseTime = async (duration) => {
  * Request monitoring middleware
  */
 export const monitoringMiddleware = (req, res, next) => {
+  // M2: skip metrics collection on health-check endpoints (they are hit
+  // constantly by orchestrators/liveness probes and would skew metrics).
+  if (req.path === '/api/health' || req.path === '/health' || req.path === '/') {
+    return next()
+  }
+
   const traceId = req.traceId
   const startTime = Date.now()
   
@@ -96,11 +119,11 @@ export const monitoringMiddleware = (req, res, next) => {
   
   // Track by method
   const method = req.method
-  memoryMetrics.requests.byMethod[method] = (memoryMetrics.requests.byMethod[method] || 0) + 1
+  trackBounded(memoryMetrics.requests.byMethod, method, MAX_TRACKED_METHODS)
   
   // Track by path (simplified - remove query params and IDs)
   const path = req.path.replace(/\/[a-f0-9-]+/gi, '/:id').replace(/\/\d+/g, '/:id')
-  memoryMetrics.requests.byPath[path] = (memoryMetrics.requests.byPath[path] || 0) + 1
+  trackBounded(memoryMetrics.requests.byPath, path, MAX_TRACKED_PATHS)
   
   // Async Redis updates (fire and forget)
   const redisUpdates = [
@@ -119,7 +142,7 @@ export const monitoringMiddleware = (req, res, next) => {
     
     // Track by status code
     const status = res.statusCode
-    memoryMetrics.requests.byStatus[status] = (memoryMetrics.requests.byStatus[status] || 0) + 1
+    trackBounded(memoryMetrics.requests.byStatus, String(status), MAX_TRACKED_STATUSES)
     
     // Track errors
     if (status >= 400) {
@@ -206,10 +229,72 @@ export const getMetrics = async () => {
 }
 
 /**
- * Metrics endpoint handler
+ * Prometheus-compatible text metrics format
+ */
+const formatPrometheusMetrics = (metrics) => {
+  const lines = []
+  const ts = Math.floor(Date.now() / 1000)
+
+  // Request count by route
+  for (const [path, count] of Object.entries(metrics.requests.byPath || {})) {
+    lines.push(`http_requests_total{path="${path}"} ${count} ${ts}`)
+  }
+
+  // Request count by method
+  for (const [method, count] of Object.entries(metrics.requests.byMethod || {})) {
+    lines.push(`http_requests_total{method="${method}"} ${count} ${ts}`)
+  }
+
+  // Request count by status
+  for (const [status, count] of Object.entries(metrics.requests.byStatus || {})) {
+    lines.push(`http_response_status{status="${status}"} ${count} ${ts}`)
+  }
+
+  // Total requests
+  lines.push(`http_requests_total_all ${metrics.requests.total} ${ts}`)
+
+  // Error rate
+  lines.push(`http_errors_total ${metrics.requests.errors} ${ts}`)
+  const errorRate = metrics.requests.total > 0
+    ? (metrics.requests.errors / metrics.requests.total * 100).toFixed(2)
+    : '0'
+  lines.push(`http_error_rate_percent ${errorRate} ${ts}`)
+
+  // Response times
+  lines.push(`http_response_time_avg_ms ${metrics.performance.avgResponseTime} ${ts}`)
+  lines.push(`http_response_time_p95_ms ${metrics.performance.p95ResponseTime} ${ts}`)
+
+  // Active connections
+  lines.push(`http_active_connections ${metrics.connections.active} ${ts}`)
+
+  // Uptime
+  lines.push(`process_uptime_ms ${metrics.uptime} ${ts}`)
+
+  // Requests per second
+  lines.push(`http_requests_per_second ${metrics.requests.rps.toFixed(2)} ${ts}`)
+
+  // Memory
+  const mem = metrics.memory
+  if (mem) {
+    lines.push(`process_heap_used_bytes ${mem.heapUsed} ${ts}`)
+    lines.push(`process_heap_total_bytes ${mem.heapTotal} ${ts}`)
+    lines.push(`process_rss_bytes ${mem.rss} ${ts}`)
+  }
+
+  return lines.join('\n') + '\n'
+}
+
+/**
+ * Metrics endpoint handler — JSON by default, Prometheus text format with ?format=prometheus
  */
 export const metricsHandler = async (req, res) => {
   const metrics = await getMetrics()
+
+  if (req.query.format === 'prometheus') {
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4')
+    return res.send(formatPrometheusMetrics(metrics))
+  }
+
   res.json(metrics)
 }
 

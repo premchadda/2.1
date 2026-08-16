@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getStudyMaterialById } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
@@ -6,10 +6,28 @@ import VideoPlayer from '../../shared/components/common/VideoPlayer'
 import PDFViewer from '../../shared/components/common/PDFViewer'
 import ContentReader from '../../shared/components/common/ContentReader'
 import { getChapterPath, getChapterIdentifier } from './studyMaterialUtils'
-import { 
-  Play, FileText, ChevronDown, ChevronRight, Lock, CheckCircle,
-  Clock, BookOpen, Video, Download, BarChartBig, Brain, Globe, Package
-} from 'lucide-react'
+import {
+  Play,
+  FileText,
+  ChevronDown,
+  BookOpen,
+  Video,
+  BarChartBig,
+  Brain,
+  Globe,
+  Package,
+} from 'lucide-react';
+
+const STAT_BORDER_COLORS = {
+  blue: 'border-blue-400 bg-blue-500/20',
+  green: 'border-green-400 bg-green-500/20',
+  purple: 'border-purple-400 bg-purple-500/20',
+}
+const STAT_TEXT_COLORS = {
+  blue: 'text-blue-300',
+  green: 'text-green-300',
+  purple: 'text-purple-300',
+}
 
 function formatVideoDuration(v) {
   const raw = v?.duration ?? v?.videoDuration
@@ -50,6 +68,26 @@ function StudyMaterialDetail() {
   const [viewMode, setViewMode] = useState('hierarchy')
   const [collapsedParts, setCollapsedParts] = useState([])
   const [collapsedUnits, setCollapsedUnits] = useState(() => new Set())
+  const [userCollapsed, setUserCollapsed] = useState(() => new Set())
+
+  // #7 FIX: a chapter is expanded when explicitly expanded OR a filter tab is active,
+  // UNLESS the user explicitly collapsed it. Collapse toggling works on every tab.
+  const isChapterExpanded = useCallback((globalIdx) => {
+    return (expandedChapter === globalIdx || activeTab !== 'all') && !userCollapsed.has(globalIdx)
+  }, [expandedChapter, activeTab, userCollapsed])
+
+  const toggleChapter = useCallback((globalIdx) => {
+    setUserCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(globalIdx)) {
+        next.delete(globalIdx)
+      } else {
+        next.add(globalIdx)
+        setExpandedChapter(expandedChapter === globalIdx ? null : expandedChapter)
+      }
+      return next
+    })
+  }, [expandedChapter])
   const [isViewModeMenuOpen, setIsViewModeMenuOpen] = useState(false)
   
   // Viewer states
@@ -59,18 +97,21 @@ function StudyMaterialDetail() {
 
   // Fetch subject data
   useEffect(() => {
+    const controller = new AbortController()
     const fetchSubject = async () => {
       try {
         const subjectData = await getStudyMaterialById(subjectId)
+        if (controller.signal.aborted) return
         setSubject(subjectData)
       } catch (error) {
-        console.error('Failed to fetch subject:', error)
+        if (error.name !== 'AbortError') console.error('Failed to fetch subject:', error)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
-    
+
     fetchSubject()
+    return () => controller.abort()
   }, [subjectId])
 
   useEffect(() => {
@@ -82,15 +123,15 @@ function StudyMaterialDetail() {
     // Open all sections and units by default
     setCollapsedParts([])
     setCollapsedUnits(new Set())
-  }, [subject])
+  }, [subject?.id || subject?._id])
 
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-center">
+      <div className="min-h-screen flex items-center justify-center text-center dark:bg-gray-900">
         <div>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-bold uppercase tracking-widest text-[10px]">Assembling Curriculum...</p>
+          <p className="text-gray-600 dark:text-gray-300 font-bold uppercase tracking-widest text-[10px]">Assembling Curriculum...</p>
         </div>
       </div>
     )
@@ -99,9 +140,9 @@ function StudyMaterialDetail() {
   // Not found state
   if (!subject) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center dark:bg-gray-900">
         <div className="text-center">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Subject Not Found</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Subject Not Found</h1>
           <Link to="/study" className="text-brand-start hover:underline">
             Back to Study Materials
           </Link>
@@ -110,13 +151,13 @@ function StudyMaterialDetail() {
     )
   }
 
-  const chaptersFromParts = subject.parts?.flatMap(part => part.units?.flatMap(unit => unit.chapters || []) || []) || []
-  // IDs of all chapters already in the parts hierarchy
-  const chapterIdsInParts = new Set(chaptersFromParts.map(c => String(c.id ?? c._id)))
-  // Extra chapters from subject.chapters not already in the parts (e.g. admin-created, synthetic "General")
-  const extraChapters = (subject.chapters || []).filter(c => !chapterIdsInParts.has(String(c.id ?? c._id)))
-  const chaptersList = chaptersFromParts.length > 0
-    ? [...chaptersFromParts, ...extraChapters]
+  const chaptersFromUnits = subject.units?.flatMap(unit => unit.chapters || []) || []
+  // IDs of all chapters already in the units hierarchy
+  const chapterIdsInUnits = new Set(chaptersFromUnits.map(c => String(c.id ?? c._id)))
+  // Extra chapters from subject.chapters not already in the units (e.g. admin-created, direct subject chapters)
+  const extraChapters = (subject.chapters || []).filter(c => !chapterIdsInUnits.has(String(c.id ?? c._id)))
+  const chaptersList = chaptersFromUnits.length > 0
+    ? [...chaptersFromUnits, ...extraChapters]
     : (subject.chapters || [])
 
   const totalVideos = chaptersList.reduce((acc, c) => acc + (c.videoCount || c.videosList?.length || c.videos?.length || 0), 0)
@@ -143,44 +184,44 @@ function StudyMaterialDetail() {
         {(activeTab === 'all' || activeTab === 'videos') && (videoItems.length > 0 ? videoItems.map((vid, idx) => {
           const durLabel = formatVideoDuration(vid)
           return (
-          <button key={`v-${idx}`} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-xl border border-blue-50 hover:border-blue-200 transition-colors">
-            <Play className="w-4 h-4 text-blue-600" />
+          <button key={`v-${idx}`} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/20 rounded-xl border border-blue-50 hover:border-blue-200 dark:hover:border-blue-800 transition-colors">
+            <Play className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">{vid.title || vid.name || 'Video Lecture'}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{vid.title || vid.name || 'Video Lecture'}</p>
               {durLabel && (
-                <p className="text-[10px] font-bold text-blue-600">{durLabel}</p>
+                <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400">{durLabel}</p>
               )}
             </div>
           </button>
-        )}) : (activeTab === 'all' || activeTab === 'videos') && <div className="col-span-full text-center text-gray-400 text-xs italic">No videos available.</div>)}
+        )}) : (activeTab === 'all' || activeTab === 'videos') && <div className="col-span-full text-center text-gray-400 dark:text-gray-500 text-xs italic">No videos available.</div>)}
 
         {(activeTab === 'all' || activeTab === 'notes') && (pdfItems.length > 0 ? pdfItems.map((pdf, idx) => {
           const pagesLabel = formatPdfPages(pdf)
           return (
-          <button key={`p-${idx}`} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 rounded-xl border border-green-50 hover:border-green-200 transition-colors">
-            <FileText className="w-4 h-4 text-green-600" />
+          <button key={`p-${idx}`} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 dark:bg-green-900/20 rounded-xl border border-green-50 hover:border-green-200 dark:hover:border-green-800 transition-colors">
+            <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">{pdf.title || pdf.name || 'Study Notes'}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{pdf.title || pdf.name || 'Study Notes'}</p>
               {pagesLabel && (
-                <p className="text-[10px] font-bold text-green-600">{pagesLabel}</p>
+                <p className="text-[10px] font-bold text-green-600 dark:text-green-400">{pagesLabel}</p>
               )}
             </div>
           </button>
-        )}) : (activeTab === 'all' || activeTab === 'notes') && <div className="col-span-full text-center text-gray-400 text-xs italic">No notes available.</div>)}
+        )}) : (activeTab === 'all' || activeTab === 'notes') && <div className="col-span-full text-center text-gray-400 dark:text-gray-500 text-xs italic">No notes available.</div>)}
 
         {(activeTab === 'all' || activeTab === 'tests') && (testItems.length > 0 ? testItems.map((test, idx) => {
           const testMeta = formatTestMeta(test)
           return (
-          <Link key={`t-${idx}`} to={`/test/${test.testId || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 rounded-xl border border-purple-50 hover:border-purple-200 transition-colors">
-            <BarChartBig className="w-4 h-4 text-purple-600" />
+          <Link key={`t-${idx}`} to={`/test/${test.seriesId || test.series_id || 'series'}/${test.testId || test.slug || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 dark:bg-purple-900/20 rounded-xl border border-purple-50 hover:border-purple-200 dark:hover:border-purple-800 transition-colors">
+            <BarChartBig className="w-4 h-4 text-purple-600 dark:text-purple-400" />
             <div className="min-w-0">
-              <p className="text-xs font-bold text-gray-900 truncate">{test.title || test.name || `Test ${idx + 1}`}</p>
+              <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{test.title || test.name || `Test ${idx + 1}`}</p>
               {testMeta && (
-                <p className="text-[10px] font-bold text-purple-600">{testMeta}</p>
+                <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{testMeta}</p>
               )}
             </div>
           </Link>
-        )}) : (activeTab === 'all' || activeTab === 'tests') && <div className="col-span-full text-center text-gray-400 text-xs italic">No tests available.</div>)}
+        )}) : (activeTab === 'all' || activeTab === 'tests') && <div className="col-span-full text-center text-gray-400 dark:text-gray-500 text-xs italic">No tests available.</div>)}
       </div>
     )
   }
@@ -210,7 +251,7 @@ function StudyMaterialDetail() {
     })
   }
 
-  const handleContentClick = (contentData) => {
+  const _handleContentClick = (contentData) => {
     setContentReader({ 
       isOpen: true, 
       data: {
@@ -219,7 +260,7 @@ function StudyMaterialDetail() {
         author: contentData.author || 'Trstprep Team',
         date: contentData.date || new Date().toISOString(),
         readTime: contentData.readTime || 5,
-        content: contentData.htmlContent || contentData.content || '<div class="flex flex-col items-center justify-center py-20 text-center"><div class="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center mb-4"><span class="text-3xl">📄</span></div><h3 class="text-xl font-bold text-gray-900 mb-2">Content Loading...</h3><p class="text-gray-500 max-w-xs">We are preparing these detailed notes for you. Check back shortly!</p></div>',
+        content: contentData.htmlContent || contentData.content || '<div class="flex flex-col items-center justify-center py-20 text-center"><div class="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center mb-4"><span class="text-3xl">📄</span></div><h3 class="text-xl font-bold text-gray-900 dark:text-white mb-2">Content Loading...</h3><p class="text-gray-500 dark:text-gray-400 max-w-xs">We are preparing these detailed notes for you. Check back shortly!</p></div>',
         tags: contentData.tags || [],
         featuredImage: contentData.featuredImage
       }
@@ -244,9 +285,9 @@ function StudyMaterialDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 page-transition fade-in">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 page-transition fade-in">
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb 
             items={[
@@ -321,9 +362,9 @@ function StudyMaterialDetail() {
                 <button
                   key={stat.key}
                   onClick={() => setActiveTab(stat.key)}
-                  className={`flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border shadow-sm hover:bg-white/20 transition-all shrink-0 ${activeTab === stat.key ? `border-${stat.color}-400 bg-${stat.color}-500/20` : 'border-white/10'}`}
+                  className={`flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-md rounded-full border shadow-sm hover:bg-white/20 transition-all shrink-0 ${activeTab === stat.key ? STAT_BORDER_COLORS[stat.color] : 'border-white/10'}`}
                 >
-                  <Icon className={`w-4 h-4 text-${stat.color}-300`} />
+                  <Icon className={`w-4 h-4 ${STAT_TEXT_COLORS[stat.color]}`} />
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-sm text-white">{stat.count}</span>
                     <span className="text-white/60 text-[10px] font-bold uppercase tracking-wider hidden xs:inline">{stat.label}</span>
@@ -335,20 +376,28 @@ function StudyMaterialDetail() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 pb-6 min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 pb-6 min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Filters & View Toggles */}
         <div className="flex flex-col gap-4 mb-8">
+           {videoPlayer.isOpen && (
+             <VideoPlayer
+               isOpen={videoPlayer.isOpen}
+               inline
+               onClose={() => setVideoPlayer({ isOpen: false, data: null })}
+               videoData={videoPlayer.data}
+             />
+           )}
            {/* Section 1: Content Tabs */}
-           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between p-1.5 gap-2 relative">
-              <div className="flex bg-gray-50 rounded-xl p-1 overflow-x-auto scrollbar-hide flex-1">
+           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between p-1.5 gap-2 relative">
+              <div className="flex bg-gray-50 dark:bg-gray-900 rounded-xl p-1 overflow-x-auto scrollbar-hide flex-1">
                 {tabs.map(tab => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center gap-1.5 px-2.5 py-2 sm:px-4 sm:py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-300 ${
                       activeTab === tab.id 
-                        ? 'bg-white text-brand-start shadow-sm ring-1 ring-gray-100' 
-                        : 'text-gray-500 hover:text-gray-800'
+                        ? 'bg-white dark:bg-gray-800 text-brand-start shadow-sm ring-1 ring-gray-100 dark:ring-gray-700' 
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
                     }`}
                   >
                     {tab.label === 'All' && <Globe className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
@@ -357,7 +406,7 @@ function StudyMaterialDetail() {
                     {tab.label === 'Tests' && <BookOpen className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                     <span className="truncate">{tab.label}</span>
                     <span className={`px-1.5 py-0.5 rounded-md text-[8px] sm:text-[9px] ${
-                      activeTab === tab.id ? 'bg-brand-light text-brand-start' : 'bg-gray-200 text-gray-500 font-black'
+                      activeTab === tab.id ? 'bg-brand-light text-brand-start' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 font-black'
                     }`}>
                       {tab.count}
                     </span>
@@ -372,7 +421,7 @@ function StudyMaterialDetail() {
                   className={`flex items-center justify-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all shadow-sm border h-full ${
                     isViewModeMenuOpen 
                       ? 'bg-indigo-600 text-white border-indigo-600' 
-                      : 'bg-gray-50 text-gray-600 border-gray-100 hover:bg-white'
+                      : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-100 dark:border-gray-700 hover:bg-white dark:hover:bg-gray-700'
                   }`}
                   title="Change Layout"
                 >
@@ -388,21 +437,21 @@ function StudyMaterialDetail() {
                 {isViewModeMenuOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setIsViewModeMenuOpen(false)} />
-                    <div className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in duration-200">
-                      <div className="px-4 py-1 mb-1 border-b border-gray-50">
-                        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Layout Mode</span>
+                    <div className="absolute right-0 mt-2 w-40 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 py-1.5 overflow-hidden animate-in fade-in zoom-in duration-200">
+                      <div className="px-4 py-1 mb-1 border-b border-gray-50 dark:border-gray-700">
+                        <span className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Layout Mode</span>
                       </div>
                       <button 
                         onClick={() => { setViewMode('hierarchy'); setIsViewModeMenuOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black transition-colors text-left ${viewMode === 'hierarchy' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black transition-colors text-left ${viewMode === 'hierarchy' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
-                        <Brain className={`w-4 h-4 ${viewMode === 'hierarchy' ? 'text-indigo-600' : 'text-gray-400'}`} /> 🏗️ Structure
+                        <Brain className={`w-4 h-4 ${viewMode === 'hierarchy' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} /> 🏗️ Structure
                       </button>
                       <button 
                         onClick={() => { setViewMode('flat'); setIsViewModeMenuOpen(false); }}
-                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black transition-colors text-left ${viewMode === 'flat' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:bg-gray-50'}`}
+                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-[10px] font-black transition-colors text-left ${viewMode === 'flat' ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                       >
-                        <Package className={`w-4 h-4 ${viewMode === 'flat' ? 'text-indigo-600' : 'text-gray-400'}`} /> 📋 List All
+                        <Package className={`w-4 h-4 ${viewMode === 'flat' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}`} /> 📋 List All
                       </button>
                     </div>
                   </>
@@ -411,10 +460,10 @@ function StudyMaterialDetail() {
            </div>
         </div>
 
-        {/* Hierarchy View (Parts -> Units -> Chapters) */}
+        {/* Hierarchy View (Units -> Chapters) */}
         {viewMode === 'hierarchy' && (
           <div className="space-y-8 pt-2">
-            {subject.parts?.map((part, pIdx) => {
+            {(subject.units?.length > 0 ? [{ id: 'main', name: null, units: subject.units }] : (subject.parts || [])).map((part, pIdx) => {
               const isCollapsed = collapsedParts.includes(pIdx);
               
               // Content tabs now only filter inside the chapter, not the chapter itself
@@ -424,26 +473,37 @@ function StudyMaterialDetail() {
 
               if (filteredUnits?.length === 0) return null;
 
+              // Build a global chapter offset for each unit so numbering is continuous
+              // e.g. Unit 1 has 25 chapters (1-25), Unit 2 starts at 26
+              const unitChapterOffsets = [];
+              let runningOffset = 0;
+              for (const u of (filteredUnits || [])) {
+                unitChapterOffsets.push(runningOffset);
+                runningOffset += (u.chapters?.length || 0);
+              }
+
               return (
                 <div key={part.id || pIdx} className="animate-slide-in-up" style={{ animationDelay: `${pIdx * 0.1}s` }}>
-                  {/* Part Header */}
+                  {/* Part Header (only if part has a distinct name) */}
+                  {part.name && part.name !== 'Additional Contents' && (
                   <button 
                     onClick={() => togglePart(pIdx)}
                     className="w-full flex items-center justify-between mb-4 group/part"
                   >
                     <div className="flex items-center gap-2 md:gap-3">
                       <div className="h-6 md:h-8 w-1 md:w-1.5 bg-brand-start rounded-full"></div>
-                      <h2 className="text-lg md:text-2xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+                      <h2 className="text-lg md:text-2xl font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
                         {part.name}
-                        <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full uppercase">
+                        <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full uppercase">
                           {['General Science', 'General Awareness', 'General Studies', 'GS'].some(term => subject.title?.includes(term)) ? 'Subject' : 'Section'}
                         </span>
                       </h2>
                     </div>
-                    <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full bg-white border border-gray-100 shadow-sm flex items-center justify-center transition-all group-hover/part:border-brand-start ${isCollapsed ? '' : 'rotate-180'}`}>
-                      <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400 group-hover/part:text-brand-start" />
+                    <div className={`w-7 h-7 md:w-8 md:h-8 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm flex items-center justify-center transition-all group-hover/part:border-brand-start ${isCollapsed ? '' : 'rotate-180'}`}>
+                      <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400 dark:text-gray-500 group-hover/part:text-brand-start" />
                     </div>
                   </button>
+                  )}
 
                   {/* Units List (Conditional Rendering) */}
                   {!isCollapsed && (
@@ -453,55 +513,59 @@ function StudyMaterialDetail() {
                         const isUnitCollapsed = collapsedUnits.has(uKey)
                         const unitTitle = unit.name !== part.name ? unit.name : 'Chapters'
                         return (
-                        <div key={unit.id || uIdx} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                        <div key={unit.id || uIdx} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                           <button
                             type="button"
                             onClick={() => toggleUnit(uKey)}
-                            className="w-full bg-gray-50/50 px-4 py-2.5 md:px-5 md:py-3 border-b border-gray-100 flex items-center justify-between text-left hover:bg-gray-100/80 transition-colors"
+                            className="w-full bg-gray-50/50 dark:bg-gray-800/50 px-4 py-2.5 md:px-5 md:py-3 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between text-left hover:bg-gray-100/80 dark:hover:bg-gray-700/80 transition-colors"
                           >
                             <div className="flex items-center gap-2 md:gap-3 min-w-0">
                               <Package className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-500 shrink-0" />
-                              <h3 className="text-[11px] md:text-sm font-bold text-indigo-900 uppercase tracking-widest truncate">{unitTitle}</h3>
+                              <h3 className="text-[11px] md:text-sm font-bold text-indigo-900 dark:text-indigo-200 uppercase tracking-widest truncate">
+                                {unitTitle}
+                              </h3>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-[9px] md:text-[10px] font-black text-gray-400 bg-white px-2 py-0.5 md:py-1 rounded-md border border-gray-100">
+                              <span className="text-[9px] md:text-[10px] font-black text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 px-2 py-0.5 md:py-1 rounded-md border border-gray-100 dark:border-gray-700">
                                 {unit.chapters?.length || 0} CH
                               </span>
-                              <div className={`w-7 h-7 rounded-full bg-white border border-gray-100 flex items-center justify-center transition-transform ${isUnitCollapsed ? '' : 'rotate-180'}`}>
-                                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                              <div className={`w-7 h-7 rounded-full bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 flex items-center justify-center transition-transform ${isUnitCollapsed ? '' : 'rotate-180'}`}>
+                                <ChevronDown className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                               </div>
                             </div>
                           </button>
 
                       {/* Chapters in this Unit */}
                       {!isUnitCollapsed && (
-                      <div className="divide-y divide-gray-50">
+                      <div className="divide-y divide-gray-50 dark:divide-gray-700">
                         {unit.chapters?.map((chapter, cIdx) => {
                           const chapterIdentifier = getChapterIdentifier(chapter, unit.chapters, cIdx);
                           const globalIdx = `h-${pIdx}-${uIdx}-${chapterIdentifier}`;
-                          const isExpanded = expandedChapter === globalIdx || activeTab !== 'all';
+                          const isExpanded = isChapterExpanded(globalIdx);
                           const progress = typeof chapter.progress === "number" ? chapter.progress : null;
+                          // Global chapter number: offset from previous units + position within this unit
+                          const chapOrder = (unitChapterOffsets[uIdx] || 0) + cIdx + 1;
 
                           return (
-                            <div key={chapterIdentifier} className={`transition-all duration-300 ${isExpanded ? 'bg-indigo-50/10' : ''}`}>
+                            <div key={chapterIdentifier} className={`transition-all duration-300 ${isExpanded ? 'bg-indigo-50/10 dark:bg-indigo-900/20' : ''}`}>
                               {/* Chapter Row */}
-                              <div className="w-full flex items-center justify-between hover:bg-gray-50/30 transition relative group">
+                              <div className="w-full flex items-center justify-between hover:bg-gray-50/30 dark:hover:bg-gray-700/30 transition relative group">
                                 <Link
                                   to={getChapterPath(subjectId, chapter, unit.chapters, cIdx)}
                                   className="flex flex-1 items-center gap-3 md:gap-4 min-w-0 p-3.5 md:p-5"
                                 >
-                                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center font-black text-xs md:text-sm transition-all shadow-sm ${isExpanded ? 'bg-brand-start text-white scale-110 rotate-3' : 'bg-white text-gray-400 border border-gray-100 group-hover:border-brand-start group-hover:text-brand-start'}`}>
-                                    {cIdx + 1}
+                                  <div className={`w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl flex items-center justify-center font-black text-xs md:text-sm transition-all shadow-sm ${isExpanded ? 'bg-brand-start text-white scale-110 rotate-3' : 'bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 group-hover:border-brand-start group-hover:text-brand-start'}`}>
+                                    {chapOrder}
                                   </div>
                                   <div className="text-left min-w-0">
-                                    <h4 className={`font-bold text-sm md:text-base transition-colors truncate ${isExpanded ? 'text-brand-start' : 'text-gray-900'}`}>
+                                    <h4 className={`font-bold text-sm md:text-base transition-colors truncate ${isExpanded ? 'text-brand-start' : 'text-gray-900 dark:text-white'}`}>
                                       {chapter.title || chapter.name}
                                     </h4>
                                     <div className="flex items-center gap-2 md:gap-3 mt-0.5 md:mt-1">
-                                      <span className="text-[9px] md:text-[10px] font-bold text-gray-500 flex items-center gap-1 uppercase tracking-tighter">
+                                      <span className="text-[9px] md:text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1 uppercase tracking-tighter">
                                         <Play className="w-2.5 h-2.5" /> {chapter.videoCount || 0} Videos
                                       </span>
-                                      <span className="text-[9px] md:text-[10px] font-bold text-gray-500 flex items-center gap-1 uppercase tracking-tighter">
+                                      <span className="text-[9px] md:text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center gap-1 uppercase tracking-tighter">
                                         <FileText className="w-2.5 h-2.5" /> {chapter.pdfCount || 0} Notes
                                       </span>
                                     </div>
@@ -511,16 +575,16 @@ function StudyMaterialDetail() {
                                 <div className="flex items-center gap-2 md:gap-3 pr-3.5 md:pr-5">
                                   {progress !== null && (
                                     <div className="hidden sm:flex items-center gap-2 w-16 md:w-20 shrink-0">
-                                      <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                      <div className="flex-1 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                         <div className="h-full bg-green-500" style={{ width: `${progress}%` }} />
                                       </div>
-                                      <span className="text-[9px] md:text-[10px] font-bold text-green-600">{progress}%</span>
+                                      <span className="text-[9px] md:text-[10px] font-bold text-green-600 dark:text-green-400">{progress}%</span>
                                     </div>
                                   )}
                                   <button
                                     type="button"
-                                    onClick={() => setExpandedChapter(isExpanded ? (activeTab === 'all' ? null : expandedChapter) : globalIdx)}
-                                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-brand-start text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}
+                                    onClick={() => toggleChapter(globalIdx)}
+                                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-brand-start text-white shadow-md' : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500'}`}
                                     aria-label={isExpanded ? 'Collapse chapter preview' : 'Expand chapter preview'}
                                   >
                                     <ChevronDown className={`w-3.5 h-3.5 md:w-4 md:h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -531,14 +595,14 @@ function StudyMaterialDetail() {
                               {/* Chapter Expansion */}
                               {isExpanded && (
                                 <div className="px-5 pb-5 animate-fade-in">
-                                  <div className="bg-white rounded-xl border border-indigo-100 p-4 shadow-inner">
+                                  <div className="bg-white dark:bg-gray-800 rounded-xl border border-indigo-100 dark:border-indigo-800/60 p-4 shadow-inner">
                                     {/* Topics covered */}
                                     {chapter.topics && chapter.topics.length > 0 && (
                                       <div className="mb-4">
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Structure</p>
+                                        <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2 px-1">Structure</p>
                                         <div className="flex flex-wrap gap-2">
                                           {chapter.topics.map((topic, tIdx) => (
-                                            <span key={topic.id || tIdx} className="px-2.5 py-1 bg-gray-50 text-gray-600 text-xs font-bold rounded-lg border border-gray-100">
+                                            <span key={topic.id || tIdx} className="px-2.5 py-1 bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-300 text-xs font-bold rounded-lg border border-gray-100 dark:border-gray-700">
                                               {topic.name || topic.title}
                                             </span>
                                           ))}
@@ -551,14 +615,14 @@ function StudyMaterialDetail() {
                                       {(activeTab === 'all' || activeTab === 'videos') && chapter.videosList?.map((vid, idx) => {
                                         const dur = formatVideoDuration(vid)
                                         return (
-                                        <button key={idx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-xl border border-blue-50 hover:border-blue-200 transition-all group/item">
-                                          <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm group-hover/item:scale-110 transition-transform">
+                                        <button key={vid.id || vid._id || idx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/20 rounded-xl border border-blue-50 hover:border-blue-200 dark:hover:border-blue-800 transition-all group/item">
+                                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg text-blue-600 dark:text-blue-400 shadow-sm group-hover/item:scale-110 transition-transform">
                                             <Play className="w-4 h-4 fill-current" />
                                           </div>
                                           <div className="text-left min-w-0">
-                                            <p className="text-xs font-bold text-gray-900 truncate">{vid.title || vid.name}</p>
+                                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{vid.title || vid.name}</p>
                                             {dur && (
-                                              <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{dur}</p>
+                                              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tabular-nums">{dur}</p>
                                             )}
                                           </div>
                                         </button>
@@ -566,14 +630,14 @@ function StudyMaterialDetail() {
                                       {(activeTab === 'all' || activeTab === 'notes') && chapter.pdfsList?.map((pdf, idx) => {
                                         const pages = formatPdfPages(pdf)
                                         return (
-                                        <button key={idx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 rounded-xl border border-green-50 hover:border-green-200 transition-all group/item">
-                                          <div className="p-2 bg-white rounded-lg text-green-600 shadow-sm group-hover/item:scale-110 transition-transform">
+                                        <button key={pdf.id || pdf._id || idx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 dark:bg-green-900/20 rounded-xl border border-green-50 hover:border-green-200 dark:hover:border-green-800 transition-all group/item">
+                                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg text-green-600 dark:text-green-400 shadow-sm group-hover/item:scale-110 transition-transform">
                                             <FileText className="w-4 h-4" />
                                           </div>
                                           <div className="text-left min-w-0">
-                                            <p className="text-xs font-bold text-gray-900 truncate">{pdf.title || pdf.name}</p>
+                                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{pdf.title || pdf.name}</p>
                                             {pages && (
-                                              <p className="text-[10px] font-bold text-green-600 uppercase">{pages}</p>
+                                              <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">{pages}</p>
                                             )}
                                           </div>
                                         </button>
@@ -581,14 +645,14 @@ function StudyMaterialDetail() {
                                       {(activeTab === 'all' || activeTab === 'tests') && chapter.testsList?.map((test, idx) => {
                                         const tmeta = formatTestMeta(test)
                                         return (
-                                        <Link key={idx} to={`/test/${test.testId || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 rounded-xl border border-purple-50 hover:border-purple-200 transition-all group/item">
-                                          <div className="p-2 bg-white rounded-lg text-purple-600 shadow-sm group-hover/item:scale-110 transition-transform">
+                                        <Link key={test.id || test._id || idx} to={`/test/${test.seriesId || test.series_id || 'series'}/${test.testId || test.slug || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 dark:bg-purple-900/20 rounded-xl border border-purple-50 hover:border-purple-200 dark:hover:border-purple-800 transition-all group/item">
+                                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg text-purple-600 dark:text-purple-400 shadow-sm group-hover/item:scale-110 transition-transform">
                                             <BarChartBig className="w-4 h-4" />
                                           </div>
                                           <div className="text-left min-w-0">
-                                            <p className="text-xs font-bold text-gray-900 truncate">{test.title || test.name || `Practice test ${idx + 1}`}</p>
+                                            <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{test.title || test.name || `Practice test ${idx + 1}`}</p>
                                             {tmeta && (
-                                              <p className="text-[10px] font-bold text-purple-600 uppercase">{tmeta}</p>
+                                              <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase">{tmeta}</p>
                                             )}
                                           </div>
                                         </Link>
@@ -596,13 +660,13 @@ function StudyMaterialDetail() {
 
                                       {/* Empty state for filtered tab */}
                                       {activeTab === 'videos' && (!chapter.videosList || chapter.videosList.length === 0) && (
-                                        <div className="col-span-full py-4 text-center text-gray-400 text-xs italic">No videos in this chapter</div>
+                                        <div className="col-span-full py-4 text-center text-gray-400 dark:text-gray-500 text-xs italic">No videos in this chapter</div>
                                       )}
                                       {activeTab === 'notes' && (!chapter.pdfsList || chapter.pdfsList.length === 0) && (
-                                        <div className="col-span-full py-4 text-center text-gray-400 text-xs italic">No notes in this chapter</div>
+                                        <div className="col-span-full py-4 text-center text-gray-400 dark:text-gray-500 text-xs italic">No notes in this chapter</div>
                                       )}
                                       {activeTab === 'tests' && (!chapter.testsList || chapter.testsList.length === 0) && (
-                                        <div className="col-span-full py-4 text-center text-gray-400 text-xs italic">No tests in this chapter</div>
+                                        <div className="col-span-full py-4 text-center text-gray-400 dark:text-gray-500 text-xs italic">No tests in this chapter</div>
                                       )}
                                     </div>
                                   </div>
@@ -628,63 +692,63 @@ function StudyMaterialDetail() {
                 {extraChapters.map((chapter, index) => {
                   const chapterId = chapter.id ?? chapter._id ?? `extra-${index}`
                   const globalIdx = `extra-${chapterId}`
-                  const isExpanded = expandedChapter === globalIdx || activeTab !== 'all'
+                  const isExpanded = isChapterExpanded(globalIdx)
                   return (
-                    <div key={chapterId} className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all ${isExpanded ? 'border-indigo-200' : 'border-gray-100'}`}>
+                    <div key={chapterId} className={`bg-white dark:bg-gray-800 rounded-2xl border shadow-sm overflow-hidden transition-all ${isExpanded ? 'border-indigo-200 dark:border-indigo-800' : 'border-gray-100 dark:border-gray-700'}`}>
                       <button
-                        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition"
-                        onClick={() => setExpandedChapter(isExpanded && activeTab === 'all' ? null : globalIdx)}
+                        className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+                        onClick={() => toggleChapter(globalIdx)}
                       >
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm ${isExpanded ? 'bg-indigo-600 text-white' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm shadow-sm ${isExpanded ? 'bg-indigo-600 text-white' : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700'}`}>
                             <FileText className="w-4 h-4" />
                           </div>
                           <div className="text-left">
-                            <h4 className={`font-bold text-sm ${isExpanded ? 'text-indigo-600' : 'text-gray-900'}`}>{chapter.title || chapter.name}</h4>
+                            <h4 className={`font-bold text-sm ${isExpanded ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'}`}>{chapter.title || chapter.name}</h4>
                             <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 flex items-center gap-1">
                                 <Video className="w-2.5 h-2.5" /> {chapter.videoCount || 0} Videos
                               </span>
-                              <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 flex items-center gap-1">
                                 <FileText className="w-2.5 h-2.5" /> {chapter.pdfCount || 0} Notes
                               </span>
                             </div>
                           </div>
                         </div>
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
                       </button>
                       {isExpanded && (
                         <div className="px-5 pb-5 animate-fade-in">
-                          <div className="bg-white rounded-xl border border-indigo-100 p-4 shadow-inner">
+                          <div className="bg-white dark:bg-gray-800 rounded-xl border border-indigo-100 dark:border-indigo-800/60 p-4 shadow-inner">
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                               {(activeTab === 'all' || activeTab === 'videos') && chapter.videosList?.map((vid, idx) => {
                                 const dur = formatVideoDuration(vid)
                                 return (
-                                <button key={idx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-xl border border-blue-50 hover:border-blue-200 transition-all group/item">
-                                  <div className="p-2 bg-white rounded-lg text-blue-600 shadow-sm group-hover/item:scale-110 transition-transform">
+                                <button key={vid.id || vid._id || idx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/20 rounded-xl border border-blue-50 hover:border-blue-200 dark:hover:border-blue-800 transition-all group/item">
+                                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg text-blue-600 dark:text-blue-400 shadow-sm group-hover/item:scale-110 transition-transform">
                                     <Play className="w-4 h-4 fill-current" />
                                   </div>
                                   <div className="text-left min-w-0">
-                                    <p className="text-xs font-bold text-gray-900 truncate">{vid.title || vid.name}</p>
-                                    {dur && <p className="text-[10px] font-bold text-blue-600 uppercase tabular-nums">{dur}</p>}
+                                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{vid.title || vid.name}</p>
+                                    {dur && <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tabular-nums">{dur}</p>}
                                   </div>
                                 </button>
                               )})}
                               {(activeTab === 'all' || activeTab === 'notes') && chapter.pdfsList?.map((pdf, idx) => {
                                 const pages = formatPdfPages(pdf)
                                 return (
-                                <button key={idx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 rounded-xl border border-green-50 hover:border-green-200 transition-all group/item">
-                                  <div className="p-2 bg-white rounded-lg text-green-600 shadow-sm group-hover/item:scale-110 transition-transform">
+                                <button key={pdf.id || pdf._id || idx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 dark:bg-green-900/20 rounded-xl border border-green-50 hover:border-green-200 dark:hover:border-green-800 transition-all group/item">
+                                  <div className="p-2 bg-white dark:bg-gray-800 rounded-lg text-green-600 dark:text-green-400 shadow-sm group-hover/item:scale-110 transition-transform">
                                     <FileText className="w-4 h-4" />
                                   </div>
                                   <div className="text-left min-w-0">
-                                    <p className="text-xs font-bold text-gray-900 truncate">{pdf.title || pdf.name}</p>
-                                    {pages && <p className="text-[10px] font-bold text-green-600 uppercase">{pages}</p>}
+                                    <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{pdf.title || pdf.name}</p>
+                                    {pages && <p className="text-[10px] font-bold text-green-600 dark:text-green-400 uppercase">{pages}</p>}
                                   </div>
                                 </button>
                               )})}
                               {(activeTab === 'all' || activeTab === 'notes') && (!chapter.pdfsList || chapter.pdfsList.length === 0) && (!chapter.videosList || chapter.videosList.length === 0) && (
-                                <div className="col-span-full py-4 text-center text-gray-400 text-xs italic">No content in this chapter yet</div>
+                                <div className="col-span-full py-4 text-center text-gray-400 dark:text-gray-500 text-xs italic">No content in this chapter yet</div>
                               )}
                             </div>
                           </div>
@@ -704,26 +768,26 @@ function StudyMaterialDetail() {
                   const chapterAndProgress = chapter.progress || (chapter.isCompleted ? 100 : 0)
 
                   return (
-                    <div key={chapterIdentifier} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:border-brand-start/40 hover:shadow-md transition-all">
+                    <div key={chapterIdentifier} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:border-brand-start/40 hover:shadow-md transition-all">
                       <Link
                         to={getChapterPath(subjectId, chapter, chaptersList, index)}
                         className="block px-4 py-4 sm:px-5 sm:py-5"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <h3 className="font-bold text-gray-900 text-base sm:text-lg">{chapter.title || chapter.name}</h3>
-                            <p className="text-xs sm:text-sm text-gray-500 mt-1 truncate">{chapter.description || chapter.desc || 'No chapter summary available.'}</p>
+                            <h3 className="font-bold text-gray-900 dark:text-white text-base sm:text-lg">{chapter.title || chapter.name}</h3>
+                            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 truncate">{chapter.description || chapter.desc || 'No chapter summary available.'}</p>
                           </div>
-                          <span className="text-[10px] uppercase font-black tracking-wider text-gray-500">{chapterAndProgress}%</span>
+                          <span className="text-[10px] uppercase font-black tracking-wider text-gray-500 dark:text-gray-400">{chapterAndProgress}%</span>
                         </div>
                       </Link>
                       <div className="px-4 pb-4 sm:px-5 sm:pb-5">
                         {chapter.topics && chapter.topics.length > 0 && (
                           <div className="mb-3">
-                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Topics</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">Topics</p>
                             <div className="flex flex-wrap gap-2">
                               {chapter.topics.map((topic, tIdx) => (
-                                <span key={topic.id || tIdx} className="px-2 py-1 rounded-lg bg-gray-50 text-xs font-semibold text-gray-600 border border-gray-100">
+                                <span key={topic.id || tIdx} className="px-2 py-1 rounded-lg bg-gray-50 dark:bg-gray-900 text-xs font-semibold text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700">
                                   {topic.title || topic.name}
                                 </span>
                               ))}
@@ -751,28 +815,28 @@ function StudyMaterialDetail() {
              {chaptersList.map((chapter, index) => {
                 const chapterIdentifier = getChapterIdentifier(chapter, chaptersList, index);
                 const globalIdx = `f-${chapterIdentifier}`;
-                const isExpanded = expandedChapter === globalIdx || activeTab !== 'all';
+                const isExpanded = isChapterExpanded(globalIdx);
                 const progress = typeof chapter.progress === "number" ? chapter.progress : null;
 
                 return (
-                  <div key={chapterIdentifier} className={`bg-white rounded-xl shadow-sm border transition-all ${isExpanded ? 'border-indigo-600 ring-1 ring-indigo-600' : 'border-gray-200'}`}>
-                    <div className="w-full flex items-center justify-between hover:bg-gray-50/10 transition relative group">
+                  <div key={chapterIdentifier} className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border transition-all ${isExpanded ? 'border-indigo-600 ring-1 ring-indigo-600' : 'border-gray-200 dark:border-gray-700'}`}>
+                    <div className="w-full flex items-center justify-between hover:bg-gray-50/10 dark:hover:bg-gray-700/10 transition relative group">
                       <Link
                         to={getChapterPath(subjectId, chapter, chaptersList, index)}
                         className="flex flex-1 items-center gap-4 min-w-0 p-4 md:p-5"
                       >
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all shadow-sm ${isExpanded ? 'bg-indigo-600 text-white scale-110' : 'bg-gray-50 text-gray-400 border border-gray-100 group-hover:border-indigo-600 group-hover:text-indigo-600'}`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm transition-all shadow-sm ${isExpanded ? 'bg-indigo-600 text-white scale-110' : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500 border border-gray-100 dark:border-gray-700 group-hover:border-indigo-600 group-hover:text-indigo-600'}`}>
                           {index + 1}
                         </div>
                         <div className="text-left min-w-0">
-                          <h4 className={`font-bold text-sm md:text-base transition-colors ${isExpanded ? 'text-indigo-600' : 'text-gray-900 line-clamp-1'}`}>
+                          <h4 className={`font-bold text-sm md:text-base transition-colors ${isExpanded ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white line-clamp-1'}`}>
                             {chapter.title || chapter.name}
                           </h4>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 uppercase tracking-tight">
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 flex items-center gap-1 uppercase tracking-tight">
                               <Play className="w-2.5 h-2.5" /> {(chapter.videoCount || chapter.videosList?.length || 0)} Videos
                             </span>
-                            <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 uppercase tracking-tight">
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 flex items-center gap-1 uppercase tracking-tight">
                               <FileText className="w-2.5 h-2.5" /> {(chapter.pdfCount || chapter.pdfsList?.length || 0)} Notes
                             </span>
                           </div>
@@ -782,16 +846,16 @@ function StudyMaterialDetail() {
                       <div className="flex items-center gap-3 pr-4 md:pr-5">
                         {progress !== null && (
                           <div className="hidden sm:flex items-center gap-2 w-16 shrink-0">
-                            <div className="flex-1 h-1 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="flex-1 h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                               <div className="h-full bg-green-500" style={{ width: `${progress}%` }} />
                             </div>
-                            <span className="text-[10px] font-black text-green-600">{progress}%</span>
+                            <span className="text-[10px] font-black text-green-600 dark:text-green-400">{progress}%</span>
                           </div>
                         )}
                         <button
                           type="button"
-                          onClick={() => setExpandedChapter(isExpanded ? (activeTab === 'all' ? null : expandedChapter) : globalIdx)}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-50 text-gray-400'}`}
+                          onClick={() => toggleChapter(globalIdx)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-50 dark:bg-gray-900 text-gray-400 dark:text-gray-500'}`}
                           aria-label={isExpanded ? 'Collapse chapter preview' : 'Expand chapter preview'}
                         >
                           <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
@@ -800,37 +864,37 @@ function StudyMaterialDetail() {
                     </div>
                     
                     {isExpanded && (
-                       <div className="p-4 bg-gray-50/50 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                       <div className="p-4 bg-gray-50/50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                           {(activeTab === 'all' || activeTab === 'videos') && chapter.videosList?.map((vid, vIdx) => {
                             const dur = formatVideoDuration(vid)
                             return (
-                            <button key={vIdx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 rounded-xl border border-blue-50 text-left hover:border-blue-200 transition-all">
-                              <Play className="w-4 h-4 text-blue-600 shrink-0" />
+                            <button key={vid.id || vid._id || vIdx} onClick={() => handleVideoClick(vid)} className="flex items-center gap-3 p-3 bg-blue-50/30 dark:bg-blue-900/20 rounded-xl border border-blue-50 text-left hover:border-blue-200 dark:hover:border-blue-800 transition-all">
+                              <Play className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
                               <div className="min-w-0">
-                                <p className="text-xs font-bold text-gray-900 truncate">{vid.title || vid.name}</p>
-                                {dur && <p className="text-[10px] font-bold text-blue-600">{dur}</p>}
+                                <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{vid.title || vid.name}</p>
+                                {dur && <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400">{dur}</p>}
                               </div>
                             </button>
                           )})}
                           {(activeTab === 'all' || activeTab === 'notes') && chapter.pdfsList?.map((pdf, pIdx) => {
                             const pages = formatPdfPages(pdf)
                             return (
-                             <button key={pIdx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 rounded-xl border border-green-50 text-left hover:border-green-200 transition-all">
-                               <FileText className="w-4 h-4 text-green-600 shrink-0" />
+                             <button key={pdf.id || pdf._id || pIdx} onClick={() => handlePDFClick(pdf)} className="flex items-center gap-3 p-3 bg-green-50/30 dark:bg-green-900/20 rounded-xl border border-green-50 text-left hover:border-green-200 dark:hover:border-green-800 transition-all">
+                               <FileText className="w-4 h-4 text-green-600 dark:text-green-400 shrink-0" />
                                <div className="min-w-0">
-                                 <p className="text-xs font-bold text-gray-900 truncate">{pdf.title || pdf.name}</p>
-                                 {pages && <p className="text-[10px] font-bold text-green-600">{pages}</p>}
+                                 <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{pdf.title || pdf.name}</p>
+                                 {pages && <p className="text-[10px] font-bold text-green-600 dark:text-green-400">{pages}</p>}
                                </div>
                              </button>
                           )})}
                           {(activeTab === 'all' || activeTab === 'tests') && chapter.testsList?.map((test, tIdx) => {
                             const tmeta = formatTestMeta(test)
                             return (
-                             <Link key={tIdx} to={`/test/${test.testId || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 rounded-xl border border-purple-50 text-left hover:border-purple-200 transition-all">
-                               <BarChartBig className="w-4 h-4 text-purple-600 shrink-0" />
+                             <Link key={test.id || test._id || tIdx} to={`/test/${test.seriesId || test.series_id || 'series'}/${test.testId || test.slug || test.id}`} className="flex items-center gap-3 p-3 bg-purple-50/30 dark:bg-purple-900/20 rounded-xl border border-purple-50 text-left hover:border-purple-200 dark:hover:border-purple-800 transition-all">
+                               <BarChartBig className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
                                <div className="min-w-0">
-                                 <p className="text-xs font-bold text-gray-900 truncate">{test.title || test.name || `Practice test ${tIdx + 1}`}</p>
-                                 {tmeta && <p className="text-[10px] font-bold text-purple-600">{tmeta}</p>}
+                                 <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{test.title || test.name || `Practice test ${tIdx + 1}`}</p>
+                                 {tmeta && <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400">{tmeta}</p>}
                                </div>
                              </Link>
                           )})}
@@ -844,12 +908,6 @@ function StudyMaterialDetail() {
       </div>
 
       {/* Viewers */}
-      <VideoPlayer 
-        isOpen={videoPlayer.isOpen} 
-        onClose={() => setVideoPlayer({ isOpen: false, data: null })} 
-        videoData={videoPlayer.data} 
-      />
-      
       <PDFViewer 
         isOpen={pdfViewer.isOpen} 
         onClose={() => setPdfViewer({ isOpen: false, data: null })} 
@@ -861,6 +919,21 @@ function StudyMaterialDetail() {
         onClose={() => setContentReader({ isOpen: false, data: null })} 
         contentData={contentReader.data} 
       />
+
+      {/* Related Previous Year Questions */}
+      {(subject.examSlug || subject.examId) && (
+        <div className="max-w-7xl mx-auto px-4 pb-8">
+          <div className="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border p-6">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Related Previous Year Questions</h3>
+            <Link
+              to={subject.examSlug ? `/pyps/${subject.examSlug}` : `/pyps`}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
+            >
+              📝 View PYQ Papers for this Exam
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

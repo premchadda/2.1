@@ -17,10 +17,10 @@ function AnimatedHero({
   children, 
   className = '',
   compact = false,
-  overlay = true
+  overlay: _overlay = true
 }) {
   const canvasRef = useRef(null)
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
+  const [_mousePosition, setMousePosition] = useState({ x: 0, y: 0 })
   const containerRef = useRef(null)
 
   // Page-specific animation configurations
@@ -211,6 +211,7 @@ function AnimatedHero({
 
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
+    if (!ctx) return
     let animationId
     let particles = []
 
@@ -237,7 +238,14 @@ function AnimatedHero({
       }
     }
 
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
     const animate = () => {
+      if (document.hidden || prefersReducedMotion) {
+        animationId = requestAnimationFrame(animate)
+        return
+      }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height)
 
       particles.forEach(p => {
@@ -469,7 +477,7 @@ function AnimatedHero({
       ref={containerRef}
       className={`
         relative overflow-hidden
-        ${compact ? 'py-5 md:py-6' : 'pt-4 pb-12 md:pb-10'}
+        ${compact ? 'py-3.5 sm:py-4 md:py-5' : 'pt-4 pb-12 md:pb-10'}
         bg-gradient-to-br ${config.gradient}
         ${className}
       `}
@@ -500,7 +508,7 @@ function AnimatedHero({
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {title && (
           <h1 
-            className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 animate-slide-up"
+            className={`${compact ? 'text-xl sm:text-2xl md:text-3xl font-black text-white mb-1 tracking-tight' : 'text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4'} animate-slide-up`}
             style={{ 
               textShadow: '0 2px 10px rgba(0,0,0,0.2)',
               animationDelay: '0.1s'
@@ -511,7 +519,7 @@ function AnimatedHero({
         )}
         {subtitle && (
           <p 
-            className="text-white/80 text-lg md:text-xl max-w-2xl animate-slide-up"
+            className={`${compact ? 'text-white/90 text-xs sm:text-sm max-w-2xl leading-relaxed' : 'text-white/80 text-lg md:text-xl max-w-2xl'} animate-slide-up`}
             style={{ animationDelay: '0.2s' }}
           >
             {subtitle}

@@ -3,6 +3,7 @@ import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import { resolveAssetAccessUrl } from '../../infrastructure/storage/storageProvider.js'
 import { nullIfEmpty } from '../../services/core/common.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -59,7 +60,7 @@ router.get('/', async (req, res) => {
 
     res.json({ success: true, data, count: data.length })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -109,7 +110,7 @@ router.get('/admin/list', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -152,7 +153,7 @@ router.post('/', protect, admin, async (req, res) => {
       message: 'Promotion created successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -196,7 +197,7 @@ router.put('/:id', protect, admin, async (req, res) => {
       message: 'Promotion updated successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -222,7 +223,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
       message: 'Promotion moved to trash'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

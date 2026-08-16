@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import testBuilderService from './testBuilder.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -15,7 +16,7 @@ router.get('/', protect, admin, async (req, res) => {
     const tests = await testBuilderService.list(query)
     res.json({ success: true, data: tests })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -24,7 +25,7 @@ router.get('/:id', protect, admin, async (req, res) => {
     const test = await testBuilderService.getById(req.params.id)
     res.json({ success: true, data: test })
   } catch (error) {
-    res.status(404).json({ success: false, message: error.message })
+    res.status(404).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -42,7 +43,7 @@ router.post('/', protect, admin, async (req, res) => {
     const test = await testBuilderService.create(req.body)
     res.status(201).json({ success: true, data: test })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -51,7 +52,7 @@ router.post('/from-template/:templateId', protect, admin, async (req, res) => {
     const test = await testBuilderService.createFromTemplate(req.params.templateId, req.body)
     res.status(201).json({ success: true, data: test })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -60,7 +61,7 @@ router.put('/:id', protect, admin, async (req, res) => {
     const test = await testBuilderService.update(req.params.id, req.body)
     res.json({ success: true, data: test })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -69,7 +70,7 @@ router.post('/:id/clone', protect, admin, async (req, res) => {
     const test = await testBuilderService.clone(req.params.id, req.body)
     res.status(201).json({ success: true, data: test })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -78,7 +79,7 @@ router.get('/:id/questions', protect, admin, async (req, res) => {
     const questions = await testBuilderService.getQuestions(req.params.id)
     res.json({ success: true, data: questions })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -95,7 +96,7 @@ router.post('/:id/questions', protect, admin, async (req, res) => {
     await testBuilderService.linkQuestions(req.params.id, questionIds)
     res.json({ success: true, message: 'Questions linked' })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -105,7 +106,7 @@ router.delete('/:id/questions', protect, admin, async (req, res) => {
     await testBuilderService.unlinkQuestions(req.params.id, questionIds)
     res.json({ success: true, message: 'Questions unlinked' })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -114,7 +115,7 @@ router.post('/:id/sections', protect, admin, async (req, res) => {
     const section = await testBuilderService.createSection(req.params.id, req.body)
     res.status(201).json({ success: true, data: section })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -123,7 +124,7 @@ router.put('/:id/sections', protect, admin, async (req, res) => {
     await testBuilderService.updateSections(req.params.id, req.body.sections)
     res.json({ success: true, message: 'Sections updated' })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

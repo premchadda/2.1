@@ -1,5 +1,8 @@
 import { Link } from 'react-router-dom'
-import { Users, Clock, FileText, Download, Crown, Radio, Lock } from 'lucide-react'
+import { Radio, Crown, Download } from 'lucide-react'
+import Card from '../../../shared/components/ui/Card.jsx'
+import Badge from '../../../shared/components/ui/Badge.jsx'
+import { getCategoryEmoji } from '../../../assets/config/emoji.js'
 
 function formatLanguages(langs) {
   if (!langs) return null
@@ -15,22 +18,45 @@ function formatLanguages(langs) {
   return null
 }
 
-function PypPaperCard({ test, user, examSlug }) {
+function getLangList(langs) {
+  const s = formatLanguages(langs)
+  if (!s) return []
+  return s.split('/').map((l) => l.trim()).filter(Boolean)
+}
+
+const LANG_VARIANT = {
+  eng: 'primary',
+  english: 'primary',
+  hin: 'success',
+  hindi: 'success',
+  ben: 'warning',
+  bengali: 'warning',
+  tam: 'error',
+  tamil: 'error',
+  tel: 'pro',
+  telugu: 'pro',
+}
+
+// Solid status pills, mimicking TestCard's badgeConfig
+function getStatusPills({ isLive, isComingSoon, isNew, isFree }) {
+  const pills = []
+  if (isLive) pills.push({ key: 'live', label: 'LIVE TEST', cls: 'bg-red-500 text-white', Icon: Radio })
+  if (isFree) pills.push({ key: 'free', label: 'FREE', cls: 'bg-green-500 text-white' })
+  if (isNew && !isComingSoon) pills.push({ key: 'new', label: 'NEW', cls: 'bg-purple-500 text-white' })
+  if (isComingSoon) pills.push({ key: 'soon', label: 'COMING SOON', cls: 'bg-amber-100 text-amber-700' })
+  if (!isFree && !isLive) pills.push({ key: 'pro', label: 'PRO', cls: 'bg-gradient-to-r from-amber-400 to-orange-400 text-white', Icon: Crown })
+  return pills
+}
+
+function PypPaperCard({ test, _user, examSlug }) {
   const isFree = !test.isPro
   const isLive = test.isLive
   const isComingSoon = test.isComingSoon
   const isNew = test.isNew || (test.pyqYear && new Date().getFullYear() === test.pyqYear)
 
-  const badges = []
-  if (isLive) badges.push({ label: 'LIVE', cls: 'bg-rose-500 text-white', icon: Radio })
-  if (isComingSoon) badges.push({ label: 'COMING SOON', cls: 'bg-amber-100 text-amber-700', icon: Clock })
-  if (isNew && !isComingSoon) badges.push({ label: 'NEW', cls: 'bg-purple-500 text-white' })
-  if (isFree) badges.push({ label: 'FREE', cls: 'bg-emerald-500 text-white' })
-  else badges.push({ label: 'PRO', cls: 'bg-gradient-to-r from-amber-400 to-orange-400 text-white', icon: Crown })
-
-  const langs = formatLanguages(test.languages)
-  const shiftLabel = test.shift ? `Shift ${test.shift}` : ''
-  const dateLabel = test.examDate || (test.shortTitle || '')
+  const langList = getLangList(test.languages)
+  const stageLabel = test.stageName || ''
+  const yearLabel = test.pyqYear || test.subCategory || test.examDate || ''
   const titleDisplay = test.shortTitle || test.title
 
   const testId = test._id || test.id || test.publicId
@@ -38,90 +64,112 @@ function PypPaperCard({ test, user, examSlug }) {
     ? `/test/${test.seriesId}/${testId}/instructions`
     : `/pyp/${testId}/test`
 
+  const statusPills = getStatusPills({ isLive, isComingSoon, isNew, isFree })
+  const subTitle = [stageLabel, yearLabel].filter(Boolean).join(' · ')
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 hover:border-indigo-300 hover:shadow-md transition-all p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-gray-900 truncate">
-            {titleDisplay}
-          </h3>
-          {(dateLabel || shiftLabel) && (
-            <p className="text-xs text-gray-500 mt-0.5">
-              {dateLabel}{shiftLabel ? ` · ${shiftLabel}` : ''}
-              {test.stageName ? ` · ${test.stageName}` : ''}
-            </p>
-          )}
-          <div className="flex items-center gap-3 mt-1.5 text-xs text-gray-500">
-            <span className="flex items-center gap-1">
-              <FileText className="w-3.5 h-3.5" />
-              {test.totalQuestions || 0} Q
-            </span>
-            {test.totalMarks > 0 && (
-              <span className="flex items-center gap-1">
-                <span className="font-semibold">{test.totalMarks}</span> Marks
+    <Card variant="default" padding="p-0" hover className="overflow-hidden group">
+      <div className="px-3.5 py-2.5">
+        {/* Badges + subtitle row (mirrors TestCard) */}
+        {(statusPills.length > 0 || subTitle) && (
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            {statusPills.map((p) => {
+              const Icon = p.Icon
+              return (
+                <span
+                  key={p.key}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide whitespace-nowrap ${p.cls}`}
+                >
+                  {Icon && <Icon className="w-3 h-3" />}
+                  {p.label}
+                </span>
+              )
+            })}
+            {subTitle && (
+              <span className="text-xs text-gray-500 font-medium truncate flex-1 min-w-[80px]">
+                {subTitle}
               </span>
             )}
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" />
-              {test.duration || 60} min
-            </span>
-            {test.negativeMarking && parseFloat(test.negativeMarking) > 0 ? (
-              <span className="text-rose-500">Neg: -{test.negativeMarking}</span>
-            ) : null}
-            {langs && <span className="text-gray-400">{langs}</span>}
           </div>
-          {test.attemptCount > 0 && (
-            <p className="text-xs text-cyan-600 mt-1 flex items-center gap-1">
-              <Users className="w-3.5 h-3.5" />
-              {test.attemptCountFormatted || `${test.attemptCount} users`}
-            </p>
-          )}
-        </div>
+        )}
 
-        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-          <div className="flex flex-wrap gap-1 justify-end">
-            {badges.map((b, i) => (
-              <span
-                key={i}
-                className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${b.cls}`}
-              >
-                {b.icon && <b.icon className="w-2.5 h-2.5" />}
-                {b.label}
-              </span>
-            ))}
+        {/* Title + CTA row */}
+        <div className="flex justify-between items-start gap-2.5">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <span className="text-xl leading-none mt-0.5">{getCategoryEmoji(examSlug?.split('-')[0] || examSlug)}</span>
+            <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2 flex-1">
+              {titleDisplay}
+            </h3>
           </div>
-          <div className="flex gap-1.5 mt-1">
+
+          <div className="flex-shrink-0 flex flex-col items-stretch gap-1">
             {isComingSoon ? (
-              <span className="px-3 py-1 rounded-lg text-[11px] font-medium bg-gray-100 text-gray-500">
+              <span className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap bg-gray-200 text-gray-500">
                 Coming Soon
               </span>
             ) : (
-              <>
-                <Link
-                  to={attemptHref}
-                  className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-colors ${
-                    isFree
-                      ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                      : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-                  }`}
-                >
-                  {isFree ? 'Attempt' : 'Unlock'}
-                </Link>
-                {test.pdfAssetId && (
-                  <a
-                    href={`/api/assets/${test.pdfAssetId}/download`}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center gap-1"
-                  >
-                    <Download className="w-3 h-3" />
-                    PDF
-                  </a>
-                )}
-              </>
+              <Link
+                to={attemptHref}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap text-center transition-colors text-white bg-gradient-to-r from-brand-start to-brand-end"
+              >
+                {isFree ? 'Attempt' : 'Unlock'}
+              </Link>
+            )}
+            {test.pdfAssetId && (
+              <a
+                href={`/api/assets/${test.pdfAssetId}/download`}
+                className="px-3 py-1 rounded text-[11px] font-semibold whitespace-nowrap text-center bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center gap-1"
+              >
+                <Download className="w-3 h-3" />
+                PDF
+              </a>
             )}
           </div>
         </div>
+
+        {/* Meta info row (mirrors TestCard) */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="text-sm">❓</span>
+            {test.totalQuestions || 0} Qs
+          </span>
+          <span className="text-gray-300">|</span>
+          <span className="flex items-center gap-1">
+            <span className="text-sm">📄</span>
+            {test.totalMarks || 0} Marks
+          </span>
+          <span className="text-gray-300">|</span>
+          <span className="flex items-center gap-1">
+            <span className="text-sm">🕒</span>
+            {test.duration || 60} Mins
+          </span>
+        </div>
       </div>
-    </div>
+
+      {/* Footer (mirrors TestCard) */}
+      <div className="bg-gray-50/80 border-t border-gray-100 px-3.5 py-2">
+        <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-gray-500">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-sm">🌐</span>
+            {langList.length > 0 ? (
+              langList.map((l) => (
+                <Badge key={l} variant={LANG_VARIANT[l.toLowerCase()] || 'default'} size="xs">
+                  {l}
+                </Badge>
+              ))
+            ) : (
+              <span>—</span>
+            )}
+          </div>
+          {test.attemptCount > 0 && (
+            <span className="flex items-center gap-1 text-gray-600">
+              <span className="text-sm">👥</span>
+              {test.attemptCountFormatted || test.attemptCount} attempted
+            </span>
+          )}
+        </div>
+      </div>
+    </Card>
   )
 }
 

@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit'
 import { idsMatch } from '../../services/core/common.js'
 import { parseNumericId } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -43,11 +44,24 @@ const sanitizeInput = (input) => {
 }
 
 const resolveBookmarkEntity = async (itemType, itemId) => {
+  if (!itemId) return null
   switch (itemType) {
     case 'test':
       return findEntityByIdentifier(dbHelpers, 'tests', itemId, { slugFields: ['slug'] })
-    case 'question':
-      return findEntityByIdentifier(dbHelpers, 'questions', itemId)
+    case 'question': {
+      const found = await findEntityByIdentifier(dbHelpers, 'questions', itemId)
+      if (found) return found
+      try {
+        const qRes = await dbHelpers.pool.query(
+          `SELECT id, question_text, options, correct_answer, explanation, subject, topic, chapter, difficulty, marks, negative_marks, tags FROM questions WHERE id::text = $1 OR public_id = $1 LIMIT 1`,
+          [String(itemId)]
+        )
+        if (qRes.rows.length > 0) return dbHelpers.toCamel(qRes.rows[0])
+      } catch (e) {
+        console.warn('Direct question lookup failed:', e.message)
+      }
+      return null
+    }
     case 'study-material':
     case 'chapter':
       return findEntityByIdentifier(dbHelpers, 'studyMaterials', itemId)
@@ -64,6 +78,27 @@ const resolveBookmarkEntity = async (itemType, itemId) => {
 
 // All bookmark routes require authentication
 router.use(protect)
+
+// @route   GET /api/bookmarks/count
+// @desc    Get total count of active bookmarks for logged in user
+// @access  Private
+router.get('/count', async (req, res) => {
+  try {
+    const count = await dbHelpers.count('bookmarks', {
+      userId: req.user.id
+    })
+    res.json({
+      success: true,
+      data: { count }
+    })
+  } catch (error) {
+    console.error('Get bookmarks count error:', error)
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error)
+    })
+  }
+})
 
 // @route   GET /api/bookmarks
 // @desc    Get all bookmarks for logged in user
@@ -103,7 +138,7 @@ router.get('/', async (req, res) => {
     console.error('Get bookmarks error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -178,7 +213,7 @@ router.post('/', bookmarkLimiter, async (req, res) => {
     console.error('Create bookmark error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -214,7 +249,7 @@ router.put('/:id', async (req, res) => {
     console.error('Update bookmark error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -246,7 +281,7 @@ router.delete('/:id', async (req, res) => {
     console.error('Delete bookmark error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -273,7 +308,7 @@ router.get('/check/:itemType/:itemId', async (req, res) => {
     console.error('Check bookmark error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -327,7 +362,7 @@ router.post('/toggle', bookmarkLimiter, async (req, res) => {
       // Add bookmark
       const bookmark = await dbHelpers.insertOne('bookmarks', {
         userId: req.user.id,
-        itemId,
+        itemId: String(itemId),
         itemType,
         title: sanitizedTitle,
         notes: '',
@@ -346,7 +381,7 @@ router.post('/toggle', bookmarkLimiter, async (req, res) => {
     console.error('Toggle bookmark error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

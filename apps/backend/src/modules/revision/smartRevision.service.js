@@ -149,7 +149,7 @@ Create a ${options.days || 14}-day revision plan that:
           s.name as subject_name
         FROM wrong_questions wq
         JOIN questions q ON q.id = wq.question_id
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE wq.user_id = $1
         ORDER BY wq.wrong_count DESC, wq.last_wrong_at DESC
@@ -186,6 +186,9 @@ Create a ${options.days || 14}-day revision plan that:
     const client = await pool.connect()
 
     try {
+      const priorityMap = { low: 0, medium: 1, high: 2 };
+      const priorityInt = priorityMap[priority] !== undefined ? priorityMap[priority] : 1;
+
       // Check if already in queue
       const existing = await client.query(
         `SELECT id FROM revision_queue WHERE user_id = $1 AND question_id = $2`,
@@ -197,7 +200,7 @@ Create a ${options.days || 14}-day revision plan that:
         await client.query(
           `UPDATE revision_queue SET priority = $1, updated_at = NOW()
            WHERE user_id = $2 AND question_id = $3`,
-          [priority, userId, questionId]
+          [priorityInt, userId, questionId]
         )
         return { action: 'updated', priority }
       }
@@ -210,12 +213,13 @@ Create a ${options.days || 14}-day revision plan that:
       }
 
       const nextReview = new Date()
-      nextReview.setDate(nextReview.getDate() + (intervals[priority] || 3))
+      const daysInterval = intervals[priority] || 3;
+      nextReview.setDate(nextReview.getDate() + daysInterval)
 
       await client.query(
-        `INSERT INTO revision_queue (user_id, question_id, priority, next_review_at)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, questionId, priority, nextReview]
+        `INSERT INTO revision_queue (user_id, question_id, priority, due_at, schedule_day, status)
+         VALUES ($1, $2, $3, $4, $5, 'pending')`,
+        [userId, questionId, priorityInt, nextReview, daysInterval]
       )
 
       return { action: 'added', priority, nextReview }
@@ -234,32 +238,44 @@ Create a ${options.days || 14}-day revision plan that:
     try {
       const result = await client.query(`
         SELECT
-          rq.id,
-          rq.question_id,
-          rq.priority,
-          rq.next_review_at,
-          rq.metadata,
-          q.question_text,
-          q.options,
-          q.correct_option,
-          q.difficulty,
-          t.name as topic_name
-        FROM revision_queue rq
-        JOIN questions q ON q.id = rq.question_id
-        LEFT JOIN topics t ON t.id = q.topic_id
-        WHERE rq.user_id = $1
-          AND rq.next_review_at <= NOW()
-        ORDER BY
-          CASE rq.priority
-            WHEN 'high' THEN 1
-            WHEN 'medium' THEN 2
-            WHEN 'low' THEN 3
-            ELSE 4
-          END,
-          rq.next_review_at ASC
+          id,
+          question_id,
+          priority,
+          next_review_at,
+          metadata,
+          question_text,
+          options,
+          correct_option,
+          difficulty,
+          topic_name
+        FROM (
+          SELECT DISTINCT ON (rq.question_id)
+            rq.id,
+            rq.question_id,
+            rq.priority,
+            rq.due_at as next_review_at,
+            rq.metadata,
+            q.question_text,
+            q.options,
+            q.correct_option,
+            q.difficulty,
+            t.name as topic_name
+          FROM revision_queue rq
+          JOIN questions q ON q.id = rq.question_id
+          LEFT JOIN subject_topics t ON t.id = q.topic_id
+          WHERE rq.user_id = $1
+            AND rq.due_at <= NOW()
+            AND rq.status = 'pending'
+          ORDER BY rq.question_id, rq.due_at ASC
+        ) deduped
+        ORDER BY priority DESC, next_review_at ASC
       `, [userId])
 
-      return result.rows
+      const priorityStrMap = { 0: 'low', 1: 'medium', 2: 'high' }
+      return result.rows.map(row => ({
+        ...row,
+        priority: priorityStrMap[row.priority] || 'medium'
+      }))
     } finally {
       client.release()
     }
@@ -273,9 +289,10 @@ Create a ${options.days || 14}-day revision plan that:
     const client = await pool.connect()
 
     try {
-      // Get current revision
+      // Get current revision — earliest-due pending row, so the reschedule
+      // always targets the row the user was actually shown.
       const current = await client.query(
-        `SELECT * FROM revision_queue WHERE user_id = $1 AND question_id = $2`,
+        `SELECT id, user_id, question_id, priority, due_at, metadata, created_at, updated_at FROM revision_queue WHERE user_id = $1 AND question_id = $2 AND status = 'pending' ORDER BY due_at ASC, id ASC LIMIT 1`,
         [userId, questionId]
       )
 
@@ -292,9 +309,17 @@ Create a ${options.days || 14}-day revision plan that:
         low: [7, 14, 30, 60, 120],
       }
 
-      const currentInterval = intervals[revision.priority] || intervals.medium
-      const metadata = revision.metadata || { reviewCount: 0 }
-      const reviewCount = metadata.reviewCount || 0
+      const priorityStrMap = { 0: 'low', 1: 'medium', 2: 'high' }
+      const priorityStr = priorityStrMap[revision.priority] || 'medium'
+      const currentInterval = intervals[priorityStr] || intervals.medium
+      
+      let metadata = {}
+      try {
+        metadata = typeof revision.metadata === 'string' ? JSON.parse(revision.metadata) : (revision.metadata || {})
+      } catch {
+        metadata = {}
+      }
+      const reviewCount = Number(metadata.reviewCount || 0)
 
       let nextInterval
       if (remembered) {
@@ -306,12 +331,23 @@ Create a ${options.days || 14}-day revision plan that:
       const nextReview = new Date()
       nextReview.setDate(nextReview.getDate() + nextInterval)
 
+      // Clear the other pre-inserted rows (days 1/3/7/14) for this question so
+      // duplicates never resurface in the due list.
       await client.query(
         `UPDATE revision_queue SET
-          next_review_at = $1,
+          status = 'completed',
+          completed_at = NOW(),
+          updated_at = NOW()
+         WHERE user_id = $1 AND question_id = $2 AND status = 'pending' AND id <> $3`,
+        [userId, questionId, revision.id]
+      )
+
+      await client.query(
+        `UPDATE revision_queue SET
+          due_at = $1,
           metadata = $2,
           updated_at = NOW()
-         WHERE user_id = $3 AND question_id = $4`,
+         WHERE id = $3`,
         [
           nextReview,
           JSON.stringify({
@@ -320,8 +356,7 @@ Create a ${options.days || 14}-day revision plan that:
             lastReviewed: new Date(),
             remembered,
           }),
-          userId,
-          questionId,
+          revision.id,
         ]
       )
 
@@ -346,15 +381,68 @@ Create a ${options.days || 14}-day revision plan that:
       const result = await client.query(`
         SELECT
           COUNT(*) as total_in_queue,
-          COUNT(CASE WHEN next_review_at <= NOW() THEN 1 END) as due_now,
-          COUNT(CASE WHEN priority = 'high' THEN 1 END) as high_priority,
-          COUNT(CASE WHEN priority = 'medium' THEN 1 END) as medium_priority,
-          COUNT(CASE WHEN priority = 'low' THEN 1 END) as low_priority
+          COUNT(CASE WHEN due_at <= NOW() AND status = 'pending' THEN 1 END) as due_now,
+          COUNT(CASE WHEN priority = 2 THEN 1 END) as high_priority,
+          COUNT(CASE WHEN priority = 1 THEN 1 END) as medium_priority,
+          COUNT(CASE WHEN priority = 0 THEN 1 END) as low_priority
         FROM revision_queue
         WHERE user_id = $1
       `, [userId])
 
       return result.rows[0]
+    } finally {
+      client.release()
+    }
+  },
+
+  /**
+   * Get unified mistake questions for direct practice session.
+   */
+  async getMistakePracticeQuestions(userId, { testId = null, subjectId = null, limit = 25 } = {}) {
+    const { pool, dbHelpers } = await import('../../infrastructure/database/postgres-helpers.js')
+    const client = await pool.connect()
+
+    try {
+      const params = [userId]
+      let idx = 2
+
+      let testFilter = ''
+      if (testId && !isNaN(Number(testId))) {
+        testFilter = `AND (wq.test_id = $${idx} OR wq.source_attempt_id = $${idx})`
+        params.push(Number(testId))
+        idx++
+      }
+
+      const sql = `
+        WITH unified_mistakes AS (
+          SELECT question_id, created_at FROM practice_answers WHERE user_id = $1 AND is_correct = false
+          UNION
+          SELECT question_id, COALESCE(last_seen_at, updated_at, created_at) AS created_at
+          FROM wrong_questions wq
+          WHERE wq.user_id = $1 AND (wq.is_active = true OR wq.is_active IS NULL) ${testFilter}
+        ),
+        deduped AS (
+          SELECT DISTINCT ON (question_id) question_id, created_at
+          FROM unified_mistakes
+          ORDER BY question_id, created_at DESC
+        )
+        SELECT d.question_id, d.created_at, q.*, t.name as topic_name, s.name as subject_name
+        FROM deduped d
+        JOIN questions q ON d.question_id = q.id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
+        LEFT JOIN subjects s ON s.id = t.subject_id
+        WHERE q.is_active = true
+        ORDER BY d.created_at DESC
+        LIMIT $${idx}
+      `
+      params.push(Math.min(limit, 100))
+
+      const result = await client.query(sql, params)
+      return result.rows.map(row => {
+        const q = dbHelpers.toCamel(row)
+        const { correctAnswer, correct_option, correctOption, correct, answer, isCorrect, is_correct, ...safe } = q
+        return safe
+      })
     } finally {
       client.release()
     }

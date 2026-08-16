@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Gift, Users, Share2, Trophy, ArrowRight, Copy, CheckCircle, MessageCircle, Mail } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Gift, Users, Share2, Trophy, Copy, CheckCircle, MessageCircle, Mail } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../shared/providers/AuthContext'
 import api from '../../shared/lib/dataService'
@@ -14,7 +14,7 @@ const DEFAULT_REWARDS = [
 ]
 
 export default function ReferAndEarn() {
-  const { user } = useAuth()
+  const { _user } = useAuth()
   const [referralCode, setReferralCode] = useState('')
   const [copied, setCopied] = useState(false)
   const [stats, setStats] = useState({
@@ -23,16 +23,19 @@ export default function ReferAndEarn() {
     pendingRewards: 0,
     usedDiscount: 0
   })
-  const [loading, setLoading] = useState(true)
+  const [_loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchReferralData()
+    const controller = new AbortController()
+    fetchReferralData(controller.signal)
+    return () => controller.abort()
   }, [])
 
-  const fetchReferralData = async () => {
+  const fetchReferralData = async (signal) => {
     try {
       setLoading(true)
-      const response = await api.get('/api/referrals')
+      const response = await api.get('/api/referrals', { signal })
+      if (signal?.aborted) return
       if (response.data?.success) {
         const { referralCode: code, stats: referralStats } = response.data.data
         if (code) setReferralCode(code)
@@ -44,21 +47,30 @@ export default function ReferAndEarn() {
         })
       }
     } catch (error) {
+      if (error.name === 'AbortError' || signal?.aborted) return
       console.error('Failed to fetch referral data:', error)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
+
+  const copiedTimerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralCode)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
   }
 
   const handleShare = (platform) => {
     const text = `Join Trstprep and get 20% off on all test series! Use my referral code: ${referralCode}`
-    const url = window.location.origin
+    const _url = window.location.origin
     
     if (platform === 'whatsapp') {
       window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank')
@@ -69,8 +81,6 @@ export default function ReferAndEarn() {
     }
   }
 
-  const rewards = referralConfig?.rewards || DEFAULT_REWARDS
-
   const { data: referralConfig } = useQuery({
     queryKey: ['referral-config'],
     queryFn: async () => {
@@ -80,6 +90,8 @@ export default function ReferAndEarn() {
     staleTime: 1000 * 60 * 30,
     retry: false,
   })
+
+  const rewards = referralConfig?.rewards || DEFAULT_REWARDS
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

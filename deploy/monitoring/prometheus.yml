@@ -1,0 +1,14 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'trstprep-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend-1:5001', 'backend-2:5001']
+
+  # M55: scrape nginx stub_status
+  - job_name: 'nginx'
+    metrics_path: '/nginx_status'
+    static_configs:
+      - targets: ['nginx:80']

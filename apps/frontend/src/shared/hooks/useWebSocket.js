@@ -1,73 +1,92 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { io } from 'socket.io-client'
 
 const SOCKET_URL = (() => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL
+  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`
   }
   return 'http://localhost:5001'
 })()
 
+// Shared socket instance — prevents React StrictMode from creating duplicates.
+// Reference-counted so the first component to unmount doesn't destroy the
+// socket for all other consumers.
+let sharedSocket = null
+let consumerCount = 0
+
 export const useWebSocket = (enabled = true) => {
-  const socketRef = useRef(null)
-  const [isConnected, setIsConnected] = useState(false)
+  const [isConnected, setIsConnected] = useState(() => Boolean(sharedSocket?.connected))
 
   useEffect(() => {
     if (!enabled) {
-      if (socketRef.current) {
-        socketRef.current.disconnect()
-        socketRef.current = null
-      }
       setIsConnected(false)
       return undefined
     }
 
-    const socket = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'],
-      withCredentials: true,
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 10000,
-    })
+    consumerCount++
 
-    socketRef.current = socket
+    if (!sharedSocket) {
+      sharedSocket = io(SOCKET_URL, {
+        transports: ['polling', 'websocket'],
+        withCredentials: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 15000,
+      })
+    }
 
-    socket.on('connect', () => {
-      setIsConnected(true)
-    })
+    const socket = sharedSocket
+    setIsConnected(socket.connected)
 
-    socket.on('disconnect', () => {
-      setIsConnected(false)
-    })
+    const handleConnect = () => setIsConnected(true)
+    const handleDisconnect = () => setIsConnected(false)
 
-    socket.on('connect_error', (error) => {
-      console.error('[WebSocket] Connect error:', error.message)
-    })
+    socket.on('connect', handleConnect)
+    socket.on('disconnect', handleDisconnect)
+
+    let errorCount = 0
+    const handleConnectError = (error) => {
+      errorCount++
+      if (errorCount <= 3) {
+        console.warn(`[WebSocket] Connection failed (${errorCount}/5):`, error.message)
+      } else if (errorCount === 5) {
+        console.warn('[WebSocket] Stopping reconnection attempts — server unreachable')
+      }
+    }
+    socket.on('connect_error', handleConnectError)
 
     return () => {
-      socket.disconnect()
-      socketRef.current = null
+      consumerCount = Math.max(0, consumerCount - 1)
+      socket.off('connect', handleConnect)
+      socket.off('disconnect', handleDisconnect)
+      socket.off('connect_error', handleConnectError)
+
+      if (consumerCount === 0 && sharedSocket === socket) {
+        socket.removeAllListeners()
+        socket.disconnect()
+        sharedSocket = null
+      }
       setIsConnected(false)
     }
   }, [enabled])
 
   const emit = useCallback((event, data) => {
-    socketRef.current?.emit(event, data)
+    sharedSocket?.emit(event, data)
   }, [])
 
   const on = useCallback((event, callback) => {
-    const socket = socketRef.current
-    if (!socket) {
-      return () => {}
-    }
-
-    socket.on(event, callback)
+    if (!sharedSocket) return () => {}
+    sharedSocket.on(event, callback)
     return () => {
-      socket.off(event, callback)
+      sharedSocket?.off(event, callback)
     }
   }, [])
 
-  return { isConnected, emit, on, socket: socketRef.current }
+  return { isConnected, emit, on, socket: sharedSocket }
 }
+
+export default useWebSocket
+

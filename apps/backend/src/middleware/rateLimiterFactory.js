@@ -9,16 +9,17 @@ const RATE_LIMITS = Object.freeze({
 
 export const createRateLimiter = (tier = 'generous') => {
   const config = RATE_LIMITS[tier] || RATE_LIMITS.generous
+  const isDev = process.env.NODE_ENV === 'development'
   return rateLimit({
     windowMs: config.windowMs,
-    max: config.max,
+    max: isDev ? config.max * 10 : config.max,
     message: {
       success: false,
       message: `Too many requests (${config.label} limit), please try again later.`,
     },
     standardHeaders: true,
     legacyHeaders: false,
-    skip: () => process.env.NODE_ENV === 'development',
+    skip: () => process.env.DISABLE_RATE_LIMITER === 'true',
   })
 }
 

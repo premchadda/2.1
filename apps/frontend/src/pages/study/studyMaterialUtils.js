@@ -56,3 +56,19 @@ export function matchesChapterIdentifier(chapter, targetIdentifier, chapters = [
     .map(String)
     .includes(normalizedTarget)
 }
+
+// Build a human-readable video URL: /videos/<subjectSlug>/<chapterSlug>/<videoId>
+// Falls back to /videos/<videoId> when slugs are unavailable.
+export function getVideoUrl(video = {}) {
+  const videoId = video.publicId || video._id || video.id
+  const subjectSlug = video.subjectSlug
+  const chapterSlug = video.chapterSlug
+
+  if (subjectSlug && chapterSlug && videoId !== null) {
+    return `/videos/${encodeURIComponent(subjectSlug)}/${encodeURIComponent(chapterSlug)}/${encodeURIComponent(String(videoId))}`
+  }
+  if (videoId !== null) {
+    return `/videos/${encodeURIComponent(String(videoId))}`
+  }
+  return '/videos'
+}

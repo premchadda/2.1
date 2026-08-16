@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight, ChevronDown, Plus, Crown } from 'lucide-react'
+import { ChevronRight, Plus, Crown } from 'lucide-react';
 import { useState } from 'react'
 import { isSeriesEnrolled } from '../../lib/enrollment.js'
 import { getCategoryEmoji } from '../../../assets/config/emoji.js'
@@ -31,10 +31,17 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
     return count?.toString() || '0';
   };
 
+  const categoryLabels = (testTypes && testTypes.length > 0) ? testTypes : Object.keys(testCounts || {});
+  const categoryRows = categoryLabels
+    .map((type) => ({ label: type, count: Number(testCounts?.[type] || 0) }))
+    .filter((row) => row.label && row.count > 0);
   const isShortTitle = title?.length < 25;
   const categoriesToShow = isShortTitle ? 5 : 4;
-  const mainCategories = (testTypes || []).slice(0, categoriesToShow);
-  const extraCategories = (testTypes || []).slice(categoriesToShow);
+  const mainCategories = categoryRows.slice(0, categoriesToShow);
+  const extraCategories = categoryRows.slice(categoriesToShow);
+
+  const catSlug = (series.subcategory || series.category || 'ssc-cgl').toLowerCase().replace(/\s+/g, '-');
+  const targetUrl = isEnrolled ? `/${catSlug}/test-series/my` : `/${catSlug}/test-series/${seriesId}`;
 
   const handleEnrollClick = (e) => {
     e.preventDefault();
@@ -50,7 +57,7 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
 
   const renderActionButton = () => {
     if (isEnrolled) {
-      return <Link to={`/test-series/${seriesId}`} className="w-full py-1.5 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1 bg-gradient-to-r from-brand-start to-brand-end">{showProgress ? 'Continue' : 'View'}</Link>;
+      return <Link to={targetUrl} className="w-full py-1.5 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1 bg-gradient-to-r from-brand-start to-brand-end">{showProgress ? 'Continue' : 'View'}</Link>;
     }
     if (requiresPro && !hasProPass) {
       return <Link to="/pass" className="w-full py-1.5 bg-amber-500 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1"><Crown className="w-3 h-3" />Get Pro</Link>;
@@ -64,7 +71,7 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
   return (
     <div className="test-series-card flex-shrink-0 w-[280px]">
       <Card variant="default" padding="p-0" hover className="h-full overflow-hidden group">
-        <Link to={`/test-series/${seriesId}`} className="block p-3">
+        <Link to={targetUrl} className="block p-3">
           <div className="flex items-center justify-between mb-2">
             <div className="text-xl">{getCategoryEmoji(categoryName || category)}</div>
             <div className="flex items-center gap-2">
@@ -86,12 +93,11 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
           </div>
           {showCategories && mainCategories.length > 0 && (
             <div className="space-y-1">
-              {mainCategories.slice(0, 4).map((type, i) => {
-                const count = testCounts?.[type] ?? 0;
-                return <div key={i} className="flex items-center justify-between text-xs py-1 px-2 bg-gray-50 dark:bg-gray-700/50 rounded"><span className="text-gray-700 dark:text-gray-300">{type}</span><span className="font-bold">{count > 0 ? count : '-'}</span></div>;
-              })}
+              {mainCategories.map((row, i) => (
+                <div key={`${row.label}-${i}`} className="flex items-center justify-between text-xs py-1 px-2 bg-gray-50 dark:bg-gray-700/50 rounded"><span className="text-gray-700 dark:text-gray-300">{row.label}</span><span className="font-bold">{row.count}</span></div>
+              ))}
               {extraCategories.length > 0 && !expanded && <button type="button" onClick={handleExpandClick} className="text-[10px] text-brand-start dark:text-indigo-400 w-full text-left px-2">+{extraCategories.length} more</button>}
-              {expanded && extraCategories.map((type, i) => { const count = testCounts?.[type] ?? 0; return <div key={i} className="flex items-center justify-between text-xs py-1 px-2 bg-gray-50 dark:bg-gray-700/50 rounded"><span className="text-gray-700 dark:text-gray-300">{type}</span><span className="font-bold">{count > 0 ? count : '-'}</span></div>; })}
+              {expanded && extraCategories.map((row, i) => <div key={`${row.label}-${i}`} className="flex items-center justify-between text-xs py-1 px-2 bg-gray-50 dark:bg-gray-700/50 rounded"><span className="text-gray-700 dark:text-gray-300">{row.label}</span><span className="font-bold">{row.count}</span></div>)}
               {expanded && <button type="button" onClick={handleExpandClick} className="text-[10px] text-brand-start dark:text-indigo-400 w-full text-left px-2">Show less</button>}
             </div>
           )}

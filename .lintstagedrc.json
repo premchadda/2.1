@@ -5,5 +5,8 @@
   ],
   "*.{json,md}": [
     "prettier --write"
+  ],
+  "*.{js,jsx,ts,tsx,json,yml,yaml,env}": [
+    "gitleaks detect --no-banner --source ."
   ]
 }

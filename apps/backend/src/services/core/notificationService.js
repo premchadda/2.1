@@ -14,7 +14,7 @@ export const createInAppNotification = async (
     message,
     type,
     channel: 'in_app',
-    read: false,
+    isRead: false,
     metadata,
     isActive: true,
     createdAt: new Date().toISOString(),
@@ -64,10 +64,11 @@ export const dispatchNotification = async (
     sendEmail = true,
     sendPush = true,
     metadata = {},
+    preloadedUser = null,
   } = {}
 ) => {
-  const users = await dbHelpers.find('users', {})
-  const user = users.find((entry) => idsMatch(entry.id || entry._id, userId))
+  const user = preloadedUser || await dbHelpers.findById('users', userId)
+  if (!user) return { success: false, reason: 'user_not_found' }
 
   const inApp = await createInAppNotification(userId, { title, message, type, metadata })
   const email = sendEmail ? await sendEmailNotification(user, { title, message, actionUrl }) : { success: false, skipped: true }
@@ -113,7 +114,6 @@ export const handleNotificationJob = async (jobName, payload = {}) => {
 
 export const sendScheduledReminders = async ({ inactivityHours = 24 } = {}) => {
   const attempts = await dbHelpers.find('attempts', {})
-  const users = await dbHelpers.find('users', {})
   const cutoff = Date.now() - inactivityHours * 60 * 60 * 1000
 
   const lastActivityByUser = new Map()
@@ -127,13 +127,36 @@ export const sendScheduledReminders = async ({ inactivityHours = 24 } = {}) => {
     }
   })
 
-  let reminders = 0
-  for (const user of users) {
+  const staleUserIds = []
+  const allUsers = await dbHelpers.find('users', {})
+  for (const user of allUsers) {
     const userId = user.id || user._id
     if (!userId || user.isActive === false) continue
-
     const lastActivity = lastActivityByUser.get(String(userId)) || 0
-    if (lastActivity > cutoff) continue
+    if (lastActivity <= cutoff) {
+      staleUserIds.push(userId)
+    }
+  }
+
+  if (staleUserIds.length === 0) {
+    return { remindersSent: 0 }
+  }
+
+  const staleUsersResult = await dbHelpers.pool.query(
+    `SELECT * FROM users WHERE id = ANY($1)`,
+    [staleUserIds]
+  )
+  const staleUserMap = new Map()
+  staleUsersResult.rows.forEach((row) => {
+    const mapped = dbHelpers.toCamel ? dbHelpers.toCamel(row) : row
+    const id = mapped.id || mapped._id
+    if (id) staleUserMap.set(String(id), mapped)
+  })
+
+  let reminders = 0
+  for (const userId of staleUserIds) {
+    const user = staleUserMap.get(String(userId))
+    if (!user) continue
 
     await dispatchNotification(userId, {
       title: 'Practice reminder',
@@ -142,6 +165,7 @@ export const sendScheduledReminders = async ({ inactivityHours = 24 } = {}) => {
       sendPush: true,
       sendEmail: true,
       metadata: { reason: 'scheduled_inactivity_reminder' },
+      preloadedUser: user,
     })
     reminders += 1
   }

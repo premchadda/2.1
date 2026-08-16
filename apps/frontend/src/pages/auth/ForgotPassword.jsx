@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
-import { api } from '../../shared/lib/dataService.js'
+import api from '../../shared/lib/api'
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -10,15 +10,23 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!email) return
-    
+    if (!email.trim()) {
+      setError('Please enter your email address')
+      return
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email.trim())) {
+      setError('Please enter a valid email address')
+      return
+    }
+
     setLoading(true)
     setError('')
     
     try {
       await api.post('/api/auth/forgot-password', { email })
       setSent(true)
-    } catch (err) {
+    } catch  {
       setError('Failed to send reset email. Please try again.')
     } finally {
       setLoading(false)

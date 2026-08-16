@@ -8,15 +8,31 @@
  * - Consistent access across all components
  */
 
-import { useMemo } from 'react'
-import { useAuth } from '../providers/AuthContext'
+import { useMemo, useContext, createContext } from 'react'
+
+// Injectable AuthContext — consumers pass their own useAuth or context
+let _useAuth = null;
+
+/**
+ * Inject the useAuth hook from your app's AuthContext.
+ * Call once at app root: initProPassAuth(useAuth)
+ * @param {Function} useAuthHook - The useAuth hook from your AuthContext
+ */
+export function initProPassAuth(useAuthHook) {
+  _useAuth = useAuthHook;
+}
 
 /**
  * Custom hook for Pro Pass status management
  * @returns {Object} Pro Pass status information
  */
 export function useProPass() {
-  const { user } = useAuth()
+  if (!_useAuth) {
+    throw new Error(
+      'useProPass: AuthContext not initialized. Call initProPassAuth(useAuth) at app root.'
+    );
+  }
+  const { user } = _useAuth();
 
   // Check if user is admin - admins get unlimited access
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.isAdmin

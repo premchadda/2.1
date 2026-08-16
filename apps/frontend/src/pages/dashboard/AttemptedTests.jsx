@@ -1,32 +1,52 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getTestSeries, apiClient } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import {
-  Clock, CheckCircle, XCircle, Eye, RotateCcw, Search, ChevronRight,
-  ClipboardCheck, Target, Award, Trophy
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  RotateCcw,
+  Search,
+  ChevronRight,
+  ClipboardCheck,
+  Target,
+  Award,
+  Trophy,
+  LayoutGrid,
+  ListFilter,
+  BarChart2,
+  X,
+  Zap,
+  ArrowRight
 } from 'lucide-react'
-import SearchBox from '../../shared/components/common/SearchBox'
+import { checkIsLive, checkIsSolutionExpired } from '../../shared/utils/testClassification'
 
-function AttemptedTests() {
+export default function AttemptedTests() {
   const { user } = useAuth()
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterSeries, setFilterSeries] = useState('all')
+  const navigate = useNavigate()
+  
+  // Data states
   const [seriesData, setSeriesData] = useState([])
   const [attemptedTests, setAttemptedTests] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  
-  // Interactive redesign states
-  const [activeTab, setActiveTab] = useState('all')
-  const [viewMode, setViewMode] = useState(() => localStorage.getItem('attempted_tests_view_mode') || 'grid')
-  const [expandedTestId, setExpandedTestId] = useState(null)
+
+  // Filter & view states
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterSeries, setFilterSeries] = useState('all')
+  const [activeTab, setActiveTab] = useState('all') // 'all' | 'mock' | 'quiz'
+  const [sortBy, setSortBy] = useState('recent') // 'recent' | 'score_desc' | 'accuracy_desc' | 'time_asc'
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('trstprep_attempts_view') || 'grid')
 
   useEffect(() => {
-    localStorage.setItem('attempted_tests_view_mode', viewMode)
+    localStorage.setItem('trstprep_attempts_view', viewMode)
   }, [viewMode])
 
+  // Fetch attempts and series
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -40,12 +60,12 @@ function AttemptedTests() {
           })
         ])
 
-        setSeriesData(series)
+        setSeriesData(series || [])
         const attempts = attemptsRes.data?.data || []
         setAttemptedTests(attempts)
       } catch (err) {
         console.error('[AttemptedTests] Failed to fetch data:', err)
-        setError('Failed to load attempted tests. Please try again.')
+        setError('Unable to load your attempted tests. Please try again.')
       } finally {
         setLoading(false)
       }
@@ -58,495 +78,704 @@ function AttemptedTests() {
     }
   }, [user])
 
+  // Series options for dropdown filter
+  const seriesOptions = useMemo(() => {
+    if (!seriesData.length) return []
+    const uniqueIds = new Set(attemptedTests.map((t) => String(t.seriesId)).filter(Boolean))
+    return Array.from(uniqueIds)
+      .map((id) => seriesData.find((s) => String(s.id || s._id) === id || s.slug === id))
+      .filter(Boolean)
+  }, [seriesData, attemptedTests])
+
+  // Aggregate Metrics
+  const stats = useMemo(() => {
+    const total = attemptedTests.length
+    if (total === 0) {
+      return { total: 0, mocks: 0, quizzes: 0, avgAccuracy: 0, avgScorePct: 0, bestRank: '-' }
+    }
+
+    const mocks = attemptedTests.filter((t) => t.type !== 'quiz').length
+    const quizzes = attemptedTests.filter((t) => t.type === 'quiz').length
+
+    const avgAccuracy = Math.round(
+      attemptedTests.reduce((sum, t) => sum + (Number(t.accuracy) || 0), 0) / total
+    )
+
+    const avgScorePct = Math.round(
+      attemptedTests.reduce((sum, t) => {
+        const marks = Number(t.totalMarks) || 200
+        const score = Number(t.score) || 0
+        return sum + (marks > 0 ? (score / marks) * 100 : 0)
+      }, 0) / total
+    )
+
+    const ranks = attemptedTests
+      .map((t) => Number(t.rank))
+      .filter((r) => !isNaN(r) && r > 0 && r !== 999999)
+    const bestRank = ranks.length > 0 ? Math.min(...ranks) : '-'
+
+    return { total, mocks, quizzes, avgAccuracy, avgScorePct, bestRank }
+  }, [attemptedTests])
+
+  // Filter and sort attempts
   const filteredTests = useMemo(() => {
     if (loading) return []
-    return attemptedTests.filter(test => {
-      const title = test.title || test.testTitle || ''
-      if (searchQuery && !title.toLowerCase().includes(searchQuery.toLowerCase())) {
-        return false
+
+    const list = attemptedTests.filter((test) => {
+      // Title or Series search
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase()
+        const titleMatch = String(test.title || test.testTitle || '').toLowerCase().includes(q)
+        const seriesMatch = String(test.seriesTitle || '').toLowerCase().includes(q)
+        if (!titleMatch && !seriesMatch) return false
       }
+
+      // Series filter
       if (filterSeries !== 'all') {
-        // Check against multiple ID formats (internal ID, public ID, slug)
         const testSeriesId = String(test.seriesId || test.series_id || '')
         const filterId = String(filterSeries)
         const matchesId = testSeriesId === filterId
-
-        // Also check if the filter series has a matching slug
-        const filterSeriesData = seriesData.find(s =>
-          String(s.id || s._id) === filterId || s.slug === filterId
+        const filterSeriesData = seriesData.find(
+          (s) => String(s.id || s._id) === filterId || s.slug === filterId
         )
-        const matchesSlug = filterSeriesData && (
-          testSeriesId === filterSeriesData.slug ||
-          testSeriesId === String(filterSeriesData.id || filterSeriesData._id)
-        )
+        const matchesSlug =
+          filterSeriesData &&
+          (testSeriesId === filterSeriesData.slug ||
+            testSeriesId === String(filterSeriesData.id || filterSeriesData._id))
 
-        if (!matchesId && !matchesSlug) {
-          return false
-        }
+        if (!matchesId && !matchesSlug) return false
       }
 
-      // Tab filter logic
+      // Tab filter
       if (activeTab === 'mock' && test.type === 'quiz') return false
       if (activeTab === 'quiz' && test.type !== 'quiz') return false
 
       return true
     })
-  }, [searchQuery, filterSeries, activeTab, loading, attemptedTests, seriesData])
 
-  const seriesOptions = useMemo(() => {
-    if (loading || !seriesData.length) return []
-    const uniqueIds = new Set(attemptedTests.map(t => String(t.seriesId)).filter(Boolean))
-    return Array.from(uniqueIds)
-      .map(id => seriesData.find(s => String(s.id || s._id) === id || s.slug === id))
-      .filter(Boolean)
-  }, [seriesData, attemptedTests, loading])
+    // Sort order
+    list.sort((a, b) => {
+      if (sortBy === 'score_desc') {
+        return (Number(b.score) || 0) - (Number(a.score) || 0)
+      }
+      if (sortBy === 'accuracy_desc') {
+        return (Number(b.accuracy) || 0) - (Number(a.accuracy) || 0)
+      }
+      if (sortBy === 'time_asc') {
+        return (Number(a.timeSpent || a.timeTaken) || 0) - (Number(b.timeSpent || b.timeTaken) || 0)
+      }
+      // 'recent' by default
+      const dateA = new Date(a.date || a.submittedAt || a.createdAt || 0).getTime()
+      const dateB = new Date(b.date || b.submittedAt || b.createdAt || 0).getTime()
+      return dateB - dateA
+    })
 
-  const toggleExpand = (id) => {
-    setExpandedTestId(prev => prev === id ? null : id)
-  }
+    return list
+  }, [attemptedTests, loading, searchQuery, filterSeries, activeTab, sortBy, seriesData])
 
   const formatTime = (seconds) => {
     if (!seconds) return '0m'
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
+    if (mins >= 60) {
+      const hrs = Math.floor(mins / 60)
+      const remMins = mins % 60
+      return `${hrs}h ${remMins}m`
+    }
     return `${mins}m ${secs}s`
   }
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return ''
+    if (!dateStr) return '--'
     const date = new Date(dateStr)
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
   }
-  const avgAccuracy = attemptedTests.length > 0
-    ? Math.round(attemptedTests.reduce((sum, t) => sum + (Number(t.accuracy) || 0), 0) / attemptedTests.length)
-    : 0
-
-  const avgScore = attemptedTests.length > 0
-    ? Math.round(attemptedTests.reduce((sum, t) => {
-        const marks = Number(t.totalMarks) || 100
-        const score = Number(t.score) || 0
-        return sum + (marks > 0 ? (score / marks) * 100 : 0)
-      }, 0) / attemptedTests.length)
-    : 0
-
-  const bestRank = attemptedTests.length > 0 && Math.min(...attemptedTests.map(t => t.rank || 999999)) !== 999999
-    ? Math.min(...attemptedTests.map(t => t.rank || 999999))
-    : '-'
-
-  const totalCorrect = attemptedTests.reduce((sum, t) => sum + (t.correct || t.correctAnswers || 0), 0)
-  const totalWrong = attemptedTests.reduce((sum, t) => sum + (t.wrong || t.wrongAnswers || 0), 0)
-  const totalSkipped = attemptedTests.reduce((sum, t) => sum + (t.unattempted || t.skipped || 0), 0)
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="text-center max-w-sm p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700">
-          <p className="text-gray-600 dark:text-gray-300 mb-4 font-medium">Please log in to view your attempted tests.</p>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+        <div className="text-center max-w-sm p-8 bg-white dark:bg-slate-900 rounded-3xl shadow-xl border border-slate-200 dark:border-slate-800">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-4 border border-indigo-200 dark:border-indigo-800">
+            <ClipboardCheck className="w-6 h-6" />
+          </div>
+          <h2 className="text-lg font-black text-slate-900 dark:text-white mb-2">Login Required</h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 leading-relaxed">
+            Please log in to view your past test submissions, accuracy charts, and score analytics.
+          </p>
           <Link
             to="/login"
-            className="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-brand-start to-brand-end hover:shadow-glow text-white font-semibold rounded-xl hover:opacity-95 transition-all"
+            state={{ from: '/attempted-tests' }}
+            className="w-full inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
           >
-            Login
+            Log In to Account
           </Link>
         </div>
       </div>
     )
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-start mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400 font-medium">Loading attempted tests...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="text-center max-w-sm p-6 bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700">
-          <p className="text-red-600 dark:text-red-400 mb-4 font-semibold">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="w-full inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-brand-start to-brand-end hover:shadow-glow text-white font-semibold rounded-xl hover:opacity-95 transition-all"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 page-transition fade-in">
-      {/* Compact Header + Breadcrumb */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2">
-          <Breadcrumb
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 transition-colors duration-200 pb-16">
+      <Helmet>
+        <title>My Attempted Tests & Performance Log | Trstprep</title>
+        <meta name="description" content="Track your completed mock tests, sectional quizzes, scorecards, accuracy rates, and All-India Rankings on Trstprep." />
+      </Helmet>
+
+      {/* Breadcrumb Header Bar */}
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 sticky top-0 z-30 transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Breadcrumb 
             items={[
               { label: 'Home', path: '/' },
+              { label: 'Dashboard', path: '/dashboard' },
               { label: 'Attempted Tests' }
             ]}
           />
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-1">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center flex-shrink-0">
-                <ClipboardCheck className="w-4 h-4" />
-              </div>
-              <h1 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white leading-none">Attempted Tests</h1>
-              <span className="text-gray-400 dark:text-gray-500 text-[11px] hidden md:inline">• Past attempts & progress tracker</span>
-            </div>
-
-            {attemptedTests.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="flex-1 sm:w-48">
-                  <SearchBox
-                    placeholder="Search tests..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onClear={() => setSearchQuery('')}
-                    containerClass="w-full"
-                    inputClass="w-full pl-8 pr-4 py-1.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-xs focus:border-brand-start focus:ring-1 focus:ring-brand-start outline-none transition-all text-gray-900 dark:text-white placeholder-gray-400"
-                    iconColorClass="text-gray-400 group-focus-within:text-brand-start w-3.5 h-3.5"
-                  />
-                </div>
-                <select
-                  value={filterSeries}
-                  onChange={(e) => setFilterSeries(e.target.value)}
-                  className="px-2.5 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 focus:border-brand-start focus:ring-1 focus:ring-brand-start/20 outline-none text-xs font-semibold transition cursor-pointer flex-shrink-0"
-                >
-                  <option value="all">All Series</option>
-                  {seriesOptions.map(s => (
-                    <option key={s._id || s.id} value={s._id || s.id}>{s.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-20 md:pb-4">
-        {attemptedTests.length > 0 ? (
-          <div className="space-y-4">
-            {/* Compact Stats Row */}
-            <div className="grid grid-cols-4 gap-2 sm:gap-3">
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        
+        {/* Top Header & CTAs */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
+                <ClipboardCheck className="w-4 h-4" />
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+                My Attempted Tests
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800">
+                {stats.total}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Review your completed mock tests, scorecards, accuracy rates, and national percentiles.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <Link
+              to="/analysis"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shadow-sm"
+            >
+              <BarChart2 className="w-4 h-4 text-indigo-500" />
+              <span>Full Analytics</span>
+            </Link>
+            <Link
+              to="/test-series"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+            >
+              <Zap className="w-4 h-4 fill-current" />
+              <span>Take New Test</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Executive Stats Strip */}
+        {attemptedTests.length > 0 && (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            
+            {/* Total Tests Metric */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-200/50 dark:border-indigo-800/50">
+                <ClipboardCheck className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Completed Tests</div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
+                  {stats.total}
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+                  {stats.mocks} Mocks · {stats.quizzes} Quizzes
+                </div>
+              </div>
+            </div>
+
+            {/* Average Accuracy Metric */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3.5">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                stats.avgAccuracy >= 80
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border-emerald-200/50 dark:border-emerald-800/50'
+                  : stats.avgAccuracy >= 60
+                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-200/50 dark:border-amber-800/50'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-200/50 dark:border-rose-800/50'
+              }`}>
+                <Target className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Accuracy</div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
+                  {stats.avgAccuracy}%
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+                  {stats.avgAccuracy >= 80 ? 'High Precision' : stats.avgAccuracy >= 60 ? 'Moderate' : 'Needs Practice'}
+                </div>
+              </div>
+            </div>
+
+            {/* Average Score Metric */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-800/50">
+                <Award className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Score %</div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
+                  {stats.avgScorePct}%
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+                  Across all formats
+                </div>
+              </div>
+            </div>
+
+            {/* Best Rank Metric */}
+            <div className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-200/50 dark:border-amber-800/50">
+                <Trophy className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Peak Rank (AIR)</div>
+                <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight mt-0.5">
+                  {stats.bestRank !== '-' ? `#${stats.bestRank}` : '--'}
+                </div>
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 truncate">
+                  {stats.bestRank !== '-' ? 'National Standing' : 'Participate in Live'}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filter Toolbar */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm mb-6 space-y-3.5">
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            
+            {/* Left: Type Filter Tabs */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl self-start">
               {[
-                { icon: ClipboardCheck, color: 'indigo', value: attemptedTests.length, label: 'Tests' },
-                { icon: Target, color: 'emerald', value: `${avgAccuracy}%`, label: 'Accuracy' },
-                { icon: Award, color: 'purple', value: `${avgScore}%`, label: 'Avg Score' },
-                { icon: Trophy, color: 'amber', value: bestRank !== '-' ? `#${bestRank}` : '-', label: 'Best Rank' },
-              ].map((stat, i) => {
-                const Icon = stat.icon
+                { id: 'all', label: 'All', count: stats.total },
+                { id: 'mock', label: 'Mock Tests', count: stats.mocks },
+                { id: 'quiz', label: 'Quizzes', count: stats.quizzes },
+              ].map((tab) => {
+                const isActive = activeTab === tab.id
                 return (
-                  <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-2.5 sm:p-3 shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-2 sm:gap-2.5">
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-${stat.color}-50 dark:bg-${stat.color}-950/40 text-${stat.color}-600 dark:text-${stat.color}-400 flex items-center justify-center flex-shrink-0`}>
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white leading-tight truncate">{stat.value}</p>
-                      <p className="text-[9px] sm:text-[10px] font-semibold text-gray-500 dark:text-gray-400 truncate">{stat.label}</p>
-                    </div>
-                  </div>
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all ${
+                      isActive
+                        ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.25 rounded-md text-[10px] sm:text-xs font-bold ${
+                      isActive ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
                 )
               })}
             </div>
 
-            {/* Main feed container */}
-            <div className="space-y-3">
-              {/* Category tabs and layout mode toggler */}
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex bg-gray-100 dark:bg-gray-700/50 p-1 rounded-lg">
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'mock', label: 'Mock' },
-                    { id: 'quiz', label: 'Quiz' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`px-3 py-1 text-xs font-bold rounded-md transition-all ${
-                        activeTab === tab.id
-                          ? 'bg-white dark:bg-gray-700 text-brand-start dark:text-indigo-400 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2">
+            {/* Right: Search & View Toggles */}
+            <div className="flex items-center gap-2.5 flex-1 sm:flex-initial justify-end">
+              
+              {/* Search Box */}
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search test or series..."
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700 rounded-xl text-xs sm:text-sm font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                />
+                {searchQuery && (
                   <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg transition-all ${
-                      viewMode === 'grid'
-                        ? 'bg-white dark:bg-gray-700 text-brand-start dark:text-indigo-400 shadow-sm border border-gray-100 dark:border-gray-600'
-                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'
-                    }`}
-                    title="Grid View"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                    </svg>
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg transition-all ${
-                      viewMode === 'list'
-                        ? 'bg-white dark:bg-gray-700 text-brand-start dark:text-indigo-400 shadow-sm border border-gray-100 dark:border-gray-600'
-                        : 'text-gray-400 dark:text-gray-500 hover:text-gray-600'
-                    }`}
-                    title="List View"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
+                )}
               </div>
 
-              {viewMode === 'list' ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-soft border border-gray-100 dark:border-gray-700 overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-700/50">
-                        <tr>
-                          <th scope="col" className="px-4 py-2.5 text-left text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Test Info</th>
-                          <th scope="col" className="px-4 py-2.5 text-left text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider hidden md:table-cell">Duration</th>
-                          <th scope="col" className="px-4 py-2.5 text-left text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Score</th>
-                          <th scope="col" className="px-4 py-2.5 text-left text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Accuracy</th>
-                          <th scope="col" className="px-4 py-2.5 text-right text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                        {filteredTests.map((test) => (
-                          <tr key={test.id || test._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/20 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-1.5 mb-0.5">
-                                <span className={`text-[8px] uppercase font-bold px-1.5 py-0.25 rounded ${
-                                  test.type === 'quiz' 
-                                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300' 
-                                    : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                                }`}>
-                                  {test.type === 'quiz' ? 'Quiz' : 'Mock'}
-                                </span>
-                                {(test.is_reattempt || test.isReattempt) && (
-                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                                    (Reattempt)
-                                  </span>
-                                )}
-                                <span className="text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[120px]">{test.seriesTitle || 'Practice'}</span>
-                              </div>
-                              <div className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">{test.title || test.testTitle}</div>
-                              <div className="text-[10px] text-gray-400 md:hidden mt-0.5">{formatDate(test.date || test.submittedAt || test.createdAt)} • {formatTime(test.timeSpent || test.timeTaken)}</div>
-                            </td>
-                            <td className="px-4 py-3 text-xs text-gray-600 dark:text-gray-400 hidden md:table-cell whitespace-nowrap">
-                              <div>{formatTime(test.timeSpent || test.timeTaken)}</div>
-                              <div className="text-[10px] text-gray-400">{formatDate(test.date || test.submittedAt || test.createdAt)}</div>
-                            </td>
-                            <td className="px-4 py-3 text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
-                              {test.type === 'quiz' ? (test.totalMarks || '0') : `${test.score || 0}/${test.totalMarks || 200}`}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap">
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                                (test.accuracy || 0) >= 80 
-                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' 
-                                  : (test.accuracy || 0) >= 60 
-                                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400' 
-                                    : 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400'
-                              }`}>
-                                {test.accuracy || 0}%
+              {/* View Mode Toggle */}
+              <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                  title="Grid Cards"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-lg transition-all ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                  }`}
+                  title="Compact Table List"
+                >
+                  <ListFilter className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Secondary Filter Row: Series and Sort */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Series:</span>
+              
+              {/* Series Filter Dropdown */}
+              <select
+                value={filterSeries}
+                onChange={(e) => setFilterSeries(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer max-w-[220px] truncate"
+              >
+                <option value="all">All Series ({seriesOptions.length})</option>
+                {seriesOptions.map((s) => (
+                  <option key={s._id || s.id} value={s._id || s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+
+              {/* Sort Dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 cursor-pointer"
+              >
+                <option value="recent">Sort: Most Recent</option>
+                <option value="score_desc">Sort: Highest Score</option>
+                <option value="accuracy_desc">Sort: Highest Accuracy</option>
+                <option value="time_asc">Sort: Fastest Time</option>
+              </select>
+            </div>
+
+            <div className="text-xs sm:text-sm font-bold text-slate-400">
+              Showing <span className="text-slate-900 dark:text-white font-black">{filteredTests.length}</span> tests
+            </div>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-48 bg-slate-200 dark:bg-slate-850 rounded-2xl border border-slate-200 dark:border-slate-800"></div>
+            ))}
+          </div>
+        )}
+
+        {/* Results Container */}
+        {!loading && filteredTests.length > 0 && (
+          <>
+            {viewMode === 'grid' ? (
+              /* Bento Grid */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                {filteredTests.map((test) => {
+                  const testId = test.testSlug || test.testId || test.id
+                  const seriesId = test.seriesSlug || test.seriesId || 'all'
+                  const totalMarks = test.totalMarks || 200
+                  const score = test.score || 0
+                  const accuracy = Math.round(test.accuracy || 0)
+                  
+                  const correct = test.correct || 0
+                  const wrong = test.wrong || 0
+                  const skipped = test.skipped || 0
+                  const totalQuestions = correct + wrong + skipped || 1
+
+                  const correctPct = ((correct / totalQuestions) * 100).toFixed(0)
+                  const wrongPct = ((wrong / totalQuestions) * 100).toFixed(0)
+                  const skippedPct = ((skipped / totalQuestions) * 100).toFixed(0)
+
+                  return (
+                    <div
+                      key={test.id || test._id}
+                      className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-sm hover:border-indigo-500/50 hover:shadow-lg transition-all duration-200 flex flex-col justify-between"
+                    >
+                      <div>
+                        {/* Header Badge Row */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
+                              test.type === 'quiz'
+                                ? 'bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200/60 dark:border-purple-800'
+                                : 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800'
+                            }`}>
+                              {test.type === 'quiz' ? 'Quiz' : 'Mock'}
+                            </span>
+                            {test.isReattempt && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800">
+                                Reattempt
                               </span>
-                            </td>
-                            <td className="px-4 py-3 text-right whitespace-nowrap">
-                              <div className="inline-flex items-center gap-1">
-                                <Link
-                                  to={`/test-result/${test.seriesSlug || test.seriesId}/${test.testSlug || test.testId || test.id}`}
-                                  className="p-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded transition"
-                                  title="View Result"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                </Link>
-                                <Link
-                                  to={`/test/${test.seriesSlug || test.seriesId}/${test.testSlug || test.testId || test.id}/instructions`}
-                                  className="p-1 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded transition"
-                                  title="Reattempt"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" />
-                                </Link>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  {filteredTests.map((test, index) => {
-                    const isExpanded = expandedTestId === (test.id || test._id)
-                    const total = (test.correct || test.correctAnswers || 0) + (test.wrong || test.wrongAnswers || 0) + (test.unattempted || test.skipped || 0) || 1
-                    const correctPct = (((test.correct || test.correctAnswers || 0) / total) * 100).toFixed(1)
-                    const wrongPct = (((test.wrong || test.wrongAnswers || 0) / total) * 100).toFixed(1)
-                    const unattemptedPct = (((test.unattempted || test.skipped || 0) / total) * 100).toFixed(1)
-                    
-                    const radius = 18
-                    const circumference = 2 * Math.PI * radius
-                    const strokeDashoffset = circumference - ((test.accuracy || 0) / 100) * circumference
-
-                    return (
-                      <div
-                        key={test.id || test._id}
-                        className={`bg-white dark:bg-gray-800 rounded-xl shadow-soft border transition-all duration-300 animate-slide-in-up flex flex-col justify-between overflow-hidden cursor-pointer ${
-                          isExpanded 
-                            ? 'border-brand-start dark:border-indigo-500 ring-1 ring-brand-start/20' 
-                            : 'border-gray-100 dark:border-gray-700/80 hover:shadow-hover-card hover:border-brand-start dark:hover:border-indigo-500'
-                        }`}
-                        style={{ animationDelay: `${index * 40}ms` }}
-                        onClick={() => toggleExpand(test.id || test._id)}
-                      >
-                        <div className="p-4">
-                          {/* Header Row */}
-                          <div className="flex items-start justify-between gap-3 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                <span className={`text-[8px] uppercase font-bold tracking-wider px-1.5 py-0.25 rounded ${
-                                  test.type === 'quiz' 
-                                    ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-100 dark:border-purple-900/30' 
-                                    : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/30'
-                                }`}>
-                                  {test.type === 'quiz' ? 'Quiz' : 'Mock'}
-                                </span>
-                                <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[120px]">
-                                  {test.seriesTitle || 'Practice'}
-                                </p>
-                              </div>
-                              <h3 className="font-extrabold text-gray-900 dark:text-white text-sm mb-0.5 leading-tight group-hover:text-brand-start transition-colors line-clamp-2">
-                                {test.title || test.testTitle}
-                              </h3>
-                            </div>
-                            
-                            {/* SVG Accuracy Dial */}
-                            <div className="flex-shrink-0 relative flex items-center justify-center w-10 h-10" title={`Accuracy: ${test.accuracy || 0}%`}>
-                              <svg className="w-full h-full transform -rotate-90">
-                                <circle cx="20" cy="20" r="18" className="stroke-gray-100 dark:stroke-gray-700" strokeWidth="3" fill="transparent" />
-                                <circle cx="20" cy="20" r="18" className={`transition-all duration-500 ${
-                                  (test.accuracy || 0) >= 80 ? 'stroke-emerald-500' : (test.accuracy || 0) >= 60 ? 'stroke-amber-500' : 'stroke-rose-500'
-                                }`} strokeWidth="3" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" />
-                              </svg>
-                              <span className="absolute text-[9px] font-black text-gray-800 dark:text-white">{Math.round(test.accuracy || 0)}%</span>
-                            </div>
+                            )}
                           </div>
 
-                          {/* Stats Grid */}
-                          <div className="grid grid-cols-3 gap-1.5 py-1.5 px-2 bg-gray-50 dark:bg-gray-700/30 rounded-lg my-2.5 text-center text-xs">
-                            <div>
-                              <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.25">Score</p>
-                              <p className="font-extrabold text-gray-900 dark:text-white">
-                                {test.type === 'quiz' ? (test.totalMarks || '0') : `${test.score || 0}/${test.totalMarks || 200}`}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.25">Time</p>
-                              <p className="font-extrabold text-gray-900 dark:text-white truncate">
-                                {formatTime(test.timeSpent || test.timeTaken)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.25">Rank</p>
-                              <p className="font-extrabold text-purple-600 dark:text-purple-400">
-                                {test.rank && test.rank !== 999999 && test.rank !== '-' ? `#${test.rank}` : '-'}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Horizontal Breakdown Bar */}
-                          <div className="w-full mt-2">
-                            <div className="flex justify-between text-[9px] text-gray-400 dark:text-gray-500 font-bold mb-0.75">
-                              <span>Answer Breakdown</span>
-                              <span>{test.correct || 0}C • {test.wrong || 0}W • {test.unattempted || 0}S</span>
-                            </div>
-                            <div className="w-full h-1 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden flex">
-                              {parseFloat(correctPct) > 0 && <div className="h-full bg-emerald-500" style={{ width: `${correctPct}%` }} title={`Correct: ${correctPct}%`} />}
-                              {parseFloat(wrongPct) > 0 && <div className="h-full bg-rose-500" style={{ width: `${wrongPct}%` }} title={`Wrong: ${wrongPct}%`} />}
-                              {parseFloat(unattemptedPct) > 0 && <div className="h-full bg-gray-300 dark:bg-gray-600" style={{ width: `${unattemptedPct}%` }} title={`Skipped: ${unattemptedPct}%`} />}
-                            </div>
-                          </div>
-
-                          {/* Expanded Collapsible Drawer */}
-                          {isExpanded && (
-                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/60 text-[11px] text-gray-600 dark:text-gray-400 grid grid-cols-2 gap-y-1.5 gap-x-3 animate-slide-up">
-                              <div>
-                                <span className="font-semibold text-gray-400 dark:text-gray-500 block">Submitted On</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200">{formatDate(test.date || test.submittedAt || test.createdAt)}</span>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-gray-400 dark:text-gray-500 block">Test Type</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200 capitalize">{test.type || 'Practice'}</span>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-gray-400 dark:text-gray-500 block">Speed (per Q)</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200">
-                                  {test.timeSpent || test.timeTaken ? `${((test.timeSpent || test.timeTaken) / (total || 1)).toFixed(0)} seconds` : 'N/A'}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="font-semibold text-gray-400 dark:text-gray-500 block">Reattempt Status</span>
-                                <span className="font-bold text-gray-800 dark:text-gray-200">{test.is_reattempt || test.isReattempt ? 'Reattempt' : 'First Attempt'}</span>
-                              </div>
-                            </div>
-                          )}
+                          <span className="text-xs font-bold text-slate-400 shrink-0">
+                            {formatDate(test.date || test.submittedAt)}
+                          </span>
                         </div>
 
-                        {/* Actions Area */}
-                        <div className="bg-gray-50/50 dark:bg-gray-850/40 px-4 py-2 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Link
-                            to={`/test-result/${test.seriesSlug || test.seriesId}/${test.testSlug || test.testId || test.id}`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded"
-                          >
-                            <Eye className="w-3.5 h-3.5" /> View Report
-                          </Link>
-                          <Link
-                            to={`/test/${test.seriesSlug || test.seriesId}/${test.testSlug || test.testId || test.id}/instructions`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-gradient-to-r from-brand-start to-brand-end hover:shadow-glow text-white rounded"
-                          >
-                            <RotateCcw className="w-3.5 h-3.5" /> Reattempt
-                          </Link>
+                        {/* Series & Test Title */}
+                        <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate mb-1">
+                          {test.seriesTitle || 'General Practice'}
+                        </div>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white leading-snug line-clamp-2 mb-3.5 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                          {test.title || test.testTitle}
+                        </h3>
+
+                        {/* 3 Metric Badges */}
+                        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-850/60 border border-slate-200/60 dark:border-slate-800 mb-3.5 text-center">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Score</span>
+                            <span className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                              {test.type === 'quiz' ? totalMarks : `${score}/${totalMarks}`}
+                            </span>
+                          </div>
+                          <div className="border-x border-slate-200/80 dark:border-slate-800">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Accuracy</span>
+                            <span className={`text-sm sm:text-base font-black ${
+                              accuracy >= 80 ? 'text-emerald-600 dark:text-emerald-400' : accuracy >= 60 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
+                            }`}>
+                              {accuracy}%
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase block">Time</span>
+                            <span className="text-sm sm:text-base font-black text-slate-700 dark:text-slate-300">
+                              {formatTime(test.timeSpent || test.timeTaken)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Mini Multi-Color Accuracy Bar */}
+                        <div className="space-y-1 mb-4">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
+                            <span>Question Breakdown</span>
+                            <span>{correct}C · {wrong}W · {skipped}S</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden flex">
+                            {Number(correctPct) > 0 && <div className="h-full bg-emerald-500" style={{ width: `${correctPct}%` }} title={`Correct: ${correct}`} />}
+                            {Number(wrongPct) > 0 && <div className="h-full bg-rose-500" style={{ width: `${wrongPct}%` }} title={`Wrong: ${wrong}`} />}
+                            {Number(skippedPct) > 0 && <div className="h-full bg-slate-300 dark:bg-slate-700" style={{ width: `${skippedPct}%` }} title={`Skipped: ${skipped}`} />}
+                          </div>
                         </div>
                       </div>
-                    )
-                  })}
+
+                      {/* Card Action CTAs */}
+                      {(() => {
+                        const isLiveItem = checkIsLive(test) || test.isLive || test.type === 'live-tests' || test.type === 'live' || test.category === 'live-tests';
+                        const isSolExpired = isLiveItem && checkIsSolutionExpired(test);
+                        return (
+                          <div className="flex items-center gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                            <Link
+                              to={`/test-result/${seriesId}/${testId}`}
+                              className="flex-1 py-2 px-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 text-indigo-700 dark:text-indigo-300 hover:text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all border border-indigo-200 dark:border-indigo-800 hover:border-indigo-600 shadow-sm"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View Report</span>
+                            </Link>
+                            {isSolExpired ? (
+                              <span
+                                title="The 7-day post-live solution window has expired"
+                                className="py-2 px-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold text-[11px] flex items-center justify-center gap-1 border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                              >
+                                <span>Solutions Expired</span>
+                              </span>
+                            ) : !isLiveItem ? (
+                              <Link
+                                to={`/test/${seriesId}/${testId}/instructions`}
+                                className="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-colors"
+                                title="Reattempt this test"
+                              >
+                                <RotateCcw className="w-4 h-4" />
+                                <span className="hidden sm:inline">Retake</span>
+                              </Link>
+                            ) : null}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              /* High-Density Table List View */
+              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-slate-50 dark:bg-slate-850/70 border-b border-slate-200/80 dark:border-slate-800 text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Test & Series</th>
+                        <th className="py-3 px-3">Date</th>
+                        <th className="py-3 px-3">Duration</th>
+                        <th className="py-3 px-3">Score</th>
+                        <th className="py-3 px-3">Accuracy</th>
+                        <th className="py-3 px-3">Breakdown</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {filteredTests.map((test) => {
+                        const testId = test.testSlug || test.testId || test.id
+                        const seriesId = test.seriesSlug || test.seriesId || 'all'
+                        const accuracy = Math.round(test.accuracy || 0)
+                        return (
+                          <tr
+                            key={test.id || test._id}
+                            className="hover:bg-slate-50/70 dark:hover:bg-slate-850/40 transition-colors"
+                          >
+                            {/* Test & Series Column */}
+                            <td className="py-3 px-4 max-w-xs">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className={`px-1.5 py-0.25 rounded text-[9px] font-black uppercase ${
+                                  test.type === 'quiz' ? 'bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300' : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                                }`}>
+                                  {test.type === 'quiz' ? 'Quiz' : 'Mock'}
+                                </span>
+                                {test.isReattempt && (
+                                  <span className="text-[10px] font-bold text-amber-600">Reattempt</span>
+                                )}
+                                <span className="text-xs font-bold text-slate-400 truncate">
+                                  {test.seriesTitle || 'General Practice'}
+                                </span>
+                              </div>
+                              <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm truncate">
+                                {test.title || test.testTitle}
+                              </div>
+                            </td>
+
+                            {/* Date */}
+                            <td className="py-3 px-3 whitespace-nowrap text-slate-500 dark:text-slate-400 font-medium text-xs">
+                              {formatDate(test.date || test.submittedAt)}
+                            </td>
+
+                            {/* Duration */}
+                            <td className="py-3 px-3 whitespace-nowrap text-slate-600 dark:text-slate-300 font-bold text-xs">
+                              {formatTime(test.timeSpent || test.timeTaken)}
+                            </td>
+
+                            {/* Score */}
+                            <td className="py-3 px-3 whitespace-nowrap font-black text-slate-900 dark:text-white text-xs sm:text-sm">
+                              {test.type === 'quiz' ? (test.totalMarks || '0') : `${test.score || 0}/${test.totalMarks || 200}`}
+                            </td>
+
+                            {/* Accuracy */}
+                            <td className="py-3 px-3 whitespace-nowrap">
+                              <span className={`px-2 py-0.5 rounded-md font-black text-xs ${
+                                accuracy >= 80
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300'
+                                  : accuracy >= 60
+                                  ? 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300'
+                                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300'
+                              }`}>
+                                {accuracy}%
+                              </span>
+                            </td>
+
+                            {/* Breakdown */}
+                            <td className="py-3 px-3 whitespace-nowrap text-xs font-semibold text-slate-500 dark:text-slate-400">
+                              <span className="text-emerald-600 dark:text-emerald-400">{test.correct || 0}C</span> · <span className="text-rose-600 dark:text-rose-400">{test.wrong || 0}W</span> · <span>{test.skipped || 0}S</span>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              {(() => {
+                                const isLiveItem = checkIsLive(test) || test.isLive || test.type === 'live-tests' || test.type === 'live' || test.category === 'live-tests';
+                                const isSolExpired = isLiveItem && checkIsSolutionExpired(test);
+                                return (
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <Link
+                                      to={`/test-result/${seriesId}/${testId}`}
+                                      className="px-3 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white font-bold text-xs transition-colors"
+                                      title="View Result Report"
+                                    >
+                                      View
+                                    </Link>
+                                    {isSolExpired ? (
+                                      <span
+                                        title="The 7-day post-live solution window has expired"
+                                        className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 font-bold text-[10px] border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                                      >
+                                        Solutions Expired
+                                      </span>
+                                    ) : !isLiveItem ? (
+                                      <Link
+                                        to={`/test/${seriesId}/${testId}/instructions`}
+                                        className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
+                                        title="Reattempt Test"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Empty State */}
+        {!loading && filteredTests.length === 0 && (
+          <div className="text-center py-14 px-4 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-200/60 dark:border-indigo-800/60">
+              <ClipboardCheck className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-black text-slate-900 dark:text-white mb-1.5">No Test Attempts Found</h3>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-5 max-w-xs mx-auto">
+              {searchQuery || filterSeries !== 'all' || activeTab !== 'all'
+                ? 'No attempted tests match your current filters. Try resetting your search or series selection.'
+                : "You haven't attempted any tests yet. Start practicing to track your score history and All-India Rank!"}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {(searchQuery || filterSeries !== 'all' || activeTab !== 'all') ? (
+                <button
+                  onClick={() => {
+                    setSearchQuery('')
+                    setFilterSeries('all')
+                    setActiveTab('all')
+                  }}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors"
+                >
+                  Reset Filters
+                </button>
+              ) : (
+                <Link
+                  to="/test-series"
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-indigo-600/20 active:scale-95 transition-all"
+                >
+                  Browse Test Series ➔
+                </Link>
               )}
             </div>
           </div>
-        ) : (
-          <div className="text-center py-12 px-4 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-200 dark:border-gray-700 shadow-sm max-w-md mx-auto mt-4 animate-scale-in">
-            <div className="w-14 h-14 bg-gray-50 dark:bg-gray-700/50 rounded-xl flex items-center justify-center mx-auto mb-3 text-2xl shadow-inner text-gray-500">
-              📭
-            </div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">No Tests Found</h3>
-            <p className="text-gray-500 dark:text-gray-400 text-xs mt-1.5 max-w-xs mx-auto">
-              {searchQuery || filterSeries !== 'all' 
-                ? 'No matches found. Try adjusting your filters!' 
-                : "You haven't attempted any tests yet. Start practicing to see progress here."}
-            </p>
-            <Link
-              to="/test-series"
-              className="inline-flex items-center gap-1.5 mt-4 px-5 py-2.5 bg-gradient-to-r from-brand-start to-brand-end hover:shadow-glow text-white font-bold rounded-lg text-sm active:scale-95 transition-all"
-            >
-              Browse Test Series <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
         )}
+
       </div>
     </div>
   )
 }
-
-export default AttemptedTests

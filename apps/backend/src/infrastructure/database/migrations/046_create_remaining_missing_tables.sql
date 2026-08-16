@@ -87,7 +87,7 @@ ALTER TABLE navigation_menu ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT t
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'navigation_menu' AND indexname = 'idx_navigation_menu_item_id') THEN
-    CREATE UNIQUE INDEX idx_navigation_menu_item_id
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_navigation_menu_item_id
       ON navigation_menu(item_id) WHERE item_id IS NOT NULL;
   END IF;
 END $$;
@@ -138,7 +138,7 @@ ALTER TABLE exam_seasons ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'exam_seasons' AND indexname = 'idx_exam_seasons_season_slug') THEN
-    CREATE UNIQUE INDEX idx_exam_seasons_season_slug
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_exam_seasons_season_slug
       ON exam_seasons(season_slug) WHERE season_slug IS NOT NULL;
   END IF;
 END $$;
@@ -248,7 +248,7 @@ ALTER TABLE promotions ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'promotions' AND indexname = 'idx_promotions_code') THEN
-    CREATE UNIQUE INDEX idx_promotions_code
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_promotions_code
       ON promotions(code) WHERE code IS NOT NULL;
   END IF;
 END $$;
@@ -355,7 +355,7 @@ ALTER TABLE study_groups ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'study_groups' AND indexname = 'idx_study_groups_slug') THEN
-    CREATE UNIQUE INDEX idx_study_groups_slug
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_study_groups_slug
       ON study_groups(slug) WHERE slug IS NOT NULL;
   END IF;
 END $$;
@@ -393,7 +393,7 @@ ALTER TABLE study_group_members ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAU
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'study_group_members' AND indexname = 'idx_study_group_members_unique') THEN
-    CREATE UNIQUE INDEX idx_study_group_members_unique
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_study_group_members_unique
       ON study_group_members(group_id, user_id);
   END IF;
 END $$;
@@ -487,7 +487,7 @@ ALTER TABLE referrals ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'referrals' AND indexname = 'idx_referrals_referral_code') THEN
-    CREATE UNIQUE INDEX idx_referrals_referral_code
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_referrals_referral_code
       ON referrals(referral_code);
   END IF;
 END $$;
@@ -562,7 +562,7 @@ ALTER TABLE user_achievements ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'user_achievements' AND indexname = 'idx_user_achievements_unique') THEN
-    CREATE UNIQUE INDEX idx_user_achievements_unique
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_user_achievements_unique
       ON user_achievements(user_id, achievement_id);
   END IF;
 END $$;

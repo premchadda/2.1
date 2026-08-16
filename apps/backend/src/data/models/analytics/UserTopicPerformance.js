@@ -19,7 +19,7 @@ class UserTopicPerformance {
     const result = await pool.query(
       `SELECT utp.*, t.name AS topic_name, s.name AS subject_name
        FROM user_topic_performance utp
-       LEFT JOIN topics t ON utp.topic_id = t.id
+       LEFT JOIN subject_topics t ON utp.topic_id = t.id
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE utp.user_id = $1
        ORDER BY utp.accuracy ASC`,
@@ -33,7 +33,7 @@ class UserTopicPerformance {
    */
   static async getByUserAndTopic(userId, topicId) {
     const result = await pool.query(
-      `SELECT * FROM user_topic_performance
+      `SELECT id, user_id, topic_id, total_attempted, total_correct, total_wrong, accuracy, average_time, updated_at FROM user_topic_performance
        WHERE user_id = $1 AND topic_id = $2`,
       [userId, topicId]
     )
@@ -47,7 +47,7 @@ class UserTopicPerformance {
     const result = await pool.query(
       `SELECT utp.*, t.name AS topic_name, s.name AS subject_name
        FROM user_topic_performance utp
-       LEFT JOIN topics t ON utp.topic_id = t.id
+       LEFT JOIN subject_topics t ON utp.topic_id = t.id
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE utp.user_id = $1 AND utp.total_attempted >= 5
        ORDER BY utp.accuracy ASC
@@ -64,7 +64,7 @@ class UserTopicPerformance {
     const result = await pool.query(
       `SELECT utp.*, t.name AS topic_name, s.name AS subject_name
        FROM user_topic_performance utp
-       LEFT JOIN topics t ON utp.topic_id = t.id
+       LEFT JOIN subject_topics t ON utp.topic_id = t.id
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE utp.user_id = $1 AND utp.total_attempted >= 5
        ORDER BY utp.accuracy DESC
@@ -178,7 +178,7 @@ class UserTopicPerformance {
          END AS accuracy,
          COUNT(DISTINCT utp.topic_id) AS topics_practiced
        FROM user_topic_performance utp
-       JOIN topics t ON utp.topic_id = t.id
+       JOIN subject_topics t ON utp.topic_id = t.id
        JOIN subjects s ON t.subject_id = s.id
        WHERE utp.user_id = $1
        GROUP BY s.id, s.name

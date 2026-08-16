@@ -1,120 +1,104 @@
 import express from 'express'
 import { pool, ensureTestSectionsSchema, dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import logger from '../../infrastructure/logger/logger.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
 
 const router = express.Router()
 
+router.use(protect)
+router.use(admin)
+
 let schemaEnsured = false
+let schemaEnsuringPromise = null
 
 const ensureSchema = async (req, res, next) => {
   if (schemaEnsured) return next()
-  try {
-    await ensureTestSectionsSchema()
+  if (!schemaEnsuringPromise) {
+    schemaEnsuringPromise = (async () => {
+      try {
+        await ensureTestSectionsSchema()
 
-    const newColumns = [
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS test_id INTEGER REFERENCES tests(id) ON DELETE SET NULL',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS test_series_id INTEGER REFERENCES test_series(id) ON DELETE CASCADE',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES stages(id) ON DELETE SET NULL',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS marks_per_question NUMERIC(5,2) DEFAULT 2',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS negative_marks NUMERIC(5,2) DEFAULT 0.5',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS time_limit INTEGER DEFAULT 900',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS instructions TEXT',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS difficulty VARCHAR(20) DEFAULT \'medium\'',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS shuffle_questions BOOLEAN DEFAULT false',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS shuffle_options BOOLEAN DEFAULT false',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS expected_questions INTEGER DEFAULT 0',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS total_marks NUMERIC(7,2) DEFAULT 0',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS exam_stage VARCHAR(50)',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS paper VARCHAR(100)',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS session VARCHAR(100)',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS section_code VARCHAR(50)',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS is_qualifying BOOLEAN DEFAULT false',
-      'ALTER TABLE test_sections ADD COLUMN IF NOT EXISTS exam_alias VARCHAR(150)',
-    ]
+        await pool.query(`
+          ALTER TABLE test_sections
+            ADD COLUMN IF NOT EXISTS test_id INTEGER REFERENCES tests(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS test_series_id INTEGER REFERENCES test_series(id) ON DELETE CASCADE,
+            ADD COLUMN IF NOT EXISTS stage_id INTEGER REFERENCES stages(id) ON DELETE SET NULL,
+            ADD COLUMN IF NOT EXISTS marks_per_question NUMERIC(5,2) DEFAULT 2,
+            ADD COLUMN IF NOT EXISTS negative_marks NUMERIC(5,2) DEFAULT 0.5,
+            ADD COLUMN IF NOT EXISTS time_limit INTEGER DEFAULT 900,
+            ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS instructions TEXT,
+            ADD COLUMN IF NOT EXISTS difficulty VARCHAR(20) DEFAULT 'medium',
+            ADD COLUMN IF NOT EXISTS shuffle_questions BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS shuffle_options BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS expected_questions INTEGER DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS total_marks NUMERIC(7,2) DEFAULT 0,
+            ADD COLUMN IF NOT EXISTS exam_stage VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS paper VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS session VARCHAR(100),
+            ADD COLUMN IF NOT EXISTS section_code VARCHAR(50),
+            ADD COLUMN IF NOT EXISTS is_qualifying BOOLEAN DEFAULT false,
+            ADD COLUMN IF NOT EXISTS exam_alias VARCHAR(150)
+        `).catch(() => { })
 
-    for (const sql of newColumns) {
-      await pool.query(sql).catch(() => { })
-    }
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS section_aliases (
+            id SERIAL PRIMARY KEY,
+            canonical_name VARCHAR(150) NOT NULL,
+            alias_name VARCHAR(150) NOT NULL UNIQUE
+          )
+        `)
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS section_aliases (
-        id SERIAL PRIMARY KEY,
-        canonical_name VARCHAR(150) NOT NULL,
-        alias_name VARCHAR(150) NOT NULL UNIQUE
-      )
-    `)
+        const aliases = [
+          ['General Intelligence & Reasoning', 'General Intelligence & Reasoning'],
+          ['General Intelligence & Reasoning', 'Reasoning & General Intelligence'],
+          ['General Intelligence & Reasoning', 'Reasoning Ability & Problem Solving'],
+          ['General Intelligence & Reasoning', 'Logical Reasoning'],
+          ['General Awareness', 'General Awareness'],
+          ['General Awareness', 'General Knowledge & General Awareness'],
+          ['General Awareness', 'General Awareness & Current Affairs'],
+          ['Quantitative Aptitude', 'Quantitative Aptitude'],
+          ['Quantitative Aptitude', 'Mathematics'],
+          ['Quantitative Aptitude', 'Mathematical Abilities'],
+          ['Quantitative Aptitude', 'Numerical & Mathematical Ability'],
+          ['Quantitative Aptitude', 'Elementary Mathematics'],
+          ['Quantitative Aptitude', 'Arithmetic'],
+          ['English Language & Comprehension', 'English'],
+          ['English Language & Comprehension', 'English Comprehension'],
+          ['English Language & Comprehension', 'English Language'],
+          ['English Language & Comprehension', 'English Language & Comprehension'],
+          ['English Language & Comprehension', 'English / Hindi'],
+          ['General Science', 'General Science'],
+          ['General Science', 'Basic Science & Engineering'],
+          ['Computer Knowledge Test', 'Computer Knowledge Test'],
+          ['Statistics', 'Statistics'],
+          ['General Engineering', 'General Engineering (Civil/Electrical/Mechanical)'],
+          ['Trade Specific', 'Trade Specific (as per trade)'],
+          ['Data Entry Speed Test', 'Data Entry Speed Test (DEST)'],
+        ]
 
-    const { rowCount } = await pool.query('SELECT 1 FROM section_aliases LIMIT 1')
-    if (rowCount === 0) {
-      const aliases = [
-        ['General Intelligence & Reasoning', 'General Intelligence & Reasoning'],
-        ['General Intelligence & Reasoning', 'Reasoning & General Intelligence'],
-        ['General Intelligence & Reasoning', 'Reasoning Ability & Problem Solving'],
-        ['General Intelligence & Reasoning', 'Logical Reasoning'],
-        ['General Awareness', 'General Awareness'],
-        ['General Awareness', 'General Knowledge & General Awareness'],
-        ['General Awareness', 'General Awareness & Current Affairs'],
-        ['Quantitative Aptitude', 'Quantitative Aptitude'],
-        ['Quantitative Aptitude', 'Mathematics'],
-        ['Quantitative Aptitude', 'Mathematical Abilities'],
-        ['Quantitative Aptitude', 'Numerical & Mathematical Ability'],
-        ['Quantitative Aptitude', 'Elementary Mathematics'],
-        ['Quantitative Aptitude', 'Arithmetic'],
-        ['English', 'English Comprehension'],
-        ['English', 'English Language'],
-        ['English', 'English Language & Comprehension'],
-        ['English', 'English / Hindi'],
-        ['General Science', 'General Science'],
-        ['General Science', 'Basic Science & Engineering'],
-        ['Computer Knowledge Test', 'Computer Knowledge Test'],
-        ['Statistics', 'Statistics'],
-        ['General Engineering', 'General Engineering (Civil/Electrical/Mechanical)'],
-        ['Trade Specific', 'Trade Specific (as per trade)'],
-        ['Data Entry Speed Test', 'Data Entry Speed Test (DEST)'],
-      ]
-      for (const [canonical, alias] of aliases) {
+        // Single batch INSERT for aliases
+        const canonList = aliases.map(a => a[0])
+        const aliasList = aliases.map(a => a[1])
         await pool.query(
-          'INSERT INTO section_aliases (canonical_name, alias_name) VALUES ($1, $2) ON CONFLICT (alias_name) DO NOTHING',
-          [canonical, alias]
-        )
+          `INSERT INTO section_aliases (canonical_name, alias_name)
+           SELECT * FROM UNNEST($1::text[], $2::text[])
+           ON CONFLICT (alias_name) DO UPDATE SET canonical_name = EXCLUDED.canonical_name`,
+          [canonList, aliasList]
+        ).catch(() => {})
+        invalidateAliasCache()
+
+        schemaEnsured = true
+      } catch (error) {
+        logger.error('[Sections] Schema ensure error:', error)
+      } finally {
+        schemaEnsuringPromise = null
       }
-      invalidateAliasCache()
-    }
-
-    const TEMPLATES = [
-      { name: 'General Intelligence & Reasoning', display_order: 1, expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
-      { name: 'General Awareness', display_order: 2, expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
-      { name: 'English', display_order: 3, expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
-      { name: 'Quantitative Aptitude', display_order: 4, expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
-      { name: 'General Science', display_order: 5, expected_questions: 25, total_marks: 50, marks_per_question: 2, negative_marks: 0.5, time_limit: 900 },
-      { name: 'Computer Knowledge Test', display_order: 6, expected_questions: 20, total_marks: 60, marks_per_question: 3, negative_marks: 1, time_limit: 900, is_qualifying: true },
-      { name: 'Statistics', display_order: 7, expected_questions: 100, total_marks: 200, marks_per_question: 2, negative_marks: 0.5, time_limit: 7200 },
-      { name: 'General Engineering', display_order: 8, expected_questions: 100, total_marks: 100, marks_per_question: 1, negative_marks: 0.25, time_limit: 7200 },
-      { name: 'Trade Specific', display_order: 9, expected_questions: 75, total_marks: 75, marks_per_question: 1, negative_marks: 0.33, time_limit: 3600 },
-      { name: 'Data Entry Speed Test', display_order: 10, expected_questions: 0, total_marks: 0, marks_per_question: 0, negative_marks: 0, time_limit: 900, is_qualifying: true },
-    ]
-
-    const { rows: existingTemplates } = await pool.query(
-      `SELECT LOWER(name) as name FROM test_sections WHERE test_id IS NULL AND test_series_id IS NULL AND stage_id IS NULL`
-    )
-    const existingNames = new Set(existingTemplates.map(r => r.name))
-    const toInsert = TEMPLATES.filter(t => !existingNames.has(t.name.toLowerCase()))
-    for (const t of toInsert) {
-      await pool.query(
-        `INSERT INTO test_sections (name, description, duration, passing_marks, is_active, display_order, marks_per_question, negative_marks, time_limit, is_locked, instructions, difficulty, shuffle_questions, shuffle_options, expected_questions, total_marks, is_qualifying)
-         VALUES ($1, $2, $3, 0, true, $4, $5, $6, $7, false, '', 'medium', false, false, $8, $9, $10)
-         ON CONFLICT DO NOTHING`,
-        [t.name, `Template section — ${t.name}`, Math.round(t.time_limit / 60), t.display_order, t.marks_per_question, t.negative_marks, t.time_limit, t.expected_questions, t.total_marks, t.is_qualifying || false]
-      ).catch(() => {})
-    }
-
-    schemaEnsured = true
-    next()
-  } catch (error) {
-    console.error('[Sections] Schema ensure error:', error.message)
-    next()
+    })()
   }
+  await schemaEnsuringPromise
+  next()
 }
 
 router.use(ensureSchema)
@@ -217,7 +201,7 @@ async function resolveSectionIds(body) {
 }
 
 // GET /batch — fetch all sections-related data in one request (reduces connection pressure)
-router.get('/batch', protect, admin, async (req, res) => {
+router.get('/batch', protect, admin, responseCache("admin-sections-batch", 60), async (req, res) => {
   try {
     const { scope, testSeriesId, stageId, testId } = req.query
 
@@ -250,13 +234,13 @@ router.get('/batch', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: batchData })
   } catch (error) {
-    console.error('[Sections] Batch error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Batch error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
 // GET / — list sections (supports scope, testId, testSeriesId, stageId filters)
-router.get('/', protect, admin, async (req, res) => {
+router.get('/', protect, admin, responseCache("admin-sections", 60), async (req, res) => {
   try {
     let {
       testId,
@@ -281,7 +265,8 @@ router.get('/', protect, admin, async (req, res) => {
     if (testSeriesId) testSeriesId = await resolveId('test_series', testSeriesId)
     if (stageId) stageId = await resolveId('stages', stageId)
 
-    // Use a CTE to deduplicate: keep only the lowest-id row per name+scope group
+    // Use CTEs to pre-compute question counts, aliases, and linked exams
+    // instead of running correlated subqueries per row (hidden N+1).
     let query = `
       WITH deduped AS (
         SELECT ts.*,
@@ -290,6 +275,47 @@ router.get('/', protect, admin, async (req, res) => {
                  ORDER BY id
                ) as rn
         FROM test_sections ts
+      ),
+      section_aliases_agg AS (
+        SELECT sa.canonical_name, string_agg(sa.alias_name, ', ') as aliases_list
+        FROM section_aliases sa
+        GROUP BY sa.canonical_name
+      ),
+      question_counts AS (
+        SELECT
+          COALESCE(
+            (SELECT sa.canonical_name FROM section_aliases sa WHERE LOWER(sa.alias_name) = LOWER(q.section) LIMIT 1),
+            q.section
+          ) as resolved_name,
+          COUNT(*)::int as cnt
+        FROM questions q
+        WHERE q.is_active = true
+          ${testId ? 'AND q.test_id = $1' : ''}
+        GROUP BY resolved_name
+      ),
+      linked_exams_agg AS (
+        SELECT
+          COALESCE(
+            (SELECT sa2.canonical_name FROM section_aliases sa2 WHERE LOWER(sa2.alias_name) = LOWER(ts2.name) LIMIT 1),
+            ts2.name
+          ) as resolved_name,
+          string_agg(DISTINCT COALESCE(e2.title, tsr2.title, t2.title), ', ') as linked_exams
+        FROM test_sections ts2
+        LEFT JOIN test_series tsr2 ON ts2.test_series_id = tsr2.id
+        LEFT JOIN tests t2 ON ts2.test_id = t2.id
+        LEFT JOIN test_series tsr3 ON t2.series_id = tsr3.id
+        LEFT JOIN exams e2 ON (
+          (ts2.test_series_id IS NOT NULL AND tsr2.exam_id::text = e2.id::text)
+          OR
+          (ts2.test_id IS NOT NULL AND (
+            t2.exam_id::text = e2.id::text 
+            OR t2.exam_id::text = e2.slug::text 
+            OR t2.exam_id::text = e2.public_id::text
+            OR tsr3.exam_id::text = e2.id::text
+          ))
+        )
+        WHERE (ts2.test_id IS NOT NULL OR ts2.test_series_id IS NOT NULL)
+        GROUP BY resolved_name
       )
       SELECT d.*,
              tc.name as category_name,
@@ -297,18 +323,17 @@ router.get('/', protect, admin, async (req, res) => {
              t.title as test_title,
              tsr.title as test_series_title,
              st.name as stage_name,
-             (
-               SELECT COUNT(*)::int
-               FROM questions q
-               WHERE (q.section::text = CAST(d.id AS text) OR q.section = d.name)
-                 AND q.is_active = true
-                 ${testId ? 'AND q.test_id = $1' : ''}
-             ) as question_count
+             COALESCE(qc.cnt, 0) as question_count,
+             saa.aliases_list,
+             lea.linked_exams
       FROM deduped d
       LEFT JOIN test_categories tc ON d.category_id = tc.id
       LEFT JOIN tests t ON d.test_id = t.id
       LEFT JOIN test_series tsr ON d.test_series_id = tsr.id
       LEFT JOIN stages st ON d.stage_id = st.id
+      LEFT JOIN question_counts qc ON qc.resolved_name = d.name
+      LEFT JOIN section_aliases_agg saa ON saa.canonical_name = d.name
+      LEFT JOIN linked_exams_agg lea ON lea.resolved_name = d.name
     `
 
     const params = []
@@ -347,8 +372,8 @@ router.get('/', protect, admin, async (req, res) => {
     const { rows } = await pool.query(query, params)
     res.json({ success: true, data: rows })
   } catch (error) {
-    console.error('[Sections] Get error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Get error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -421,8 +446,8 @@ router.get('/for-test', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: scoped })
   } catch (error) {
-    console.error('[Sections] for-test error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] for-test error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -532,8 +557,8 @@ router.post('/preset', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: results })
   } catch (error) {
-    console.error('[Sections] Apply preset error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Apply preset error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -555,61 +580,92 @@ router.post('/dedup', protect, admin, async (req, res) => {
       'data entry speed test',
     ])
 
-    // Exact name dedup: same name, same scope
-    const { rows: exactDupes } = await pool.query(`
-      SELECT id,
-             ROW_NUMBER() OVER (
-               PARTITION BY LOWER(name), COALESCE(test_id, 0), COALESCE(test_series_id, 0), COALESCE(stage_id, 0)
-               ORDER BY id
-             ) as rn
+    // Fetch all sections
+    const { rows: allSections } = await pool.query(`
+      SELECT id, LOWER(name) as name_lower, test_id, test_series_id, stage_id
       FROM test_sections
-    `)
-    const exactIds = exactDupes.filter(r => r.rn > 1).map(r => r.id)
-
-    // Logical dedup: template sections whose name normalizes to a canonical name,
-    // but keep the FIRST match (oldest id) per canonical name and delete extras
-    const { rows: templates } = await pool.query(`
-      SELECT id, LOWER(name) as name_lower
-      FROM test_sections
-      WHERE test_id IS NULL AND test_series_id IS NULL AND stage_id IS NULL
       ORDER BY id
     `)
 
-    // Canonical name aliases — resolve via DB
-    const aliasMap = await loadSectionAliases()
+    // 1. Group exact name + scope duplicates
+    const exactGroups = {}
+    for (const sec of allSections) {
+      const scopeKey = `${sec.test_id || 0}_${sec.test_series_id || 0}_${sec.stage_id || 0}`
+      const nameKey = String(sec.name_lower || '').trim()
+      const key = `${scopeKey}::${nameKey}`
+      if (!exactGroups[key]) exactGroups[key] = []
+      exactGroups[key].push(sec.id)
+    }
 
-    // Build a map: canonical name → [ids that match it, ordered by id]
-    const canonicalMap = {}
+    // 2. Group logical template duplicates
+    const aliasMap = await loadSectionAliases()
+    const templates = allSections.filter(s => s.test_id === null && s.test_series_id === null && s.stage_id === null)
+    const templateGroups = {}
     for (const t of templates) {
       const canonical = aliasMap[t.name_lower] || (CANONICAL.has(t.name_lower) ? t.name_lower : null)
       if (canonical) {
-        if (!canonicalMap[canonical]) canonicalMap[canonical] = []
-        if (!canonicalMap[canonical].includes(t.id)) {
-          canonicalMap[canonical].push(t.id)
+        const canonicalKey = canonical.toLowerCase().trim()
+        if (!templateGroups[canonicalKey]) templateGroups[canonicalKey] = []
+        templateGroups[canonicalKey].push(t.id)
+      }
+    }
+
+    // Combine into a merge instructions map: duplicate_id -> keeper_id
+    const mergeMap = {}
+
+    // Process exact duplicates
+    for (const [, ids] of Object.entries(exactGroups)) {
+      if (ids.length > 1) {
+        const keeper = ids[0]
+        for (let i = 1; i < ids.length; i++) {
+          mergeMap[ids[i]] = keeper
         }
       }
     }
 
-    const logicalIds = []
-    for (const [, ids] of Object.entries(canonicalMap)) {
+    // Process logical template duplicates
+    for (const [, ids] of Object.entries(templateGroups)) {
       if (ids.length > 1) {
-        // Keep first (oldest), delete rest
-        logicalIds.push(...ids.slice(1))
+        const keeper = ids[0]
+        for (let i = 1; i < ids.length; i++) {
+          mergeMap[ids[i]] = keeper
+        }
       }
     }
 
-    const allIds = [...new Set([...exactIds, ...logicalIds])]
+    const allDupesToDelete = Object.keys(mergeMap).map(Number)
 
-    if (allIds.length === 0) {
+    if (allDupesToDelete.length === 0) {
       return res.json({ success: true, data: { deleted: 0, message: 'No duplicates found' } })
     }
 
-    await pool.query('DELETE FROM test_sections WHERE id = ANY($1::int[])', [allIds])
+    // Discover all tables in public schema with section_id column to update them
+    const { rows: tables } = await pool.query(`
+      SELECT table_name
+      FROM information_schema.columns
+      WHERE column_name = 'section_id'
+        AND table_schema = 'public'
+    `)
+    const tableNames = tables.map(t => t.table_name).filter(t => t !== 'test_sections')
 
-    res.json({ success: true, data: { deleted: allIds.length } })
+    // Re-link duplicate section_id references to their keepers
+    for (const [dupeIdStr, keeperId] of Object.entries(mergeMap)) {
+      const dupeId = Number(dupeIdStr)
+      for (const tableName of tableNames) {
+        await pool.query(
+          `UPDATE "${tableName}" SET section_id = $1 WHERE section_id = $2`,
+          [keeperId, dupeId]
+        ).catch(e => logger.error(`[Dedup] Re-linking error in "${tableName}":`, e))
+      }
+    }
+
+    // Delete the duplicates from test_sections
+    const deleteRes = await pool.query('DELETE FROM test_sections WHERE id = ANY($1::int[])', [allDupesToDelete])
+
+    res.json({ success: true, data: { deleted: deleteRes.rowCount } })
   } catch (error) {
-    console.error('[Sections] Dedup error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Dedup error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -653,21 +709,21 @@ router.post('/seed-templates', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: { created: created.length, sections: created } })
   } catch (error) {
-    console.error('[Sections] Seed templates error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Seed templates error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
 // GET /aliases — list all aliases grouped by canonical name
-router.get('/aliases', protect, admin, async (req, res) => {
+router.get('/aliases', protect, admin, responseCache("admin-section-aliases", 60), async (req, res) => {
   try {
     const { rows } = await pool.query(
       'SELECT id, canonical_name, alias_name FROM section_aliases ORDER BY canonical_name, alias_name'
     )
     res.json({ success: true, data: rows })
   } catch (error) {
-    console.error('[Sections] Get aliases error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Get aliases error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -688,8 +744,8 @@ router.post('/aliases', protect, admin, async (req, res) => {
     if (error.code === '23505') {
       return res.status(409).json({ success: false, message: 'Alias already exists' })
     }
-    console.error('[Sections] Create alias error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Create alias error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -714,8 +770,8 @@ router.put('/aliases/:id', protect, admin, async (req, res) => {
     if (error.code === '23505') {
       return res.status(409).json({ success: false, message: 'Alias already exists' })
     }
-    console.error('[Sections] Update alias error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Update alias error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -727,8 +783,8 @@ router.delete('/aliases/:id', protect, admin, async (req, res) => {
     invalidateAliasCache()
     res.json({ success: true, message: 'Alias deleted' })
   } catch (error) {
-    console.error('[Sections] Delete alias error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Delete alias error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -751,8 +807,8 @@ router.get('/:id', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: rows[0] })
   } catch (error) {
-    console.error('[Sections] Get by ID error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Get by ID error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -801,8 +857,8 @@ router.post('/', protect, admin, async (req, res) => {
 
     res.status(201).json({ success: true, data: rows[0] })
   } catch (error) {
-    console.error('[Sections] Create error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Create error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -873,8 +929,8 @@ router.put('/:id', protect, admin, async (req, res) => {
 
     res.json({ success: true, data: rows[0] })
   } catch (error) {
-    console.error('[Sections] Update error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Update error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 
@@ -898,8 +954,8 @@ router.delete('/:id', protect, admin, async (req, res) => {
 
     res.json({ success: true, message: 'Section deleted', data: { deletedQuestions: questionCount } })
   } catch (error) {
-    console.error('[Sections] Delete error:', error.message)
-    res.status(500).json({ success: false, message: error.message })
+    logger.error('[Sections] Delete error:', error)
+    res.status(500).json({ success: false, message: 'Internal server error' })
   }
 })
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { Trophy, Medal, Star, Crown, Award, Download, Calendar, Target, Zap, Clock, GraduationCap, AlertTriangle } from 'lucide-react'
+import { Trophy, Medal, Star, Crown, Award, Calendar, Target, Zap, GraduationCap, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getAchievements, checkAchievements } from '../../shared/lib/dataService'
 
@@ -19,32 +19,37 @@ export default function Achievements() {
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
     if (user) {
-      fetchAchievements()
+      fetchAchievements(controller.signal)
     } else {
       setLoading(false)
     }
+    return () => controller.abort()
   }, [user])
 
-  const fetchAchievements = async () => {
+  const fetchAchievements = async (signal) => {
     try {
       setLoading(true)
       setError(null)
       
       const response = await getAchievements()
-      setAchievements(response.data || [])
-      setSummary(response.summary || {
+      if (signal?.aborted) return
+      const payload = response.data || {}
+      setAchievements(payload.data || [])
+      setSummary(payload.summary || {
         earned: 0,
         total: 0,
         percentage: 0,
         recentAchievements: []
       })
     } catch (err) {
+      if (signal?.aborted) return
       console.error('Failed to fetch achievements:', err)
       setError('Failed to load achievements. Please try again.')
       setAchievements([])
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -52,9 +57,10 @@ export default function Achievements() {
     try {
       setChecking(true)
       const response = await checkAchievements()
-      
-      if (response.newAchievements && response.newAchievements.length > 0) {
-        toast.success(`Congratulations! You earned ${response.newAchievements.length} new achievement${response.newAchievements.length > 1 ? 's' : ''}!`, { duration: 5000, icon: '🏆' })
+      const newAchievements = response.data?.newAchievements || []
+
+      if (newAchievements.length > 0) {
+        toast.success(`Congratulations! You earned ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`, { duration: 5000, icon: '🏆' })
         // Refresh achievements list
         fetchAchievements()
       } else {
@@ -67,7 +73,7 @@ export default function Achievements() {
     }
   }
 
-  const getCategoryIcon = (category) => {
+  const _getCategoryIcon = (category) => {
     switch (category) {
       case 'milestone': return '🎯'
       case 'streak': return '🔥'
@@ -254,7 +260,7 @@ export default function Achievements() {
                           ></div>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {badge.currentValue || 0} / {badge.requirement?.count || '?'}
+                          {badge.requirement?.count ? `${badge.currentValue || 0} / ${badge.requirement.count}` : `${badge.currentValue || 0} earned`}
                         </p>
                       </div>
                       <span className={`inline-block text-xs px-2 py-0.5 rounded-full mt-2 ${getRarityColor(badge.category)}`}>

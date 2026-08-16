@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { apiClient } from '../../../shared/lib/dataService.js'
 import { toast } from 'react-hot-toast'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
 
 export default function SubscriptionPlansManager() {
   const [plans, setPlans] = useState([])
@@ -53,11 +54,18 @@ export default function SubscriptionPlansManager() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
+      const payload = {
+        ...formData,
+        planId: formData.planId || formData.id,
+        popular: formData.isPopular ?? formData.popular,
+        period: formData.duration ?? formData.period
+      }
       if (editingPlan) {
-        await apiClient.put(`/admin/subscription-plans/${editingPlan._id}`, formData)
+        const planId = editingPlan.id || editingPlan._id || editingPlan.planId
+        await apiClient.put(`/admin/subscription-plans/${planId}`, payload)
         toast.success('Plan updated successfully')
       } else {
-        await apiClient.post('/admin/subscription-plans', formData)
+        await apiClient.post('/admin/subscription-plans', payload)
         toast.success('Plan created successfully')
       }
       fetchPlans()
@@ -69,7 +77,12 @@ export default function SubscriptionPlansManager() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this plan?')) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Subscription Plan',
+      message: 'Are you sure you want to delete this plan?',
+      danger: true
+    })
+    if (!confirmed) return
     try {
       await apiClient.delete(`/admin/subscription-plans/${id}`)
       toast.success('Plan deleted successfully')
@@ -143,11 +156,11 @@ export default function SubscriptionPlansManager() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <Star className="w-6 h-6 text-amber-500" />
             Subscription Plans Management
           </h1>
-          <p className="text-gray-600 mt-1">Manage pricing plans for Pro Pass</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">Manage pricing plans for Pro Pass</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -160,13 +173,15 @@ export default function SubscriptionPlansManager() {
 
       {/* Plans Grid */}
       <div className="grid md:grid-cols-3 gap-6">
-        {plans.map((plan) => (
+        {plans.map((plan) => {
+          const planKey = plan.id || plan._id || plan.planId
+          return (
           <div 
-            key={plan._id}
-            className={`relative bg-white rounded-2xl border-2 p-6 transition-all ${
+            key={planKey}
+            className={`relative bg-white dark:bg-gray-800 rounded-2xl border-2 p-6 transition-all ${
               plan.popular 
                 ? 'border-amber-400 shadow-xl scale-105' 
-                : 'border-gray-200 hover:border-brand-start hover:shadow-lg'
+                : 'border-gray-200 dark:border-gray-700 hover:border-brand-start hover:shadow-lg'
             }`}
           >
             {/* Popular Badge */}
@@ -178,19 +193,19 @@ export default function SubscriptionPlansManager() {
 
             {/* Savings Badge */}
             {plan.savings && (
-              <div className="absolute top-4 right-4 px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded">
+              <div className="absolute top-4 right-4 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold rounded">
                 {plan.savings}
               </div>
             )}
 
-            <h3 className="text-lg font-bold text-gray-900 mb-2">{plan.name}</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
             
             <div className="mb-4">
               {plan.originalPrice && (
-                <span className="text-gray-400 line-through text-sm mr-2">₹{plan.originalPrice}</span>
+                <span className="text-gray-400 dark:text-gray-500 line-through text-sm mr-2">₹{plan.originalPrice}</span>
               )}
-              <span className="text-3xl font-bold text-gray-900">₹{plan.price}</span>
-              <span className="text-gray-500 text-sm">{plan.period}</span>
+              <span className="text-3xl font-bold text-gray-900 dark:text-white">₹{plan.price}</span>
+              <span className="text-gray-500 dark:text-gray-400 text-sm">{plan.period}</span>
             </div>
 
             <ul className="space-y-2 mb-4">
@@ -201,7 +216,7 @@ export default function SubscriptionPlansManager() {
                   ) : (
                     <X className="w-5 h-5 text-gray-300 flex-shrink-0" />
                   )}
-                  <span className={f.included ? 'text-gray-700 text-sm' : 'text-gray-400 text-sm'}>{f.text}</span>
+                  <span className={f.included ? 'text-gray-700 dark:text-gray-300 text-sm' : 'text-gray-400 dark:text-gray-500 text-sm'}>{f.text}</span>
                 </li>
               ))}
             </ul>
@@ -209,40 +224,40 @@ export default function SubscriptionPlansManager() {
             <div className="flex gap-2">
               <button
                 onClick={() => handleEdit(plan)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200 transition"
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-200 transition"
               >
                 <Edit2 className="w-4 h-4" />
                 Edit
               </button>
               <button
-                onClick={() => handleDelete(plan._id)}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                onClick={() => handleDelete(planKey)}
+                className="flex items-center justify-center gap-2 px-3 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-200 transition"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
       {plans.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
           <Star className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-          <h3 className="text-lg font-bold text-gray-900">No Plans Found</h3>
-          <p className="text-gray-500 mt-2">Add subscription plans to get started</p>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">No Plans Found</h3>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Add subscription plans to get started</p>
         </div>
       )}
 
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max w-full max-h-[90vh]-w-2xl overflow-y-auto">
-            <div className="p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-h-[90vh] max-w-2xl overflow-y-auto">
+    <div className="p-3 sm:p-4 md:p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl font-bold">
                   {editingPlan ? 'Edit Plan' : 'Add New Plan'}
                 </h2>
-                <button onClick={resetForm} className="p-2 hover:bg-gray-100 rounded">
+                <button onClick={resetForm} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -250,7 +265,7 @@ export default function SubscriptionPlansManager() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Plan ID *
                     </label>
                     <input
@@ -258,13 +273,13 @@ export default function SubscriptionPlansManager() {
                       required
                       value={formData.id}
                       onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       placeholder="e.g., pro-yearly"
                       disabled={!!editingPlan}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Plan Name *
                     </label>
                     <input
@@ -272,7 +287,7 @@ export default function SubscriptionPlansManager() {
                       required
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       placeholder="e.g., Pro Yearly"
                     />
                   </div>
@@ -280,37 +295,37 @@ export default function SubscriptionPlansManager() {
 
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Price (₹) *
                     </label>
                     <input
                       type="number"
                       required
                       value={formData.price}
-                      onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      onChange={(e) => setFormData({ ...formData, price: parseInt(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Original Price (₹)
                     </label>
                     <input
                       type="number"
                       value={formData.originalPrice || ''}
                       onChange={(e) => setFormData({ ...formData, originalPrice: parseInt(e.target.value) || null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Period *
                     </label>
                     <select
                       required
                       value={formData.period}
                       onChange={(e) => setFormData({ ...formData, period: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="/month">/month</option>
                       <option value="/year">/year</option>
@@ -321,25 +336,25 @@ export default function SubscriptionPlansManager() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Button Text
                     </label>
                     <input
                       type="text"
                       value={formData.buttonText}
                       onChange={(e) => setFormData({ ...formData, buttonText: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Savings Label
                     </label>
                     <input
                       type="text"
                       value={formData.savings}
                       onChange={(e) => setFormData({ ...formData, savings: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       placeholder="e.g., Save 58%"
                     />
                   </div>
@@ -350,17 +365,17 @@ export default function SubscriptionPlansManager() {
                     type="checkbox"
                     checked={formData.popular}
                     onChange={(e) => setFormData({ ...formData, popular: e.target.checked })}
-                    className="w-4 h-4 text-indigo-600 rounded"
+                    className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                     id="popular"
                   />
-                  <label htmlFor="popular" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="popular" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     Mark as Popular Plan
                   </label>
                 </div>
 
                 {/* Features */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Features
                   </label>
                   <div className="space-y-2 mb-3">
@@ -375,7 +390,7 @@ export default function SubscriptionPlansManager() {
                         <button
                           type="button"
                           onClick={() => removeFeature(index)}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          className="p-1 text-red-500 hover:bg-red-50 dark:bg-red-900/20 rounded"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -387,14 +402,14 @@ export default function SubscriptionPlansManager() {
                       type="text"
                       value={newFeature.text}
                       onChange={(e) => setNewFeature({ ...newFeature, text: e.target.value })}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       placeholder="Add feature text..."
-                      onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
+                      onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addFeature())}
                     />
                     <button
                       type="button"
                       onClick={addFeature}
-                      className="px-3 py-2 bg-indigo-100 text-indigo-600 rounded-lg hover:bg-indigo-200"
+                      className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-200"
                     >
                       Add
                     </button>
@@ -405,7 +420,7 @@ export default function SubscriptionPlansManager() {
                   <button
                     type="button"
                     onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
                   >
                     Cancel
                   </button>

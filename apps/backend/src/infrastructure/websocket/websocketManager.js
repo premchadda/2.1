@@ -13,6 +13,8 @@
 import { Server } from 'socket.io'
 import { eventBus } from '../events/eventBus.js'
 import jwt from 'jsonwebtoken'
+import { getRedisClient } from '../cache/redisClient.js'
+import logger from '../logger/logger.js'
 
 let io = null
 
@@ -43,17 +45,16 @@ const parseCookies = (cookieHeader = '') => {
 }
 
 const resolveSocketToken = (socket) => {
-  // Check auth token in handshake
-  const authToken = socket.handshake.auth?.token
-  
-  // Token from query params
-  const queryToken = socket.handshake.query?.token
-  
-  // Token from httpOnly cookie (preferred)
+  // Token from httpOnly cookie (preferred — not exposed to JS or logged in URLs)
   const cookies = parseCookies(socket.handshake.headers?.cookie)
   const cookieToken = cookies.token
 
-  return authToken || queryToken || cookieToken || null
+  // Auth header on the handshake (sent via socket.auth on the client).
+  const authToken = socket.handshake.auth?.token
+
+  // NOTE: query-token path removed — tokens in URLs are logged by proxies,
+  // nginx, and browser history. Rely on httpOnly cookies + auth payload only.
+  return cookieToken || authToken || null
 }
 
 const normalizeTestRoom = (testId) => {
@@ -62,42 +63,66 @@ const normalizeTestRoom = (testId) => {
   return normalized ? `test:${normalized}` : null
 }
 
-// Rate limiter middleware for socket events
+// Rate limiter middleware for socket events (Redis-backed when available)
 const createSocketRateLimiter = (eventName, maxPerMinute) => {
-  return (socketId) => {
+  return async (socketId) => {
+    const key = `ws-ratelimit:${socketId}:${eventName}`
+    const windowMs = 60 * 1000
+
+    const redisClient = getRedisClient()
+    if (redisClient && redisClient.status === 'ready') {
+      try {
+        const count = await redisClient.incr(key)
+        if (count === 1) {
+          await redisClient.pexpire(key, windowMs)
+        }
+        return count <= maxPerMinute
+      } catch {
+        // Fall through to in-memory on Redis error
+      }
+    }
+
+    // In-memory fallback
     const now = Date.now()
-    const windowMs = 60 * 1000 // 1 minute
-    
+
     if (!socketEventCounts.has(socketId)) {
       socketEventCounts.set(socketId, {})
     }
-    
+
     const socketEvents = socketEventCounts.get(socketId)
     if (!socketEvents[eventName]) {
       socketEvents[eventName] = { count: 0, windowStart: now }
     }
-    
+
     const eventTrack = socketEvents[eventName]
-    
-    // Reset if window expired
+
     if (now - eventTrack.windowStart > windowMs) {
       eventTrack.count = 0
       eventTrack.windowStart = now
     }
-    
+
     eventTrack.count++
-    
+
     return eventTrack.count <= maxPerMinute
   }
 }
 
-export const initWebSocket = (server) => {
+export const initWebSocket = async (server) => {
   const allowedOrigins = [
-    process.env.FRONTEND_URL || 'http://localhost:3000',
-    process.env.ADMIN_PANEL_URL || 'http://localhost:3001',
-    'http://localhost:3002',
-    'http://localhost:5173',
+    process.env.FRONTEND_URL,
+    process.env.ADMIN_PANEL_URL,
   ].filter(Boolean)
+
+  // M5: dev-only loopback origins (hardcoded localhost must NOT be trusted in
+  // production — a misconfigured NODE_ENV would otherwise allow them).
+  if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push(
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:5173'
+    )
+  }
 
   io = new Server(server, {
     cors: {
@@ -110,7 +135,7 @@ export const initWebSocket = (server) => {
           return callback(null, true)
         }
 
-        console.warn(`[WebSocket] Blocked origin: ${origin}`)
+        logger.warn(`[WebSocket] Blocked origin: ${origin}`)
         callback(new Error('Not allowed by CORS'))
       },
       methods: ['GET', 'POST'],
@@ -120,19 +145,34 @@ export const initWebSocket = (server) => {
     pingInterval: 25000, // 25 seconds
     pingTimeout: 20000,  // 20 seconds
     maxHttpBufferSize: 1e6, // 1MB max message size
-    transports: ['websocket', 'polling'], // Prefer WebSocket, fallback to polling
+    transports: ['websocket', 'polling'],
   })
 
-  // Authentication middleware - STRICT (FIX CRIT)
+  // Attach Redis adapter for multi-instance pub/sub if available
+  const redisClient = getRedisClient()
+  if (redisClient) {
+    try {
+      const { createAdapter } = await import('@socket.io/redis-adapter')
+      const pubClient = redisClient.duplicate()
+      const subClient = redisClient.duplicate()
+      await Promise.all([pubClient.connect(), subClient.connect()])
+      io.adapter(createAdapter(pubClient, subClient))
+      logger.info('[WebSocket] Redis adapter attached for multi-instance support')
+    } catch (err) {
+      logger.warn('[WebSocket] Redis adapter unavailable, using in-memory adapter:', err.message)
+    }
+  }
+
+  // Authentication middleware — require a valid token. Reject expired/invalid
+  // tokens instead of silently downgrading to guest (which would let revoked
+  // sessions keep an open socket).
   io.use((socket, next) => {
     const token = resolveSocketToken(socket)
 
     if (!token) {
-      // Allow guest connections but mark as unauthenticated
-      socket.isAuthenticated = false
-      socket.userId = null
-      socket.userRole = null
-      return next()
+      // No token at all — reject. Public broadcasts (e.g. series:updated) are
+      // handled by the event-bus subscriber, not by guest sockets joining rooms.
+      return next(new Error('Authentication required'))
     }
 
     try {
@@ -140,35 +180,46 @@ export const initWebSocket = (server) => {
       socket.isAuthenticated = true
       socket.userId = decoded.id
       socket.userRole = decoded.role
-      
+      socket.sessionId = decoded.sessionId || null
+
       // Attach minimal user info to socket
       socket.user = {
         id: decoded.id,
         role: decoded.role,
       }
-      
+
       next()
     } catch (error) {
-      console.warn(`[WebSocket] Auth failed for socket ${socket.id}: ${error.name}`)
-      socket.isAuthenticated = false
-      socket.userId = null
-      socket.userRole = null
-      // Don't disconnect - allow read-only guest access
-      
-      // Log token errors for security monitoring
-      if (error.name === 'TokenExpiredError') {
-        socket.emit('auth:token_expired', {
-          message: 'Your session has expired. Please reconnect.',
-          timestamp: new Date().toISOString(),
-        })
-      }
-      
-      next()
+      // Invalid/expired token — reject the connection rather than silently
+      // downgrading to guest (was a security gap: revoked sessions kept sockets).
+      return next(new Error('Invalid or expired authentication'))
     }
   })
 
-  io.on('connection', (socket) => {
-    console.log(`[WebSocket] Connected: ${socket.id} ${socket.isAuthenticated ? `(User: ${socket.userId})` : '(Guest)'}`)
+  io.on('connection', async (socket) => {
+    logger.info(`[WebSocket] Connected: ${socket.id} (User: ${socket.userId})`)
+
+    // Validate the session is still active in the DB (catches revoked sessions
+    // where the JWT hasn't expired yet but the user has been logged out).
+    if (socket.sessionId) {
+      try {
+        const { pool } = await import('../database/postgres-helpers.js')
+        const sessionResult = await pool.query(
+          'SELECT is_active FROM user_sessions WHERE session_id = $1',
+          [socket.sessionId]
+        )
+        if (sessionResult.rows.length === 0 || !sessionResult.rows[0].is_active) {
+          logger.info(`[WebSocket] Disconnecting revoked session: ${socket.sessionId}`)
+          socket.emit('auth:revoked', { message: 'Session has been revoked' })
+          return socket.disconnect(true)
+        }
+      } catch (sessionErr) {
+        // If the user_sessions table is missing, allow the connection (dev mode).
+        if (sessionErr.code !== '42P01') {
+          logger.error('[WebSocket] Session check failed:', sessionErr.message)
+        }
+      }
+    }
 
     // Auto-join user-specific room if authenticated
     if (socket.isAuthenticated && socket.userId) {
@@ -177,7 +228,7 @@ export const initWebSocket = (server) => {
 
     // Handle client reconnection
     socket.on('reconnect_attempt', (attemptNumber) => {
-      console.log(`[WebSocket] Reconnection attempt ${attemptNumber} for socket ${socket.id}`)
+      logger.info(`[WebSocket] Reconnection attempt ${attemptNumber} for socket ${socket.id}`)
     })
 
     // Authentication challenge-response for privileged operations
@@ -194,9 +245,9 @@ export const initWebSocket = (server) => {
     })
 
 // Join live test room - requires authentication
-    socket.on('live-tests:join', (data = {}, acknowledge) => {
+    socket.on('live-tests:join', async (data = {}, acknowledge) => {
       const rateLimiter = createSocketRateLimiter('live-tests:join', SOCKET_RATE_LIMIT.maxEventsPerMinute)
-      if (!rateLimiter(socket.id)) {
+      if (!await rateLimiter(socket.id)) {
         return acknowledge?.({ success: false, message: 'Rate limit exceeded' })
       }
 
@@ -244,18 +295,6 @@ export const initWebSocket = (server) => {
       acknowledge?.({ success: true, room: roomName, participantCount })
     })
 
-    // Leave live test room
-    socket.on('live-tests:leave', (data = {}, acknowledge) => {
-      const { testId } = data
-      const roomName = normalizeTestRoom(testId)
-      if (!roomName) {
-        return acknowledge?.({ success: false, message: 'Valid testId is required' })
-      }
-
-      socket.leave(roomName)
-      acknowledge?.({ success: true, room: roomName })
-    })
-
     // Subscribe to notifications - requires authentication
     socket.on('notifications:subscribe', (acknowledge) => {
       if (!socket.isAuthenticated) {
@@ -276,7 +315,7 @@ export const initWebSocket = (server) => {
       if (!socket.isAuthenticated) {
         return acknowledge?.({ success: false, message: 'Authentication required' })
       }
-      if (socket.userRole !== 'admin' && socket.userRole !== 'super_admin') {
+      if (socket.userRole !== 'admin') {
         return acknowledge?.({ success: false, message: 'Admin privileges required' })
       }
       
@@ -289,9 +328,29 @@ export const initWebSocket = (server) => {
       acknowledge?.({ success: true })
     })
 
+    // Admin live-test participant monitoring - requires admin role.
+    // Provides an aggregate realtime feed of active test attempts across
+    // all tests (emitted by attempt.routes heartbeat / anti-cheat revoke).
+    socket.on('admin:live-tests:subscribe', (acknowledge) => {
+      if (!socket.isAuthenticated) {
+        return acknowledge?.({ success: false, message: 'Authentication required' })
+      }
+      if (socket.userRole !== 'admin') {
+        return acknowledge?.({ success: false, message: 'Admin privileges required' })
+      }
+
+      socket.join('admin:live-tests')
+      acknowledge?.({ success: true, message: 'Subscribed to live-test monitoring' })
+    })
+
+    socket.on('admin:live-tests:unsubscribe', (acknowledge) => {
+      socket.leave('admin:live-tests')
+      acknowledge?.({ success: true })
+    })
+
     // Handle disconnection with cleanup
     socket.on('disconnect', (reason) => {
-      console.log(`[WebSocket] Disconnected: ${socket.id} (Reason: ${reason})`)
+      logger.info(`[WebSocket] Disconnected: ${socket.id} (Reason: ${reason})`)
       
       // Clean up rate limit tracking
       socketEventCounts.delete(socket.id)
@@ -306,14 +365,14 @@ export const initWebSocket = (server) => {
 
     // Handle connection errors
     socket.on('error', (error) => {
-      console.error(`[WebSocket] Error for socket ${socket.id}:`, error.message)
+      logger.error(`[WebSocket] Error for socket ${socket.id}:`, error.message)
     })
   })
 
   // Setup event bus listeners for real-time data push
   setupEventBusListeners()
 
-  console.log('[WebSocket] Server initialized with authentication and rate limiting')
+  logger.info('[WebSocket] Server initialized with authentication and rate limiting')
   return io
 }
 
@@ -327,7 +386,7 @@ const setupEventBusListeners = () => {
       const userId = resultData?.userId
 
       if (!userId) {
-        console.warn('[WebSocket] test:result_ready event missing userId')
+        logger.warn('[WebSocket] test:result_ready event missing userId')
         return
       }
 
@@ -350,7 +409,7 @@ const setupEventBusListeners = () => {
         timestamp: new Date().toISOString(),
       })
     } catch (error) {
-      console.error('[WebSocket] Error handling test:result_ready:', error.message)
+      logger.error('[WebSocket] Error handling test:result_ready:', error.message)
     }
   })
 
@@ -361,7 +420,7 @@ const setupEventBusListeners = () => {
       const testId = leaderboardData?.testId
 
       if (!testId) {
-        console.warn('[WebSocket] leaderboard:updated event missing testId')
+        logger.warn('[WebSocket] leaderboard:updated event missing testId')
         return
       }
 
@@ -372,7 +431,7 @@ const setupEventBusListeners = () => {
         updatedAt: leaderboardData.updatedAt || new Date().toISOString(),
       })
     } catch (error) {
-      console.error('[WebSocket] Error handling leaderboard:updated:', error.message)
+      logger.error('[WebSocket] Error handling leaderboard:updated:', error.message)
     }
   })
 
@@ -389,7 +448,7 @@ const setupEventBusListeners = () => {
         })
       }
     } catch (error) {
-      console.error('[WebSocket] Error handling notification:new:', error.message)
+      logger.error('[WebSocket] Error handling notification:new:', error.message)
     }
   })
 
@@ -401,7 +460,7 @@ const setupEventBusListeners = () => {
         timestamp: new Date().toISOString(),
       })
     } catch (error) {
-      console.error('[WebSocket] Error handling series:updated:', error.message)
+      logger.error('[WebSocket] Error handling series:updated:', error.message)
     }
   })
 
@@ -409,10 +468,17 @@ const setupEventBusListeners = () => {
   eventBus.on('test_submitted', (data) => {
     try {
       const submissionData = data?.payload || data
+      const testId = submissionData.testId
 
-      if (submissionData.source === 'live-tests' && submissionData.testId) {
-        const testId = submissionData.testId
+      if (!testId) return
 
+      // The publisher (attempt.service.js emitDomainEvent) now sets
+      // `source: 'live-tests'` for tests flagged is_live/isLive. The
+      // leaderboard refresh is scoped to that signal — and the admin
+      // monitor room only receives it for live tests, so a client
+      // subscribed to both test:{id} and admin:live-tests does not get
+      // duplicate leaderboard events for regular submissions.
+      if (submissionData.source === 'live-tests') {
         io.to(`test:${testId}`).emit('leaderboard:updated', {
           testId,
           type: 'live-test',
@@ -420,17 +486,34 @@ const setupEventBusListeners = () => {
           participantCount: submissionData.participantCount || 0,
         })
 
-        io.to(`test:${testId}`).emit('live-test:attempt_submitted', {
+        io.to('admin:live-tests').emit('leaderboard:updated', {
           testId,
-          submittedAt: new Date().toISOString(),
+          type: 'live-test',
+          updatedAt: new Date().toISOString(),
+          participantCount: submissionData.participantCount || 0,
         })
       }
+
+      io.to(`test:${testId}`).emit('live-test:attempt_submitted', {
+        testId,
+        submittedAt: new Date().toISOString(),
+      })
+
+      // Also notify the admin live-test monitor room (same room the
+      // presence events in attempt.routes.js emit to via
+      // 'admin:live-tests:subscribe' → socket.join('admin:live-tests')),
+      // so LiveTestMonitor receives submission updates without joining
+      // each individual test room.
+      io.to('admin:live-tests').emit('live-test:attempt_submitted', {
+        testId,
+        submittedAt: new Date().toISOString(),
+      })
     } catch (error) {
-      console.error('[WebSocket] Error handling test_submitted:', error.message)
+      logger.error('[WebSocket] Error handling test_submitted:', error.message)
     }
   })
 
-  console.log('[WebSocket] Event bus listeners configured')
+  logger.info('[WebSocket] Event bus listeners configured')
 }
 
 /**
@@ -462,7 +545,7 @@ export const broadcastToRoom = (room, event, data) => {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error(`[WebSocket] Error broadcasting to room ${room}:`, error.message)
+    logger.error(`[WebSocket] Error broadcasting to room ${room}:`, error.message)
   }
 }
 
@@ -472,7 +555,7 @@ export const broadcastToRoom = (room, event, data) => {
 export const notifyUser = (userId, event, data) => {
   try {
     if (!userId) {
-      console.warn('[WebSocket] notifyUser called without userId')
+      logger.warn('[WebSocket] notifyUser called without userId')
       return
     }
     const ioInstance = getIO()
@@ -481,6 +564,6 @@ export const notifyUser = (userId, event, data) => {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error(`[WebSocket] Error notifying user ${userId}:`, error.message)
+    logger.error(`[WebSocket] Error notifying user ${userId}:`, error.message)
   }
 }

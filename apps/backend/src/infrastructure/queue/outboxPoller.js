@@ -1,20 +1,20 @@
 import { emitDomainEvent } from '../events/eventBus.js';
 import { pool } from '../database/postgres-helpers.js';
 
-let pollerInterval = null;
+let pollerTimeout = null;
+let consecutiveFailures = 0;
+const MAX_BACKOFF_MS = 60_000; // max 60 seconds between retries during outage
 
 export const startOutboxPoller = (intervalMs = 5000) => {
-  if (pollerInterval) {
-    return;
-  }
+  if (pollerTimeout) return;
 
-  console.log(`\n📬 [Outbox Poller] Initializing Transactional Outbox Poller (interval: ${intervalMs}ms)...`);
+  console.log(`\n📬 [Outbox Poller] Initializing Transactional Outbox Poller (base interval: ${intervalMs}ms)...`);
 
-  pollerInterval = setInterval(async () => {
+  const poll = async () => {
     let client = null;
     try {
       client = await pool.connect();
-      
+
       // Select up to 10 pending events using SELECT FOR UPDATE SKIP LOCKED for high-concurrency safety
       const res = await client.query(`
         SELECT id, event_type, payload, retry_count, event_version 
@@ -24,6 +24,9 @@ export const startOutboxPoller = (intervalMs = 5000) => {
         LIMIT 10 
         FOR UPDATE SKIP LOCKED
       `);
+
+      // Successful DB contact — reset backoff
+      consecutiveFailures = 0;
 
       if (res.rows.length === 0) {
         return;
@@ -64,19 +67,32 @@ export const startOutboxPoller = (intervalMs = 5000) => {
         }
       }
     } catch (err) {
-      console.error('❌ [Outbox Poller] Error polling outbox table:', err.message);
+      consecutiveFailures++;
+      // Exponential backoff: 5s, 10s, 20s, 40s, 60s (capped)
+      const backoff = Math.min(intervalMs * Math.pow(2, consecutiveFailures - 1), MAX_BACKOFF_MS);
+      console.error(`❌ [Outbox Poller] Error polling outbox table (failure #${consecutiveFailures}, retrying in ${backoff / 1000}s):`, err.message);
+      // Schedule next attempt after backoff instead of fixed interval
+      pollerTimeout = setTimeout(poll, backoff);
+      return;
     } finally {
       if (client) {
         client.release();
       }
     }
-  }, intervalMs);
+
+    // Schedule next normal poll
+    pollerTimeout = setTimeout(poll, intervalMs);
+  };
+
+  // Kick off first poll
+  pollerTimeout = setTimeout(poll, intervalMs);
 };
 
 export const stopOutboxPoller = () => {
-  if (pollerInterval) {
-    clearInterval(pollerInterval);
-    pollerInterval = null;
+  if (pollerTimeout) {
+    clearTimeout(pollerTimeout);
+    pollerTimeout = null;
+    consecutiveFailures = 0;
     console.log('📬 [Outbox Poller] Outbox poller stopped.');
   }
 };
@@ -94,11 +110,17 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
       client = await pool.connect();
       
       // Auto-abandon inactive attempts where status is IN_PROGRESS and last_heartbeat_at is older than 5 minutes
+      // Uses subquery with FOR UPDATE SKIP LOCKED to prevent race conditions in multi-instance deployments
       const result = await client.query(`
         UPDATE attempts 
         SET status = 'abandoned', is_completed = true, submitted_at = NOW(), updated_at = NOW() 
-        WHERE (status = 'in_progress' OR status = 'IN_PROGRESS')
-        AND last_heartbeat_at < NOW() - INTERVAL '5 minutes'
+        WHERE id IN (
+          SELECT id 
+          FROM attempts 
+          WHERE (status = 'in_progress' OR status = 'IN_PROGRESS')
+          AND last_heartbeat_at < NOW() - INTERVAL '5 minutes'
+          FOR UPDATE SKIP LOCKED
+        )
         RETURNING id
       `);
 

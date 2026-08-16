@@ -25,11 +25,9 @@ export { default as PracticeQuestionsManager } from './assessments-quizzes/Pract
 
 // Study Materials
 export { default as StudyMaterialsManager } from './study-materials/StudyMaterialsManager'
-export { default as SubjectsManager } from './study-materials/SubjectsManager'
 export { default as SubjectRelationsManager } from './study-materials/SubjectRelationsManager'
 export { default as TopicsManager } from './study-materials/TopicsManager'
-export { default as VideosManager } from './study-materials/VideosManager'
-export { default as MediaLibrary } from './study-materials/MediaLibrary'
+
 export { default as ContentManagement } from './study-materials/ContentManagement'
 export { default as CurriculumBuilder } from './study-materials/CurriculumBuilder'
 export { default as CurrentAffairsManager } from './study-materials/CurrentAffairsManager'

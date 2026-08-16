@@ -1,17 +1,24 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
 // @route   GET /api/blogs
-// @desc    Get all blog posts
+// @desc    Get all published blog posts
 // @access  Public
 router.get('/', async (req, res) => {
   try {
     const { category, limit = 20, offset = 0 } = req.query
     
-    let blogs = await dbHelpers.find('blogs', { isActive: true })
+    // Blogs table uses status = 'published'
+    let blogs = await dbHelpers.find('blogs', { status: 'published' })
+    if (!blogs || blogs.length === 0) {
+      // Fallback: check all undeleted blogs if no explicit 'published' status
+      const allBlogs = await dbHelpers.find('blogs', {})
+      blogs = allBlogs.filter(b => b.status !== 'draft' && !b.deletedAt)
+    }
     
     // Filter by category if specified
     if (category && category !== 'all') {
@@ -20,19 +27,19 @@ router.get('/', async (req, res) => {
     
     // Sort by date and apply pagination
     blogs = blogs
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at))
       .slice(parseInt(offset), parseInt(offset) + parseInt(limit))
     
     res.json({
       success: true,
       data: blogs,
       count: blogs.length,
-      total: await dbHelpers.count('blogs')
+      total: blogs.length
     })
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -42,7 +49,11 @@ router.get('/', async (req, res) => {
 // @access  Public
 router.get('/categories', async (req, res) => {
   try {
-    const blogs = await dbHelpers.find('blogs', { isActive: true })
+    let blogs = await dbHelpers.find('blogs', { status: 'published' })
+    if (!blogs || blogs.length === 0) {
+      const allBlogs = await dbHelpers.find('blogs', {})
+      blogs = allBlogs.filter(b => b.status !== 'draft' && !b.deletedAt)
+    }
     const categories = [...new Set(blogs.map(blog => blog.category).filter(Boolean))]
     
     res.json({
@@ -52,7 +63,45 @@ router.get('/categories', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
+    })
+  }
+})
+
+// @route   GET /api/blogs/admin/list
+// @desc    Get all blog posts (Admin - including drafts)
+// @access  Private/Admin
+router.get('/admin/list', protect, admin, async (req, res) => {
+  try {
+    const { page = 1, limit = 20, category } = req.query
+    const blogs = await dbHelpers.find('blogs', {})
+    
+    let filtered = blogs || []
+    if (category && category !== 'all') {
+      filtered = filtered.filter(blog => blog.category === category)
+    }
+
+    filtered.sort((a, b) => new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at))
+
+    const offset = (parseInt(page) - 1) * parseInt(limit)
+    const paginated = filtered.slice(offset, offset + parseInt(limit))
+
+    res.json({
+      success: true,
+      data: paginated,
+      count: paginated.length,
+      total: filtered.length,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: filtered.length,
+        totalPages: Math.ceil(filtered.length / parseInt(limit))
+      }
+    })
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -64,15 +113,18 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params
     
-    let blog = await dbHelpers.findById('blogs', id)
-    
-    if (!blog) {
-      // Try finding by slug
-      const blogs = await dbHelpers.find('blogs', { isActive: true })
-      blog = blogs.find(b => b.slug === id)
+    let blog = null
+    const numId = parseInt(id, 10)
+    if (!isNaN(numId)) {
+      blog = await dbHelpers.findById('blogs', numId)
     }
     
     if (!blog) {
+      const blogs = await dbHelpers.find('blogs', {})
+      blog = blogs.find(b => b.slug === id)
+    }
+    
+    if (!blog || blog.deletedAt || blog.deleted_at) {
       return res.status(404).json({
         success: false,
         message: 'Blog post not found'
@@ -86,7 +138,7 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -97,7 +149,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private/Admin
 router.post('/', protect, admin, async (req, res) => {
   try {
-    const { title, slug, content, excerpt, category, tags, featuredImage, isFeatured, metaTitle, metaDescription, metaKeywords } = req.body
+    const { title, slug, content, excerpt, category, tags, featuredImage, status = 'published' } = req.body
 
     if (!title || !content) {
       return res.status(400).json({
@@ -110,7 +162,7 @@ router.post('/', protect, admin, async (req, res) => {
 
     // Check if slug already exists
     const existingBlogs = await dbHelpers.find('blogs', { slug: blogSlug })
-    if (existingBlogs.length > 0) {
+    if (existingBlogs && existingBlogs.length > 0) {
       return res.status(400).json({
         success: false,
         message: 'A blog post with this slug already exists'
@@ -124,15 +176,12 @@ router.post('/', protect, admin, async (req, res) => {
       excerpt: excerpt || '',
       category: category || '',
       tags: tags || [],
-      featuredImage: featuredImage || '',
-      isFeatured: isFeatured || false,
-      isActive: true,
-      metaTitle: metaTitle || title,
-      metaDescription: metaDescription || '',
-      metaKeywords: metaKeywords || [],
-      authorId: req.user.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      featured_image: featuredImage || '',
+      status,
+      author_id: req.user.id,
+      published_at: status === 'published' ? new Date().toISOString() : null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
     })
 
     res.status(201).json({
@@ -143,7 +192,7 @@ router.post('/', protect, admin, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -154,7 +203,7 @@ router.post('/', protect, admin, async (req, res) => {
 router.put('/:id', protect, admin, async (req, res) => {
   try {
     const { id } = req.params
-    const { title, slug, content, excerpt, category, tags, featuredImage, isFeatured, isActive, metaTitle, metaDescription, metaKeywords } = req.body
+    const { title, slug, content, excerpt, category, tags, featuredImage, status } = req.body
 
     const blog = await dbHelpers.findById('blogs', id)
     if (!blog) {
@@ -164,7 +213,7 @@ router.put('/:id', protect, admin, async (req, res) => {
       })
     }
 
-    const updateData = { updatedAt: new Date().toISOString() }
+    const updateData = { updated_at: new Date().toISOString() }
 
     if (title) {
       updateData.title = title
@@ -175,12 +224,13 @@ router.put('/:id', protect, admin, async (req, res) => {
     if (excerpt !== undefined) updateData.excerpt = excerpt
     if (category !== undefined) updateData.category = category
     if (tags !== undefined) updateData.tags = tags
-    if (featuredImage !== undefined) updateData.featuredImage = featuredImage
-    if (isFeatured !== undefined) updateData.isFeatured = isFeatured
-    if (isActive !== undefined) updateData.isActive = isActive
-    if (metaTitle !== undefined) updateData.metaTitle = metaTitle
-    if (metaDescription !== undefined) updateData.metaDescription = metaDescription
-    if (metaKeywords !== undefined) updateData.metaKeywords = metaKeywords
+    if (featuredImage !== undefined) updateData.featured_image = featuredImage
+    if (status !== undefined) {
+      updateData.status = status
+      if (status === 'published' && !blog.published_at) {
+        updateData.published_at = new Date().toISOString()
+      }
+    }
 
     const updated = await dbHelpers.updateById('blogs', id, updateData)
     
@@ -192,7 +242,7 @@ router.put('/:id', protect, admin, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -221,45 +271,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
-    })
-  }
-})
-
-// @route   GET /api/blogs/admin/list
-// @desc    Get all blog posts (Admin - including inactive)
-// @access  Private/Admin
-router.get('/admin/list', protect, admin, async (req, res) => {
-  try {
-    const { page = 1, limit = 20, category } = req.query
-    const blogs = await dbHelpers.find('blogs')
-    
-    let filtered = blogs
-    if (category && category !== 'all') {
-      filtered = blogs.filter(blog => blog.category === category)
-    }
-
-    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-
-    const offset = (parseInt(page) - 1) * parseInt(limit)
-    const paginated = filtered.slice(offset, offset + parseInt(limit))
-
-    res.json({
-      success: true,
-      data: paginated,
-      count: paginated.length,
-      total: filtered.length,
-      pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
-        total: filtered.length,
-        totalPages: Math.ceil(filtered.length / parseInt(limit))
-      }
-    })
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

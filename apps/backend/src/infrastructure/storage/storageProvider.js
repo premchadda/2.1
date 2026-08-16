@@ -9,9 +9,17 @@ const __dirname = path.dirname(__filename)
 
 const normalizeProviderName = () => (process.env.STORAGE_PROVIDER || 'local').toLowerCase()
 
-const sanitizePathPart = (value = '') => String(value).replace(/[^a-zA-Z0-9._/-]/g, '-')
+// Strip path traversal sequences and non-safe characters.
+// Forward slashes are NOT allowed — each part must be a single path segment.
+const sanitizePathPart = (value = '') => String(value)
+  .replace(/\.\./g, '_')           // block traversal
+  .replace(/^[./\\]+|[./\\]+$/g, '') // trim leading/trailing dots and slashes
+  .replace(/[^\w\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F\u0B00-\u0B7F\u0C00-\u0C7F\u0D00-\u0D7F._-]/ug, '_') // eslint-disable-line no-misleading-character-class
 
-const getLocalBaseUrl = () => process.env.BASE_URL || `http://localhost:${process.env.PORT || 5001}`
+const getLocalBaseUrl = () => {
+  const isHttps = process.env.ENFORCE_HTTPS === 'true'
+  return process.env.BASE_URL || `${isHttps ? 'https' : 'http'}://localhost:${process.env.PORT || 5001}`
+}
 const getS3Region = () => process.env.AWS_REGION || 'ap-south-1'
 
 const toSupabaseObjectPath = (key) =>
@@ -26,11 +34,28 @@ const getStorageTypeFromMimeType = (mimeType = '') => {
   return 'images'
 }
 
-const buildObjectKey = (category, filename) => {
+// Build the object key. When a test/series scope is provided, the category
+// becomes a hierarchical path like "tests/123" or "tests/123/questions" so
+// that all assets belonging to one test live under a single prefix:
+//   assets/tests/123/1234567890-q1.png
+// Falls back to the previous flat "assets/<category>" layout.
+export const buildObjectKey = (category, filename, { testId, testSeriesId } = {}) => {
   const prefix = sanitizePathPart(process.env.STORAGE_BASE_PATH || 'assets')
-  const safeCategory = sanitizePathPart(category || 'general')
   const safeFilename = sanitizePathPart(filename || `asset-${Date.now()}`)
-  return `${prefix}/${safeCategory}/${Date.now()}-${safeFilename}`
+  let segment
+  const safeTestId = testId ? sanitizePathPart(String(testId)) : null
+  const safeSeriesId = testSeriesId ? sanitizePathPart(String(testSeriesId)) : null
+
+  if (safeTestId && safeSeriesId) {
+    segment = `series/${safeSeriesId}/tests/${safeTestId}`
+  } else if (safeTestId) {
+    segment = `tests/${safeTestId}`
+  } else if (safeSeriesId) {
+    segment = `series/${safeSeriesId}`
+  } else {
+    segment = sanitizePathPart(category || 'general')
+  }
+  return `${prefix}/${segment}/${Date.now()}-${safeFilename}`
 }
 
 const readUploadedFile = async (file) => {
@@ -54,12 +79,55 @@ const cleanupTempFile = async (file) => {
   }
 }
 
-const uploadLocal = async (file) => {
+const UPLOADS_ROOT = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../uploads'
+)
+
+const ensureDir = async (dir) => {
+  try { await fs.mkdir(dir, { recursive: true }) } catch { /* exists */ }
+}
+
+const uploadLocal = async (file, scope = {}) => {
   const storageType = getStorageTypeFromMimeType(file.mimetype)
   const fileName = file.filename || path.basename(file.path || '')
-  const storageKey = `${storageType}/${fileName}`
-  const publicUrl = `${getLocalBaseUrl()}/uploads/${storageType}/${fileName}`
+  const { testId, testSeriesId } = scope
 
+  // For scoped uploads, mirror the S3-style path on local disk:
+  //   uploads/tests/<id>/questions/filename.jpg
+  // For unscoped, keep the legacy flat layout (uploads/images/filename.jpg).
+  let storageKey
+  let fullPath
+  if (testId) {
+    const safeTestId = sanitizePathPart(String(testId))
+    const scopedFolder = testSeriesId
+      ? `series/${sanitizePathPart(String(testSeriesId))}/tests/${safeTestId}`
+      : `tests/${safeTestId}`
+    storageKey = `${scopedFolder}/${fileName}`
+    const destDir = path.join(UPLOADS_ROOT, ...scopedFolder.split('/'))
+    await ensureDir(destDir)
+    fullPath = path.join(destDir, fileName)
+  } else {
+    storageKey = `${storageType}/${fileName}`
+    const destDir = path.join(UPLOADS_ROOT, storageType)
+    await ensureDir(destDir)
+    fullPath = path.join(destDir, fileName)
+  }
+
+  // Move from multer's destination to the scoped folder (if different)
+  const currentPath = file.path ? path.resolve(file.path) : null
+  const targetPath = path.resolve(fullPath)
+  if (currentPath && currentPath !== targetPath) {
+    try {
+      await fs.rename(currentPath, targetPath)
+    } catch {
+      // cross-device rename — fall back to copy+unlink
+      await fs.copyFile(currentPath, targetPath)
+      await fs.unlink(currentPath).catch(() => {})
+    }
+  }
+
+  const publicUrl = `${getLocalBaseUrl()}/uploads/${storageKey.split('/').map(encodeURIComponent).join('/')}`
   return {
     provider: 'local',
     storageKey,
@@ -106,10 +174,10 @@ const toS3PublicUrl = (bucket, storageKey) => {
   return `https://${bucket}.s3.${getS3Region()}.amazonaws.com/${encodedKey}`
 }
 
-const uploadS3 = async (file, category) => {
+const uploadS3 = async (file, category, scope = {}) => {
   const client = getS3Client()
   const body = await readUploadedFile(file)
-  const storageKey = buildObjectKey(category, file.originalname || file.filename)
+  const storageKey = buildObjectKey(category, file.originalname || file.filename, scope)
   const bucket = process.env.S3_BUCKET
   const putCommandInput = {
     Bucket: bucket,
@@ -165,10 +233,10 @@ const createSupabaseHeaders = (serviceKey, mimeType = 'application/octet-stream'
   'Content-Type': mimeType
 })
 
-const uploadSupabase = async (file, category) => {
+const uploadSupabase = async (file, category, scope = {}) => {
   const { url, serviceKey, bucket } = getSupabaseConfig()
   const body = await readUploadedFile(file)
-  const storageKey = buildObjectKey(category, file.originalname || file.filename)
+  const storageKey = buildObjectKey(category, file.originalname || file.filename, scope)
   const objectPath = toSupabaseObjectPath(storageKey)
 
   const uploadResponse = await fetch(`${url}/storage/v1/object/${bucket}/${objectPath}`, {
@@ -216,13 +284,23 @@ const uploadSupabase = async (file, category) => {
   }
 }
 
-export const storeUploadedAssetFile = async (file, { category = 'general' } = {}) => {
+let hasLoggedLocalFallbackWarning = false
+
+const logLocalFallbackWarningIfNeeded = () => {
+  if (!hasLoggedLocalFallbackWarning && process.env.NODE_ENV === 'production') {
+    hasLoggedLocalFallbackWarning = true
+    console.warn('[Storage] WARNING: Falling back to local filesystem storage. Uploaded files will be lost if this container is redeployed or scaled out.')
+  }
+}
+
+export const storeUploadedAssetFile = async (file, { category = 'general', testId, testSeriesId } = {}) => {
   const provider = normalizeProviderName()
+  const scope = { testId, testSeriesId }
 
   // Try configured provider first
   if (provider === 's3') {
     try {
-      return await uploadS3(file, category)
+      return await uploadS3(file, category, scope)
     } catch (error) {
       console.warn('S3 upload failed, falling back to local:', error.message)
     }
@@ -230,20 +308,29 @@ export const storeUploadedAssetFile = async (file, { category = 'general' } = {}
 
   if (provider === 'supabase') {
     try {
-      return await uploadSupabase(file, category)
+      return await uploadSupabase(file, category, scope)
     } catch (error) {
       console.warn('Supabase upload failed, falling back to local:', error.message)
     }
   }
 
-  // Default to local storage
-  return uploadLocal(file)
+  // Default to local storage — still build a test-scoped path so local
+  // filesystem mirrors the S3/Supabase layout.
+  logLocalFallbackWarningIfNeeded()
+  return uploadLocal(file, scope)
 }
+
+const UPLOADS_BASE = process.env.STORAGE_BASE_PATH || path.resolve(__dirname, '../../uploads')
 
 const deleteLocal = async (storageKey) => {
   if (!storageKey) return true
-  const uploadsBase = path.resolve(__dirname, '../../uploads')
-  const fullPath = path.join(uploadsBase, storageKey)
+  const resolvedUploads = path.resolve(UPLOADS_BASE)
+  const fullPath = path.resolve(path.join(UPLOADS_BASE, storageKey))
+  // Prevent path traversal: resolved path must be within UPLOADS_BASE
+  if (!fullPath.startsWith(resolvedUploads + path.sep) && fullPath !== resolvedUploads) {
+    console.error(`[Storage] Path traversal blocked: ${storageKey} resolves outside uploads dir`)
+    return false
+  }
   try {
     await fs.unlink(fullPath)
   } catch {

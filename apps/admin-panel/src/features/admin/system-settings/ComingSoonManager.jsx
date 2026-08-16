@@ -9,9 +9,9 @@
  */
 
 import { useState, useEffect } from 'react'
-import { 
-  Clock, Power, Settings, Save, RefreshCw, 
-  AlertTriangle, CheckCircle, XCircle, Eye, EyeOff,
+import {
+  Clock, Save, RefreshCw,
+  AlertTriangle, CheckCircle, Eye, EyeOff,
   Wrench, Calendar, MessageSquare, Zap
 } from 'lucide-react'
 import apiClient from '../../../shared/api/adminApi'
@@ -21,17 +21,14 @@ const api = apiClient
 import { toast } from 'react-hot-toast'
 
 // Import the coming soon config
-import { 
-  SITE_CONFIG, 
-  COMING_SOON_PAGES, 
-  getAllPagesStatus,
-  updatePageComingSoonStatus,
-  updateMaintenanceMode
+import {
+  SITE_CONFIG,
+  getAllPagesStatus
 } from '../../../shared/config/comingSoonConfig'
 
 export default function ComingSoonManager() {
   const [siteConfig, setSiteConfig] = useState({ ...SITE_CONFIG })
-  const [pages, setPages] = useState([])
+  const [pages, setPages] = useState(() => getAllPagesStatus())
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
@@ -55,8 +52,13 @@ export default function ComingSoonManager() {
       // FIX CRIT-10: Remove localStorage fallback - show error if API unavailable
       const response = await apiClient.get('/admin/coming-soon-config')
       if (response.data?.success) {
-        setSiteConfig(response.data.data.siteConfig)
-        setPages(response.data.data.pages)
+        const data = response.data.data || {}
+        if (data.siteConfig && Object.keys(data.siteConfig).length > 0) {
+          setSiteConfig(prev => ({ ...prev, ...data.siteConfig }))
+        }
+        if (Array.isArray(data.pages) && data.pages.length > 0) {
+          setPages(data.pages)
+        }
       } else {
         throw new Error('Invalid response from server')
       }
@@ -125,22 +127,22 @@ export default function ComingSoonManager() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="p-3 sm:p-4 md:p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Clock className="w-6 h-6 text-indigo-600" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Clock className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             Coming Soon & Maintenance Manager
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-gray-500 dark:text-gray-400 mt-1">
             Control which pages show "Coming Soon" and manage maintenance mode
           </p>
         </div>
         <div className="flex items-center gap-3 mt-4 md:mt-0">
           <button
             onClick={loadConfiguration}
-            className="flex items-center gap-2 px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Reload
@@ -151,7 +153,7 @@ export default function ComingSoonManager() {
             className={`flex items-center gap-2 px-6 py-2 rounded-lg font-medium transition-colors ${
               hasChanges && !saving
                 ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-400 dark:text-gray-500 cursor-not-allowed'
             }`}
           >
             {saving ? (
@@ -167,25 +169,25 @@ export default function ComingSoonManager() {
       {/* Site-Wide Maintenance Mode */}
       <div className={`rounded-xl border-2 p-6 mb-8 ${
         siteConfig.maintenanceMode 
-          ? 'bg-red-50 border-red-200' 
-          : 'bg-green-50 border-green-200'
+          ? 'bg-red-50 dark:bg-red-900/20 border-red-200' 
+          : 'bg-green-50 dark:bg-green-900/20 border-green-200'
       }`}>
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-4">
             <div className={`p-3 rounded-full ${
-              siteConfig.maintenanceMode ? 'bg-red-100' : 'bg-green-100'
+              siteConfig.maintenanceMode ? 'bg-red-100' : 'bg-green-100 dark:bg-green-900/20'
             }`}>
               {siteConfig.maintenanceMode ? (
-                <Wrench className="w-6 h-6 text-red-600" />
+                <Wrench className="w-6 h-6 text-red-600 dark:text-red-400" />
               ) : (
-                <CheckCircle className="w-6 h-6 text-green-600" />
+                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
               )}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Site-Wide Maintenance Mode
               </h2>
-              <p className="text-gray-600 text-sm mt-1">
+              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                 {siteConfig.maintenanceMode 
                   ? 'Site is currently in maintenance mode. Users see maintenance page.'
                   : 'Site is live and accessible to all users.'
@@ -196,7 +198,7 @@ export default function ComingSoonManager() {
           
           <div className="flex items-center gap-4">
             {siteConfig.allowAdminAccess && (
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+              <span className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 px-2 py-1 rounded">
                 Admin access enabled
               </span>
             )}
@@ -207,7 +209,7 @@ export default function ComingSoonManager() {
               }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                className={`inline-block h-6 w-6 transform rounded-full bg-white dark:bg-gray-800 transition-transform ${
                   siteConfig.maintenanceMode ? 'translate-x-7' : 'translate-x-1'
                 }`}
               />
@@ -220,19 +222,19 @@ export default function ComingSoonManager() {
           <div className="mt-6 pt-6 border-t border-red-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <MessageSquare className="w-4 h-4 inline mr-1" />
                   Maintenance Message
                 </label>
                 <textarea
                   value={siteConfig.maintenanceMessage}
                   onChange={(e) => handleSiteConfigChange('maintenanceMessage', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                   rows={2}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <Calendar className="w-4 h-4 inline mr-1" />
                   Estimated End Time
                 </label>
@@ -240,11 +242,11 @@ export default function ComingSoonManager() {
                   type="datetime-local"
                   value={siteConfig.maintenanceEndTime || ''}
                   onChange={(e) => handleSiteConfigChange('maintenanceEndTime', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   <Clock className="w-4 h-4 inline mr-1" />
                   Estimated Downtime
                 </label>
@@ -253,7 +255,7 @@ export default function ComingSoonManager() {
                   value={siteConfig.estimatedDowntime}
                   onChange={(e) => handleSiteConfigChange('estimatedDowntime', e.target.value)}
                   placeholder="e.g., 30 minutes"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -263,9 +265,9 @@ export default function ComingSoonManager() {
                 id="allowAdminAccess"
                 checked={siteConfig.allowAdminAccess}
                 onChange={(e) => handleSiteConfigChange('allowAdminAccess', e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                className="rounded border-gray-300 dark:border-gray-600 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500"
               />
-              <label htmlFor="allowAdminAccess" className="text-sm text-gray-700">
+              <label htmlFor="allowAdminAccess" className="text-sm text-gray-700 dark:text-gray-300">
                 Allow admin access during maintenance
               </label>
             </div>
@@ -274,14 +276,14 @@ export default function ComingSoonManager() {
       </div>
 
       {/* Page-Specific Coming Soon Settings */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
           Page-Specific Coming Soon Settings
         </h2>
         
         {Object.entries(pageCategories).map(([category, pageKeys]) => (
           <div key={category} className="mb-8 last:mb-0">
-            <h3 className="text-md font-medium text-gray-700 mb-4 flex items-center gap-2">
+            <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
               <Zap className="w-4 h-4 text-indigo-500" />
               {getCategoryLabel(category)}
             </h3>
@@ -296,42 +298,42 @@ export default function ComingSoonManager() {
                     key={pageKey}
                     className={`flex items-center justify-between p-4 rounded-lg border ${
                       page.comingSoon 
-                        ? 'bg-amber-50 border-amber-200' 
-                        : 'bg-gray-50 border-gray-200'
+                        ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-200' 
+                        : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
                     }`}
                   >
                     <div className="flex items-center gap-4">
                       <div className={`p-2 rounded-lg ${
-                        page.comingSoon ? 'bg-amber-100' : 'bg-green-100'
+                        page.comingSoon ? 'bg-amber-100' : 'bg-green-100 dark:bg-green-900/20'
                       }`}>
                         {page.comingSoon ? (
-                          <EyeOff className="w-5 h-5 text-amber-600" />
+                          <EyeOff className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                         ) : (
-                          <Eye className="w-5 h-5 text-green-600" />
+                          <Eye className="w-5 h-5 text-green-600 dark:text-green-400" />
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{page.title || pageKey}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{page.title || pageKey}</p>
                         {page.comingSoon && page.estimatedTime && (
-                          <p className="text-sm text-gray-500">{page.estimatedTime}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{page.estimatedTime}</p>
                         )}
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-4">
                       <span className={`text-sm font-medium ${
-                        page.comingSoon ? 'text-amber-600' : 'text-green-600'
+                        page.comingSoon ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400'
                       }`}>
                         {page.comingSoon ? 'Coming Soon' : 'Live'}
                       </span>
                       <button
                         onClick={() => handlePageToggle(pageKey, 'comingSoon', !page.comingSoon)}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          page.comingSoon ? 'bg-amber-500' : 'bg-green-500'
+                          page.comingSoon ? 'bg-amber-500' : 'bg-green-50 dark:bg-green-900/20'
                         }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-gray-800 transition-transform ${
                             page.comingSoon ? 'translate-x-6' : 'translate-x-1'
                           }`}
                         />
@@ -348,7 +350,7 @@ export default function ComingSoonManager() {
       {/* Info Box */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-blue-600 mt-0.5" />
+          <AlertTriangle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
           <div className="text-sm text-blue-800">
             <p className="font-medium">How it works:</p>
             <ul className="mt-1 list-disc list-inside space-y-1">

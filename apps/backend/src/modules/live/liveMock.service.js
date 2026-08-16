@@ -51,6 +51,9 @@ const liveMockService = {
   /**
    * Get upcoming live tests.
    */
+  /**
+   * Get upcoming and ongoing live tests.
+   */
   async getUpcoming(limit = 20) {
     const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
@@ -58,13 +61,20 @@ const liveMockService = {
     try {
       const result = await client.query(`
         SELECT lt.*, t.title, t.total_questions, t.duration,
-               ts.name as series_name
+               ts.title as series_name,
+               CASE 
+                 WHEN lt.start_time <= NOW() AND (lt.end_time IS NULL OR lt.end_time >= NOW()) THEN 'live'
+                 WHEN lt.start_time > NOW() THEN 'upcoming'
+                 ELSE 'ended'
+               END as live_status
         FROM live_tests lt
         JOIN tests t ON t.id = lt.test_id
         LEFT JOIN test_series ts ON ts.id = t.series_id
         WHERE lt.is_active = true
-          AND lt.start_time > NOW()
-        ORDER BY lt.start_time ASC
+          AND (lt.end_time IS NULL OR lt.end_time >= NOW() - INTERVAL '2 hours')
+        ORDER BY 
+          CASE WHEN lt.start_time <= NOW() AND (lt.end_time IS NULL OR lt.end_time >= NOW()) THEN 0 ELSE 1 END,
+          lt.start_time ASC
         LIMIT $1
       `, [limit])
 
@@ -88,7 +98,7 @@ const liveMockService = {
         JOIN tests t ON t.id = lt.test_id
         WHERE lt.is_active = true
           AND lt.start_time <= NOW()
-          AND lt.end_time > NOW()
+          AND (lt.end_time IS NULL OR lt.end_time > NOW())
         ORDER BY lt.start_time DESC
         LIMIT 1
       `)
@@ -107,16 +117,38 @@ const liveMockService = {
     const client = await pool.connect()
 
     try {
-      const result = await client.query(`
-        SELECT lt.*, t.title, t.total_questions, t.duration, t.instructions,
-               ts.name as series_name
-        FROM live_tests lt
-        JOIN tests t ON t.id = lt.test_id
-        LEFT JOIN test_series ts ON ts.id = t.series_id
-        WHERE lt.id = $1
-      `, [id])
+      const cleanId = String(id || '').trim()
+      const rawUuid = cleanId.startsWith('tst_') ? cleanId.slice(4) : cleanId
+      const isInteger = /^\d+$/.test(cleanId)
 
-      return result.rows[0] || null
+      const result = await client.query(`
+        SELECT lt.*, t.id as test_id, t.title, t.total_questions, t.duration, t.instructions,
+               t.public_id, t.slug, t.start_time as test_start_time, t.end_time as test_end_time,
+               t.scheduled_at as test_scheduled_at, ts.title as series_name
+        FROM tests t
+        LEFT JOIN live_tests lt ON lt.test_id = t.id
+        LEFT JOIN test_series ts ON ts.id = t.series_id
+        WHERE t.public_id = $1 
+           OR t.public_id = $2
+           OR t.slug = $1
+           OR (t.public_id_uuid IS NOT NULL AND t.public_id_uuid::text = $2)
+           OR ($3::boolean = true AND (t.id = $4::integer OR (lt.id IS NOT NULL AND lt.id = $4::integer)))
+        ORDER BY lt.id DESC NULLS LAST
+        LIMIT 1
+      `, [cleanId, rawUuid, isInteger, isInteger ? parseInt(cleanId, 10) : 0])
+
+      if (result.rows[0]) {
+        const row = result.rows[0]
+        return {
+          ...row,
+          test_id: row.test_id,
+          start_time: row.start_time || row.test_start_time || row.test_scheduled_at,
+          end_time: row.end_time || row.test_end_time,
+          max_participants: row.max_participants || 50000,
+        }
+      }
+
+      return null
     } finally {
       client.release()
     }
@@ -130,20 +162,20 @@ const liveMockService = {
     const client = await pool.connect()
 
     try {
-      // Check if already registered
-      const existing = await client.query(
-        `SELECT id FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
-        [userId, liveTestId]
-      )
-
-      if (existing.rows.length > 0) {
-        return { action: 'already_registered' }
-      }
-
-      // Check capacity
       const session = await this.getById(liveTestId)
       if (!session) throw new Error('Live test not found')
 
+      // Check if already registered for this test
+      const existing = await client.query(
+        `SELECT id FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
+        [userId, session.test_id]
+      )
+
+      if (existing.rows.length > 0) {
+        return { action: 'already_registered', attemptId: existing.rows[0].id }
+      }
+
+      // Check capacity
       const participantCount = await client.query(
         `SELECT COUNT(*) as count FROM attempts WHERE test_id = $1 AND is_active = true`,
         [session.test_id]
@@ -158,7 +190,7 @@ const liveMockService = {
         `INSERT INTO attempts (
           user_id, test_id, status, is_active, started_at, created_at, updated_at
         ) VALUES (
-          $1, $2, 'registered', true, NOW(), NOW(), NOW()
+          $1, $2, 'not_started', true, NOW(), NOW(), NOW()
         ) RETURNING id`,
         [userId, session.test_id]
       )
@@ -187,7 +219,7 @@ const liveMockService = {
 
       // Get or create attempt
       let attempt = await client.query(
-        `SELECT * FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
+        `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
         [userId, session.test_id]
       )
 
@@ -195,7 +227,7 @@ const liveMockService = {
         // Auto-register and start
         const regResult = await this.register(userId, liveTestId)
         attempt = await client.query(
-          `SELECT * FROM attempts WHERE id = $1`,
+          `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE id = $1`,
           [regResult.attemptId]
         )
       }
@@ -232,11 +264,68 @@ const liveMockService = {
   /**
    * Get live leaderboard.
    */
+  /**
+   * Save in-progress answer during live test.
+   */
+  async saveAnswer(userId, liveTestId, data) {
+    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+    const client = await pool.connect()
+
+    try {
+      const session = await this.getById(liveTestId)
+      const targetTestId = session ? session.test_id : liveTestId
+
+      // Find in-progress attempt
+      const attempt = await client.query(
+        `SELECT id, answers FROM attempts 
+         WHERE user_id = $1 AND test_id = $2 AND is_active = true 
+         ORDER BY id DESC LIMIT 1`,
+        [userId, targetTestId]
+      )
+
+      if (attempt.rows.length === 0) {
+        return { success: false, message: 'No active attempt found' }
+      }
+
+      let currentAnswers = {}
+      try {
+        if (typeof attempt.rows[0].answers === 'object' && attempt.rows[0].answers !== null) {
+          currentAnswers = attempt.rows[0].answers
+        } else if (typeof attempt.rows[0].answers === 'string') {
+          currentAnswers = JSON.parse(attempt.rows[0].answers)
+        }
+      } catch {
+        currentAnswers = {}
+      }
+
+      if (data.questionId !== undefined) {
+        currentAnswers[data.questionId] = data.selectedOption !== undefined ? data.selectedOption : data.answer
+      } else if (data.answers && typeof data.answers === 'object') {
+        Object.assign(currentAnswers, data.answers)
+      }
+
+      await client.query(
+        `UPDATE attempts SET answers = $1, last_activity = NOW(), updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(currentAnswers), attempt.rows[0].id]
+      )
+
+      return { success: true, message: 'Answer saved' }
+    } finally {
+      client.release()
+    }
+  },
+
+  /**
+   * Get live leaderboard.
+   */
   async getLeaderboard(liveTestId) {
     const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
 
     try {
+      const session = await this.getById(liveTestId)
+      const targetTestId = session ? session.test_id : liveTestId
+
       const result = await client.query(`
         SELECT
           a.user_id,
@@ -254,12 +343,12 @@ const liveMockService = {
           RANK() OVER (ORDER BY a.score DESC, a.time_spent ASC) as rank
         FROM attempts a
         JOIN users u ON u.id = a.user_id
-        WHERE a.test_id = $1
+        WHERE (a.test_id = $1 OR a.test_id = $2)
           AND a.is_active = true
           AND a.status = 'completed'
         ORDER BY a.score DESC, a.time_spent ASC
         LIMIT 100
-      `, [liveTestId])
+      `, [targetTestId, liveTestId])
 
       return result.rows
     } finally {
@@ -270,17 +359,18 @@ const liveMockService = {
   /**
    * Submit live test attempt.
    */
-  async submitAttempt(userId, liveTestId, answers) {
+  async submitAttempt(userId, liveTestId, answers = {}) {
     const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
     const client = await pool.connect()
 
     try {
+      await client.query('BEGIN')
       const session = await this.getById(liveTestId)
       if (!session) throw new Error('Live test not found')
 
       // Get attempt
       const attempt = await client.query(
-        `SELECT * FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
+        `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE user_id = $1 AND test_id = $2 AND is_active = true`,
         [userId, session.test_id]
       )
 
@@ -304,32 +394,38 @@ const liveMockService = {
       let skipped = 0
 
       for (const question of questions.rows) {
-        const userAnswer = answers[question.id]
+        const userAnswer = answers ? answers[question.id] : undefined
         if (userAnswer === undefined || userAnswer === null) {
           skipped++
-        } else if (userAnswer === question.correct_option) {
-          score += question.marks || 1
+        } else if (Number(userAnswer) === Number(question.correct_option)) {
+          score += Number(question.marks || 1)
           correct++
         } else {
-          score -= question.negative_marks || 0.25
+          score -= Number(question.negative_marks || 0.25)
           wrong++
         }
       }
+
+      const totalMarks = questions.rows.reduce((sum, q) => sum + Number(q.marks || 1), 0)
 
       // Update attempt
       await client.query(
         `UPDATE attempts SET
           status = 'completed',
           score = $1,
-          correct = $2,
-          wrong = $3,
-          unattempted = $4,
+          total_marks = $2,
+          correct = $3,
+          wrong = $4,
+          unattempted = $5,
           time_spent = EXTRACT(EPOCH FROM (NOW() - started_at)),
           completed_at = NOW(),
+          submitted_at = NOW(),
           updated_at = NOW()
-         WHERE id = $5`,
-        [Math.max(0, score), correct, wrong, skipped, attempt.rows[0].id]
+         WHERE id = $6`,
+         [Math.max(0, score), totalMarks, correct, wrong, skipped, attempt.rows[0].id]
       )
+
+      await client.query('COMMIT')
 
       return {
         attemptId: attempt.rows[0].id,
@@ -337,8 +433,11 @@ const liveMockService = {
         correct,
         wrong,
         skipped,
-        totalMarks: questions.rows.reduce((sum, q) => sum + (q.marks || 1), 0),
+        totalMarks,
       }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
     } finally {
       client.release()
     }
@@ -352,6 +451,9 @@ const liveMockService = {
     const client = await pool.connect()
 
     try {
+      const session = await this.getById(liveTestId)
+      const targetTestId = session ? session.test_id : liveTestId
+
       const result = await client.query(`
         SELECT
           a.*,
@@ -361,11 +463,13 @@ const liveMockService = {
           COUNT(*) OVER () as total_participants
         FROM attempts a
         JOIN tests t ON t.id = a.test_id
-        JOIN live_tests lt ON lt.test_id = a.test_id
+        LEFT JOIN live_tests lt ON lt.test_id = a.test_id
         WHERE a.user_id = $1
-          AND a.test_id = $2
+          AND (a.test_id = $2 OR lt.id = $3)
           AND a.is_active = true
-      `, [userId, liveTestId])
+        ORDER BY a.id DESC
+        LIMIT 1
+      `, [userId, targetTestId, liveTestId])
 
       return result.rows[0] || null
     } finally {

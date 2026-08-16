@@ -40,12 +40,20 @@ export const moderationService = {
     if (allowed && !allowed.includes(decision)) {
       return { error: `Cannot transition from '${current}' to '${decision}'` }
     }
-    return dbHelpers.updateById(table, entityId, {
-      moderationStatus: decision,
-      reviewedBy: reviewerId,
-      reviewedAt: new Date().toISOString(),
-      reviewNotes: notes,
-    })
+    // Optimistic locking: only update if the status hasn't changed since we
+    // read it. Two concurrent reviews will race — the second one's WHERE
+    // clause will match 0 rows because the first already changed the status.
+    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+    const result = await pool.query(
+      `UPDATE ${table} SET moderation_status = $1, reviewed_by = $2, reviewed_at = NOW(), review_notes = $3
+       WHERE id = $4 AND (moderation_status = $5 OR (moderation_status IS NULL AND $5 = 'approved'))
+       RETURNING *`,
+      [decision, reviewerId, notes, entityId, current]
+    )
+    if (result.rows.length === 0) {
+      return { error: `Status was already changed by another reviewer. Please refresh and try again.` }
+    }
+    return result.rows[0]
   },
 
   async getPendingCount(entityType) {

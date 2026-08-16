@@ -1,0 +1,45 @@
+# ==============================================================================
+# docker-compose.prod.yml — PRODUCTION OVERRIDE for docker-compose.yml
+#
+# USAGE:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file overrides the dev-oriented settings in docker-compose.yml:
+#   - App services (backend-1, backend-2, frontend, admin-panel) no longer mount
+#     source code from the host and no longer run `npm run dev`.
+#   - Backends run via `npm start` (production entrypoint, no --watch) with
+#     NODE_ENV=production.
+#   - Frontend / admin-panel use the multi-stage build images (dist baked in,
+#     served by nginx) instead of mounting source and running the Vite dev server.
+#   - Infra services (postgres/redis are assumed external; nginx, prometheus,
+#     grafana) are inherited unchanged from docker-compose.yml — they already run
+#     from published images and do not mount app source.
+#
+# The base docker-compose.yml is left untouched; this file only tightens the
+# settings that are unsafe/inefficient for production (host mounts + dev server).
+# ==============================================================================
+
+services:
+  backend-1:
+    volumes: []
+    command: npm start
+    ports: []
+    environment:
+      - NODE_ENV=production
+
+  backend-2:
+    volumes: []
+    command: npm start
+    ports: []
+    environment:
+      - NODE_ENV=production
+
+  frontend:
+    volumes: []
+    command: nginx -g 'daemon off;'
+    ports: []
+
+  admin-panel:
+    volumes: []
+    command: nginx -g 'daemon off;'
+    ports: []

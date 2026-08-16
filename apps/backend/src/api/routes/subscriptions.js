@@ -2,6 +2,7 @@ import express from 'express'
 import subscriptionService, { FEATURES, SUBSCRIPTION_PLANS } from '../../services/SubscriptionService.js'
 import { protect } from '../../middleware/auth.middleware.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -188,7 +189,7 @@ router.post('/reattempt', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('Error creating reattempt:', error)
-    res.status(500).json({ error: error.message || 'Failed to create reattempt' })
+    res.status(500).json({ error: sanitizeErrorMessage(error) || 'Failed to create reattempt' })
   }
 })
 

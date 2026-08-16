@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { API_URL } from '../lib/apiBase.js'
+import { apiClient } from '../lib/dataService'
 
 export function useTestCategories() {
   const [categories, setCategories] = useState([])
@@ -12,8 +12,8 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories`)
-      const data = await response.json()
+      const response = await apiClient.get('/test-categories')
+      const data = response.data
       if (data.success) {
         setCategories(data.data)
       } else {
@@ -30,8 +30,8 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/tree`)
-      const data = await response.json()
+      const response = await apiClient.get('/test-categories/tree')
+      const data = response.data
       if (data.success) {
         setTree(data.data)
       } else {
@@ -48,8 +48,8 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/roots`)
-      const data = await response.json()
+      const response = await apiClient.get('/test-categories/roots')
+      const data = response.data
       if (data.success) {
         setRoots(data.data)
       } else {
@@ -68,7 +68,7 @@ export function useTestCategories() {
       .filter(item => (item.parentId || null) === parentId)
       .map(item => ({
         ...item,
-        children: buildTree(items, item._id)
+        children: buildTree(items, item.id || item._id)
       }))
   }, [])
 
@@ -77,7 +77,7 @@ export function useTestCategories() {
     return categories.map(cat => ({
       value: cat.name,
       label: cat.name,
-      id: cat._id,
+      id: cat.id || cat._id,
       slug: cat.slug,
       icon: cat.icon,
       level: cat.level || 0,

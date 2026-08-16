@@ -2,20 +2,26 @@ import { Book, ChevronRight } from 'lucide-react'
 import { FormSelect } from '../../../../shared/components/common/FormField'
 
 export default function ContentHierarchySidebar({
-  studyMaterials,
-  selectedMaterialId,
-  setSelectedMaterialId,
-  selectedChapterId,
-  setSelectedChapterId,
-  selectedTopicId,
-  chapters,
-  sidebarTopics,
-  sidebarTopicsLoading,
-  filteredContent
+  studyMaterials = [],
+  selectedMaterialId = '',
+  setSelectedMaterialId = () => {},
+  selectedChapterId = '',
+  setSelectedChapterId = () => {},
+  selectedTopicId = '',
+  setSelectedTopicId = () => {},
+  chapters = [],
+  sidebarTopics = [],
+  sidebarTopicsLoading = false,
+  filteredContent = []
 }) {
-  const selectedMaterial = studyMaterials.find(m => String(m._id || m.id) === selectedMaterialId)
-  const selectedChapter = chapters.find(c => String(c._id || c.id) === selectedChapterId)
-  const selectedTopic = sidebarTopics.find(t => String(t._id || t.id) === selectedTopicId)
+  const safeStudyMaterials = Array.isArray(studyMaterials) ? studyMaterials : []
+  const safeChapters = Array.isArray(chapters) ? chapters : []
+  const safeSidebarTopics = Array.isArray(sidebarTopics) ? sidebarTopics : []
+  const safeFilteredContent = Array.isArray(filteredContent) ? filteredContent : []
+
+  const selectedMaterial = safeStudyMaterials.find(m => String(m?._id || m?.id) === selectedMaterialId)
+  const selectedChapter = safeChapters.find(c => String(c?._id || c?.id) === selectedChapterId)
+  const selectedTopic = safeSidebarTopics.find(t => String(t?._id || t?.id) === selectedTopicId)
 
   return (
     <div className="xl:w-80 flex flex-col gap-6">
@@ -32,7 +38,7 @@ export default function ContentHierarchySidebar({
           <FormSelect
             value={selectedMaterialId}
             onChange={(e) => setSelectedMaterialId(e.target.value)}
-            options={studyMaterials.map(m => ({ value: String(m._id || m.id), label: m.title || m.name }))}
+            options={safeStudyMaterials.map(m => ({ value: String(m?._id || m?.id), label: m?.title || m?.name }))}
             placeholder="— All Subjects —"
           />
         </div>
@@ -45,11 +51,11 @@ export default function ContentHierarchySidebar({
           <FormSelect
             value={selectedChapterId}
             onChange={(e) => setSelectedChapterId(e.target.value)}
-            options={chapters.map(c => ({ value: String(c._id || c.id), label: c.title || c.name }))}
+            options={safeChapters.map(c => ({ value: String(c?._id || c?.id), label: c?.title || c?.name }))}
             placeholder="— All Chapters —"
             disabled={!selectedMaterialId}
           />
-          {selectedMaterialId && chapters.length === 0 && (
+          {selectedMaterialId && safeChapters.length === 0 && (
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No chapters for this subject.</p>
           )}
         </div>
@@ -63,11 +69,11 @@ export default function ContentHierarchySidebar({
           <FormSelect
             value={selectedTopicId}
             onChange={(e) => setSelectedTopicId(e.target.value)}
-            options={sidebarTopics.map(t => ({ value: String(t._id || t.id), label: t.title || t.name }))}
+            options={safeSidebarTopics.map(t => ({ value: String(t?._id || t?.id), label: t?.title || t?.name }))}
             placeholder="— All Topics —"
             disabled={!selectedChapterId || sidebarTopicsLoading}
           />
-          {selectedChapterId && !sidebarTopicsLoading && sidebarTopics.length === 0 && (
+          {selectedChapterId && !sidebarTopicsLoading && safeSidebarTopics.length === 0 && (
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">No topics in this chapter.</p>
           )}
         </div>
@@ -93,9 +99,10 @@ export default function ContentHierarchySidebar({
           </div>
         </div>
         <p className="text-xs text-indigo-400 dark:text-indigo-500 mt-2">
-          {filteredContent.length} item{filteredContent.length !== 1 ? 's' : ''} found
+          {safeFilteredContent.length} item{safeFilteredContent.length !== 1 ? 's' : ''} found
         </p>
       </div>
     </div>
   )
 }
+

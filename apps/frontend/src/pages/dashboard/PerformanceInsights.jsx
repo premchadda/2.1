@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { AnimatedHero, Card, Badge, Button, ScrollReveal } from '../../shared/components'
+import { AnimatedHero, Card, Badge, ScrollReveal } from '../../shared/components';
 import { api } from '../../shared/lib/dataService'
 import { ArrowLeft, TrendingUp, TrendingDown, BarChart3, PieChart, Activity, Target, Clock, Award, Brain, Zap, AlertTriangle, CheckCircle, BookOpen, ChevronRight, Sparkles, Loader2 } from 'lucide-react'
 
@@ -16,7 +16,7 @@ const TIMEFRAME_MAP = {
 }
 
 function PerformanceInsights() {
-  const { user } = useAuth()
+  const { _user } = useAuth()
   const [timeframe, setTimeframe] = useState('This Month')
   const [expandedSection, setExpandedSection] = useState(null)
 
@@ -24,41 +24,55 @@ function PerformanceInsights() {
     setExpandedSection(expandedSection === key ? null : key)
   }
 
-  const { data: perfData, isLoading: loadingPerf } = useQuery({
+  const { data: perfData, isError: errorPerf, isLoading: loadingPerf } = useQuery({
     queryKey: ['intelligence-performance', timeframe],
     queryFn: async () => {
       const period = TIMEFRAME_MAP[timeframe] || 'month'
       const res = await api.get(`/api/intelligence/performance?period=${period}`)
-      return res.data?.data || {}
+      const data = res.data?.data || {}
+      const summary = data.summary || data
+      return {
+        ...data,
+        totalTests: summary.testCount ?? 0,
+        avgAccuracy: summary.overallAccuracy ?? 0,
+        avgScore: summary.averageScore ?? 0,
+        avgTimePerQuestion: summary.speedPerQuestion ?? 0,
+        subjectWise: data.subjectWise || summary.subjectWise || [],
+      }
     },
     staleTime: 1000 * 60 * 5,
+    enabled: !!_user,
   })
 
-  const { data: weakTopics = [], isLoading: loadingWeak } = useQuery({
+  const { data: weakTopics = [], isError: errorWeak = false, isLoading: loadingWeak } = useQuery({
     queryKey: ['intelligence-weak-topics'],
     queryFn: async () => {
       const res = await api.get('/api/intelligence/weak-topics?minAttempts=3&limit=10')
       return res.data?.data || []
     },
     staleTime: 1000 * 60 * 5,
+    enabled: !!_user,
   })
 
-  const { data: recommendations = [], isLoading: loadingRecs } = useQuery({
+  const { data: recommendations = [], isError: errorRecs = false, isLoading: loadingRecs } = useQuery({
     queryKey: ['intelligence-recommendations'],
     queryFn: async () => {
       const res = await api.get('/api/intelligence/recommendations?limit=6')
       return res.data?.data || []
     },
     staleTime: 1000 * 60 * 5,
+    enabled: !!_user,
   })
 
   const { data: streakData } = useQuery({
     queryKey: ['intelligence-streak'],
     queryFn: async () => {
       const res = await api.get('/api/intelligence/streak')
-      return res.data?.data || { current: 0, longest: 0 }
+      const data = res.data?.data || {}
+      return { current: data.currentStreak ?? 0, longest: data.bestStreak ?? 0 }
     },
     staleTime: 1000 * 60 * 5,
+    enabled: !!_user,
   })
 
   const isLoading = loadingPerf || loadingWeak || loadingRecs

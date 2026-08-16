@@ -1,0 +1,16 @@
+{
+  "name": "trstprep-load-tests",
+  "version": "1.0.0",
+  "description": "Load testing suite for Trstprep V2.1 using k6",
+  "private": true,
+  "scripts": {
+    "test:auth": "k6 run auth.js",
+    "test:api": "k6 run api.js",
+    "test:realtime": "k6 run realtime.js",
+    "test:all": "k6 run --tag test=all api.js auth.js realtime.js"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

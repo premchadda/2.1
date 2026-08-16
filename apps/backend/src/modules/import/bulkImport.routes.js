@@ -3,10 +3,25 @@ import multer from 'multer'
 import path from 'path'
 import fs from 'fs/promises'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { restrictAdminOrigin, validateAdminApiKey } from '../../middleware/origin.middleware.js'
+import { loadAdminPermissions, requireAdminPermission } from '../../middleware/admin-permission.middleware.js'
+import { auditMiddleware } from '../../middleware/audit.middleware.js'
+import { validateCsrfToken } from '../../middleware/csrf.middleware.js'
 import bulkImportService from './bulkImport.service.js'
 import { importFullTest, validateJsonSchema } from '../../services/import/fullTestImporter.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
+
+// Apply full admin security pipeline
+router.use(restrictAdminOrigin)
+router.use(validateAdminApiKey)
+router.use(validateCsrfToken)
+router.use(protect)
+router.use(admin)
+router.use(loadAdminPermissions)
+router.use(requireAdminPermission)
+router.use(auditMiddleware({ includeBody: false }))
 
 function extractYear(json) {
   if (json.isPyq && json.pyqYear) return json.pyqYear;
@@ -35,7 +50,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     const stats = await bulkImportService.getStats()
     res.json({ success: true, data: stats })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -44,7 +59,7 @@ router.get('/formats', async (req, res) => {
     const formats = bulkImportService.getSupportedFormats()
     res.json({ success: true, data: formats })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -53,7 +68,7 @@ router.get('/template', async (req, res) => {
     const template = bulkImportService.getTemplate()
     res.json({ success: true, data: template })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -63,7 +78,7 @@ router.get('/history', protect, admin, async (req, res) => {
     const imports = await bulkImportService.getRecentImports(limit)
     res.json({ success: true, data: imports })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -75,7 +90,7 @@ router.get('/history/:id', protect, admin, async (req, res) => {
     }
     res.json({ success: true, data: importLog })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -88,7 +103,7 @@ router.post('/validate', protect, admin, importUpload.single('file'), async (req
     const validation = await bulkImportService.validateFile(req.file.buffer, req.file.originalname)
     res.json({ success: true, data: validation })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -126,7 +141,7 @@ router.post('/import', protect, admin, importUpload.single('file'), async (req, 
       },
     })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -146,12 +161,12 @@ const fullTestUpload = multer({
 const handleFullTestUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ success: false, message: 'File too large. Maximum size is 50 MB.' })
+      return res.status(400).json({ success: false, message: 'File too large. Maximum size is 150 MB.' })
     }
     return res.status(400).json({ success: false, message: `Upload error: ${err.message}` })
   }
   if (err) {
-    return res.status(400).json({ success: false, message: err.message })
+    return res.status(400).json({ success: false, message: sanitizeErrorMessage(err) })
   }
   next()
 }
@@ -201,7 +216,7 @@ router.post('/full-test/preview', protect, admin, fullTestUpload.single('file'),
       },
     })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -245,8 +260,9 @@ router.post('/full-test/import', protect, admin, fullTestUpload.single('file'), 
     )
     try {
       await fs.default.mkdir(uploadsDir, { recursive: true })
+      // M38: use path.basename() to strip directory traversal (e.g. '../../etc/passwd')
       await fs.default.writeFile(
-        path.default.join(uploadsDir, req.file.originalname),
+        path.default.join(uploadsDir, path.default.basename(req.file.originalname)),
         req.file.buffer
       )
     } catch (fileErr) {
@@ -268,7 +284,7 @@ router.post('/full-test/import', protect, admin, fullTestUpload.single('file'), 
       },
     })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -331,7 +347,7 @@ router.post('/full-test/upload', protect, admin, fullTestUpload.single('file'), 
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -366,7 +382,7 @@ router.get('/full-test/preview-test/:index', protect, admin, async (req, res) =>
       data: test
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -375,7 +391,7 @@ router.get('/full-test/preview-test/:index', protect, admin, async (req, res) =>
  * @desc    Imports only the selected tests from the cached temp file in sequence.
  */
 router.post('/full-test/import-selected', protect, admin, async (req, res) => {
-  console.log('[Bulk Import] Received import-selected request. Body:', JSON.stringify(req.body, null, 2))
+  console.log('[Bulk Import] Received import-selected request. Selected count:', req.body?.indices?.length, 'StorageMode:', req.body?.storageMode)
   try {
     const { indices, strict } = req.body
     if (!Array.isArray(indices) || indices.length === 0) {
@@ -462,7 +478,7 @@ router.post('/full-test/import-selected', protect, admin, async (req, res) => {
     })
   } catch (error) {
     console.error('[Bulk Import] Critical error in import-selected handler:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

@@ -1,4 +1,14 @@
+import crypto from 'crypto'
 import { pool } from '../infrastructure/database/postgres-helpers.js'
+
+function fisherYatesShuffle(arr) {
+  const shuffled = [...arr]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(0, i + 1)
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
 
 // Get the shared pool directly
 const getPool = () => pool
@@ -53,7 +63,15 @@ export const FREE_LIMITS = {
 class SubscriptionService {
   async getUserSubscription(userId) {
     const result = await getPool().query(
-      `SELECT * FROM subscriptions 
+      `SELECT *,
+              CASE plan_type
+                WHEN 'pro_monthly' THEN 'Pro Monthly'
+                WHEN 'pro_yearly' THEN 'Pro Yearly'
+                WHEN 'pro_lifetime' THEN 'Pro Lifetime'
+                WHEN 'trial' THEN 'Trial'
+                ELSE 'Free'
+              END AS plan_name
+       FROM subscriptions 
        WHERE user_id = $1 AND status = 'active' AND expiry_date > NOW()
        ORDER BY created_at DESC LIMIT 1`,
       [userId]
@@ -144,40 +162,59 @@ class SubscriptionService {
   }
 
   async createSubscription(userId, planType, expiryDate, paymentDetails = {}) {
-    const result = await getPool().query(
-      `INSERT INTO subscriptions (user_id, plan_type, start_date, expiry_date, status, auto_renew, payment_method, transaction_id, amount_paid)
-       VALUES ($1, $2, NOW(), $3, 'active', $4, $5, $6, $7)
-       RETURNING *`,
-      [
-        userId,
-        planType,
-        expiryDate,
-        paymentDetails.auto_renew || false,
-        paymentDetails.payment_method,
-        paymentDetails.transaction_id,
-        paymentDetails.amount_paid
-      ]
-    )
-    
-    // Update user pro status
-    await getPool().query(
-      `UPDATE users SET is_pro_user = true, pro_expiry = $1, pass_type = $2 WHERE id = $3`,
-      [expiryDate, planType, userId]
-    )
-    
-    return result.rows[0]
+    const client = await getPool().connect()
+    try {
+      await client.query('BEGIN')
+
+      const result = await client.query(
+        `INSERT INTO subscriptions (user_id, plan_type, start_date, expiry_date, status, auto_renew, payment_method, transaction_id, amount_paid)
+         VALUES ($1, $2, NOW(), $3, 'active', $4, $5, $6, $7)
+         RETURNING *`,
+        [
+          userId,
+          planType,
+          expiryDate,
+          paymentDetails.auto_renew || false,
+          paymentDetails.payment_method,
+          paymentDetails.transaction_id,
+          paymentDetails.amount_paid
+        ]
+      )
+
+      // Update user pro status — in the SAME transaction so a failure here
+      // rolls back the subscription insert (user pays but gets no access).
+      await client.query(
+        `UPDATE users SET is_pro_user = true, pro_expiry = $1, pass_type = $2 WHERE id = $3`,
+        [expiryDate, planType, userId]
+      )
+
+      await client.query('COMMIT')
+      return result.rows[0]
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
   }
 
-  async cancelSubscription(subscriptionId) {
+  async cancelSubscription(subscriptionId, userId = null) {
+    // If userId is provided, verify ownership before cancelling.
+    // Prevents any caller who knows a subscription ID from cancelling
+    // someone else's subscription.
+    const whereClause = userId
+      ? 'WHERE id = $1 AND user_id = $2'
+      : 'WHERE id = $1'
+    const params = userId ? [subscriptionId, userId] : [subscriptionId]
     await getPool().query(
-      `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+      `UPDATE subscriptions SET status = 'cancelled', updated_at = NOW() ${whereClause}`,
       [subscriptionId]
     )
   }
 
   async getSubscriptionPlans() {
     const result = await getPool().query(
-      `SELECT * FROM subscription_plans WHERE is_active = true ORDER BY sort_order`
+      `SELECT plan_id, name, price, original_price, period, features, button_text, button_class, popular, savings, is_active, sort_order, created_at, updated_at FROM subscription_plans WHERE is_active = true ORDER BY sort_order`
     )
     return result.rows
   }
@@ -248,15 +285,15 @@ class SubscriptionService {
       throw new Error('Parent attempt ID is required')
     }
 
-    // Validate reattempt type
-    const validTypes = ['full', 'wrong', 'smart']
+    // Validate reattempt type — include all types handled by the switch below.
+    const validTypes = ['full', 'wrong', 'smart', 'unattempted', 'slow', 'smart_improvement']
     if (!validTypes.includes(reattemptType)) {
       throw new Error(`Invalid reattempt type: ${reattemptType}. Valid types: ${validTypes.join(', ')}`)
     }
 
     // Get parent attempt details
     const parentAttempt = await getPool().query(
-      `SELECT * FROM attempts WHERE id = $1`,
+      `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE id = $1`,
       [parentAttemptId]
     )
     
@@ -321,33 +358,34 @@ break;
     }
     
     // Shuffle questions
-    questions = questions.sort(() => Math.random() - 0.5)
+    questions = fisherYatesShuffle(questions)
     
-    // Create new attempt in attempts
+    // Create new attempt (single INSERT — was previously duplicated, inflating
+    // attempt counts and leaderboard aggregations).
     const newAttempt = await getPool().query(
-      `INSERT INTO attempts (user_id, test_id, test_title, attempt_number, is_reattempt, reattempt_type, parent_attempt_id, started_at)
-       VALUES ($1, $2, $3, $4, true, $5, $6, NOW())
+      `INSERT INTO attempts (user_id, test_id, test_title, attempt_number, is_reattempt, reattempt_type, parent_attempt_id, series_id, status, started_at, created_at)
+       VALUES ($1, $2, $3, $4, true, $5, $6, $7, 'in_progress', NOW(), NOW())
        RETURNING *`,
-      [parent.user_id, parent.test_id, testTitle, parent.attempt_number + 1, reattemptType, parentAttemptId]
+      [parent.user_id, parent.test_id, testTitle, parent.attempt_number + 1, reattemptType, parentAttemptId, parent.series_id || null]
     )
-    
-    // Also create entry in attempts table for tracking (for user progress)
-    const seriesId = parent.series_id || parent.test?.series_id
-    const newMainAttempt = await getPool().query(
-      `INSERT INTO attempts (user_id, test_id, series_id, test_title, status, is_reattempt, reattempt_type, parent_attempt_id, created_at)
-       VALUES ($1, $2, $3, $4, 'in_progress', true, $5, $6, NOW())
-       RETURNING *`,
-      [parent.user_id, parent.test_id, seriesId, testTitle, reattemptType, parentAttemptId]
-    )
-    
+
     return {
       attempt: newAttempt.rows[0],
-      mainAttempt: newMainAttempt.rows[0],
+      mainAttempt: newAttempt.rows[0],
       questions: questions
     }
   }
 
   async getAttemptHistory(userId, testId) {
+    let numericTestId = parseInt(testId, 10)
+    if (isNaN(numericTestId) || String(numericTestId) !== String(testId).trim()) {
+      const testRes = await getPool().query(
+        `SELECT id FROM tests WHERE public_id = $1 OR public_id_uuid::text = $1 OR slug = $1 LIMIT 1`,
+        [testId]
+      )
+      if (testRes.rows.length === 0) return []
+      numericTestId = testRes.rows[0].id
+    }
     const result = await getPool().query(
       `SELECT id,
               ROW_NUMBER() OVER (ORDER BY created_at DESC) AS attempt_number,
@@ -358,9 +396,35 @@ break;
        FROM attempts
        WHERE user_id = $1 AND test_id = $2
        ORDER BY created_at DESC`,
-      [userId, testId]
+      [userId, numericTestId]
     )
     return result.rows
+  }
+
+  async processExpiredSubscriptions() {
+    try {
+      const subResult = await getPool().query(
+        `UPDATE subscriptions 
+         SET status = 'expired', updated_at = NOW() 
+         WHERE status = 'active' AND expiry_date IS NOT NULL AND expiry_date < NOW()
+         RETURNING id, user_id`
+      )
+
+      const userResult = await getPool().query(
+        `UPDATE users 
+         SET is_pro_user = false 
+         WHERE is_pro_user = true AND pro_expiry IS NOT NULL AND pro_expiry < NOW()
+         RETURNING id`
+      )
+
+      if (subResult.rowCount > 0 || userResult.rowCount > 0) {
+        console.log(`[SubscriptionExpiry] Expired ${subResult.rowCount} subscriptions and reset ${userResult.rowCount} user pro statuses.`)
+      }
+      return { expiredSubscriptions: subResult.rowCount, expiredUsers: userResult.rowCount }
+    } catch (err) {
+      console.error('[SubscriptionExpiry] Worker error:', err.message)
+      return { expiredSubscriptions: 0, expiredUsers: 0 }
+    }
   }
 }
 

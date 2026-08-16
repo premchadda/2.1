@@ -4,11 +4,21 @@ import { useAuth } from '../../shared/providers/AuthContext'
 import { getTestSeries, getLeaderboard } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { 
-  Trophy, Medal, Crown, ChevronLeft, User, Clock,
-  TrendingUp, Star, Target, Calendar, Users, ArrowRight,
-  Share2, Download, Loader2, RefreshCw
-} from 'lucide-react'
+import {
+  Trophy,
+  Medal,
+  Crown,
+  ChevronLeft,
+  User,
+  TrendingUp,
+  Target,
+  Users,
+  ArrowRight,
+  Download,
+  Loader2,
+  RefreshCw,
+} from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function SeriesLeaderboard() {
   const { id } = useParams()
@@ -72,6 +82,27 @@ export default function SeriesLeaderboard() {
   const topThree = leaderboard.slice(0, 3)
   const restOfLeaderboard = leaderboard.slice(3)
 
+  const handleExport = () => {
+    if (leaderboard.length === 0) {
+      toast.error('Nothing to export yet')
+      return
+    }
+    const quoteCell = (c) => `"${String(c ?? '').replace(/"/g, '""')}"`
+    const header = ["Rank", "Name", "Tests", "Accuracy", "Score"].map(quoteCell).join(",")
+    const lines = leaderboard.map((e, i) => [e.rank || i + 1, e.name, e.testsCompleted, `${e.accuracy}%`, `${e.score}%`].map(quoteCell).join(","))
+    const csv = [header, ...lines].join("\n")
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${(currentSeries?.title || 'series').replace(/[^\w]+/g, '-').toLowerCase()}-leaderboard.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success(`${leaderboard.length} rows exported to CSV`)
+  }
+
   if ((loadingSeries || loadingLeaderboard) && leaderboard.length === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
@@ -113,7 +144,7 @@ export default function SeriesLeaderboard() {
                 <h1 className="text-3xl md:text-4xl font-black font-outfit tracking-tight">Hall of Fame</h1>
               </div>
               <p className="text-indigo-100 font-medium ml-12">
-                {seriesName} • {leaderboard.length + 120}+ competitive participants
+                {seriesName} • {leaderboard.length} competitive participant{leaderboard.length === 1 ? '' : 's'}
               </p>
             </div>
             
@@ -247,7 +278,7 @@ export default function SeriesLeaderboard() {
           <div className="p-6 md:p-8 border-b border-gray-50 dark:border-gray-700 flex items-center justify-between bg-gray-50/50">
             <h2 className="text-xl font-black text-gray-900 dark:text-white font-outfit">Full Rankings</h2>
             <div className="flex items-center gap-2">
-               <button className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200">
+               <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-gray-600 hover:bg-white rounded-xl transition-all border border-transparent hover:border-gray-200">
                 <Download className="w-4 h-4" /> Export
               </button>
             </div>

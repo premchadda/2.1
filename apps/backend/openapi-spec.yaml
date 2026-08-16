@@ -1,0 +1,121 @@
+openapi: 3.0.3
+info:
+  title: Trstprep Backend API Spec
+  description: Subset of key API routes for automated validation.
+  version: 2.1.0
+paths:
+  /api/auth/login:
+    post:
+      summary: Standard credentials login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Successful login or 2FA challenge
+
+  /api/auth/login/2fa:
+    post:
+      summary: Verify 2FA token to complete login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - tempToken
+              properties:
+                tempToken:
+                  type: string
+                token:
+                  type: string
+                backupCode:
+                  type: string
+      responses:
+        '200':
+          description: Successful authentication with tokens and cookies
+
+  /api/tests/{id}:
+    get:
+      summary: Get test metadata by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Return test details
+
+  /api/tests/{id}/questions:
+    get:
+      summary: Get test questions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Return list of questions
+
+  /api/tests/{id}/start:
+    post:
+      summary: Start a new test attempt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Attempt created/started
+
+  /api/tests/{id}/submit:
+    put:
+      summary: Submit a test attempt
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test submitted and graded
+
+  /api/admin/realtime/active-users:
+    get:
+      summary: Active users stats (Admin)
+      responses:
+        '200':
+          description: Return metrics
+
+  /api/admin/realtime/system-health:
+    get:
+      summary: System health metrics (Admin)
+      responses:
+        '200':
+          description: Return system details
+
+  /api/admin/realtime/live-feed:
+    get:
+      summary: Live feed activity feed (Admin)
+      responses:
+        '200':
+          description: Return activity feed

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { AlertTriangle, X, Loader2 } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect, useId } from 'react'
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 /**
  * Reusable confirm dialog. Replaces `window.confirm` / `window.prompt`
@@ -61,18 +61,69 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }) {
+  const dialogRef = useRef(null)
+  const messageId = useId()
+
   useEffect(() => {
     const handler = (e) => { if (e.key === 'Escape' && !busy) onCancel() }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [busy, onCancel])
 
+  useEffect(() => {
+    const prevFocused = document.activeElement
+    const node = dialogRef.current
+    if (node) {
+      const focusable = node.querySelector(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      ;(focusable || node).focus()
+    }
+    return () => {
+      if (prevFocused && typeof prevFocused.focus === 'function' && document.contains(prevFocused)) {
+        prevFocused.focus()
+      }
+    }
+  }, [])
+
+  const handleKeyDown = (e) => {
+    if (e.key !== 'Tab') return
+    const node = dialogRef.current
+    if (!node) return
+    const focusable = Array.from(
+      node.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+    ).filter((el) => !el.hasAttribute('disabled'))
+    if (focusable.length === 0) {
+      e.preventDefault()
+      node.focus()
+      return
+    }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+    if (e.shiftKey) {
+      if (active === first || !node.contains(active)) {
+        e.preventDefault()
+        last.focus()
+      }
+    } else {
+      if (active === last || !node.contains(active)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+  }
+
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
+      aria-describedby={message ? messageId : undefined}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
       onClick={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
     >
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
@@ -83,7 +134,7 @@ export function ConfirmModal({
             <AlertTriangle className={`w-6 h-6 ${danger ? 'text-red-600 dark:text-red-400' : 'text-indigo-600 dark:text-indigo-400'}`} />
           </div>
           <h3 id="confirm-title" className="text-lg font-bold text-gray-900 dark:text-white mb-2">{title}</h3>
-          {message && <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">{message}</p>}
+          {message && <p id={messageId} className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">{message}</p>}
         </div>
         <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center gap-3">
           <button

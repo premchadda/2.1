@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../../shared/providers/AuthContext'
 import { getTests, getTestSeries } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { TestCard } from '../../shared/components'
 import { 
-  Search, Filter, ChevronRight
+  Search, ChevronRight
 } from 'lucide-react'
 
 import { AnimatedHero } from '../../shared/components'
+import { checkIsLive, checkIsQuiz } from '../../shared/utils/testClassification'
 
 function TagPage({ tagProp }) {
   const params = useParams()
@@ -17,7 +18,7 @@ function TagPage({ tagProp }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSeries, setSelectedSeries] = useState('all')
   const [selectedType, setSelectedType] = useState('all')
-  const [showFilters, setShowFilters] = useState(false)
+  const [_showFilters, _setShowFilters] = useState(false)
   
   const [testsData, setTestsData] = useState([])
   const [seriesData, setSeriesData] = useState([])
@@ -26,6 +27,7 @@ function TagPage({ tagProp }) {
 
   // Fetch data
   useEffect(() => {
+    const controller = new AbortController()
     const fetchData = async () => {
       try {
         setLoading(true)
@@ -33,9 +35,10 @@ function TagPage({ tagProp }) {
         const [tests, series, configRes] = await Promise.all([
           getTests(),
           getTestSeries(),
-          fetch(`${import.meta.env.VITE_API_URL || ''}/api/tag-configs/${tag}`).then(res => res.json()).catch(() => null)
+          fetch(`${import.meta.env.VITE_API_URL || ''}/api/tag-configs/${tag}`, { signal: controller.signal }).then(res => res.json()).catch(() => null)
         ])
-        
+        if (controller.signal.aborted) return
+
         setTestsData(tests)
         setSeriesData(series)
         
@@ -53,13 +56,15 @@ function TagPage({ tagProp }) {
           })
         }
       } catch (error) {
+        if (error.name === 'AbortError' || controller.signal.aborted) return
         console.error('Failed to fetch data:', error)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
     
     fetchData()
+    return () => controller.abort()
   }, [tag])
 
   // Map backend configuration fields to UI
@@ -74,6 +79,11 @@ function TagPage({ tagProp }) {
     if (loading || !tagConfig) return []
     
     return testsData.filter(test => {
+      // Special multi-property matching for live-tests tag
+      if (tag === 'live-tests') {
+        return checkIsLive(test)
+      }
+
       // Dynamic filtering based on config filterKey and filterValue
       if (tagConfig.filterKey && tagConfig.filterValue) {
          const testVal = test[tagConfig.filterKey]
@@ -94,11 +104,11 @@ function TagPage({ tagProp }) {
       
       // Fallback to legacy static filtering if the configuration was not dynamic enough
       if (tag === 'live-tests' && !tagConfig.filterKey) {
-        return test.isLive || test.tags?.includes('Live')
+        return checkIsLive(test)
       } else if (tag === 'pyps' && !tagConfig.filterKey) {
         return test.category === 'PYPs' || test.tags?.includes('PYP')
       } else if (tag === 'quizzes' && !tagConfig.filterKey) {
-        return test.category?.includes('Quiz') || test.subCategory?.includes('Quiz')
+        return checkIsQuiz(test)
       } else if (tag === 'practice' && !tagConfig.filterKey) {
         return test.subCategory?.includes('Chapter') || test.subCategory?.includes('Sectional')
       } else if (tag === 'mock-tests' && !tagConfig.filterKey) {

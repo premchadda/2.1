@@ -1,17 +1,32 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useParams, useNavigate } from 'react-router-dom'
-import { 
-  Bell, Layout, BookOpen, Zap, ChevronRight, Calendar, Users, 
-  FileText, Award, Clock, AlertCircle, CheckCircle, ArrowRight,
-  Target, TrendingUp, FileX, History, Loader2,
-  ArrowUpDown, Download, Building2,
-  ListChecks, GraduationCap as GraduationIcon, Plus, Minus
-} from 'lucide-react'
+import {
+  Bell,
+  Layout,
+  Zap,
+  Calendar,
+  Users,
+  FileText,
+  Award,
+  AlertCircle,
+  ArrowRight,
+  Target,
+  History,
+  Loader2,
+  Download,
+  Building2,
+  ListChecks,
+  GraduationCap as GraduationIcon,
+  Plus,
+  Minus,
+} from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import api from '../../shared/lib/api'
 import { useAuth } from '../../shared/providers/AuthContext'
 import ComingSoon from '../../shared/components/common/ComingSoon'
+import { toast } from 'react-hot-toast'
 
 export default function ExamDetails() {
   const { examId } = useParams();
@@ -35,10 +50,9 @@ export default function ExamDetails() {
       const yearMatch = examId.match(/-(\d{4})$/);
       if (yearMatch) {
         baseExamId = examId.replace(/-\d{4}$/, '');
-        setSelectedYear(yearMatch[1]);
       }
 
-      let examInfo = allInfo.find(e => e.examId === examId || e.examId === baseExamId);
+      const examInfo = allInfo.find(e => e.examId === examId || e.examId === baseExamId);
       if (!examInfo) throw new Error('Exam not found');
 
       // Fetch extended static/pattern/syllabus content (Real replacement for STATIC_CONTENT)
@@ -77,41 +91,28 @@ export default function ExamDetails() {
     return staticContent;
   }, [staticContent]);
 
-  if (examLoading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-        <p className="text-gray-500 font-bold animate-pulse uppercase tracking-widest text-xs">Synchronizing Exam Intelligence...</p>
-      </div>
-    );
-  }
+  // D1 FIX: All hooks are hoisted above the conditional early returns to keep
+  // the hook order stable across the loading→loaded transition.
 
-  if (examError || !examData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 text-center">
-        <div className="max-w-md">
-          <div className="w-20 h-20 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertCircle className="w-10 h-10" />
-          </div>
-          <h2 className="text-2xl font-black text-gray-900 mb-4">Exam Archive Not Found</h2>
-          <p className="text-gray-600 mb-8 font-medium">The exam ID "{examId}" does not exist in our database or has been moved to a new archive.</p>
-          <button onClick={() => navigate('/exams')} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
-            Browse All Exams
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Sync the selected year from the URL slug (parsed in queryFn) without
+  // calling setState during render / inside a query function.
+  useEffect(() => {
+    const yearMatch = examId.match(/-(\d{4})$/);
+    if (yearMatch) {
+      setSelectedYear(yearMatch[1]);
+    }
+  }, [examId]);
 
   // Check if user is enrolled in this exam
   useEffect(() => {
+    const controller = new AbortController()
     const checkEnrollment = async () => {
       if (!user) {
         setIsEnrolled(false);
         return;
       }
       try {
-        const response = await api.get('/api/users/enrolled-exams');
+        const response = await api.get('/api/users/enrolled-exams', { signal: controller.signal });
         const enrolledExams = response.data?.data || [];
         const enrolled = enrolledExams.some(exam => 
           exam.examId === examId || 
@@ -122,6 +123,7 @@ export default function ExamDetails() {
         );
         setIsEnrolled(enrolled);
       } catch (error) {
+        if (api.isCancel(error)) return
         console.error('Error checking enrollment:', error);
         setIsEnrolled(false);
       }
@@ -129,6 +131,7 @@ export default function ExamDetails() {
     if (examData) {
       checkEnrollment();
     }
+    return () => controller.abort()
   }, [user, examId, examData]);
 
   // Enroll in exam mutation
@@ -145,7 +148,7 @@ export default function ExamDetails() {
     },
     onError: (error) => {
       console.error('Enrollment error:', error);
-      alert(error.response?.data?.message || 'Failed to enroll in exam');
+      toast.error(error.response?.data?.message || 'Failed to enroll in exam');
     },
     onSettled: () => {
       setEnrollmentLoading(false);
@@ -166,7 +169,7 @@ export default function ExamDetails() {
     },
     onError: (error) => {
       console.error('Unenrollment error:', error);
-      alert(error.response?.data?.message || 'Failed to unenroll from exam');
+      toast.error(error.response?.data?.message || 'Failed to unenroll from exam');
     },
     onSettled: () => {
       setEnrollmentLoading(false);
@@ -184,6 +187,32 @@ export default function ExamDetails() {
       enrollMutation.mutate();
     }
   };
+
+  if (examLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin mb-4" />
+        <p className="text-gray-500 dark:text-gray-400 font-bold animate-pulse uppercase tracking-widest text-xs">Synchronizing Exam Intelligence...</p>
+      </div>
+    );
+  }
+
+  if (examError || !examData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-6 text-center">
+        <div className="max-w-md">
+          <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">Exam Archive Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-8 font-medium">The exam ID "{examId}" does not exist in our database or has been moved to a new archive.</p>
+          <button onClick={() => navigate('/exams')} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
+            Browse All Exams
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Handle empty content state (no data published yet for this exam)
   if (!effectiveContent && !examData.description) {
@@ -204,9 +233,17 @@ export default function ExamDetails() {
   const currentYearData = yearlyData?.[selectedYear];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-gray-900">
+      <Helmet>
+        <title>{examData?.name || 'Exam Details'} | Trstprep</title>
+        <meta name="description" content={examData?.description || 'View exam details, syllabus, and preparation resources on Trstprep.'} />
+        <meta property="og:title" content={`${examData?.name || 'Exam Details'} | Trstprep`} />
+        <meta property="og:description" content={examData?.description || 'View exam details, syllabus, and preparation resources.'} />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
        {/* Breadcrumb */}
-       <div className="bg-white border-b border-gray-100">
+       <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Breadcrumb
             items={[
@@ -283,7 +320,7 @@ export default function ExamDetails() {
                     className={`w-full py-4 rounded-2xl font-black text-xs transition-all shadow-xl flex items-center justify-center gap-2 group ${
                       isEnrolled 
                         ? 'bg-red-500/20 text-white border border-red-500/30 hover:bg-red-500/30' 
-                        : 'bg-white text-slate-950 hover:bg-indigo-50 shadow-white/5'
+                        : 'bg-white dark:bg-gray-800 text-slate-950 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 shadow-white/5'
                     }`}
                   >
                     {enrollmentLoading ? (
@@ -312,7 +349,7 @@ export default function ExamDetails() {
 
       {/* Navigation Tabs */}
       <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
-        <div className="bg-white rounded-[2rem] shadow-xl shadow-slate-200/50 p-3 border border-gray-100 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+        <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-xl shadow-slate-200/50 p-3 border border-gray-100 dark:border-gray-700 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {[
             { id: 'overview', label: 'Overview', icon: Target },
             { id: 'updates', label: 'Updates', icon: Bell },
@@ -324,7 +361,7 @@ export default function ExamDetails() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs transition-all whitespace-nowrap ${
-                activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-400 hover:bg-gray-50'
+                activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
               <tab.icon className="w-4 h-4" /> {tab.label.toUpperCase()}
@@ -339,29 +376,29 @@ export default function ExamDetails() {
           <div className="lg:col-span-2 space-y-10">
             {activeTab === 'overview' && (
               <div className="animate-fade-in space-y-10">
-                <section className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm">
-                  <h2 className="text-2xl font-black text-gray-900 mb-6 flex items-center gap-3">
-                    <span className="p-2 bg-indigo-50 rounded-xl text-indigo-600"><FileText className="w-5 h-5"/></span>
+                <section className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-3">
+                    <span className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400"><FileText className="w-5 h-5"/></span>
                     Exam Highlights
                   </h2>
-                  <div className="prose prose-slate max-w-none text-gray-600 font-medium leading-relaxed">
+                  <div className="prose prose-slate max-w-none text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
                     {examData.description || effectiveContent?.overview || 'Detailed overview being compiled by our subject experts.'}
                   </div>
                 </section>
 
-                <section className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm">
-                  <h2 className="text-2xl font-black text-gray-900 mb-8 flex items-center gap-3">
-                    <span className="p-2 bg-purple-50 rounded-xl text-purple-600"><GraduationIcon className="w-5 h-5"/></span>
+                <section className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8 flex items-center gap-3">
+                    <span className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-purple-600 dark:text-purple-400"><GraduationIcon className="w-5 h-5"/></span>
                     Eligibility Logic
                   </h2>
                   <div className="grid md:grid-cols-2 gap-8">
-                    <div className="p-8 bg-slate-50 rounded-3xl border border-gray-100">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3">Qualification</p>
-                      <p className="text-gray-900 font-black leading-snug">{effectiveContent?.basicEligibility || 'Graduate in any discipline'}</p>
+                    <div className="p-8 bg-slate-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-700">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">Qualification</p>
+                      <p className="text-gray-900 dark:text-white font-black leading-snug">{effectiveContent?.basicEligibility || 'Graduate in any discipline'}</p>
                     </div>
-                    <div className="p-8 bg-slate-50 rounded-3xl border border-gray-100">
-                      <p className="text-[10px] font-black text-indigo-600 uppercase tracking-widest mb-3">Age Window</p>
-                      <p className="text-gray-900 font-black leading-snug">{effectiveContent?.basicAgeLimit || '18 to 32 Years'}</p>
+                    <div className="p-8 bg-slate-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-700">
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">Age Window</p>
+                      <p className="text-gray-900 dark:text-white font-black leading-snug">{effectiveContent?.basicAgeLimit || '18 to 32 Years'}</p>
                     </div>
                   </div>
                 </section>
@@ -371,23 +408,23 @@ export default function ExamDetails() {
             {activeTab === 'updates' && (
               <div className="animate-fade-in space-y-6">
                 {updates && updates.length > 0 ? updates.map((update, idx) => (
-                   <div key={idx} className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex items-start gap-4">
-                      <div className={`p-3 rounded-2xl ${update.priority === 'high' ? 'bg-red-50 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
+                   <div key={idx} className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex items-start gap-4">
+                      <div className={`p-3 rounded-2xl ${update.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'}`}>
                         <Bell className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-gray-400 uppercase">{new Date(update.date).toLocaleDateString()}</span>
-                          {update.priority === 'high' && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[8px] font-black rounded uppercase">Urgent</span>}
+                          <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">{new Date(update.date).toLocaleDateString()}</span>
+                          {update.priority === 'high' && <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[8px] font-black rounded uppercase">Urgent</span>}
                         </div>
-                        <h4 className="font-black text-gray-900 mb-2">{update.title}</h4>
-                        <p className="text-sm text-gray-600 font-medium">{update.description}</p>
+                        <h4 className="font-black text-gray-900 dark:text-white mb-2">{update.title}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{update.description}</p>
                       </div>
                    </div>
                 )) : (
-                  <div className="py-20 text-center bg-white rounded-[3rem] border border-dashed border-gray-200">
+                  <div className="py-20 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700">
                     <p className="text-4xl mb-4">📢</p>
-                    <p className="font-black text-gray-500">No recent official updates recorded.</p>
+                    <p className="font-black text-gray-500 dark:text-gray-400">No recent official updates recorded.</p>
                   </div>
                 )}
               </div>
@@ -395,25 +432,25 @@ export default function ExamDetails() {
 
             {activeTab === 'syllabus' && (
               <div className="animate-fade-in space-y-8">
-                 <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm relative overflow-hidden">
+                 <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8">
-                      <button className="flex items-center gap-2 text-xs font-black text-indigo-600 hover:text-indigo-800 transition-colors">
+                      <button className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
                         <Download className="w-4 h-4" /> DOWNLOAD PDF SYLLABUS
                       </button>
                     </div>
-                    <h2 className="text-2xl font-black text-gray-900 mb-8">Detailed Subject Mapping</h2>
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">Detailed Subject Mapping</h2>
                     <div className="space-y-12">
                        {(effectiveContent?.syllabus || []).map((subject, sIdx) => (
                          <div key={sIdx}>
-                            <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.2em] mb-4 flex items-center gap-4">
+                            <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-4">
                               {subject.subject}
-                              <span className="flex-1 h-px bg-indigo-50" />
+                              <span className="flex-1 h-px bg-indigo-50 dark:bg-indigo-900/30" />
                             </h3>
                             <div className="grid md:grid-cols-2 gap-4">
                                {subject.chapters.map((chapter, cIdx) => (
-                                 <div key={cIdx} className="p-6 bg-slate-50 rounded-2xl border border-gray-100 hover:border-indigo-100 transition-all group">
-                                    <h4 className="font-black text-gray-900 mb-1 group-hover:text-indigo-600">{chapter.name}</h4>
-                                    <p className="text-xs text-gray-500 font-medium">{chapter.topics?.join(', ')}</p>
+                                 <div key={cIdx} className="p-6 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group">
+                                    <h4 className="font-black text-gray-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{chapter.name}</h4>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{chapter.topics?.join(', ')}</p>
                                  </div>
                                ))}
                             </div>
@@ -426,23 +463,23 @@ export default function ExamDetails() {
 
             {activeTab === 'pattern' && (
               <div className="animate-fade-in space-y-10">
-                 <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-sm">
-                    <h2 className="text-2xl font-black text-gray-900 mb-8">Tier-I Examination Structure</h2>
-                    <div className="overflow-hidden rounded-3xl border border-gray-100">
+                 <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">Tier-I Examination Structure</h2>
+                    <div className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-700">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-slate-50">
-                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Section / Subject</th>
-                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Questions</th>
-                            <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Max Marks</th>
+                          <tr className="bg-slate-50 dark:bg-gray-900">
+                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Section / Subject</th>
+                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">Questions</th>
+                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">Max Marks</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-50">
+                        <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
                            {(effectiveContent?.pattern?.tier1 || []).map((sec, i) => (
-                             <tr key={i} className="hover:bg-slate-50/50 transition-colors">
-                               <td className="p-6 font-black text-gray-900 text-sm">{sec.section}</td>
-                               <td className="p-6 text-center font-bold text-gray-500">{sec.questions}</td>
-                               <td className="p-6 text-center font-black text-indigo-600">{sec.marks}</td>
+                             <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                               <td className="p-6 font-black text-gray-900 dark:text-white text-sm">{sec.section}</td>
+                               <td className="p-6 text-center font-bold text-gray-500 dark:text-gray-400">{sec.questions}</td>
+                               <td className="p-6 text-center font-black text-indigo-600 dark:text-indigo-400">{sec.marks}</td>
                              </tr>
                            ))}
                         </tbody>
@@ -460,12 +497,12 @@ export default function ExamDetails() {
             )}
             
             {activeTab === 'pyq' && (
-              <div className="animate-fade-in p-10 bg-white rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col items-center justify-center text-center">
-                 <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mb-6">
-                    <History className="w-10 h-10 text-indigo-600" />
+              <div className="animate-fade-in p-10 bg-white dark:bg-gray-800 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
+                 <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
+                    <History className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
                  </div>
-                 <h3 className="text-xl font-black text-gray-900 mb-2">Previous Year Archive</h3>
-                 <p className="text-gray-500 font-medium max-w-sm mb-8">Access sorted question papers from 2018 to 2025 with detailed solutions.</p>
+                 <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Previous Year Archive</h3>
+                 <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mb-8">Access sorted question papers from 2018 to 2025 with detailed solutions.</p>
                  <button onClick={() => navigate('/pyps')} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
                     OPEN ARCHIVE
                  </button>
@@ -498,12 +535,12 @@ export default function ExamDetails() {
                 </div>
              </div>
 
-             <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6">Related Exams</h3>
+             <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm">
+                <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-6">Related Exams</h3>
                 <div className="space-y-4">
                    {/* Here we would normally map relatedExams from the query */}
-                   <p className="text-xs text-gray-400 font-medium italic">Scanning for related exams in the same category...</p>
-                   <button onClick={() => navigate('/exams')} className="w-full py-3 bg-gray-50 text-gray-800 rounded-xl font-bold text-[10px] hover:bg-gray-100 transition-all outline-none uppercase tracking-widest">
+                   <p className="text-xs text-gray-400 dark:text-gray-500 font-medium italic">Scanning for related exams in the same category...</p>
+                   <button onClick={() => navigate('/exams')} className="w-full py-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-xl font-bold text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all outline-none uppercase tracking-widest">
                       BROWSE ALL {categoryData?.label} EXAMS
                    </button>
                 </div>

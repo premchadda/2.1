@@ -117,20 +117,37 @@ export function ConfirmModal({
  * dialog rendered at the app root.
  */
 const listeners = new Set()
-let lastOptions = null
+const confirmQueue = []
+
+function notifyConfirmListeners() {
+  listeners.forEach((cb) => cb())
+}
 
 export function confirmOnce(options) {
   return new Promise((resolve) => {
-    lastOptions = { ...options, resolve, onCancel: () => { resolve(false); lastOptions = null }, onConfirm: () => { resolve(true); lastOptions = null } }
-    listeners.forEach((cb) => cb(lastOptions))
+    const entry = {
+      ...options,
+      resolve,
+      onCancel: () => { resolve(false); removeConfirm(entry) },
+      onConfirm: () => { resolve(true); removeConfirm(entry) },
+    }
+    confirmQueue.push(entry)
+    notifyConfirmListeners()
   })
+}
+
+function removeConfirm(entry) {
+  const idx = confirmQueue.indexOf(entry)
+  if (idx !== -1) confirmQueue.splice(idx, 1)
+  notifyConfirmListeners()
 }
 
 export function GlobalConfirmHost() {
   const [opts, setOpts] = useState(null)
   useEffect(() => {
-    const cb = (o) => setOpts(o)
+    const cb = () => setOpts(confirmQueue.length ? confirmQueue[0] : null)
     listeners.add(cb)
+    setOpts(confirmQueue.length ? confirmQueue[0] : null)
     return () => listeners.delete(cb)
   }, [])
   if (!opts) return null

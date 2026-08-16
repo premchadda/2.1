@@ -9,10 +9,12 @@ import PageTransition from '../animations/PageTransition.jsx'
 
 function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
-  const [navMode, setNavMode] = useState('top')
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  const [navMode, setNavMode] = useState(() => {
+    return localStorage.getItem('trstprep_navMode') || 'left'
+  })
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -23,11 +25,28 @@ function Layout() {
 
   useEffect(() => {
     const savedNavMode = localStorage.getItem('trstprep_navMode')
-    if (savedNavMode) setNavMode(savedNavMode)
-  }, [])
+    if (savedNavMode) {
+      setNavMode(savedNavMode)
+    } else {
+      setNavMode('left')
+    }
+  }, [user])
 
   useEffect(() => {
     setSidebarOpen(false)
+  }, [location.pathname])
+
+  // Announce route changes to screen readers (H22: no aria-live region).
+  const [routeAnnouncement, setRouteAnnouncement] = useState('')
+
+  useEffect(() => {
+    const segments = location.pathname.split('/').filter(Boolean)
+    const label = segments.length === 0
+      ? 'Home'
+      : segments[segments.length - 1]
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+    setRouteAnnouncement(`Navigated to ${label}`)
   }, [location.pathname])
 
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen)
@@ -39,7 +58,11 @@ function Layout() {
     localStorage.setItem('trstprep_navMode', newMode)
   }
 
-  const isLeftNavMode = navMode === 'left' && !isMobile && !!user
+  // Auth pages (login, signup, etc.) should never render the desktop left sidebar layout
+  const isAuthPage = ['/login', '/signup', '/verify-email', '/forgot-password', '/reset-password'].includes(location.pathname)
+
+  // Left nav mode applies on desktop whenever navMode is 'left' for authenticated users on app routes
+  const isLeftNavMode = navMode === 'left' && !isMobile && !isAuthPage && !!user
 
   return (
     <div className={`min-h-screen bg-gray-50 ${isLeftNavMode ? 'desktop-left-nav-mode' : ''}`}>
@@ -50,12 +73,19 @@ function Layout() {
       >
         Skip to main content
       </a>
+
+      {/* Screen-reader route change announcements (H22) */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {routeAnnouncement}
+      </div>
       {/* Top Navbar */}
-      <Navbar 
-        onMenuClick={toggleSidebar} 
-        isLeftNavMode={isLeftNavMode}
-        onNavModeToggle={toggleNavMode}
-      />
+      <header role="banner">
+        <Navbar 
+          onMenuClick={toggleSidebar} 
+          isLeftNavMode={isLeftNavMode}
+          onNavModeToggle={toggleNavMode}
+        />
+      </header>
 
       {/* Desktop Left Sidebar */}
       {isLeftNavMode && <LeftSidebar />}
@@ -85,13 +115,16 @@ function Layout() {
            ${isLeftNavMode ? 'lg:ml-[260px]' : ''}
          `}
        >
-        <PageTransition className="min-h-screen">
+        <PageTransition className="min-h-screen bg-gray-50">
           <Outlet />
         </PageTransition>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      {isMobile && <BottomNav />}
+{/* Mobile Bottom Navigation */}
+<BottomNav />
+
+      {/* Content information */}
+      <footer role="contentinfo"></footer>
     </div>
   )
 }

@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Search, BookOpen, FileText, Video, User, ArrowRight } from 'lucide-react'
 import { api } from '../../shared/lib/dataService.js'
-import SearchBox from '../../shared/components/common/SearchBox'
-import { Breadcrumb } from '../../shared/components'
 
 export default function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -14,22 +12,26 @@ export default function SearchPage() {
 
   useEffect(() => {
     if (query) {
-      performSearch(query)
+      const controller = new AbortController()
+      performSearch(query, controller.signal)
+      return () => controller.abort()
     }
   }, [query])
 
-  const performSearch = async (q) => {
+  const performSearch = async (q, signal) => {
     if (!q.trim()) return
     setLoading(true)
     try {
       // Try API first
       try {
-        const response = await api.get(`/search?q=${encodeURIComponent(q)}`)
+        const response = await api.get(`/api/search?q=${encodeURIComponent(q)}`, { signal })
+        if (signal?.aborted) return
         if (response.data.success) {
           setResults(response.data.data || { tests: [], series: [], studyMaterials: [], videos: [] })
         }
       } catch {
         // Fallback to empty if no API
+        if (signal?.aborted) return
         setResults({ tests: [], series: [], studyMaterials: [], videos: [] })
       }
     } finally {

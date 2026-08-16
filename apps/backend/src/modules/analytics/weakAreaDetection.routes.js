@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import weakAreaDetectionService from './weakAreaDetection.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -13,7 +14,7 @@ router.get('/weak-topics', protect, async (req, res) => {
     })
     res.json({ success: true, data: topics })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -22,7 +23,7 @@ router.get('/weak-subjects', protect, async (req, res) => {
     const subjects = await weakAreaDetectionService.getWeakSubjects(req.user.id)
     res.json({ success: true, data: subjects })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -31,7 +32,7 @@ router.get('/difficulty-performance', protect, async (req, res) => {
     const performance = await weakAreaDetectionService.getPerformanceByDifficulty(req.user.id)
     res.json({ success: true, data: performance })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -43,7 +44,7 @@ router.get('/trends', protect, async (req, res) => {
     })
     res.json({ success: true, data: trends })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -52,7 +53,7 @@ router.get('/full-analysis', protect, async (req, res) => {
     const analysis = await weakAreaDetectionService.getFullAnalysis(req.user.id)
     res.json({ success: true, data: analysis })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -62,7 +63,7 @@ router.get('/peer-comparison', protect, async (req, res) => {
     const comparison = await weakAreaDetectionService.getPeerComparison(req.user.id, topicId)
     res.json({ success: true, data: comparison })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

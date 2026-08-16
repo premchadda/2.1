@@ -31,7 +31,10 @@ export function snakeToCamel(str) {
  */
 export function camelToSnake(str) {
   if (!str || typeof str !== "string") return str;
-  return str.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+  return str
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .toLowerCase();
 }
 
 /**

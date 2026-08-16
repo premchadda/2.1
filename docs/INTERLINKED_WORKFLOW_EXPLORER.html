@@ -1,0 +1,1827 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Trstprep V2.1 — Live Interlinked Workflow Explorer (User · Admin · System)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            brand: {
+              cyan: '#00f5d4',
+              purple: '#7928ca',
+              blue: '#0070f3',
+              pink: '#ff007a',
+              amber: '#f5a623',
+              emerald: '#10b981',
+              dark: '#080c14',
+              card: 'rgba(15, 23, 42, 0.75)',
+              border: 'rgba(255, 255, 255, 0.08)'
+            }
+          },
+          animation: {
+            'pulse-glow': 'pulseGlow 2.5s infinite ease-in-out',
+            'dash-flow': 'dashFlow 1.5s linear infinite',
+            'float-slow': 'floatSlow 4s ease-in-out infinite',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { opacity: '0.4', transform: 'scale(1)' },
+              '50%': { opacity: '0.9', transform: 'scale(1.05)' },
+            },
+            dashFlow: {
+              'to': { strokeDashoffset: '-24' }
+            },
+            floatSlow: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-6px)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+    /* Glassmorphism */
+    .glass-panel {
+      background: rgba(13, 20, 36, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.45);
+    }
+    .glass-card {
+      background: rgba(18, 26, 47, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card:hover {
+      border-color: rgba(0, 245, 212, 0.35);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px -4px rgba(0, 245, 212, 0.12);
+    }
+    .active-node {
+      border-color: #00f5d4 !important;
+      box-shadow: 0 0 25px rgba(0, 245, 212, 0.45) !important;
+      background: rgba(0, 245, 212, 0.08) !important;
+    }
+    .highlight-user { border-color: #38bdf8 !important; box-shadow: 0 0 20px rgba(56, 189, 248, 0.35); }
+    .highlight-admin { border-color: #c084fc !important; box-shadow: 0 0 20px rgba(192, 132, 252, 0.35); }
+    .highlight-system { border-color: #34d399 !important; box-shadow: 0 0 20px rgba(52, 211, 153, 0.35); }
+
+    /* Animated Grid Canvas Background */
+    #bg-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* SVG Stream Animations */
+    .flow-line {
+      stroke-dasharray: 6, 6;
+      animation: dashFlow 1.2s linear infinite;
+    }
+    .flow-line-reverse {
+      stroke-dasharray: 6, 6;
+      animation: dashFlow 1.2s linear infinite reverse;
+    }
+
+    /* Neon Gradient Text */
+    .neon-text-cyan {
+      background: linear-gradient(135deg, #00f5d4 0%, #00b4d8 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .neon-text-purple {
+      background: linear-gradient(135deg, #c084fc 0%, #7928ca 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .neon-text-gold {
+      background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Code block styling */
+    pre code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body class="bg-[#070b14] text-slate-200 min-h-screen font-sans antialiased selection:bg-cyan-500/30 selection:text-cyan-200 overflow-x-hidden relative">
+
+  <!-- Ambient Animated Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-50 glass-panel border-b border-white/10 px-6 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      
+      <!-- Brand & Title -->
+      <div class="flex items-center gap-3">
+        <div class="relative w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1.5px] shadow-lg shadow-cyan-500/20">
+          <div class="w-full h-full bg-[#0b0f19] rounded-[10px] flex items-center justify-center">
+            <span class="font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400 text-lg">TP</span>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-extrabold text-white text-base tracking-tight">Trstprep V2.1</h1>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span> LIVE WORKFLOW
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Interlinked Lifecycle Engine: User · Admin · System Core</p>
+        </div>
+      </div>
+
+      <!-- Simulation Controller Bar -->
+      <div class="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-white/10">
+        <!-- Scenario Selector -->
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Scenario:</span>
+          <select id="scenario-select" class="bg-slate-800 text-xs font-medium text-cyan-300 rounded-lg px-2.5 py-1.5 border border-cyan-500/30 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 cursor-pointer">
+            <option value="scenario_live_test">1. Live Mock Test & Anti-Cheat Telemetry</option>
+            <option value="scenario_ai_import">2. Admin Bulk Import & Vector AI Ingestion</option>
+            <option value="scenario_monetization">3. Pass Purchase & Instant Access Unlock</option>
+            <option value="scenario_disqualification">4. Cheating Detection & Remote Live Eviction</option>
+          </select>
+        </div>
+
+        <div class="h-5 w-[1px] bg-slate-700"></div>
+
+        <!-- Play/Pause Controls -->
+        <button id="btn-play" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md shadow-cyan-500/25 transition-all">
+          <svg id="icon-play" class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <span id="play-btn-text">Play Simulation</span>
+        </button>
+
+        <button id="btn-step" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-white/5 transition-all" title="Step forward one action">
+          Step ❯
+        </button>
+
+        <button id="btn-reset" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium border border-white/5 transition-all" title="Reset Simulation">
+          ↺
+        </button>
+
+        <!-- Speed Selector -->
+        <select id="speed-select" class="bg-slate-800 text-[11px] text-slate-400 rounded-lg px-2 py-1 border border-white/5 cursor-pointer">
+          <option value="2500">1x Speed</option>
+          <option value="1500" selected>1.5x Speed</option>
+          <option value="800">2.5x Fast</option>
+        </select>
+      </div>
+
+      <!-- View Switcher Tabs -->
+      <div class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
+        <button data-view="roadmap" class="nav-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+          🗺️ Student Journey Map
+        </button>
+        <button data-view="simulation" class="nav-tab active px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 transition-all">
+          ⚡ Live Simulator
+        </button>
+        <button data-view="swimlanes" class="nav-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+          📊 3-Lane Matrix
+        </button>
+        <button data-view="mesh" class="nav-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-all">
+          🌐 Architecture Mesh
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Main View Container -->
+  <main class="relative z-10 max-w-7xl mx-auto px-6 py-6 pb-28">
+
+    <!-- Active Step Notification Pill Banner -->
+    <div id="step-banner" class="mb-6 glass-panel rounded-2xl p-4 flex items-center justify-between border-cyan-500/30 shadow-lg shadow-cyan-950/40">
+      <div class="flex items-center gap-3.5">
+        <div id="step-badge" class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 font-bold flex items-center justify-center text-sm font-mono">
+          01
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="step-actor" class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+              Admin Action
+            </span>
+            <span id="step-phase" class="text-xs font-semibold text-slate-400">
+              Phase 1 · Scheduling
+            </span>
+          </div>
+          <h2 id="step-title" class="text-sm font-bold text-white mt-0.5">
+            Admin creates & schedules All-India Live Mock Test with per-section timing
+          </h2>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="text-right hidden sm:block">
+          <div class="text-[11px] text-slate-400 font-mono">Transport: <span id="step-transport" class="text-cyan-300 font-bold">HTTPS POST (JWT + CSRF)</span></div>
+          <div class="text-[11px] text-slate-400 font-mono">Target: <span id="step-target" class="text-emerald-300 font-bold">/api/admin/tests</span></div>
+        </div>
+        <div id="status-spinner" class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></div>
+      </div>
+    </div>
+
+    <!-- VIEW 1: LIVE SIMULATOR (Interactive Nodes & Glowing Conduits) -->
+    <section id="view-simulation" class="view-content block space-y-6">
+      
+      <!-- Top Grid: 3 Actor Command Hubs -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        <!-- Lane A: User Frontend -->
+        <div id="node-user" class="glass-panel rounded-2xl p-5 border-l-4 border-l-cyan-400 relative overflow-hidden transition-all duration-300">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-sm">User / Student SPA</h3>
+                <p class="text-[11px] text-slate-400 font-mono">apps/frontend (:3000)</p>
+              </div>
+            </div>
+            <span id="state-user" class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">IDLE</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Active Module</span>
+              <span id="user-module" class="font-mono text-cyan-300 font-semibold">TestInterface.jsx</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Session Status</span>
+              <span id="user-session" class="font-mono text-slate-300">Auth Token Valid</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Client Telemetry</span>
+              <span id="user-telemetry" class="font-mono text-emerald-400">Fullscreen Locked</span>
+            </div>
+          </div>
+
+          <!-- Micro Activity Indicator -->
+          <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Offline Sync Queue:</span>
+            <span id="user-offline-queue" class="font-mono text-cyan-400 font-semibold">0 pending (Synced)</span>
+          </div>
+        </div>
+
+        <!-- Lane B: Core System Gateway & Async Engine -->
+        <div id="node-system" class="glass-panel rounded-2xl p-5 border-l-4 border-l-emerald-400 relative overflow-hidden transition-all duration-300">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-sm">System Backend Engine</h3>
+                <p class="text-[11px] text-slate-400 font-mono">apps/backend (:5001)</p>
+              </div>
+            </div>
+            <span id="state-system" class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">READY</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Active Controller</span>
+              <span id="system-controller" class="font-mono text-emerald-300 font-semibold">test.routes.js</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Test Scheduler</span>
+              <span id="system-scheduler" class="font-mono text-slate-300">Lock Held (60s tick)</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">BullMQ Active Workers</span>
+              <span id="system-bullmq" class="font-mono text-amber-400 font-semibold">analytics, leaderboard</span>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+            <span>DB Transaction Lock:</span>
+            <span id="system-db-lock" class="font-mono text-emerald-400 font-semibold">Idle / Ready</span>
+          </div>
+        </div>
+
+        <!-- Lane C: Admin Control Center -->
+        <div id="node-admin" class="glass-panel rounded-2xl p-5 border-l-4 border-l-purple-400 relative overflow-hidden transition-all duration-300">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-sm">Admin Control Panel</h3>
+                <p class="text-[11px] text-slate-400 font-mono">apps/admin-panel (:3002)</p>
+              </div>
+            </div>
+            <span id="state-admin" class="px-2 py-0.5 rounded text-[10px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/20">AUTH (2FA)</span>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Active Dashboard</span>
+              <span id="admin-dashboard" class="font-mono text-purple-300 font-semibold">LiveTestMonitor.jsx</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Live Proctoring Room</span>
+              <span id="admin-proctoring" class="font-mono text-slate-300">Socket.IO Subscribed</span>
+            </div>
+            <div class="bg-slate-900/70 p-2.5 rounded-xl border border-white/5 flex justify-between items-center">
+              <span class="text-slate-400">Audit Trail Logger</span>
+              <span id="admin-audit" class="font-mono text-emerald-400">Diff Snapshots Enabled</span>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Origin Guard:</span>
+            <span id="admin-origin" class="font-mono text-purple-400 font-semibold">restrictAdminOrigin ✓</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Visual Conduit Interactive Canvas for Live Data Flow Packets -->
+      <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <h4 class="font-bold text-white text-sm">Real-time Data Bus & Storage Interlink Mesh</h4>
+            <span class="text-xs text-slate-400 font-mono">(Live Reactive Conduits)</span>
+          </div>
+          <div class="flex items-center gap-4 text-xs font-mono">
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span> REST API</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> WebSocket</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-purple-400"></span> Redis / BullMQ</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-pink-400"></span> AI / Vector</div>
+          </div>
+        </div>
+
+        <!-- Infrastructure Nodes Row -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+          
+          <!-- PostgreSQL -->
+          <div id="infra-postgres" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">🗄️ PostgreSQL</div>
+            <div class="font-mono text-xs font-bold text-white">Supabase + RLS</div>
+            <div id="pg-metric" class="text-[10px] text-cyan-400 font-mono mt-1">Pool: 20 conns</div>
+          </div>
+
+          <!-- Redis Cache & Locks -->
+          <div id="infra-redis" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">🔴 Redis Engine</div>
+            <div class="font-mono text-xs font-bold text-white">Cache · Locks · ZSET</div>
+            <div id="redis-metric" class="text-[10px] text-emerald-400 font-mono mt-1">Leaderboard ZSET</div>
+          </div>
+
+          <!-- BullMQ Queues -->
+          <div id="infra-bullmq" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">📬 BullMQ Async</div>
+            <div class="font-mono text-xs font-bold text-white">Analytics / Comms</div>
+            <div id="bullmq-metric" class="text-[10px] text-amber-400 font-mono mt-1">0 in queue</div>
+          </div>
+
+          <!-- Socket.IO Mesh -->
+          <div id="infra-socketio" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">🔌 Socket.IO Hub</div>
+            <div class="font-mono text-xs font-bold text-white">Live Proctor / PubSub</div>
+            <div id="socket-metric" class="text-[10px] text-purple-400 font-mono mt-1">1,420 connected</div>
+          </div>
+
+          <!-- AI Gateway -->
+          <div id="infra-ai" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">🧠 AI Gateway</div>
+            <div class="font-mono text-xs font-bold text-white">OpenRouter / pgvector</div>
+            <div id="ai-metric" class="text-[10px] text-pink-400 font-mono mt-1">Vector Index Ready</div>
+          </div>
+
+          <!-- FortSpy DRM -->
+          <div id="infra-drm" class="glass-card rounded-xl p-3 text-center border-slate-700/60">
+            <div class="text-slate-400 text-xs mb-1">🛡️ FortSpy DRM</div>
+            <div class="font-mono text-xs font-bold text-white">Video Encrypt + Watermark</div>
+            <div id="drm-metric" class="text-[10px] text-cyan-400 font-mono mt-1">AES-256 CTR</div>
+          </div>
+
+        </div>
+
+        <!-- Animated Conduits SVG Visualization -->
+        <div class="mt-6 relative h-28 w-full bg-slate-950/60 rounded-xl border border-white/5 flex items-center justify-around px-8">
+          <svg class="absolute inset-0 w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="grad-cyan-blue" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#00f5d4" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="#0070f3" stop-opacity="0.8"/>
+              </linearGradient>
+              <linearGradient id="grad-purple-pink" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#c084fc" stop-opacity="0.8"/>
+                <stop offset="100%" stop-color="#ff007a" stop-opacity="0.8"/>
+              </linearGradient>
+            </defs>
+
+            <!-- Conduit Lines -->
+            <path id="conduit-user-api" d="M 120 40 Q 300 10 500 40" stroke="url(#grad-cyan-blue)" stroke-width="2.5" fill="none" class="flow-line" />
+            <path id="conduit-api-admin" d="M 500 40 Q 700 70 880 40" stroke="url(#grad-purple-pink)" stroke-width="2.5" fill="none" class="flow-line" />
+            <path id="conduit-api-storage" d="M 500 40 L 500 95" stroke="#34d399" stroke-width="2.5" stroke-dasharray="4,4" fill="none" />
+          </svg>
+
+          <!-- Label Overlays -->
+          <div class="relative z-10 flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-cyan-500/30">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span class="text-xs font-mono font-semibold text-cyan-300">Client REST / WebSocket</span>
+          </div>
+
+          <div class="relative z-10 flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-emerald-500/30">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-mono font-semibold text-emerald-300">Express Transaction Engine</span>
+          </div>
+
+          <div class="relative z-10 flex items-center gap-2 bg-slate-900/90 px-3 py-1.5 rounded-lg border border-purple-500/30">
+            <span class="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+            <span class="text-xs font-mono font-semibold text-purple-300">Live Telemetry & Proctor Broadcast</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Payload & Execution Log Split -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Left: Code & Payload Inspector -->
+        <div class="glass-panel rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+              <h4 class="font-bold text-white text-xs uppercase tracking-wider">Step Inspector & Wire Payload</h4>
+            </div>
+            <span id="payload-method" class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-400 font-bold border border-cyan-500/20">POST</span>
+          </div>
+
+          <div class="bg-slate-950 rounded-xl p-3.5 border border-white/10 font-mono text-xs text-slate-300 h-64 overflow-y-auto">
+            <pre><code id="payload-code">{
+  "action": "schedule_live_test",
+  "test_id": "test_cgl_tier1_2026_live",
+  "name": "SSC CGL 2026 All-India Live Mock 01",
+  "scheduled_at": "2026-08-16T10:00:00.000Z",
+  "expired_at": "2026-08-16T12:00:00.000Z",
+  "sections": [
+    { "name": "General Intelligence", "time_limit_sec": 900, "marks": 50 },
+    { "name": "General Awareness", "time_limit_sec": 900, "marks": 50 },
+    { "name": "Quantitative Aptitude", "time_limit_sec": 900, "marks": 50 },
+    { "name": "English Comprehension", "time_limit_sec": 900, "marks": 50 }
+  ],
+  "negative_marks": 0.50,
+  "is_pro": false
+}</code></pre>
+          </div>
+          <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+            <span>DB Table Affected: <span id="payload-db-table" class="text-cyan-300 font-semibold">tests, test_sections</span></span>
+            <span>Audit Trail: <span class="text-emerald-400 font-semibold">INSERT (actor: admin_id_42)</span></span>
+          </div>
+        </div>
+
+        <!-- Right: Real-time Event Stream / Terminal -->
+        <div class="glass-panel rounded-2xl p-5">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              <h4 class="font-bold text-white text-xs uppercase tracking-wider">Live System Event Log (Reactive Ticker)</h4>
+            </div>
+            <button id="btn-clear-log" class="text-[10px] text-slate-400 hover:text-white font-mono">Clear</button>
+          </div>
+
+          <div id="terminal-logs" class="bg-slate-950 rounded-xl p-3.5 border border-white/10 font-mono text-xs text-slate-400 h-64 overflow-y-auto space-y-1.5">
+            <div class="text-slate-500">[08:29:01.102] [BOOT] Trstprep V2.1 interlinked event bus listening on :5001</div>
+            <div class="text-cyan-400">[08:29:01.450] [SCHEDULER] Acquired distributed lock 'scheduler:lock' (TTL: 55000ms)</div>
+            <div class="text-purple-400">[08:29:02.110] [SOCKET.IO] Admin joined proctoring room 'live_monitor_global'</div>
+            <div class="text-emerald-400">[08:29:02.500] [POSTGRES] RLS policy checked for role 'admin' -> Authorized</div>
+          </div>
+          <div class="mt-2 text-[11px] text-slate-400 font-mono flex items-center justify-between">
+            <span>Active Connections: <span class="text-cyan-300 font-semibold">1,420 websockets</span></span>
+            <span>Redis Latency: <span class="text-emerald-400 font-semibold">0.42 ms</span></span>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- VIEW 2: 3-LANE MATRIX (User · System · Admin Detailed Grid) -->
+    <section id="view-swimlanes" class="view-content hidden space-y-6">
+      
+      <div class="glass-panel rounded-2xl p-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h3 class="font-extrabold text-white text-lg tracking-tight">8-Phase Cross-Cutting Lifecycle Matrix</h3>
+            <p class="text-xs text-slate-400">Comprehensive trace showing exactly how User, System Backend, and Admin interact across all phases.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">User Flow</span>
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">System Core</span>
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">Admin Panel</span>
+          </div>
+        </div>
+
+        <!-- 8 Detailed Lifecycle Rows -->
+        <div class="space-y-4" id="matrix-rows">
+          <!-- Dynamically populated or rich cards -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- VIEW 3: ARCHITECTURE MESH (Visual Node Graph & Data Conduits) -->
+    <section id="view-mesh" class="view-content hidden space-y-6">
+      
+      <div class="glass-panel rounded-2xl p-6">
+        <h3 class="font-extrabold text-white text-lg tracking-tight mb-2">Trstprep V2.1 Distributed Micro-Mesh</h3>
+        <p class="text-xs text-slate-400 mb-6">Click any subsystem node to inspect routes, tables, caching behavior, and failure recovery modes.</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Node: Auth & Gateway -->
+          <div class="glass-card rounded-2xl p-5 border-cyan-500/20 cursor-pointer hover:border-cyan-400 transition-all" onclick="inspectNode('auth_gateway')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-cyan-500/20 text-cyan-300">🛡️</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">Auth & Gateway Layer</h4>
+                <p class="text-[10px] text-slate-400 font-mono">protect, admin, CSRF, fail-closed</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Enforces HTTP-only JWT cookies, 2FA TOTP verification, origin validation, and automatic session revocation on multi-device login.
+            </p>
+            <div class="text-[11px] font-mono text-cyan-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Security Score</span>
+              <span class="font-bold">A+ (Fail-Closed)</span>
+            </div>
+          </div>
+
+          <!-- Node: State Machine & Scheduler -->
+          <div class="glass-card rounded-2xl p-5 border-emerald-500/20 cursor-pointer hover:border-emerald-400 transition-all" onclick="inspectNode('scheduler')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-emerald-500/20 text-emerald-300">⏱️</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">State Machine & Scheduler</h4>
+                <p class="text-[10px] text-slate-400 font-mono">testScheduler.js, Redis Lock</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Tick loop runs every 60s to transition tests from <code class="text-amber-300 font-mono">scheduled</code> &rarr; <code class="text-emerald-300 font-mono">live</code> &rarr; <code class="text-slate-400 font-mono">expired</code> with zero duplicate triggers.
+            </p>
+            <div class="text-[11px] font-mono text-emerald-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Lock Mechanism</span>
+              <span class="font-bold">Redis SET NX PX</span>
+            </div>
+          </div>
+
+          <!-- Node: Scoring & BullMQ Queues -->
+          <div class="glass-card rounded-2xl p-5 border-amber-500/20 cursor-pointer hover:border-amber-400 transition-all" onclick="inspectNode('bullmq')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-amber-500/20 text-amber-300">📬</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">BullMQ Queue Workers</h4>
+                <p class="text-[10px] text-slate-400 font-mono">analytics, leaderboard, comms</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Decouples fast HTTP test submissions from CPU-heavy percentile calculations, rank updates, and weak-area mastery aggregation.
+            </p>
+            <div class="text-[11px] font-mono text-amber-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Throughput</span>
+              <span class="font-bold">10,000 req/sec</span>
+            </div>
+          </div>
+
+          <!-- Node: Socratic AI Tutor & pgvector -->
+          <div class="glass-card rounded-2xl p-5 border-pink-500/20 cursor-pointer hover:border-pink-400 transition-all" onclick="inspectNode('ai_engine')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-pink-500/20 text-pink-300">🧠</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">Socratic AI & pgvector</h4>
+                <p class="text-[10px] text-slate-400 font-mono">OpenRouter Gateway, vector(1536)</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Provides step-by-step Socratic hints without giving direct answers, and runs cosine-similarity searches to detect duplicate exam questions.
+            </p>
+            <div class="text-[11px] font-mono text-pink-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Model Routing</span>
+              <span class="font-bold">Multi-Provider</span>
+            </div>
+          </div>
+
+          <!-- Node: Live Proctor & Socket.IO -->
+          <div class="glass-card rounded-2xl p-5 border-purple-500/20 cursor-pointer hover:border-purple-400 transition-all" onclick="inspectNode('live_proctor')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-purple-500/20 text-purple-300">🔌</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">Live Proctor & Telemetry</h4>
+                <p class="text-[10px] text-slate-400 font-mono">Socket.IO Redis Cluster</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Streams active candidate focus status, window blur anomalies, and allows administrators to execute immediate candidate disqualifications.
+            </p>
+            <div class="text-[11px] font-mono text-purple-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Proctoring Mode</span>
+              <span class="font-bold">Real-time Telemetry</span>
+            </div>
+          </div>
+
+          <!-- Node: FortSpy Video DRM -->
+          <div class="glass-card rounded-2xl p-5 border-cyan-500/20 cursor-pointer hover:border-cyan-400 transition-all" onclick="inspectNode('fortspy_drm')">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="p-2 rounded-lg bg-cyan-500/20 text-cyan-300">🔒</span>
+              <div>
+                <h4 class="font-bold text-white text-sm">FortSpy DRM & Watermark</h4>
+                <p class="text-[10px] text-slate-400 font-mono">AES-256 CTR Segment Stream</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 mb-3 leading-relaxed">
+              Military-grade pixel & segment level encryption for course lecture videos with dynamic candidate IP/ID watermark overlay.
+            </p>
+            <div class="text-[11px] font-mono text-cyan-400 flex items-center justify-between border-t border-white/5 pt-2">
+              <span>Anti-Piracy</span>
+              <span class="font-bold">Dynamic Stamp</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- VIEW 4: STUDENT JOURNEY MAP (User Flow: Login -> Take Test -> Result -> Video -> Practice -> Revision) -->
+    <section id="view-roadmap" class="view-content hidden space-y-6">
+      
+      <!-- Top Control & Banner Card -->
+      <div class="glass-panel rounded-2xl p-6 border-cyan-500/30">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono">
+                Student Learning Lifecycle Map
+              </span>
+              <span class="text-xs text-slate-400 font-mono">6 Connected Milestones</span>
+            </div>
+            <h3 class="font-extrabold text-white text-xl tracking-tight">
+              End-to-End Student Journey: <span class="neon-text-cyan">Login &rarr; Take Test &rarr; Result &rarr; Video &rarr; Practice &rarr; Revision</span>
+            </h3>
+            <p class="text-xs text-slate-300 mt-1 max-w-3xl leading-relaxed">
+              Trace how a student seamlessly advances through identity authentication, CBT test attempts, deep diagnostic analytics, DRM video lectures, adaptive AI practice, and automated spaced repetition loops.
+            </p>
+          </div>
+
+          <!-- Journey Walkthrough Controls -->
+          <div class="flex items-center gap-3">
+            <button id="btn-journey-run" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-500/30 transition-all">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              <span id="journey-btn-text">🚀 Run Auto-Journey Walkthrough</span>
+            </button>
+            <button id="btn-journey-reset" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-semibold border border-white/5 transition-all">
+              ↺ Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric Stat Counters -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-5 border-t border-white/10 text-center">
+          <div class="bg-slate-900/70 p-3 rounded-xl border border-white/5">
+            <div class="text-[11px] text-slate-400 font-mono">Learning Streak</div>
+            <div class="text-base font-extrabold text-amber-400 font-mono mt-0.5">🔥 14 Days Active</div>
+          </div>
+          <div class="bg-slate-900/70 p-3 rounded-xl border border-white/5">
+            <div class="text-[11px] text-slate-400 font-mono">Mock Net Score</div>
+            <div class="text-base font-extrabold text-cyan-400 font-mono mt-0.5">172.5 / 200 (98.4%ile)</div>
+          </div>
+          <div class="bg-slate-900/70 p-3 rounded-xl border border-white/5">
+            <div class="text-[11px] text-slate-400 font-mono">Adaptive Questions</div>
+            <div class="text-base font-extrabold text-emerald-400 font-mono mt-0.5">340 Solved (86% Acc)</div>
+          </div>
+          <div class="bg-slate-900/70 p-3 rounded-xl border border-white/5">
+            <div class="text-[11px] text-slate-400 font-mono">Memory Retention</div>
+            <div class="text-base font-extrabold text-purple-400 font-mono mt-0.5">94% Leitner Mastery</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VISUAL ROADMAP NODE MAP (6 Connected Nodes) -->
+      <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+        <h4 class="font-bold text-white text-sm uppercase tracking-wider mb-6 flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+          Interactive Student Roadmap Architecture
+        </h4>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative">
+          
+          <!-- Node 1: Log In & Onboarding -->
+          <div id="jnode-1" onclick="selectJourneyNode(1)" class="journey-node glass-card active-node rounded-2xl p-5 border-cyan-500/30 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/40">
+              STEP 01
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center text-lg">
+                🔐
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">1. User Log In & Target</h5>
+                <p class="text-[11px] text-slate-400 font-mono">Auth, 2FA & Target Exam</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Student signs in via Phone OTP, Email, or Google OAuth. Single-session JWT cookie is issued, and target exam (e.g. SSC CGL) is set.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">Login.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/auth/login</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">users, enrollments</span></div>
+            </div>
+          </div>
+
+          <!-- Node 2: Take Test -->
+          <div id="jnode-2" onclick="selectJourneyNode(2)" class="journey-node glass-card rounded-2xl p-5 border-slate-700/60 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-cyan-300 border border-cyan-500/30">
+              STEP 02
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center justify-center text-lg">
+                📝
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">2. Take Test (CBT Exam)</h5>
+                <p class="text-[11px] text-slate-400 font-mono">Timed CBT & Anti-Cheat</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Student enters fullscreen exam interface with section timer locks, answer palette, background autosave queue, and window blur telemetry.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">TestInterface.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/tests/:id/start</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">attempts, attempt_events</span></div>
+            </div>
+          </div>
+
+          <!-- Node 3: Result Analysis -->
+          <div id="jnode-3" onclick="selectJourneyNode(3)" class="journey-node glass-card rounded-2xl p-5 border-slate-700/60 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-cyan-300 border border-cyan-500/30">
+              STEP 03
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center text-lg">
+                📊
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">3. Result Analysis</h5>
+                <p class="text-[11px] text-slate-400 font-mono">Diagnostics & Weak Areas</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Submission triggers instant score calculation, BullMQ rank updates, accuracy matrices, subject/chapter breakdown, and KaTeX solution review.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">TestResult.jsx, TestReview.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/tests/:id/submit</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">test_results, user_topic_performance</span></div>
+            </div>
+          </div>
+
+          <!-- Node 4: Video Lectures -->
+          <div id="jnode-4" onclick="selectJourneyNode(4)" class="journey-node glass-card rounded-2xl p-5 border-slate-700/60 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-cyan-300 border border-cyan-500/30">
+              STEP 04
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-pink-500/20 text-pink-300 border border-pink-500/30 flex items-center justify-center text-lg">
+                🎥
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">4. Video Lectures & DRM</h5>
+                <p class="text-[11px] text-slate-400 font-mono">FortSpy Encrypted Stream</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Student watches targeted concept video lectures. FortSpy decrypts AES-256 CTR video segments with dynamic user watermark overlay.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">VideoDetail.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/study/videos/:id</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">videos, study_materials</span></div>
+            </div>
+          </div>
+
+          <!-- Node 5: Practice Lab -->
+          <div id="jnode-5" onclick="selectJourneyNode(5)" class="journey-node glass-card rounded-2xl p-5 border-slate-700/60 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-cyan-300 border border-cyan-500/30">
+              STEP 05
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center justify-center text-lg">
+                💡
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">5. Practice Lab (Adaptive)</h5>
+                <p class="text-[11px] text-slate-400 font-mono">Node Engine & Socratic AI</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Student solves topic-specific adaptive questions. Socratic AI Mentor provides targeted hints without revealing direct answers.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">PracticeLab.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/practice/questions</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">practice_ai_cache, nodes</span></div>
+            </div>
+          </div>
+
+          <!-- Node 6: Smart Revision -->
+          <div id="jnode-6" onclick="selectJourneyNode(6)" class="journey-node glass-card rounded-2xl p-5 border-slate-700/60 cursor-pointer relative hover:scale-[1.02] transition-all">
+            <div class="absolute -top-3 -right-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-slate-800 text-cyan-300 border border-cyan-500/30">
+              STEP 06
+            </div>
+            <div class="flex items-center gap-3 mb-3">
+              <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center text-lg">
+                🔁
+              </div>
+              <div>
+                <h5 class="font-extrabold text-white text-sm">6. Smart Revision</h5>
+                <p class="text-[11px] text-slate-400 font-mono">Spaced Repetition & Retention</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">
+              Automated Leitner 5-box spaced repetition schedules weak question flashcards over optimal 1-3-7-14 day intervals for 100% exam recall.
+            </p>
+            <div class="space-y-1.5 text-[11px] font-mono text-slate-400 bg-slate-900/80 p-2.5 rounded-lg border border-white/5">
+              <div class="flex justify-between"><span class="text-slate-500">Frontend:</span> <span class="text-cyan-300">SpacedRepetition.jsx</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">Backend:</span> <span class="text-emerald-300">/api/revision/smart-cards</span></div>
+              <div class="flex justify-between"><span class="text-slate-500">DB Table:</span> <span class="text-purple-300">spaced_repetition_cards</span></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Deep-Dive Milestone Details Panel -->
+        <div id="journey-detail-card" class="mt-8 bg-slate-950/80 rounded-2xl p-6 border border-cyan-500/30">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <span id="jdetail-icon" class="text-2xl">🔐</span>
+              <div>
+                <h5 id="jdetail-title" class="font-extrabold text-white text-base">Milestone 1 Deep Dive: User Log In & Target Setup</h5>
+                <p id="jdetail-subtitle" class="text-xs text-slate-400 font-mono">Authentication · Single-Session Guard · Exam Enrollment</p>
+              </div>
+            </div>
+            <span id="jdetail-badge" class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              Active Milestone
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div class="bg-slate-900/70 p-4 rounded-xl border border-white/5 space-y-2">
+              <div class="font-bold text-cyan-400 font-mono">1. User Interaction (Frontend)</div>
+              <p id="jdetail-user-desc" class="text-slate-300 leading-relaxed">
+                Student enters phone OTP or Google OAuth credentials in <code>Login.jsx</code>. Upon successful verification, student selects target exam (SSC CGL 2026 Tier-1) in <code>OnboardingWizard.jsx</code>.
+              </p>
+            </div>
+
+            <div class="bg-slate-900/70 p-4 rounded-xl border border-white/5 space-y-2">
+              <div class="font-bold text-emerald-400 font-mono">2. System Engine & Security</div>
+              <p id="jdetail-system-desc" class="text-slate-300 leading-relaxed">
+                Backend hashes passwords via bcrypt, generates httpOnly JWT cookies with CSRF tokens. Redis session manager revokes any existing active token on a second device to enforce single-device integrity.
+              </p>
+            </div>
+
+            <div class="bg-slate-900/70 p-4 rounded-xl border border-white/5 space-y-2">
+              <div class="font-bold text-purple-400 font-mono">3. Admin Telemetry & Audit</div>
+              <p id="jdetail-admin-desc" class="text-slate-300 leading-relaxed">
+                Admin activity logger records user registration/login IP. Admin Users Manager (<code>UsersManager.jsx</code>) updates active user counts and enrollment rosters in real-time.
+              </p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+  <!-- Slide-Over Inspector Drawer (Modal) -->
+  <div id="inspector-drawer" class="fixed inset-y-0 right-0 w-full max-w-lg glass-panel border-l border-white/10 z-50 transform translate-x-full transition-transform duration-300 ease-in-out p-6 overflow-y-auto">
+    <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-5">
+      <div class="flex items-center gap-2">
+        <span id="drawer-icon" class="text-xl">⚙️</span>
+        <h3 id="drawer-title" class="font-bold text-white text-base">Node Inspection</h3>
+      </div>
+      <button onclick="closeDrawer()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-mono">✕</button>
+    </div>
+
+    <div class="space-y-4 text-xs" id="drawer-content">
+      <!-- Dynamic detailed technical inspector details -->
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       SCENARIO DEFINITIONS & SIMULATION STATE ENGINE
+       ========================================================================= */
+
+    const SCENARIOS = {
+      scenario_live_test: [
+        {
+          badge: '01',
+          actor: 'Admin Action',
+          actorType: 'admin',
+          phase: 'Phase 1 · Scheduling',
+          title: 'Admin schedules All-India Live Mock Test with strict per-section timing',
+          transport: 'HTTPS POST (JWT + CSRF)',
+          target: '/api/admin/tests',
+          moduleUser: 'TestSeries.jsx (Catalog)',
+          moduleSystem: 'test.routes.js',
+          moduleAdmin: 'TestsManager.jsx',
+          userState: 'IDLE (Browsing)',
+          systemState: 'TRANSACTION INSERT',
+          adminState: 'CREATING TEST',
+          dbTable: 'tests, test_sections',
+          payload: {
+            action: 'create_scheduled_test',
+            title: 'SSC CGL Tier 1 All-India Mock 2026',
+            scheduled_at: '2026-08-16T10:00:00.000Z',
+            expired_at: '2026-08-16T11:00:00.000Z',
+            status: 'scheduled',
+            duration_minutes: 60,
+            sections: [
+              { name: 'GK', time_limit_sec: 900 },
+              { name: 'Math', time_limit_sec: 900 },
+              { name: 'Reasoning', time_limit_sec: 900 },
+              { name: 'English', time_limit_sec: 900 }
+            ]
+          },
+          log: '[ADMIN] Test #4091 created in status: scheduled. Section timings stored.'
+        },
+        {
+          badge: '02',
+          actor: 'System Cron',
+          actorType: 'system',
+          phase: 'Phase 2 · State Machine',
+          title: 'testScheduler tick triggers: transitions test status to "live" and broadcasts event',
+          transport: 'Redis Lock + Socket.IO Broadcast',
+          target: 'scheduler:lock -> UPDATE tests',
+          moduleUser: 'LiveTests.jsx',
+          moduleSystem: 'testScheduler.js (60s loop)',
+          moduleAdmin: 'LiveTestMonitor.jsx',
+          userState: 'NOTIFICATION RECEIVED',
+          systemState: 'STATUS: LIVE',
+          adminState: 'MONITORING ACTIVE',
+          dbTable: 'tests.status = "live"',
+          payload: {
+            event: 'test_went_live',
+            test_id: 4091,
+            timestamp: new Date().toISOString(),
+            eligible_candidates: 24500
+          },
+          log: '[SCHEDULER] Test #4091 auto-transitioned scheduled -> live. Socket broadcast sent.'
+        },
+        {
+          badge: '03',
+          actor: 'User Action',
+          actorType: 'user',
+          phase: 'Phase 3 · Test Start & CBT Lock',
+          title: 'Student begins test attempt; answers stripped for cheat-proof security',
+          transport: 'POST /api/tests/:id/start',
+          target: 'attempts (status: IN_PROGRESS)',
+          moduleUser: 'TestInterface.jsx',
+          moduleSystem: 'test.routes.js (protect)',
+          moduleAdmin: 'LiveTestMonitor.jsx',
+          userState: 'CBT ACTIVE (Q1/100)',
+          systemState: 'ATTEMPT RECORDED',
+          adminState: 'CANDIDATE COUNT: +1',
+          dbTable: 'attempts, attempt_events',
+          payload: {
+            attempt_id: 'att_9843a',
+            user_id: 1042,
+            started_at: new Date().toISOString(),
+            sanitized_questions_count: 100,
+            answers_included: false
+          },
+          log: '[USER] Attempt #att_9843a initiated by user #1042. Socket room joined.'
+        },
+        {
+          badge: '04',
+          actor: 'User Action',
+          actorType: 'user',
+          phase: 'Phase 4 · Proctoring & Telemetry',
+          title: 'Student switches tab / leaves fullscreen; background logger flags event',
+          transport: 'POST /api/attempt/save & WS Telemetry',
+          target: 'attempt_events (type: tab_switch)',
+          moduleUser: 'TestInterface.jsx',
+          moduleSystem: 'attempt.routes.js',
+          moduleAdmin: 'LiveTestMonitor.jsx',
+          userState: 'WARNING POPUP SHOWN',
+          systemState: 'TELEMETRY RECORDED',
+          adminState: 'ANOMALY ALERT PUSHED',
+          dbTable: 'attempt_events',
+          payload: {
+            attempt_id: 'att_9843a',
+            event_type: 'tab_switch',
+            blur_duration_ms: 3200,
+            question_id: 42
+          },
+          log: '[PROCTOR] User #1042 triggered tab_switch (3200ms). Flagged in admin live monitor.'
+        },
+        {
+          badge: '05',
+          actor: 'User & System',
+          actorType: 'system',
+          phase: 'Phase 5 · Submission & Async Scoring',
+          title: 'User submits test; BullMQ async workers compute rank and percentile',
+          transport: 'POST /api/tests/:id/submit -> BullMQ',
+          target: 'queues.ANALYTICS, queues.LEADERBOARD',
+          moduleUser: 'TestResult.jsx',
+          moduleSystem: 'queueManager.js (BullMQ)',
+          moduleAdmin: 'AnalyticsDashboard.jsx',
+          userState: 'SCORE: 168.5 / 200',
+          systemState: 'BULLMQ PROCESSING',
+          adminState: 'METRICS UPDATED',
+          dbTable: 'test_results, user_topic_performance',
+          payload: {
+            attempt_id: 'att_9843a',
+            score: 168.5,
+            correct: 86,
+            incorrect: 7,
+            unattempted: 7,
+            percentile: 98.42,
+            rank: 312
+          },
+          log: '[BULLMQ] Analytics & Leaderboard jobs completed in 140ms. Redis ZSET updated.'
+        }
+      ],
+
+      scenario_ai_import: [
+        {
+          badge: '01',
+          actor: 'Admin Action',
+          actorType: 'admin',
+          phase: 'Phase 1 · Content Ingestion',
+          title: 'Admin uploads bulk LaTeX exam questions with math formulas & bilingual content',
+          transport: 'POST /api/admin/import/full-test',
+          target: 'questions, passages',
+          moduleUser: 'StudyMaterial.jsx',
+          moduleSystem: 'bulkImport.routes.js',
+          moduleAdmin: 'QuestionsManager.jsx',
+          userState: 'IDLE',
+          systemState: 'PARSING LATEX',
+          adminState: 'IMPORTING 200 QS',
+          dbTable: 'questions, question_translations',
+          payload: {
+            format: 'json_latex',
+            questions_count: 200,
+            has_math_latex: true,
+            languages: ['en', 'hi']
+          },
+          log: '[IMPORT] 200 questions parsed successfully with KaTeX equations validated.'
+        },
+        {
+          badge: '02',
+          actor: 'System AI Engine',
+          actorType: 'system',
+          phase: 'Phase 2 · Embedding Generation',
+          title: 'OpenRouter AI Gateway generates 1536-dim vectors for duplicate detection',
+          transport: 'HTTPS OpenRouter -> pgvector',
+          target: 'questions.embedding vector(1536)',
+          moduleUser: 'PracticeLab.jsx',
+          moduleSystem: 'embedding.routes.js',
+          moduleAdmin: 'QuestionsManager.jsx',
+          userState: 'IDLE',
+          systemState: 'VECTORIZING',
+          adminState: 'DEDUP CHECK: 0 FOUND',
+          dbTable: 'questions (pgvector ivfflat index)',
+          payload: {
+            model: 'text-embedding-3-small',
+            dimensions: 1536,
+            cosine_similarity_threshold: 0.92
+          },
+          log: '[AI ENGINE] Embeddings generated for 200 questions. Cosine distance index refreshed.'
+        },
+        {
+          badge: '03',
+          actor: 'User Action',
+          actorType: 'user',
+          phase: 'Phase 3 · Socratic Remediation',
+          title: 'Student attempts practice problem and requests Socratic AI hint',
+          transport: 'POST /api/ai-mentor/chat',
+          target: 'ai_mentor_logs',
+          moduleUser: 'PracticeLab.jsx (Socratic Modal)',
+          moduleSystem: 'aiMentor.routes.js',
+          moduleAdmin: 'AdminAIAnalytics.jsx',
+          userState: 'INTERACTING WITH AI',
+          systemState: 'STREAMING HINT (SSE)',
+          adminState: 'TOKEN USAGE LOGGED',
+          dbTable: 'ai_generation_logs',
+          payload: {
+            user_question: 'Why is Option B wrong in Thermodynamics Q4?',
+            prompt_strategy: 'socratic_hints_only',
+            revealed_direct_answer: false
+          },
+          log: '[AI MENTOR] Streamed step-by-step conceptual hint to student without answer leakage.'
+        }
+      ],
+
+      scenario_monetization: [
+        {
+          badge: '01',
+          actor: 'User Action',
+          actorType: 'user',
+          phase: 'Phase 1 · Checkout Initiation',
+          title: 'Student selects "1-Year Super Pass" and applies discount coupon',
+          transport: 'POST /api/payments/create-order',
+          target: 'payment_orders',
+          moduleUser: 'Pass.jsx',
+          moduleSystem: 'payment.routes.js',
+          moduleAdmin: 'PaymentsManager.jsx',
+          userState: 'CHECKOUT MODAL OPEN',
+          systemState: 'ORDER CREATED',
+          adminState: 'PENDING TRANSACTION',
+          dbTable: 'payment_orders',
+          payload: {
+            plan_id: 'plan_super_pass_1y',
+            coupon_code: 'RANKER25',
+            original_price_inr: 999,
+            discount_amount: 250,
+            final_amount: 749
+          },
+          log: '[PAYMENT] Razorpay order #order_k9f83 created for INR 749. Coupon verified.'
+        },
+        {
+          badge: '02',
+          actor: 'System Gateway',
+          actorType: 'system',
+          phase: 'Phase 2 · Webhook Cryptographic Verification',
+          title: 'Razorpay payment captured; server validates HMAC SHA256 signature',
+          transport: 'POST /api/payments/verify',
+          target: 'subscriptions, payments',
+          moduleUser: 'Pass.jsx (Success Confetti)',
+          moduleSystem: 'SubscriptionService.js',
+          moduleAdmin: 'PaymentsManager.jsx',
+          userState: 'PRO ACCESS UNLOCKED',
+          systemState: 'SIGNATURE VERIFIED',
+          adminState: 'REVENUE LOGGED (+₹749)',
+          dbTable: 'subscriptions, user_entitlements',
+          payload: {
+            razorpay_payment_id: 'pay_Lx94821',
+            signature_valid: true,
+            entitlements: ['all_test_series', 'video_lectures', 'ai_mentor_pro']
+          },
+          log: '[AUTH] HMAC signature valid. User entitlements updated. Redis session cache cleared.'
+        }
+      ],
+
+      scenario_disqualification: [
+        {
+          badge: '01',
+          actor: 'User Action',
+          actorType: 'user',
+          phase: 'Phase 1 · Anomaly Trigger',
+          title: 'Student repeatedly attempts DevTools inspection during Live Mock',
+          transport: 'POST /api/attempt/event',
+          target: 'attempt_events (devtools_open)',
+          moduleUser: 'TestInterface.jsx',
+          moduleSystem: 'attempt.routes.js',
+          moduleAdmin: 'LiveTestMonitor.jsx',
+          userState: 'FLAGGED (VIOLATION)',
+          systemState: 'EVENT RECORDED',
+          adminState: 'CRITICAL ALERT (RED)',
+          dbTable: 'attempt_events',
+          payload: {
+            attempt_id: 'att_malicious_01',
+            event_type: 'devtools_open',
+            severity: 'CRITICAL'
+          },
+          log: '[SECURITY] Critical cheat pattern detected for user #819. Alerted proctor console.'
+        },
+        {
+          badge: '02',
+          actor: 'Admin Action',
+          actorType: 'admin',
+          phase: 'Phase 2 · Remote Disqualification',
+          title: 'Admin reviews proctor log and pushes instant remote expulsion command',
+          transport: 'POST /api/admin/live-tests/:id/disqualify',
+          target: 'attempts.status = DISQUALIFIED',
+          moduleUser: 'DisqualifiedScreen.jsx',
+          moduleSystem: 'websocketManager.js (Socket.IO)',
+          moduleAdmin: 'LiveTestMonitor.jsx',
+          userState: 'TEST TERMINATED & LOCKED',
+          systemState: 'SOCKET EVICTION PUSHED',
+          adminState: 'CANDIDATE DISQUALIFIED',
+          dbTable: 'attempts, audit_trail',
+          payload: {
+            target_user_id: 819,
+            reason: 'Unauthorized devtools & tab tampering',
+            action_by_admin: 'super_admin_01'
+          },
+          log: '[ADMIN] Expulsion executed. Candidate attempt marked DISQUALIFIED. Socket disconnected.'
+        }
+      ]
+    };
+
+    // State Variables
+    let currentScenarioKey = 'scenario_live_test';
+    let currentStepIndex = 0;
+    let isPlaying = false;
+    let playTimer = null;
+    let playSpeed = 1500;
+
+    // DOM Elements
+    const scenarioSelect = document.getElementById('scenario-select');
+    const speedSelect = document.getElementById('speed-select');
+    const btnPlay = document.getElementById('btn-play');
+    const btnStep = document.getElementById('btn-step');
+    const btnReset = document.getElementById('btn-reset');
+    const playBtnText = document.getElementById('play-btn-text');
+    const iconPlay = document.getElementById('icon-play');
+    const terminalLogs = document.getElementById('terminal-logs');
+
+    // Step Info Elements
+    const stepBadge = document.getElementById('step-badge');
+    const stepActor = document.getElementById('step-actor');
+    const stepPhase = document.getElementById('step-phase');
+    const stepTitle = document.getElementById('step-title');
+    const stepTransport = document.getElementById('step-transport');
+    const stepTarget = document.getElementById('step-target');
+
+    // Node State Elements
+    const stateUser = document.getElementById('state-user');
+    const stateSystem = document.getElementById('state-system');
+    const stateAdmin = document.getElementById('state-admin');
+    const userModule = document.getElementById('user-module');
+    const systemController = document.getElementById('system-controller');
+    const adminDashboard = document.getElementById('admin-dashboard');
+
+    const nodeUser = document.getElementById('node-user');
+    const nodeSystem = document.getElementById('node-system');
+    const nodeAdmin = document.getElementById('node-admin');
+
+    const payloadCode = document.getElementById('payload-code');
+    const payloadDbTable = document.getElementById('payload-db-table');
+
+    /* =========================================================================
+       RENDER STEP FUNCTION
+       ========================================================================= */
+
+    function renderCurrentStep() {
+      const steps = SCENARIOS[currentScenarioKey];
+      const step = steps[currentStepIndex];
+      if (!step) return;
+
+      // Update Top Notification Pill
+      stepBadge.textContent = step.badge;
+      stepActor.textContent = step.actor;
+      stepPhase.textContent = step.phase;
+      stepTitle.textContent = step.title;
+      stepTransport.textContent = step.transport;
+      stepTarget.textContent = step.target;
+
+      // Update Node Cards
+      stateUser.textContent = step.userState;
+      stateSystem.textContent = step.systemState;
+      stateAdmin.textContent = step.adminState;
+
+      userModule.textContent = step.moduleUser;
+      systemController.textContent = step.moduleSystem;
+      adminDashboard.textContent = step.moduleAdmin;
+
+      // Highlight active node
+      nodeUser.classList.remove('active-node', 'highlight-user');
+      nodeSystem.classList.remove('active-node', 'highlight-system');
+      nodeAdmin.classList.remove('active-node', 'highlight-admin');
+
+      if (step.actorType === 'user') {
+        nodeUser.classList.add('active-node', 'highlight-user');
+      } else if (step.actorType === 'system') {
+        nodeSystem.classList.add('active-node', 'highlight-system');
+      } else if (step.actorType === 'admin') {
+        nodeAdmin.classList.add('active-node', 'highlight-admin');
+      }
+
+      // Update Payload Viewer
+      payloadCode.textContent = JSON.stringify(step.payload, null, 2);
+      payloadDbTable.textContent = step.dbTable;
+
+      // Append Log to Terminal
+      const timestamp = new Date().toISOString().split('T')[1].slice(0, 12);
+      const logLine = document.createElement('div');
+      logLine.className = step.actorType === 'user' ? 'text-cyan-300' : (step.actorType === 'admin' ? 'text-purple-300' : 'text-emerald-300');
+      logLine.textContent = `[${timestamp}] ${step.log}`;
+      terminalLogs.appendChild(logLine);
+      terminalLogs.scrollTop = terminalLogs.scrollHeight;
+    }
+
+    function advanceStep() {
+      const steps = SCENARIOS[currentScenarioKey];
+      currentStepIndex = (currentStepIndex + 1) % steps.length;
+      renderCurrentStep();
+    }
+
+    function togglePlay() {
+      isPlaying = !isPlaying;
+      if (isPlaying) {
+        playBtnText.textContent = 'Pause';
+        btnPlay.classList.remove('bg-cyan-500', 'hover:bg-cyan-400');
+        btnPlay.classList.add('bg-amber-500', 'hover:bg-amber-400');
+        playTimer = setInterval(advanceStep, playSpeed);
+      } else {
+        playBtnText.textContent = 'Play Simulation';
+        btnPlay.classList.remove('bg-amber-500', 'hover:bg-amber-400');
+        btnPlay.classList.add('bg-cyan-500', 'hover:bg-cyan-400');
+        clearInterval(playTimer);
+      }
+    }
+
+    // Event Listeners
+    btnPlay.addEventListener('click', togglePlay);
+    btnStep.addEventListener('click', () => {
+      if (isPlaying) togglePlay();
+      advanceStep();
+    });
+    btnReset.addEventListener('click', () => {
+      if (isPlaying) togglePlay();
+      currentStepIndex = 0;
+      renderCurrentStep();
+    });
+    scenarioSelect.addEventListener('change', (e) => {
+      currentScenarioKey = e.target.value;
+      currentStepIndex = 0;
+      renderCurrentStep();
+    });
+    speedSelect.addEventListener('change', (e) => {
+      playSpeed = parseInt(e.target.value, 10);
+      if (isPlaying) {
+        clearInterval(playTimer);
+        playTimer = setInterval(advanceStep, playSpeed);
+      }
+    });
+
+    document.getElementById('btn-clear-log').addEventListener('click', () => {
+      terminalLogs.innerHTML = '';
+    });
+
+    /* =========================================================================
+       VIEW TAB SWITCHER
+       ========================================================================= */
+
+    const tabs = document.querySelectorAll('.nav-tab');
+    const views = {
+      roadmap: document.getElementById('view-roadmap'),
+      simulation: document.getElementById('view-simulation'),
+      swimlanes: document.getElementById('view-swimlanes'),
+      mesh: document.getElementById('view-mesh')
+    };
+
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => {
+          t.classList.remove('bg-cyan-500/15', 'text-cyan-300', 'border', 'border-cyan-500/30');
+          t.classList.add('text-slate-400');
+        });
+        tab.classList.add('bg-cyan-500/15', 'text-cyan-300', 'border', 'border-cyan-500/30');
+        tab.classList.remove('text-slate-400');
+
+        const viewKey = tab.getAttribute('data-view');
+        Object.keys(views).forEach(k => {
+          if (k === viewKey) {
+            views[k].classList.remove('hidden');
+            views[k].classList.add('block');
+          } else {
+            views[k].classList.add('hidden');
+            views[k].classList.remove('block');
+          }
+        });
+      });
+    });
+
+    /* =========================================================================
+       STUDENT JOURNEY MAP MILESTONES & AUTO-RUNNER
+       ========================================================================= */
+
+    const JOURNEY_MILESTONES = {
+      1: {
+        title: 'Milestone 1: User Log In & Target Setup',
+        subtitle: 'Authentication · Single-Session Guard · Exam Enrollment',
+        icon: '🔐',
+        userDesc: 'Student enters phone OTP or Google OAuth credentials in Login.jsx. Upon successful verification, student selects target exam (SSC CGL 2026 Tier-1) in OnboardingWizard.jsx.',
+        systemDesc: 'Backend hashes passwords via bcrypt, generates httpOnly JWT cookies with CSRF tokens. Redis session manager revokes any existing active token on a second device to enforce single-device integrity.',
+        adminDesc: 'Admin activity logger records user registration/login IP. Admin Users Manager (UsersManager.jsx) updates active user counts and enrollment rosters in real-time.'
+      },
+      2: {
+        title: 'Milestone 2: Take Test (CBT Exam Interface)',
+        subtitle: 'Timed Sections · Anti-Cheat Telemetry · Offline Queue',
+        icon: '📝',
+        userDesc: 'Student enters fullscreen CBT interface in TestInterface.jsx. Question palette tracks Answered, Not Visited, and Marked for Review status. Section timer locks progress per exam rules.',
+        systemDesc: 'Backend serves sanitized question payloads (answers/explanations stripped). Background autosave enqueues question_attempts, while window blur and tab switches log attempt_events.',
+        adminDesc: 'Live Test Monitor (LiveTestMonitor.jsx) displays concurrent candidates, active question heatmap, and flags integrity violations with remote disqualification capability.'
+      },
+      3: {
+        title: 'Milestone 3: Result Analysis & Deep Diagnostics',
+        subtitle: 'Instant Scorecard · Accuracy Matrix · Percentile Rank',
+        icon: '📊',
+        userDesc: 'Student accesses instant scorecard in TestResult.jsx and reviews bilingual KaTeX step-by-step solutions in TestReview.jsx with time-per-question metrics.',
+        systemDesc: 'Test submission calculates raw scores & negative deductions transactionally in PostgreSQL, then enqueues BullMQ jobs to compute percentile and update Redis ZSET leaderboards.',
+        adminDesc: 'Analytics Dashboard (AnalyticsDashboard.jsx) aggregates score distribution, cutoff benchmarks, question difficulty indices, and candidate pass percentages.'
+      },
+      4: {
+        title: 'Milestone 4: Video Lectures & FortSpy DRM',
+        subtitle: 'AES-256 CTR Sandboxed Stream · Dynamic Watermarking',
+        icon: '🎥',
+        userDesc: 'Student streams topic lecture video in VideoDetail.jsx with speed control, downloadable chapter PDF notes, and time-stamped doubt markers.',
+        systemDesc: 'FortSpy DRM engine decrypts video segments in a sandboxed WebCrypto worker and overlays dynamic user watermark (User ID + IP timestamp) onto the HTML5 video canvas.',
+        adminDesc: 'Content Manager (StudyMaterialsManager.jsx) uploads raw videos, triggers automated HLS transcoding, DRM key generation, and tracks lecture completion analytics.'
+      },
+      5: {
+        title: 'Milestone 5: Adaptive Practice Lab & Socratic AI',
+        subtitle: 'Dynamic Item Calibration · Socratic Hinting Without Leakage',
+        icon: '💡',
+        userDesc: 'Student practices personalized micro-quizzes in PracticeLab.jsx and requests diagnostic conceptual hints from the Socratic AI Mentor.',
+        systemDesc: 'Node Engine V2 recalibrates question difficulty based on dynamic item response theory. OpenRouter AI Gateway streams Socratic prompts without revealing direct options.',
+        adminDesc: 'Practice Questions Manager (PracticeQuestionsManager.jsx) monitors question difficulty calibration and reviews AI generation token consumption.'
+      },
+      6: {
+        title: 'Milestone 6: Smart Revision & Spaced Repetition',
+        subtitle: 'Leitner 5-Box Interval · Weak-Area Retention Loop',
+        icon: '🔁',
+        userDesc: 'Student reviews personalized Leitner flashcards in SpacedRepetition.jsx, rating confidence to schedule optimal 1-3-7-14 day review intervals.',
+        systemDesc: 'Smart revision engine analyzes past test mistakes and automatically generates spaced repetition flashcard cards in spaced_repetition_cards.',
+        adminDesc: 'Curriculum & Taxonomy Builder tracks cohort memory retention curves and identifies high-failure syllabus topics needing curriculum reinforcement.'
+      }
+    };
+
+    let activeJourneyNode = 1;
+    let journeyRunnerTimer = null;
+    let isJourneyRunning = false;
+
+    function selectJourneyNode(nodeIndex) {
+      activeJourneyNode = nodeIndex;
+      const data = JOURNEY_MILESTONES[nodeIndex];
+      if (!data) return;
+
+      // Update Node Card Styles
+      for (let i = 1; i <= 6; i++) {
+        const nodeElem = document.getElementById(`jnode-${i}`);
+        if (nodeElem) {
+          if (i === nodeIndex) {
+            nodeElem.classList.add('active-node');
+            nodeElem.classList.remove('border-slate-700/60');
+          } else {
+            nodeElem.classList.remove('active-node');
+            nodeElem.classList.add('border-slate-700/60');
+          }
+        }
+      }
+
+      // Update Detail Card
+      document.getElementById('jdetail-icon').textContent = data.icon;
+      document.getElementById('jdetail-title').textContent = data.title;
+      document.getElementById('jdetail-subtitle').textContent = data.subtitle;
+      document.getElementById('jdetail-user-desc').innerHTML = data.userDesc;
+      document.getElementById('jdetail-system-desc').innerHTML = data.systemDesc;
+      document.getElementById('jdetail-admin-desc').innerHTML = data.adminDesc;
+    }
+
+    const btnJourneyRun = document.getElementById('btn-journey-run');
+    const journeyBtnText = document.getElementById('journey-btn-text');
+    const btnJourneyReset = document.getElementById('btn-journey-reset');
+
+    function toggleJourneyRun() {
+      isJourneyRunning = !isJourneyRunning;
+      if (isJourneyRunning) {
+        journeyBtnText.textContent = '⏸ Pause Walkthrough';
+        btnJourneyRun.classList.remove('from-cyan-500', 'to-blue-600');
+        btnJourneyRun.classList.add('from-amber-500', 'to-orange-600');
+        journeyRunnerTimer = setInterval(() => {
+          activeJourneyNode = (activeJourneyNode % 6) + 1;
+          selectJourneyNode(activeJourneyNode);
+        }, 2200);
+      } else {
+        journeyBtnText.textContent = '🚀 Run Auto-Journey Walkthrough';
+        btnJourneyRun.classList.remove('from-amber-500', 'to-orange-600');
+        btnJourneyRun.classList.add('from-cyan-500', 'to-blue-600');
+        clearInterval(journeyRunnerTimer);
+      }
+    }
+
+    if (btnJourneyRun) {
+      btnJourneyRun.addEventListener('click', toggleJourneyRun);
+    }
+    if (btnJourneyReset) {
+      btnJourneyReset.addEventListener('click', () => {
+        if (isJourneyRunning) toggleJourneyRun();
+        selectJourneyNode(1);
+      });
+    }
+
+    /* =========================================================================
+       POPULATE 3-LANE MATRIX ROWS
+       ========================================================================= */
+
+    const MATRIX_PHASES = [
+      {
+        phase: '1. Identity & Auth',
+        user: 'Registers via OTP/OAuth, verifies email, initiates single-session token.',
+        system: 'Issues httpOnly JWT, timing-safe 2FA comparison, enforces single-device session eviction.',
+        admin: 'Admin logs in via IP-whitelisted endpoint, TOTP 2FA, session logged in audit trail.'
+      },
+      {
+        phase: '2. Taxonomy & Curriculum',
+        user: 'Browses hierarchical exam tree (Category -> Exam -> Tier -> Subject -> Chapter).',
+        system: 'Serves cached taxonomy trees from Redis, handles nested queries without N+1 bottlenecks.',
+        admin: 'Configures Exam Categories, Tiers, Chapters, and custom searchable tag configs.'
+      },
+      {
+        phase: '3. Content & Question Factory',
+        user: 'Attempts rich LaTeX equations with KaTeX rendering, views diagrams and hints.',
+        system: 'Generates 1536-dim vector embeddings, verifies duplicate questions via cosine similarity.',
+        admin: 'Bulk-imports JSON/CSV exam archives with automated syntax validation & rollback.'
+      },
+      {
+        phase: '4. Live Test Scheduling',
+        user: 'Receives real-time live test countdown card and calendar reminders.',
+        system: 'testScheduler tick loop executes Redis lock, transitioning status scheduled -> live.',
+        admin: 'Sets start/end windows, per-section time limits, and negative marking rules.'
+      },
+      {
+        phase: '5. CBT Taking & Anti-Cheat',
+        user: 'Answers questions, marks for review, answers autosynced; offline queue syncs on reconnection.',
+        system: 'Validates per-section time tolerance; logs tab_switch, blur, and devtools events.',
+        admin: 'Live Test Monitor displays concurrent candidates, active question heatmap, and cheat flags.'
+      },
+      {
+        phase: '6. Submission & Queuing',
+        user: 'Submits completed attempt and immediately receives raw score breakdown.',
+        system: 'Transactionally saves score, enqueues BullMQ jobs for percentile & leaderboard ZSET rank.',
+        admin: 'Reviews real-time test submission volume, score distribution, and cutoff predictions.'
+      },
+      {
+        phase: '7. Review & Socratic AI',
+        user: 'Accesses bilingual solutions; interacts with Socratic AI Mentor for conceptual hints.',
+        system: 'OpenRouter AI Gateway enforces guardrails to prevent direct answer leakage.',
+        admin: 'Tracks AI token consumption, model response latency, and Socratic quality metrics.'
+      },
+      {
+        phase: '8. Operations & Lifecycle',
+        user: 'Purchases All-Access Pass via Razorpay checkout, unlocks Pro tests instantly.',
+        system: 'Cryptographically verifies webhook signature; daily cleaner purges abandoned attempts.',
+        admin: 'Manages user permissions, processes refund requests, restores items from Recycle Bin.'
+      }
+    ];
+
+    const matrixContainer = document.getElementById('matrix-rows');
+    MATRIX_PHASES.forEach(p => {
+      const row = document.createElement('div');
+      row.className = 'glass-card rounded-xl p-4 border-slate-700/60 grid grid-cols-1 md:grid-cols-4 gap-4 items-center';
+      row.innerHTML = `
+        <div class="font-bold text-white text-sm font-mono flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+          ${p.phase}
+        </div>
+        <div class="text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-cyan-500/10">
+          <span class="text-cyan-400 font-semibold block mb-1">👤 User (Student)</span>
+          ${p.user}
+        </div>
+        <div class="text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-emerald-500/10">
+          <span class="text-emerald-400 font-semibold block mb-1">⚙️ System & Gateway</span>
+          ${p.system}
+        </div>
+        <div class="text-xs text-slate-300 bg-slate-900/60 p-2.5 rounded-lg border border-purple-500/10">
+          <span class="text-purple-400 font-semibold block mb-1">🛡️ Admin Panel</span>
+          ${p.admin}
+        </div>
+      `;
+      matrixContainer.appendChild(row);
+    });
+
+    /* =========================================================================
+       INSPECTOR DRAWER MODAL HANDLERS
+       ========================================================================= */
+
+    const drawer = document.getElementById('inspector-drawer');
+    const drawerTitle = document.getElementById('drawer-title');
+    const drawerIcon = document.getElementById('drawer-icon');
+    const drawerContent = document.getElementById('drawer-content');
+
+    const NODE_DETAILS = {
+      auth_gateway: {
+        title: 'Auth & Security Gateway',
+        icon: '🛡️',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-cyan-300 font-bold">Location: apps/backend/src/middleware/auth.middleware.js</div>
+            <div class="text-slate-400">Guards: protect, admin, requireImageAuth, validateCsrfToken</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            The security boundary enforces strict defense-in-depth:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Fail-Closed:</strong> Unhandled exceptions or DB connectivity drops default to 403 Forbidden.</li>
+            <li><strong>Timing-Safe TOTP:</strong> <code>crypto.timingSafeEqual</code> prevents timing side-channels during 2FA.</li>
+            <li><strong>Origin & CSRF:</strong> HttpOnly + SameSite=Lax cookies with DB-backed CSRF tokens for state mutations.</li>
+          </ul>
+        `
+      },
+      scheduler: {
+        title: 'Test State Machine Scheduler',
+        icon: '⏱️',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-emerald-300 font-bold">Location: apps/backend/src/services/core/testScheduler.js</div>
+            <div class="text-slate-400">Interval: 60,000ms | Lock: 'scheduler:lock' (55s TTL)</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            Autonomous state transitions without race conditions:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Lock Acquisition:</strong> Distributed Redis SET NX prevents multi-instance execution in clustered deployments.</li>
+            <li><strong>Transition Map:</strong> Validates <code>scheduled &rarr; live &rarr; expired</code> transitions against the formal test state machine.</li>
+            <li><strong>Daily Maintenance:</strong> Triggers DLQ cleanup and stale connection purging daily at 02:00 UTC.</li>
+          </ul>
+        `
+      },
+      bullmq: {
+        title: 'BullMQ Async Queue Manager',
+        icon: '📬',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-amber-300 font-bold">Location: apps/backend/src/infrastructure/queue/queueManager.js</div>
+            <div class="text-slate-400">Queues: analytics, leaderboard, notifications, recommendations</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            Decouples student response latency from heavy aggregation jobs:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Exponential Backoff:</strong> 3 retry attempts with exponential delays (5000ms base).</li>
+            <li><strong>Dead Letter Queue:</strong> Captures persistently failed jobs for admin retry without blocking active queues.</li>
+            <li><strong>Graceful Degradation:</strong> If Redis goes offline, test submission falls back to synchronous direct DB execution.</li>
+          </ul>
+        `
+      },
+      ai_engine: {
+        title: 'Socratic AI Gateway & pgvector',
+        icon: '🧠',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-pink-300 font-bold">Location: apps/backend/src/modules/ai/aiMentor.routes.js</div>
+            <div class="text-slate-400">Vector Index: ivfflat cosine on vector(1536)</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            Contextual guidance engineered for pedagogical retention:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Socratic Constraint:</strong> System prompt blocks the model from outputting option letters or direct solutions.</li>
+            <li><strong>Duplicate Ingestion Guard:</strong> Rejects question bank uploads that exceed 0.94 cosine similarity to existing items.</li>
+            <li><strong>Audit Logs:</strong> Every generation records token usage and prompt latency in <code>ai_generation_logs</code>.</li>
+          </ul>
+        `
+      },
+      live_proctor: {
+        title: 'Live Proctor & Telemetry Engine',
+        icon: '🔌',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-purple-300 font-bold">Location: apps/backend/src/infrastructure/websocket/websocketManager.js</div>
+            <div class="text-slate-400">Socket.IO Rooms: 'live_test_{testId}', 'admin_proctor'</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            Real-time candidate integrity monitoring:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Anomaly Telemetry:</strong> Records <code>tab_switch</code>, <code>fullscreen_exit</code>, and <code>devtools_open</code>.</li>
+            <li><strong>Remote Eviction:</strong> Admin action pushes immediate WebSocket eviction payload to lock malicious client sessions.</li>
+            <li><strong>Live Candidate Count:</strong> Redis adapter aggregates concurrent candidate numbers across horizontal backend instances.</li>
+          </ul>
+        `
+      },
+      fortspy_drm: {
+        title: 'FortSpy Video DRM Engine',
+        icon: '🔒',
+        html: `
+          <div class="bg-slate-900 p-3 rounded-xl border border-white/5 space-y-1 font-mono">
+            <div class="text-cyan-300 font-bold">Location: apps/backend/src/services/FortSpyService.js</div>
+            <div class="text-slate-400">Protocol: AES-256 CTR Segment Encryption</div>
+          </div>
+          <p class="text-slate-300 leading-relaxed">
+            End-to-end anti-piracy protection for course media:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-slate-400">
+            <li><strong>Dynamic Watermarking:</strong> Overlays student User ID + IP timestamp directly on the client canvas rendering layer.</li>
+            <li><strong>Encrypted HLS Segments:</strong> Video chunks are decrypted in-memory through a sandboxed WebCrypto worker.</li>
+            <li><strong>Signed Expiry URLs:</strong> Segment keys expire within 60 seconds of issue to block external scrapers.</li>
+          </ul>
+        `
+      }
+    };
+
+    function inspectNode(key) {
+      const data = NODE_DETAILS[key];
+      if (!data) return;
+      drawerTitle.textContent = data.title;
+      drawerIcon.textContent = data.icon;
+      drawerContent.innerHTML = data.html;
+      drawer.classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      drawer.classList.add('translate-x-full');
+    }
+
+    /* =========================================================================
+       CANVAS BACKGROUND PARTICLE & MESH RENDERER
+       ========================================================================= */
+
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    for (let i = 0; i < 45; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        radius: Math.random() * 1.8 + 0.5,
+        color: Math.random() > 0.5 ? 'rgba(0, 245, 212, ' : 'rgba(192, 132, 252, '
+      });
+    }
+
+    function animateBg() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Subtle Grid
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Draw Floating Particles
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0) p.x = width;
+        if (p.x > width) p.x = 0;
+        if (p.y < 0) p.y = height;
+        if (p.y > height) p.y = 0;
+
+        ctx.fillStyle = p.color + '0.45)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      requestAnimationFrame(animateBg);
+    }
+    animateBg();
+
+    // Initial Render
+    renderCurrentStep();
+  </script>
+</body>
+</html>

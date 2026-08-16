@@ -1,4 +1,4 @@
-﻿-- Migration: Create tables for admin panel features
+-- Migration: Create tables for admin panel features
 -- Date: 2026-04-23
 
 -- 1. ROLES & PERMISSIONS TABLES
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS roles (
 );
 
 CREATE TABLE IF NOT EXISTS user_roles (
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
   created_at TIMESTAMP DEFAULT NOW(),
   PRIMARY KEY (user_id, role_id)
@@ -58,7 +58,7 @@ ON CONFLICT (name) DO NOTHING;
 -- 2. AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS audit_logs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
+  user_id INTEGER REFERENCES users(id),
   action VARCHAR(50) NOT NULL,
   entity_type VARCHAR(50) NOT NULL,
   entity_id UUID,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS coming_soon_features (
 -- 6. AI API USAGE TABLE
 CREATE TABLE IF NOT EXISTS ai_api_usage (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
+  user_id INTEGER REFERENCES users(id),
   endpoint VARCHAR(100) NOT NULL,
   model VARCHAR(50),
   tokens_used INTEGER,

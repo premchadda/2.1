@@ -45,7 +45,8 @@ import {
   Shield,
   FileSearch,
   TrendingUp,
-  Monitor
+  Monitor,
+  Radio
 } from 'lucide-react'
 
 /**
@@ -225,27 +226,11 @@ export const adminNavConfig = {
       items: [
         {
           id: 'study-materials-manager',
-          name: 'SM Manager',
+          name: 'Study Materials',
           path: '/admin/study-materials',
           icon: BookOpen,
-          description: 'Manage Subjects, Chapters & Topics',
+          description: 'Manage Subjects, Chapters, Topics & Curriculum',
           badge: null
-        },
-        {
-          id: 'subjects',
-          name: 'Subjects',
-          path: '/admin/subjects',
-          icon: Layers,
-          description: 'Subject and curriculum management',
-          badge: null
-        },
-        {
-          id: 'subject-relations',
-          name: 'Subject Relations',
-          path: '/admin/subject-relations',
-          icon: GitBranch,
-          description: 'View subject-chapter-topic-test relations',
-          badge: 'NEW'
         },
         {
           id: 'current-affairs',
@@ -262,8 +247,15 @@ export const adminNavConfig = {
           icon: Archive,
           description: 'Manage Media, PDFs & Notes',
           badge: null
+        },
+        {
+          id: 'curriculum',
+          name: 'Curriculum Builder',
+          path: '/admin/curriculum',
+          icon: GitBranch,
+          description: 'Build curriculum hierarchies, subjects, and chapters',
+          badge: 'NEW'
         }
-
       ]
     },
     {
@@ -337,6 +329,31 @@ export const adminNavConfig = {
           icon: Gift,
           description: 'Referral rewards',
           badge: 'NEW'
+        },
+        {
+          id: 'payments',
+          name: 'Payments',
+          path: '/admin/payments',
+          icon: CreditCard,
+          description: 'Transactions, refunds, and revenue',
+          badge: 'NEW'
+        }
+      ]
+    },
+    {
+      id: 'moderation',
+      name: 'Moderation',
+      icon: Shield,
+      description: 'Content review and community safety',
+      color: '#f97316',
+      items: [
+        {
+          id: 'content-moderation',
+          name: 'Content Moderation',
+          path: '/admin/moderation',
+          icon: AlertTriangle,
+          description: 'Review doubts and flagged content',
+          badge: 'NEW'
         }
       ]
     },
@@ -348,19 +365,11 @@ export const adminNavConfig = {
       color: '#f472b6',
       items: [
         {
-          id: 'roles-permissions',
-          name: 'Roles & Permissions',
-          path: '/admin/roles-permissions',
-          icon: Shield,
-          description: 'Manage admin roles and granular permissions',
-          badge: 'NEW'
-        },
-        {
-          id: 'users',
-          name: 'Users',
+          id: 'users-permissions',
+          name: 'Users & Permissions',
           path: '/admin/users',
           icon: Users,
-          description: 'User administration and enrollments',
+          description: 'Manage users, roles, and granular permissions',
           badge: null
         },
         {
@@ -377,6 +386,14 @@ export const adminNavConfig = {
           path: '/admin/sessions',
           icon: Monitor,
           description: 'Real-time session monitoring and management',
+          badge: 'NEW'
+        },
+        {
+          id: 'live-monitor',
+          name: 'Live Test Monitor',
+          path: '/admin/live-monitor',
+          icon: Radio,
+          description: 'Realtime view of students currently taking tests',
           badge: 'NEW'
         },
         {
@@ -403,6 +420,14 @@ export const adminNavConfig = {
           icon: FileSearch,
           description: 'Track all admin actions and system changes with before/after snapshots',
           badge: 'NEW'
+        },
+        {
+          id: 'results',
+          name: 'Test Results',
+          path: '/admin/results',
+          icon: CheckSquare,
+          description: 'Student test attempts, score breakdown, and CSV export',
+          badge: null
         }
       ]
     },
@@ -438,6 +463,14 @@ export const adminNavConfig = {
           badge: null
         },
         {
+          id: 'coming-soon',
+          name: 'Maintenance & Coming Soon',
+          path: '/admin/coming-soon',
+          icon: Clock,
+          description: 'Manage maintenance mode and feature launch states',
+          badge: null
+        },
+        {
           id: 'settings',
           name: 'Settings',
           path: '/admin/settings',
@@ -452,6 +485,14 @@ export const adminNavConfig = {
           icon: Navigation,
           description: 'Nav structure',
           badge: null
+        },
+        {
+          id: 'two-factor',
+          name: 'Two-Factor Auth',
+          path: '/admin/two-factor',
+          icon: Shield,
+          description: 'Manage two-factor authentication settings',
+          badge: 'NEW'
         }
       ]
     }

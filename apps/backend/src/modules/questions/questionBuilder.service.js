@@ -13,6 +13,7 @@
 
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import Question from '../../data/models/question/Question.js'
+import { isValidDifficulty, DIFFICULTY_KEYS } from './difficultyConfig.js'
 
 const questionBuilderService = {
   /**
@@ -52,7 +53,8 @@ const questionBuilderService = {
       isActive: data.isActive !== undefined ? data.isActive : true,
     }
 
-    return Question.create(questionData)
+    const created = await Question.create(questionData)
+    return { ...created, quality: this.assessQuality(data) }
   },
 
   /**
@@ -270,6 +272,198 @@ const questionBuilderService = {
   },
 
   /**
+   * QUESTION ENGINE FIX #4 (MEDIUM): automated question quality scoring.
+   *
+   * Produces a 0-100 quality score plus a list of human-readable flags so the
+   * admin UI can surface weak questions without manual review. Pure function —
+   * safe to call on a draft before persisting.
+   *
+   * @param {Object} data - question payload (same shape as validate())
+   * @returns {{ score: number, flags: string[], passed: boolean }}
+   */
+  assessQuality(data = {}) {
+    const flags = []
+    let score = 100
+
+    const text = data.questionText || data.question_text || ''
+    const options = Array.isArray(data.options) ? data.options : []
+    const explanation = data.explanation || ''
+    const correct = data.correctOption ?? data.correct_option
+
+    // 1. Question text presence & length
+    if (!text || text.trim().length < 5) {
+      flags.push('Question text is missing or too short')
+      score -= 30
+    } else if (text.trim().length < 15) {
+      flags.push('Question text is very short — consider adding context')
+      score -= 10
+    }
+
+    // 2. Option count
+    if (options.length < 2) {
+      flags.push('Fewer than 2 options')
+      score -= 25
+    } else if (options.length > 6) {
+      flags.push('More than 6 options')
+      score -= 10
+    }
+
+    // 3. Duplicate options
+    const normalized = options.map((o) => String(o ?? '').trim().toLowerCase())
+    const dupes = normalized.filter((o, i) => o && normalized.indexOf(o) !== i)
+    if (dupes.length > 0) {
+      flags.push('Question has duplicate options')
+      score -= 20
+    }
+
+    // 4. Empty options
+    if (options.some((o) => !String(o ?? '').trim())) {
+      flags.push('One or more options are empty')
+      score -= 15
+    }
+
+    // 5. Correct option validity
+    if (correct === undefined || correct === null) {
+      flags.push('Correct answer is not specified')
+      score -= 25
+    } else if (correct < 0 || correct >= options.length) {
+      flags.push('Correct answer index is out of range')
+      score -= 25
+    }
+
+    // 6. Option/answer leakage (e.g. one option literally says "Answer:")
+    const leak = options.some((o) => /(^|\b)(answer|correct answer|ans)\s*[:-]/i.test(String(o ?? '')))
+    if (leak) {
+      flags.push('An option appears to leak the answer')
+      score -= 20
+    }
+
+    return {
+      isValid: flags.length === 0,
+      score: Math.max(0, Math.min(100, score)),
+      flags,
+    }
+  },
+
+  /**
+   * Check for duplicate question content across the database.
+   * Compares normalized text hash and checks existing active questions.
+   */
+  async checkForDuplicateContent(questionText, excludeId = null) {
+    if (!questionText || typeof questionText !== 'string') {
+      return { isDuplicate: false }
+    }
+
+    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+    const normalizedText = questionText.toLowerCase().replace(/[^a-z0-9]/g, '').trim()
+    if (normalizedText.length < 10) return { isDuplicate: false }
+
+    const query = `
+      SELECT id, question_text, test_id 
+      FROM questions 
+      WHERE is_active = true 
+        AND ($1::int IS NULL OR id != $1)
+        AND REGEXP_REPLACE(LOWER(question_text), '[^a-z0-9]', '', 'g') = $2
+      LIMIT 1
+    `
+    const { rows } = await pool.query(query, [excludeId ? Number(excludeId) : null, normalizedText])
+
+    if (rows.length > 0) {
+      return {
+        isDuplicate: true,
+        duplicateId: rows[0].id,
+        testId: rows[0].test_id,
+        matchingText: rows[0].question_text
+      }
+    }
+    return { isDuplicate: false }
+  },
+
+  // 7. Explanation presence
+  /*
+    if (!explanation || explanation.trim().length < 5) {
+      flags.push('No explanation / solution provided')
+      score -= 15
+    }
+
+    // 8. Balanced option length (a single outlier option is a giveaway)
+    if (options.length >= 3) {
+      const lengths = options.map((o) => String(o ?? '').trim().length)
+      const max = Math.max(...lengths)
+      const min = Math.min(...lengths)
+      if (max > 0 && min > 0 && max / min >= 4) {
+        flags.push('Option lengths are very unbalanced (possible tell)')
+        score -= 8
+      }
+    }
+
+    score = Math.max(0, Math.min(100, Math.round(score)))
+    return { score, flags, passed: score >= 60 }
+  },
+
+  /**
+   * QUESTION ENGINE FIX #2 (MEDIUM): restore a previous question version.
+   *
+   * Snapshots the *current* question as a new version (so the restore action is
+   * itself reversible) and then overwrites the live question fields from the
+   * requested historical version.
+   */
+  async restoreVersion(questionId, versionNumber, userId = null) {
+    const current = await Question.findById(questionId)
+    if (!current) throw new Error('Question not found')
+
+    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+    const client = await pool.connect()
+    try {
+      const versionResult = await client.query(
+        `SELECT * FROM question_versions WHERE question_id = $1 AND version_number = $2`,
+        [questionId, versionNumber]
+      )
+      if (versionResult.rows.length === 0) {
+        throw new Error('Version not found')
+      }
+      const version = versionResult.rows[0]
+
+      // Snapshot current state before overwriting (reversible restore).
+      await this.createVersion(questionId, current, userId)
+
+      const restored = await client.query(
+        `UPDATE questions SET
+           question_text = $1,
+           question_text_hi = $2,
+           options = $3,
+           options_hi = $4,
+           correct_option = $5,
+           explanation = $6,
+           marks = $7,
+           negative_marks = $8,
+           difficulty = $9,
+           question_type = $10,
+           updated_at = NOW()
+         WHERE id = $11
+         RETURNING *`,
+        [
+          version.text,
+          version.options_hi || null,
+          version.options,
+          version.options_hi || null,
+          version.correct_answer,
+          version.explanation,
+          version.marks,
+          version.negative_marks,
+          version.difficulty,
+          version.question_type,
+          questionId,
+        ]
+      )
+
+      return restored.rows[0]
+    } finally {
+      client.release()
+    }
+  },
+
+  /**
    * Get question with all versions.
    */
   async getWithVersions(questionId) {
@@ -291,6 +485,7 @@ const questionBuilderService = {
 
       return {
         ...question,
+        quality: this.assessQuality(question),
         versions: versions.rows,
       }
     } finally {
@@ -312,7 +507,7 @@ const questionBuilderService = {
                s.name as subject_name,
                ts.name as test_name
         FROM questions q
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         LEFT JOIN tests ts ON ts.id = q.test_id
         WHERE 1=1
@@ -411,8 +606,8 @@ const questionBuilderService = {
       errors.push('Negative marks cannot be negative')
     }
 
-    const validDifficulties = ['easy', 'medium', 'hard', 'very_hard']
-    if (data.difficulty && !validDifficulties.includes(data.difficulty.toLowerCase())) {
+    const validDifficulties = DIFFICULTY_KEYS
+    if (data.difficulty && !isValidDifficulty(data.difficulty)) {
       errors.push(`Difficulty must be one of: ${validDifficulties.join(', ')}`)
     }
 

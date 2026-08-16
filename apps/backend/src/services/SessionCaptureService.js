@@ -1,6 +1,8 @@
-import { randomUUID } from 'crypto'
+import { randomUUID, createHash, timingSafeEqual } from 'crypto'
 import { pool } from '../infrastructure/database/postgres-helpers.js'
 import { getIO } from '../infrastructure/websocket/websocketManager.js'
+import { getRedisClient } from '../infrastructure/cache/redisClient.js'
+import logger from '../infrastructure/logger/logger.js'
 
 const getClientIp = (req) => {
   const forwardedFor = req.headers['x-forwarded-for']
@@ -59,7 +61,14 @@ const extractLocationFromIp = async (ip) => {
     return { country: 'Local Network', countryCode: 'LAN', city: 'Localhost', region: 'Local' }
   }
   try {
-    const response = await fetch(`http://ip-api.com/json/${ip}?fields=country,countryCode,city,region`)
+    // Timeout after 3 seconds — if ip-api.com is slow or down, don't block
+    // session creation indefinitely.
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 3000)
+    const response = await fetch(`http://ip-api.com/json/${ip}?fields=country,countryCode,city,region`, {
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
     if (response.ok) {
       const data = await response.json()
       return {
@@ -70,7 +79,7 @@ const extractLocationFromIp = async (ip) => {
       }
     }
   } catch (error) {
-    console.log('[SessionCapture] Location lookup failed:', error.message)
+    logger.info('[SessionCapture] Location lookup failed:', error.message)
   }
   return { country: null, countryCode: null, city: null, region: null }
 }
@@ -81,6 +90,81 @@ export const captureSession = async (req, userId, sessionType = 'web') => {
     const userAgent = req.headers['user-agent']
     const { device, browser, os } = parseUserAgent(userAgent)
     const location = await extractLocationFromIp(ipAddress)
+
+    // Reuse an existing active session for the same device when the user is
+    // re-authenticating or the client rehydrates after a refresh/restart. This
+    // prevents duplicate session rows from being created during transient checks.
+    const existingSessionRow = await pool.query(
+      `SELECT session_id
+       FROM user_sessions
+       WHERE user_id = $1
+         AND is_active = true
+         AND lower(COALESCE(device_type, '')) = lower($2)
+         AND lower(COALESCE(browser, '')) = lower($3)
+         AND lower(COALESCE(os, '')) = lower($4)
+         AND lower(COALESCE(ip_address, '')) = lower($5)
+       ORDER BY last_active DESC, created_at DESC
+       LIMIT 1`,
+      [String(userId), device, browser, os, ipAddress]
+    )
+
+    if (existingSessionRow.rows?.length) {
+      const existingSessionId = existingSessionRow.rows[0].session_id
+      logger.info(`[SessionCapture] Reusing active session for user ${userId}: ${existingSessionId}`)
+      try {
+        await pool.query(
+          'UPDATE user_sessions SET last_active = NOW() WHERE session_id = $1',
+          [existingSessionId]
+        )
+      } catch (updateErr) {
+        logger.error('[SessionCapture] Failed to update reused session activity:', updateErr.message)
+      }
+
+      // Emit WebSocket event for real-time session tracking — the session
+      // already existed, so report the refreshed activity as an update
+      // (ActiveSessionsManager listens for 'session:updated').
+      try {
+        const io = getIO()
+        const userResult = await pool.query('SELECT name, email, role FROM users WHERE id = $1', [userId])
+        const user = userResult.rows[0] || {}
+        const payload = {
+          sessionId: existingSessionId,
+          session_id: existingSessionId,
+          userId: userId,
+          user_id: userId,
+          userName: user.name,
+          user_name: user.name,
+          userEmail: user.email,
+          user_email: user.email,
+          user_role: user.role,
+          ip_address: ipAddress,
+          device_type: device,
+          browser,
+          os,
+          country: location.country,
+          city: location.city,
+          session_type: sessionType,
+          is_active: true,
+          last_active: new Date().toISOString()
+        }
+        // Notify admins monitoring sessions
+        io.to('admin:sessions').emit('session:updated', payload)
+        // Also send to user's personal room (lightweight)
+        io.to(`user:${userId}`).emit('session:updated', {
+          session_id: existingSessionId,
+          device_type: device,
+          browser,
+          os,
+          location: location,
+          session_type: sessionType,
+          last_active: new Date().toISOString()
+        })
+      } catch (error) {
+        logger.error('[WebSocket] Failed to emit session:updated:', error.message)
+      }
+      return existingSessionId
+    }
+
     const sessionId = randomUUID()
 
     const sessionData = {
@@ -132,7 +216,7 @@ export const captureSession = async (req, userId, sessionType = 'web') => {
     )
     const sessionDbId = result.rows[0].id
 
-    console.log(`[SessionCapture] Session created for user ${userId}: ${sessionId}`)
+    logger.info(`[SessionCapture] Session created for user ${userId}: ${sessionId}`)
 
     // Emit WebSocket event for real-time session tracking
     try {
@@ -171,12 +255,12 @@ export const captureSession = async (req, userId, sessionType = 'web') => {
         created_at: new Date().toISOString()
       })
     } catch (error) {
-      console.error('[WebSocket] Failed to emit session:created:', error.message)
+      logger.error('[WebSocket] Failed to emit session:created:', error.message)
     }
 
     return sessionId
   } catch (error) {
-    console.error('[SessionCapture] Failed to capture session:', error.message)
+    logger.error('[SessionCapture] Failed to capture session:', error.message)
     return null
   }
 }
@@ -188,8 +272,30 @@ export const updateSessionActivity = async (sessionId) => {
       'UPDATE user_sessions SET last_active = $1 WHERE session_id = $2',
       [new Date(), sessionId]
     )
+    // Notify admins that an existing session's last activity changed
+    try {
+      const sessionResult = await pool.query(
+        'SELECT user_id FROM user_sessions WHERE session_id = $1',
+        [sessionId]
+      )
+      const sessionRow = sessionResult.rows[0]
+      if (sessionRow) {
+        const io = getIO()
+        const payload = {
+          sessionId,
+          session_id: sessionId,
+          userId: sessionRow.user_id,
+          user_id: sessionRow.user_id,
+          is_active: true,
+          last_active: new Date().toISOString()
+        }
+        io.to('admin:sessions').emit('session:updated', payload)
+      }
+    } catch (emitErr) {
+      logger.error('[WebSocket] Failed to emit session:updated:', emitErr.message)
+    }
   } catch (error) {
-    console.error('[SessionCapture] Failed to update session activity:', error.message)
+    logger.error('[SessionCapture] Failed to update session activity:', error.message)
   }
 }
 
@@ -208,7 +314,18 @@ export const invalidateSession = async (sessionId, revokedBy = null) => {
       'UPDATE user_sessions SET is_active = false WHERE session_id = $1',
       [sessionId]
     )
-    console.log(`[SessionCapture] Session invalidated: ${sessionId}`)
+
+    // Invalidate Redis session cache immediately to close the 5-minute TTL window
+    try {
+      const redis = getRedisClient()
+      if (redis && redis.status === 'ready') {
+        await redis.del(`session:${sessionId}`)
+      }
+    } catch (e) {
+      // Redis invalidation is best-effort
+    }
+
+    logger.info(`[SessionCapture] Session invalidated: ${sessionId}`)
 
     // Emit WebSocket event
     if (session) {
@@ -225,12 +342,104 @@ export const invalidateSession = async (sessionId, revokedBy = null) => {
         // Notify admins monitoring sessions
         io.to('admin:sessions').emit('session:revoked', payload)
       } catch (error) {
-        console.error('[WebSocket] Failed to emit session:revoked:', error.message)
+        logger.error('[WebSocket] Failed to emit session:revoked:', error.message)
       }
     }
   } catch (error) {
-    console.error('[SessionCapture] Failed to invalidate session:', error.message)
+    logger.error('[SessionCapture] Failed to invalidate session:', error.message)
   }
+}
+
+// ===== Per-device refresh token hashing =====
+// Each device's session stores a SHA-256 hash of its current refresh token so
+// that refresh tokens can be validated and revoked per-device, and stale/stolen
+// tokens are rejected. A short grace window (prev hash) tolerates multi-tab
+// races where two tabs refresh near-simultaneously.
+
+const REFRESH_ROTATION_GRACE_MS = 60_000
+
+export const hashRefreshToken = (token) =>
+  createHash('sha256').update(String(token)).digest('hex')
+
+const hashesEqual = (a, b) => {
+  if (!a || !b || a.length !== b.length) return false
+  try {
+    return timingSafeEqual(Buffer.from(a), Buffer.from(b))
+  } catch {
+    return false
+  }
+}
+
+// Fetch the fields needed to validate a refresh token for a given session.
+export const getSessionForRefresh = async (sessionId) => {
+  if (!sessionId) return null
+  const result = await pool.query(
+    `SELECT is_active, refresh_token_hash, prev_refresh_token_hash, rotated_at, user_id,
+            created_at, last_active, last_activity, expires_at
+       FROM user_sessions WHERE session_id = $1`,
+    [String(sessionId)]
+  )
+  return result.rows[0] || null
+}
+
+// Verify a presented refresh token against the stored hash for its session.
+// Returns { ok, reason }. When the session has no stored hash (legacy session
+// created before this feature), we accept it so existing logins keep working.
+export const verifyRefreshTokenForSession = (session, presentedToken) => {
+  if (!session) return { ok: true, reason: 'no-session-row' }
+  if (session.is_active === false) return { ok: false, reason: 'revoked' }
+  if (!session.refresh_token_hash) return { ok: true, reason: 'legacy-no-hash' }
+
+  const presentedHash = hashRefreshToken(presentedToken)
+  if (hashesEqual(presentedHash, session.refresh_token_hash)) {
+    return { ok: true, reason: 'match-current' }
+  }
+
+  const withinGrace =
+    session.rotated_at &&
+    Date.now() - new Date(session.rotated_at).getTime() < REFRESH_ROTATION_GRACE_MS
+  if (withinGrace && hashesEqual(presentedHash, session.prev_refresh_token_hash)) {
+    return { ok: true, reason: 'match-prev-grace' }
+  }
+
+  // REPLAY ALARM: a presented token matches the PREVIOUS refresh hash but is
+  // OUTSIDE the rotation grace window. The current token was already rotated
+  // away, so this copy is being replayed — a strong signal of token theft
+  // (a stolen copy reused after the legitimate client rotated it). This is
+  // treated as a distinct, security-relevant failure so the caller can
+  // revoke the session, alert the user, and record the event.
+  if (session.prev_refresh_token_hash && hashesEqual(presentedHash, session.prev_refresh_token_hash)) {
+    return { ok: false, reason: 'replay-detected' }
+  }
+
+  return { ok: false, reason: 'stale-or-stolen' }
+}
+
+// Store the initial refresh token hash for a freshly created session (login).
+export const setSessionRefreshHash = async (sessionId, token) => {
+  if (!sessionId || !token) return
+  try {
+    await pool.query(
+      `UPDATE user_sessions SET refresh_token_hash = $1, rotated_at = NOW() WHERE session_id = $2`,
+      [hashRefreshToken(token), String(sessionId)]
+    )
+  } catch (error) {
+    logger.error('[SessionCapture] Failed to set refresh hash:', error.message)
+  }
+}
+
+// Rotate the stored hash on refresh: current → prev, new → current.
+export const rotateSessionRefreshHash = async (sessionId, newToken) => {
+  if (!sessionId || !newToken) return
+  await pool.query(
+    `UPDATE user_sessions
+        SET prev_refresh_token_hash = refresh_token_hash,
+            refresh_token_hash = $1,
+            rotated_at = NOW(),
+            last_active = NOW()
+      WHERE session_id = $2`,
+    [hashRefreshToken(newToken), String(sessionId)]
+  )
 }
 
 export const getUserSessions = async (userId) => {
@@ -245,7 +454,7 @@ export const getUserSessions = async (userId) => {
     )
     return result.rows
   } catch (error) {
-    console.error('[SessionCapture] Failed to get sessions:', error.message)
+    logger.error('[SessionCapture] Failed to get sessions:', error.message)
     return []
   }
 }
@@ -254,5 +463,10 @@ export default {
   captureSession,
   updateSessionActivity,
   invalidateSession,
-  getUserSessions
+  getUserSessions,
+  hashRefreshToken,
+  getSessionForRefresh,
+  verifyRefreshTokenForSession,
+  setSessionRefreshHash,
+  rotateSessionRefreshHash
 }

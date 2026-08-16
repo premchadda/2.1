@@ -5,11 +5,27 @@
  */
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses'
 import { createRequire } from 'module';
+import logger from '../infrastructure/logger/logger.js';
 const require = createRequire(import.meta.url);
 
 const DISABLED_PROVIDERS = new Set(['none', 'disabled', 'off'])
 
 const isDisabledProvider = (provider) => DISABLED_PROVIDERS.has(String(provider || 'none').toLowerCase())
+
+const escapeHtml = (unsafe) => {
+  if (!unsafe) return '';
+  return String(unsafe)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+const getFrontendUrl = () => {
+  const isHttps = process.env.ENFORCE_HTTPS === 'true'
+  return process.env.FRONTEND_URL || `${isHttps ? 'https' : 'http'}://localhost:3000`
+}
 
 class EmailService {
   constructor() {
@@ -20,19 +36,23 @@ class EmailService {
   }
 
   setupProvider() {
+    if (process.env.NODE_ENV === 'production' && isDisabledProvider(this.provider) && process.env.ALLOW_NO_EMAIL_IN_PRODUCTION !== 'true') {
+      throw new Error(`CRITICAL ERROR: Transactional email provider is disabled (EMAIL_PROVIDER=none) in production. Please set EMAIL_PROVIDER to 'sendgrid', 'aws', or 'smtp'. Or set ALLOW_NO_EMAIL_IN_PRODUCTION=true to override.`);
+    }
+
     switch (this.provider) {
       case 'sendgrid':
         try {
           const apiKey = process.env.SENDGRID_API_KEY
           if (!apiKey || !apiKey.startsWith('SG.')) {
-            console.warn('SendGrid API key not configured or invalid. Email sending disabled.')
+            logger.warn('SendGrid API key not configured or invalid. Email sending disabled.')
             this.sgMail = null
             return
           }
           this.sgMail = require('@sendgrid/mail')
           this.sgMail.setApiKey(apiKey)
         } catch (e) {
-          console.warn('SendGrid setup failed:', e.message);
+          logger.warn('SendGrid setup failed:', e.message);
         }
         break
       case 'aws':
@@ -41,32 +61,77 @@ class EmailService {
             region: process.env.AWS_REGION || 'us-east-1'
           })
         } catch (e) {
-          console.warn('AWS SES setup failed:', e.message);
+          logger.warn('AWS SES setup failed:', e.message);
         }
         break
       case 'smtp':
-        try {
-          this.nodemailer = require('nodemailer')
-          this.transporter = this.nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
-            port: process.env.SMTP_PORT,
-            secure: process.env.SMTP_SECURE === 'true',
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASSWORD
-            }
-          })
-        } catch (e) {
-          console.warn('SMTP setup failed:', e.message);
-        }
+        // Transporter will be initialized dynamically on demand to support reconnections
         break
       default:
         if (isDisabledProvider(this.provider)) {
-          console.log('[Email] Delivery disabled (EMAIL_PROVIDER=none).')
+          logger.info('[Email] Delivery disabled (EMAIL_PROVIDER=none).')
           return
         }
-        console.warn(`Email provider '${this.provider}' is not supported`)
+        logger.warn(`Email provider '${this.provider}' is not supported`)
     }
+  }
+
+  getHtmlWrapper(title, bodyContent, actionButton = null) {
+    const actionHtml = actionButton
+      ? `<p style="margin: 30px 0; text-align: center;">
+           <a href="${escapeHtml(actionButton.url)}" style="background-color: #4f46e5; background-image: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2), 0 2px 4px -1px rgba(79, 70, 229, 0.1); transition: all 0.2s ease;">
+             ${escapeHtml(actionButton.text)}
+           </a>
+         </p>`
+      : '';
+
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+          <style>
+            @media only screen and (max-width: 620px) {
+              .container { width: 100% !important; padding: 0 !important; }
+              .content { padding: 20px !important; }
+            }
+          </style>
+        </head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f3f4f6; padding: 40px 0;">
+            <tr>
+              <td align="center">
+                <table class="container" role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #e5e7eb; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);">
+                  <!-- Header -->
+                  <tr>
+                    <td align="center" style="background-color: #4f46e5; background-image: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 30px 20px; color: #ffffff;">
+                      <h1 style="font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin: 0; text-transform: uppercase;">Trstprep</h1>
+                      ${title ? `<p style="font-size: 14px; opacity: 0.9; margin: 5px 0 0 0; font-weight: 500;">${escapeHtml(title)}</p>` : ''}
+                    </td>
+                  </tr>
+                  <!-- Body Content -->
+                  <tr>
+                    <td class="content" style="padding: 40px 30px; font-size: 16px; line-height: 1.6; color: #374151;">
+                      ${bodyContent}
+                      ${actionHtml}
+                    </td>
+                  </tr>
+                  <!-- Footer -->
+                  <tr>
+                    <td align="center" style="background-color: #f9fafb; padding: 24px; font-size: 12px; color: #6b7280; border-top: 1px solid #e5e7eb; text-align: center;">
+                      <p style="margin: 0 0 8px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Trstprep Academy</p>
+                      <p style="margin: 0 0 12px 0;">Need help? Contact us at <a href="mailto:${process.env.SMTP_FROM_ADDRESS || process.env.SMTP_USER || 'support@trstprep.com'}" style="color: #4f46e5; text-decoration: none; font-weight: 500;">${process.env.SMTP_FROM_ADDRESS || process.env.SMTP_USER || 'support@trstprep.com'}</a></p>
+                      <p style="margin: 0; font-size: 11px; opacity: 0.7;">&copy; ${new Date().getFullYear()} Trstprep. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `;
   }
 
   /**
@@ -74,24 +139,18 @@ class EmailService {
    */
   async sendOtpEmail(email, otp, expiresIn = 10) {
     const subject = 'Your Trstprep OTP - Verification Code'
-    const htmlContent = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>Verify Your Email</h2>
-            <p>Your One-Time Password (OTP) is:</p>
-            <div style="background: #f0f0f0; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-              <h1 style="letter-spacing: 5px; color: #3b82f6; margin: 0;">${otp}</h1>
-            </div>
-            <p>This OTP will expire in ${expiresIn} minutes.</p>
-            <p style="color: #666; font-size: 12px;">
-              If you didn't request this OTP, please ignore this email or contact support.
-            </p>
-          </div>
-        </body>
-      </html>
+    const bodyContent = `
+      <p>Hello,</p>
+      <p>We received a request to verify your email address. Your One-Time Password (OTP) is:</p>
+      <div style="background: #f3f4f6; padding: 20px; text-align: center; border-radius: 12px; margin: 24px 0; border: 1px solid #e5e7eb;">
+        <h1 style="letter-spacing: 8px; color: #4f46e5; margin: 0; font-size: 32px; font-weight: 800;">${otp}</h1>
+      </div>
+      <p>This OTP will expire in <strong>${expiresIn} minutes</strong>.</p>
+      <p style="color: #6b7280; font-size: 13px; margin-top: 24px;">
+        If you didn't request this OTP, please ignore this email or contact support.
+      </p>
     `
-
+    const htmlContent = this.getHtmlWrapper('Verify Your Email', bodyContent)
     return this.send(email, subject, htmlContent)
   }
 
@@ -100,33 +159,24 @@ class EmailService {
    */
   async sendWelcomeEmail(email, userName) {
     const subject = 'Welcome to Trstprep!'
-    const htmlContent = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>Welcome, ${userName}!</h2>
-            <p>Thank you for joining Trstprep. We're excited to help you prepare for your exams.</p>
-            <p>Here's what you can do now:</p>
-            <ul>
-              <li>Take practice tests to assess your level</li>
-              <li>Explore previous year papers (PYP)</li>
-              <li>Read daily current affairs articles</li>
-              <li>Join live competitive tests</li>
-              <li>Track your performance with analytics</li>
-            </ul>
-            <p>
-              <a href="${process.env.FRONTEND_URL}/dashboard" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-                Go to Dashboard
-              </a>
-            </p>
-            <p style="color: #666; font-size: 12px;">
-              Need help? Contact us at ${process.env.SMTP_FROM_ADDRESS || process.env.SMTP_USER || 'support@trstprep.com'}
-            </p>
-          </div>
-        </body>
-      </html>
+    const bodyContent = `
+      <p>Hi ${escapeHtml(userName)},</p>
+      <p>Thank you for joining Trstprep! We're excited to help you prepare and excel in your exams.</p>
+      <p>Here is what you can do to get started right now:</p>
+      <ul style="padding-left: 20px; margin: 16px 0;">
+        <li style="margin-bottom: 8px;">Take practice tests to assess your current level</li>
+        <li style="margin-bottom: 8px;">Explore previous year papers (PYQ)</li>
+        <li style="margin-bottom: 8px;">Read daily current affairs articles</li>
+        <li style="margin-bottom: 8px;">Join live competitive mock tests</li>
+        <li style="margin-bottom: 8px;">Track your performance with real-time analytics</li>
+      </ul>
+      <p>Best of luck with your preparation!</p>
     `
-
+    const actionButton = {
+      text: 'Go to Dashboard',
+      url: `${getFrontendUrl()}/dashboard`
+    }
+    const htmlContent = this.getHtmlWrapper('Welcome to Trstprep', bodyContent, actionButton)
     return this.send(email, subject, htmlContent)
   }
 
@@ -134,32 +184,31 @@ class EmailService {
    * Send test result notification
    */
   async sendTestResultEmail(email, userName, testTitle, score, totalMarks, air) {
-    const percentage = Math.round((score / totalMarks) * 100)
-    const subject = `Your ${testTitle} Result - ${percentage}%`
-    const htmlContent = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>Test Results for ${testTitle}</h2>
-            <p>Hi ${userName},</p>
-            <p>Your test has been evaluated. Here's your performance:</p>
-            <div style="background: #f0f0f0; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p><strong>Score:</strong> ${score}/${totalMarks} (${percentage}%)</p>
-              <p><strong>All India Rank:</strong> ${air}</p>
-            </div>
-            <p>
-              <a href="${process.env.FRONTEND_URL}/test-result" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-                View Detailed Analysis
-              </a>
-            </p>
-            <p style="color: #666; font-size: 12px;">
-              Keep practicing to improve your score!
-            </p>
-          </div>
-        </body>
-      </html>
+    const percentage = totalMarks > 0 ? Math.round((score / totalMarks) * 100) : 0
+    const escapedTitle = escapeHtml(testTitle)
+    const subject = `Your ${escapedTitle} Result - ${percentage}%`
+    const bodyContent = `
+      <p>Hi ${escapeHtml(userName)},</p>
+      <p>Your attempt for <strong>${escapedTitle}</strong> has been successfully evaluated. Here is a summary of your performance:</p>
+      <div style="background: #f9fafb; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #e5e7eb;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="padding: 6px 0; color: #4b5563;"><strong>Score Obtained:</strong></td>
+            <td style="padding: 6px 0; text-align: right; color: #111827; font-weight: bold;">${score}/${totalMarks} (${percentage}%)</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #4b5563;"><strong>All India Rank:</strong></td>
+            <td style="padding: 6px 0; text-align: right; color: #4f46e5; font-weight: bold;">${escapeHtml(air)}</td>
+          </tr>
+        </table>
+      </div>
+      <p>Click below to view the detailed breakdown, question-wise analytics, and answer explanations.</p>
     `
-
+    const actionButton = {
+      text: 'View Detailed Analysis',
+      url: `${getFrontendUrl()}/test-result`
+    }
+    const htmlContent = this.getHtmlWrapper('Test Performance Report', bodyContent, actionButton)
     return this.send(email, subject, htmlContent)
   }
 
@@ -168,25 +217,18 @@ class EmailService {
    */
   async sendPasswordResetEmail(email, resetLink) {
     const subject = 'Reset Your Trstprep Password'
-    const htmlContent = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>Password Reset Request</h2>
-            <p>We received a request to reset your password. Click the link below to set a new password:</p>
-            <p style="margin: 20px 0;">
-              <a href="${resetLink}" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-                Reset Password
-              </a>
-            </p>
-            <p style="color: #666; font-size: 12px;">
-              This link will expire in 1 hour. If you didn't request this, please ignore this email.
-            </p>
-          </div>
-        </body>
-      </html>
+    const bodyContent = `
+      <p>Hello,</p>
+      <p>We received a request to reset your account password. Click the button below to set a new password:</p>
+      <p style="color: #6b7280; font-size: 13px; margin-top: 24px;">
+        This link will expire in 1 hour. If you did not request a password reset, you can safely ignore this email.
+      </p>
     `
-
+    const actionButton = {
+      text: 'Reset Password',
+      url: resetLink
+    }
+    const htmlContent = this.getHtmlWrapper('Password Reset Request', bodyContent, actionButton)
     return this.send(email, subject, htmlContent)
   }
 
@@ -194,42 +236,70 @@ class EmailService {
    * Send notification email
    */
   async sendNotificationEmail(email, title, message, actionUrl = null) {
-    const subject = `Trstprep - ${title}`
-    let htmlContent = `
-      <html>
-        <body style="font-family: Arial, sans-serif; color: #333;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2>${title}</h2>
-            <p>${message}</p>
+    const escapedTitle = escapeHtml(title)
+    const subject = `Trstprep - ${escapedTitle}`
+    const bodyContent = `
+      <p>${escapeHtml(message)}</p>
+      <p style="color: #6b7280; font-size: 12px; margin-top: 32px; border-top: 1px dashed #e5e7eb; padding-top: 16px;">
+        You received this email because you're subscribed to Trstprep notifications.
+        <a href="${getFrontendUrl()}/settings" style="color: #4f46e5; text-decoration: none;">Manage preferences</a>
+      </p>
     `
-    
-    if (actionUrl) {
-      htmlContent += `
-            <p style="margin: 20px 0;">
-              <a href="${actionUrl}" style="background: #3b82f6; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px;">
-                View Details
-              </a>
-            </p>
-      `
-    }
+    const actionButton = actionUrl ? {
+      text: 'View Details',
+      url: actionUrl
+    } : null;
 
-    htmlContent += `
-            <p style="color: #666; font-size: 12px;">
-              You received this email because you're subscribed to Trstprep notifications.
-              <a href="${process.env.FRONTEND_URL}/settings" style="color: #3b82f6;">Manage preferences</a>
-            </p>
-          </div>
-        </body>
-      </html>
-    `
-
+    const htmlContent = this.getHtmlWrapper(escapedTitle, bodyContent, actionButton)
     return this.send(email, subject, htmlContent)
+  }
+
+  async getTransporter() {
+    if (this.transporter) return this.transporter;
+    try {
+      this.nodemailer = require('nodemailer')
+      this.transporter = this.nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        secure: process.env.SMTP_SECURE === 'true',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD
+        }
+      });
+      return this.transporter;
+    } catch (e) {
+      logger.error('SMTP dynamic initialization failed:', e.message);
+      return null;
+    }
   }
 
   /**
    * Core send method
    */
   async send(email, subject, htmlContent) {
+    const isWorker = process.env.IS_WORKER === 'true';
+    try {
+      const { isQueueEnabled, addJob, QUEUE_NAMES } = await import('../infrastructure/queue/queueManager.js').catch(() => ({}));
+      if (isQueueEnabled && isQueueEnabled() && !isWorker) {
+        try {
+          await addJob(QUEUE_NAMES.NOTIFICATIONS, 'notifications.send-email', {
+            payload: { email, subject, htmlContent }
+          });
+          logger.info(`[Email] Enqueued email job to ${email} for background processing`);
+          return { success: true, queued: true };
+        } catch (queueErr) {
+          logger.warn('Failed to queue email job, falling back to direct delivery:', queueErr.message);
+        }
+      }
+      return await this.sendDirect(email, subject, htmlContent);
+    } catch (error) {
+      logger.error('Error sending email:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
+  async sendDirect(email, subject, htmlContent) {
     try {
       switch (this.provider) {
         case 'sendgrid':
@@ -247,7 +317,7 @@ class EmailService {
           }
       }
     } catch (error) {
-      console.error('Error sending email:', error)
+      logger.error('Error in direct email send:', error)
       return { success: false, error: error.message }
     }
   }
@@ -287,8 +357,9 @@ class EmailService {
   }
 
   async sendViaSMTP(email, subject, htmlContent) {
-    if (!this.transporter) return { success: false, error: 'SMTP not initialized' }
-    const result = await this.transporter.sendMail({
+    const transporter = await this.getTransporter();
+    if (!transporter) return { success: false, error: 'SMTP transporter not initialized' }
+    const result = await transporter.sendMail({
       from: `${this.fromName} <${this.fromEmail}>`,
       to: email,
       subject,

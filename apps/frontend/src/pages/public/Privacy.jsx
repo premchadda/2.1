@@ -1,7 +1,17 @@
+import { Helmet } from 'react-helmet-async'
+
 export default function Privacy() {
   const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@trstprep.com'
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      <Helmet>
+        <title>Privacy Policy | Trstprep</title>
+        <meta name="description" content="Trstprep privacy policy - how we collect, use, and protect your personal information." />
+        <meta property="og:title" content="Privacy Policy | Trstprep" />
+        <meta property="og:description" content="Trstprep privacy policy - how we collect, use, and protect your personal information." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">

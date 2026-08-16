@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -191,7 +192,7 @@ router.get('/', async (req, res) => {
     console.error('Get achievements error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -212,7 +213,7 @@ router.get('/check', async (req, res) => {
     console.error('Check achievements error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -268,7 +269,7 @@ router.get('/leaderboard', async (req, res) => {
     console.error('Get achievement leaderboard error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

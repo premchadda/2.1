@@ -26,20 +26,30 @@ function UserActivityLog() {
       setLoading(true)
       const response = await adminAPI.getRecentActivity()
       
+      // Map backend activity fields to the component's expected shape.
+      // Backend (admin-activity.js) returns:
+      //   { type, title, description, time, userId, icon, color, _sortTs }
+      // The component expects:
+      //   { userName, userEmail, action, target, details, timestamp }
       const realActivities = (response.data?.data || []).map((activity, index) => ({
-        id: index,
+        id: activity.id || index,
         userId: activity.userId || 'unknown',
-        userName: activity.title || 'System',
-        userEmail: activity.description || '',
+        // `title` is an event title like "New user registered", not a user name.
+        // Use it as the action/target, and extract the user from `description`.
+        userName: activity.description?.split(' ')[0] || activity.title || 'System',
+        userEmail: '', // backend doesn't return email
         action: activity.type || 'action',
         target: activity.title || '',
         details: activity.description || '',
-        timestamp: activity.time_full || new Date().toISOString(), // Assuming we might add time_full later or use a generic one
+        // Backend returns `time` (a relative string like "5 minutes ago"), not `time_full`.
+        // Use `_sortTs` if available (raw timestamp), otherwise fall back to current time.
+        timestamp: activity._sortTs ? new Date(activity._sortTs).toISOString() : new Date().toISOString(),
         ipAddress: 'N/A',
         userAgent: 'N/A'
       }))
       
       setActivities(realActivities)
+      // Remove fake pagination — backend doesn't support pagination on this endpoint.
       setTotalPages(1)
     } catch (error) {
       console.error('Failed to fetch activities:', error)
@@ -50,16 +60,14 @@ function UserActivityLog() {
 
   const getActionIcon = (action) => {
     switch (action) {
+      case 'user_registration':
+        return <User className="w-5 h-5 text-blue-500" />
       case 'test_completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />
-      case 'login':
-        return <User className="w-5 h-5 text-blue-500" />
-      case 'content_viewed':
+      case 'media_uploaded':
         return <Eye className="w-5 h-5 text-purple-500" />
-      case 'bookmark_added':
+      case 'content_uploaded':
         return <Activity className="w-5 h-5 text-amber-500" />
-      case 'subscription_upgraded':
-        return <CheckCircle className="w-5 h-5 text-green-500" />
       default:
         return <Activity className="w-5 h-5 text-gray-500" />
     }
@@ -67,22 +75,21 @@ function UserActivityLog() {
 
   const getActionColor = (action) => {
     switch (action) {
+      case 'user_registration':
+        return 'bg-blue-50 text-blue-700 border-blue-200'
       case 'test_completed':
-        return 'bg-green-5 text-green-700 border-green-200'
-      case 'login':
-        return 'bg-blue-5 text-blue-700 border-blue-200'
-      case 'content_viewed':
-        return 'bg-purple-5 text-purple-700 border-purple-200'
-      case 'bookmark_added':
-        return 'bg-amber-5 text-amber-700 border-amber-200'
-      case 'subscription_upgraded':
-        return 'bg-green-5 text-green-700 border-green-200'
+        return 'bg-green-50 text-green-700 border-green-200'
+      case 'media_uploaded':
+        return 'bg-purple-50 text-purple-700 border-purple-200'
+      case 'content_uploaded':
+        return 'bg-amber-50 text-amber-700 border-amber-200'
       default:
-        return 'bg-gray-5 text-gray-700 border-gray-200'
+        return 'bg-gray-50 text-gray-700 border-gray-200'
     }
   }
 
   const formatAction = (action) => {
+    if (!action || typeof action !== 'string') return 'Action'
     return action.split('_').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ')
@@ -122,9 +129,14 @@ function UserActivityLog() {
       toast.error('No activities to export')
       return
     }
+    const csvField = (val) => {
+      const raw = String(val ?? '')
+      const sanitized = /^[=+\-@]/.test(raw) ? `'${raw}` : raw
+      return /[",\n\r]/.test(sanitized) ? `"${sanitized.replace(/"/g, '""')}"` : sanitized
+    }
     let csv = 'User,Email,Action,Target,Details,Time,IP Address\n'
     filteredActivities.forEach(a => {
-      csv += `"${a.userName}","${a.userEmail}","${formatAction(a.action)}","${a.target}","${a.details}","${a.timestamp}","${a.ipAddress}"\n`
+      csv += [a.userName, a.userEmail, formatAction(a.action), a.target, a.details, a.timestamp, a.ipAddress].map(csvField).join(',') + '\n'
     })
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
@@ -139,7 +151,7 @@ function UserActivityLog() {
   }, [filteredActivities])
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="mb-6">
         <Breadcrumb 
@@ -198,11 +210,10 @@ function UserActivityLog() {
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
             >
               <option value="all">All Activities</option>
+              <option value="user_registration">User Registrations</option>
               <option value="test_completed">Tests Completed</option>
-              <option value="login">Logins</option>
-              <option value="content_viewed">Content Viewed</option>
-              <option value="bookmark_added">Bookmarks</option>
-              <option value="subscription_upgraded">Subscriptions</option>
+              <option value="media_uploaded">Media Uploaded</option>
+              <option value="content_uploaded">Content Uploaded</option>
             </select>
           </div>
         </div>
@@ -234,7 +245,7 @@ function UserActivityLog() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white text-sm font-bold">
-                            {activity.userName.charAt(0)}
+                            {(activity.userName || 'U').charAt(0)}
                           </div>
                           <div>
                             <p className="font-medium text-gray-900 dark:text-white">{activity.userName}</p>

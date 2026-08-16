@@ -13,18 +13,20 @@ const LiveTestResults = () => {
 
   useEffect(() => {
     if (!result) {
+      const controller = new AbortController()
       const fetchResult = async () => {
         try {
-          const response = await api.get(`/api/live-tests/${liveTestId}/result`)
-          setResult(response.data?.data || null)
+          const response = await api.get(`/api/live-tests/${liveTestId}/result`, { signal: controller.signal })
+          if (!controller.signal.aborted) setResult(response.data?.data || null)
         } catch (error) {
-          console.error('Error fetching result:', error)
+          if (error.name !== 'AbortError') console.error('Error fetching result:', error)
         } finally {
-          setLoading(false)
+          if (!controller.signal.aborted) setLoading(false)
         }
       }
 
       fetchResult()
+      return () => controller.abort()
     }
   }, [liveTestId, result])
 

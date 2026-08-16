@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -22,7 +23,7 @@ router.get('/', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -52,7 +53,7 @@ router.get('/slug/:slug', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -83,33 +84,56 @@ router.get('/:slug', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
 
 // @route   GET /api/exams/category/:categoryId
-// @desc    Get exams by category
+// @desc    Get category with exams by category ID
 // @access  Public
 router.get('/category/:categoryId', async (req, res) => {
   try {
-    const exams = await dbHelpers.find('exams', { 
-      categoryId: req.params.categoryId,
-      isActive: true 
+    const categoryId = req.params.categoryId
+    const categories = await dbHelpers.find('examCategories', {
+      id: categoryId,
+      isActive: true
+    })
+    
+    if (categories.length === 0) {
+      return res.status(404).json({ success: false, message: 'Category not found' })
+    }
+    
+    const category = categories[0]
+    const exams = await dbHelpers.find('exams', {
+      categoryId,
+      isActive: true
     })
     
     exams.sort((a, b) => (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0))
-
+    
     res.json({
       success: true,
-      count: exams.length,
-      data: exams,
+      data: {
+        ...category,
+        exams: exams.map(exam => ({
+          id: exam.examId,
+          examId: exam.examId,
+          title: exam.title,
+          fullName: exam.fullName,
+          description: exam.description,
+          desc: exam.description,
+          notification: exam.notification,
+          eligibility: exam.eligibility,
+          ageLimit: exam.ageLimit,
+          syllabus: exam.syllabus,
+          seriesId: exam.seriesId,
+          isActive: exam.isActive
+        }))
+      }
     })
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -182,7 +206,7 @@ router.get('/:slug/compare', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -274,7 +298,7 @@ router.get('/:slug/year', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

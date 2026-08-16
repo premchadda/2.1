@@ -33,7 +33,9 @@ export function validateEnvVars() {
   if (missing.length > 0) {
     console.error(`[Env Validation] Missing required environment variables: ${missing.join(', ')}`)
     console.error('[Env Validation] Please check your .env file or deployment configuration')
-    throw new Error(`Missing required env vars: ${missing.join(', ')}`)
+    if (!import.meta.env.DEV) {
+      throw new Error(`Missing required env vars: ${missing.join(', ')}`)
+    }
   }
 
   if (warnings.length > 0) {

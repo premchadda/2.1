@@ -17,8 +17,13 @@ import { importClassXQuestions, importClassXTestsWithQuestions } from '../../ser
 import { universalImport } from '../../services/import/enhancedImporter.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import { sendError } from '../../shared/utils/sendResponse.js'
+import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js'
+import logger from '../../infrastructure/logger/logger.js'
 
 const router = express.Router()
+
+router.use(protect)
+router.use(admin)
 
 // File upload config: accept JSON, Excel, and CSV files up to 50MB
 const importUpload = multer({

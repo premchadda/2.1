@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { X, Home, BookOpen, Radio, FileText, Target, HelpCircle, ClipboardCheck, GraduationCap, Library, Video, BarChart2, Crown, LogOut, Settings, Trophy, MessageCircle, Users } from 'lucide-react'
+import { X, Home, BookOpen, Radio, FileText, Target, HelpCircle, ClipboardCheck, GraduationCap, Library, Video, BarChart2, Crown, LogOut, Settings, Trophy, Users, Bookmark } from 'lucide-react';
 import { useAuth } from '../../providers/AuthContext'
 import { Logo } from '../index'
 
@@ -108,6 +108,10 @@ function Sidebar({ isOpen, onClose }) {
                 <Video className="w-4 h-4 text-pink-500" />
                 <span className="text-sm font-medium">Videos</span>
               </Link>
+              <Link to="/bookmarks" onClick={handleNavClick} className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
+                <Bookmark className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium">Saved & Reported Questions</span>
+              </Link>
               <Link to="/analysis" onClick={handleNavClick} className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700">
                 <BarChart2 className="w-4 h-4 text-orange-500" />
                 <span className="text-sm font-medium">Analysis</span>
@@ -158,6 +162,7 @@ function Sidebar({ isOpen, onClose }) {
             <div className="space-y-2">
               <Link 
                 to="/signup" 
+                state={{ backgroundLocation: location }}
                 onClick={handleNavClick}
                 className="block w-full py-2.5 text-center bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition"
               >

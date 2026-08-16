@@ -2,17 +2,21 @@ import express from 'express'
 import ExamCategory from '../../data/models/exam/ExamCategory.js'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
 // @route   GET /api/exam-categories
 // @desc    Get all exam categories with associated exams
 // @access  Public
-router.get('/', async (req, res) => {
+router.get('/', responseCache("exam-categories", 120), async (req, res) => {
   try {
-    // Try to get from database first
-    let categories = await ExamCategory.find({ isActive: true })
-    let exams = await dbHelpers.find('exams', { isActive: true })
+    // Fetch categories and exams concurrently
+    let [categories, exams] = await Promise.all([
+      ExamCategory.find({ isActive: true }),
+      dbHelpers.find('exams', { isActive: true })
+    ])
     
     if (!categories) categories = []
     if (!exams) exams = []
@@ -69,7 +73,7 @@ router.get('/', async (req, res) => {
     console.error('Error fetching exam categories:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -107,7 +111,7 @@ router.get('/subcategories/all', async (req, res) => {
     console.error('Error fetching exam subcategories:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -138,7 +142,7 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -167,7 +171,7 @@ router.get('/slug/:slug', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -204,7 +208,7 @@ router.get('/:id/exams', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })

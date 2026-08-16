@@ -117,22 +117,111 @@ export function getAssetUrl(path) {
   if (path.startsWith('http://') || path.startsWith('https://')) return path
   if (path.startsWith('//')) return window.location.protocol + path
   if (path.startsWith('/')) {
-    const baseUrl = process?.env?.VITE_API_URL || 'http://localhost:5001'
+    const baseUrl = (typeof process !== 'undefined' && process?.env?.VITE_API_URL) || ''
     return `${baseUrl}${path}`
   }
    return `/uploads/${path}`
  }
 
-  // ===== CSRF TOKEN STORE =====
-  export { getCsrfToken, setCsrfToken, clearCsrfToken } from './csrf-token-store.js'
+// ===== FORMATTERS & GENERAL UTILITIES =====
+export function formatCurrency(value) {
+  if (value == null || value === 0) return '₹0'
+  const num = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]/g, '')) : value
+  if (isNaN(num)) return '₹0'
+  if (num >= 10000000) return '₹' + (num / 10000000).toFixed(1) + 'Cr'
+  if (num >= 100000) return '₹' + (num / 100000).toFixed(1) + 'L'
+  return '₹' + num.toLocaleString('en-IN')
+}
 
-  // ===== LOGGER =====
-  export { logger } from './logger.js'
+export function formatNumber(value) {
+  if (value == null) return '0'
+  const num = typeof value === 'string' ? parseFloat(value.replace(/[^0-9.-]/g, '')) : value
+  if (isNaN(num)) return '0'
+  if (num >= 10000000) return (num / 10000000).toFixed(1) + 'Cr'
+  if (num >= 100000) return (num / 100000).toFixed(1) + 'L'
+  return num.toLocaleString('en-IN')
+}
 
-  // ===== DEFAULT EXPORT =====
-  export default {
-    THUMBNAIL_SIZES, CATEGORY_SEEDS, SUBJECT_SEEDS,
-    getPicsumUrl, getCategoryImage, getSubjectImage,
-    getValidThumbnail, isValidImageUrl, getVideoThumbnail,
-    getAvatarUrl, getInitials, getBannerUrl, getImageSizes, getAssetUrl
-  }
+export function formatDate(date, options = {}) {
+  if (!date) return '—'
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    ...options
+  })
+}
+
+export function formatTime(seconds) {
+  if (seconds == null || isNaN(seconds)) return '00:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+export function timeAgo(ts) {
+  if (!ts) return 'N/A'
+  const diff = Date.now() - new Date(ts).getTime()
+  const s = Math.floor(diff / 1000)
+  const m = Math.floor(s / 60)
+  const h = Math.floor(m / 60)
+  const d = Math.floor(h / 24)
+  if (s < 30) return 'Live'
+  if (s < 60) return `${s}s ago`
+  if (m < 60) return `${m}m ago`
+  if (h < 24) return `${h}h ago`
+  return `${d}d ago`
+}
+
+export function exportToCSV(filename, rows) {
+  if (!rows || rows.length === 0) return
+  const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => (Array.isArray(e) ? e.join(',') : e)).join('\n')
+  const encodedUri = encodeURI(csvContent)
+  const link = document.createElement('a')
+  link.setAttribute('href', encodedUri)
+  link.setAttribute('download', filename.endsWith('.csv') ? filename : `${filename}.csv`)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+export function idsEqual(a, b) {
+  if (a === b) return true
+  if (a == null || b == null) return false
+  return String(a) === String(b)
+}
+
+export function getEntityId(item) {
+  return item?._id ?? item?.id ?? item?.public_id ?? null
+}
+
+// ===== CSRF TOKEN STORE =====
+export { getCsrfToken, setCsrfToken, clearCsrfToken } from './csrf-token-store.js'
+
+// ===== API CLIENT + SHARED ERROR TYPES =====
+export {
+  createApiClient,
+  isCancel,
+  DataError,
+  NetworkError,
+  ValidationError,
+  AuthenticationError,
+  NotFoundError
+} from './apiClient.js'
+
+// ===== LOGGER =====
+export { logger } from './logger.js'
+
+// ===== ERROR BOUNDARY =====
+export { default as ErrorBoundary, SimpleErrorBoundary } from './ErrorBoundary.jsx'
+
+// ===== DEFAULT EXPORT =====
+export default {
+  THUMBNAIL_SIZES, CATEGORY_SEEDS, SUBJECT_SEEDS,
+  getPicsumUrl, getCategoryImage, getSubjectImage,
+  getValidThumbnail, isValidImageUrl, getVideoThumbnail,
+  getAvatarUrl, getInitials, getBannerUrl, getImageSizes, getAssetUrl,
+  formatCurrency, formatNumber, formatDate, formatTime, timeAgo, exportToCSV, idsEqual, getEntityId
+}

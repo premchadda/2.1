@@ -1,10 +1,12 @@
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import express from "express";
 import multer from "multer";
-import * as XLSX from "xlsx";
 import { restrictAdminOrigin, validateAdminApiKey } from "../../middleware/origin.middleware.js";
 import { protect, admin, superAdmin, ROLES } from "../../middleware/auth.middleware.js";
+import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
+import { loadAdminPermissions, requireAdminPermission } from "../../middleware/admin-permission.middleware.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import {
   deleteStoredAssetFile,
@@ -41,6 +43,7 @@ import {
 } from "../../data/models/index.js";
 import Stage from "../../data/models/Stage.js";
 import { normalizeFields } from "../../middleware/normalize-fields.js";
+import { sanitizeUser as canonicalSanitizeUser } from "../../shared/utils/user-utils.js";
 import categoriesRoutes from "./admin-categories.js";
 import usersRoutes from "./admin-users.js";
 import adminStagesRoutes from "./admin-stages.js";
@@ -57,7 +60,11 @@ import email_templatesRoutes from "./admin-email-templates.js";
 import navigationRoutes from "./admin-navigation.js";
 import comingSoonRoutes from "./admin-coming-soon.js";
 import leaderboardRoutes from "./leaderboards-admin.js";
+import adminBackupsRoutes from "./admin-backups.js";
+import paymentAdminRoutes from "./admin-payments.js";
+import moderationAdminRoutes from "./admin-moderation.js";
 import sessionController from "../../modules/sessions/session.controller.js";
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -112,11 +119,18 @@ async function getProPassPrice() {
  router.use(protect);
  // Layer 4: Authorization - Verify user has admin role
  router.use(admin);
+ // Layer 4b: CSRF validation — runs AFTER auth so session exists
+ router.use(validateCsrfToken);
+ // Layer 4c: Load RBAC permissions
+ router.use(loadAdminPermissions);
+ router.use(requireAdminPermission);
  // Layer 5: Audit logging for all admin actions
- router.use(auditMiddleware({
-   skipPaths: ['/api/admin/stats', '/api/admin/exams', '/api/admin/navigation'],
-   includeBody: true,
- }));
+  router.use(auditMiddleware({
+    // M37: removed /api/admin/exams and /api/admin/navigation from skipPaths —
+    // POST/PUT/DELETE on those paths perform data mutations and must be audited.
+    skipPaths: ['/api/admin/stats'],
+    includeBody: true,
+  }));
 
  // Register split route modules for better maintainability
  // These modules handle test series, tests, and questions CRUD operations
@@ -140,11 +154,17 @@ async function getProPassPrice() {
  router.use('/admin/email-templates', email_templatesRoutes);
 
  // Register P2 admin feature routes (Navigation Manager, Coming Soon)
- router.use('/admin/navigation', navigationRoutes);
+ // NOTE: Navigation CRUD routes are defined directly in admin.js (lines 215, 2356-2390)
+ // The admin-navigation.js module is mounted separately with its own middleware stack
  router.use('/admin/coming-soon', comingSoonRoutes);
 
  // Register leaderboard admin routes
  router.use('/leaderboards', leaderboardRoutes);
+ router.use('/payments', paymentAdminRoutes);
+ router.use('/moderation', moderationAdminRoutes);
+
+ // Backup management — uses safer execFile (no shell interpolation)
+ router.use('/backups', adminBackupsRoutes);
 
  // Register session management routes (modular controller from V2.2)
  router.get('/sessions', sessionController.getAllSessions);
@@ -192,166 +212,15 @@ router.get("/exams", async (req, res) => {
 
     res.json({ success: true, data: subcategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== NAVIGATION MENU (authenticated admin access only) =====
-router.get("/navigation", async (req, res) => {
-  try {
-    let nav = await dbHelpers.find("navigationMenu", { isActive: true });
-    if (nav.length === 0) {
-      const defaultNavItems = [
-        { label: 'Dashboard', route: '/admin/dashboard', icon: 'LayoutDashboard', order: 1, section: 'main', isVisible: true },
-        { label: 'Test Series', route: '/admin/test-series', icon: 'Layers', order: 2, section: 'main', isVisible: true },
-        { label: 'Tests', route: '/admin/tests', icon: 'CheckSquare', order: 3, section: 'main', isVisible: true },
-        { label: 'Sections', route: '/admin/sections', icon: 'Grid', order: 4, section: 'main', isVisible: true },
-        { label: 'Questions', route: '/admin/questions', icon: 'HelpCircle', order: 5, section: 'main', isVisible: true },
-        { label: 'Categories', route: '/admin/categories', icon: 'Tags', order: 6, section: 'main', isVisible: true },
-        { label: 'Stages', route: '/admin/stages', icon: 'GraduationCap', order: 7, section: 'main', isVisible: true },
-        { label: 'Users', route: '/admin/users', icon: 'Users', order: 8, section: 'main', isVisible: true },
-        { label: 'Results', route: '/admin/results', icon: 'BarChart', order: 9, section: 'main', isVisible: true },
-      ]
-      for (const item of defaultNavItems) {
-        await dbHelpers.insertOne("navigationMenu", item)
-      }
-      nav = await dbHelpers.find("navigationMenu", { isActive: true })
-    }
-    res.json({ success: true, data: nav });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+router.use("/navigation", navigationRoutes);
 
 // ===== DASHBOARD STATS =====
-router.get("/stats", async (req, res) => {
-  try {
-    const timeRange = req.query.range || "7d";
-    const now = new Date();
-    let startDate;
-
-    switch (timeRange) {
-      case "24h":
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "7d":
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "30d":
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "90d":
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      default:
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    }
-
-    // Convert camelCase collections to snake_case for raw queries
-    const toDbName = (name) =>
-      name.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
-
-    // FIX B4/B8: Improved fastCount to log warnings instead of silently returning 0
-    const fastCount = async (collection, whereClause = "", params = []) => {
-      try {
-        const tableName =
-          dbHelpers.tableMap && dbHelpers.tableMap[collection]
-            ? dbHelpers.tableMap[collection]
-            : toDbName(collection);
-        const sql = `SELECT COUNT(*) FROM "${tableName}" ${whereClause}`;
-        const res = await dbHelpers.pool.query(sql, params);
-        return parseInt(res.rows[0].count || 0);
-      } catch (e) {
-        // FIX B8: Log warning instead of silently returning 0
-        const tableName =
-          dbHelpers.tableMap && dbHelpers.tableMap[collection]
-            ? dbHelpers.tableMap[collection]
-            : toDbName(collection);
-        console.warn(
-          `[ADMIN] fastCount warning: Table "${tableName}" query failed:`,
-          e.message,
-        );
-        return 0;
-      }
-    };
-
-    const isoStart = startDate.toISOString();
-
-    // Concurrent blazing fast SQL fetches instead of pulling gigabytes of row data to Node RAM!
-    const [
-      totalUsers,
-      activeUsers,
-      testSeries,
-      tests,
-      questions,
-      topics,
-      studyMaterialsCount,
-      videos,
-      pdfs,
-      exams,
-      totalEnrollments,
-      media,
-      newUserCount,
-      newTestCount,
-      newQuestionCount,
-      newMediaCount,
-      newTopicCount,
-      newVideoCount,
-      newPdfCount,
-    ] = await Promise.all([
-      fastCount("users"),
-      fastCount("users", "WHERE is_active = true"),
-      fastCount("testSeries"),
-      fastCount("tests"),
-      fastCount("questions"),
-      fastCount("topics"),
-      fastCount("studyMaterials"),
-      fastCount("subjectVideos"),
-      fastCount("subjectPdfs"),
-      fastCount("exams"),
-      fastCount("enrollments"),
-      fastCount("assets"),
-      fastCount("users", "WHERE created_at >= $1", [isoStart]),
-      fastCount("tests", "WHERE created_at >= $1", [isoStart]),
-      fastCount("questions", "WHERE created_at >= $1", [isoStart]),
-      fastCount("assets", "WHERE created_at >= $1", [isoStart]),
-      fastCount("studyMaterials", "WHERE created_at >= $1", [isoStart]),
-      fastCount("subjectVideos", "WHERE created_at >= $1", [isoStart]),
-      fastCount("subjectPdfs", "WHERE created_at >= $1", [isoStart]),
-    ]);
-
-    const stats = {
-      users: totalUsers,
-      activeUsers: activeUsers,
-      testSeries: testSeries,
-      tests: tests,
-      questions: questions,
-      topics: topics,
-      videos: videos,
-      pdfs: pdfs,
-      studyMaterials: studyMaterialsCount,
-      exams: exams,
-      media: media,
-      newUserCount: newUserCount,
-      newTestCount: newTestCount,
-      newQuestionCount: newQuestionCount,
-      newMediaCount: newMediaCount,
-      newTopicCount: newTopicCount,
-      newVideoCount: newVideoCount,
-      newPdfCount: newPdfCount,
-      // Note: pageViews, avgTimeOnSite, errors require analytics tracking infrastructure
-      // These should be populated from actual tracking data when implemented
-      pageViews: null,
-      avgTimeOnSite: null,
-      errors: null,
-      revenue: null,
-    };
-
-    res.json({ success: true, data: stats });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// Note: Handled by admin-stats.js mounted via mountAdminRoutes
 
 // ===== TEST SERIES MANAGEMENT =====
 router.get("/analytics/export", async (req, res) => {
@@ -404,7 +273,7 @@ router.get("/analytics/export", async (req, res) => {
     res.send(csv);
   } catch (error) {
     if (!res.headersSent) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
   }
 });
@@ -459,7 +328,7 @@ router.get("/subjects-list", async (req, res) => {
     const materials = await dbHelpers.find("studyMaterials", { isActive: true });
     res.json({ success: true, data: materials });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -485,7 +354,7 @@ router.get("/study-materials", async (req, res) => {
 
     res.json({ success: true, data: materialsWithCounts });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -503,7 +372,7 @@ router.post("/study-materials", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newMaterial });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -584,7 +453,7 @@ router.put("/study-materials/:id", async (req, res) => {
       data: { ...updated, ...counts },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -602,7 +471,7 @@ router.delete("/study-materials/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Material moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -621,7 +490,7 @@ router.put("/study-materials/:id/restore", async (req, res) => {
       data: restored,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -639,7 +508,7 @@ router.get("/study-materials/:id", async (req, res) => {
     const counts = await calculateStudyMaterialCounts(req.params.id);
     res.json({ success: true, data: { ...material, ...counts } });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -647,14 +516,31 @@ router.get("/study-materials/:id", async (req, res) => {
 router.get("/chapters", async (req, res) => {
   try {
     const { studyMaterialId } = req.query;
-    const query = { isActive: true };
+    let sql = `
+      SELECT c.*,
+             u.name AS unit_name,
+             s.name AS subject_name
+       FROM chapters c
+      LEFT JOIN units u ON c.unit_id = u.id
+      LEFT JOIN subjects s ON c.study_material_id = s.id
+      WHERE c.is_active = true
+    `;
+    const values = [];
     if (studyMaterialId) {
-      query.studyMaterialId = studyMaterialId;
+      values.push(studyMaterialId);
+      sql += ` AND c.study_material_id = $${values.length}`;
     }
-    const chapters = await dbHelpers.find("chapters", query);
+    sql += " ORDER BY c.order_index ASC, c.id ASC";
+    const result = await dbHelpers.pool.query(sql, values);
+    const chapters = result.rows.map((row) => {
+      const camel = dbHelpers.toCamel(row);
+      camel.unitName = row.unit_name || null;
+      camel.subjectName = row.subject_name || null;
+      return camel;
+    });
     res.json({ success: true, data: chapters });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -668,7 +554,7 @@ router.get("/topics", async (req, res) => {
     topics.sort((a, b) => (a.orderIndex || a.order || 0) - (b.orderIndex || b.order || 0));
     res.json({ success: true, data: topics });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -704,7 +590,7 @@ router.post("/chapters", async (req, res) => {
 
     res.status(201).json({ success: true, data: newChapter });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -728,7 +614,7 @@ router.put("/chapters/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -759,7 +645,7 @@ router.delete("/chapters/:id", async (req, res) => {
 
     res.json({ success: true, message: "Chapter moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -775,7 +661,7 @@ router.get("/subject-videos", async (req, res) => {
     videos.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: videos });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -822,7 +708,7 @@ router.post("/subject-videos", async (req, res) => {
 
     res.status(201).json({ success: true, data: newVideo });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -846,7 +732,7 @@ router.put("/subject-videos/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -877,7 +763,7 @@ router.delete("/subject-videos/:id", async (req, res) => {
 
     res.json({ success: true, message: "Video moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -889,7 +775,7 @@ router.put("/subject-videos/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -905,7 +791,7 @@ router.get("/subject-pdfs", async (req, res) => {
     pdfs.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: pdfs });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -952,7 +838,7 @@ router.post("/subject-pdfs", async (req, res) => {
 
     res.status(201).json({ success: true, data: newPdf });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -974,7 +860,7 @@ router.put("/subject-pdfs/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1001,7 +887,7 @@ router.delete("/subject-pdfs/:id", async (req, res) => {
 
     res.json({ success: true, message: "PDF moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1013,7 +899,7 @@ router.put("/subject-pdfs/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1029,7 +915,7 @@ router.get("/topic-tests", async (req, res) => {
     topicTests.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: topicTests });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1066,7 +952,7 @@ router.post("/topic-tests", async (req, res) => {
 
     res.status(201).json({ success: true, data: newTopicTest });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1097,7 +983,7 @@ router.delete("/topic-tests/:id", async (req, res) => {
 
     res.json({ success: true, message: "Topic test moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1109,24 +995,13 @@ router.put("/topic-tests/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== USER MANAGEMENT =====
 // Centralized sanitization helper to avoid PII leakage (SEC-12)
-const sanitizeUser = (user) => {
-  if (!user) return user;
-  const {
-    password,
-    emailVerificationToken,
-    emailVerificationExpires,
-    resetPasswordToken,
-    resetPasswordExpires,
-    ...safeUser
-  } = user;
-  return safeUser;
-};
+const sanitizeUser = (user) => canonicalSanitizeUser(user);
 
 // List users with pagination
 // List enrollments — one row per user with aggregated enrollment details
@@ -1358,7 +1233,7 @@ router.get("/results", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1489,7 +1364,7 @@ const listAssets = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -1510,7 +1385,7 @@ router.get("/assets/:id", async (req, res) => {
     }
     res.json({ success: true, data: normalizeAssetRecord(asset) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1525,7 +1400,7 @@ router.get("/media/:id", async (req, res) => {
     }
     res.json({ success: true, data: normalizeAssetRecord(asset) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1559,7 +1434,7 @@ router.patch("/assets/:id", async (req, res) => {
 
     res.json({ success: true, data: normalizeAssetRecord(updated) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1591,7 +1466,7 @@ router.delete("/assets/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Asset deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1623,7 +1498,7 @@ router.delete("/media/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Media deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1637,15 +1512,24 @@ const handleAssetUpload = async (req, res) => {
     }
 
     const mimeType = req.file.mimetype || "application/octet-stream";
+
+    // Optional scope: store the file under assets/tests/<id>/ (or
+    // assets/series/<id>/tests/<id>/) so all images for one test share a
+    // single prefix. Matches admin-assets.js behavior.
+    const testId = parseAssetId(req.body.testId ?? req.body.test_id);
+    const testSeriesId = parseAssetId(req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId);
+
     const category =
       typeof req.body.category === "string" && req.body.category.trim()
         ? req.body.category.trim().slice(0, 80)
-        : inferAssetCategory(mimeType);
+        : testId
+          ? "test-image"
+          : inferAssetCategory(mimeType);
     const assetName =
       typeof req.body.name === "string" && req.body.name.trim()
         ? req.body.name.trim().slice(0, 255)
         : req.file.originalname;
-    const storedFile = await storeUploadedAssetFile(req.file, { category });
+    const storedFile = await storeUploadedAssetFile(req.file, { category, testId, testSeriesId });
 
     const assetRecord = await dbHelpers.insertOne("assets", {
       name: assetName,
@@ -1660,6 +1544,8 @@ const handleAssetUpload = async (req, res) => {
         storageType: storedFile.storageType,
         storageKey: storedFile.storageKey,
         signedUrl: storedFile.signedUrl || null,
+        testId,
+        testSeriesId,
       },
       uploadedBy: req.user.id,
       isActive: true,
@@ -1670,22 +1556,18 @@ const handleAssetUpload = async (req, res) => {
       data: normalizeAssetRecord(assetRecord),
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
-router.post("/assets/upload", upload.single("file"), handleAssetUpload);
-router.post("/upload", upload.single("file"), handleAssetUpload);
-router.post("/media/upload", upload.single("file"), handleAssetUpload);
-
 // ===== APP SETTINGS =====
-router.get("/settings", async (req, res) => {
+router.get("/settings", responseCache("admin-settings", 60), async (req, res) => {
   try {
     const { getFullSettings } = await import("../../services/SettingsService.js");
     const settings = await getFullSettings();
     res.json({ success: true, data: settings });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1693,9 +1575,11 @@ router.put("/settings", async (req, res) => {
   try {
     const { saveSettings } = await import("../../services/SettingsService.js");
     const updated = await saveSettings(req.body);
+    const { invalidateResponseCache } = await import("../../middleware/responseCache.middleware.js");
+    invalidateResponseCache("admin-settings");
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1712,7 +1596,7 @@ router.get("/exam-categories-list", async (req, res) => {
     );
     res.json({ success: true, data: sortedCategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1755,7 +1639,7 @@ router.get("/exam-categories", async (req, res) => {
 
     res.json({ success: true, data: categoriesWithExams });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1764,7 +1648,7 @@ router.post("/exam-categories", async (req, res) => {
     const newCategory = await dbHelpers.insertOne("examCategories", req.body);
     res.status(201).json({ success: true, data: newCategory });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1789,7 +1673,7 @@ router.put("/exam-categories/:id", async (req, res) => {
       `[ADMIN] PUT /exam-categories/${req.params.id} - Error:`,
       error.message,
     );
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1834,7 +1718,7 @@ router.delete("/exam-categories/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Category moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1922,7 +1806,7 @@ router.post("/exams", async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating subcategory (exam):", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1998,7 +1882,7 @@ router.put("/exams/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating subcategory (exam):", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2029,7 +1913,7 @@ router.delete("/exams/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting subcategory (exam):", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2081,7 +1965,7 @@ router.get("/exam-info", async (req, res) => {
 
     res.json({ success: true, data: examInfoWithCategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2127,7 +2011,7 @@ router.post("/exam-info", async (req, res) => {
     res.status(201).json({ success: true, data: newExam });
   } catch (error) {
     console.error("POST /exam-info error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2185,7 +2069,7 @@ router.put("/exam-info/:id", async (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error("PUT /exam-info error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2203,7 +2087,7 @@ router.delete("/exam-info/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Exam info moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2234,7 +2118,7 @@ router.get("/exam-seasons", async (req, res) => {
 
     res.json({ success: true, data: seasonsWithExams });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2292,7 +2176,7 @@ router.post("/exam-seasons", async (req, res) => {
     res.status(201).json({ success: true, data: newSeason });
   } catch (error) {
     console.error("Error creating exam season:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2313,7 +2197,7 @@ router.put("/exam-seasons/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2334,54 +2218,11 @@ router.delete("/exam-seasons/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Exam season deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
-router.post("/navigation", async (req, res) => {
-  try {
-    const newItem = await dbHelpers.insertOne("navigationMenu", req.body);
-    res.status(201).json({ success: true, data: newItem });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.put("/navigation/:id", async (req, res) => {
-  try {
-    const updated = await dbHelpers.updateById(
-      "navigationMenu",
-      req.params.id,
-      req.body,
-    );
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Navigation item not found" });
-    }
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.delete("/navigation/:id", async (req, res) => {
-  try {
-    const deleted = await dbHelpers.softDelete(
-      "navigationMenu",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Navigation item not found" });
-    }
-    res.json({ success: true, message: "Navigation item moved to trash" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// (Moved /navigation routes to admin-navigation.js)
 
 // ===== TAG CONFIGS =====
 router.get("/tag-configs", async (req, res) => {
@@ -2389,7 +2230,7 @@ router.get("/tag-configs", async (req, res) => {
     const tags = await dbHelpers.find("tagConfigs", {});
     res.json({ success: true, data: tags });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2398,7 +2239,7 @@ router.post("/tag-configs", async (req, res) => {
     const newTag = await dbHelpers.insertOne("tagConfigs", req.body);
     res.status(201).json({ success: true, data: newTag });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2416,7 +2257,7 @@ router.put("/tag-configs/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2434,7 +2275,7 @@ router.delete("/tag-configs/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Tag config moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2631,7 +2472,7 @@ router.get("/analytics", async (req, res) => {
     res.json({ success: true, data: analytics });
   } catch (error) {
     console.error("Analytics error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2652,137 +2493,12 @@ router.get("/question-analytics", async (req, res) => {
       count: data.length,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== RECENT ACTIVITY =====
-router.get("/recent-activity", async (req, res) => {
-  try {
-    // Get real recent activity from database
-    const recentActivity = [];
-
-    // Get recent user registrations (last 5)
-    const recentUsers = await dbHelpers.find("users");
-    const sortedUsers = recentUsers
-      .filter((u) => u.createdAt)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 3);
-
-    sortedUsers.forEach((user) => {
-      const timeDiff = Date.now() - new Date(user.createdAt).getTime();
-      const minutes = Math.floor(timeDiff / (1000 * 60));
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-      const time =
-        minutes < 60
-          ? `${minutes} minute${minutes !== 1 ? "s" : ""} ago`
-          : hours < 24
-            ? `${hours} hour${hours !== 1 ? "s" : ""} ago`
-            : `${Math.floor(hours / 24)} day${Math.floor(hours / 24) !== 1 ? "s" : ""} ago`;
-
-      recentActivity.push({
-        type: "user_registration",
-        title: "New user registered",
-        description: `${user.name || user.email} joined the platform`,
-        time: time,
-        userId: user._id || user.id,
-        icon: "users",
-        color: "text-blue-600",
-      });
-    });
-
-    // Get recent test completions (last 5)
-    const recentResults = await dbHelpers.find("attempts");
-    const sortedResults = recentResults
-      .filter((r) => r.isCompleted && (r.submittedAt || r.createdAt))
-      .sort(
-        (a, b) =>
-          new Date(b.submittedAt || b.createdAt) -
-          new Date(a.submittedAt || a.createdAt),
-      )
-      .slice(0, 3);
-
-    const allTests = await dbHelpers.find("tests");
-    const allUsers = await dbHelpers.find("users");
-
-    for (const result of sortedResults) {
-      const test = allTests.find(
-        (t) => t._id === result.testId || t.id === result.testId,
-      );
-      const user = allUsers.find(
-        (u) => u._id === result.userId || u.id === result.userId,
-      );
-      const timeDiff =
-        Date.now() - new Date(result.submittedAt || result.createdAt).getTime();
-      const minutes = Math.floor(timeDiff / (1000 * 60));
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-      const time =
-        minutes < 60
-          ? `${minutes} minute${minutes !== 1 ? "s" : ""} ago`
-          : hours < 24
-            ? `${hours} hour${hours !== 1 ? "s" : ""} ago`
-            : `${Math.floor(hours / 24)} day${Math.floor(hours / 24) !== 1 ? "s" : ""} ago`;
-
-      recentActivity.push({
-        type: "test_completed",
-        title: "Test completed",
-        description: `${user ? user.name : "A user"} completed ${test ? test.title : "a test"}`,
-        time: time,
-        userId: result.userId,
-        icon: "test",
-        color: "text-green-600",
-      });
-    }
-
-    // Get recent media uploads (last 3)
-    const recentMedia = await dbHelpers.find("assets");
-    const sortedMedia = recentMedia
-      .filter((m) => m.createdAt)
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 2);
-
-    for (const media of sortedMedia) {
-      const timeDiff = Date.now() - new Date(media.createdAt).getTime();
-      const minutes = Math.floor(timeDiff / (1000 * 60));
-      const hours = Math.floor(timeDiff / (1000 * 60 * 60));
-      const time =
-        minutes < 60
-          ? `${minutes} minute${minutes !== 1 ? "s" : ""} ago`
-          : hours < 24
-            ? `${hours} hour${hours !== 1 ? "s" : ""} ago`
-            : `${Math.floor(hours / 24)} day${Math.floor(hours / 24) !== 1 ? "s" : ""} ago`;
-
-      const isVideo =
-        (media.category || "").toLowerCase() === "video" ||
-        (media.type || "").startsWith("video/");
-      recentActivity.push({
-        type: isVideo ? "media_uploaded" : "content_uploaded",
-        title: isVideo ? "Video content uploaded" : "Study material uploaded",
-        description: media.name || media.title || "New file uploaded",
-        time: time,
-        userId: media.uploadedBy,
-        icon: isVideo ? "video" : "book",
-        color: isVideo ? "text-indigo-600" : "text-purple-600",
-      });
-    }
-
-    // Sort by time (most recent first) and limit to 8 items
-    recentActivity.sort((a, b) => {
-      const getMinutes = (timeStr) => {
-        if (timeStr.includes("minute")) return parseInt(timeStr);
-        if (timeStr.includes("hour")) return parseInt(timeStr) * 60;
-        if (timeStr.includes("day")) return parseInt(timeStr) * 60 * 24;
-        return 0;
-      };
-      return getMinutes(a.time) - getMinutes(b.time);
-    });
-
-    res.json({ success: true, data: recentActivity.slice(0, 8) });
-  } catch (error) {
-    console.error("Recent activity error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+// Note: Handled by admin-activity.js mounted via mountAdminRoutes
 
 // ===== RECYCLE BIN ROUTES =====
 
@@ -2906,7 +2622,7 @@ router.get("/curriculum/orphans", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2916,7 +2632,7 @@ router.get("/topics", async (req, res) => {
     const topics = await dbHelpers.find("topics", { isActive: true });
     res.json({ success: true, data: topics });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2928,7 +2644,7 @@ router.post("/topics", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newTopic });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2945,7 +2661,7 @@ router.put("/topics/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2963,29 +2679,29 @@ router.delete("/topics/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Topic moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== PASSAGES MANAGEMENT =====
 // Note: Uses 'questions' table with passage_id field for passage grouping
 // Passages are logical groupings, not a separate table
-router.get("/passages", async (req, res) => {
+router.get("/passages", responseCache("admin-passages", 120), async (req, res) => {
   try {
     const passages = await dbHelpers.find("passages", {});
     res.json({ success: true, data: passages });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== COUPONS MANAGEMENT =====
-router.get("/coupons", async (req, res) => {
+router.get("/coupons", responseCache("admin-coupons", 30), async (req, res) => {
   try {
     const coupons = await dbHelpers.find("coupons", { isActive: true });
     res.json({ success: true, data: coupons });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2997,7 +2713,7 @@ router.post("/coupons", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newCoupon });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3014,7 +2730,7 @@ router.put("/coupons/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3032,17 +2748,17 @@ router.delete("/coupons/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Coupon moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== NOTIFICATIONS MANAGEMENT =====
-router.get("/notifications", async (req, res) => {
+router.get("/notifications", responseCache("admin-notifications", 30), async (req, res) => {
   try {
     const notifications = await dbHelpers.find("notifications", {});
     res.json({ success: true, data: notifications });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3054,7 +2770,7 @@ router.post("/notifications", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newNotification });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3071,7 +2787,7 @@ router.post("/notifications/bulk", async (req, res) => {
       .status(201)
       .json({ success: true, data: inserted, count: inserted.length });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3088,7 +2804,7 @@ router.put("/notifications/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3106,129 +2822,17 @@ router.delete("/notifications/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Notification moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// ===== LEADERBOARD MANAGEMENT =====
-router.get("/leaderboards", async (req, res) => {
-  try {
-    const leaderboards = await dbHelpers.find("leaderboards", {
-      isActive: true,
-    });
-    res.json({ success: true, data: leaderboards });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.get("/leaderboards/:testId", async (req, res) => {
-  try {
-    const leaderboard = await dbHelpers.findOne("leaderboards", {
-      testId: req.params.testId,
-    });
-    if (!leaderboard) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Leaderboard not found" });
-    }
-    res.json({ success: true, data: leaderboard });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.post("/leaderboards", async (req, res) => {
-  try {
-    const { name, description, type, scope, scopeId, period, startDate, endDate, rankingCriteria, isPublished, showOnHomepage, maxRankings } = req.body;
-    const newLeaderboard = await dbHelpers.insertOne("leaderboards", {
-      name: name || `Leaderboard ${new Date().toISOString().split('T')[0]}`,
-      description: description || "",
-      type: type || "test",
-      scope: scope || "global",
-      scopeId: scopeId || null,
-      period: period || "all-time",
-      startDate: startDate || null,
-      endDate: endDate || null,
-      rankingCriteria: rankingCriteria || ["score", "timeTaken"],
-      isPublished: isPublished || false,
-      showOnHomepage: showOnHomepage || false,
-      maxRankings: maxRankings || 100,
-      rankings: [],
-      totalParticipants: 0,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    res.status(201).json({ success: true, data: newLeaderboard });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.put("/leaderboards/:id", async (req, res) => {
-  try {
-    const updated = await dbHelpers.updateById("leaderboards", req.params.id, {
-      ...req.body,
-      updatedAt: new Date().toISOString(),
-    });
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Leaderboard not found" });
-    }
-    res.json({ success: true, data: updated });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.put("/leaderboards/:id/publish", async (req, res) => {
-  try {
-    const updated = await dbHelpers.updateById("leaderboards", req.params.id, {
-      isPublished: true,
-      updatedAt: new Date().toISOString(),
-    });
-    if (!updated) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Leaderboard not found" });
-    }
-    res.json({
-      success: true,
-      message: "Leaderboard published",
-      data: updated,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.delete("/leaderboards/:id", async (req, res) => {
-  try {
-    const deleted = await dbHelpers.softDelete(
-      "leaderboards",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Leaderboard not found" });
-    }
-    res.json({ success: true, message: "Leaderboard moved to trash" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== SUBSCRIPTION PLANS MANAGEMENT =====
-router.get("/subscription-plans", async (req, res) => {
+router.get("/subscription-plans", responseCache("admin-plans", 30), async (req, res) => {
   try {
     const plans = await dbHelpers.find("subscriptionPlans", { isActive: true });
     res.json({ success: true, data: plans });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3240,7 +2844,7 @@ router.post("/subscription-plans", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newPlan });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3261,7 +2865,7 @@ router.put("/subscription-plans/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3279,7 +2883,7 @@ router.delete("/subscription-plans/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Plan moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3289,7 +2893,7 @@ router.get("/videos", async (req, res) => {
     const videos = await dbHelpers.find("videos", { isActive: true });
     res.json({ success: true, data: videos });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3301,7 +2905,7 @@ router.post("/videos", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newVideo });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3318,7 +2922,7 @@ router.put("/videos/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3336,7 +2940,7 @@ router.delete("/videos/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Video moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3346,7 +2950,7 @@ router.get("/subjects", async (req, res) => {
     const subjects = await dbHelpers.find("subjects", { isActive: true });
     res.json({ success: true, data: subjects });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3358,7 +2962,7 @@ router.post("/subjects", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newSubject });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3375,7 +2979,7 @@ router.put("/subjects/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3393,7 +2997,7 @@ router.delete("/subjects/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Subject moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3445,7 +3049,7 @@ router.get("/activity-order", async (req, res) => {
       count: activities.length,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3519,7 +3123,7 @@ router.get("/realtime/active-users", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3597,7 +3201,7 @@ router.get("/realtime/test-activity", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3691,7 +3295,7 @@ router.get("/realtime/revenue", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3770,7 +3374,7 @@ router.get("/realtime/system-health", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3883,7 +3487,7 @@ router.get("/realtime/live-feed", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3902,449 +3506,12 @@ const getSystemHealth = async (req, res) => {
 
     res.json({ success: true, data: health });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
-router.get("/system-health", getSystemHealth);
-router.get("/health", getSystemHealth);
-
-// ===== BACKUPS =====
-router.get("/backups", rejectOnServerless, async (req, res) => {
-  try {
-    // For now, return empty list - in production this would query actual backup files
-    const backups = await dbHelpers.find("backups", {});
-    res.json({ success: true, data: backups });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-router.post("/backups", rejectOnServerless, async (req, res) => {
-  try {
-    const { name, type = "manual" } = req.body;
-
-    const backupName =
-      name || `Backup_${new Date().toISOString().split("T")[0]}`;
-    const timestamp = Date.now();
-    const backupFile = `${backupName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${timestamp}`;
-
-    const { exec } = require("child_process");
-    const fs = require("fs");
-    const path = require("path");
-    const backupDir = path.join(process.cwd(), "backups");
-    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-
-    let backupRecord = null;
-
-    // Strategy 1: Try pg_dump (preferred - produces binary dump)
-    try {
-      const dbUrl = process.env.DATABASE_URL || "";
-      const dumpFile = `${backupFile}.dump`;
-      const dumpCmd = `pg_dump "${dbUrl}" -F c -f "${path.join(backupDir, dumpFile)}" 2>&1`;
-
-      await new Promise((resolve, reject) => {
-        exec(
-          dumpCmd,
-          { timeout: 300000, maxBuffer: 10 * 1024 * 1024 },
-          (error, stdout, stderr) => {
-            if (error)
-              reject(new Error(`pg_dump failed: ${stderr || error.message}`));
-            else resolve();
-          },
-        );
-      });
-
-      // Verify file was created
-      const filePath = path.join(backupDir, dumpFile);
-      if (!fs.existsSync(filePath)) {
-        throw new Error("pg_dump completed but file was not created");
-      }
-
-      const stats = fs.statSync(filePath);
-      console.log(
-        `[Backups] pg_dump successful: ${dumpFile} (${(stats.size / 1024 / 1024).toFixed(2)} MB)`,
-      );
-
-      backupRecord = await dbHelpers.insertOne("backups", {
-        name: backupName,
-        type,
-        status: "completed",
-        format: "pg_dump_binary",
-        fileName: dumpFile,
-        fileSize: stats.size,
-        createdBy: req.user?.id,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: backupRecord,
-        message: `Database backup created successfully (${(stats.size / 1024 / 1024).toFixed(2)} MB)`,
-      });
-    } catch (pgDumpError) {
-      console.warn(
-        `[Backups] pg_dump failed, falling back to SQL export: ${pgDumpError.message}`,
-      );
-      global.pgDumpError = pgDumpError;
-    }
-
-    // Strategy 2: SQL export fallback (when pg_dump is unavailable)
-    try {
-      const sqlFile = `${backupFile}.sql`;
-      const filePath = path.join(backupDir, sqlFile);
-
-      // Get all tables and export data as SQL INSERT statements
-      const tables = [
-        "users",
-        "testSeries",
-        "tests",
-        "questions",
-        "examCategories",
-        "exams",
-        "stages",
-        "testCategories",
-        "subjects",
-        "chapters",
-        "topics",
-        "assets",
-        "enrollments",
-        "attempts",
-        "notifications",
-        "coupons",
-        "banners",
-        "faqs",
-        "promotions",
-        "quizzes",
-        "studyMaterials",
-        "subjectVideos",
-        "subjectPdfs",
-        "topicTests",
-        "activityLogs",
-        "tagConfigs",
-        "navigationMenu",
-        "appSettings",
-        "examSeasons",
-        "subscriptionPlans",
-        "leaderboards",
-        "liveTests",
-        "videos",
-        "passages",
-        "backups",
-      ];
-
-      let sqlContent = `-- Trstprep Database Backup\n`;
-      sqlContent += `-- Generated: ${new Date().toISOString()}\n`;
-      sqlContent += `-- Type: ${type}\n`;
-      sqlContent += `-- Created by: ${req.user?.id || "admin"}\n\n`;
-      sqlContent += `BEGIN;\n\n`;
-
-      let totalRows = 0;
-
-      for (const table of tables) {
-        try {
-          const tableName = dbHelpers.tableMap?.[table] || table;
-          const rows = await dbHelpers.find(table, {});
-
-          if (rows.length === 0) {
-            sqlContent += `-- Table "${tableName}" is empty\n\n`;
-            continue;
-          }
-
-          sqlContent += `-- Table "${tableName}" (${rows.length} rows)\n`;
-
-          for (const row of rows) {
-            const columns = Object.keys(row);
-            const values = columns.map((col) => {
-              const val = row[col];
-              if (val === null || val === undefined) return "NULL";
-              if (typeof val === "number") return String(val);
-              if (typeof val === "boolean") return val ? "true" : "false";
-              if (val instanceof Date) return `'${val.toISOString()}'`;
-              if (Array.isArray(val))
-                return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
-              return `'${String(val).replace(/'/g, "''")}'`;
-            });
-
-            const colList = columns.map((c) => `"${c}"`).join(", ");
-            const valList = values.join(", ");
-            sqlContent += `INSERT INTO "${tableName}" (${colList}) VALUES (${valList});\n`;
-            totalRows++;
-          }
-          sqlContent += `\n`;
-        } catch (tableError) {
-          sqlContent += `-- Error exporting table "${table}": ${tableError.message}\n\n`;
-          console.warn(
-            `[Backups] Error exporting table ${table}:`,
-            tableError.message,
-          );
-        }
-      }
-
-      sqlContent += `COMMIT;\n`;
-
-      // Write SQL file
-      fs.writeFileSync(filePath, sqlContent, "utf8");
-
-      const stats = fs.statSync(filePath);
-      console.log(
-        `[Backups] SQL export successful: ${sqlFile} (${(stats.size / 1024 / 1024).toFixed(2)} MB, ${totalRows} rows)`,
-      );
-
-      backupRecord = await dbHelpers.insertOne("backups", {
-        name: backupName,
-        type,
-        status: "completed",
-        format: "sql_export",
-        fileName: sqlFile,
-        fileSize: stats.size,
-        totalRows,
-        createdBy: req.user?.id,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        note: "SQL export fallback (pg_dump unavailable)",
-      });
-
-      return res.status(201).json({
-        success: true,
-        data: backupRecord,
-        message: `Database backup created via SQL export (${(stats.size / 1024 / 1024).toFixed(2)} MB, ${totalRows} rows)`,
-        warning: "pg_dump was unavailable, SQL export used instead",
-      });
-    } catch (sqlError) {
-      console.error(`[Backups] SQL export also failed: ${sqlError.message}`);
-      throw new Error(
-        `Backup failed: pg_dump error (${global.pgDumpError?.message || 'unknown'}), SQL export error (${sqlError.message})`,
-      );
-    }
-  } catch (error) {
-    console.error("[Backups] Backup creation failed:", error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// FIX: Delete backup record AND actual file
-router.delete("/backups/:id", rejectOnServerless, async (req, res) => {
-  try {
-    const backup = await dbHelpers.findById("backups", req.params.id);
-    if (!backup || backup.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-
-    // Delete actual backup file if it exists
-    if (backup.fileName) {
-      const pathNode = await import("path");
-      const fs = await import("fs");
-      const backupDir = pathNode.default.join(process.cwd(), "backups");
-      const filePath = pathNode.default.join(backupDir, backup.fileName);
-      if (fs.default.existsSync(filePath)) {
-        fs.default.unlinkSync(filePath);
-        console.log(`[Backups] Deleted file: ${backup.fileName}`);
-      }
-    }
-
-    const deleted = await dbHelpers.softDelete(
-      "backups",
-      req.params.id,
-      req.user.id,
-    );
-    if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-    res.json({
-      success: true,
-      message: "Backup and file deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// FIX: Restore backup - execute SQL or pg_restore
-router.post("/backups/:id/restore", rejectOnServerless, async (req, res) => {
-  try {
-    const backup = await dbHelpers.findById("backups", req.params.id);
-    if (!backup || backup.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-    if (backup.status !== "completed") {
-      return res
-        .status(400)
-        .json({ success: false, message: "Backup is not completed" });
-    }
-
-    const pathNode = await import("path");
-    const fs = await import("fs");
-    const { exec } = await import("child_process");
-    const backupDir = pathNode.default.join(process.cwd(), "backups");
-    const filePath = pathNode.default.join(backupDir, backup.fileName);
-
-    if (!fs.default.existsSync(filePath)) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup file not found on disk" });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || "";
-
-    if (backup.format === "pg_dump_binary") {
-      // Use pg_restore for binary dumps
-      const restoreCmd = `pg_restore --clean --if-exists --no-owner --no-privileges "${dbUrl}" "${filePath}" 2>&1`;
-      await new Promise((resolve, reject) => {
-        exec(
-          restoreCmd,
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
-          (error, stdout, stderr) => {
-            if (error)
-              reject(
-                new Error(`pg_restore failed: ${stderr || error.message}`),
-              );
-            else resolve();
-          },
-        );
-      });
-    } else {
-      // Execute SQL file using psql
-      const restoreCmd = `psql "${dbUrl}" -f "${filePath}" 2>&1`;
-      await new Promise((resolve, reject) => {
-        exec(
-          restoreCmd,
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
-          (error, stdout, stderr) => {
-            if (error)
-              reject(
-                new Error(`psql restore failed: ${stderr || error.message}`),
-              );
-            else resolve();
-          },
-        );
-      });
-    }
-
-    // Log restore action
-    await dbHelpers.insertOne("activityLogs", {
-      action: "backup_restored",
-      tableName: "backups",
-      recordId: backup.id,
-      userId: req.user?.id,
-      userName: req.user?.name || req.user?.email || "Admin",
-      userEmail: req.user?.email || "",
-      ipAddress: req.ip || req.connection?.remoteAddress || "",
-      userAgent: req.headers["user-agent"] || "",
-      oldData: null,
-      newData: { backupName: backup.name, format: backup.format },
-      timestamp: new Date().toISOString(),
-    });
-
-    res.json({
-      success: true,
-      message: `Database restored from backup: ${backup.name}`,
-    });
-  } catch (error) {
-    console.error("[Backups] Restore failed:", error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// FIX: Trigger actual database backup (POST /api/admin/backups/trigger)
-router.post("/backups/trigger", rejectOnServerless, async (req, res) => {
-  try {
-    const { name, type = "manual" } = req.body || {};
-    const backupName =
-      name || `Auto_Backup_${new Date().toISOString().split("T")[0]}`;
-    const timestamp = Date.now();
-    const backupFile = `${backupName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${timestamp}`;
-
-    const { exec } = await import("child_process");
-    const fs = await import("fs");
-    const pathNode = await import("path");
-    const backupDir = pathNode.default.join(process.cwd(), "backups");
-    if (!fs.default.existsSync(backupDir))
-      fs.default.mkdirSync(backupDir, { recursive: true });
-
-    const dbUrl = process.env.DATABASE_URL || "";
-    const dumpFile = `${backupFile}.dump`;
-    const dumpCmd = `pg_dump "${dbUrl}" -F c -f "${pathNode.default.join(backupDir, dumpFile)}" 2>&1`;
-
-    await new Promise((resolve, reject) => {
-      exec(
-        dumpCmd,
-        { timeout: 300000, maxBuffer: 10 * 1024 * 1024 },
-        (error, stdout, stderr) => {
-          if (error)
-            reject(new Error(`pg_dump failed: ${stderr || error.message}`));
-          else resolve();
-        },
-      );
-    });
-
-    const filePath = pathNode.default.join(backupDir, dumpFile);
-    if (!fs.default.existsSync(filePath)) {
-      throw new Error("pg_dump completed but file was not created");
-    }
-
-    const stats = fs.default.statSync(filePath);
-
-    const backupRecord = await dbHelpers.insertOne("backups", {
-      name: backupName,
-      type,
-      status: "completed",
-      format: "pg_dump_binary",
-      fileName: dumpFile,
-      fileSize: stats.size,
-      createdBy: req.user?.id,
-      createdAt: new Date().toISOString(),
-      completedAt: new Date().toISOString(),
-    });
-
-    res.status(201).json({
-      success: true,
-      data: backupRecord,
-      message: `Database backup triggered successfully (${(stats.size / 1024 / 1024).toFixed(2)} MB)`,
-    });
-  } catch (error) {
-    console.error("[Backups] Trigger failed:", error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-// Download backup file
-router.get("/backups/:id/download", rejectOnServerless, async (req, res) => {
-  try {
-    const backup = await dbHelpers.findById("backups", req.params.id);
-    if (!backup || backup.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-    if (backup.status === "completed" && backup.fileName) {
-      const pathNode = await import("path");
-      const fs = await import("fs");
-      const backupDir = pathNode.default.join(process.cwd(), "backups");
-      const filePath = pathNode.default.join(backupDir, backup.fileName);
-      if (fs.default.existsSync(filePath)) {
-        res.download(filePath, backup.fileName);
-        return;
-      }
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup file not found on disk" });
-    }
-    res.status(400).json({
-      success: false,
-      message: "Backup is not available for download",
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+router.get("/system-health", responseCache("admin-health", 15), getSystemHealth);
+router.get("/health", responseCache("admin-health", 15), getSystemHealth);
 
 // ===== TEST EMAIL ENDPOINT =====
 router.post("/settings/test-email", async (req, res) => {
@@ -4402,18 +3569,18 @@ router.post("/settings/test-email", async (req, res) => {
     console.error("[Test Email] Error:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to send test email",
+      message: sanitizeErrorMessage(error) || "Failed to send test email",
     });
   }
 });
 
 // ===== BANNERS MANAGEMENT =====
-router.get("/banners", async (req, res) => {
+router.get("/banners", responseCache("admin-banners", 30), async (req, res) => {
   try {
     const banners = await dbHelpers.find("banners", { isActive: true });
     res.json({ success: true, data: banners });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4425,7 +3592,7 @@ router.post("/banners", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newBanner });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4442,7 +3609,7 @@ router.put("/banners/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4460,17 +3627,17 @@ router.delete("/banners/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Banner moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== FAQS MANAGEMENT =====
-router.get("/faqs", async (req, res) => {
+router.get("/faqs", responseCache("admin-faqs", 30), async (req, res) => {
   try {
     const faqs = await dbHelpers.find("faqs", { isActive: true });
     res.json({ success: true, data: faqs });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4482,7 +3649,7 @@ router.post("/faqs", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newFaq });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4497,7 +3664,7 @@ router.put("/faqs/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4513,12 +3680,12 @@ router.delete("/faqs/:id", async (req, res) => {
     }
     res.json({ success: true, message: "FAQ moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== PROMOTIONS MANAGEMENT =====
-router.get("/promotions", async (req, res) => {
+router.get("/promotions", responseCache("admin-promotions", 30), async (req, res) => {
   try {
     const promotions = await dbHelpers.find("promotions", { isActive: true });
     const assetMap = await buildAssetUrlMap(
@@ -4544,7 +3711,7 @@ router.get("/promotions", async (req, res) => {
     });
     res.json({ success: true, data: enrichedPromotions });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4560,7 +3727,7 @@ router.post("/promotions", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newPromotion });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4581,7 +3748,7 @@ router.put("/promotions/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4599,17 +3766,17 @@ router.delete("/promotions/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Promotion moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== QUIZZES MANAGEMENT =====
-router.get("/quizzes", async (req, res) => {
+router.get("/quizzes", responseCache("admin-quizzes", 30), async (req, res) => {
   try {
     const quizzes = await dbHelpers.find("quizzes", { isActive: true });
     res.json({ success: true, data: quizzes });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4621,11 +3788,11 @@ router.post("/quizzes", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newQuiz });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
-router.put("/quizzes/:id", async (req, res) => {
+const updateQuizAdminHandler = async (req, res) => {
   try {
     const updated = await dbHelpers.updateById("quizzes", req.params.id, {
       ...req.body,
@@ -4638,9 +3805,12 @@ router.put("/quizzes/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
-});
+};
+
+router.put("/quizzes/:id", updateQuizAdminHandler);
+router.patch("/quizzes/:id", updateQuizAdminHandler);
 
 router.delete("/quizzes/:id", async (req, res) => {
   try {
@@ -4656,7 +3826,7 @@ router.delete("/quizzes/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Quiz moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4684,7 +3854,7 @@ router.get("/activity-logs", async (req, res) => {
 
     res.json({ success: true, data: logs, count: logs.length });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4702,7 +3872,7 @@ router.post("/activity-logs", async (req, res) => {
 
     res.status(201).json({ success: true, data: log });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4770,7 +3940,7 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
           data: fallbackItems,
         });
       } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({ success: false, message: sanitizeErrorMessage(err) });
       }
     }
   });
@@ -4780,7 +3950,7 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
       const item = await dbHelpers.insertOne(collection, req.body);
       res.status(201).json({ success: true, data: item });
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
 
@@ -4795,7 +3965,7 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
         return res.status(404).json({ success: false, message: "Not found" });
       res.json({ success: true, data: item });
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
 
@@ -4810,267 +3980,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
         return res.status(404).json({ success: false, message: "Not found" });
       res.json({ success: true, message: "Deleted" });
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
-});
-
-// MED-01: Coming Soon Config — Migrated from filesystem to database (appSettings collection)
-router.get("/coming-soon-config", async (req, res) => {
-  try {
-    const record = await dbHelpers.findOne("appSettings", {
-      type: "comingSoonConfig",
-    });
-    if (record) {
-      return res.json({ success: true, data: record.data || {} });
-    }
-    res.json({ success: false, message: "Coming soon config not found" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
-
-router.put("/coming-soon-config", async (req, res) => {
-  try {
-    const existing = await dbHelpers.findOne("appSettings", {
-      type: "comingSoonConfig",
-    });
-    if (existing) {
-      const updated = await dbHelpers.updateById("appSettings", existing.id, {
-        data: req.body,
-      });
-      res.json({
-        success: true,
-        message: "Coming soon config updated",
-        data: updated,
-      });
-    } else {
-      const created = await dbHelpers.insertOne("appSettings", {
-        type: "comingSoonConfig",
-        data: req.body,
-      });
-      res.status(201).json({
-        success: true,
-        message: "Coming soon config created",
-        data: created,
-      });
-    }
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
-
-// ============================================
-// DEEP ANALYTICS - Cohort, Funnel, Engagement
-// ============================================
-
-// User Engagement Funnel
-router.get("/analytics/funnel", async (req, res) => {
-  try {
-    const funnel = await dbHelpers.pool.query(`
-      SELECT 
-        'registered' as stage, COUNT(*) as users FROM users WHERE is_active = true
-      UNION ALL
-      SELECT 
-        'enrolled' as stage, COUNT(DISTINCT user_id) as users FROM enrollments
-      UNION ALL
-      SELECT 
-        'attempted_test' as stage, COUNT(DISTINCT user_id) as users FROM attempts
-      UNION ALL
-      SELECT 
-        'completed_test' as stage, COUNT(DISTINCT user_id) as users FROM attempts WHERE status = 'completed'
-      UNION ALL
-      SELECT 
-        'pro_subscriber' as stage, COUNT(*) as users FROM users u
-        JOIN enrollments e ON u.id = e.user_id 
-        WHERE e.status = 'active' AND u.is_active = true
-    `);
-
-    const funnelData = funnel.rows.reduce((acc, row) => {
-      acc[row.stage] = parseInt(row.users);
-      return acc;
-    }, {});
-
-    // Calculate conversion rates
-    const total = funnelData.registered || 1;
-    const conversionRates = {
-      registered_to_enrolled: (
-        ((funnelData.enrolled || 0) / total) *
-        100
-      ).toFixed(1),
-      enrolled_to_attempted: (
-        ((funnelData.attempted_test || 0) / Math.max(funnelData.enrolled, 1)) *
-        100
-      ).toFixed(1),
-      attempted_to_completed: (
-        ((funnelData.completed_test || 0) /
-          Math.max(funnelData.attempted_test, 1)) *
-        100
-      ).toFixed(1),
-      registered_to_pro: (
-        ((funnelData.pro_subscriber || 0) / total) *
-        100
-      ).toFixed(1),
-    };
-
-    res.json({
-      success: true,
-      data: {
-        funnel: funnelData,
-        conversionRates,
-        totalUsers: funnelData.registered || 0,
-      },
-    });
-  } catch (error) {
-    console.error("Funnel analytics error:", error);
-    res.json({
-      success: true,
-      data: { funnel: {}, conversionRates: {}, totalUsers: 0 },
-    });
-  }
-});
-
-// Cohort Analysis - User retention by registration month
-router.get("/analytics/cohort", async (req, res) => {
-  try {
-    const cohortData = await dbHelpers.pool.query(`
-      WITH user_cohorts AS (
-        SELECT 
-          u.id as user_id,
-          TO_CHAR(u.created_at, 'YYYY-MM') as cohort_month,
-          a.start_time,
-          TO_CHAR(a.start_time, 'YYYY-MM') as activity_month
-        FROM users u
-        LEFT JOIN attempts a ON u.id = a.user_id
-        WHERE u.is_active = true
-      ),
-      cohort_sizes AS (
-        SELECT cohort_month, COUNT(DISTINCT user_id) as size
-        FROM user_cohorts
-        GROUP BY cohort_month
-      )
-      SELECT 
-        uc.cohort_month,
-        cs.size as cohort_size,
-        uc.activity_month,
-        COUNT(DISTINCT uc.user_id) as active_users,
-        EXTRACT(MONTH FROM AGE(TO_DATE(uc.activity_month, 'YYYY-MM'), TO_DATE(uc.cohort_month, 'YYYY-MM'))) as month_number
-      FROM user_cohorts uc
-      JOIN cohort_sizes cs ON uc.cohort_month = cs.cohort_month
-      GROUP BY uc.cohort_month, cs.size, uc.activity_month
-      ORDER BY uc.cohort_month, month_number
-    `);
-
-    // Format cohort data
-    const cohorts = {};
-    cohortData.rows.forEach((row) => {
-      if (!cohorts[row.cohort_month]) {
-        cohorts[row.cohort_month] = {
-          cohortMonth: row.cohort_month,
-          cohortSize: parseInt(row.cohort_size),
-          retention: {},
-        };
-      }
-      const monthNum = parseInt(row.month_number) || 0;
-      cohorts[row.cohort_month].retention[`m${monthNum}`] = {
-        activeUsers: parseInt(row.active_users),
-        retentionRate: (
-          (parseInt(row.active_users) / parseInt(row.cohort_size)) *
-          100
-        ).toFixed(1),
-      };
-    });
-
-    res.json({
-      success: true,
-      data: {
-        cohorts: Object.values(cohorts).slice(0, 12), // Last 12 cohorts
-        totalCohorts: Object.keys(cohorts).length,
-      },
-    });
-  } catch (error) {
-    console.error("Cohort analytics error:", error);
-    res.json({ success: true, data: { cohorts: [], totalCohorts: 0 } });
-  }
-});
-
-// User Engagement Score
-router.get("/analytics/engagement", async (req, res) => {
-  try {
-    const engagement = await dbHelpers.pool.query(`
-      SELECT 
-        u.id,
-        u.name,
-        u.email,
-        CASE WHEN EXISTS (SELECT 1 FROM enrollments e WHERE e.user_id = u.id AND e.status = 'active') THEN 'pro' ELSE 'free' END as subscription_status,
-        COUNT(DISTINCT a.id) as tests_attempted,
-        COUNT(DISTINCT CASE WHEN a.is_completed = true THEN a.id END) as tests_completed,
-        AVG(a.score) as avg_score,
-        GREATEST(MAX(a.submitted_at), MAX(a.created_at)) as last_activity,
-        COUNT(DISTINCT b.id) as bookmarks,
-        COUNT(DISTINCT e.id) as enrollments
-      FROM users u
-      LEFT JOIN attempts a ON u.id = a.user_id
-      LEFT JOIN bookmarks b ON u.id = b.user_id
-      LEFT JOIN enrollments e ON u.id = e.user_id
-      WHERE u.is_active = true
-      GROUP BY u.id
-      ORDER BY tests_completed DESC
-      LIMIT 100
-    `);
-
-    // Calculate engagement scores
-    const users = engagement.rows.map((user) => {
-      const testsCompleted = parseInt(user.tests_completed) || 0;
-      const avgScore = parseFloat(user.avg_score) || 0;
-      const bookmarks = parseInt(user.bookmarks) || 0;
-      const enrollments = parseInt(user.enrollments) || 0;
-
-      // Engagement score formula
-      const score =
-        testsCompleted * 10 + avgScore * 0.5 + bookmarks * 2 + enrollments * 5;
-
-      let engagementLevel = "low";
-      if (score > 100) engagementLevel = "highly_engaged";
-      else if (score > 50) engagementLevel = "engaged";
-      else if (score > 20) engagementLevel = "moderately_engaged";
-      else if (score > 5) engagementLevel = "slightly_engaged";
-
-      return {
-        ...user,
-        engagementScore: Math.round(score),
-        engagementLevel,
-        testsCompleted,
-        avgScore: avgScore.toFixed(1),
-      };
-    });
-
-    // Summary stats
-    const summary = {
-      total: users.length,
-      highlyEngaged: users.filter((u) => u.engagementLevel === "highly_engaged")
-        .length,
-      engaged: users.filter((u) => u.engagementLevel === "engaged").length,
-      moderatelyEngaged: users.filter(
-        (u) => u.engagementLevel === "moderately_engaged",
-      ).length,
-      slightlyEngaged: users.filter(
-        (u) => u.engagementLevel === "slightly_engaged",
-      ).length,
-      low: users.filter((u) => u.engagementLevel === "low").length,
-    };
-
-    res.json({
-      success: true,
-      data: {
-        users: users.slice(0, 50),
-        summary,
-      },
-    });
-  } catch (error) {
-    console.error("Engagement analytics error:", error);
-    res.json({ success: true, data: { users: [], summary: {} } });
-  }
 });
 
 // ============================================
@@ -5168,7 +4080,7 @@ router.post("/test-series/bulk-operation", async (req, res) => {
     });
   } catch (error) {
     console.error("Test series bulk operation error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -5237,7 +4149,7 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     });
   } catch (error) {
     console.error("Tests bulk reassign error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -5296,7 +4208,7 @@ router.post("/questions/bulk-reorder", async (req, res) => {
     });
   } catch (error) {
     console.error("Questions bulk reorder error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -5342,7 +4254,7 @@ router.post("/questions/:id/convert", async (req, res) => {
 
     // Fetch updated question
     const result = await dbHelpers.pool.query(
-      "SELECT * FROM questions WHERE id = $1",
+      "SELECT id, test_id, question_number, question_text, question_text_hi, options, options_hi, correct_option, marks, negative_marks, section, explanation, difficulty, image, is_active, created_at, updated_at, subject, chapter_id, topic, image_asset_id, series_id, category_id, sub_category_id, study_material_id, topic_id, quiz_id, public_id_uuid, public_id, category, type, status, tags, passage_id, chapter, is_practice, is_deleted, deleted_by, deleted_at, _orphaned, orphaned_at, _deleted_test_id, moderation_status, reviewed_by, reviewed_at, review_notes, submitted_for_review_at, submitted_by, external_question_id, language, solution_image_url, source, imported_from, section_id, subtopic_id, subject_id, estimated_time, explanation_hi, source_config, exam_category_ids, exam_ids, question_stage_ids, concept_ids, skill_ids, ai_generated, _deleted_series_id, created_by, correct_answer, question_type FROM questions WHERE id = $1",
       [id]
     );
 
@@ -5403,7 +4315,7 @@ router.get("/chapters/:id/resources", async (req, res) => {
 
     // Fetch chapter
     const chapterResult = await dbHelpers.pool.query(
-      "SELECT * FROM chapters WHERE id = $1",
+      "SELECT id, study_material_id, title, slug, description, icon, video_count, pdf_count, test_count, duration, order_index, is_active, created_at, updated_at, unit_id, stage_ids, public_id_uuid, public_id, is_deleted, deleted_by, deleted_at, subject_id, _orphaned FROM chapters WHERE id = $1",
       [id]
     );
 
@@ -5416,25 +4328,25 @@ router.get("/chapters/:id/resources", async (req, res) => {
 
     // Fetch videos for this chapter/study material
     const videosResult = await dbHelpers.pool.query(
-      `SELECT * FROM subject_videos WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, study_material_id, chapter_id, title, slug, description, video_url, thumbnail, duration, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, public_id_uuid, public_id FROM subject_videos WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
       [studyMaterialId || id]
     );
 
     // Fetch PDFs for this chapter/study material
     const pdfsResult = await dbHelpers.pool.query(
-      `SELECT * FROM subject_pdfs WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, study_material_id, chapter_id, title, slug, description, pdf_url, file_size, pages, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, thumbnail FROM subject_pdfs WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
       [studyMaterialId || id]
     );
 
     // Fetch tests for this chapter
     const testsResult = await dbHelpers.pool.query(
-      `SELECT * FROM topic_tests WHERE chapter_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, study_material_id, chapter_id, test_id, test_type, order_index, is_active, created_at, display_order, topic_id, updated_at, is_deleted, deleted_at, deleted_by FROM topic_tests WHERE chapter_id = $1 ORDER BY created_at DESC`,
       [id]
     );
 
     // Fetch quizzes related to this chapter's topic
     const quizzesResult = await dbHelpers.pool.query(
-      `SELECT * FROM quizzes WHERE topic = (SELECT name FROM topics WHERE chapter_id = $1 LIMIT 1) LIMIT 50`,
+      `SELECT id, title, description, subject, topic, difficulty, question_ids, duration, passing_score, is_pro, is_active, "order", instructions, is_public, shuffle_questions, show_answers, created_by, deleted_at, created_at, updated_at, public_id_uuid, public_id, slug, category, total_questions, total_marks, status, metadata, question_count, is_deleted, deleted_by FROM quizzes WHERE topic = (SELECT name FROM subject_topics WHERE chapter_id = $1 LIMIT 1) LIMIT 50`,
       [id]
     );
 

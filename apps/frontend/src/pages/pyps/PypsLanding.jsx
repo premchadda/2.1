@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Users, ChevronRight } from 'lucide-react'
+import { Users } from 'lucide-react';
 import { apiClient } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { AnimatedHero } from '../../shared/components'
 import WhyAttemptRow from './components/WhyAttemptRow'
-
-const API_URL = import.meta.env.VITE_API_URL || ''
+import PypsExam from './PypsExam'
 
 const CATEGORY_COLORS = [
   'from-blue-500 to-indigo-600',
@@ -21,6 +20,7 @@ const CATEGORY_COLORS = [
 
 function PypsLanding() {
   const { examCategory } = useParams()
+  const categorySlug = examCategory
   const navigate = useNavigate()
   const [categories, setCategories] = useState([])
   const [exams, setExams] = useState([])
@@ -28,63 +28,81 @@ function PypsLanding() {
   const [loadingExams, setLoadingExams] = useState(false)
   const [stats, setStats] = useState({ totalPapers: 0, totalAttemptsFormatted: '0' })
   const [fadeKey, setFadeKey] = useState(0)
+  const selectedCat = categories.find((c) => c.slug === categorySlug)
 
   // Fetch categories (L1 data)
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (signal) => {
     setLoadingCats(true)
     try {
-      const res = await apiClient.get(`${API_URL}/api/pyps/categories`)
+      const res = await apiClient.get(`/api/pyps/categories`, { signal })
+      if (signal?.aborted) return
       setCategories(res.data?.data || [])
       setStats({
         totalPapers: res.data?.totalPapers || 0,
         totalAttemptsFormatted: res.data?.totalAttemptsFormatted || '0',
       })
     } catch (error) {
+      if (error.name === 'AbortError' || signal?.aborted) return
       console.error('PYP categories fetch error:', error)
     } finally {
-      setLoadingCats(false)
+      if (!signal?.aborted) setLoadingCats(false)
     }
   }, [])
 
   // Fetch exams for selected category (L2 data) — keeps previous content, no flash
-  const fetchExams = useCallback(async (catSlug) => {
+  const fetchExams = useCallback(async (catSlug, signal) => {
     if (!catSlug) {
       setExams([])
       return
     }
     setLoadingExams(true)
     try {
-      const res = await apiClient.get(`${API_URL}/api/pyps/categories/${catSlug}/exams`)
+      const res = await apiClient.get(`/api/pyps/categories/${catSlug}/exams`, { signal })
+      if (signal?.aborted) return
       setExams(res.data?.data || [])
       setFadeKey((k) => k + 1)
     } catch (error) {
+      if (error.name === 'AbortError' || signal?.aborted) return
       console.error('PYP category exams fetch error:', error)
       setExams([])
     } finally {
-      setLoadingExams(false)
+      if (!signal?.aborted) setLoadingExams(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchCategories()
+    const controller = new AbortController()
+    fetchCategories(controller.signal)
+    return () => controller.abort()
   }, [fetchCategories])
 
-  // If URL has /pyps/:examCategory, load exams for it
+  // If URL has /pyps/:slug, treat known category slugs as category filters.
+  // Unknown slugs are handled below as canonical exam detail URLs.
   useEffect(() => {
-    if (examCategory) {
-      fetchExams(examCategory)
+    const controller = new AbortController()
+
+    if (loadingCats) {
+      return () => controller.abort()
+    }
+
+    if (categorySlug) {
+      if (selectedCat) {
+        fetchExams(categorySlug, controller.signal)
+      } else {
+        setExams([])
+      }
     } else {
       // Auto-select first category if none selected
-      if (categories.length > 0 && !examCategory) {
+      if (categories.length > 0) {
         const first = categories[0]
         navigate(`/pyps/${first.slug}`, { replace: true })
       }
     }
-  }, [examCategory, categories, fetchExams, navigate])
+    return () => controller.abort()
+  }, [categorySlug, categories, fetchExams, loadingCats, navigate, selectedCat])
 
-  const selectedCat = categories.find((c) => c.slug === examCategory)
   const selectedCatColor = selectedCat
-    ? CATEGORY_COLORS[categories.findIndex((c) => c.slug === examCategory) % CATEGORY_COLORS.length]
+    ? CATEGORY_COLORS[categories.findIndex((c) => c.slug === categorySlug) % CATEGORY_COLORS.length]
     : 'from-indigo-500 to-blue-600'
 
   const totalExamsPapers = exams.reduce((s, e) => s + (e.paperCount || 0), 0)
@@ -99,6 +117,10 @@ function PypsLanding() {
         </div>
       </div>
     )
+  }
+
+  if (categorySlug && !selectedCat) {
+    return <PypsExam examSlug={categorySlug} />
   }
 
   return (
@@ -149,7 +171,7 @@ function PypsLanding() {
               </div>
               <div className="max-h-[60vh] lg:max-h-[70vh] overflow-y-auto">
                 {categories.map((cat, idx) => {
-                  const isActive = cat.slug === examCategory
+                  const isActive = cat.slug === categorySlug
                   const color = CATEGORY_COLORS[idx % CATEGORY_COLORS.length]
                   return (
                     <Link
@@ -197,7 +219,7 @@ function PypsLanding() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-3"></div>
                 <p className="text-sm text-gray-500">Loading...</p>
               </div>
-            ) : !examCategory ? (
+            ) : !categorySlug ? (
               <div className="bg-white rounded-xl border border-dashed border-gray-200 p-12 text-center">
                 <div className="text-4xl mb-3">👈</div>
                 <h3 className="text-sm font-bold text-gray-900">Select an Exam Category</h3>
@@ -248,7 +270,7 @@ function PypsLanding() {
                       return (
                         <Link
                           key={exam.id}
-                          to={`/pyps/${examCategory}/${examSlugForLink}`}
+                          to={`/pyps/${examSlugForLink}`}
                           className="group bg-gray-50 rounded-lg border border-gray-100 hover:border-indigo-300 hover:bg-white hover:shadow-md transition-all p-3 text-center relative"
                         >
                           {exam.newCount > 0 && (

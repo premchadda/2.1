@@ -22,6 +22,14 @@ const ImportHistoryModal = ({ isOpen, onClose }) => {
       .finally(() => setLoading(false))
   }, [isOpen])
 
+  const safeJsonParse = (str, fallback) => {
+    try {
+      return JSON.parse(str || '')
+    } catch {
+      return fallback
+    }
+  }
+
   if (!isOpen) return null
 
   const formatDate = (dateStr) => {
@@ -82,8 +90,8 @@ const ImportHistoryModal = ({ isOpen, onClose }) => {
               {history.map((item) => {
                 const id = item.id || item._id
                 const isExpanded = expandedId === id
-                const metadata = typeof item.metadata === 'string' ? JSON.parse(item.metadata || '{}') : (item.metadata || {})
-                const errors = typeof item.errors === 'string' ? JSON.parse(item.errors || '[]') : (item.errors || [])
+                const metadata = typeof item.metadata === 'string' ? safeJsonParse(item.metadata, {}) : (item.metadata || {})
+                const errors = typeof item.errors === 'string' ? safeJsonParse(item.errors, []) : (item.errors || [])
 
                 return (
                   <div key={id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">

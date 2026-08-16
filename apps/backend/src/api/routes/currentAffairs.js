@@ -1,8 +1,9 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
-import { auth } from '../../middleware/auth.middleware.js'
+import { auth, protect } from '../../middleware/auth.middleware.js'
 import { asyncHandler } from '../../middleware/asyncHandler.js'
 import { executePaginatedQuery } from '../../utils/queryBuilder.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -11,13 +12,16 @@ const router = express.Router()
  * Get current affairs with filters (daily, weekly, monthly)
  */
 router.get('/', asyncHandler(async (req, res) => {
-  const { period = 'daily', category, page = 1, limit = 20 } = req.query
+  const { period = 'daily', category, page = 1, limit = 20, date } = req.query
 
   // Build date filter based on period
   const now = new Date()
   let dateFilter = null
 
-  if (period === 'daily') {
+  if (date) {
+    // Explicit date filter takes precedence (frontend date navigation)
+    dateFilter = String(date)
+  } else if (period === 'daily') {
     dateFilter = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   } else if (period === 'weekly') {
     dateFilter = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -57,7 +61,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params
     
     const result = await dbHelpers.query(
-      `SELECT * FROM current_affairs WHERE id = $1 AND is_active = true`,
+      `SELECT id, title, content, category, date, language, is_active, is_deleted, deleted_at, deleted_by, created_at, updated_at, slug, excerpt, category_id, exam_id, image_asset_id, author_id, published_at, is_featured, view_count, metadata FROM current_affairs WHERE id = $1 AND is_active = true`,
       [id]
     )
 
@@ -67,7 +71,7 @@ router.get('/:id', async (req, res) => {
 
     res.json({ success: true, data: result.rows[0] })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -75,7 +79,7 @@ router.get('/:id', async (req, res) => {
  * GET /api/current-affairs/:id/quiz
  * Get quiz for current affairs article
  */
-router.get('/:id/quiz', async (req, res) => {
+router.get('/:id/quiz', auth, async (req, res) => {
   try {
     const { id } = req.params
     
@@ -104,7 +108,7 @@ router.get('/:id/quiz', async (req, res) => {
 
     res.json({ success: true, data: quiz })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -112,7 +116,7 @@ router.get('/:id/quiz', async (req, res) => {
  * POST /api/current-affairs/:id/quiz/attempt
  * Submit quiz answers (authenticated)
  */
-router.post('/:id/quiz/attempt', auth, async (req, res) => {
+router.post('/:id/quiz/attempt', protect, async (req, res) => {
   try {
     const { id } = req.params
     const userId = req.user.id
@@ -162,7 +166,7 @@ router.post('/:id/quiz/attempt', auth, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -181,7 +185,7 @@ router.get('/categories', async (req, res) => {
       data: result.rows.map(r => r.category)
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 

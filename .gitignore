@@ -30,6 +30,12 @@ apps/backend/exports/
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
 
 # ===========================================
 # DEVELOPMENT ONLY - NEVER DEPLOY
@@ -104,9 +110,45 @@ New Text Document.txt
 dev-tools/backups/
 dev-tools/*.backup
 
+# Backend readiness signal
+.backend-ready
+
 # AI agent configs
 .agents/
 .codex/
+.config/
+TencentDB-Agent-Memory/
+.git_commit_msg.txt
+opencode_usage_*
+
+# Graphify working artifacts (only graphify-out/ reports are useful, also ignored)
+.graphify
+.graphify/
+.graphify_*
+.graphify_backup/
+
+# Accidental build/log leftovers
+build_
+build.out
+build-out.txt
+build_out*
+build_output*
+build_test.txt
+*.lint.out
+lint.out
+eslint_out*
+eslint_output*
+stats.html
+db_live_inventory.txt
 
 # QMS file (misplaced)
 qms.jsx
+
+# Standalone tools
+archify/
+agent-skills/
+
+# Certificates and private keys
+*.key
+*.pem
+deploy/nginx/certs/

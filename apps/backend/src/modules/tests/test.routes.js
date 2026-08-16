@@ -2,8 +2,10 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, optionalAuth } from '../../middleware/auth.middleware.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
 import { checkAttemptLimit } from '../../shared/utils/attempt-limits.js'
 import { emitDomainEvent } from '../../infrastructure/events/eventBus.js'
+import { isQueueEnabled } from '../../infrastructure/queue/queueManager.js'
 import { resolveAssetAccessUrl } from '../../infrastructure/storage/storageProvider.js'
 import { nullIfEmpty } from '../../services/core/common.js'
 import {
@@ -11,6 +13,7 @@ import {
   leaderboardService,
   notificationService,
   recommendationService,
+  rankPredictionService,
 } from '../../services/core/index.js'
 import { idsMatch, parseNumericId } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
@@ -19,6 +22,60 @@ import { isProUser, isProRestrictedTest } from '../../shared/utils/user-utils.js
 import { findTestByIdentifier, filterQuestionsByTestId } from '../../shared/utils/test-utils.js'
 import { isPypSlug } from '../../utils/slug-helpers.js'
 import { readTestContent, readTestContentByPath } from '../../services/import/testContentStorage.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+
+// Per-section timer validation (anti-tampering)
+// Allowed slack (seconds) on top of a section's allotted time to absorb latency/rounding.
+const SECTION_TIME_TOLERANCE = 10
+
+// Mirrors the frontend subject->section bucket normalization used to key sectionTimers.
+// Used only to map server-side section names onto the same keys the client reports;
+// the allotted *time* is always taken from the server test_sections config, never the client.
+const SUBJECT_TO_SECTION = {
+  'General Knowledge': 'GK',
+  'General Awareness': 'GK',
+  'Current Affairs': 'GK',
+  'Mathematics': 'Math',
+  'Quantitative Aptitude': 'Math',
+  'Arithmetic': 'Math',
+  'Advanced Math': 'Math',
+  'Reasoning': 'Reasoning',
+  'Logical Reasoning': 'Reasoning',
+  'Analytical Reasoning': 'Reasoning',
+  'English': 'English',
+  'English Comprehension': 'English',
+  'General Science': 'Science',
+  'Physics': 'Science',
+  'Chemistry': 'Science',
+  'Biology': 'Science',
+}
+
+// Build a map of normalizedSectionKey -> allotted seconds from the server test_sections config.
+const buildSectionTimeLimits = (sections) => {
+  const limits = {}
+  for (const section of sections || []) {
+    const name = section.name || section.subject
+    if (!name) continue
+    const key = SUBJECT_TO_SECTION[name] || name
+    const timeLimit = Number(section.time_limit ?? section.timeLimit ?? 0)
+    const durationSec = (Number(section.duration ?? 0) || 0) * 60
+    const allotted = timeLimit > 0 ? timeLimit : durationSec
+    if (allotted <= 0) continue
+    // Multiple sections may normalize to the same key; sum their allotted time so a
+    // legitimate submission that spans several sections is never falsely rejected.
+    limits[key] = (limits[key] || 0) + allotted
+  }
+  return limits
+}
+
+// Fetch the authoritative per-section config for a test from test_sections.
+const fetchTestSectionLimits = async (testId) => {
+  const result = await dbHelpers.query(
+    `SELECT name, duration, time_limit FROM test_sections WHERE test_id = $1`,
+    [testId]
+  )
+  return buildSectionTimeLimits(result?.rows || [])
+}
 
 // Fetch questions for a specific test from DB directly (avoids full-table scan)
 const fetchQuestionsByTestId = async (testId) => {
@@ -301,15 +358,34 @@ const getUserAnswerForQuestion = (attempt, question, index) => {
 }
 
 
-const getRankAndPercentile = async (testId, attempt) => {
-  if (!attempt || !attempt.score) return { rank: 1, totalParticipants: 1, percentile: 100 }
-  
-  // Find all completing attempts for this test
-  const allAttempts = await dbHelpers.find('attempts', { isCompleted: true })
-  const testAttempts = allAttempts.filter(a => idsMatch(a.testId, testId) || idsMatch(a.test_id, testId))
-  
-  if (testAttempts.length === 0) {
-    return { rank: 1, totalParticipants: 1, percentile: 100 }
+const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
+  if (!attempt || !attempt.score) return { rank: 1, totalParticipants: 1, percentile: 100, predictedRank: 1, isCalibrated: false }
+
+  // Targeted SQL query instead of loading ALL completed attempts into memory.
+  // Fetch only the attempts for THIS test, sorted by score DESC, time_spent ASC.
+  let testAttempts = []
+  try {
+    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+    const { rows } = await pool.query(
+      `SELECT id, user_id, test_id, score, time_spent, time_spent_seconds, status, is_completed
+       FROM attempts
+       WHERE test_id = $1 AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted'))
+       ORDER BY (score || 0)::numeric DESC, COALESCE(time_spent, time_spent_seconds, 999999) ASC`,
+      [testId]
+    )
+    testAttempts = rows.map(row => ({
+      id: row.id,
+      _id: row.id,
+      userId: row.user_id,
+      testId: row.test_id,
+      test_id: row.test_id,
+      score: Number(row.score || 0),
+      timeSpent: row.time_spent || row.time_spent_seconds,
+    }))
+  } catch (err) {
+    // Fallback to dbHelpers.find if the direct query fails (e.g., column mismatch)
+    const allAttempts = await dbHelpers.find('attempts', { isCompleted: true })
+    testAttempts = allAttempts.filter(a => idsMatch(a.testId, testId) || idsMatch(a.test_id, testId))
   }
 
   // Get best attempt per user
@@ -344,7 +420,7 @@ const getRankAndPercentile = async (testId, attempt) => {
   })
 
   const totalParticipants = bestAttempts.length
-  let rank = 1
+  let rank = 0
   for (let i = 0; i < bestAttempts.length; i++) {
     if (idsMatch(bestAttempts[i]._id || bestAttempts[i].id, attempt._id || attempt.id)) {
       rank = i + 1
@@ -352,16 +428,47 @@ const getRankAndPercentile = async (testId, attempt) => {
     }
   }
 
-  const percentile = totalParticipants > 1 ? ((totalParticipants - rank) / totalParticipants) * 100 : 100
+  // Guard: if the current attempt isn't found in the leaderboard, don't
+  // fabricate a 100th percentile for a non-participant.
+  if (rank === 0 && totalParticipants > 0) {
+    return { rank: null, totalParticipants, percentile: null, predictedRank: null, isCalibrated: false }
+  }
+
+  const liveScores = bestAttempts.map(a => Number(a.score || 0))
+  const totalMarks = Number(testMeta?.totalMarks || testMeta?.total_marks || attempt?.totalMarks || attempt?.total_marks || 200)
+  const examCategory = testMeta?.category || testMeta?.seriesSlug || testMeta?.examType || 'default'
+
+  const calibrated = rankPredictionService.calculateCalibratedPercentile({
+    score: Number(attempt.score || 0),
+    totalMarks,
+    liveCohortScores: liveScores,
+    examCategory,
+  })
 
   return {
-    rank,
-    totalParticipants,
-    percentile: Math.max(0, Math.min(100, Number(percentile.toFixed(2))))
+    rank: rank || 1,
+    totalParticipants: Math.max(1, totalParticipants),
+    percentile: calibrated.percentile,
+    predictedRank: calibrated.predictedAllIndiaRank,
+    isCalibrated: calibrated.isCalibrated,
   }
 }
 
 const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) => {
+  const userAnswers = questions.map((q, idx) => {
+    const answers = Array.isArray(attempt?.answers) ? attempt.answers : []
+    const qid = q.id || q._id
+    const found = answers.find((answer) =>
+      (answer?.questionId && (String(answer.questionId) === String(qid))) ||
+      (answer?.questionIndex !== undefined && Number(answer.questionIndex) === idx)
+    )
+    return {
+      selectedOption: found && found.selectedOption !== undefined && found.selectedOption !== null
+        ? Number(found.selectedOption)
+        : null,
+      isCorrect: found ? Boolean(found.isCorrect) : false
+    }
+  })
   const questionIdMap = new Map(
     questions.map((question) => [
       String(getQuestionId(question)),
@@ -384,6 +491,9 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
       subject: q.subject || q.section || 'General',
       difficulty: q.difficulty || 'Medium',
       explanation: q.explanation || '',
+      questionTextHi: q.questionTextHi || q.question_text_hi || null,
+      optionsHi: q.optionsHi || q.options_hi || null,
+      explanationHi: q.explanationHi || q.explanation_hi || null,
       isMarked: Array.isArray(attempt?.markedForReview) && attempt.markedForReview.includes(idx)
     }
   })
@@ -421,9 +531,12 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
     rank: rankData?.rank || attempt?.rank || null,
     totalParticipants: Number(rankData?.totalParticipants || attempt?.totalParticipants || 0),
     percentile: Number(rankData?.percentile || attempt?.percentile || 0),
+    predictedRank: rankData?.predictedRank || null,
+    isCalibrated: Boolean(rankData?.isCalibrated),
     sectionTimers: attempt?.sectionTimers || {},
     currentSection: attempt?.currentSection || null,
     questions: questionsWithAnswers,
+    userAnswers,
     answers: Array.isArray(attempt?.answers)
       ? attempt.answers.map((entry) => ({
           ...entry,
@@ -437,13 +550,13 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
 // @route   GET /api/tests
 // @desc    Get all active AND published tests
 // @access  Public
-router.get('/', async (req, res) => {
+router.get('/', responseCache("tests-list", 60), async (req, res) => {
   try {
-    const allTests = await dbHelpers.find('tests', { isActive: true })
-    const publishedTests = allTests.filter(test => 
-      test.status === 'published' || test.isActive === true
+    const { rows } = await dbHelpers.pool.query(
+      `SELECT * FROM tests WHERE is_active = true AND status = 'published'`
     )
-    const testsWithBanners = await enrichTestsWithBannerAssets(publishedTests)
+    const allTests = rows.map(row => dbHelpers.toCamel(row))
+    const testsWithBanners = await enrichTestsWithBannerAssets(allTests)
     res.json({
       success: true,
       count: testsWithBanners.length,
@@ -452,7 +565,7 @@ router.get('/', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -482,7 +595,7 @@ router.get('/series/:seriesId', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -490,7 +603,7 @@ router.get('/series/:seriesId', async (req, res) => {
 // @route   GET /api/tests/tag/:tag
 // @desc    Get tests by tag (live-tests, pyps, quizzes, practice)
 // @access  Public
-router.get('/tag/:tag', async (req, res) => {
+router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
   try {
     const { tag } = req.params
 
@@ -528,7 +641,16 @@ router.get('/tag/:tag', async (req, res) => {
     } else {
       switch (tag) {
         case 'live-tests':
-          filteredTests = allTests.filter((test) => test.isLive === true)
+          filteredTests = allTests.filter(
+            (test) =>
+              test.isLive === true ||
+              test.is_live === true ||
+              test.type === 'live-tests' ||
+              test.test_type === 'live-tests' ||
+              test.testType === 'live-tests' ||
+              test.category === 'live-tests' ||
+              (Array.isArray(test.tags) && test.tags.some((t) => String(t).toLowerCase() === 'live-tests'))
+          )
           break
         case 'practice':
           filteredTests = allTests.filter((test) => test.category === 'Practice')
@@ -577,7 +699,7 @@ router.get('/tag/:tag', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -617,7 +739,7 @@ router.get('/:testId', optionalAuth, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -662,7 +784,7 @@ router.get('/:testId/questions', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -699,6 +821,39 @@ router.post('/:testId/start', protect, async (req, res) => {
       !a.isCompleted
     )
 
+    // Check Live Test eligibility rules (Authoritative Server Time Check):
+    const isLiveTest = Boolean(
+      test.isLive || test.is_live ||
+      test.type === 'live-tests' || test.type === 'live' ||
+      test.testType === 'live-tests' || test.testType === 'live' ||
+      test.scheduledAt || test.scheduled_at || test.startTime || test.start_time || test.liveSchedule || test.live_schedule
+    )
+    if (isLiveTest) {
+      const now = new Date()
+      const scheduledStart = test.scheduledAt || test.scheduled_at || test.startTime || test.start_time || test.scheduledStart || test.scheduled_start
+      const scheduledEnd = test.scheduledEnd || test.scheduled_end || test.dateEnd || test.date_end || test.endTime || test.end_time
+
+      if (scheduledStart && now < new Date(scheduledStart)) {
+        if (!attempt) {
+          return res.status(403).json({
+            success: false,
+            code: 'LIVE_TEST_NOT_STARTED',
+            message: `This live test contest has not started yet. Starts at ${new Date(scheduledStart).toLocaleString('en-IN')}.`
+          })
+        }
+      }
+
+      if (scheduledEnd && now > new Date(scheduledEnd)) {
+        if (!attempt) {
+          return res.status(403).json({
+            success: false,
+            code: 'LIVE_TEST_EXPIRED',
+            message: 'This live test contest has ended and is no longer accepting new attempts. View your analysis & scorecard from your results section.'
+          })
+        }
+      }
+    }
+
     if (!attempt) {
       // Check attempt limits for non-pro users
       const allUserAttempts = await dbHelpers.find('attempts', { userId: req.user.id })
@@ -712,35 +867,69 @@ router.post('/:testId/start', protect, async (req, res) => {
         })
       }
 
-      attempt = await dbHelpers.insertOne('attempts', {
-        userId: req.user.id,
-        testId: test._id || test.id,
-        seriesId: test.seriesId || test.series_id,
-        status: 'in_progress',
-        startTime: new Date().toISOString(),
-        duration: test.duration,
-        answers: [],
-        markedForReview: [],
-        sectionTimers: {},
-        currentSection: null,
-        timeSpent: 0,
-        isCompleted: false,
-        createdAt: new Date().toISOString()
-      })
+      // Calculate attempt number (1 for 1st attempt, 2 for 2nd attempt, etc.)
+      const previousAttempts = allUserAttempts.filter(a =>
+        idsMatch(a.testId, test._id || test.id) || idsMatch(a.test_id, test._id || test.id)
+      )
+      const attemptNumber = previousAttempts.length + 1
 
-      await publishEvent('test_started', {
-        source: 'tests',
-        userId: req.user.id,
-        testId: test._id || test.id,
-        attemptId: attempt._id || attempt.id
-      })
+      try {
+        attempt = await dbHelpers.insertOne('attempts', {
+          userId: req.user.id,
+          testId: test._id || test.id,
+          seriesId: test.seriesId || test.series_id,
+          attemptNumber: attemptNumber,
+          attempt_number: attemptNumber,
+          status: 'in_progress',
+          startTime: new Date().toISOString(),
+          duration: test.duration,
+          answers: [],
+          markedForReview: [],
+          sectionTimers: {},
+          currentSection: null,
+          timeSpent: 0,
+          isCompleted: false,
+          createdAt: new Date().toISOString()
+        });
+
+        await publishEvent('test_started', {
+          source: 'tests',
+          userId: req.user.id,
+          testId: test._id || test.id,
+          attemptId: attempt._id || attempt.id,
+          attemptNumber
+        });
+      } catch (insertErr) {
+        // Unique constraint violation (23505) means a concurrent request
+        // already created an in-progress attempt for this user+test.
+        // Return the existing attempt instead of failing.
+        if (insertErr.code === '23505') {
+          const existingAttempts = await dbHelpers.find('attempts', {
+            userId: req.user.id,
+            isCompleted: false
+          })
+          attempt = existingAttempts.find(a =>
+            idsMatch(a.testId, test._id || test.id) || idsMatch(a.test_id, test._id || test.id)
+          )
+          if (!attempt) {
+            throw insertErr // Shouldn't happen — re-throw if no existing attempt found
+          }
+        } else {
+          throw insertErr
+        }
+      }
     }
+
+    const currentAttemptNo = attempt.attemptNumber || attempt.attempt_number || 1
 
     res.json({
       success: true,
       data: {
         attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
         testId: getPublicResponseId(dbHelpers, 'tests', test, test._id || test.id),
+        attemptNo: currentAttemptNo,
+        attemptNumber: currentAttemptNo,
+        attempt_number: currentAttemptNo,
         startTime: attempt.startTime,
         duration: test.duration,
         timeSpent: attempt.timeSpent || 0,
@@ -754,7 +943,7 @@ router.post('/:testId/start', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -799,7 +988,7 @@ router.put('/:testId/autosave', protect, async (req, res) => {
 
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -809,10 +998,20 @@ router.put('/:testId/autosave', protect, async (req, res) => {
 router.put('/:testId/submit', protect, async (req, res) => {
   try {
     const { answers, timeSpent, attemptId, markedForReview, sectionTimers, currentSection } = req.body
-    
 
-    const test = await findTestByIdentifier(req.params.testId, dbHelpers)
-    
+    // SECURITY: Require attemptId — without it, the handler creates a new
+    // completed attempt with no check for existing attempts, allowing unlimited
+    // duplicate submissions that pollute rank/leaderboard data.
+    if (!attemptId) {
+      return res.status(400).json({
+        success: false,
+        message: 'attemptId is required to submit a test. Start an attempt first via POST /api/tests/:testId/start.',
+        code: 'ATTEMPT_ID_REQUIRED',
+      })
+    }
+
+
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers)    
 
     if (!test) {
       return res.status(404).json({
@@ -826,6 +1025,54 @@ router.put('/:testId/submit', protect, async (req, res) => {
         success: false,
         message: 'Pro Pass required for this test',
       })
+    }
+
+    // Server-side timer validation
+    const testDurationSeconds = (test.duration || 60) * 60
+    const tolerance = 30 // 30 second tolerance for network latency
+    if (timeSpent > testDurationSeconds + tolerance) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Time spent (${timeSpent}s) exceeds test duration (${testDurationSeconds}s)` 
+      })
+    }
+
+    // Clamp timeSpent to test duration
+    const clampedTimeSpent = Math.min(timeSpent, testDurationSeconds)
+
+    // Server-side per-section timer validation (anti-tampering)
+    // The frontend auto-advances sections at their allotted limit, so a section reporting
+    // MORE elapsed time than its server-configured limit indicates clock manipulation / tampering.
+    if (sectionTimers && typeof sectionTimers === 'object' && !Array.isArray(sectionTimers)) {
+      try {
+        const testInternalId = getInternalId(test)
+        const sectionLimits = await fetchTestSectionLimits(testInternalId)
+        // Skip the check defensively if the test has no section time config.
+        if (Object.keys(sectionLimits).length > 0) {
+          for (const [sectionId, elapsed] of Object.entries(sectionTimers)) {
+            const elapsedNum = Number(elapsed)
+            if (!Number.isFinite(elapsedNum)) continue
+            const allowed = sectionLimits[sectionId]
+            // Skip sections not present in the server config rather than erroring.
+            if (allowed === undefined) continue
+            if (elapsedNum > allowed + SECTION_TIME_TOLERANCE) {
+              console.warn(
+                `[test-submit] Section time limit exceeded: testId=${req.params.testId} ` +
+                `sectionId=${sectionId} reported=${elapsedNum}s allowed=${allowed}s ` +
+                `(+${SECTION_TIME_TOLERANCE}s tolerance)`
+              )
+              return res.status(400).json({
+                success: false,
+                message: 'Section time limit exceeded',
+                sectionId,
+              })
+            }
+          }
+        }
+      } catch (timerErr) {
+        // Never block a legitimate submission due to a timer-config lookup failure.
+        console.warn('[test-submit] Per-section timer validation skipped due to error:', timerErr?.message)
+      }
     }
 
     const questions = await fetchTestQuestions(test)
@@ -869,7 +1116,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
       wrong,
       unattempted,
       accuracy: Number(accuracy.toFixed(1)),
-      timeSpent: Number(timeSpent ?? 0),
+      timeSpent: Number(clampedTimeSpent ?? 0),
       answers: submittedAnswers,
       markedForReview: Array.isArray(markedForReview) ? markedForReview : [],
       sectionTimers: sectionTimers && typeof sectionTimers === 'object' ? sectionTimers : {},
@@ -881,36 +1128,111 @@ router.put('/:testId/submit', protect, async (req, res) => {
     }
 
     let result
+    const client = await dbHelpers.pool.connect()
+    try {
+      await client.query('BEGIN')
 
-    if (attemptId) {
-      const existingAttempt = await findAttemptByIdentifier(attemptId)
-      if (!existingAttempt) {
-        return res.status(404).json({
-          success: false,
-          message: 'Attempt not found',
-        })
-      }
-      if (!idsMatch(existingAttempt.userId, req.user.id) && req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Not authorized to submit this attempt',
-        })
-      }
-      if (!idsMatch(existingAttempt.testId, test._id || test.id)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Attempt does not belong to this test',
-        })
-      }
-      const existingSectionTimers = existingAttempt.sectionTimers || {}
-      result = await dbHelpers.updateById('attempts', getInternalId(existingAttempt), {
-        ...attemptData,
-        sectionTimers: Object.keys(attemptData.sectionTimers).length > 0 ? attemptData.sectionTimers : existingSectionTimers
-      })
+      if (attemptId) {
+        let attemptQuery = 'SELECT * FROM attempts WHERE public_id = $1'
+        const numericId = parseInt(attemptId, 10)
+        const params = [String(attemptId)]
+        if (!isNaN(numericId) && String(numericId) === String(attemptId).trim()) {
+          attemptQuery = 'SELECT * FROM attempts WHERE id = $1'
+          params[0] = numericId
+        } else if (String(attemptId).includes('-') && String(attemptId).length === 36) {
+          attemptQuery = 'SELECT * FROM attempts WHERE public_id_uuid = $1::uuid OR public_id = $1'
+        }
+        attemptQuery += ' FOR UPDATE'
+        const { rows: attemptRows } = await client.query(attemptQuery, params)
+        const existingAttempt = attemptRows[0]
+        if (!existingAttempt) {
+          await client.query('ROLLBACK')
+          client.release()
+          return res.status(404).json({
+            success: false,
+            message: 'Attempt not found',
+          })
+        }
+        if (!idsMatch(existingAttempt.user_id || existingAttempt.userId, req.user.id) && req.user.role !== 'admin') {
+          await client.query('ROLLBACK')
+          client.release()
+          return res.status(403).json({
+            success: false,
+            message: 'Not authorized to submit this attempt',
+          })
+        }
+        if (!idsMatch(existingAttempt.test_id || existingAttempt.testId, test._id || test.id)) {
+          await client.query('ROLLBACK')
+          client.release()
+          return res.status(400).json({
+            success: false,
+            message: 'Attempt does not belong to this test',
+          })
+        }
+        if (existingAttempt.status === 'completed' || existingAttempt.is_completed || existingAttempt.isCompleted) {
+          await client.query('ROLLBACK')
+          client.release()
+          return res.status(409).json({
+            success: false,
+            message: 'This attempt has already been submitted',
+            data: { attemptId: existingAttempt.id, status: 'already_submitted' }
+          })
+        }
+        const existingSectionTimers = existingAttempt.section_timers || existingAttempt.sectionTimers || {}
+        result = await dbHelpers.updateById('attempts', existingAttempt.id, {
+          ...attemptData,
+          sectionTimers: Object.keys(attemptData.sectionTimers).length > 0 ? attemptData.sectionTimers : existingSectionTimers
+        }, client)
 
-    } else {
-      result = await dbHelpers.insertOne('attempts', attemptData)
+      } else {
+        result = await dbHelpers.insertOne('attempts', attemptData, client)
+      }
 
+      await client.query('COMMIT')
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+
+    // Persist to results table for analytics, public leaderboards, and streak tracking
+    try {
+      const resolvedAttemptDbId = result?.id || parseInt(attemptId, 10) || null
+      const percentageScore = attemptData.totalMarks > 0 ? Number(((attemptData.score / attemptData.totalMarks) * 100).toFixed(2)) : 0
+      
+      if (resolvedAttemptDbId) {
+        const existingResult = await dbHelpers.pool.query(
+          'SELECT id FROM results WHERE attempt_id = $1',
+          [resolvedAttemptDbId]
+        )
+        if (existingResult.rows.length > 0) {
+          await dbHelpers.pool.query(
+            `UPDATE results SET 
+              score = $1, total_marks = $2, percentage = $3, time_taken = $4, submitted_at = NOW() 
+             WHERE attempt_id = $5`,
+            [attemptData.score, attemptData.totalMarks, percentageScore, attemptData.timeSpent, resolvedAttemptDbId]
+          )
+        } else {
+          await dbHelpers.pool.query(
+            `INSERT INTO results (
+              attempt_id, user_id, test_id, series_id, score, total_marks, percentage, time_taken, submitted_at, created_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+            [
+              resolvedAttemptDbId,
+              req.user.id,
+              test._id || test.id,
+              test.seriesId || test.series_id || null,
+              attemptData.score,
+              attemptData.totalMarks,
+              percentageScore,
+              attemptData.timeSpent
+            ]
+          )
+        }
+      }
+    } catch (resErr) {
+      console.warn('[tests.submit] Failed to persist to results table:', resErr.message)
     }
 
     await publishEvent('test_submitted', {
@@ -922,29 +1244,83 @@ router.put('/:testId/submit', protect, async (req, res) => {
       totalMarks: attemptData.totalMarks
     })
 
-    // Synchronous fallback so analytics/learning/recommendations work even when queue is disabled.
+    // When queue is enabled, the event bus (test_submitted) routes to analytics,
+    // leaderboard, recommendations, and notifications via BullMQ workers.
+    // When queue is disabled (no Redis), fall back to synchronous processing.
+    if (!isQueueEnabled()) {
+      try {
+        const resolvedAttemptId = result?._id || result?.id || attemptId || null
+        await Promise.allSettled([
+          analyticsService.processTestSubmissionAnalytics({
+            userId: req.user.id,
+            testId: test._id || test.id,
+            attemptId: resolvedAttemptId,
+          }),
+          leaderboardService.recalculateLeaderboards({ testId: test._id || test.id }),
+          recommendationService.refreshRecommendationsFromEvent({
+            userId: req.user.id,
+            testId: test._id || test.id,
+          }),
+          notificationService.dispatchNotification(req.user.id, {
+            title: 'Test result available',
+            message: `Your result for ${test.title || 'test'} is now available.`,
+            type: 'result_declared',
+            metadata: { testId: test._id || test.id, attemptId: resolvedAttemptId },
+          }),
+        ])
+      } catch (backgroundError) {
+        console.warn('[tests.submit] Background post-submit processing failed:', backgroundError.message)
+      }
+    }
+
+    // Anti-cheat evaluation
+    let antiCheat = { tabSwitches: 0, windowBlurs: 0, flagged: false }
     try {
-      const resolvedAttemptId = result?._id || result?.id || attemptId || null
-      await Promise.allSettled([
-        analyticsService.processTestSubmissionAnalytics({
-          userId: req.user.id,
+      const internalAttemptId = result?._id || result?.id || attemptId || null
+      const { rows: events } = await dbHelpers.pool.query(
+        `SELECT event_type, COUNT(*) as count 
+         FROM attempt_events 
+         WHERE attempt_id = $1 AND event_type IN ('tab_switch', 'window_blur', 'visibility_hidden')
+         GROUP BY event_type`,
+        [internalAttemptId]
+      )
+
+      const tabSwitches = events.find(e => e.event_type === 'tab_switch' || e.event_type === 'visibility_hidden')?.count || 0
+      const windowBlurs = events.find(e => e.event_type === 'window_blur')?.count || 0
+      const totalViolations = tabSwitches + windowBlurs
+
+      // Flag attempt if too many violations but don't auto-reject
+      if (totalViolations > 10) {
+        await dbHelpers.updateById('attempts', internalAttemptId, {
+          flagged: true,
+          flag_reason: `Anti-cheat: ${tabSwitches} tab switches, ${windowBlurs} window blurs`
+        })
+      }
+
+      antiCheat = {
+        tabSwitches,
+        windowBlurs,
+        flagged: totalViolations > 10
+      }
+    } catch (e) {
+      // Anti-cheat check is non-critical, don't fail submission
+      console.error('Anti-cheat check error:', e.message)
+    }
+
+    // Generate adaptive recommendations based on performance
+    try {
+      const adaptiveTestService = (await import('../adaptive/adaptiveTest.service.js')).default || (await import('../adaptive/adaptiveTest.service.js'))
+      if (adaptiveTestService && typeof adaptiveTestService.generateRecommendations === 'function') {
+        await adaptiveTestService.generateRecommendations(req.user.id, {
           testId: test._id || test.id,
-          attemptId: resolvedAttemptId,
-        }),
-        leaderboardService.recalculateLeaderboards({ testId: test._id || test.id }),
-        recommendationService.refreshRecommendationsFromEvent({
-          userId: req.user.id,
-          testId: test._id || test.id,
-        }),
-        notificationService.dispatchNotification(req.user.id, {
-          title: 'Test result available',
-          message: `Your result for ${test.title || 'test'} is now available.`,
-          type: 'result_declared',
-          metadata: { testId: test._id || test.id, attemptId: resolvedAttemptId },
-        }),
-      ])
-    } catch (backgroundError) {
-      console.warn('[tests.submit] Background post-submit processing failed:', backgroundError.message)
+          score: attemptData.score,
+          totalQuestions: attemptData.totalQuestions,
+          weakTopics: []
+        })
+      }
+    } catch (e) {
+      // Adaptive is non-critical
+      console.error('Adaptive recommendation error:', e.message)
     }
 
     res.json({
@@ -952,13 +1328,18 @@ router.put('/:testId/submit', protect, async (req, res) => {
       data: {
         attemptId: getPublicResponseId(dbHelpers, 'attempts', result, attemptId || result?._id || result?.id || null),
         ...attemptData,
-        rank: null
+        rank: null,
+        antiCheat
       },
     })
   } catch (error) {
+    if (res.headersSent) {
+      console.error('[test-submit error after headers sent]:', error);
+      return;
+    }
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -1003,7 +1384,7 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
 
     const questions = await fetchTestQuestions(test)
 
-    const rankData = await getRankAndPercentile(resolvedTestId || test._id || test.id || req.params.testId, attempt)
+    const rankData = await getRankAndPercentile(resolvedTestId || test._id || test.id || req.params.testId, attempt, test)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
     result.seriesId = getPublicResponseId(dbHelpers, 'testSeries', series, result.seriesId)
@@ -1015,7 +1396,7 @@ router.get('/:testId/result/:attemptId', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -1068,7 +1449,7 @@ router.get('/:testId/result', protect, async (req, res) => {
     }
 
     const questions = await fetchTestQuestions(test)
-    const rankData = await getRankAndPercentile(numericTestId || test._id || test.id || req.params.testId, attempt)
+    const rankData = await getRankAndPercentile(numericTestId || test._id || test.id || req.params.testId, attempt, test)
     const result = buildResultPayload(test, attempt, questions, req.params.testId, rankData)
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
     result.seriesId = getPublicResponseId(dbHelpers, 'testSeries', series, result.seriesId)
@@ -1080,7 +1461,7 @@ router.get('/:testId/result', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })

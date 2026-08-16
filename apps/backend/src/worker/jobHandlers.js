@@ -1,4 +1,5 @@
 import { QUEUE_NAMES } from '../infrastructure/queue/queueManager.js'
+import { messageBroker } from '../infrastructure/events/messageBroker.js'
 import {
   analyticsService,
   leaderboardService,
@@ -50,14 +51,20 @@ export const handlersByQueue = {
   },
   [QUEUE_NAMES.NOTIFICATIONS]: async (job) => {
     logJobStart(QUEUE_NAMES.NOTIFICATIONS, job)
+    const payload = job.data?.payload || {}
+    if (job.name === 'notifications.send-email') {
+      const emailService = (await import('../services/EmailService.js')).default
+      const result = await emailService.sendDirect(payload.email, payload.subject, payload.htmlContent)
+      return defaultResult({ action: 'email-sent', ...result })
+    }
+
     if (job.name === 'notifications.scheduled-reminders') {
       const result = await notificationService.sendScheduledReminders({
-        inactivityHours: Number(job.data?.payload?.inactivityHours || 24),
+        inactivityHours: Number(payload.inactivityHours || 24),
       })
       return defaultResult({ action: 'notifications-scheduled-reminders', ...result })
     }
 
-    const payload = job.data?.payload || {}
     const dispatched = await notificationService.handleNotificationJob(job.name, payload)
     return defaultResult({ action: 'notification-dispatched', dispatched })
   },
@@ -69,5 +76,11 @@ export const handlersByQueue = {
       testId: payload.testId || null,
     })
     return defaultResult({ action: 'recommendations-refreshed', ...refreshed })
+  },
+  [QUEUE_NAMES.EVENTS]: async (job) => {
+    logJobStart(QUEUE_NAMES.EVENTS, job)
+    const payload = job.data?.payload || {}
+    await messageBroker.triggerLocalSubscribers(job.name, payload)
+    return defaultResult({ action: 'event-triggered', eventName: job.name })
   }
 }

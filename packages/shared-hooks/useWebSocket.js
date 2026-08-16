@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = (() => {
-  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (typeof process !== 'undefined' && process.env?.REACT_APP_SOCKET_URL) return process.env.REACT_APP_SOCKET_URL;
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
   }
@@ -14,30 +15,36 @@ export const useWebSocket = () => {
   const socketRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
 
-  useEffect(() => {
-    const socket = io(SOCKET_URL, {
+  if (!socketRef.current && typeof window !== 'undefined') {
+    socketRef.current = io(SOCKET_URL, {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 10,
       reconnectionDelay: 1000,
     });
+  }
 
-    socketRef.current = socket;
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
 
-    socket.on('connect', () => {
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => setIsConnected(false);
+    const handleConnectError = (err) => console.error('WebSocket Connect Error:', err.message);
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+
+    if (socket.connected) {
       setIsConnected(true);
-    });
-
-    socket.on('disconnect', (reason) => {
-      setIsConnected(false);
-    });
-
-    socket.on('connect_error', (err) => {
-      console.error('WebSocket Connect Error:', err.message);
-    });
+    }
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
       socket.disconnect();
       socketRef.current = null;
     };
@@ -61,5 +68,7 @@ export const useWebSocket = () => {
     return () => {};
   }, []);
 
-  return { isConnected, emit, on, socket: socketRef.current };
+  return { isConnected, emit, on, socketRef };
 };
+
+export default useWebSocket;

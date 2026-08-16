@@ -32,23 +32,64 @@ export const populateEnrolledSeries = async (user, dbHelpers) => {
  * @param {object} user
  * @returns {object|null}
  */
+// Sensitive credential/secret/PII fields that must NEVER be returned to clients.
+// Covers both camelCase and snake_case variants (dbHelpers returns snake_case keys).
+// M7: extends beyond auth secrets to direct PII (phone, DOB, location, education,
+// bio, government ids) that should not be shared in generic user payloads.
+const SENSITIVE_USER_FIELDS = new Set([
+  'password',
+  'password_hash',
+  'salt',
+  'refresh_token_version',
+  'email_verification_token',
+  'emailVerificationToken',
+  'email_verification_expires',
+  'emailVerificationExpires',
+  'reset_password_token',
+  'resetPasswordToken',
+  'reset_password_expires',
+  'resetPasswordExpires',
+  'two_factor_secret',
+  'two_factor_secret_encrypted',
+  'otp_secret',
+  'phone_auth_secret',
+  'razorpay_customer_id',
+  'device_fingerprint',
+  'login_secret',
+  // PII (M7)
+  'phone',
+  'phone_number',
+  'dob',
+  'date_of_birth',
+  'location',
+  'city',
+  'state',
+  'country',
+  'pincode',
+  'pin_code',
+  'postal_code',
+  'education',
+  'bio',
+  'aadhaar',
+  'pan_number',
+  'government_id'
+]);
+
+/**
+ * Sanitizes a user record for public/API responses.
+ * Strips credential, secret, and sensitive-PII fields regardless of key casing.
+ * @param {object|null} user
+ * @returns {object|null}
+ */
 export const sanitizeUser = (user) => {
   if (!user) return null;
 
-  const {
-    password,
-    password_hash,
-    emailVerificationToken,
-    email_verification_token,
-    emailVerificationExpires,
-    email_verification_expires,
-    resetPasswordToken,
-    reset_password_token,
-    resetPasswordExpires,
-    reset_password_expires,
-    ...safeUser
-  } = user;
-
+  const safeUser = {};
+  for (const key of Object.keys(user)) {
+    if (!SENSITIVE_USER_FIELDS.has(key)) {
+      safeUser[key] = user[key];
+    }
+  }
   return safeUser;
 };
 
@@ -120,8 +161,10 @@ export const isProUser = (user) => {
  * @returns {boolean}
  */
 export const isProRestrictedTest = (test) => {
-  const type = String(test?.type || "").toLowerCase();
-  return test?.isPro === true || type === "pro";
+  // IMPORTANT: test.type is a CATEGORY field ('Pro', 'mock-tests', 'pyp', etc.),
+  // NOT an access control field. Many free tests (e.g. PYP imports) have
+  // type:'Pro' but isPro:false. The single access control flag is isPro (boolean).
+  return test?.isPro === true;
 };
 
 /**

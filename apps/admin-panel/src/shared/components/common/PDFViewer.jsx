@@ -1,19 +1,31 @@
 import { X, Download, ExternalLink } from 'lucide-react'
 
+function isSafeUrl(url) {
+  if (!url || typeof url !== 'string') return false
+  const trimmed = url.trim()
+  if (trimmed.startsWith('/') || trimmed.startsWith('./')) return true
+  try {
+    const parsed = new URL(trimmed, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
+    return ['http:', 'https:', 'blob:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
 function getEmbedUrl(url) {
-  if (!url) return null
+  if (!isSafeUrl(url)) return null
   const driveMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/)
   if (driveMatch) return `https://drive.google.com/file/d/${driveMatch[1]}/preview`
   // Convert absolute localhost URLs to relative paths so the Vite proxy serves them
   try {
-    const parsed = new URL(url)
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost')
     if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
-      return parsed.pathname
+      return parsed.pathname + parsed.search + parsed.hash
     }
+    return parsed.href
   } catch {
-    // Not an absolute URL — already relative, use as-is
+    return url.startsWith('/') ? url : null
   }
-  return url
 }
 
 export default function PDFViewer({ isOpen, onClose, pdfData }) {
@@ -23,10 +35,12 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
   const src = rawUrl ? getEmbedUrl(rawUrl) : null
 
   const handleDownload = () => {
-    if (rawUrl) {
+    const downloadUrl = src || (isSafeUrl(rawUrl) ? rawUrl : null)
+    if (downloadUrl) {
       const link = document.createElement('a')
-      link.href = src || rawUrl
+      link.href = downloadUrl
       link.download = pdfData.fileName || 'document.pdf'
+      link.rel = 'noopener noreferrer'
       link.click()
     }
   }

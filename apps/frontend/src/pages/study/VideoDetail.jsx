@@ -1,16 +1,49 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { 
-  Play, Clock, Eye, Lock, ChevronLeft, ChevronRight, ChevronDown,
-  BookOpen, Video, Share2, Bookmark, BookmarkCheck, ThumbsUp,
-  MessageCircle, Download, Shield, CheckCircle, ArrowLeft,
-  User, Calendar, Tag, ExternalLink, Copy, Check, AlertTriangle
-} from 'lucide-react'
+import {
+  Play,
+  Clock,
+  Eye,
+  Lock,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  BookOpen,
+  Share2,
+  Bookmark,
+  BookmarkCheck,
+  ThumbsUp,
+  Shield,
+  CheckCircle,
+  ArrowLeft,
+  User,
+  Calendar,
+  Tag,
+  ExternalLink,
+  Check,
+} from 'lucide-react';
 import { useAuth } from '../../shared/providers/AuthContext'
-import { AnimatedHero } from '../../shared/components'
 import VideoPlayer from '../../shared/components/common/VideoPlayer'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import api from '../../shared/lib/api'
+import { getVideoUrl } from './studyMaterialUtils' // NOTE: getVideoUrl returns /videos/... paths; backend accepts both /videos/:id and /api/videos/:id
+
+// ── YouTube ID helper ──────────────────────────────────────
+function getYouTubeId(url) {
+  if (!url) return null
+  const patterns = [
+    /[?&]v=([^&]+)/,
+    /youtu\.be\/([^?&]+)/,
+    /embed\/([^?&]+)/,
+    /v\/([^?&]+)/,
+    /youtube\.com\/shorts\/([^?&]+)/,
+  ]
+  for (const p of patterns) {
+    const m = url.match(p)
+    if (m) return m[1]
+  }
+  return null
+}
 
 // Security Badge Component
 function SecurityBadge({ isEncrypted, encryptionType }) {
@@ -28,7 +61,10 @@ function VideoMetaInfo({ video }) {
   const metaItems = []
   if (video.duration) metaItems.push({ icon: Clock, label: video.duration })
   if (video.views !== undefined) metaItems.push({ icon: Eye, label: `${video.views?.toLocaleString() || 0} views` })
-  if (video.createdAt) metaItems.push({ icon: Calendar, label: new Date(video.createdAt).toLocaleDateString() })
+  if (video.createdAt) {
+    const date = new Date(video.createdAt)
+    if (!isNaN(date)) metaItems.push({ icon: Calendar, label: date.toLocaleDateString() })
+  }
   if (video.instructor) metaItems.push({ icon: User, label: video.instructor })
 
   return (
@@ -55,7 +91,7 @@ function PlaylistSidebar({ chapters, currentVideoId, onVideoSelect, subjectTitle
           ...(chapter.videos || []),
           ...(chapter.topics?.flatMap(t => t.videos || []) || [])
         ]
-        if (allVideos.some(v => (v._id || v.id) === currentVideoId)) {
+        if (allVideos.some(v => (v.publicId || v._id || v.id) === currentVideoId)) {
           setExpandedChapters(prev => ({ ...prev, [chapter._id]: true }))
           break
         }
@@ -99,10 +135,10 @@ function PlaylistSidebar({ chapters, currentVideoId, onVideoSelect, subjectTitle
                 <div className="bg-gray-50/50">
                   {allVideos.map((video) => {
                     const idx = globalIndex++
-                    const isActive = (video._id || video.id) === currentVideoId
+                    const isActive = (video.publicId || video._id || video.id) === currentVideoId
                     return (
                       <button
-                        key={video._id || idx}
+                        key={video.publicId || video._id || idx}
                         onClick={() => onVideoSelect(video)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                           isActive ? 'bg-brand-start/10 border-l-2 border-brand-start' : 'hover:bg-gray-100 border-l-2 border-transparent'
@@ -144,7 +180,7 @@ function PlaylistSidebar({ chapters, currentVideoId, onVideoSelect, subjectTitle
 function RelatedVideos({ videos, currentVideoId }) {
   const related = useMemo(() => {
     return videos
-      .filter(v => (v._id || v.id) !== currentVideoId)
+      .filter(v => (v.publicId || v._id || v.id) !== currentVideoId)
       .slice(0, 6)
   }, [videos, currentVideoId])
 
@@ -155,11 +191,12 @@ function RelatedVideos({ videos, currentVideoId }) {
       <h3 className="text-lg font-bold text-gray-900 mb-4">Related Videos</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {related.map((video, idx) => {
-          const thumbnailUrl = video.thumbnail || `https://img.youtube.com/vi/${video.videoUrl?.split('v=')?.[1]?.split('&')?.[0] || video.videoUrl?.split('/')?.pop()}/mqdefault.jpg`
+          const vidYoutubeId = getYouTubeId(video.videoUrl || video.video_url || video.url)
+          const thumbnailUrl = video.thumbnail || (vidYoutubeId ? `https://img.youtube.com/vi/${vidYoutubeId}/mqdefault.jpg` : null)
           return (
             <Link
-              key={video._id || idx}
-              to={`/videos/${video._id || video.id}`}
+              key={video.publicId || video._id || idx}
+              to={getVideoUrl(video)}
               className="group bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all"
             >
               <div className="relative aspect-video bg-gray-100">
@@ -194,9 +231,10 @@ function RelatedVideos({ videos, currentVideoId }) {
 
 // Main VideoDetail Component
 export default function VideoDetail() {
-  const { id } = useParams()
+  const { subjectSlug: _subjectSlug, chapterSlug: _chapterSlug, videoId, id } = useParams()
+  const resolveId = videoId || id
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user: _user } = useAuth()
 
   const [video, setVideo] = useState(null)
   const [chapters, setChapters] = useState([])
@@ -205,13 +243,27 @@ export default function VideoDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showPlayer, setShowPlayer] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
+  const [isBookmarked, setIsBookmarked] = useState(() => {
+    const v = videoId || id
+    return v ? localStorage.getItem(`video:bookmarked:${v}`) === '1' : false
+  })
+  const [isLiked, setIsLiked] = useState(() => {
+    const v = videoId || id
+    return v ? localStorage.getItem(`video:liked:${v}`) === '1' : false
+  })
   const [copied, setCopied] = useState(false)
+  const copiedTimerRef = useRef(null)
   const [showDescription, setShowDescription] = useState(true)
+
+  useEffect(() => {
+    return () => {
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
+    }
+  }, [])
 
   // Fetch video details
   useEffect(() => {
+    const controller = new AbortController()
     const fetchVideo = async () => {
       try {
         setLoading(true)
@@ -219,7 +271,8 @@ export default function VideoDetail() {
 
         // Try the public video endpoint first
         try {
-          const response = await api.get(`/api/videos/${id}`)
+          const response = await api.get(`/api/videos/${resolveId}`, { signal: controller.signal })
+          if (controller.signal.aborted) return
           if (response.data.success) {
             const videoData = response.data.data
             setVideo(videoData)
@@ -228,7 +281,8 @@ export default function VideoDetail() {
             // Fetch related videos from the same subject
             if (videoData.subjectId || videoData.studyMaterialId) {
               try {
-                const hierResponse = await api.get('/api/study/videos/hierarchical')
+                const hierResponse = await api.get('/api/study/videos/hierarchical', { signal: controller.signal })
+                if (controller.signal.aborted) return
                 if (hierResponse.data.success) {
                   const subjects = hierResponse.data.data
                   // Find the subject this video belongs to
@@ -237,7 +291,7 @@ export default function VideoDetail() {
                       ...(ch.videos || []),
                       ...(ch.topics?.flatMap(t => t.videos || []) || [])
                     ]) || []
-                    if (allVids.some(v => (v._id || v.id) === id)) {
+                    if (allVids.some(v => (v.publicId || v._id || v.id) === resolveId)) {
                       setChapters(subject.chapters || [])
                       setSubjectTitle(subject.title)
                       setAllSubjectVideos(allVids)
@@ -267,7 +321,8 @@ export default function VideoDetail() {
         }
 
         // Fallback: search in hierarchical data
-        const hierResponse = await api.get('/api/study/videos/hierarchical')
+        const hierResponse = await api.get('/api/study/videos/hierarchical', { signal: controller.signal })
+        if (controller.signal.aborted) return
         if (hierResponse.data.success) {
           const subjects = hierResponse.data.data
           for (const subject of subjects) {
@@ -275,11 +330,11 @@ export default function VideoDetail() {
               ...(ch.videos || []),
               ...(ch.topics?.flatMap(t => t.videos || []) || [])
             ]) || []
-            const found = allVids.find(v => (v._id || v.id) === id)
+            const found = allVids.find(v => (v.publicId || v._id || v.id) === resolveId)
             if (found) {
               setVideo({
                 ...found,
-                videoUrl: found.videoUrl || found.url,
+                videoUrl: found.videoUrl || found.video_url || found.url,
                 subject: subject.title
               })
               setChapters(subject.chapters || [])
@@ -293,34 +348,69 @@ export default function VideoDetail() {
 
         setError('Video not found')
       } catch (err) {
-        console.error('Failed to fetch video:', err)
-        setError('Failed to load video. Please try again.')
+        if (!controller.signal.aborted) {
+          console.error('Failed to fetch video:', err)
+          setError('Failed to load video. Please try again.')
+        }
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
 
-    if (id) fetchVideo()
-  }, [id])
+    if (resolveId) fetchVideo()
+    return () => controller.abort()
+  }, [resolveId])
 
   const handleVideoSelect = (selectedVideo) => {
-    navigate(`/videos/${selectedVideo._id || selectedVideo.id}`)
+    navigate(getVideoUrl(selectedVideo))
   }
 
   const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    const url = window.location.href
+    const done = () => {
+      setCopied(true)
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
+    }
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(done).catch(() => {
+        fallbackCopy(url)
+        done()
+      })
+    } else {
+      fallbackCopy(url)
+      done()
+    }
+  }
+
+  const fallbackCopy = (text) => {
+    try {
+      const ta = document.createElement('textarea')
+      ta.value = text
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      document.execCommand('copy')
+      document.body.removeChild(ta)
+    } catch { /* ignore */ }
   }
 
   const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked)
+    setIsBookmarked(prev => {
+      const next = !prev
+      const v = videoId || id
+      if (v) localStorage.setItem(`video:bookmarked:${v}`, next ? '1' : '0')
+      return next
+    })
   }
 
   // Find prev/next videos
-  const currentIndex = allSubjectVideos.findIndex(v => (v._id || v.id) === id)
+  const currentIndex = allSubjectVideos.findIndex(v => (v.publicId || v._id || v.id) === resolveId)
   const prevVideo = currentIndex > 0 ? allSubjectVideos[currentIndex - 1] : null
   const nextVideo = currentIndex < allSubjectVideos.length - 1 ? allSubjectVideos[currentIndex + 1] : null
+  const currentChapter = video?.chapterId
+    ? chapters.find(ch => String(ch.id ?? ch._id) === String(video.chapterId))
+    : null
 
   // Loading state
   if (loading) {
@@ -354,7 +444,8 @@ export default function VideoDetail() {
     )
   }
 
-  const thumbnailUrl = video.thumbnail || `https://img.youtube.com/vi/${video.videoUrl?.split('v=')?.[1]?.split('&')?.[0] || video.videoUrl?.split('/')?.pop()}/sddefault.jpg`
+  const youtubeId = getYouTubeId(video.videoUrl || video.video_url || video.url)
+  const thumbnailUrl = video.thumbnail || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/sddefault.jpg` : null)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -366,6 +457,7 @@ export default function VideoDetail() {
               { label: 'Home', path: '/' },
               { label: 'Videos', path: '/videos' },
               { label: subjectTitle, path: '/videos' },
+              ...(currentChapter ? [{ label: currentChapter.title, path: '/videos' }] : []),
               { label: video.title }
             ]}
           />
@@ -381,11 +473,13 @@ export default function VideoDetail() {
               {showPlayer && (
                 <VideoPlayer
                   isOpen={showPlayer}
+                  inline
                   onClose={() => setShowPlayer(false)}
                   videoData={{
                     title: video.title,
                     description: video.description,
-                    url: video.videoUrl || video.url
+                    videoUrl: video.videoUrl || video.video_url || video.url,
+                    url: video.videoUrl || video.video_url || video.url
                   }}
                 />
               )}
@@ -422,7 +516,12 @@ export default function VideoDetail() {
               {/* Action Buttons */}
               <div className="flex items-center gap-2 mt-4 flex-wrap">
                 <button
-                  onClick={() => setIsLiked(!isLiked)}
+                  onClick={() => setIsLiked(prev => {
+                    const next = !prev
+                    const v = videoId || id
+                    if (v) localStorage.setItem(`video:liked:${v}`, next ? '1' : '0')
+                    return next
+                  })}
                   className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                     isLiked ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -524,7 +623,7 @@ export default function VideoDetail() {
             <div className="flex items-center gap-3">
               {prevVideo ? (
                 <Link
-                  to={`/videos/${prevVideo._id || prevVideo.id}`}
+                  to={getVideoUrl(prevVideo)}
                   className="flex-1 flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-brand-start/30 hover:shadow-sm transition-all group"
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-400 group-hover:text-brand-start transition-colors" />
@@ -536,7 +635,7 @@ export default function VideoDetail() {
               ) : <div className="flex-1" />}
               {nextVideo ? (
                 <Link
-                  to={`/videos/${nextVideo._id || nextVideo.id}`}
+                  to={getVideoUrl(nextVideo)}
                   className="flex-1 flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl hover:border-brand-start/30 hover:shadow-sm transition-all group text-right"
                 >
                   <div className="flex-1 min-w-0">
@@ -549,7 +648,8 @@ export default function VideoDetail() {
             </div>
 
             {/* Related Videos */}
-            <RelatedVideos videos={allSubjectVideos} currentVideoId={id} />
+            <RelatedVideos videos={allSubjectVideos} 
+currentVideoId={resolveId} />
           </div>
 
           {/* Sidebar */}
@@ -557,7 +657,7 @@ export default function VideoDetail() {
             <div className="lg:sticky lg:top-20">
               <PlaylistSidebar
                 chapters={chapters}
-                currentVideoId={id}
+                currentVideoId={resolveId}
                 onVideoSelect={handleVideoSelect}
                 subjectTitle={subjectTitle}
               />

@@ -12,55 +12,50 @@ let socket = null
  */
 export const initWebSocket = ({ url, token, onConnect, onDisconnect, onReconnect, onReconnectError } = {}) => {
   if (socket?.connected) {
-    console.log('[WebSocket] Already connected')
     return socket
   }
 
   // If no URL provided, try to use same origin
-  const wsUrl = url || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5001')
+  const wsUrl = url || (typeof window !== 'undefined' ? window.location.origin : '')
 
-  const options = {
-    transports: ['websocket', 'polling'],
+  const socketOptions = {
+    transports: ['polling', 'websocket'],
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionDelayMax: 5000,
     reconnectionAttempts: Infinity,
     auth: {},
-    ...options
   }
 
   if (token) {
-    options.auth.token = token
+    socketOptions.auth.token = token
   }
 
   try {
-    socket = io(wsUrl, options)
+    socket = io(wsUrl, socketOptions)
 
     socket.on('connect', () => {
-      console.log('[WebSocket] Connected:', socket.id)
       onConnect?.(socket.id)
     })
 
     socket.on('disconnect', (reason) => {
-      console.log('[WebSocket] Disconnected:', reason)
       onDisconnect?.(reason)
     })
 
     socket.on('connect_error', (err) => {
-      console.error('[WebSocket] Connection error:', err.message)
+      console.warn('[WebSocket] Connection error:', err.message)
     })
 
     if (onReconnect) {
       socket.on('reconnect', (attemptNumber) => {
-        console.log(`[WebSocket] Reconnected after ${attemptNumber} attempts`)
         onReconnect(attemptNumber)
       })
     }
 
     if (onReconnectError) {
       socket.on('reconnect_error', (err) => {
-        console.error('[WebSocket] Reconnection error:', err.message)
+        console.warn('[WebSocket] Reconnection error:', err.message)
         onReconnectError(err)
       })
     }
@@ -70,7 +65,7 @@ export const initWebSocket = ({ url, token, onConnect, onDisconnect, onReconnect
 
     return socket
   } catch (err) {
-    console.error('[WebSocket] Failed to initialize:', err)
+    console.warn('[WebSocket] Failed to initialize:', err)
     return null
   }
 }
@@ -81,40 +76,27 @@ export const initWebSocket = ({ url, token, onConnect, onDisconnect, onReconnect
 const setupEventListeners = () => {
   if (!socket) return
 
-  // Test result ready
   socket.on('test:result_ready', (data) => {
-    console.log('[WebSocket] Test result ready:', data)
-    // Dispatch custom event for app-level handling
     dispatchCustomEvent('testResultReady', data)
   })
 
-  // Leaderboard updated
   socket.on('leaderboard:updated', (data) => {
-    console.log('[WebSocket] Leaderboard updated:', data)
     dispatchCustomEvent('leaderboardUpdated', data)
   })
 
-  // New notification
   socket.on('notification:new', (data) => {
-    console.log('[WebSocket] New notification:', data)
     dispatchCustomEvent('newNotification', data)
   })
 
-  // Live test submission
   socket.on('live-test:attempt_submitted', (data) => {
-    console.log('[WebSocket] Live test attempt submitted:', data)
     dispatchCustomEvent('liveTestAttemptSubmitted', data)
   })
 
-  // Live test participant count
   socket.on('live-test:participant_count', (data) => {
-    console.log('[WebSocket] Live test participant count:', data)
     dispatchCustomEvent('liveTestParticipantCount', data)
   })
 
-  // Series updated
   socket.on('series:updated', (data) => {
-    console.log('[WebSocket] Series updated:', data)
     dispatchCustomEvent('seriesUpdated', data)
   })
 }
@@ -140,7 +122,6 @@ export const disconnectWebSocket = () => {
   if (socket) {
     socket.disconnect()
     socket = null
-    console.log('[WebSocket] Disconnected')
   }
 }
 
@@ -153,7 +134,6 @@ export const joinTestRoom = (testId) => {
     return
   }
   socket.emit('live-tests:join', { testId })
-  console.log(`[WebSocket] Joined test room: test:${testId}`)
 }
 
 /**
@@ -162,7 +142,6 @@ export const joinTestRoom = (testId) => {
 export const leaveTestRoom = (testId) => {
   if (!socket?.connected) return
   socket.emit('live-tests:leave', { testId })
-  console.log(`[WebSocket] Left test room: test:${testId}`)
 }
 
 /**

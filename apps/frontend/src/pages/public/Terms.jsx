@@ -1,7 +1,17 @@
+import { Helmet } from 'react-helmet-async'
+
 export default function Terms() {
   const supportEmail = import.meta.env.VITE_SUPPORT_EMAIL || 'support@trstprep.com'
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      <Helmet>
+        <title>Terms of Service | Trstprep</title>
+        <meta name="description" content="Trstprep terms of service - rules and guidelines for using our platform." />
+        <meta property="og:title" content="Terms of Service | Trstprep" />
+        <meta property="og:description" content="Trstprep terms of service - rules and guidelines for using our platform." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       <div className="max-w-4xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Terms of Service</h1>
         <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">

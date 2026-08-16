@@ -3,10 +3,10 @@ import { apiClient } from '../lib/dataService'
 import { Check, Crown, Zap, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-export function ProPassCard({ onClose }) {
+export function ProPassCard({ onClose: _onClose }) {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [_error, setError] = useState(null)
 
   useEffect(() => {
     fetchPlans()
@@ -140,7 +140,7 @@ export function ProPassUpgrade({ feature, onClose }) {
 
           <div className="space-y-3">
             <Link
-              to="/pro-pass"
+              to="/pass"
               className="block w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold rounded-xl text-center"
               onClick={onClose}
             >
@@ -159,7 +159,7 @@ export function ProPassUpgrade({ feature, onClose }) {
   )
 }
 
-export function SubscriptionBadge({ isProUser, expiryDate }) {
+export function SubscriptionBadge({ isProUser, _expiryDate }) {
   if (!isProUser) return null
 
   return (

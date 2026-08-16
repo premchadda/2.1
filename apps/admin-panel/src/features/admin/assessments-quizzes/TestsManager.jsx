@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, Link } from 'react-router-dom'
 import {
+  Check,
   CheckSquare,
   ChevronDown,
   ChevronRight,
@@ -17,10 +18,13 @@ import {
   Trash2,
   Upload,
   X,
+  Radio,
+  BookOpen,
+  ExternalLink
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { adminAPI, apiClient } from '../../../shared/lib/dataService'
-import api from '../../../shared/lib/api'
+import { coerceArray } from '../../../shared/utils/questionHelpers'
 import { useExamCategories } from '../../../shared/hooks/useExamCategories'
 import FullTestImportModal from './components/FullTestImportModal'
 
@@ -44,6 +48,8 @@ const TEST_CATEGORY_ALIASES = {
   practice: ['practice', 'quiz', 'practice-quiz', 'practice & quiz', 'Practice'],
   'live-tests': ['live-tests', 'live', 'live test', 'live tests', 'Live Tests'],
 }
+
+const UNASSIGNED_SUBCATEGORY_ID = '__unassigned__'
 
 const SECTION_PRESETS = [
   // ───────────────────── SSC CGL ─────────────────────
@@ -273,6 +279,7 @@ const SECTION_PRESETS = [
 const DEFAULT_TEST_FORM = {
   title: '',
   slug: '',
+  testSeriesId: '',
   testCategoryId: '',
   subCategoryLevel1: '',
   subCategoryLevel2: '',
@@ -282,6 +289,7 @@ const DEFAULT_TEST_FORM = {
   duration: 60,
   negativeMarking: 0.25,
   difficulty: 'medium',
+  hasSectionalTiming: true,
   isPro: false,
   isComingSoon: false,
   isLive: false,
@@ -289,7 +297,7 @@ const DEFAULT_TEST_FORM = {
   stageIds: '',
   sectionIds: '',
   scheduledAt: '',
-  maxParticipants: '',
+  scheduledEnd: '',
 }
 
 const normalizeKey = (value) =>
@@ -305,10 +313,14 @@ const getSeriesId = (series) => series?._id ?? series?.id ?? series?.public_id ?
 const getTestId = (test) => test?._id ?? test?.id ?? test?.public_id ?? null
 const getTestSeriesId = (test = {}) => test.testSeriesId ?? test.test_series_id ?? test.seriesId ?? test.series_id ?? null
 const getStageIdFromTest = (test = {}) => test.stageId ?? test.stage_id ?? test.tierId ?? test.tier_id ?? null
-const getSeriesExamId = (series = {}) =>
-  series.examId ?? series.exam_id ?? series.subcategory ?? series.subCategory ?? series.sub_category ?? series.subcategory_id ?? null
-const getSeriesExamCategoryId = (series = {}) =>
-  series.category ?? series.category_id ?? series.examCategoryId ?? series.exam_category_id ?? null
+const getSeriesExamId = (series) => {
+  if (!series) return null
+  return series.examId ?? series.exam_id ?? series.subcategory ?? series.subCategory ?? series.sub_category ?? series.subcategory_id ?? null
+}
+const getSeriesExamCategoryId = (series) => {
+  if (!series) return null
+  return series.category ?? series.category_id ?? series.examCategoryId ?? series.exam_category_id ?? null
+}
 const getTestQuestionsCount = (test = {}) =>
   Number(test.questionsCount ?? test.questions_count ?? test.totalQuestions ?? test.total_questions ?? test.question_count ?? 0)
 
@@ -350,22 +362,6 @@ const normalizeSectionForForm = (section) => ({
   total_marks: section.total_marks ?? section.totalMarks ?? 0,
 })
 
-const coerceArray = (value) => {
-  if (Array.isArray(value)) return value
-  if (value !== null && value !== undefined && typeof value !== 'string') return [value]
-  if (typeof value !== 'string' || !value.trim()) return []
-  const trimmed = value.trim()
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-    return trimmed.slice(1, -1).split(',').map(part => part.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
-  }
-  try {
-    const parsed = JSON.parse(trimmed)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return trimmed.split(',').map(part => part.trim()).filter(Boolean)
-  }
-}
-
 const flattenCategories = (categories = []) => {
   const flattened = []
   const walk = (items, parentId = '') => {
@@ -394,6 +390,8 @@ const valueMatchesRefs = (values, refs) =>
 const getTestCategoryValues = (item = {}) => [
   item.testCategoryId,
   item.test_category_id,
+  item.subCategory,
+  item.sub_category,
   item.categoryId,
   item.category_id,
   item.category,
@@ -401,9 +399,6 @@ const getTestCategoryValues = (item = {}) => [
   item.category_name,
   item.testCategory,
   item.test_category,
-  // FIX: Also match by the test's `type` field (e.g. 'pyp', 'mock-tests').
-  // Tests created via form often have `type` set but no explicit testCategoryId,
-  // so without this they are invisible in the series panel.
   item.type,
 ].filter(value => value !== null && value !== undefined && value !== '')
 
@@ -533,6 +528,28 @@ const getCategoryPathLabel = (categoryId, flatCategories = []) => {
   return path.map(cat => getCategoryLabel(cat)).join(' / ') || 'Not linked'
 }
 
+const getCategoryId = (category) => getEntityId(category) || category?.categoryId || category?.slug || null
+
+const getCategoryRelationshipLabels = (category, flatCategories = [], fallbackCategory = 'Not linked') => {
+  if (!category) {
+    return {
+      testCategory: fallbackCategory || 'Not linked',
+      testSubcategory: 'Not linked',
+    }
+  }
+
+  const path = getCategoryPath(getCategoryId(category), flatCategories)
+  const root = path[0] || category
+  const descendants = path.slice(1)
+
+  return {
+    testCategory: getCategoryPathLabel(getCategoryId(root), flatCategories),
+    testSubcategory: descendants.length > 0
+      ? descendants.map(cat => getCategoryLabel(cat)).join(' / ')
+      : 'Not linked',
+  }
+}
+
 const Badge = ({ children, tone = 'gray' }) => {
   const tones = {
     gray: 'bg-gray-100 text-gray-700 border-gray-200',
@@ -605,7 +622,10 @@ const CascadingCategorySelect = ({ allSubCategories = [], flatTestCategories = [
   }, [value, flatTestCategories, subCatIdSet])
 
   // Options for each level
-  const opts1 = useMemo(() => allSubCategories.filter(c => c._depth === 1), [allSubCategories])
+  const opts1 = useMemo(() => {
+    return allSubCategories.filter(c => c._depth === 1)
+  }, [allSubCategories])
+
   const opts2 = useMemo(() => levels[0] ? flatTestCategories.filter(c => String(c.parentId ?? c.parent_id ?? '') === levels[0] && c.isActive !== false) : [], [levels[0], flatTestCategories])
   const opts3 = useMemo(() => levels[1] ? flatTestCategories.filter(c => String(c.parentId ?? c.parent_id ?? '') === levels[1] && c.isActive !== false) : [], [levels[1], flatTestCategories])
   const opts4 = useMemo(() => levels[2] ? flatTestCategories.filter(c => String(c.parentId ?? c.parent_id ?? '') === levels[2] && c.isActive !== false) : [], [levels[2], flatTestCategories])
@@ -681,7 +701,252 @@ const CascadingCategorySelect = ({ allSubCategories = [], flatTestCategories = [
 }
 
 
-const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editingId, contextLabel, saving, relationshipSummary, availableSections, allSubCategories, flatTestCategories, selectedPresetId, setSelectedPresetId, applySectionPreset }) => {
+// ─── Compact Section Picker Component ──────────────────────────────────────
+const CompactSectionPicker = ({ availableSections = [], value = '', onChange, contextLabel }) => {
+  const [search, setSearch] = useState('')
+  const [showAll, setShowAll] = useState(false)
+
+  const selectedIds = useMemo(() => {
+    return parseIdList(value).map(String)
+  }, [value])
+
+  // Partition matching (exam/stage linked) vs other sections
+  const { matchingSections, otherSections } = useMemo(() => {
+    const matching = []
+    const other = []
+
+    const stageText = String(contextLabel || '').toLowerCase()
+
+    const isSectionStageMatch = (sec) => {
+      const secStageLower = String(sec.exam_stage || sec.stage_name || sec.paper || '').toLowerCase()
+      const secNameLower = String(sec.name || '').toLowerCase()
+
+      // Direct DB match
+      if (secStageLower && (stageText.includes(secStageLower) || secStageLower.includes(stageText))) {
+        return true
+      }
+
+      // Explicit Tier-I / Tier 1 stage matching
+      const isTier1Target = (
+        stageText.includes('tier-i') ||
+        stageText.includes('tier 1') ||
+        stageText.includes('tier i') ||
+        stageText.includes('cbt-1') ||
+        stageText.includes('cbt 1') ||
+        stageText.includes('prelims') ||
+        stageText.includes('paper-i') ||
+        stageText.includes('paper 1')
+      )
+
+      if (isTier1Target) {
+        // Tier-I section names
+        const isTier1Section = (
+          secNameLower.includes('general intelligence') ||
+          secNameLower.includes('reasoning') ||
+          secNameLower.includes('general awareness') ||
+          secNameLower.includes('quantitative aptitude') ||
+          secNameLower.includes('english comprehension') ||
+          (secNameLower.includes('english') && !secNameLower.includes('computer') && (sec.expected_questions <= 25 || sec.expected_questions === 0))
+        )
+        // Exclude Tier-II exclusive sections
+        const isTier2Exclusive = (
+          secNameLower.includes('computer') ||
+          secNameLower.includes('data entry') ||
+          secNameLower.includes('dest') ||
+          secNameLower.includes('statistics') ||
+          secNameLower.includes('mathematical abilities')
+        )
+        return isTier1Section && !isTier2Exclusive
+      }
+
+      // Explicit Tier-II / Tier 2 stage matching
+      const isTier2Target = (
+        stageText.includes('tier-ii') ||
+        stageText.includes('tier 2') ||
+        stageText.includes('tier ii') ||
+        stageText.includes('cbt-2') ||
+        stageText.includes('cbt 2') ||
+        stageText.includes('mains') ||
+        stageText.includes('paper-ii') ||
+        stageText.includes('paper 2')
+      )
+
+      if (isTier2Target) {
+        return (
+          secNameLower.includes('mathematical abilities') ||
+          secNameLower.includes('reasoning & general intelligence') ||
+          secNameLower.includes('computer') ||
+          secNameLower.includes('data entry') ||
+          secNameLower.includes('dest') ||
+          secNameLower.includes('statistics') ||
+          (secNameLower.includes('english') && sec.expected_questions > 25) ||
+          (secNameLower.includes('awareness') && sec.expected_questions > 0)
+        )
+      }
+
+      return sec.source === 'test' || sec.source === 'series_stage' || Boolean(sec.test_series_id) || Boolean(sec.exam_id)
+    }
+
+    availableSections.forEach(sec => {
+      if (isSectionStageMatch(sec)) {
+        matching.push(sec)
+      } else {
+        other.push(sec)
+      }
+    })
+
+    return {
+      matchingSections: matching.length > 0 ? matching : availableSections,
+      otherSections: matching.length > 0 ? other : [],
+    }
+  }, [availableSections, contextLabel])
+
+  const displayedList = useMemo(() => {
+    let list = showAll ? [...matchingSections, ...otherSections] : matchingSections
+    if (search.trim()) {
+      const q = search.toLowerCase().trim()
+      list = list.filter(s =>
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.exam_stage || '').toLowerCase().includes(q) ||
+        (s.paper || '').toLowerCase().includes(q)
+      )
+    }
+    return list
+  }, [matchingSections, otherSections, showAll, search])
+
+  const toggleSection = (id) => {
+    const strId = String(id)
+    let newSelected = []
+    if (selectedIds.includes(strId)) {
+      newSelected = selectedIds.filter(i => i !== strId)
+    } else {
+      newSelected = [...selectedIds, strId]
+    }
+    onChange(newSelected.join(', '))
+  }
+
+  const selectAllDisplayed = () => {
+    const newIds = new Set([...selectedIds, ...displayedList.map(s => String(s.id))])
+    onChange(Array.from(newIds).join(', '))
+  }
+
+  const deselectAll = () => {
+    onChange('')
+  }
+
+  if (availableSections.length === 0) {
+    return (
+      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-800">
+        No sections available for this exam scheme. Select an exam scheme below or create sections.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      {/* Header with Title & Quick Actions */}
+      <div className="flex items-center justify-between">
+        <label className="block text-sm font-medium text-gray-700">
+          Test Sections
+          <span className="ml-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+            {selectedIds.length} selected
+          </span>
+        </label>
+        <div className="flex items-center gap-2 text-xs">
+          <button
+            type="button"
+            onClick={selectAllDisplayed}
+            className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+          >
+            Select All
+          </button>
+          <span className="text-gray-300">|</span>
+          <button
+            type="button"
+            onClick={deselectAll}
+            className="text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      {/* Filter & Search Toolbar */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 relative">
+          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Filter sections by name..."
+            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+          />
+        </div>
+
+        {otherSections.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowAll(prev => !prev)}
+            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+              showAll
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-300'
+                : 'bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100'
+            }`}
+          >
+            {showAll ? `Exam Linked (${matchingSections.length})` : `Show All (${availableSections.length})`}
+          </button>
+        )}
+      </div>
+
+      {/* Compact Interactive Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1.5 border border-gray-200 rounded-xl bg-gray-50/50 scrollbar-thin">
+        {displayedList.map(sec => {
+          const isSelected = selectedIds.includes(String(sec.id))
+          return (
+            <div
+              key={sec.id}
+              onClick={() => toggleSection(sec.id)}
+              className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                isSelected
+                  ? 'bg-indigo-50/90 border-indigo-500 text-indigo-950 shadow-sm'
+                  : 'bg-white hover:bg-gray-100/70 border-gray-200 text-gray-700'
+              }`}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                  isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 bg-white'
+                }`}>
+                  {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate leading-tight">{sec.name}</p>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500">
+                    <span>⏱️ {sec.duration} min</span>
+                    {sec.expected_questions > 0 && <span>• ❓ {sec.expected_questions} Qs</span>}
+                    {sec.exam_stage && (
+                      <span className="px-1 py-0.2 rounded bg-gray-100 text-gray-600 font-medium">
+                        {sec.exam_stage}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              {sec.source === 'series_stage' && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 font-bold shrink-0">Stage</span>
+              )}
+              {sec.source === 'test' && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-700 font-bold shrink-0">Test</span>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editingId, contextLabel, saving, relationshipSummary, availableSections, allSubCategories, flatTestCategories, selectedPresetId, setSelectedPresetId, applySectionPreset, seriesList = [], selectedSeries = null }) => {
   if (!isOpen) return null
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -705,13 +970,63 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
               {/* LEFT COLUMN: Form Inputs & Configurations (Spans 2 columns if editing) */}
               <div className={`${editingId && relationshipSummary ? 'md:col-span-2' : ''} space-y-5`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {seriesList.length > 0 && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Test Series *</label>
+                      <select
+                        required
+                        value={formData.testSeriesId || (selectedSeries ? String(getSeriesId(selectedSeries)) : '')}
+                        onChange={(e) => setFormData({ ...formData, testSeriesId: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm bg-white"
+                      >
+                        <option value="">Select Test Series...</option>
+                        {seriesList.map(s => (
+                          <option key={getSeriesId(s)} value={getSeriesId(s)}>
+                            {s.title || s.name || s.slug}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
-                    <input required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    <input
+                      required
+                      value={formData.title}
+                      onChange={(e) => {
+                        const newTitle = e.target.value
+                        setFormData(prev => {
+                          const autoSlug = normalizeKey(newTitle)
+                          const isAutoSlug = !prev.isCustomSlug || !prev.slug || prev.slug === normalizeKey(prev.title)
+                          return {
+                            ...prev,
+                            title: newTitle,
+                            slug: isAutoSlug ? autoSlug : prev.slug,
+                          }
+                        })
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      placeholder="e.g. SSC CGL Tier-I Full Mock Test 1"
+                    />
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Slug (URL)</label>
-                    <input value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-') })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" placeholder="auto-generated if empty" />
+                    <input
+                      value={formData.slug}
+                      onChange={(e) => {
+                        const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, '-')
+                        setFormData(prev => ({
+                          ...prev,
+                          slug: val,
+                          isCustomSlug: true,
+                        }))
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm"
+                      placeholder="auto-generated-from-title"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      URL Slug: <span className="font-mono font-semibold text-indigo-600">{formData.slug || normalizeKey(formData.title) || 'auto-generated-slug'}</span>
+                    </p>
                   </div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Test Subcategory</label>
@@ -738,55 +1053,21 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Test Sections</label>
-                    <select
-                      multiple
-                      value={parseIdList(formData.sectionIds)}
-                      onChange={(e) => {
-                        const selected = Array.from(e.target.selectedOptions, opt => opt.value)
-                        setFormData({ ...formData, sectionIds: selected.join(', ') })
-                      }}
-                      disabled={availableSections.length === 0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-400 h-28 transition-all"
-                    >
-                      {(() => {
-                        const groups = { test: [], series_stage: [], default: [] }
-                        availableSections.forEach(s => {
-                          const source = s.source || (s.test_id ? 'test' : (s.test_series_id ? 'series_stage' : 'default'))
-                          if (!groups[source]) groups[source] = []
-                          groups[source].push(s)
-                        })
-                        const labels = {
-                          test: '🔒 Test-specific',
-                          series_stage: '📚 From series + stage template',
-                          default: '🧩 Default templates',
-                        }
-                        return Object.entries(groups).flatMap(([source, items]) =>
-                          items.length === 0 ? [] : [
-                            <optgroup key={source} label={labels[source]}>
-                              {items.map((section) => (
-                                <option key={section.id} value={section.id}>
-                                  {section.name} ({section.duration} min)
-                                </option>
-                              ))}
-                            </optgroup>
-                          ]
-                        )
-                      })()}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1.5">
-                      {availableSections.length > 0
-                        ? 'Auto-fetched by test → series+stage → defaults. Hold Ctrl/Cmd to select multiple sections.'
-                        : 'No sections available. Apply an exam scheme below to create sections.'}
-                  </p>
+                    <CompactSectionPicker
+                      availableSections={availableSections}
+                      value={formData.sectionIds}
+                      onChange={(newSectionIds) => setFormData({ ...formData, sectionIds: newSectionIds })}
+                      contextLabel={contextLabel}
+                    />
                     {editingId && (
                       <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                          <label className="text-xs font-medium text-gray-700 whitespace-nowrap">Exam Scheme:</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1.5">Exam Scheme:</label>
+                        <div className="flex flex-col sm:flex-row gap-2">
                           <select
                             value={selectedPresetId}
                             onChange={(e) => setSelectedPresetId(e.target.value)}
-                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-left whitespace-normal break-words"
+                            style={{ textOverflow: 'unset', whiteSpace: 'normal' }}
                           >
                             {SECTION_PRESETS.map(p => (
                               <option key={p.id} value={p.id}>{p.label} — {p.description}</option>
@@ -796,7 +1077,7 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                             type="button"
                             onClick={applySectionPreset}
                             disabled={saving}
-                            className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap transition-colors"
+                            className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap transition-colors shrink-0"
                           >
                             Apply to Test
                           </button>
@@ -817,11 +1098,11 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Total Questions (Auto)</label>
-                        <input readOnly value={formData.totalQuestions || 0} className="w-full px-3 py-2 border border-gray-250 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
+                        <input readOnly value={formData.totalQuestions || 0} className="w-full px-3 py-2 border border-gray-300 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Total Marks (Auto)</label>
-                        <input readOnly value={formData.totalMarks || 0} className="w-full px-3 py-2 border border-gray-250 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
+                        <input readOnly value={formData.totalMarks || 0} className="w-full px-3 py-2 border border-gray-300 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed" />
                       </div>
                     </>
                   )}
@@ -834,16 +1115,35 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                     </select>
                   </div>
                   {formData.isLive && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Scheduled At (Live)</label>
-                        <input type="datetime-local" value={formData.scheduledAt || ''} onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                    <div className="sm:col-span-2 p-4 bg-red-50/60 border border-red-200 rounded-xl space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                        <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider">Live Test Schedule & Availability Window</h4>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Max Participants (Live, 0 for unlimited)</label>
-                        <input type="number" min="0" value={formData.maxParticipants || 0} onChange={(e) => setFormData({ ...formData, maxParticipants: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Live Start Time (Available From) *</label>
+                          <input
+                            type="datetime-local"
+                            value={formData.scheduledAt ? String(formData.scheduledAt).slice(0, 16) : ''}
+                            onChange={(e) => setFormData({ ...formData, scheduledAt: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white"
+                          />
+                          <p className="text-[10px] text-gray-500 mt-1">Exact date & time when the live test becomes active</p>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-gray-700 mb-1">Live End Time (Available Until) *</label>
+                          <input
+                            type="datetime-local"
+                            value={formData.scheduledEnd ? String(formData.scheduledEnd).slice(0, 16) : ''}
+                            onChange={(e) => setFormData({ ...formData, scheduledEnd: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white"
+                          />
+                          <p className="text-[10px] text-gray-500 mt-1">When the live contest window closes</p>
+                        </div>
                       </div>
-                    </>
+                    </div>
                   )}
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
@@ -852,16 +1152,24 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                 </div>
 
                 <div className="pt-4 border-t border-gray-200">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Visibility & Access</h4>
+                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Timer Mode & Visibility Access</h4>
                   <div className="flex flex-wrap gap-4">
                     {[
+                      ['hasSectionalTiming', '⏱️ Sectional Timing (On / Off)'],
                       ['isPro', 'Pro Pass Required'],
                       ['isComingSoon', 'Coming Soon'],
                       ['isLive', 'Live Test'],
                     ].map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-2 cursor-pointer group">
-                        <input type="checkbox" checked={Boolean(formData[key])} onChange={(e) => setFormData({ ...formData, [key]: e.target.checked })} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer" />
-                        <span className="text-sm text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
+                      <label key={key} className="flex items-center gap-2 cursor-pointer group bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition-all">
+                        <input type="checkbox" checked={Boolean(formData[key])} onChange={(e) => {
+                          const updates = { [key]: e.target.checked }
+                          // Auto-connect Live Test with live-tests test category
+                          if (key === 'isLive') {
+                            updates.type = e.target.checked ? 'live-tests' : 'mock-tests'
+                          }
+                          setFormData({ ...formData, ...updates })
+                        }} className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer" />
+                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">{label}</span>
                       </label>
                     ))}
                   </div>
@@ -873,7 +1181,7 @@ const TestFormModal = ({ isOpen, onClose, onSubmit, formData, setFormData, editi
                 <div className="md:col-span-1 md:sticky md:top-0">
                   <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm">
                     <div className="flex items-center gap-2 mb-4 border-b border-indigo-100/55 pb-2.5">
-                      <Layers className="w-4.5 h-4.5 text-indigo-650" />
+                      <Layers className="w-4.5 h-4.5 text-indigo-600" />
                       <h3 className="text-sm font-bold text-indigo-900">Linked Relationships</h3>
                     </div>
                     <div className="space-y-3.5">
@@ -1070,67 +1378,87 @@ export default function TestsManager() {
   const [selectedPresetId, setSelectedPresetId] = useState(SECTION_PRESETS[0]?.id || '')
   const [scopedSections, setScopedSections] = useState([])
   const [scopedSectionsLoading, setScopedSectionsLoading] = useState(false)
+  const [selectedTestIds, setSelectedTestIds] = useState([])
+  const [isSelectMode, setIsSelectMode] = useState(false)
+  const [bulkProcessing, setBulkProcessing] = useState(false)
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
+  const [showSelectDropdown, setShowSelectDropdown] = useState(false)
 
-  const fetchData = async () => {
+  const fetchData = async (signal = null) => {
     try {
       setLoading(true)
       setErrors({})
       const [testsRes, seriesRes, stagesRes, catsRes, sectionsRes] = await Promise.allSettled([
-        adminAPI.getTests(),
-        adminAPI.getTestSeries(),
-        api.get('/stages'),
-        adminAPI.getTestCategories(),
-        adminAPI.getSections(),
+        adminAPI.apiClient.get('/admin/tests', { ...(signal ? { signal } : {}) }),
+        adminAPI.apiClient.get('/admin/test-series', { ...(signal ? { signal } : {}) }),
+        adminAPI.apiClient.get('/admin/stages', { ...(signal ? { signal } : {}) }),
+        adminAPI.apiClient.get('/admin/test-categories', { ...(signal ? { signal } : {}) }),
+        adminAPI.apiClient.get('/admin/sections', { ...(signal ? { signal } : {}) }),
       ])
 
+      if (signal?.aborted) return
+
+      const isCanceled = (res) => {
+        if (!res || res.status === 'fulfilled') return false
+        const reason = res.reason
+        return (
+          reason?.name === 'CanceledError' ||
+          reason?.name === 'AbortError' ||
+          reason?.code === 'ERR_CANCELED'
+        )
+      }
+
       const newErrors = {}
-      let hasData = false
 
       if (testsRes.status === 'fulfilled' && testsRes.value.data?.data) {
         setTests(testsRes.value.data.data.map(normalizeTest))
-        hasData = true
-      } else {
+      } else if (!isCanceled(testsRes)) {
         newErrors.tests = 'Failed to load tests'
       }
 
       if (seriesRes.status === 'fulfilled' && seriesRes.value.data?.data) {
         setSeriesList(seriesRes.value.data.data)
-      } else {
+      } else if (!isCanceled(seriesRes)) {
         newErrors.series = 'Failed to load test series'
       }
 
       if (stagesRes.status === 'fulfilled' && stagesRes.value.data?.data) {
         setStages(stagesRes.value.data.data)
-      } else {
+      } else if (!isCanceled(stagesRes)) {
         newErrors.stages = 'Failed to load stages'
       }
 
       if (catsRes.status === 'fulfilled' && catsRes.value.data?.data) {
         setTestCategories(catsRes.value.data.data)
-      } else {
+      } else if (!isCanceled(catsRes)) {
         newErrors.categories = 'Failed to load categories'
       }
 
       if (sectionsRes.status === 'fulfilled' && sectionsRes.value.data?.data) {
         setSections(sectionsRes.value.data.data)
-      } else {
+      } else if (!isCanceled(sectionsRes)) {
         newErrors.sections = 'Failed to load sections'
       }
 
-      if (Object.keys(newErrors).length > 0) {
+      if (!signal?.aborted && Object.keys(newErrors).length > 0) {
         setErrors(newErrors)
         const errorCount = Object.keys(newErrors).length
         toast.error(`Failed to load ${errorCount} data source${errorCount > 1 ? 's' : ''}`)
       }
     } catch (error) {
+      if (signal?.aborted) return
       console.error('Tests fetch error:', error)
       toast.error('Failed to load tests')
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchData(controller.signal)
+    return () => controller.abort()
+  }, [])
 
   // Auto-fetch sections scoped to the currently selected series+stage when
   // the test form is open. Falls back through test_id → series+stage → defaults.
@@ -1142,6 +1470,7 @@ export default function TestsManager() {
     if (editingId) params.testId = editingId
     else if (seriesId) params.testSeriesId = seriesId
     if (activeStageId) params.stageId = activeStageId
+    if (activeExamId) params.examId = activeExamId
 
     setScopedSectionsLoading(true)
     adminAPI.getSectionsForTest(params)
@@ -1157,7 +1486,7 @@ export default function TestsManager() {
       .finally(() => { if (!cancelled) setScopedSectionsLoading(false) })
 
     return () => { cancelled = true }
-  }, [showForm, editingId, selectedSeries, activeStageId])
+  }, [showForm, editingId, selectedSeries, activeStageId, activeExamId])
 
   // Keep URL in sync with the active tab (?tab=...)
   useEffect(() => {
@@ -1219,6 +1548,35 @@ export default function TestsManager() {
     processChildren(rootId, 1)
     return result
   }, [activeTestCategoryRecord, flatTestCategories])
+
+  const modalSubCategories = useMemo(() => {
+    const targetType = formData.isLive ? 'live-tests' : (formData.type || activeTestCategory)
+    const targetRecord = buildRootTestCategoryRecord(targetType, flatTestCategories)
+    if (!targetRecord) return activeTestSubCategories
+    const rootId = String(getEntityId(targetRecord) || '')
+    const childrenByParent = new Map()
+    flatTestCategories.forEach(cat => {
+      const pid = String(cat.parentId || cat.parent_id || '')
+      if (!childrenByParent.has(pid)) childrenByParent.set(pid, [])
+      childrenByParent.get(pid).push(cat)
+    })
+    const result = []
+    const visited = new Set()
+    const processChildren = (parentId, depth) => {
+      const children = (childrenByParent.get(parentId) || [])
+        .filter(cat => cat.isActive !== false)
+        .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
+      children.forEach(child => {
+        const childId = String(getEntityId(child) || '')
+        if (visited.has(childId)) return
+        visited.add(childId)
+        result.push({ ...child, _depth: depth })
+        processChildren(childId, depth + 1)
+      })
+    }
+    processChildren(rootId, 1)
+    return result.length > 0 ? result : activeTestSubCategories
+  }, [formData.isLive, formData.type, activeTestCategory, flatTestCategories, activeTestSubCategories])
 
   // Cascading subcategory dropdowns - get children for each level
   const subCategoryOptionsLevel1 = useMemo(() => {
@@ -1296,33 +1654,40 @@ export default function TestsManager() {
   }, [activeExamId, activeExamRefs, stages])
 
   useEffect(() => {
-    if (!activeExamCategoryId && examCategories.length > 0) {
+    const hasPendingDeepLink = !deepLinkAppliedRef.current && (searchParams.get('seriesId') || searchParams.get('stageId'))
+    if (!activeExamCategoryId && examCategories.length > 0 && !hasPendingDeepLink) {
       const first = examCategories[0]
       setActiveExamCategoryId(first.categoryId || first.slug || first.id)
     }
-  }, [activeExamCategoryId, examCategories])
+  }, [activeExamCategoryId, examCategories, searchParams])
 
   useEffect(() => {
-    if (!activeExamCategoryId || examsForActiveCategory.length === 0) {
+    const hasPendingDeepLink = !deepLinkAppliedRef.current && (searchParams.get('seriesId') || searchParams.get('stageId'))
+    if (hasPendingDeepLink) return
+    if (!activeExamCategoryId) {
       setActiveExamId('')
       return
     }
+    if (examsForActiveCategory.length === 0) return
     const stillValid = examsForActiveCategory.some(exam => idsEqual(exam.value, activeExamId))
     if (!stillValid) setActiveExamId(examsForActiveCategory[0].value)
-  }, [activeExamCategoryId, examsForActiveCategory, activeExamId])
+  }, [activeExamCategoryId, examsForActiveCategory, activeExamId, searchParams])
 
   useEffect(() => {
+    const hasPendingDeepLink = !deepLinkAppliedRef.current && (searchParams.get('seriesId') || searchParams.get('stageId'))
+    if (hasPendingDeepLink) return
     const isValidStage = activeStageId && stagesForActiveExam.some(stage => idsEqual(getEntityId(stage), activeStageId))
     if (!isValidStage && stagesForActiveExam.length > 0) {
       const firstStageId = getEntityId(stagesForActiveExam[0])
       if (firstStageId) setActiveStageId(firstStageId)
     }
-  }, [stagesForActiveExam, activeStageId])
+  }, [stagesForActiveExam, activeStageId, searchParams])
 
   useEffect(() => {
+    if (searchParams.get('seriesId')) return
     setSelectedSeries(null)
     setSelectedTestSubCategoryId('all')
-  }, [activeTestCategory, activeExamCategoryId, activeExamId, activeStageId])
+  }, [activeTestCategory, activeExamCategoryId, activeExamId, activeStageId, searchParams])
 
 
 
@@ -1332,8 +1697,6 @@ export default function TestsManager() {
     const seriesId = searchParams.get('seriesId')
     const stageId = searchParams.get('stageId')
     if (!seriesId && !stageId) return
-    deepLinkAppliedRef.current = true
-    if (stageId) setActiveStageId(String(stageId))
     if (seriesId) {
       const series = seriesList.find(item => idsEqual(getSeriesId(item), seriesId))
       if (series) {
@@ -1342,7 +1705,13 @@ export default function TestsManager() {
         if (categoryId) setActiveExamCategoryId(String(categoryId))
         if (examId) setActiveExamId(String(examId))
         setSelectedSeries(series)
+        deepLinkAppliedRef.current = true
       }
+      return
+    }
+    if (stageId) {
+      setActiveStageId(String(stageId))
+      deepLinkAppliedRef.current = true
     }
   }, [seriesList, searchParams])
 
@@ -1356,6 +1725,20 @@ export default function TestsManager() {
     })
     return map
   }, [tests])
+
+  // Precomputed stats map to eliminate O(series * tests) filtering during card render
+  const seriesLinkedTestsStatsMap = useMemo(() => {
+    const map = new Map()
+    for (const [seriesIdKey, testsInSeries] of testsBySeriesId.entries()) {
+      const linkedTests = testsInSeries.filter(test =>
+        recordMatchesTestCategory(test, activeTestCategoryRefs) &&
+        (activeStageRefs.size === 0 || valueMatchesRefs([getStageIdFromTest(test)], activeStageRefs))
+      )
+      const totalQuestions = linkedTests.reduce((sum, test) => sum + getTestQuestionsCount(test), 0)
+      map.set(seriesIdKey, { linkedTests, count: linkedTests.length, totalQuestions })
+    }
+    return map
+  }, [testsBySeriesId, activeTestCategoryRefs, activeStageRefs])
 
   const filteredSeriesList = useMemo(() => {
     if (!activeExamCategoryId || !activeExamId) return []
@@ -1401,6 +1784,12 @@ export default function TestsManager() {
   // Test matches selected subcategory (including descendants)
   const testMatchesSubCategory = (test, selectedId) => {
     if (!selectedId || selectedId === 'all') return true
+    if (selectedId === UNASSIGNED_SUBCATEGORY_ID) {
+      return !activeTestSubCategories.some((category) => {
+        const categoryId = getEntityId(category)
+        return categoryId && testMatchesSubCategory(test, categoryId)
+      })
+    }
     const refs = buildCategorySelectionRefs(selectedId, flatTestCategories)
     return recordMatchesTestCategory(test, refs)
   }
@@ -1410,6 +1799,9 @@ export default function TestsManager() {
   // to avoid a circular dependency where the selected subcategory zeroes out all sibling counts.
   const getCategoryTestCount = (categoryId) => {
     if (!categoryId || categoryId === 'all') return seriesTests.length
+    if (categoryId === UNASSIGNED_SUBCATEGORY_ID) {
+      return seriesTests.filter(test => testMatchesSubCategory(test, UNASSIGNED_SUBCATEGORY_ID)).length
+    }
     const refs = buildCategorySelectionRefs(categoryId, flatTestCategories)
     return seriesTests.filter(test => recordMatchesTestCategory(test, refs)).length
   }
@@ -1421,9 +1813,16 @@ export default function TestsManager() {
   const selectedExamCategoryLabel = examCategories.find(category => idsEqual(category.categoryId || category.slug || category.id, activeExamCategoryId))?.label || activeExamCategoryId || 'Select exam category'
   const selectedExamLabel = examsForActiveCategory.find(exam => idsEqual(exam.value, activeExamId))?.label || activeExamId || 'Select exam'
   const selectedStageLabel = activeStageId ? stages.find(stage => idsEqual(getEntityId(stage), activeStageId))?.name || activeStageId : 'No stage selected'
-  const selectedTestSubCategoryLabel = selectedTestSubCategoryId === 'all' ? 'All test subcategories' : getCategoryPathLabel(selectedTestSubCategoryId, flatTestCategories)
+  const unassignedSubCategoryCount = getCategoryTestCount(UNASSIGNED_SUBCATEGORY_ID)
+  const selectedTestSubCategoryLabel = selectedTestSubCategoryId === 'all'
+    ? 'All test subcategories'
+    : selectedTestSubCategoryId === UNASSIGNED_SUBCATEGORY_ID
+      ? 'Unassigned test subcategory'
+      : getCategoryPathLabel(selectedTestSubCategoryId, flatTestCategories)
   const contextSubCategoryLabel = selectedTestSubCategoryId !== 'all'
-    ? getCategoryPathLabel(selectedTestSubCategoryId, flatTestCategories)
+    ? selectedTestSubCategoryId === UNASSIGNED_SUBCATEGORY_ID
+      ? 'Unassigned test subcategory'
+      : getCategoryPathLabel(selectedTestSubCategoryId, flatTestCategories)
     : 'All test subcategories'
   const contextLabel = `${selectedSeries?.title || selectedSeries?.name || 'Select series'} / ${selectedStageLabel} / ${activeCatLabel} / ${contextSubCategoryLabel}`
 
@@ -1547,43 +1946,28 @@ export default function TestsManager() {
     setFormData(DEFAULT_TEST_FORM)
   }
 
-  useEffect(() => {
-    if (!showForm || !editingId) return
-    if (!editingTest) {
-      closeForm()
-      return
-    }
-    if (selectedSeries && !idsEqual(getSeriesId(selectedSeries), getTestSeriesId(editingTest))) {
-      closeForm()
-    }
-  }, [showForm, editingId, editingTest, selectedSeries])
-
-  const getLinkedTestCategoryId = () => {
-    // Only return a category ID when the user has explicitly selected a subcategory chip.
-    // Do NOT fall back to the root category ID when 'All' is selected — that would
-    // overwrite the test's existing testCategoryId with an unusable root ID.
-    if (selectedTestSubCategoryId && selectedTestSubCategoryId !== 'all') return selectedTestSubCategoryId
-    return null
-  }
-
   const openCreateForm = () => {
-    if (!selectedSeries) {
-      toast.error('Select a test series first')
-      return
-    }
     const type = activeTestCategory === 'pyp' ? 'pyp' : activeTestCategory === 'practice' ? 'practice' : activeTestCategory === 'live-tests' ? 'live-tests' : 'mock-tests'
-    // Build cascading levels from selectedTestSubCategoryId, filtering out the root
     let l1 = '', l2 = '', l3 = '', l4 = ''
-    if (selectedTestSubCategoryId !== 'all') {
-      const subIds = new Set(activeTestSubCategories.map(c => String(getEntityId(c) || '')))
+    if (selectedTestSubCategoryId !== 'all' && selectedTestSubCategoryId !== UNASSIGNED_SUBCATEGORY_ID) {
       const path = getCategoryPath(selectedTestSubCategoryId, flatTestCategories)
-        .filter(p => subIds.has(String(getEntityId(p) || '')))
-      if (path.length >= 1) l1 = String(getEntityId(path[0]) || '')
-      if (path.length >= 2) l2 = String(getEntityId(path[1]) || '')
-      if (path.length >= 3) l3 = String(getEntityId(path[2]) || '')
-      if (path.length >= 4) l4 = String(getEntityId(path[3]) || '')
+      const subPath = path.length > 1 ? path.slice(1) : path
+      if (subPath.length >= 1) l1 = String(getEntityId(subPath[0]) || '')
+      if (subPath.length >= 2) l2 = String(getEntityId(subPath[1]) || '')
+      if (subPath.length >= 3) l3 = String(getEntityId(subPath[2]) || '')
+      if (subPath.length >= 4) l4 = String(getEntityId(subPath[3]) || '')
     }
-    setFormData({ ...DEFAULT_TEST_FORM, type, isLive: activeTestCategory === 'live-tests', testCategoryId: selectedTestSubCategoryId !== 'all' ? selectedTestSubCategoryId : '', subCategoryLevel1: l1, subCategoryLevel2: l2, subCategoryLevel3: l3, subCategoryLevel4: l4 })
+    setFormData({
+      ...DEFAULT_TEST_FORM,
+      testSeriesId: selectedSeries ? String(getSeriesId(selectedSeries) || '') : '',
+      type,
+      isLive: activeTestCategory === 'live-tests',
+      testCategoryId: selectedTestSubCategoryId !== 'all' && selectedTestSubCategoryId !== UNASSIGNED_SUBCATEGORY_ID ? selectedTestSubCategoryId : '',
+      subCategoryLevel1: l1,
+      subCategoryLevel2: l2,
+      subCategoryLevel3: l3,
+      subCategoryLevel4: l4,
+    })
     setEditingId(null)
     setEditingRelationshipSummary(null)
     setShowForm(true)
@@ -1627,42 +2011,41 @@ export default function TestsManager() {
   const openEditForm = (test) => {
     const linkedSeries = seriesList.find(item => idsEqual(getSeriesId(item), getTestSeriesId(test)))
     const linkedStage = stages.find(item => idsEqual(getEntityId(item), getStageIdFromTest(test)))
-    const linkedTestCategory = flatTestCategories.find(category =>
-      getTestCategoryValues(test).some(value =>
-        [category.id, category._id, category.categoryId, category.slug, category.name, category.label].some(categoryValue => idsEqual(categoryValue, value))
-      )
-    ) || null
 
-    // Build the path for cascading dropdowns, filtering out the root category
-    // (activeTestSubCategories only contains descendants of the root, not the root itself)
-    let l1 = '', l2 = '', l3 = '', l4 = ''
-    if (linkedTestCategory) {
-      const subIds = new Set(activeTestSubCategories.map(c => String(getEntityId(c) || '')))
-      const path = getCategoryPath(getEntityId(linkedTestCategory), flatTestCategories)
-        .filter(p => subIds.has(String(getEntityId(p) || '')))
-      if (path.length >= 1) l1 = String(getEntityId(path[0]) || '')
-      if (path.length >= 2) l2 = String(getEntityId(path[1]) || '')
-      if (path.length >= 3) l3 = String(getEntityId(path[2]) || '')
-      if (path.length >= 4) l4 = String(getEntityId(path[3]) || '')
+    // Prioritize exact relational test_category_id, then leaf sub_category, then category string fallback
+    const testCatId = test.test_category_id || test.testCategoryId
+    let linkedTestCategory = null
+    if (testCatId) {
+      linkedTestCategory = flatTestCategories.find(c => idsEqual(getEntityId(c) || c.categoryId, testCatId)) || null
+    }
+    if (!linkedTestCategory && (test.sub_category || test.subCategory)) {
+      const subVal = test.sub_category || test.subCategory
+      linkedTestCategory = flatTestCategories.find(c =>
+        [c.id, c._id, c.categoryId, c.slug, c.name, c.label].some(v => idsEqual(v, subVal))
+      ) || null
+    }
+    if (!linkedTestCategory && test.category) {
+      linkedTestCategory = flatTestCategories.find(c =>
+        [c.id, c._id, c.categoryId, c.slug, c.name, c.label].some(v => idsEqual(v, test.category))
+      ) || null
     }
 
-    const linkedParentCategory = linkedTestCategory
-      ? flatTestCategories.find(category => idsEqual(getEntityId(category), linkedTestCategory.parentId || linkedTestCategory.parent_id)) || null
-      : null
-
-    setEditingRelationshipSummary({
-      series: linkedSeries?.title || linkedSeries?.name || linkedSeries?.slug || linkedSeries?.public_id || getTestSeriesId(test) || 'Not linked',
-      stage: linkedStage?.name || linkedStage?.title || linkedStage?.slug || getStageIdFromTest(test) || 'Not linked',
-      testCategory: linkedParentCategory ? getCategoryPathLabel(getEntityId(linkedParentCategory), flatTestCategories) : getCategoryPathLabel(getEntityId(linkedTestCategory), flatTestCategories),
-      testSubcategory: linkedParentCategory ? getCategoryPathLabel(getEntityId(linkedTestCategory), flatTestCategories) : (linkedTestCategory ? 'No subcategory' : 'Not linked'),
-      sections: sections.filter(s => String(s.test_id) === String(getTestId(test))).map(s => s.name).join(', ') || 'Not linked',
-    })
+    let l1 = '', l2 = '', l3 = '', l4 = ''
+    if (linkedTestCategory) {
+      const path = getCategoryPath(getEntityId(linkedTestCategory), flatTestCategories)
+      const subPath = path.length > 1 ? path.slice(1) : path
+      if (subPath.length >= 1) l1 = String(getEntityId(subPath[0]) || '')
+      if (subPath.length >= 2) l2 = String(getEntityId(subPath[1]) || '')
+      if (subPath.length >= 3) l3 = String(getEntityId(subPath[2]) || '')
+      if (subPath.length >= 4) l4 = String(getEntityId(subPath[3]) || '')
+    }
 
     setFormData({
       ...DEFAULT_TEST_FORM,
       title: test.title || test.name || '',
       slug: test.slug || '',
-      testCategoryId: linkedTestCategory ? (getEntityId(linkedTestCategory) || '') : '',
+      testSeriesId: getTestSeriesId(test) || (selectedSeries ? String(getSeriesId(selectedSeries)) : ''),
+      testCategoryId: linkedTestCategory ? (getEntityId(linkedTestCategory) || '') : (test.testCategoryId || test.test_category_id || test.subCategory || test.sub_category || ''),
       subCategoryLevel1: l1,
       subCategoryLevel2: l2,
       subCategoryLevel3: l3,
@@ -1673,45 +2056,81 @@ export default function TestsManager() {
       totalMarks: test.totalMarks || test.total_marks || 0,
       negativeMarking: test.negativeMarking || test.negative_marking || 0.25,
       difficulty: test.difficulty || 'medium',
+      hasSectionalTiming: Boolean(test.hasSectionalTiming ?? test.has_sectional_timing ?? test.sectionalTiming ?? true),
       isPro: Boolean(test.isPro || test.is_pro),
       isComingSoon: Boolean(test.isComingSoon || test.is_coming_soon),
       isLive: Boolean(test.isLive || test.is_live),
       scheduledAt: test.scheduledAt || test.scheduled_at || '',
-      maxParticipants: test.maxParticipants || test.max_participants || '',
+      scheduledEnd: test.scheduledEnd || test.scheduled_end || test.dateEnd || test.date_end || '',
       tags: Array.isArray(test.tags) ? test.tags.join(', ') : (test.tags || ''),
       stageIds: Array.isArray(test.stage_ids || test.stageIds) ? (test.stage_ids || test.stageIds).join(', ') : '',
       sectionIds: sections.filter(s => String(s.test_id) === String(getTestId(test))).map(s => s.id).join(', '),
+    })
+
+    const categoryLabels = getCategoryRelationshipLabels(
+      linkedTestCategory,
+      flatTestCategories,
+      test.category || 'Not linked'
+    )
+
+    const resolvedSubCategoryLabel = categoryLabels.testSubcategory !== 'Not linked' 
+      ? categoryLabels.testSubcategory 
+      : (test.sub_category || test.subCategory || 'Not linked')
+
+    setEditingRelationshipSummary({
+      series: linkedSeries?.title || linkedSeries?.name || linkedSeries?.slug || linkedSeries?.public_id || getTestSeriesId(test) || 'Not linked',
+      stage: linkedStage?.name || linkedStage?.title || linkedStage?.slug || getStageIdFromTest(test) || 'Not linked',
+      testCategory: categoryLabels.testCategory,
+      testSubcategory: resolvedSubCategoryLabel,
+      sections: sections.filter(s => String(s.test_id) === String(getTestId(test))).map(s => s.name).join(', ') || 'Not linked',
     })
     setEditingId(getTestId(test))
     setShowForm(true)
   }
 
   const handleSubmit = async (data) => {
-    if (!selectedSeries) return
+    if (!data.title?.trim()) {
+      toast.error('Test title is required')
+      return
+    }
+    const targetSeriesId = data.testSeriesId || (editingTest ? getTestSeriesId(editingTest) : (selectedSeries ? getSeriesId(selectedSeries) : null))
+    if (!targetSeriesId && !editingId) {
+      toast.error('Select a test series first')
+      return
+    }
+    const currentSeries = seriesList.find(s => idsEqual(getSeriesId(s), targetSeriesId)) || selectedSeries
     try {
       setSaving(true)
       const baseSlug = (data.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      const targetSeriesId = editingTest ? (getTestSeriesId(editingTest) || getSeriesId(selectedSeries)) : getSeriesId(selectedSeries)
       const targetStageId = editingTest ? (getStageIdFromTest(editingTest) || activeStageId || null) : (activeStageId || null)
+      const liveCatRecord = flatTestCategories.find(c => c.slug === 'live-tests' || c.name === 'Live Tests')
+      const defaultLiveId = liveCatRecord ? getEntityId(liveCatRecord) : 'live-tests'
+      const chosenTestCategoryId = data.isLive
+        ? (data.testCategoryId || (editingTest ? (editingTest.testCategoryId || editingTest.test_category_id) : defaultLiveId))
+        : (data.testCategoryId || (editingTest ? (editingTest.testCategoryId || editingTest.test_category_id || editingTest.subCategory || editingTest.sub_category) : getLinkedTestCategoryId()))
+
+      const parsedDuration = Number(data.duration)
       const payload = {
-        title: data.title,
+        title: data.title.trim(),
         slug: data.slug || (editingId ? undefined : `${baseSlug}-${Date.now()}`),
         testSeriesId: targetSeriesId,
         stageId: targetStageId,
-        category: getSeriesExamCategoryId(selectedSeries) || activeExamCategoryId || '',
-        testCategoryId: data.testCategoryId || (editingId ? undefined : getLinkedTestCategoryId()),
-        type: data.type,
-        duration: Number(data.duration) || 60,
+        category: getSeriesExamCategoryId(currentSeries) || activeExamCategoryId || '',
+        testCategoryId: chosenTestCategoryId,
+        subCategory: chosenTestCategoryId,
+        type: data.isLive ? 'live-tests' : data.type,
+        duration: Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60,
         negativeMarking: Number(data.negativeMarking) || 0,
         difficulty: data.difficulty,
+        hasSectionalTiming: Boolean(data.hasSectionalTiming),
+        has_sectional_timing: Boolean(data.hasSectionalTiming),
+        sectionalTiming: Boolean(data.hasSectionalTiming),
         isPro: Boolean(data.isPro),
         isComingSoon: Boolean(data.isComingSoon),
         isLive: Boolean(data.isLive),
-        sectionIds: parseIdList(data.sectionIds).map(id => Number(id)).filter(Number.isInteger),
-        // Only send optional fields when they have actual values to avoid
-        // "column does not exist" errors for columns not yet in the schema
+        sectionIds: parseIdList(data.sectionIds).map(id => parseInt(id, 10)).filter(id => !Number.isNaN(id)),
         ...(data.isLive && data.scheduledAt ? { scheduledAt: data.scheduledAt } : {}),
-        ...(data.isLive && data.maxParticipants ? { maxParticipants: Number(data.maxParticipants) } : {}),
+        ...(data.isLive && data.scheduledEnd ? { scheduledEnd: data.scheduledEnd } : {}),
         ...(data.tags ? { tags: data.tags.split(',').map(tag => tag.trim()).filter(Boolean) } : {}),
         ...((() => {
           const ids = data.stageIds
@@ -1719,14 +2138,10 @@ export default function TestsManager() {
             : targetStageId ? [parseInt(targetStageId)] : []
           return ids.length > 0 ? { stageIds: ids } : {}
         })()),
-        ...((() => {
-          const ids = parseIdList(data.sectionIds).map(s => parseInt(s, 10)).filter(s => !Number.isNaN(s))
-          return ids.length > 0 ? { sectionIds: ids } : {}
-        })()),
       }
 
       // Only include examId if it has a valid value
-      const examId = getSeriesExamId(selectedSeries) || activeExamId
+      const examId = getSeriesExamId(currentSeries) || activeExamId
       if (examId) {
         payload.examId = examId
       }
@@ -1844,10 +2259,9 @@ export default function TestsManager() {
 
   const handlePublish = async (test) => {
     const testId = getTestId(test)
-    const questionCount = getTestQuestionsCount(test)
-
-    if (questionCount === 0) {
-      toast.error('Cannot publish: Test has no questions. Add questions first.')
+    const qCount = getTestQuestionsCount(test)
+    if (qCount === 0) {
+      toast.error('Cannot publish test with 0 questions. Please add questions first.')
       return
     }
 
@@ -1901,22 +2315,138 @@ export default function TestsManager() {
     }
   }
 
-  if (loading || examFiltersLoading) return <div className="p-6">Loading tests...</div>
+  const toggleSelectMode = () => {
+    setIsSelectMode(prev => {
+      const next = !prev
+      if (!next) setSelectedTestIds([])
+      return next
+    })
+    setShowSelectDropdown(false)
+  }
 
+  const toggleSelectTest = (testId) => {
+    const idStr = String(testId)
+    setSelectedTestIds(prev => {
+      const exists = prev.some(id => String(id) === idStr)
+      if (exists) {
+        return prev.filter(id => String(id) !== idStr)
+      } else {
+        return [...prev, testId]
+      }
+    })
+  }
+
+  const handleSelectAll = () => {
+    const allIds = workspaceTests.map(t => getTestId(t))
+    if (selectedTestIds.length === allIds.length && allIds.length > 0) {
+      setSelectedTestIds([])
+    } else {
+      setSelectedTestIds(allIds)
+      setIsSelectMode(true)
+    }
+    setShowSelectDropdown(false)
+  }
+
+  const handleSelectPublished = () => {
+    const publishedIds = workspaceTests
+      .filter(t => t.status === 'published' || t.status === 'active')
+      .map(t => getTestId(t))
+    setSelectedTestIds(publishedIds)
+    setIsSelectMode(true)
+    setShowSelectDropdown(false)
+  }
+
+  const handleSelectDrafts = () => {
+    const draftIds = workspaceTests
+      .filter(t => t.status !== 'published' && t.status !== 'active')
+      .map(t => getTestId(t))
+    setSelectedTestIds(draftIds)
+    setIsSelectMode(true)
+    setShowSelectDropdown(false)
+  }
+
+  const handleDeselectAll = () => {
+    setSelectedTestIds([])
+    setShowSelectDropdown(false)
+  }
+
+  const handleBulkPublishSelected = async () => {
+    if (selectedTestIds.length === 0) {
+      toast.error('No tests selected')
+      return
+    }
+    try {
+      setBulkProcessing(true)
+      await adminAPI.bulkStatusTests(selectedTestIds, 'published')
+      setTests(prev => prev.map(t =>
+        selectedTestIds.some(id => idsEqual(id, getTestId(t)))
+          ? { ...t, status: 'published', isActive: true }
+          : t
+      ))
+      toast.success(`Published ${selectedTestIds.length} test(s) successfully`)
+      setSelectedTestIds([])
+    } catch (error) {
+      console.error('Bulk publish error:', error)
+      toast.error(error.response?.data?.message || 'Failed to publish selected tests')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const handleBulkUnpublishSelected = async () => {
+    if (selectedTestIds.length === 0) {
+      toast.error('No tests selected')
+      return
+    }
+    try {
+      setBulkProcessing(true)
+      await adminAPI.bulkStatusTests(selectedTestIds, 'draft')
+      setTests(prev => prev.map(t =>
+        selectedTestIds.some(id => idsEqual(id, getTestId(t)))
+          ? { ...t, status: 'draft', isActive: false }
+          : t
+      ))
+      toast.success(`Unpublished ${selectedTestIds.length} test(s)`)
+      setSelectedTestIds([])
+    } catch (error) {
+      console.error('Bulk unpublish error:', error)
+      toast.error(error.response?.data?.message || 'Failed to unpublish selected tests')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedTestIds.length === 0) return
+    try {
+      setBulkProcessing(true)
+      await adminAPI.bulkDeleteTests(selectedTestIds)
+      setTests(prev => prev.filter(t => !selectedTestIds.some(id => idsEqual(id, getTestId(t)))))
+      toast.success(`Deleted ${selectedTestIds.length} test(s) successfully`)
+      setSelectedTestIds([])
+      setShowBulkDeleteConfirm(false)
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      toast.error(error.response?.data?.message || 'Failed to delete selected tests')
+    } finally {
+      setBulkProcessing(false)
+    }
+  }
+
+  const isLoading = loading || examFiltersLoading
   const hasErrors = Object.keys(errors).length > 0
-  const hasNoTests = tests.length === 0 && !hasErrors
+  const hasNoTests = tests.length === 0 && !hasErrors && !isLoading
 
-  if (hasNoTests) {
+  if (isLoading && tests.length === 0) {
     return (
-      <div className="p-6">
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
-          <p className="text-amber-800 dark:text-amber-200">No tests found. Create your first test or import from CSV.</p>
-        </div>
+      <div className="p-12 flex flex-col items-center justify-center min-h-[400px]">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 font-medium">Loading tests and resources...</p>
       </div>
     )
   }
 
-  if (hasErrors && tests.length === 0) {
+  if (hasErrors && !isLoading && tests.length === 0) {
     return (
       <div className="p-6">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6">
@@ -2051,6 +2581,16 @@ export default function TestsManager() {
         </div>
       </div>
 
+      {hasNoTests && (
+        <div className="p-6">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
+            <p className="text-amber-800 dark:text-amber-200">
+              No tests found. Select a test series above, then use “Create Test”, “Bulk Create”, or “Import JSON” to add your first test.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Test Series</h2>
@@ -2068,12 +2608,8 @@ export default function TestsManager() {
           <EmptyState icon={FolderOpen} title="No Test Series Found" description="Choose an exam category and exam, or link a test series to this test category." />
         ) : filteredSeriesList.map(series => {
           const seriesId = getSeriesId(series)
-          const testsInSeries = testsBySeriesId.get(String(seriesId || '')) || []
-          const linkedTests = testsInSeries.filter(test =>
-            recordMatchesTestCategory(test, activeTestCategoryRefs) &&
-            (activeStageRefs.size === 0 || valueMatchesRefs([getStageIdFromTest(test)], activeStageRefs))
-          )
-          const totalQuestions = linkedTests.reduce((sum, test) => sum + getTestQuestionsCount(test), 0)
+          const seriesStats = seriesLinkedTestsStatsMap.get(String(seriesId || '')) || { count: 0, totalQuestions: 0 }
+          const totalQuestions = seriesStats.totalQuestions
           return (
             <div
               key={seriesId}
@@ -2105,7 +2641,7 @@ export default function TestsManager() {
               </div>
               <div className="flex items-center gap-4 md:gap-6 shrink-0 w-full md:w-auto pt-3 md:pt-0 border-t md:border-0 border-gray-100">
                 <div className="grid grid-cols-2 sm:flex sm:flex-row items-center gap-3 sm:gap-6 text-gray-600 w-full md:w-auto">
-                  <span className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><FileText className="w-4 h-4 text-gray-400" />{linkedTests.length} Tests</span>
+                  <span className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><FileText className="w-4 h-4 text-gray-400" />{seriesStats.count} Tests</span>
                   <span className="text-sm font-bold text-indigo-600 flex items-center gap-1.5"><CheckSquare className="w-4 h-4 text-indigo-400" />{totalQuestions} Qs</span>
                   <span className="text-sm font-medium text-gray-600 flex items-center gap-1.5"><Clock className="w-4 h-4 text-gray-400" />{selectedStageLabel}</span>
                 </div>
@@ -2117,7 +2653,7 @@ export default function TestsManager() {
       </div>
 
       {selectedSeries && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4" onClick={(e) => { if (e.target === e.currentTarget) { setSelectedSeries(null); setSelectedTestSubCategoryId('all'); closeForm() } }}>
           <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50">
               <div className="min-w-0">
@@ -2287,44 +2823,261 @@ export default function TestsManager() {
                   <h3 className="font-bold text-gray-900">Tests</h3>
                   <p className="text-sm text-gray-500">{workspaceTests.length} tests linked to the selected test subcategory.</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Bulk Select Dropdown Button */}
+                  <div className="relative inline-block text-left">
+                    <div className="inline-flex rounded-lg shadow-sm">
+                      <button
+                        type="button"
+                        onClick={toggleSelectMode}
+                        className={`px-3 py-2 border rounded-l-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+                          isSelectMode || selectedTestIds.length > 0
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <CheckSquare className="w-4 h-4 text-indigo-600" />
+                        <span>{isSelectMode ? `Select Mode (${selectedTestIds.length})` : 'Select'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSelectDropdown(prev => !prev)}
+                        className={`px-2 py-2 border-y border-r rounded-r-lg text-sm transition-colors ${
+                          isSelectMode || selectedTestIds.length > 0
+                            ? 'bg-indigo-50 border-indigo-300 text-indigo-700'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                        title="Selection options"
+                      >
+                        <ChevronDown className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {showSelectDropdown && (
+                      <div className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-xl bg-white ring-1 ring-black/10 z-30 py-1 text-xs divide-y divide-gray-100 animate-fade-in">
+                        <div className="py-1">
+                          <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
+                          >
+                            <span className="font-bold">Select All</span>
+                            <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-black text-[10px]">
+                              {workspaceTests.length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSelectPublished}
+                            className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
+                          >
+                            <span>Select Published</span>
+                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                              {workspaceTests.filter(t => t.status === 'published' || t.status === 'active').length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSelectDrafts}
+                            className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
+                          >
+                            <span>Select Drafts</span>
+                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                              {workspaceTests.filter(t => t.status !== 'published' && t.status !== 'active').length}
+                            </span>
+                          </button>
+                        </div>
+                        {selectedTestIds.length > 0 && (
+                          <div className="py-1">
+                            <button
+                              type="button"
+                              onClick={handleDeselectAll}
+                              className="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 font-semibold transition-colors"
+                            >
+                              Deselect All
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   <button type="button" onClick={() => setShowFullTestImport(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Import JSON
                   </button>
                   <button type="button" onClick={() => setShowBulkUpload(true)} className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                     <Upload className="w-4 h-4" /> Bulk Create
                   </button>
-                  <button type="button" onClick={openCreateForm} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2">
+                  <button type="button" onClick={openCreateForm} className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2 shadow-sm">
                     <Plus className="w-4 h-4" /> Create Test
                   </button>
                 </div>
               </div>
 
-              {workspaceTests.length === 0 ? (
+              {/* Bulk Actions Floating Bar */}
+              {(isSelectMode || selectedTestIds.length > 0) && workspaceTests.length > 0 && (
+                <div className="mb-4 bg-indigo-50/95 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-950 select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedTestIds.length > 0 && selectedTestIds.length === workspaceTests.length}
+                        ref={el => {
+                          if (el) {
+                            el.indeterminate = selectedTestIds.length > 0 && selectedTestIds.length < workspaceTests.length
+                          }
+                        }}
+                        onChange={handleSelectAll}
+                        className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>{selectedTestIds.length} of {workspaceTests.length} tests selected</span>
+                    </label>
+
+                    <div className="flex items-center gap-2 border-l border-indigo-200 pl-3">
+                      <button
+                        type="button"
+                        onClick={handleSelectAll}
+                        className="text-indigo-600 hover:text-indigo-900 font-semibold underline underline-offset-2"
+                      >
+                        {selectedTestIds.length === workspaceTests.length ? 'Deselect All' : 'Select All'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                    <button
+                      type="button"
+                      disabled={bulkProcessing || selectedTestIds.length === 0}
+                      onClick={handleBulkPublishSelected}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <span>Publish ({selectedTestIds.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={bulkProcessing || selectedTestIds.length === 0}
+                      onClick={handleBulkUnpublishSelected}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <span>Set Draft ({selectedTestIds.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={bulkProcessing || selectedTestIds.length === 0}
+                      onClick={() => setShowBulkDeleteConfirm(true)}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete ({selectedTestIds.length})</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleSelectMode}
+                      className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 rounded-lg font-medium"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {isLoading ? (
+                <div className="flex flex-col items-center justify-center p-8 my-6 animate-fade-in text-center space-y-4 max-w-lg mx-auto">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-14 h-14 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 animate-spin"></div>
+                    <div className="absolute w-8 h-8 rounded-full bg-indigo-500/20 animate-ping"></div>
+                    <div className="absolute w-3.5 h-3.5 rounded-full bg-indigo-600"></div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-wide">Loading Tests & Categories...</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Synchronizing test structures, categories & exam schemes</p>
+                  </div>
+                </div>
+              ) : workspaceTests.length === 0 ? (
                 <EmptyState icon={FileText} title="No Tests Linked" description="Create a test or bulk upload tests for this series and selected test subcategory." />
               ) : (
                 <div className="flex flex-col gap-3">
                   {workspaceTests.map(test => {
                     const testId = getTestId(test)
+                    const qCount = getTestQuestionsCount(test)
+                    const expectedQuestions = test.totalQuestions || test.total_questions || 0
+                    const isQuestionCountBalanced = expectedQuestions > 0 ? qCount >= expectedQuestions : qCount > 0
+                    const isSelected = selectedTestIds.some(id => idsEqual(id, testId))
+
                     return (
-                      <div key={testId} className="w-full bg-white border border-gray-200 rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap gap-2 mb-2">
-                            <Badge tone={test.status === 'active' || test.status === 'published' ? 'green' : 'gray'}>{test.status || 'draft'}</Badge>
-                            <Badge tone="indigo">{test.type || activeTestCategory}</Badge>
+                      <div
+                        key={testId}
+                        onClick={(e) => {
+                          if (isSelectMode) {
+                            if (e.target.closest('button') || e.target.closest('a')) return
+                            toggleSelectTest(testId)
+                          }
+                        }}
+                        className={`w-full bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                          isSelected
+                            ? 'border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-400/40 shadow-sm'
+                            : 'border-gray-200 hover:border-indigo-200 hover:shadow-sm'
+                        } ${isSelectMode ? 'cursor-pointer' : ''}`}
+                      >
+                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                          {/* Checkbox for Card */}
+                          <div className="pt-0.5 shrink-0" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectTest(testId)}
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                            />
                           </div>
-                          <h4 className="font-bold text-gray-900 truncate">{test.title || test.name || 'Untitled Test'}</h4>
-                          <p className="text-xs text-gray-500 mt-1 truncate">{test.description || 'No description'}</p>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <Badge tone={test.status === 'active' || test.status === 'published' ? 'green' : 'gray'}>
+                                {test.status === 'published' ? '● Published' : test.status === 'active' ? '● Active' : '○ Draft'}
+                              </Badge>
+                              <Badge tone="indigo">{test.type || activeTestCategory}</Badge>
+                              {test.difficulty && <Badge tone="blue">{test.difficulty}</Badge>}
+                            </div>
+                            <h4 className="font-bold text-gray-900 truncate">{test.title || test.name || 'Untitled Test'}</h4>
+                            <p className="text-xs text-gray-500 mt-1 truncate">{test.description || 'No description'}</p>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
-                          <span className="flex items-center gap-1"><Clock className="w-4 h-4" />{test.duration || test.time_limit || '--'} min</span>
-                          <span className="flex items-center gap-1"><FileText className="w-4 h-4" />{getTestQuestionsCount(test)} Qs</span>
+
+                        <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0 flex-wrap pl-7 md:pl-0">
+                          <span className="flex items-center gap-1 text-xs text-gray-500"><Clock className="w-3.5 h-3.5" />{test.duration || test.time_limit || '--'} min</span>
+                          <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${isQuestionCountBalanced ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                            <FileText className="w-3.5 h-3.5" />
+                            {expectedQuestions > 0 ? `${qCount}/${expectedQuestions} Qs` : `${qCount} Qs`}
+                          </span>
+                          {(test.totalMarks || test.total_marks) && (
+                            <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
+                              {test.totalMarks || test.total_marks} Marks
+                            </span>
+                          )}
+                          <Link
+                            to={`/admin/questions?testId=${testId}`}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors"
+                            title="Open Question Bank for this Test"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>Questions</span>
+                          </Link>
+                          {(test.isLive || activeTestCategory === 'live-tests') && (
+                            <Link
+                              to={`/admin/live-monitor?testId=${testId}`}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200 transition-colors"
+                              title="Monitor live candidates for this test"
+                            >
+                              <Radio className="w-3.5 h-3.5 text-cyan-600" />
+                              <span>Monitor</span>
+                            </Link>
+                          )}
                           {test.status === 'published' ? (
-                            <button type="button" onClick={() => handleUnpublish(test)} className="px-2 py-1 rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 text-xs font-medium" title="Unpublish">
+                            <button type="button" onClick={() => handleUnpublish(test)} className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-semibold" title="Unpublish">
                               Unpublish
                             </button>
                           ) : (
-                            <button type="button" onClick={() => handlePublish(test)} disabled={getTestQuestionsCount(test) === 0} className="px-2 py-1 rounded-lg bg-green-100 text-green-700 hover:bg-green-200 text-xs font-medium disabled:opacity-50 disabled:cursor-not-allowed" title={getTestQuestionsCount(test) === 0 ? 'Add questions first' : 'Publish'}>
+                            <button type="button" onClick={() => handlePublish(test)} className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-sm" title="Publish">
                               Publish
                             </button>
                           )}
@@ -2357,15 +3110,18 @@ export default function TestsManager() {
         saving={saving}
         relationshipSummary={editingRelationshipSummary}
         availableSections={scopedSections}
-        allSubCategories={activeTestSubCategories}
+        allSubCategories={modalSubCategories}
         flatTestCategories={flatTestCategories}
         selectedPresetId={selectedPresetId}
         setSelectedPresetId={setSelectedPresetId}
         applySectionPreset={applySectionPreset}
+        seriesList={seriesList}
+        selectedSeries={selectedSeries}
       />
       <BulkUploadModal isOpen={showBulkUpload} onClose={() => setShowBulkUpload(false)} onUpload={handleBulkUpload} onValidate={validateBulkUpload} contextLabel={contextLabel} linkingInfo={linkingInfo} />
       <FullTestImportModal isOpen={showFullTestImport} onClose={() => setShowFullTestImport(false)} onImported={fetchData} />
 
+      {/* Single Delete Modal */}
       {deleteTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl w-full max-w-md p-6">
@@ -2374,6 +3130,47 @@ export default function TestsManager() {
             <div className="flex justify-end gap-3">
               <button type="button" onClick={() => setDeleteTarget(null)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
               <button type="button" onClick={handleDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Modal */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl animate-scale-in">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Bulk Delete Tests</h3>
+            <p className="text-gray-600 text-sm mb-4">
+              Are you sure you want to delete <strong className="text-rose-600 font-bold">{selectedTestIds.length} selected tests</strong>? This will move them to trash.
+            </p>
+            <div className="bg-gray-50 rounded-lg p-3 max-h-36 overflow-y-auto mb-6 text-xs text-gray-600 space-y-1.5 border border-gray-200">
+              {workspaceTests
+                .filter(t => selectedTestIds.some(id => idsEqual(id, getTestId(t))))
+                .slice(0, 6)
+                .map((t, idx) => (
+                  <p key={idx} className="truncate">• {t.title || t.name}</p>
+                ))}
+              {selectedTestIds.length > 6 && (
+                <p className="text-gray-400 font-semibold pl-2">...and {selectedTestIds.length - 6} more tests</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={bulkProcessing}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkDeleteConfirm}
+                disabled={bulkProcessing}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-bold shadow-sm"
+              >
+                {bulkProcessing ? 'Deleting...' : `Delete ${selectedTestIds.length} Tests`}
+              </button>
             </div>
           </div>
         </div>

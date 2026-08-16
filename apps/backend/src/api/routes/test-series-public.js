@@ -1,5 +1,6 @@
 import express from 'express';
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -10,7 +11,7 @@ router.get('/', async (req, res) => {
     res.json({ success: true, data: series, count: series.length });
   } catch (error) {
     console.error('Get test series error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

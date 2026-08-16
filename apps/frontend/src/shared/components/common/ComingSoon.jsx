@@ -44,7 +44,7 @@ function ComingSoon({
   estimatedTime = null,
   icon: IconProp = null
 }) {
-  const { isAuthenticated, user } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [subscribing, setSubscribing] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
   
@@ -70,9 +70,7 @@ function ComingSoon({
     
     try {
       await apiClient.post('/api/notifications/subscribe', {
-        topic: notificationTopic,
         type: 'coming_soon',
-        userId: user?.id
       })
       
       setSubscribed(true)

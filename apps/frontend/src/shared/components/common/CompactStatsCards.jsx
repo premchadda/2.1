@@ -43,7 +43,7 @@ const colorMap = {
 }
 
 export default function CompactStatsCards({ stats = {} }) {
-  const { isDarkMode } = useTheme()
+  const { _isDarkMode } = useTheme()
 
   const cards = DEFAULT_STATS.map((item) => ({
     ...item,

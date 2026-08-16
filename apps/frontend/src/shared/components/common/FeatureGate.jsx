@@ -87,8 +87,8 @@ export default function FeatureGate({
 /**
  * Compact inline Coming Soon placeholder for sections within a page.
  */
-function SectionComingSoon({ config, sectionKey, variant = 'card', minHeight = '200px' }) {
-  const { isAuthenticated, user } = useAuth()
+function SectionComingSoon({ config, _sectionKey, variant = 'card', minHeight = '200px' }) {
+  const { isAuthenticated } = useAuth()
   const [subscribing, setSubscribing] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
 
@@ -100,9 +100,7 @@ function SectionComingSoon({ config, sectionKey, variant = 'card', minHeight = '
     setSubscribing(true)
     try {
       await api.post('/api/notifications/subscribe', {
-        topic: `feature:${sectionKey}`,
         type: 'coming_soon',
-        userId: user?.id,
       })
       setSubscribed(true)
       toast.success('You will be notified when this is available!')

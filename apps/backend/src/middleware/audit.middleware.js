@@ -53,6 +53,33 @@ const getUserAgent = (req) => {
   return req.headers['user-agent'] || 'unknown'
 }
 
+/**
+ * Keys considered sensitive when capturing request bodies/queries into the
+ * audit trail. Matches any key containing secret/password/token/api-key,
+ * jwt, pass/pwd, otp, private/access key or credential (case insensitive),
+ * e.g. smtpPassword, razorpayKeySecret, googleClientSecret, apiKey,
+ * api_key, refreshToken, jwtSecret, otpCode, accessKey, clientCredential.
+ */
+const SENSITIVE_KEY_PATTERN = /secret|password|token|api[_-]?key|jwt|pass|pwd|otp|private[_-]?key|access[_-]?key|credential/i
+
+/**
+ * Deep-redact sensitive values inside a captured request body, replacing them
+ * with '[REDACTED]'. Never mutates the original body — returns a new object.
+ */
+function redactSensitiveValues(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSensitiveValues(item))
+  }
+  if (value && typeof value === 'object') {
+    const redacted = {}
+    for (const [key, nestedValue] of Object.entries(value)) {
+      redacted[key] = SENSITIVE_KEY_PATTERN.test(key) ? '[REDACTED]' : redactSensitiveValues(nestedValue)
+    }
+    return redacted
+  }
+  return value
+}
+
 const determineAction = (method) => {
   if (method === 'GET') return AUDIT_ACTIONS.READ
   if (method === 'POST') return AUDIT_ACTIONS.CREATE
@@ -198,18 +225,11 @@ export const auditMiddleware = (options = {}) => {
         const details = {
           method: req.method,
           path: req.originalUrl,
-          query: req.query,
+          query: redactSensitiveValues(req.query),
         }
 
         if (includeBody && req.body && Object.keys(req.body).length > 0) {
-          const sanitizedBody = { ...req.body }
-          const sensitiveFields = ['password', 'token', 'secret', 'apiKey']
-          sensitiveFields.forEach((field) => {
-            if (sanitizedBody[field]) {
-              sanitizedBody[field] = '[REDACTED]'
-            }
-          })
-          details.body = sanitizedBody
+          details.body = redactSensitiveValues(req.body)
         }
 
         await logAuditEvent({

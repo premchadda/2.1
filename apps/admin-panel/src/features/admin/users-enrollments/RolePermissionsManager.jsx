@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { adminAPI } from '../../../shared/lib/dataService'
 import { toast } from 'react-hot-toast'
 import { Shield, Plus, Edit, Trash2, Save, X, Users, Key, RefreshCw, Check, XCircle } from 'lucide-react'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import { useAuth } from '../../../shared/providers/AuthContext'
 
 const ALL_PERMISSIONS = [
   { resource: 'users', actions: ['read', 'write', 'delete', 'export'] },
@@ -16,6 +18,7 @@ const ALL_PERMISSIONS = [
 ]
 
 export default function RolePermissionsManager() {
+  const { user } = useAuth()
   const [roles, setRoles] = useState([])
   const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,13 +26,19 @@ export default function RolePermissionsManager() {
   const [formData, setFormData] = useState({ name: '', displayName: '', description: '', permissions: [], isSystem: false })
   const [activeTab, setActiveTab] = useState('roles')
 
-  const fetchData = useCallback(async () => {
+  const userPerms = user?.permissions || []
+  const isSuperPerms = userPerms.includes('*')
+  const isAdminRole = user?.role === 'admin' || user?.role === 'super_admin'
+  const canManage = isSuperPerms || user?.role === 'super_admin' || userPerms.includes('roles:write')
+
+  const fetchData = useCallback(async (signal) => {
     try {
       setLoading(true)
       const [rolesRes, permsRes] = await Promise.allSettled([
-        adminAPI.apiClient.get('/admin/roles'),
-        adminAPI.apiClient.get('/admin/permissions')
+        adminAPI.apiClient.get('/admin/roles', { signal }),
+        adminAPI.apiClient.get('/admin/permissions', { signal })
       ])
+      if (signal.aborted) return
       if (rolesRes.status === 'fulfilled') {
         const rData = rolesRes.value.data?.data;
         setRoles(Array.isArray(rData) ? rData : (rData?.roles || []));
@@ -39,27 +48,58 @@ export default function RolePermissionsManager() {
         setPermissions(Array.isArray(pData) ? pData : (pData?.permissions || ALL_PERMISSIONS));
       }
     } catch (error) {
+      if (signal.aborted) return
       console.error('Error fetching roles/permissions:', error)
       toast.error('Failed to load data')
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchData(controller.signal)
+    return () => controller.abort()
+  }, [fetchData])
+
+  if (!isAdminRole) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-6">
+        <Shield className="w-16 h-16 text-red-400 mb-4" />
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h2>
+        <p className="text-gray-600 dark:text-gray-400">Only administrators can view roles and permissions.</p>
+      </div>
+    )
+  }
 
   const handleCreate = () => {
+    if (!canManage) {
+      toast.error('Only super admins (roles:write) can manage roles')
+      return
+    }
     setEditingId('new')
     setFormData({ name: '', displayName: '', description: '', permissions: [], isSystem: false })
   }
 
   const handleEdit = (role) => {
-    setEditingId(role.id)
+    if (!canManage) {
+      toast.error('Only super admins (roles:write) can manage roles')
+      return
+    }
+    const roleId = role.id || role._id
+    setEditingId(roleId)
+    const normalizedPerms = (role.permissions || []).map(p => {
+      if (typeof p === 'string') return p
+      if (p?.name) return p.name
+      if (p?.resource && p?.action) return `${p.resource}:${p.action}`
+      return ''
+    }).filter(Boolean)
+
     setFormData({
       name: role.name || '',
-      displayName: role.displayName || '',
+      displayName: role.displayName || role.name || '',
       description: role.description || '',
-      permissions: role.permissions || [],
+      permissions: normalizedPerms,
       isSystem: role.isSystem || false
     })
   }
@@ -91,31 +131,133 @@ export default function RolePermissionsManager() {
 
   const handleSave = async () => {
     try {
-      if (!formData.name || !formData.displayName) {
-        toast.error('Name and display name are required')
+      if (!formData.name) {
+        toast.error('Role name is required')
         return
       }
+      if (!canManage) {
+        toast.error('Only super admins (roles:write) can manage roles')
+        return
+      }
+      const payload = {
+        name: formData.name.trim().toLowerCase(),
+        description: formData.description || null,
+        permissions: formData.permissions
+      }
       if (editingId === 'new') {
-        const res = await adminAPI.apiClient.post('/admin/roles', formData)
-        setRoles(prev => [...prev, res.data?.data])
+        const res = await adminAPI.apiClient.post('/admin/roles', payload)
+        const newRole = res.data?.data || res.data?.role || { id: Date.now(), ...payload }
+        setRoles(prev => [...prev, newRole])
         toast.success('Role created')
       } else {
-        const res = await adminAPI.apiClient.put(`/admin/roles/${editingId}`, formData)
-        setRoles(prev => prev.map(r => r.id === editingId ? res.data?.data : r))
+        const res = await adminAPI.apiClient.put(`/admin/roles/${editingId}`, payload)
+        const updatedRole = res.data?.data || res.data?.role || { ...roles.find(r => (r.id || r._id) === editingId), ...payload }
+        setRoles(prev => prev.map(r => (r.id || r._id) === editingId ? updatedRole : r))
         toast.success('Role updated')
       }
       setEditingId(null)
+      fetchData()
     } catch (error) {
       console.error('Error saving role:', error)
-      toast.error('Failed to save role')
+      toast.error(error.response?.data?.message || 'Failed to save role')
     }
   }
 
+  const renderRoleForm = () => (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <input
+          type="text"
+          placeholder="Role name (e.g., content_manager)"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+        />
+        <input
+          type="text"
+          placeholder="Display name (e.g., Content Manager)"
+          value={formData.displayName}
+          onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+        />
+      </div>
+      <input
+        type="text"
+        placeholder="Description"
+        value={formData.description}
+        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+      />
+
+      {/* Permission Checkboxes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {ALL_PERMISSIONS.map(({ resource, actions }) => {
+          const resourcePerms = actions.map(a => `${resource}:${a}`)
+          const allSelected = resourcePerms.every(p => (formData.permissions || []).includes(p))
+          const someSelected = resourcePerms.some(p => (formData.permissions || []).includes(p))
+          return (
+            <div key={resource} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <label className="flex items-center gap-2 text-sm font-medium capitalize">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
+                    onChange={() => toggleAllForResource(resource, actions)}
+                    className="rounded"
+                  />
+                  {resource}
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {actions.map(action => {
+                  const perm = `${resource}:${action}`
+                  const isSelected = (formData.permissions || []).includes(perm)
+                  return (
+                    <button
+                      key={action}
+                      onClick={() => togglePermission(perm)}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                        isSelected
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
+                      }`}
+                    >
+                      {action}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+          <X className="w-4 h-4" />
+        </button>
+        <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+          <Save className="w-4 h-4" /> Save
+        </button>
+      </div>
+    </div>
+  )
+
   const handleDelete = async (id) => {
-    if (!confirm('Delete this role? Users with this role will need to be reassigned.')) return
+    if (!canManage) {
+      toast.error('Only super admins (roles:write) can manage roles')
+      return
+    }
+    const confirmed = await confirmOnce({
+      title: 'Delete Role',
+      message: 'Delete this role? Users with this role will need to be reassigned.',
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await adminAPI.apiClient.delete(`/admin/roles/${id}`)
-      setRoles(prev => prev.filter(r => r.id !== id))
+      setRoles(prev => prev.filter(r => (r.id || r._id) !== id))
       toast.success('Role deleted')
     } catch (error) {
       toast.error('Failed to delete role')
@@ -134,7 +276,7 @@ export default function RolePermissionsManager() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -142,10 +284,12 @@ export default function RolePermissionsManager() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Manage admin roles and granular permissions</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
-            <Plus className="w-4 h-4" /> New Role
-          </button>
-          <button onClick={fetchData} className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+          {canManage && (
+            <button onClick={handleCreate} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium">
+              <Plus className="w-4 h-4" /> New Role
+            </button>
+          )}
+          <button onClick={() => fetchData(new AbortController().signal)} className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
             <RefreshCw className="w-4 h-4" />
           </button>
         </div>
@@ -175,87 +319,18 @@ export default function RolePermissionsManager() {
       {/* Roles Tab */}
       {activeTab === 'roles' && (
         <div className="space-y-4">
-          {roles.map(role => (
-            <div key={role.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-              {editingId === role.id ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="Role name (e.g., content_manager)"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value.toLowerCase().replace(/\s+/g, '_') }))}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Display name (e.g., Content Manager)"
-                      value={formData.displayName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                    />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Description"
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  />
-
-                  {/* Permission Checkboxes */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {ALL_PERMISSIONS.map(({ resource, actions }) => {
-                      const resourcePerms = actions.map(a => `${resource}:${a}`)
-                      const allSelected = resourcePerms.every(p => (formData.permissions || []).includes(p))
-                      const someSelected = resourcePerms.some(p => (formData.permissions || []).includes(p))
-                      return (
-                        <div key={resource} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="flex items-center gap-2 text-sm font-medium capitalize">
-                              <input
-                                type="checkbox"
-                                checked={allSelected}
-                                ref={el => { if (el) el.indeterminate = someSelected && !allSelected }}
-                                onChange={() => toggleAllForResource(resource, actions)}
-                                className="rounded"
-                              />
-                              {resource}
-                            </label>
-                          </div>
-                          <div className="flex flex-wrap gap-1">
-                            {actions.map(action => {
-                              const perm = `${resource}:${action}`
-                              const isSelected = (formData.permissions || []).includes(perm)
-                              return (
-                                <button
-                                  key={action}
-                                  onClick={() => togglePermission(perm)}
-                                  className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                                    isSelected
-                                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                      : 'bg-gray-200 dark:bg-gray-600 text-gray-500 dark:text-gray-400'
-                                  }`}
-                                >
-                                  {action}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2">
-                    <button onClick={() => setEditingId(null)} className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
-                      <X className="w-4 h-4" />
-                    </button>
-                    <button onClick={handleSave} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                      <Save className="w-4 h-4" /> Save
-                    </button>
-                  </div>
-                </div>
+          {editingId === 'new' && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">Create New Role</h3>
+              {renderRoleForm()}
+            </div>
+          )}
+          {roles.map(role => {
+            const roleId = role.id || role._id
+            return (
+            <div key={roleId} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+              {editingId === roleId ? (
+                renderRoleForm()
               ) : (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -271,11 +346,14 @@ export default function RolePermissionsManager() {
                       </div>
                       <p className="text-sm text-gray-500">{role.description || 'No description'}</p>
                       <div className="flex flex-wrap gap-1 mt-1">
-                        {(role.permissions || []).slice(0, 8).map(perm => (
-                          <span key={perm} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">
-                            {perm}
-                          </span>
-                        ))}
+                        {(role.permissions || []).slice(0, 8).map((perm, idx) => {
+                          const permName = typeof perm === 'string' ? perm : (perm.name || `${perm.resource}:${perm.action}`)
+                          return (
+                            <span key={`${permName}-${idx}`} className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">
+                              {permName}
+                            </span>
+                          )
+                        })}
                         {(role.permissions || []).length > 8 && (
                           <span className="text-xs text-gray-400">+{(role.permissions || []).length - 8} more</span>
                         )}
@@ -283,12 +361,12 @@ export default function RolePermissionsManager() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {!role.isSystem && (
+                    {canManage && !role.isSystem && (
                       <>
                         <button onClick={() => handleEdit(role)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                           <Edit className="w-4 h-4" />
                         </button>
-                        <button onClick={() => handleDelete(role.id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-red-500 hover:text-red-700">
+                        <button onClick={() => handleDelete(roleId)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-red-500 hover:text-red-700">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </>
@@ -297,7 +375,7 @@ export default function RolePermissionsManager() {
                 </div>
               )}
             </div>
-          ))}
+          )})}
         </div>
       )}
 
@@ -310,7 +388,7 @@ export default function RolePermissionsManager() {
                 <tr className="border-b border-gray-200 dark:border-gray-700">
                   <th className="px-4 py-3 text-left font-medium text-gray-500">Permission</th>
                   {roles.map(role => (
-                    <th key={role.id} className="px-4 py-3 text-center font-medium text-gray-500">
+                    <th key={role.id || role._id} className="px-4 py-3 text-center font-medium text-gray-500">
                       {role.displayName || role.name}
                       {role.isSystem && <span className="ml-1 text-purple-500">*</span>}
                     </th>
@@ -325,9 +403,13 @@ export default function RolePermissionsManager() {
                         {resource}:{action}
                       </td>
                       {roles.map(role => {
-                        const hasPerm = (role.permissions || []).includes(`${resource}:${action}`) || (role.permissions || []).includes('*')
+                        const perms = role.permissions || []
+                        const hasPerm = perms.some(p => {
+                          if (typeof p === 'string') return p === `${resource}:${action}` || p === '*'
+                          return p?.name === `${resource}:${action}` || (p?.resource === resource && p?.action === action)
+                        })
                         return (
-                          <td key={role.id} className="px-4 py-2 text-center">
+                          <td key={role.id || role._id} className="px-4 py-2 text-center">
                             {hasPerm ? (
                               <Check className="w-4 h-4 text-green-500 mx-auto" />
                             ) : (

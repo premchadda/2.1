@@ -47,7 +47,7 @@ BEGIN
     SELECT 1 FROM pg_indexes
      WHERE tablename = 'attempts' AND indexname = 'idx_attempts_is_active'
   ) THEN
-    CREATE INDEX idx_attempts_is_active ON attempts(is_active) WHERE is_active = true;
+    CREATE INDEX IF NOT EXISTS idx_attempts_is_active ON attempts(is_active) WHERE is_active = true;
   END IF;
 
   -- 4. Composite index to speed up the leaderboard / ranking
@@ -56,7 +56,7 @@ BEGIN
     SELECT 1 FROM pg_indexes
      WHERE tablename = 'attempts' AND indexname = 'idx_attempts_test_is_active'
   ) THEN
-    CREATE INDEX idx_attempts_test_is_active
+    CREATE INDEX IF NOT EXISTS idx_attempts_test_is_active
       ON attempts(test_id, is_active)
       WHERE is_active = true;
   END IF;
@@ -67,7 +67,7 @@ BEGIN
     SELECT 1 FROM pg_indexes
      WHERE tablename = 'attempts' AND indexname = 'idx_attempts_user_is_active'
   ) THEN
-    CREATE INDEX idx_attempts_user_is_active
+    CREATE INDEX IF NOT EXISTS idx_attempts_user_is_active
       ON attempts(user_id, is_active)
       WHERE is_active = true;
   END IF;

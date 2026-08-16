@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import rankingService from './ranking.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -13,7 +14,7 @@ router.get('/overall', async (req, res) => {
     })
     res.json({ success: true, data: ranking })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -22,7 +23,7 @@ router.get('/my-rank', protect, async (req, res) => {
     const rank = await rankingService.getUserRank(req.user.id)
     res.json({ success: true, data: rank })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -34,7 +35,7 @@ router.get('/subject/:subjectId', async (req, res) => {
     })
     res.json({ success: true, data: ranking })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -46,7 +47,7 @@ router.get('/exam/:examId', async (req, res) => {
     })
     res.json({ success: true, data: ranking })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -58,7 +59,7 @@ router.get('/history', protect, async (req, res) => {
     })
     res.json({ success: true, data: history })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -67,7 +68,7 @@ router.get('/percentile/:testId', protect, async (req, res) => {
     const percentile = await rankingService.calculatePercentile(req.user.id, req.params.testId)
     res.json({ success: true, data: percentile })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -80,7 +81,7 @@ router.get('/top-performers', async (req, res) => {
     })
     res.json({ success: true, data: performers })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

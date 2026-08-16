@@ -1,30 +1,49 @@
 import { useState, useEffect, useCallback } from 'react'
-import { API_URL } from '../lib/apiBase.js'
+import { apiClient } from '../lib/dataService'
 
+let cachedCategories = null
+let cachedExamInfo = null
+let cachedExams = null
+let categoriesPromise = null
+let examInfoPromise = null
+let examsPromise = null
+let lastFetchedTime = 0
+const HOOK_CACHE_TTL = 60_000
 
 export function useExamCategories() {
-  const [categories, setCategories] = useState([])
-  const [examInfo, setExamInfo] = useState([])
+  const [categories, setCategories] = useState(() => cachedCategories || [])
+  const [examInfo, setExamInfo] = useState(() => cachedExamInfo || [])
   // Exams from the 'exams' table (exam sub-categories are handled via the exams table)
-  const [exams, setExams] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [exams, setExams] = useState(() => cachedExams || [])
+  const [loading, setLoading] = useState(() => !cachedCategories || !cachedExamInfo || !cachedExams)
   const [error, setError] = useState(null)
 
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (force = false) => {
+    if (!force && cachedCategories && Date.now() - lastFetchedTime < HOOK_CACHE_TTL) {
+      setCategories(cachedCategories)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/exam-categories`)
-      const data = await response.json()
-      if (data.success) {
-        // Filter out "All Exams" and active only
-        const filteredCategories = data.data
-          .filter(cat => cat.id !== 'all' && cat.isActive !== false)
-          .sort((a, b) => (a.order || 0) - (b.order || 0))
-        setCategories(filteredCategories)
-      } else {
-        setError(data.message || 'Failed to fetch categories')
+      if (!categoriesPromise || force) {
+        categoriesPromise = apiClient.get('/exam-categories')
+          .then(response => {
+            const data = response.data
+            if (data.success) {
+              const filtered = data.data
+                .filter(cat => cat.id !== 'all' && cat.isActive !== false)
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+              cachedCategories = filtered
+              lastFetchedTime = Date.now()
+              return filtered
+            }
+            throw new Error(data.message || 'Failed to fetch categories')
+          })
+          .finally(() => { categoriesPromise = null })
       }
+      const data = await categoriesPromise
+      setCategories(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -32,19 +51,30 @@ export function useExamCategories() {
     }
   }, [])
 
-  const fetchExamInfo = useCallback(async () => {
+  const fetchExamInfo = useCallback(async (force = false) => {
+    if (!force && cachedExamInfo && Date.now() - lastFetchedTime < HOOK_CACHE_TTL) {
+      setExamInfo(cachedExamInfo)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/exam-info`)
-      const data = await response.json()
-      if (data.success) {
-        // Filter active only
-        const filteredExamInfo = data.data.filter(exam => exam.isActive !== false)
-        setExamInfo(filteredExamInfo)
-      } else {
-        setError(data.message || 'Failed to fetch exam info')
+      if (!examInfoPromise || force) {
+        examInfoPromise = apiClient.get('/exam-info')
+          .then(response => {
+            const data = response.data
+            if (data.success) {
+              const filtered = data.data.filter(exam => exam.isActive !== false)
+              cachedExamInfo = filtered
+              lastFetchedTime = Date.now()
+              return filtered
+            }
+            throw new Error(data.message || 'Failed to fetch exam info')
+          })
+          .finally(() => { examInfoPromise = null })
       }
+      const data = await examInfoPromise
+      setExamInfo(data)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -53,28 +83,38 @@ export function useExamCategories() {
   }, [])
 
   // Fetch exams from the database (now stored in exams table)
-  const fetchExams = useCallback(async () => {
+  const fetchExams = useCallback(async (force = false) => {
+    if (!force && cachedExams && Date.now() - lastFetchedTime < HOOK_CACHE_TTL) {
+      setExams(cachedExams)
+      return
+    }
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/exam-categories/`)
-      const data = await response.json()
-      if (data.success) {
-        // Filter active only and map to expected format
-        const filteredExams = data.data
-          .filter(exam => exam.isActive !== false)
-          .map(exam => ({
-            ...exam,
-            // Ensure backward compatibility with field names
-            id: exam.id || exam._id,
-            name: exam.name || exam.title,
-            description: exam.description || exam.fullName || '',
-            parentCategoryId: exam.parentCategoryId || exam.categoryId
-          }))
-        setExams(filteredExams)
-      } else {
-        setError(data.message || 'Failed to fetch exams')
+      if (!examsPromise || force) {
+        examsPromise = apiClient.get('/exam-categories/')
+          .then(response => {
+            const data = response.data
+            if (data.success) {
+              const filtered = data.data
+                .filter(exam => exam.isActive !== false)
+                .map(exam => ({
+                  ...exam,
+                  id: exam.id || exam._id,
+                  name: exam.name || exam.title,
+                  description: exam.description || exam.fullName || '',
+                  parentCategoryId: exam.parentCategoryId || exam.categoryId
+                }))
+              cachedExams = filtered
+              lastFetchedTime = Date.now()
+              return filtered
+            }
+            throw new Error(data.message || 'Failed to fetch exams')
+          })
+          .finally(() => { examsPromise = null })
       }
+      const data = await examsPromise
+      setExams(data)
     } catch (err) {
       setError(err.message)
     } finally {

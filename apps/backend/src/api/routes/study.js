@@ -32,11 +32,179 @@
  */
 import express from 'express'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
+// Memoized loader for the (rarely-changing) active study_materials table.
+// Resolving media scope for every subject used to re-scan this whole table
+// 2x per subject, which is the dominant cost behind the /api/study 504s.
+let _studyMaterialsCache = null
+let _studyMaterialsCacheTime = 0
+const STUDY_MATERIALS_CACHE_TTL = 60 * 1000
+
+async function getActiveStudyMaterials(dbHelpers) {
+  const now = Date.now()
+  if (_studyMaterialsCache && now - _studyMaterialsCacheTime < STUDY_MATERIALS_CACHE_TTL) {
+    return _studyMaterialsCache
+  }
+  try {
+    const all = await dbHelpers.find('studyMaterials', { isActive: true })
+    _studyMaterialsCache = all
+    _studyMaterialsCacheTime = now
+    return all
+  } catch (_) {
+    return _studyMaterialsCache || []
+  }
+}
+
+// Build the set of IDs a subject's media may be linked through (study_material_id
+// OR chapter_id OR topic_id), using data that has already been bulk-loaded instead
+// of issuing per-subject queries. Mirrors resolveSubjectMediaScope exactly.
+function buildStudyMediaScope(subject, subjectId, studyMaterials, subjectChapterIds, topicIdsByChapter) {
+  const idsToSearch = new Set()
+  if (subjectId != null) {
+    idsToSearch.add(subjectId)
+    if (typeof subjectId === 'number' || (typeof subjectId === 'string' && /^\d+$/.test(String(subjectId)))) {
+      idsToSearch.add(parseInt(String(subjectId), 10))
+    }
+  }
+
+  const topicIds = new Set()
+  for (const cid of subjectChapterIds) {
+    const t = topicIdsByChapter.get(cid)
+    if (t) for (const id of t) topicIds.add(id)
+  }
+
+  const subjectSlug = subject?.slug
+  const subjectName = (subject?.name || subject?.title || '').toLowerCase().trim()
+  for (const sm of studyMaterials) {
+    const smSlug = sm.slug
+    const smName = (sm.name || sm.title || '').toLowerCase().trim()
+    if (
+      (subjectSlug && smSlug && subjectSlug === smSlug) ||
+      (subjectName && smName && subjectName === smName)
+    ) {
+      const matchId = sm.id ?? sm._id
+      if (matchId != null && matchId !== '') {
+        idsToSearch.add(matchId)
+        idsToSearch.add(String(matchId))
+      }
+    }
+  }
+
+  return { idsToSearch, chapterIds: subjectChapterIds, topicIds: [...topicIds] }
+}
+
 // Helper function to calculate subject counts
+// Resolve the full set of IDs that a subject's media may be linked through:
+//  - the subject's own id (subjects table)
+//  - matching study_materials ids (admin panel uses study_materials table)
+//  - every chapter_id / topic_id belonging to the subject
+// Media in subject_videos / subject_pdfs / topic_tests can be linked via any of
+// these FK columns, so all must be searched to avoid missing/undercounting.
+async function resolveSubjectMediaScope(dbHelpers, subject) {
+  const subjectId = subject?.id ?? subject?._id
+  const idsToSearch = new Set()
+  const chapterIds = []
+  const topicIds = []
+
+  if (subjectId != null) {
+    idsToSearch.add(subjectId)
+    if (typeof subjectId === 'number' || (typeof subjectId === 'string' && /^\d+$/.test(String(subjectId)))) {
+      idsToSearch.add(parseInt(String(subjectId), 10))
+    }
+
+    const chapters = await dbHelpers.find('chapters', { subjectId, isActive: true })
+    for (const c of chapters) {
+      const id = c.id ?? c._id
+      if (id != null && id !== '') chapterIds.push(id)
+    }
+    if (chapterIds.length) {
+      const topics = await dbHelpers.find('topics', { chapterId: { $in: chapterIds }, isActive: true })
+      for (const t of topics) {
+        const id = t.id ?? t._id
+        if (id != null && id !== '') topicIds.push(id)
+      }
+    }
+  } else {
+    const allTopics = await dbHelpers.find('topics', { subject: subject.name || subject, isActive: true })
+    for (const t of allTopics) {
+      const id = t.id ?? t._id
+      if (id != null && id !== '') topicIds.push(id)
+    }
+  }
+
+  // Bridge to the admin study_materials table (matched by slug/name)
+  try {
+    const allStudyMaterials = await getActiveStudyMaterials(dbHelpers)
+    const subjectSlug = subject?.slug
+    const subjectName = (subject?.name || subject?.title || '').toLowerCase().trim()
+    for (const sm of allStudyMaterials) {
+      const smSlug = sm.slug
+      const smName = (sm.name || sm.title || '').toLowerCase().trim()
+      if (
+        (subjectSlug && smSlug && subjectSlug === smSlug) ||
+        (subjectName && smName && subjectName === smName)
+      ) {
+        const matchId = sm.id ?? sm._id
+        if (matchId != null && matchId !== '') {
+          idsToSearch.add(matchId)
+          idsToSearch.add(String(matchId))
+        }
+      }
+    }
+  } catch (_) {
+    // Non-fatal — proceed with the subject's own ID only
+  }
+
+  return { idsToSearch, chapterIds, topicIds }
+}
+
+// Count media linked to a subject via study_material_id OR chapter_id OR topic_id.
+async function countMediaByScope(scope) {
+  const { idsToSearch, chapterIds, topicIds } = scope
+  const conds = []
+  const vals = []
+  let i = 1
+  if (idsToSearch.size > 0) {
+    const arr = [...idsToSearch]
+    conds.push(`study_material_id IN (${arr.map(() => `$${i++}`).join(', ')})`)
+    vals.push(...arr)
+  }
+  if (chapterIds.length > 0) {
+    conds.push(`chapter_id IN (${chapterIds.map(() => `$${i++}`).join(', ')})`)
+    vals.push(...chapterIds)
+  }
+  if (topicIds.length > 0) {
+    conds.push(`topic_id IN (${topicIds.map(() => `$${i++}`).join(', ')})`)
+    vals.push(...topicIds)
+  }
+
+  const where = conds.length > 0
+    ? `(${conds.join(' OR ')}) AND is_active = true`
+    : '1=0'
+
+  const countTable = async (table) => {
+    try {
+      const { rows } = await pool.query(`SELECT COUNT(*)::int AS c FROM ${table} WHERE ${where}`, vals)
+      return rows[0]?.c || 0
+    } catch (error) {
+      console.error(`Error counting ${table}:`, error.message)
+      return 0
+    }
+  }
+
+  const [videos, pdfs, topicTests] = await Promise.all([
+    countTable('subject_videos'),
+    countTable('subject_pdfs'),
+    countTable('topic_tests'),
+  ])
+  return { videos, pdfs, topicTests }
+}
+
 async function calculateStudyMaterialCounts(dbHelpers, subject) {
   try {
     const subjectId = subject?.id ?? subject?._id
@@ -61,25 +229,16 @@ async function calculateStudyMaterialCounts(dbHelpers, subject) {
       topicsCount = allTopics.filter(t => t.parentTopicId).length
     }
 
-    // Count media by studyMaterialId
-    const smId = subjectId || subject.name // Fallback to name if id missing (rare)
-    let videos = []
-    let pdfs = []
-    let topicTests = []
-    if (smId != null) {
-      ;[videos, pdfs, topicTests] = await Promise.all([
-        dbHelpers.find('subjectVideos', { studyMaterialId: smId, isActive: true }),
-        dbHelpers.find('subjectPdfs', { studyMaterialId: smId, isActive: true }),
-        dbHelpers.find('topicTests', { studyMaterialId: smId, isActive: true }),
-      ])
-    }
+    // Count media by studyMaterialId, chapter_id, or topic_id (any link path)
+    const scope = await resolveSubjectMediaScope(dbHelpers, subject)
+    const { videos, pdfs, topicTests } = await countMediaByScope(scope)
 
     return {
       topics: topicsCount,
       chapters: chaptersCount,
-      videos: videos.length,
-      pdf: pdfs.length,
-      tests: topicTests.length
+      videos,
+      pdf: pdfs,
+      tests: topicTests
     }
   } catch (error) {
     console.error('Error calculating counts:', error)
@@ -88,38 +247,111 @@ async function calculateStudyMaterialCounts(dbHelpers, subject) {
 }
 
 // @route   GET /api/study
+// @route   GET /api/study
 // @desc    Get all study materials (subjects)
 // @access  Public
-router.get('/', async (req, res) => {
+router.get('/', responseCache("study-materials", 120), async (req, res) => {
   try {
-    const subjects = await dbHelpers.find('subjects', { isActive: true })
-    
-    // Calculate actual counts for each material
-    const materialsWithCounts = await Promise.all(
-      subjects.map(async (subject) => {
-        const counts = await calculateStudyMaterialCounts(dbHelpers, subject)
-        const resolvedContent = await resolveSubjectContent(dbHelpers, subject)
-        return {
-          _id: subject._id,
-          slug: subject.slug,
-          title: subject.name, // Mapping name to title for frontend
-          icon: subject.icon,
-          topics: counts.topics,
-          chapters: resolvedContent.chapters.length || counts.chapters,
-          videos: counts.videos,
-          pdf: counts.pdf,
-          tests: counts.tests,
-          color: subject.color,
-          bg: subject.color + '20', // Generate bg from color
-          description: subject.description,
-          subjectGroup: subject.subjectGroup || null, // Group label (e.g. "General Science")
-          order: subject.order || 0,
-          isActive: subject.isActive,
-          createdAt: subject.createdAt,
-          updatedAt: subject.updatedAt
-        }
-      })
-    )
+    const [subjects, studyMaterials, allVideos, allPdfs, allTests] = await Promise.all([
+      dbHelpers.find('subjects', { isActive: true }),
+      getActiveStudyMaterials(dbHelpers),
+      dbHelpers.find('subjectVideos', { isActive: true }).catch(() => []),
+      dbHelpers.find('subjectPdfs', { isActive: true }).catch(() => []),
+      dbHelpers.find('topicTests', { isActive: true }).catch(() => [])
+    ])
+
+    const subjectIds = subjects
+      .map((s) => s.id ?? s._id)
+      .filter((id) => id != null)
+
+    const allChapters = subjectIds.length
+      ? await dbHelpers.find('chapters', { subjectId: { $in: subjectIds }, isActive: true })
+      : []
+
+    const chapterIds = allChapters
+      .map((c) => c.id ?? c._id)
+      .filter((id) => id != null)
+
+    const allTopics = chapterIds.length
+      ? await dbHelpers.find('topics', { chapterId: { $in: chapterIds }, isActive: true })
+      : []
+
+    // Index chapters by subject and topics by chapter for O(1) lookup.
+    const chaptersBySubject = new Map()
+    for (const c of allChapters) {
+      const sid = c.subjectId ?? c.subject_id
+      if (sid == null) continue
+      if (!chaptersBySubject.has(sid)) chaptersBySubject.set(sid, [])
+      chaptersBySubject.get(sid).push(c)
+    }
+
+    const topicIdsByChapter = new Map()
+    for (const t of allTopics) {
+      const cid = t.chapterId ?? t.chapter_id
+      if (cid == null) continue
+      if (!topicIdsByChapter.has(cid)) topicIdsByChapter.set(cid, [])
+      topicIdsByChapter.get(cid).push(t.id ?? t._id)
+    }
+
+    const materialsWithCounts = subjects.map((subject) => {
+      const subjectId = subject.id ?? subject._id
+      const subjectChapters = chaptersBySubject.get(subjectId) || []
+      const subjectChapterIds = subjectChapters
+        .map((c) => c.id ?? c._id)
+        .filter((id) => id != null)
+
+      let topicsCount = 0
+      for (const cid of subjectChapterIds) {
+        topicsCount += (topicIdsByChapter.get(cid) || []).length
+      }
+
+      const scope = buildStudyMediaScope(
+        subject,
+        subjectId,
+        studyMaterials,
+        subjectChapterIds,
+        topicIdsByChapter,
+      )
+
+      const chapterIdSet = new Set(scope.chapterIds.map(String))
+      scope.chapterIds.forEach(id => chapterIdSet.add(Number(id)))
+      const topicIdSet = new Set(scope.topicIds.map(String))
+      scope.topicIds.forEach(id => topicIdSet.add(Number(id)))
+
+      const matchesScope = (item) => {
+        const smId = item.study_material_id ?? item.studyMaterialId
+        if (smId != null && scope.idsToSearch.has(smId)) return true
+        const cId = item.chapter_id ?? item.chapterId
+        if (cId != null && (chapterIdSet.has(cId) || chapterIdSet.has(String(cId)))) return true
+        const tId = item.topic_id ?? item.topicId
+        if (tId != null && (topicIdSet.has(tId) || topicIdSet.has(String(tId)))) return true
+        return false
+      }
+
+      const videos = allVideos.filter(matchesScope).length
+      const pdfs = allPdfs.filter(matchesScope).length
+      const topicTests = allTests.filter(matchesScope).length
+
+      return {
+        _id: subject._id,
+        slug: subject.slug,
+        title: subject.name, // Mapping name to title for frontend
+        icon: subject.icon,
+        topics: topicsCount,
+        chapters: subjectChapters.length,
+        videos: videos,
+        pdf: pdfs,
+        tests: topicTests,
+        color: subject.color,
+        bg: subject.color + '20', // Generate bg from color
+        description: subject.description,
+        subjectGroup: subject.subjectGroup || null, // Group label (e.g. "General Science")
+        order: subject.order || 0,
+        isActive: subject.isActive,
+        createdAt: subject.createdAt,
+        updatedAt: subject.updatedAt
+      }
+    })
 
     // Sort by order 
     materialsWithCounts.sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -132,7 +364,7 @@ router.get('/', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -191,14 +423,21 @@ async function findSubjectBySlugOrId(dbHelpers, slugOrId) {
   })
   if (!sm) return null
 
+  // Use the linked subject_id for content resolution (units, chapters, etc.)
+  // study_materials.subject_id points to subjects.id which owns the curriculum
+  const resolvedSubjectId = sm.subjectId || sm.subject_id || sm._id || sm.id
+
   // Normalize study_materials fields to match the subjects shape
   return {
     ...sm,
     name: sm.name || sm.title,
     title: sm.title || sm.name,
-    // Ensure both id shapes are present for downstream helpers
-    id: sm.id ?? sm._id,
-    _id: sm._id ?? sm.id,
+    // Use the linked subjects.id for content queries
+    id: resolvedSubjectId,
+    _id: resolvedSubjectId,
+    // Keep original study_material ids for reference
+    studyMaterialId: sm.id ?? sm._id,
+    studyMaterialNumericId: sm._id ?? sm.id,
   }
 }
 
@@ -279,11 +518,20 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
   if (typeof smId === 'number' || (typeof smId === 'string' && /^\d+$/.test(String(smId)))) {
     idsToSearch.add(parseInt(String(smId), 10))
   }
+  // Also include original study_material IDs if this was resolved from study_materials
+  if (subject?.studyMaterialNumericId != null) {
+    idsToSearch.add(subject.studyMaterialNumericId)
+    idsToSearch.add(String(subject.studyMaterialNumericId))
+  }
+  if (subject?.studyMaterialId != null) {
+    idsToSearch.add(subject.studyMaterialId)
+    idsToSearch.add(String(subject.studyMaterialId))
+  }
 
   // Also find the matching study_material record (admin panel uses study_materials table)
   // This bridges the gap between the legacy subjects table and the admin study_materials table
   try {
-    const allStudyMaterials = await dbHelpers.find('studyMaterials', { isActive: true })
+    const allStudyMaterials = await getActiveStudyMaterials(dbHelpers)
     const subjectSlug = subject?.slug
     const subjectName = (subject?.name || subject?.title || '').toLowerCase().trim()
 
@@ -319,6 +567,21 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
     }
   }
 
+  // Media may also be linked directly to a chapter or topic of this subject.
+  const fetchByLink = async (field, ids) => {
+    if (!ids || ids.length === 0) return { vids: [], pdfs: [], tests: [] }
+    try {
+      const [vids, pdfs, tests] = await Promise.all([
+        dbHelpers.find('subjectVideos', { [field]: { $in: ids }, isActive: true }),
+        dbHelpers.find('subjectPdfs', { [field]: { $in: ids }, isActive: true }),
+        dbHelpers.find('topicTests', { [field]: { $in: ids }, isActive: true }),
+      ])
+      return { vids, pdfs, tests }
+    } catch (_) {
+      return { vids: [], pdfs: [], tests: [] }
+    }
+  }
+
   if (idsToSearch.size > 0) {
     const results = await Promise.all([...idsToSearch].map(fetchForId))
     for (const { vids, pdfs, tests } of results) {
@@ -326,6 +589,18 @@ async function loadSubjectMediaBundle(dbHelpers, subject) {
       allPdfs.push(...pdfs)
       allTests.push(...tests)
     }
+  }
+
+  // Resolve the subject's chapter/topic IDs so chapter- and topic-linked media is included
+  const { chapterIds, topicIds } = await resolveSubjectMediaScope(dbHelpers, subject)
+  const linkResults = [
+    await fetchByLink('chapterId', chapterIds),
+    await fetchByLink('topicId', topicIds),
+  ]
+  for (const { vids, pdfs, tests } of linkResults) {
+    allVideos.push(...vids)
+    allPdfs.push(...pdfs)
+    allTests.push(...tests)
   }
 
   // Deduplicate by id
@@ -525,43 +800,25 @@ async function findInheritedParts(dbHelpers, subject) {
 async function resolveSubjectContent(dbHelpers, subject) {
   const subjectId = subject?.id ?? subject?._id
   if (subjectId == null) {
-    return { parts: [], chapters: [] }
+    return { units: [], chapters: [] }
   }
 
-  // 1. Fetch parts directly
-  let parts = await dbHelpers.find('subjectParts', { subjectId, isActive: true })
+  // Filter out soft-deleted units and chapters
+  const allUnits = await dbHelpers.find('units', { subjectId, isActive: true })
+  const units = allUnits.filter(u => u.isDeleted !== true && u.is_deleted !== true)
   
-  // Try inherited parts if empty
-  if (parts.length === 0 && subject.subjectGroup) {
-    const allSubjects = await dbHelpers.find('subjects', {})
-    const targetGroup = normalizeText(subject.subjectGroup)
-    const candidates = allSubjects.filter(c => c.id !== subjectId && (normalizeText(c.name) === targetGroup || c.slug === toSlug(subject.subjectGroup)))
-    
-    for (const candidate of candidates) {
-      const candidateParts = await dbHelpers.find('subjectParts', { subjectId: candidate.id, isActive: true })
-      if (candidateParts.length > 0) {
-        const keywords = getPartKeywords(subject)
-        const matched = candidateParts.filter(p => {
-          const pn = normalizeText(p.name)
-          return keywords.some(k => pn.includes(k) || k.includes(pn))
-        })
-        parts = matched.length > 0 ? matched : candidateParts
-        break
-      }
-    }
-  }
-
-  const units = await dbHelpers.find('units', { subjectId, isActive: true })
-  const chapters = await dbHelpers.find('chapters', { subjectId, isActive: true })
+  const allChapters = await dbHelpers.find('chapters', { subjectId, isActive: true })
+  const chapters = allChapters.filter(c => c.isDeleted !== true && c.is_deleted !== true)
   
   const chapterIdCandidates = [...new Set(chapters.flatMap(c => [c.id, c._id].filter(v => v != null && v !== '')))]
-  const topics = chapterIdCandidates.length > 0 
+  const allTopics = chapterIdCandidates.length > 0 
     ? await dbHelpers.find('topics', { chapterId: { $in: chapterIdCandidates }, isActive: true })
     : []
+  const topics = allTopics.filter(t => t.isDeleted !== true && t.is_deleted !== true)
 
   const { allVideos, allPdfs, allTests } = await loadSubjectMediaBundle(dbHelpers, subject)
 
-  // 2. Build Chapters
+  // 1. Build Chapters
   const enrichedChapters = chapters.map(chapter => {
     const chapterTopics = topics.filter(t => looseIdEquals(t.chapterId, chapter.id) || looseIdEquals(t.chapterId, chapter._id)).sort(sortByOrderAndId)
     
@@ -589,7 +846,7 @@ async function resolveSubjectContent(dbHelpers, subject) {
     }
   }).sort(sortByOrderAndId)
 
-  // 3. Build Units
+  // 2. Build Units
   const enrichedUnits = units.map(unit => {
     const unitChapters = enrichedChapters.filter(c => looseIdEquals(c.unitId, unit.id) || looseIdEquals(c.unitId, unit._id))
     return {
@@ -598,7 +855,7 @@ async function resolveSubjectContent(dbHelpers, subject) {
     }
   }).sort(sortByOrderAndId)
 
-  // 4. Handle orphaned chapters (no unit match)
+  // 3. Handle orphaned chapters (no unit match)
   const chaptersWithUnit = new Set(enrichedUnits.flatMap(u => u.chapters).map(c => c.id))
   const orphanedChapters = enrichedChapters.filter(c => !chaptersWithUnit.has(c.id))
   
@@ -608,36 +865,12 @@ async function resolveSubjectContent(dbHelpers, subject) {
       _id: 'general-unit',
       name: 'Additional Topics',
       slug: 'additional-topics',
-      chapters: orphanedChapters,
-      partId: null // Mark for general part
-    })
-  }
-
-  // 5. Build Parts
-  const enrichedParts = parts.map(part => {
-    const partUnits = enrichedUnits.filter(u => looseIdEquals(u.partId, part.id) || looseIdEquals(u.partId, part._id))
-    return {
-      ...part,
-      units: partUnits
-    }
-  }).sort(sortByOrderAndId)
-
-  // 6. Handle orphaned units (no part match)
-  const unitsWithPart = new Set(enrichedParts.flatMap(p => p.units).map(u => u.id))
-  const orphanedUnits = enrichedUnits.filter(u => !unitsWithPart.has(u.id))
-  
-  if (orphanedUnits.length > 0) {
-    enrichedParts.push({
-      id: 'general-part',
-      _id: 'general-part',
-      name: 'Additional Contents',
-      slug: 'additional-contents',
-      units: orphanedUnits
+      chapters: orphanedChapters
     })
   }
 
   return {
-    parts: enrichedParts,
+    units: enrichedUnits,
     chapters: enrichedChapters
   }
 }
@@ -709,25 +942,22 @@ router.get('/:slugOrId', async (req, res) => {
 
     const finalChapters = generalChapter ? [...allChapters, generalChapter] : allChapters
 
-    // Inject unmatched content into the parts hierarchy so the hierarchy view renders it.
-    // We add it as a synthetic Part → Unit → Chapter so it appears regardless of view mode.
-    let finalParts = resolvedContent.parts || []
+    // Build the units array for the frontend, injecting the general chapter as an extra unit if needed
+    let finalUnits = resolvedContent.units || []
     if (generalChapter) {
-      const syntheticPart = {
-        id: 'general-part',
-        _id: 'general-part',
+      finalUnits = [...finalUnits, {
+        id: 'general-unit',
+        _id: 'general-unit',
         name: 'Additional Content',
         slug: 'additional-content',
-        units: [{
-          id: 'general-unit',
-          _id: 'general-unit',
-          name: 'Additional Content',
-          slug: 'additional-content',
-          chapters: [generalChapter],
-        }],
-      }
-      finalParts = [...finalParts, syntheticPart]
+        chapters: [generalChapter],
+      }]
     }
+
+    // Build legacy `parts` wrapper from the units for backward compatibility
+    const finalParts = finalUnits.length > 0
+      ? [{ id: 'main', name: null, units: finalUnits }]
+      : []
 
     res.json({
       success: true,
@@ -741,7 +971,8 @@ router.get('/:slugOrId', async (req, res) => {
         tests: allTests.length || counts.tests,
         bg: (material.color || '#667eea') + '20',
         chapters: finalChapters,   // flat list (used by fallback view)
-        parts: finalParts,          // hierarchical structure (used by hierarchy view)
+        units: finalUnits,         // unit hierarchy with nested chapters
+        parts: finalParts,         // legacy parts wrapper (hierarchy view)
         // Subject-level lists for direct rendering
         videosList: allVideos.map(mapVideoForClient),
         pdfsList: allPdfs.map(mapPdfForClient),
@@ -751,7 +982,7 @@ router.get('/:slugOrId', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -759,142 +990,139 @@ router.get('/:slugOrId', async (req, res) => {
 // @route   GET /api/videos/hierarchical
 // @desc    Get all videos organized by subject-chapter-topic hierarchy
 // @access  Public
-router.get('/videos/hierarchical', async (req, res) => {
+router.get('/videos/hierarchical', responseCache("study-videos-hierarchical", 120), async (req, res) => {
   try {
-    // Get all active subjects
-    const subjects = await dbHelpers.find('subjects', { isActive: true })
-    
-    // Get all videos from subjectVideos collection
-    const allVideos = await dbHelpers.find('subjectVideos', { isActive: true })
-    
-    // Get all topics (chapters)
-    const allTopics = await dbHelpers.find('topics', { isActive: true })
-    
-    // Build hierarchical structure
-    const hierarchicalData = subjects.map(subject => {
-      // Get chapters for this subject (topics without parentTopicId)
-      const subjectChapters = allTopics.filter(t => 
-        t.subject === subject.name && !t.parentTopicId
+    // Use a single SQL query with CTEs to fetch everything in one round-trip
+    const { rows: hierarchicalData } = await pool.query(`
+      WITH active_subjects AS (
+        SELECT id, name, slug, icon, color, description, sort_order
+        FROM subjects WHERE is_active = true AND (is_deleted IS NOT TRUE)
+      ),
+      active_chapters AS (
+        SELECT id, title, slug, description, subject_id, order_index
+        FROM subject_chapters WHERE is_active = true AND (is_deleted IS NOT TRUE)
+      ),
+      active_topics AS (
+        SELECT id, name, slug, description, subject_id, chapter_id, order_index
+        FROM subject_topics WHERE is_active = true AND (is_deleted IS NOT TRUE)
+      ),
+      active_videos AS (
+        SELECT id, title, slug, description, video_url, thumbnail, duration,
+               order_index, is_pro, chapter_id, topic_id, created_at, public_id
+        FROM subject_videos WHERE is_active = true AND (is_deleted IS NOT TRUE)
+      ),
+      subject_stats AS (
+        SELECT s.id AS subject_id, s.name, s.slug, s.icon, s.color, s.description, s.sort_order,
+               (
+                 SELECT COUNT(*)::int FROM active_videos v
+                 LEFT JOIN active_chapters ch ON v.chapter_id = ch.id
+                 LEFT JOIN active_topics tp ON v.topic_id = tp.id
+                 WHERE ch.subject_id = s.id OR tp.subject_id = s.id
+               ) AS total_videos
+        FROM active_subjects s
+      ),
+      chapter_data AS (
+        SELECT ch.subject_id,
+               json_agg(
+                 json_build_object(
+                   'id', ch.id, '_id', ch.id, 'title', ch.title, 'slug', ch.slug,
+                   'description', ch.description,
+                   'videoCount', (
+                     SELECT COUNT(*)::int FROM active_videos v WHERE v.chapter_id = ch.id
+                   ),
+                   'videos', (
+                     SELECT COALESCE(json_agg(
+                       json_build_object(
+                         'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                         'description', v.description, 'videoUrl', v.video_url,
+                         'thumbnail', v.thumbnail, 'duration', v.duration,
+                         'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                         'instructor', 'Expert Faculty', 'views', 0,
+                         'createdAt', v.created_at
+                       ) ORDER BY v.order_index, v.id
+                     ), '[]'::json)
+                      FROM active_videos v WHERE v.chapter_id = ch.id AND v.topic_id IS NULL
+                   ),
+                   'topics', (
+                     SELECT COALESCE(json_agg(
+                       json_build_object(
+                         'id', tp.id, '_id', tp.id, 'title', tp.name, 'slug', tp.slug,
+                         'description', tp.description,
+                         'videoCount', (
+                           SELECT COUNT(*)::int FROM active_videos v WHERE v.topic_id = tp.id
+                         ),
+                         'videos', (
+                           SELECT COALESCE(json_agg(
+                             json_build_object(
+                               'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                               'description', v.description, 'videoUrl', v.video_url,
+                               'thumbnail', v.thumbnail, 'duration', v.duration,
+                               'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                               'instructor', 'Expert Faculty', 'views', 0,
+                               'createdAt', v.created_at
+                             ) ORDER BY v.order_index, v.id
+                           ), '[]'::json)
+                           FROM active_videos v WHERE v.topic_id = tp.id
+                         )
+                       ) ORDER BY tp.order_index, tp.id
+                     ), '[]'::json)
+                     FROM active_topics tp WHERE tp.chapter_id = ch.id
+                   )
+                 ) ORDER BY ch.order_index, ch.id
+               ) AS chapters_json
+        FROM active_chapters ch
+        WHERE EXISTS (SELECT 1 FROM active_videos v WHERE v.chapter_id = ch.id)
+           OR EXISTS (
+             SELECT 1 FROM active_topics tp
+             WHERE tp.chapter_id = ch.id
+               AND EXISTS (SELECT 1 FROM active_videos v WHERE v.topic_id = tp.id)
+           )
+        GROUP BY ch.subject_id
+      ),
+      unassigned_data AS (
+        SELECT COALESCE(ch.subject_id, tp.subject_id) AS subject_id,
+               json_agg(
+                 json_build_object(
+                   'id', v.id, '_id', v.id, 'publicId', v.public_id, 'title', v.title, 'slug', v.slug,
+                   'description', v.description, 'videoUrl', v.video_url,
+                   'thumbnail', v.thumbnail, 'duration', v.duration,
+                   'isPro', v.is_pro, 'isFree', NOT v.is_pro,
+                   'instructor', 'Expert Faculty', 'views', 0,
+                   'createdAt', v.created_at
+                 ) ORDER BY v.order_index, v.id
+               ) AS unassigned_json
+        FROM active_videos v
+        LEFT JOIN active_chapters ch ON v.chapter_id = ch.id
+        LEFT JOIN active_topics tp ON v.topic_id = tp.id
+        WHERE v.chapter_id IS NULL AND v.topic_id IS NULL
+        GROUP BY COALESCE(ch.subject_id, tp.subject_id)
       )
-      
-      // Get topics for this subject (topics with parentTopicId)
-      const subjectTopics = allTopics.filter(t => 
-        t.subject === subject.name && t.parentTopicId
-      )
-      
-      // Get videos for this subject
-      const subjectVideos = allVideos.filter(v => 
-        v.subject === subject.name || v.studyMaterialId === subject._id
-      )
-      
-      // Build chapters with their topics and videos
-      const chaptersWithContent = subjectChapters.map(chapter => {
-        const chapterVideos = subjectVideos.filter(v => 
-          v.chapterId === chapter._id || v.chapterId === chapter.id
-        )
-        
-        // Get topics under this chapter
-        const chapterTopics = subjectTopics.filter(t => 
-          t.parentTopicId === chapter._id || t.parentTopicId === chapter.id
-        )
-        
-        // Build topics with their videos
-        const topicsWithVideos = chapterTopics.map(topic => {
-          const topicVideos = subjectVideos.filter(v => 
-            v.topicId === topic._id || v.topicId === topic.id
-          )
-          
-          return {
-            _id: topic._id,
-            id: topic.id,
-            title: topic.name,
-            slug: topic.slug,
-            description: topic.description,
-            videoCount: topicVideos.length,
-            videos: topicVideos.map(v => ({
-              _id: v._id,
-              id: v.id,
-              title: v.title,
-              slug: v.slug,
-              description: v.description,
-              videoUrl: v.videoUrl,
-              thumbnail: v.thumbnail,
-              duration: v.duration,
-              isPro: v.isPro,
-              isFree: !v.isPro,
-              instructor: v.instructor || 'Expert Faculty',
-              views: v.views || 0
-            }))
-          }
-        })
-        
-        return {
-          _id: chapter._id,
-          id: chapter.id,
-          title: chapter.name,
-          slug: chapter.slug,
-          description: chapter.description,
-          icon: chapter.icon,
-          videoCount: chapterVideos.length,
-          videos: chapterVideos.map(v => ({
-            _id: v._id,
-            id: v.id,
-            title: v.title,
-            slug: v.slug,
-            description: v.description,
-            videoUrl: v.videoUrl,
-            thumbnail: v.thumbnail,
-            duration: v.duration,
-            isPro: v.isPro,
-            isFree: !v.isPro,
-            instructor: v.instructor || 'Expert Faculty',
-            views: v.views || 0
-          })),
-          topics: topicsWithVideos
-        }
-      })
-      
-      return {
-        _id: subject._id,
-        id: subject.id,
-        title: subject.name,
-        slug: subject.slug,
-        icon: subject.icon,
-        color: subject.color,
-        description: subject.description,
-        subjectGroup: subject.subjectGroup || null,
-        totalVideos: subjectVideos.length,
-        chapters: chaptersWithContent,
-        // Videos not assigned to any chapter
-        unassignedVideos: subjectVideos
-          .filter(v => !v.chapterId)
-          .map(v => ({
-            _id: v._id,
-            id: v.id,
-            title: v.title,
-            slug: v.slug,
-            description: v.description,
-            videoUrl: v.videoUrl,
-            thumbnail: v.thumbnail,
-            duration: v.duration,
-            isPro: v.isPro,
-            isFree: !v.isPro,
-            instructor: v.instructor || 'Expert Faculty',
-            views: v.views || 0
-          }))
-      }
-    }).filter(subject => subject.totalVideos > 0 || subject.chapters.length > 0)
-    
+      SELECT json_agg(
+        json_build_object(
+          'id', ss.subject_id, '_id', ss.subject_id, 'title', ss.name, 'slug', ss.slug,
+          'icon', ss.icon, 'color', ss.color, 'description', ss.description,
+          'totalVideos', ss.total_videos,
+          'chapters', COALESCE(cd.chapters_json, '[]'::json),
+          'unassignedVideos', COALESCE(ud.unassigned_json, '[]'::json)
+        ) ORDER BY ss.sort_order, ss.name
+      ) AS data
+      FROM subject_stats ss
+      LEFT JOIN chapter_data cd ON cd.subject_id = ss.subject_id
+      LEFT JOIN unassigned_data ud ON ud.subject_id = ss.subject_id
+    `)
+
+    const result = hierarchicalData[0]?.data || []
+
     res.json({
       success: true,
-      count: hierarchicalData.length,
-      data: hierarchicalData
+      count: result.length,
+      data: result
     })
   } catch (error) {
     console.error('Error fetching hierarchical videos:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -925,7 +1153,7 @@ router.get('/:slugOrId/chapters', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })

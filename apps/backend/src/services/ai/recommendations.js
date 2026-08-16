@@ -21,13 +21,34 @@ export const analyzeUserPerformance = async (userId) => {
       t.id as topic_id,
       s.name as subject_name,
       COUNT(*) as total_attempted,
-      SUM(CASE WHEN (ua.answer->>'selectedOption')::int = q.correct_option THEN 1 ELSE 0 END) as correct,
-       AVG(CASE WHEN LOWER(q.difficulty) = 'easy' THEN 1 WHEN LOWER(q.difficulty) = 'medium' THEN 2 WHEN LOWER(q.difficulty) = 'hard' THEN 3 ELSE 2 END) as avg_difficulty_numeric
+      SUM(CASE WHEN (
+        CASE 
+          WHEN jsonb_typeof(ua.answer->'selectedOption') = 'number' THEN (ua.answer->>'selectedOption')::int
+          WHEN ua.answer->>'selectedOption' ~ '^-?[0-9]+$' THEN (ua.answer->>'selectedOption')::int
+          ELSE NULL 
+        END
+      ) = q.correct_option THEN 1 ELSE 0 END) as correct,
+      AVG(CASE 
+        WHEN LOWER(q.difficulty::text) IN ('easy', '1') THEN 1 
+        WHEN LOWER(q.difficulty::text) IN ('medium', '2') THEN 2 
+        WHEN LOWER(q.difficulty::text) IN ('hard', '3') THEN 3 
+        ELSE 2 
+      END) as avg_difficulty_numeric
     FROM attempts a
     CROSS JOIN jsonb_array_elements(CASE WHEN jsonb_typeof(a.answers) = 'array' THEN a.answers ELSE '[]'::jsonb END) as ua(answer)
-    JOIN questions q ON q.id = (ua.answer->>'questionId')::int
-    JOIN topics t ON t.id = q.topic_id
-    JOIN subjects s ON s.id = q.subject
+    JOIN questions q ON q.id = (
+      CASE 
+        WHEN jsonb_typeof(ua.answer->'questionId') = 'number' THEN (ua.answer->>'questionId')::int
+        WHEN ua.answer->>'questionId' ~ '^[0-9]+$' THEN (ua.answer->>'questionId')::int
+        ELSE NULL 
+      END
+    )
+    JOIN subject_topics t ON t.id = q.topic_id
+    JOIN subjects s ON (
+      s.id = q.subject_id
+      OR (q.subject IS NOT NULL AND q.subject::text ~ '^[0-9]+$' AND s.id = q.subject::text::int)
+      OR (q.subject IS NOT NULL AND NOT (q.subject::text ~ '^[0-9]+$') AND LOWER(s.name) = LOWER(q.subject::text))
+    )
     WHERE a.user_id = $1 AND a.status = 'completed'
     GROUP BY t.id, t.name, s.name
   `, [userId])

@@ -37,7 +37,7 @@ BEGIN
     ALTER TABLE questions ADD COLUMN IF NOT EXISTS subtopic_id INTEGER REFERENCES subtopics(id) ON DELETE SET NULL;
     
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'questions' AND indexname = 'idx_questions_subtopic_id') THEN
-      CREATE INDEX idx_questions_subtopic_id ON questions(subtopic_id) WHERE subtopic_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_questions_subtopic_id ON questions(subtopic_id) WHERE subtopic_id IS NOT NULL;
     END IF;
   END IF;
 END $$;
@@ -92,7 +92,7 @@ DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'test_id') THEN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'questions' AND indexname = 'idx_questions_test') THEN
-      CREATE INDEX idx_questions_test ON questions(test_id) WHERE test_id IS NOT NULL;
+      CREATE INDEX IF NOT EXISTS idx_questions_test ON questions(test_id) WHERE test_id IS NOT NULL;
     END IF;
   END IF;
 END $$;

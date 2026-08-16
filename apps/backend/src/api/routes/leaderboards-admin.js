@@ -1,24 +1,35 @@
 import express from 'express'
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { restrictAdminOrigin, validateAdminApiKey } from '../../middleware/origin.middleware.js'
+import { loadAdminPermissions, requireAdminPermission } from '../../middleware/admin-permission.middleware.js'
+import { auditMiddleware } from '../../middleware/audit.middleware.js'
+import { validateCsrfToken } from '../../middleware/csrf.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
-// Apply auth and admin middleware to all routes
+// Apply full admin security chain to all leaderboard admin routes
+router.use(restrictAdminOrigin)
+router.use(validateAdminApiKey)
+router.use(validateCsrfToken)
 router.use(protect)
 router.use(admin)
+router.use(loadAdminPermissions)
+router.use(requireAdminPermission)
+router.use(auditMiddleware({ includeBody: true }))
 
 // ===== LEADERBOARD ADMIN ROUTES =====
 
-// @route   GET /api/leaderboards/admin/attempts
+// @route   GET /api/leaderboards/admin/attempts or /api/admin/leaderboards/attempts
 // @desc    Get leaderboard data directly from attempts (no leaderboard config needed)
 // @access  Private/Admin
-router.get('/admin/attempts', async (req, res) => {
+router.get(['/admin/attempts', '/attempts'], async (req, res) => {
   try {
     const { testId, seriesId, limit = 50 } = req.query
     
     // Fetch completed attempts
-    const query = { isCompleted: true }
+    const query = { isCompleted: true, is_deleted: false }
     if (testId) query.testId = testId
     if (seriesId) query.seriesId = seriesId
     
@@ -68,17 +79,17 @@ router.get('/admin/attempts', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-// @route   GET /api/leaderboards/admin/list
+// @route   GET /api/leaderboards/admin/list or /api/admin/leaderboards/list
 // @desc    Get all leaderboards (including inactive) with stats - Admin
 // @access  Private/Admin
-router.get('/admin/list', async (req, res) => {
+router.get(['/admin/list', '/list'], async (req, res) => {
   try {
     const { page = 1, limit = 20, isActive, type } = req.query
-    const leaderboards = await dbHelpers.find('leaderboards')
+    const leaderboards = await dbHelpers.find('leaderboards', { is_deleted: false, includeInactive: true })
     
     let filtered = leaderboards
     if (isActive !== undefined) {
@@ -107,7 +118,7 @@ router.get('/admin/list', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -116,7 +127,14 @@ router.get('/admin/list', async (req, res) => {
 // @access  Private/Admin
 router.post('/', async (req, res) => {
   try {
-    const { name, description, type, scope, scopeId, period, startDate, endDate, rankingCriteria, isPublished, showOnHomepage, maxRankings } = req.body
+    const { name, description, type, scope, period,
+      scopeId, scope_id,
+      startDate, start_date,
+      endDate, end_date,
+      rankingCriteria, ranking_criteria,
+      isPublished, is_published,
+      showOnHomepage, show_on_homepage,
+      maxRankings, max_rankings } = req.body
 
     if (!name) {
       return res.status(400).json({
@@ -130,20 +148,18 @@ router.post('/', async (req, res) => {
       description: description || '',
       type: type || 'test',
       scope: scope || 'global',
-      scopeId: scopeId || null,
+      scope_id: scopeId ?? scope_id ?? null,
       period: period || 'all-time',
-      startDate: startDate || null,
-      endDate: endDate || null,
-      rankingCriteria: rankingCriteria || ['score', 'timeTaken'],
-      isPublished: isPublished || false,
-      showOnHomepage: showOnHomepage || false,
-      maxRankings: maxRankings || 100,
+      start_date: startDate ?? start_date ?? null,
+      end_date: endDate ?? end_date ?? null,
+      ranking_criteria: rankingCriteria ?? ranking_criteria ?? ['score', 'timeTaken'],
+      is_published: isPublished ?? is_published ?? false,
+      show_on_homepage: showOnHomepage ?? show_on_homepage ?? false,
+      max_rankings: maxRankings ?? max_rankings ?? 100,
       rankings: [],
-      totalParticipants: 0,
-      isActive: true,
-      createdBy: req.user.id,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      total_participants: 0,
+      is_active: true,
+      created_by: req.user.id,
     })
 
     res.status(201).json({
@@ -152,7 +168,7 @@ router.post('/', async (req, res) => {
       message: 'Leaderboard created successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -162,7 +178,15 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params
-    const { name, description, type, scope, scopeId, period, startDate, endDate, rankingCriteria, isPublished, showOnHomepage, maxRankings, isActive } = req.body
+    const { name, description, type, scope, period,
+      scopeId, scope_id,
+      startDate, start_date,
+      endDate, end_date,
+      rankingCriteria, ranking_criteria,
+      isPublished, is_published,
+      showOnHomepage, show_on_homepage,
+      maxRankings, max_rankings,
+      isActive, is_active } = req.body
 
     const leaderboard = await dbHelpers.findById('leaderboards', id)
     if (!leaderboard) {
@@ -178,15 +202,23 @@ router.put('/:id', async (req, res) => {
     if (description !== undefined) updateData.description = description
     if (type !== undefined) updateData.type = type
     if (scope !== undefined) updateData.scope = scope
-    if (scopeId !== undefined) updateData.scopeId = scopeId
+    const resolvedScopeId = scopeId ?? scope_id
+    if (resolvedScopeId !== undefined) updateData.scope_id = resolvedScopeId
     if (period !== undefined) updateData.period = period
-    if (startDate !== undefined) updateData.startDate = startDate
-    if (endDate !== undefined) updateData.endDate = endDate
-    if (rankingCriteria !== undefined) updateData.rankingCriteria = rankingCriteria
-    if (isPublished !== undefined) updateData.isPublished = isPublished
-    if (showOnHomepage !== undefined) updateData.showOnHomepage = showOnHomepage
-    if (maxRankings !== undefined) updateData.maxRankings = maxRankings
-    if (isActive !== undefined) updateData.isActive = isActive
+    const resolvedStartDate = startDate ?? start_date
+    if (resolvedStartDate !== undefined) updateData.start_date = resolvedStartDate
+    const resolvedEndDate = endDate ?? end_date
+    if (resolvedEndDate !== undefined) updateData.end_date = resolvedEndDate
+    const resolvedRankingCriteria = rankingCriteria ?? ranking_criteria
+    if (resolvedRankingCriteria !== undefined) updateData.ranking_criteria = resolvedRankingCriteria
+    const resolvedIsPublished = isPublished ?? is_published
+    if (resolvedIsPublished !== undefined) updateData.is_published = resolvedIsPublished
+    const resolvedShowOnHomepage = showOnHomepage ?? show_on_homepage
+    if (resolvedShowOnHomepage !== undefined) updateData.show_on_homepage = resolvedShowOnHomepage
+    const resolvedMaxRankings = maxRankings ?? max_rankings
+    if (resolvedMaxRankings !== undefined) updateData.max_rankings = resolvedMaxRankings
+    const resolvedIsActive = isActive ?? is_active
+    if (resolvedIsActive !== undefined) updateData.is_active = resolvedIsActive
 
     const updated = await dbHelpers.updateById('leaderboards', id, updateData)
     
@@ -196,7 +228,7 @@ router.put('/:id', async (req, res) => {
       message: 'Leaderboard updated successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -222,7 +254,7 @@ router.delete('/:id', async (req, res) => {
       message: 'Leaderboard moved to trash'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -242,7 +274,7 @@ router.post('/:id/recalculate', async (req, res) => {
     }
 
     // Fetch attempts for this leaderboard scope
-    const query = { isCompleted: true }
+    const query = { isCompleted: true, is_deleted: false }
     if (leaderboard.scope === 'test' && leaderboard.scopeId) {
       query.testId = leaderboard.scopeId
     } else if (leaderboard.scope === 'series' && leaderboard.scopeId) {
@@ -291,7 +323,7 @@ router.post('/:id/recalculate', async (req, res) => {
 
     // Sort by ranking criteria
     const criteria = leaderboard.rankingCriteria || ['score', 'timeTaken']
-    const rankings = Object.values(userScores).sort((a, b) => {
+    const sortedRankings = Object.values(userScores).sort((a, b) => {
       for (const criterion of criteria) {
         if (criterion === 'bestScore' || criterion === 'score') {
           if (b.bestScore !== a.bestScore) return b.bestScore - a.bestScore
@@ -302,14 +334,16 @@ router.post('/:id/recalculate', async (req, res) => {
         }
       }
       return 0
-    }).slice(0, leaderboard.maxRankings || 100).map((user, index) => ({
+    })
+    const rankedPoolSize = sortedRankings.length || 1
+    const rankings = sortedRankings.slice(0, leaderboard.maxRankings || 100).map((user, index) => ({
       rank: index + 1,
       userId: user.userId,
       name: '',
       score: criteria.includes('bestScore') ? user.bestScore : user.totalScore,
       totalAttempts: user.totalAttempts,
       accuracy: 0,
-      percentile: (((rankings?.length || 0) - index) / (allAttempts.length || 1) * 100).toFixed(1),
+      percentile: (((rankedPoolSize - index) / rankedPoolSize) * 100).toFixed(1),
       isPro: false
     }))
 
@@ -328,7 +362,7 @@ router.post('/:id/recalculate', async (req, res) => {
       participantsCount: Object.keys(userScores).length
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -359,7 +393,7 @@ router.post('/:id/reset', async (req, res) => {
       message: 'Leaderboard reset successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -389,16 +423,16 @@ router.post('/:id/archive', async (req, res) => {
       message: archive !== false ? 'Leaderboard archived' : 'Leaderboard unarchived'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-// @route   GET /api/leaderboards/admin/stats
+// @route   GET /api/leaderboards/admin/stats or /api/admin/leaderboards/stats
 // @desc    Get leaderboard statistics - Admin
 // @access  Private/Admin
-router.get('/admin/stats', async (req, res) => {
+router.get(['/admin/stats', '/stats'], async (req, res) => {
   try {
-    const leaderboards = await dbHelpers.find('leaderboards')
+    const leaderboards = await dbHelpers.find('leaderboards', { is_deleted: false, includeInactive: true })
     
     const stats = {
       total: leaderboards.length,
@@ -422,7 +456,7 @@ router.get('/admin/stats', async (req, res) => {
       data: stats
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

@@ -46,7 +46,7 @@ export const generateProfile = async (userId) => {
         SELECT q.id, q.correct_option, q.difficulty, q.topic_id, q.subject,
                t.name as topic_name, s.name as subject_name
         FROM questions q
-        LEFT JOIN topics t ON q.topic_id = t.id
+        LEFT JOIN subject_topics t ON q.topic_id = t.id
         LEFT JOIN subjects s ON q.subject = s.id
         WHERE q.id IN (${pl})
       `, qIds)
@@ -159,7 +159,7 @@ export const generateProfile = async (userId) => {
 
 export const getProfile = async (userId) => {
   const result = await pool.query(
-    "SELECT * FROM user_learning_profiles WHERE user_id = $1",
+    "SELECT user_id, strengths, weaknesses, attention_pattern, preferred_subjects, learning_speed, accuracy_trend, topic_mastery, study_habits, recommendations, confidence_score, revision_retention, time_of_day_performance, generated_at, updated_at FROM user_learning_profiles WHERE user_id = $1",
     [userId]
   )
   return result.rows[0] || null

@@ -7,11 +7,37 @@ import {
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { apiClient, adminAPI } from '../../../shared/lib/dataService'
-import api from '../../../shared/lib/api'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import { EXAM_PRESETS } from '../../../shared/config/examPresets'
+
+const CATEGORY_GROUPS = (() => {
+  const orderedCategories = [];
+  const categoryExamsMap = {};
+
+  EXAM_PRESETS.forEach(p => {
+    const cat = p.exam_category || 'Other';
+    const ex = p.exam || 'Other';
+    
+    if (!categoryExamsMap[cat]) {
+      categoryExamsMap[cat] = [];
+      orderedCategories.push(cat);
+    }
+    
+    if (!categoryExamsMap[cat].includes(ex)) {
+      categoryExamsMap[cat].push(ex);
+    }
+  });
+
+  return orderedCategories.map(cat => ({
+    category: cat,
+    exams: categoryExamsMap[cat]
+  }));
+})();
 
 const DEFAULT_SECTION_FORM = {
   name: '',
   category_id: '',
+  exam_category_id: '',
   test_id: '',
   test_series_id: '',
   stage_id: '',
@@ -57,291 +83,6 @@ function resolveCanonical(alias) {
   return sectionAliasMap[(alias || '').toLowerCase()] || alias
 }
 
-const EXAM_PRESETS = [
-  // ───────────────────── SSC CGL ─────────────────────
-  {
-    id: 'ssc-cgl-tier-1',
-    exam_category: 'SSC',
-    exam: 'CGL',
-    stage: 'Tier-I',
-    label: 'SSC CGL Tier-I',
-    description: '4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section',
-    sections: [
-      ['General Intelligence & Reasoning', 'Tier-I', 'Tier-I', '', '1', 25, 50, 2, 0.5, 900, false],
-      ['General Awareness', 'Tier-I', 'Tier-I', '', '2', 25, 50, 2, 0.5, 900, false],
-      ['Quantitative Aptitude', 'Tier-I', 'Tier-I', '', '3', 25, 50, 2, 0.5, 900, false],
-      ['English Comprehension', 'Tier-I', 'Tier-I', '', '4', 25, 50, 2, 0.5, 900, false],
-    ]
-  },
-  {
-    id: 'ssc-cgl-tier-2-paper-1',
-    exam_category: 'SSC',
-    exam: 'CGL',
-    stage: 'Tier-II',
-    label: 'SSC CGL Tier-II Paper-I',
-    description: '150 Qs + DEST, 450 marks, 2 hr 30 min, -1.00 neg',
-    sections: [
-      ['Mathematical Abilities', 'Tier-II', 'Paper-I', 'Session-I', 'I-A', 30, 90, 3, 1, 3600, false],
-      ['Reasoning & General Intelligence', 'Tier-II', 'Paper-I', 'Session-I', 'I-B', 30, 90, 3, 1, 3600, false],
-      ['English Language & Comprehension', 'Tier-II', 'Paper-I', 'Session-I', 'II-A', 45, 135, 3, 1, 3600, false],
-      ['General Awareness', 'Tier-II', 'Paper-I', 'Session-I', 'II-B', 25, 75, 3, 1, 3600, false],
-      ['Computer Knowledge Test', 'Tier-II', 'Paper-I', 'Session-I', 'III', 20, 60, 3, 1, 900, true],
-      ['Data Entry Speed Test (DEST)', 'Tier-II', 'Paper-I', 'Session-II', 'IV', 0, 0, 0, 0, 900, true],
-    ]
-  },
-  {
-    id: 'ssc-cgl-tier-2-paper-2',
-    exam_category: 'SSC',
-    exam: 'CGL',
-    stage: 'Tier-II',
-    label: 'SSC CGL Tier-II Paper-II (Statistics)',
-    description: 'Statistics paper for JSO / Statistical Investigator — 100 Qs, 200 marks, 2 hr',
-    sections: [
-      ['Statistics', 'Tier-II', 'Paper-II', '', 'Paper-II', 100, 200, 2, 0.5, 7200, false],
-    ]
-  },
-
-  // ───────────────────── SSC CHSL ─────────────────────
-  {
-    id: 'ssc-chsl-tier-1',
-    exam_category: 'SSC',
-    exam: 'CHSL',
-    stage: 'Tier-I',
-    label: 'SSC CHSL Tier-I',
-    description: '4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section',
-    sections: [
-      ['General Intelligence & Reasoning', 'Tier-I', 'Tier-I', '', '1', 25, 50, 2, 0.5, 900, false],
-      ['General Awareness', 'Tier-I', 'Tier-I', '', '2', 25, 50, 2, 0.5, 900, false],
-      ['Quantitative Aptitude', 'Tier-I', 'Tier-I', '', '3', 25, 50, 2, 0.5, 900, false],
-      ['English Language', 'Tier-I', 'Tier-I', '', '4', 25, 50, 2, 0.5, 900, false],
-    ]
-  },
-  {
-    id: 'ssc-chsl-tier-2-session-1',
-    exam_category: 'SSC',
-    exam: 'CHSL',
-    stage: 'Tier-II',
-    label: 'SSC CHSL Tier-II Session-I',
-    description: '135 Qs, 405 marks, 2 hr 15 min, -1.00 neg',
-    sections: [
-      ['Mathematical Abilities', 'Tier-II', 'Session-I', 'Session-I', 'I-M1', 30, 90, 3, 1, 3600, false],
-      ['Reasoning & General Intelligence', 'Tier-II', 'Session-I', 'Session-I', 'I-M2', 30, 90, 3, 1, 3600, false],
-      ['English Language & Comprehension', 'Tier-II', 'Session-I', 'Session-I', 'II-M1', 40, 120, 3, 1, 3600, false],
-      ['General Awareness', 'Tier-II', 'Session-I', 'Session-I', 'II-M2', 20, 60, 3, 1, 3600, false],
-      ['Computer Knowledge Test', 'Tier-II', 'Session-I', 'Session-I', 'III-M1', 15, 45, 3, 1, 900, true],
-    ]
-  },
-
-  // ───────────────────── SSC MTS ─────────────────────
-  {
-    id: 'ssc-mts-session-1',
-    exam_category: 'SSC',
-    exam: 'MTS',
-    stage: 'Session-I',
-    label: 'SSC MTS / Havaldar Session-I',
-    description: '40 Qs, 120 marks, 45 min, NO negative marking',
-    sections: [
-      ['Numerical & Mathematical Ability', 'Session-I', 'Session-I', 'Session-I', '1', 20, 60, 3, 0, 2700, false],
-      ['Reasoning Ability & Problem Solving', 'Session-I', 'Session-I', 'Session-I', '2', 20, 60, 3, 0, 2700, false],
-    ]
-  },
-  {
-    id: 'ssc-mts-session-2',
-    exam_category: 'SSC',
-    exam: 'MTS',
-    stage: 'Session-II',
-    label: 'SSC MTS / Havaldar Session-II',
-    description: '50 Qs, 150 marks, 45 min, -1.00 neg',
-    sections: [
-      ['General Awareness', 'Session-II', 'Session-II', 'Session-II', '3', 25, 75, 3, 1, 2700, false],
-      ['English Language & Comprehension', 'Session-II', 'Session-II', 'Session-II', '4', 25, 75, 3, 1, 2700, false],
-    ]
-  },
-
-  // ───────────────────── SSC CPO ─────────────────────
-  {
-    id: 'ssc-cpo-paper-1',
-    exam_category: 'SSC',
-    exam: 'CPO',
-    stage: 'Paper-I',
-    label: 'SSC CPO Paper-I',
-    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing 30 min/section',
-    sections: [
-      ['General Intelligence & Reasoning', 'Paper-I', 'Paper-I', '', '1', 50, 50, 1, 0.25, 1800, false],
-      ['General Knowledge & General Awareness', 'Paper-I', 'Paper-I', '', '2', 50, 50, 1, 0.25, 1800, false],
-      ['Quantitative Aptitude', 'Paper-I', 'Paper-I', '', '3', 50, 50, 1, 0.25, 1800, false],
-      ['English Comprehension', 'Paper-I', 'Paper-I', '', '4', 50, 50, 1, 0.25, 1800, false],
-    ]
-  },
-  {
-    id: 'ssc-cpo-paper-2',
-    exam_category: 'SSC',
-    exam: 'CPO',
-    stage: 'Paper-II',
-    label: 'SSC CPO Paper-II',
-    description: 'English Language & Comprehension — 200 Qs, 200 marks, 2 hr, -0.25 neg',
-    sections: [
-      ['English Language & Comprehension', 'Paper-II', 'Paper-II', '', 'Paper-II', 200, 200, 1, 0.25, 7200, false],
-    ]
-  },
-
-  // ───────────────────── SSC Stenographer ─────────────────────
-  {
-    id: 'ssc-steno-cbt',
-    exam_category: 'SSC',
-    exam: 'Stenographer',
-    stage: 'CBT',
-    label: 'SSC Stenographer CBT',
-    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing',
-    sections: [
-      ['General Intelligence & Reasoning', 'CBT', 'CBT', '', '1', 50, 50, 1, 0.25, 1800, false],
-      ['General Awareness', 'CBT', 'CBT', '', '2', 50, 50, 1, 0.25, 1800, false],
-      ['English Language & Comprehension', 'CBT', 'CBT', '', '3', 100, 100, 1, 0.25, 3600, false],
-    ]
-  },
-
-  // ───────────────────── SSC GD ─────────────────────
-  {
-    id: 'ssc-gd-constable',
-    exam_category: 'SSC',
-    exam: 'GD',
-    stage: 'CBT',
-    label: 'SSC GD Constable',
-    description: '80 Qs, 160 marks, 60 min, -0.25 neg, sectional timing 15 min/section',
-    sections: [
-      ['General Intelligence & Reasoning', 'CBT', 'CBT', '', '1', 20, 40, 2, 0.25, 900, false],
-      ['General Knowledge & General Awareness', 'CBT', 'CBT', '', '2', 20, 40, 2, 0.25, 900, false],
-      ['Elementary Mathematics', 'CBT', 'CBT', '', '3', 20, 40, 2, 0.25, 900, false],
-      ['English / Hindi', 'CBT', 'CBT', '', '4', 20, 40, 2, 0.25, 900, false],
-    ]
-  },
-
-  // ───────────────────── SSC JE ─────────────────────
-  {
-    id: 'ssc-je-paper-1',
-    exam_category: 'SSC',
-    exam: 'JE',
-    stage: 'Paper-I',
-    label: 'SSC JE Paper-I',
-    description: '200 Qs, 200 marks, 2 hr, -0.25 neg, no sectional timing',
-    sections: [
-      ['General Intelligence & Reasoning', 'Paper-I', 'Paper-I', '', '1', 50, 50, 1, 0.25, 7200, false],
-      ['General Awareness', 'Paper-I', 'Paper-I', '', '2', 50, 50, 1, 0.25, 7200, false],
-      ['General Engineering (Civil/Electrical/Mechanical)', 'Paper-I', 'Paper-I', '', '3', 100, 100, 1, 0.25, 7200, false],
-    ]
-  },
-  {
-    id: 'ssc-je-paper-2',
-    exam_category: 'SSC',
-    exam: 'JE',
-    stage: 'Paper-II',
-    label: 'SSC JE Paper-II',
-    description: 'General Engineering — 100 Qs, 300 marks, 2 hr, -1.00 neg',
-    sections: [
-      ['General Engineering (Civil/Electrical/Mechanical)', 'Paper-II', 'Paper-II', '', 'Paper-II', 100, 300, 3, 1, 7200, false],
-    ]
-  },
-
-  // ───────────────────── RRB NTPC ─────────────────────
-  {
-    id: 'rrb-ntpc-cbt-1',
-    exam_category: 'RRB',
-    exam: 'NTPC',
-    stage: 'CBT-1',
-    label: 'RRB NTPC CBT-1',
-    description: '100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing',
-    sections: [
-      ['General Awareness', 'CBT-1', 'CBT-1', '', '1', 40, 40, 1, 0.33, 5400, false],
-      ['Mathematics', 'CBT-1', 'CBT-1', '', '2', 30, 30, 1, 0.33, 5400, false],
-      ['General Intelligence & Reasoning', 'CBT-1', 'CBT-1', '', '3', 30, 30, 1, 0.33, 5400, false],
-    ]
-  },
-  {
-    id: 'rrb-ntpc-cbt-2',
-    exam_category: 'RRB',
-    exam: 'NTPC',
-    stage: 'CBT-2',
-    label: 'RRB NTPC CBT-2',
-    description: '120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing',
-    sections: [
-      ['General Awareness', 'CBT-2', 'CBT-2', '', '1', 50, 50, 1, 0.33, 5400, false],
-      ['Mathematics', 'CBT-2', 'CBT-2', '', '2', 35, 35, 1, 0.33, 5400, false],
-      ['General Intelligence & Reasoning', 'CBT-2', 'CBT-2', '', '3', 35, 35, 1, 0.33, 5400, false],
-    ]
-  },
-
-  // ───────────────────── RRB ALP ─────────────────────
-  {
-    id: 'rrb-alp-cbt-1',
-    exam_category: 'RRB',
-    exam: 'ALP',
-    stage: 'CBT-1',
-    label: 'RRB ALP CBT-1',
-    description: '75 Qs, 75 marks, 60 min, -1/3 neg, no sectional timing',
-    sections: [
-      ['Mathematics', 'CBT-1', 'CBT-1', '', '1', 20, 20, 1, 0.33, 3600, false],
-      ['General Intelligence & Reasoning', 'CBT-1', 'CBT-1', '', '2', 25, 25, 1, 0.33, 3600, false],
-      ['General Science', 'CBT-1', 'CBT-1', '', '3', 20, 20, 1, 0.33, 3600, false],
-      ['General Awareness & Current Affairs', 'CBT-1', 'CBT-1', '', '4', 10, 10, 1, 0.33, 3600, false],
-    ]
-  },
-  {
-    id: 'rrb-alp-cbt-2-part-a',
-    exam_category: 'RRB',
-    exam: 'ALP',
-    stage: 'CBT-2',
-    label: 'RRB ALP CBT-2 Part-A',
-    description: '100 Qs, 100 marks, 90 min, -1/3 neg',
-    sections: [
-      ['Mathematics', 'CBT-2', 'Part-A', 'Part-A', '1', 0, 0, 1, 0.33, 5400, false],
-      ['General Intelligence & Reasoning', 'CBT-2', 'Part-A', 'Part-A', '2', 0, 0, 1, 0.33, 5400, false],
-      ['Basic Science & Engineering', 'CBT-2', 'Part-A', 'Part-A', '3', 0, 0, 1, 0.33, 5400, false],
-    ]
-  },
-  {
-    id: 'rrb-alp-cbt-2-part-b',
-    exam_category: 'RRB',
-    exam: 'ALP',
-    stage: 'CBT-2',
-    label: 'RRB ALP CBT-2 Part-B (Trade)',
-    description: 'Trade-specific — 75 Qs, 75 marks, 60 min, -1/3 neg',
-    sections: [
-      ['Trade Specific (as per trade)', 'CBT-2', 'Part-B', 'Part-B', 'Part-B', 75, 75, 1, 0.33, 3600, false],
-    ]
-  },
-
-  // ───────────────────── RRB Group D ─────────────────────
-  {
-    id: 'rrb-group-d',
-    exam_category: 'RRB',
-    exam: 'Group D',
-    stage: 'CBT',
-    label: 'RRB Group D (Level-1)',
-    description: '100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing',
-    sections: [
-      ['General Science', 'CBT', 'CBT', '', '1', 25, 25, 1, 0.33, 5400, false],
-      ['Mathematics', 'CBT', 'CBT', '', '2', 25, 25, 1, 0.33, 5400, false],
-      ['General Intelligence & Reasoning', 'CBT', 'CBT', '', '3', 30, 30, 1, 0.33, 5400, false],
-      ['General Awareness & Current Affairs', 'CBT', 'CBT', '', '4', 20, 20, 1, 0.33, 5400, false],
-    ]
-  },
-
-  // ───────────────────── RPF ─────────────────────
-  {
-    id: 'rpf-constable-si',
-    exam_category: 'RRB',
-    exam: 'RPF',
-    stage: 'CBT',
-    label: 'RPF Constable / Sub-Inspector',
-    description: '120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing',
-    sections: [
-      ['General Awareness', 'CBT', 'CBT', '', '1', 50, 50, 1, 0.33, 5400, false],
-      ['Arithmetic', 'CBT', 'CBT', '', '2', 35, 35, 1, 0.33, 5400, false],
-      ['General Intelligence & Reasoning', 'CBT', 'CBT', '', '3', 35, 35, 1, 0.33, 5400, false],
-    ]
-  },
-]
-
 function SectionPreview({ existingSections, preset, seriesName, stageName }) {
   if (!preset) return null
 
@@ -373,14 +114,14 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
   const totalNewTime = willCreate.reduce((sum, s) => sum + (Number(s.time_limit) || 0), 0)
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-indigo-500" />
-          <h3 className="text-sm font-bold text-gray-700">Section Preview</h3>
-          <span className="text-xs text-gray-400">—</span>
-          <span className="text-xs font-medium text-gray-500">{seriesName} / {stageName}</span>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Section Preview</h3>
+          <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{seriesName} / {stageName}</span>
         </div>
         <div className="flex items-center gap-3 text-xs">
           {willCreate.length > 0 && (
@@ -416,8 +157,8 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900 truncate">{section.name}</span>
-                {section.exam_alias && <span className="text-xs text-gray-400">({section.exam_alias})</span>}
+                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{section.name}</span>
+                {section.exam_alias && <span className="text-xs text-gray-400 dark:text-gray-500">({section.exam_alias})</span>}
                 <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">New</span>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] mt-1">
@@ -425,7 +166,7 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
                 {section.paper && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">Paper: {section.paper}</span>}
                 {section.session && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">Session: {section.session}</span>}
                 <div className="w-px h-3 bg-gray-300 mx-1"></div>
-                <span className="text-gray-500">
+                <span className="text-gray-500 dark:text-gray-400">
                   {section.expected_questions > 0 && <span>{section.expected_questions} Qs • </span>}
                   {section.total_marks > 0 && <span>{section.total_marks} marks • </span>}
                   {section.marks_per_question > 0 && <span>{section.marks_per_question} marks/Q • </span>}
@@ -443,16 +184,16 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
         {alreadyExist.map((section, idx) => {
           const existing = existingSections.find(s => (s.name || '').toLowerCase() === section.name.toLowerCase())
           return (
-            <div key={`exist-${idx}`} className="px-4 py-2.5 flex items-center gap-3 bg-gray-50/50 opacity-70">
-              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-500 text-xs font-bold shrink-0">
+            <div key={`exist-${idx}`} className="px-4 py-2.5 flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 opacity-70">
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-500 dark:text-gray-400 text-xs font-bold shrink-0">
                 {section.section_code || idx + 1}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-600 truncate line-through decoration-gray-300">{section.name}</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate line-through decoration-gray-300">{section.name}</span>
                   <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">Exists</span>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   {existing && (
                     <>
                       <span>DB: {existing.expected_questions || 0} Qs / {existing.total_marks || 0} marks</span>
@@ -514,9 +255,19 @@ export default function SectionsManager({ testId: propTestId } = {}) {
   const [searchQuery, setSearchQuery] = useState('')
   const [testId, setTestId] = useState(propTestId || '')
   const [selectedPresetId, setSelectedPresetId] = useState(EXAM_PRESETS[0].id)
+  const [selectedPresetCategory, setSelectedPresetCategory] = useState('SSC')
+  const [selectedPresetExam, setSelectedPresetExam] = useState('CGL')
   const [deletingId, setDeletingId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([])
   const [formTab, setFormTab] = useState('basic')
   const [linkSectionPickerOpen, setLinkSectionPickerOpen] = useState(false)
+  const [activePopover, setActivePopover] = useState(null) // { id: section.id, type: 'aliases'|'exams' }
+
+  useEffect(() => {
+    const handleGlobalClick = () => setActivePopover(null)
+    window.addEventListener('click', handleGlobalClick)
+    return () => window.removeEventListener('click', handleGlobalClick)
+  }, [])
 
   useEffect(() => {
     fetchData()
@@ -541,7 +292,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
 
       // Batch metadata + sections into 2 requests instead of 7
       const [batchRes, sectionsRes] = await Promise.allSettled([
-        api.get('/admin/sections/batch'),
+        apiClient.get('/admin/sections/batch'),
         adminAPI.getSections(sectionParams),
       ])
 
@@ -825,6 +576,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
     setFormData({
       name: norm.name,
       category_id: norm.category_id || '',
+      exam_category_id: norm.exam_category_id || norm.examCategoryId || '',
       test_id: norm.test_id || '',
       test_series_id: norm.test_series_id || '',
       stage_id: norm.stage_id || '',
@@ -877,26 +629,36 @@ export default function SectionsManager({ testId: propTestId } = {}) {
     try {
       setSaving(true)
 
+      const passMarks = parseFloat(formData.passing_marks)
+      const marksPerQ = parseFloat(formData.marks_per_question)
+      const negMarks = parseFloat(formData.negative_marks)
+      const timeLimit = parseInt(formData.time_limit, 10)
+      const displayOrder = parseInt(formData.display_order, 10)
+      const expQ = parseInt(formData.expected_questions, 10)
+      const totMarks = parseFloat(formData.total_marks)
+
       const payload = {
         name: formData.name.trim(),
         category_id: formData.category_id || null,
+        exam_category_id: formData.exam_category_id || null,
         test_id: formData.test_id || null,
         test_series_id: formData.test_series_id || null,
         stage_id: formData.stage_id || null,
         description: formData.description || '',
-        passing_marks: parseInt(formData.passing_marks) || 0,
-        marks_per_question: parseFloat(formData.marks_per_question) || 2,
-        negative_marks: parseFloat(formData.negative_marks) || 0,
-        time_limit: parseInt(formData.time_limit) || 900,
+        passing_marks: Number.isFinite(passMarks) ? passMarks : 0,
+        marks_per_question: Number.isFinite(marksPerQ) ? marksPerQ : 2,
+        negative_marks: Number.isFinite(negMarks) ? negMarks : 0,
+        time_limit: Number.isFinite(timeLimit) ? timeLimit : 900,
+        duration: Math.max(1, Math.round((Number.isFinite(timeLimit) ? timeLimit : 900) / 60)),
         is_locked: Boolean(formData.is_locked),
         is_active: formData.is_active,
-        display_order: parseInt(formData.display_order) || sections.length + 1,
+        display_order: Number.isFinite(displayOrder) ? displayOrder : (sections.length + 1),
         instructions: formData.instructions || '',
         difficulty: formData.difficulty || 'medium',
         shuffle_questions: Boolean(formData.shuffle_questions),
         shuffle_options: Boolean(formData.shuffle_options),
-        expected_questions: parseInt(formData.expected_questions) || 0,
-        total_marks: parseFloat(formData.total_marks) || 0,
+        expected_questions: Number.isFinite(expQ) ? expQ : 0,
+        total_marks: Number.isFinite(totMarks) ? totMarks : 0,
         exam_stage: formData.exam_stage || null,
         paper: formData.paper || null,
         session: formData.session || null,
@@ -924,7 +686,13 @@ export default function SectionsManager({ testId: propTestId } = {}) {
   }
 
   const handleDelete = async (sectionId) => {
-    if (!confirm('Are you sure you want to delete this section?')) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Section',
+      message: 'Are you sure you want to delete this section?',
+      confirmText: 'Delete',
+      confirmStyle: 'danger'
+    })
+    if (!confirmed) return
 
     try {
       setDeletingId(sectionId)
@@ -941,6 +709,27 @@ export default function SectionsManager({ testId: propTestId } = {}) {
       toast.error(error.response?.data?.message || 'Failed to delete')
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Selected Sections',
+      message: `Delete ${selectedIds.length} selected sections?`,
+      confirmText: 'Delete All',
+      confirmStyle: 'danger'
+    })
+    if (!confirmed) return
+    try {
+      await Promise.all(selectedIds.map(id => apiClient.delete(`/admin/sections/${id}`)))
+      setSections(prev => prev.filter(s => !selectedIds.includes(s.id)))
+      setSelectedIds([])
+      toast.success(`${selectedIds.length} sections deleted`)
+    } catch (error) {
+      console.error('Bulk delete failed:', error)
+      toast.error('Failed to delete some sections')
+      fetchData()
     }
   }
 
@@ -978,11 +767,11 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         category_id: templateSection.category_id || null,
         description: templateSection.description || '',
         duration: templateSection.duration || 60,
-        passing_marks: templateSection.passing_marks || 0,
-        marks_per_question: templateSection.marks_per_question || 2,
-        negative_marks: templateSection.negative_marks || 0.5,
-        time_limit: templateSection.time_limit || 900,
-        is_locked: templateSection.is_locked || false,
+        passing_marks: templateSection.passing_marks ?? 0,
+        marks_per_question: templateSection.marks_per_question ?? 2,
+        negative_marks: templateSection.negative_marks ?? 0.5,
+        time_limit: templateSection.time_limit ?? 900,
+        is_locked: templateSection.is_locked ?? false,
         is_active: true,
         display_order: maxOrder + 1,
         instructions: templateSection.instructions || '',
@@ -1092,16 +881,6 @@ export default function SectionsManager({ testId: propTestId } = {}) {
     }
   }
 
-  const handleReorder = async (sectionId, newOrder) => {
-    try {
-      await apiClient.put(`/admin/sections/${sectionId}`, { display_order: newOrder })
-      await fetchData()
-    } catch (error) {
-      console.error('Reorder error:', error)
-      toast.error('Failed to reorder')
-    }
-  }
-
   // Stats
   const stats = useMemo(() => {
     const scopedSections = testId
@@ -1116,12 +895,12 @@ export default function SectionsManager({ testId: propTestId } = {}) {
   }, [sections, testId])
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 md:p-6">
       {/* Header and Tabs Row */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Section Manager</h1>
-          <p className="text-sm text-gray-500 hidden sm:block">Template sections. Use Linking to bind to a test series.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Section Manager</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Template sections. Use Linking to bind to a test series.</p>
         </div>
 
         {/* Tabs - Middle */}
@@ -1138,7 +917,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                 key={tab.id}
                 type="button"
                 onClick={() => switchTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2 font-medium text-sm transition-all shrink-0 rounded-lg ${isActive ? 'bg-white text-indigo-700 shadow-sm border border-slate-200/60 ring-1 ring-slate-900/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 border border-transparent'}`}
+                className={`flex items-center gap-2 px-5 py-2 font-medium text-sm transition-all shrink-0 rounded-lg ${isActive ? 'bg-white dark:bg-gray-800 text-indigo-700 shadow-sm border border-slate-200/60 ring-1 ring-slate-900/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 border border-transparent'}`}
                 title={tab.hint}
               >
                 <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
@@ -1166,14 +945,14 @@ export default function SectionsManager({ testId: propTestId } = {}) {
           {activeTab === 'linking' && (
             <div className="mb-6 space-y-4">
               {/* Scope Selector */}
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Linking Scope</h3>
+                  <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Linking Scope</h3>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Exam Category</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exam Category</label>
                     <select
                       value={linkingExamCategoryId}
                       onChange={(e) => {
@@ -1182,7 +961,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         setLinkingSeriesId('')
                         setLinkingStageId('')
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamCategoryId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamCategoryId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
                     >
                       <option value="">All categories</option>
                       {examCategories.map(c => (
@@ -1191,7 +970,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Exam</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exam</label>
                     <select
                       value={linkingExamId}
                       onChange={(e) => {
@@ -1199,7 +978,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         setLinkingSeriesId('')
                         setLinkingStageId('')
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
                       disabled={false}
                     >
                       <option value="">All exams</option>
@@ -1209,7 +988,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Test Series</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Test Series</label>
                     <select
                       value={linkingSeriesId}
                       onChange={(e) => {
@@ -1217,7 +996,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         setLinkingStageId('')
                         setLinkSectionPickerOpen(false)
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingSeriesId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingSeriesId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
                     >
                       <option value="">All series</option>
                       {linkedSeriesList.map(s => (
@@ -1226,14 +1005,14 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1">Stage</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Stage</label>
                     <select
                       value={linkingStageId}
                       onChange={(e) => {
                         setLinkingStageId(e.target.value)
                         setLinkSectionPickerOpen(false)
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingStageId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 text-gray-600 border-gray-200'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingStageId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
                       disabled={!linkingSeriesId}
                     >
                       <option value="">All stages</option>
@@ -1245,8 +1024,8 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                 </div>
 
                 {linkingSeriesId && linkingStageId && (
-                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Link Section:</span>
+                  <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Link Section:</span>
                     <div className="relative" data-section-picker>
                       <button
                         type="button"
@@ -1257,9 +1036,9 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <Plus className="w-4 h-4" /> Add Section
                       </button>
                       {linkSectionPickerOpen && (
-                        <div className="absolute z-50 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                        <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                           {sections.filter(s => !s.test_series_id && !s.stage_id).length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-gray-500">No template sections available</div>
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No template sections available</div>
                           ) : (
                             sections.filter(s => !s.test_series_id && !s.stage_id).map(s => {
                               const canonical = resolveCanonical(s.name)
@@ -1274,13 +1053,13 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                                   type="button"
                                   onClick={() => !alreadyLinked && handleLinkSection(s)}
                                   disabled={alreadyLinked}
-                                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 ${alreadyLinked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
+                                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 ${alreadyLinked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
                                 >
-                                  <span className="font-medium text-gray-900">{s.name}</span>
+                                  <span className="font-medium text-gray-900 dark:text-white">{s.name}</span>
                                   {alreadyLinked ? (
                                     <span className="text-xs text-green-600">Linked</span>
                                   ) : (
-                                    <Plus className="w-3.5 h-3.5 text-gray-400" />
+                                    <Plus className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                                   )}
                                 </button>
                               )
@@ -1290,11 +1069,11 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       )}
                     </div>
 
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2">Apply Scheme:</span>
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ml-2">Apply Scheme:</span>
                     <select
                       value={selectedPresetId}
                       onChange={(e) => setSelectedPresetId(e.target.value)}
-                      className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+                      className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
                     >
                       {EXAM_PRESETS.map(p => (
                         <option key={p.id} value={p.id}>{p.label}</option>
@@ -1331,16 +1110,74 @@ export default function SectionsManager({ testId: propTestId } = {}) {
 
           {/* Preset View */}
           {activeTab === 'presets' && (
-            <div className="space-y-6 mb-8">
-              {EXAM_PRESETS.map(preset => (
-                <SectionPreview
-                  key={preset.id}
-                  existingSections={[]}
-                  preset={preset}
-                  seriesName="Preset Scheme"
-                  stageName={preset.label}
-                />
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+              {/* Left Sidebar */}
+              <div className="lg:col-span-1 space-y-4">
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                    <h3 className="text-sm font-bold text-slate-800">Exam Categories</h3>
+                  </div>
+                  <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto">
+                    {CATEGORY_GROUPS.map(group => (
+                      <div key={group.category} className="space-y-1">
+                        <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          {group.category}
+                        </div>
+                        <div className="space-y-0.5">
+                          {group.exams.map(exam => {
+                            const isSelected = selectedPresetCategory === group.category && selectedPresetExam === exam;
+                            return (
+                              <button
+                                key={exam}
+                                onClick={() => {
+                                  setSelectedPresetCategory(group.category);
+                                  setSelectedPresetExam(exam);
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all border-l-4 ${
+                                  isSelected 
+                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold shadow-sm' 
+                                    : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                                }`}
+                              >
+                                {exam}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Content */}
+              <div className="lg:col-span-3 space-y-6">
+                <div className="bg-white dark:bg-gray-800 border border-slate-200 rounded-xl p-5 shadow-sm">
+                  <div className="flex items-center gap-2 text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5 w-fit text-xs font-bold uppercase tracking-wider">
+                    <Layers className="w-3.5 h-3.5" />
+                    {selectedPresetCategory} Exam Scheme
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900 mt-2">{selectedPresetCategory} {selectedPresetExam} Blueprint</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    Below are the official exam section configurations, including marking scheme, timing configurations and qualifying structures for each stage of {selectedPresetCategory} {selectedPresetExam}.
+                  </p>
+                </div>
+
+                {(() => {
+                  const filteredPresets = EXAM_PRESETS.filter(
+                    p => (p.exam_category || 'Other') === selectedPresetCategory && (p.exam || 'Other') === selectedPresetExam
+                  );
+                  return filteredPresets.map(preset => (
+                    <SectionPreview
+                      key={preset.id}
+                      existingSections={[]}
+                      preset={preset}
+                      seriesName="Preset Scheme"
+                      stageName={`${preset.exam_category} ${preset.exam} — ${preset.stage}`}
+                    />
+                  ));
+                })()}
+              </div>
             </div>
           )}
 
@@ -1348,25 +1185,25 @@ export default function SectionsManager({ testId: propTestId } = {}) {
             <>
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-                  <div className="text-sm text-gray-500">Total Sections</div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Total Sections</div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-                  <div className="text-sm text-gray-500">Active</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Active</div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="text-2xl font-bold text-blue-600">{stats.withQuestions}</div>
-                  <div className="text-sm text-gray-500">With Questions</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">With Questions</div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="text-2xl font-bold text-gray-900">{stats.plannedQuestions}</div>
-                  <div className="text-sm text-gray-500">Planned Qs</div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.plannedQuestions}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Planned Qs</div>
                 </div>
-                <div className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="text-2xl font-bold text-gray-900">{stats.plannedMarks}</div>
-                  <div className="text-sm text-gray-500">Planned Marks</div>
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.plannedMarks}</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">Planned Marks</div>
                 </div>
               </div>
 
@@ -1378,44 +1215,82 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     placeholder="Search sections..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full md:w-64 px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full md:w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
                   />
                 </div>
               )}
 
               {filteredSections.length === 0 ? (
-                <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No sections found</p>
-                  <p className="text-sm text-gray-400">Create your first test section</p>
+                  <p className="text-gray-500 dark:text-gray-400">No sections found</p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">Create your first test section</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                <>
+                  {selectedIds.length > 0 && (
+                    <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '8px 12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Selected: {selectedIds.length}</span>
+                      <button
+                        onClick={handleBulkDelete}
+                        style={{ marginLeft: 'auto', padding: '6px 14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit' }}
+                      >
+                        Delete Selected ({selectedIds.length})
+                      </button>
+                      <button
+                        onClick={() => setSelectedIds([])}
+                        style={{ padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit', backgroundColor: 'white' }}
+                      >
+                        Clear Selection
+                      </button>
+                    </div>
+                  )}
+                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
+                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Order</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Alias Name</th>
-                        {activeTab === 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Series / Stage</th>}
-                        {!propTestId && activeTab !== 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Exams Linked</th>}
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Qs</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Plan</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Marks</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Neg</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Locked</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Status</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.length === filteredSections.length && filteredSections.length > 0}
+                            onChange={(e) => setSelectedIds(e.target.checked ? filteredSections.map(s => s.id) : [])}
+                            style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                          />
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Order</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Alias Name</th>
+                        {activeTab === 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Series / Stage</th>}
+                        {!propTestId && activeTab !== 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Exams Linked</th>}
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Qs</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Plan</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marks</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Neg</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Locked</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       {filteredSections.map((section) => (
-                        <tr key={section.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-500">{section.display_order}</td>
+                        <tr key={section.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-4 py-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.includes(section.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) setSelectedIds([...selectedIds, section.id]);
+                                else setSelectedIds(selectedIds.filter(id => id !== section.id));
+                              }}
+                              style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{section.display_order}</td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900">{section.name}</p>
+                              <p className="font-medium text-gray-900 dark:text-white">{section.name}</p>
                               {!section.test_id && !section.test_series_id && (
                                 <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded" title="Not linked to any test">
                                   <Link className="w-3 h-3 inline" />
@@ -1423,23 +1298,111 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            <div className="font-medium text-gray-900">
-                              {section.exam_alias ? section.exam_alias : <span className="text-gray-400 italic">Same as name</span>}
-                            </div>
-                          </td>
-                          {activeTab === 'linking' && (
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              <div className="font-medium text-gray-900">{getSeriesName(section.test_series_id) || '—'}</div>
-                              <div className="text-xs text-gray-500">{getStageName(section.stage_id) || 'All stages'}</div>
-                            </td>
-                          )}
-                          {!propTestId && activeTab !== 'linking' && (
-                            <td className="px-4 py-3 text-sm text-gray-600">
-                              {section.test_id ? getTestName(section.test_id) : <span className="text-gray-400">—</span>}
-                            </td>
-                          )}
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                             <div className="font-medium text-gray-900 dark:text-white">
+                               {section.exam_alias ? (
+                                 section.exam_alias
+                               ) : section.aliases_list ? (
+                                 (() => {
+                                   const list = section.aliases_list.split(', ');
+                                   const count = list.length;
+                                   const isOpen = activePopover?.id === section.id && activePopover?.type === 'aliases';
+                                   return (
+                                     <div className="relative inline-block">
+                                       <button
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           setActivePopover(isOpen ? null : { id: section.id, type: 'aliases' });
+                                         }}
+                                         className="inline-flex items-center justify-center font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors w-7 h-7 rounded-full border border-slate-200 shadow-sm"
+                                       >
+                                         {count}
+                                       </button>
+                                       {isOpen && (
+                                         <div 
+                                           className="absolute left-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
+                                           onClick={(e) => e.stopPropagation()}
+                                         >
+                                           <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aliases ({count})</span>
+                                             <button 
+                                               onClick={() => setActivePopover(null)} 
+                                               className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
+                                             >
+                                               &times;
+                                             </button>
+                                           </div>
+                                           <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
+                                             {list.map((item, idx) => (
+                                               <li key={idx} className="px-1.5 py-1 bg-slate-50 rounded border border-slate-100">{item}</li>
+                                             ))}
+                                           </ul>
+                                         </div>
+                                       )}
+                                     </div>
+                                   );
+                                 })()
+                               ) : (
+                                 <span className="text-gray-400 dark:text-gray-500 italic">Same as name</span>
+                               )}
+                             </div>
+                           </td>
+                           {activeTab === 'linking' && (
+                             <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                               <div className="font-medium text-gray-900 dark:text-white">{getSeriesName(section.test_series_id) || '—'}</div>
+                               <div className="text-xs text-gray-500 dark:text-gray-400">{getStageName(section.stage_id) || 'All stages'}</div>
+                             </td>
+                           )}
+                           {!propTestId && activeTab !== 'linking' && (
+                             <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                               {section.test_id ? (
+                                 getTestName(section.test_id)
+                               ) : section.linked_exams ? (
+                                 (() => {
+                                   const list = section.linked_exams.split(', ');
+                                   const count = list.length;
+                                   const isOpen = activePopover?.id === section.id && activePopover?.type === 'exams';
+                                   return (
+                                     <div className="relative inline-block">
+                                       <button
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           setActivePopover(isOpen ? null : { id: section.id, type: 'exams' });
+                                         }}
+                                         className="inline-flex items-center justify-center font-bold text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors w-7 h-7 rounded-full border border-indigo-100 shadow-sm"
+                                       >
+                                         {count}
+                                       </button>
+                                       {isOpen && (
+                                         <div 
+                                           className="absolute left-0 mt-2 w-96 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
+                                           onClick={(e) => e.stopPropagation()}
+                                         >
+                                           <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Linked Exams ({count})</span>
+                                             <button 
+                                               onClick={() => setActivePopover(null)} 
+                                               className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
+                                             >
+                                               &times;
+                                             </button>
+                                           </div>
+                                           <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
+                                             {list.map((item, idx) => (
+                                               <li key={idx} className="px-1.5 py-1 bg-indigo-50/40 rounded border border-indigo-100/50 text-indigo-900">{item}</li>
+                                             ))}
+                                           </ul>
+                                         </div>
+                                       )}
+                                     </div>
+                                   );
+                                 })()
+                               ) : (
+                                 <span className="text-gray-400 dark:text-gray-500">—</span>
+                               )}
+                             </td>
+                           )}
+                           <td className="px-4 py-3">
                             <span className={`text-sm font-medium ${(section.question_count || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
                               {section.question_count || 0}
                             </span>
@@ -1447,39 +1410,39 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                               <AlertTriangle className="w-4 h-4 text-amber-500 inline ml-1" title="No questions linked" />
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                             <div>{section.expected_questions || 0} Q</div>
-                            <div className="text-xs text-gray-400">{section.total_marks || 0} marks</div>
+                            <div className="text-xs text-gray-400 dark:text-gray-500">{section.total_marks || 0} marks</div>
                             {section.is_qualifying && <div className="text-xs text-amber-700">Qualifying</div>}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                             {Math.floor((section.time_limit || 900) / 60)}m
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                             {section.marks_per_question || 2}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                             {section.negative_marks || 0}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {section.is_locked ? (
                               <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">Yes</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">No</span>
+                              <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">No</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {section.is_active ? (
                               <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Active</span>
                             ) : (
-                              <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-full">Inactive</span>
+                              <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">Inactive</span>
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
                             <div className="flex items-center justify-end gap-2">
                               <button
                                 onClick={() => openEditForm(section)}
-                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded"
+                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
                                 title="Edit"
                               >
                                 <Edit className="w-4 h-4" />
@@ -1487,7 +1450,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                               <button
                                 onClick={() => handleDelete(section.id)}
                                 disabled={deletingId === section.id}
-                                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                                 title="Delete"
                               >
                                 {deletingId === section.id ? (
@@ -1502,7 +1465,9 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
+                </>
               )}
             </>
           )}
@@ -1512,12 +1477,12 @@ export default function SectionsManager({ testId: propTestId } = {}) {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-slate-900/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-3xl my-8 bg-white shadow-2xl rounded-2xl ring-1 ring-slate-900/5 max-h-[90vh] flex flex-col overflow-hidden">
+          <div className="relative w-full max-w-3xl my-8 bg-white dark:bg-gray-800 shadow-2xl rounded-2xl ring-1 ring-slate-900/5 max-h-[90vh] flex flex-col overflow-hidden">
             {/* Header */}
             <div className="relative px-6 py-5 border-b border-slate-200 bg-gradient-to-r from-indigo-600 via-violet-600 to-fuchsia-600">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-10 h-10 bg-white/15 backdrop-blur-sm rounded-xl ring-1 ring-white/20">
+                  <div className="flex items-center justify-center w-10 h-10 bg-white dark:bg-gray-800/15 backdrop-blur-sm rounded-xl ring-1 ring-white/20">
                     <Layers className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -1578,7 +1543,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         setFormData({ ...formData, name: e.target.value })
                         if (errors.name) setErrors({ ...errors, name: null })
                       }}
-                      className={`w-full px-3.5 py-2.5 text-sm bg-white border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${errors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                      className={`w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${errors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300 hover:border-slate-400'}`}
                       placeholder="e.g., Quant, Reasoning, English"
                     />
                     {errors.name && (
@@ -1609,7 +1574,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                             setFormData({ ...formData, time_limit: e.target.value })
                             if (errors.time_limit) setErrors({ ...errors, time_limit: null })
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.time_limit ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.time_limit ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
                           min={60}
                           step={60}
                         />
@@ -1631,7 +1596,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="number"
                           value={formData.expected_questions}
                           onChange={(e) => setFormData({ ...formData, expected_questions: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           min={0}
                         />
                       </div>
@@ -1643,7 +1608,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="number"
                           value={formData.total_marks}
                           onChange={(e) => setFormData({ ...formData, total_marks: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           min={0}
                           step={0.5}
                         />
@@ -1659,7 +1624,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                             setFormData({ ...formData, marks_per_question: e.target.value })
                             if (errors.marks_per_question) setErrors({ ...errors, marks_per_question: null })
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.marks_per_question ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.marks_per_question ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
                           min={0}
                           step={0.5}
                         />
@@ -1681,7 +1646,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                             setFormData({ ...formData, negative_marks: e.target.value })
                             if (errors.negative_marks) setErrors({ ...errors, negative_marks: null })
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.negative_marks ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.negative_marks ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
                           min={0}
                           step={0.25}
                         />
@@ -1736,7 +1701,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                             type="number"
                             value={formData.display_order}
                             onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
-                            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                            className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                             min={0}
                           />
                         </div>
@@ -1755,7 +1720,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                             onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
                             className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${formData.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${formData.is_active ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData.is_active ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
                           </button>
                         </label>
                       </div>
@@ -1790,7 +1755,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                               onClick={() => setFormData({ ...formData, [toggle.key]: !formData[toggle.key] })}
                               className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${formData[toggle.key] ? 'bg-indigo-600' : 'bg-slate-300'}`}
                             >
-                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${formData[toggle.key] ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData[toggle.key] ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
                             </button>
                           </label>
                         ))}
@@ -1807,7 +1772,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     <textarea
                       value={formData.instructions}
                       onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-                      className="w-full px-3.5 py-2.5 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-none"
+                      className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-none"
                       rows={3}
                       placeholder="e.g., This section contains 25 questions. You have 30 minutes..."
                     />
@@ -1832,7 +1797,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="text"
                           value={formData.exam_stage}
                           onChange={(e) => setFormData({ ...formData, exam_stage: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Tier-I"
                         />
                       </div>
@@ -1842,7 +1807,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="text"
                           value={formData.paper}
                           onChange={(e) => setFormData({ ...formData, paper: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Paper-I"
                         />
                       </div>
@@ -1852,7 +1817,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="text"
                           value={formData.session}
                           onChange={(e) => setFormData({ ...formData, session: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Session-I"
                         />
                       </div>
@@ -1862,7 +1827,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="text"
                           value={formData.section_code}
                           onChange={(e) => setFormData({ ...formData, section_code: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="I-A"
                         />
                       </div>
@@ -1872,7 +1837,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                   {/* Section Linking Card */}
                   <div className="rounded-xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/80 to-violet-50/50 p-5 space-y-4">
                     <div className="flex items-center gap-2.5">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white shadow-sm ring-1 ring-indigo-200">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white dark:bg-gray-800 shadow-sm ring-1 ring-indigo-200">
                         <GitBranch className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div>
@@ -1886,7 +1851,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <select
                           value={formData.exam_category_id || ''}
                           onChange={(e) => setFormData({ ...formData, exam_category_id: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">Any category</option>
                           {examCategories.map(c => (
@@ -1899,7 +1864,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <select
                           value={formData.test_series_id}
                           onChange={(e) => setFormData({ ...formData, test_series_id: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">No series (template)</option>
                           {formSeriesList.map(s => (
@@ -1912,7 +1877,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <select
                           value={formData.stage_id}
                           onChange={(e) => setFormData({ ...formData, stage_id: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400 transition-colors"
                           disabled={!formData.test_series_id}
                         >
                           <option value="">All stages</option>
@@ -1926,7 +1891,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <select
                           value={formData.test_id}
                           onChange={(e) => setFormData({ ...formData, test_id: e.target.value })}
-                          className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
+                          className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">No test</option>
                           {tests.map(test => (
@@ -1946,7 +1911,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                 <button
                   type="button"
                   onClick={closeForm}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/20 transition-colors"
+                  className="flex-1 px-4 py-2.5 text-sm font-medium text-slate-700 bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:bg-slate-50 hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-500/20 transition-colors"
                 >
                   Cancel
                 </button>

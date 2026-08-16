@@ -1,5 +1,17 @@
 name: CI
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Pinned third-party actions (H29: supply-chain hardening).
+# Update the SHAs only after reviewing the upstream release.
+env:
+  ACTION_CHECKOUT: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  ACTION_SETUP_NODE: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+  ACTION_UPLOAD_ARTIFACT: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee7cdcfdb0d # v4.3.1
+  ACTION_CODEQL: github/codeql-action@f09c1c6e520d653f90ce1c7346b690dd5d4b9c28 # v3.27.4
+
 on:
   push:
     branches: [main, develop]
@@ -12,49 +24,68 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
       - run: npm run lint
 
-  test-backend:
-    name: Test Backend
+  # M54: Reduced redundant installs. test-backend/test-frontend/test-admin were
+  # three separate jobs, each running `npm ci`. They are now a single job that
+  # installs once and runs all three test filters sequentially, cutting 3 full
+  # installs to 1. All install jobs use actions/setup-node cache: 'npm' so
+  # ~/.npm is cached between runs.
+  test:
+    name: Test (Backend / Frontend / Admin)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
       - run: npm run test -- --filter=trstprep-backend
-
-  test-frontend:
-    name: Test Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
       - run: npm run test -- --filter=trstprep-frontend
-
-  test-admin:
-    name: Test Admin
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
       - run: npm run test -- --filter=trstprep-admin
+
+  # H28: Static Application Security Testing (SAST) with CodeQL
+  sast-codeql:
+    name: SAST - CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: github/codeql-action/init@f09c1c6e520d653f90ce1c7346b690dd5d4b9c28 # v3.27.4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-quality
+      - uses: github/codeql-action/autobuild@f09c1c6e520d653f90ce1c7346b690dd5d4b9c28 # v3.27.4
+      - uses: github/codeql-action/analyze@f09c1c6e520d653f90ce1c7346b690dd5d4b9c28 # v3.27.4
+
+  # H28: Supplemental SAST with Semgrep (catches issues CodeQL may miss)
+  sast-semgrep:
+    name: SAST - Semgrep
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - run: semgrep ci --sarif --output=semgrep.sarif
+        env:
+          SEMGREP_RULES: p/default p/owasp-top-ten p/javascript p/typescript
+      - uses: github/codeql-action/upload-sarif@f09c1c6e520d653f90ce1c7346b690dd5d4b9c28 # v3.27.4
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
 
   data-guard:
     name: Data Guard
@@ -63,10 +94,10 @@ jobs:
   build:
     name: Build All
     runs-on: ubuntu-latest
-    needs: [lint, test-backend, test-frontend, test-admin, data-guard]
+    needs: [lint, test, sast-codeql, sast-semgrep, data-guard]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -74,15 +105,70 @@ jobs:
       - run: npm run build
 
       - name: Upload Frontend Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee7cdcfdb0d # v4.3.1
         with:
           name: frontend-build
           path: apps/frontend/dist/
           retention-days: 7
 
       - name: Upload Admin Panel Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee7cdcfdb0d # v4.3.1
         with:
           name: admin-build
           path: apps/admin-panel/dist/
           retention-days: 7
+
+  docker-scan:
+    name: Docker Build & Scan
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build Backend Image
+        run: docker build -t trstprep-backend ./apps/backend
+      - name: Build Admin Image
+        run: docker build -t trstprep-admin ./apps/admin-panel
+      - name: Build Frontend Image
+        run: docker build -t trstprep-frontend ./apps/frontend
+      - name: Install Trivy
+        run: |
+          sudo apt-get install -y wget apt-transport-https
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+      - name: Scan Backend Image
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 trstprep-backend
+      - name: Scan Admin Image
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 trstprep-admin
+      - name: Scan Frontend Image
+        run: trivy image --severity HIGH,CRITICAL --exit-code 1 trstprep-frontend
+
+  test-migrations:
+    name: Test Migrations
+    runs-on: ubuntu-latest
+    needs: [lint]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # FIX 2.18: Use trust auth for ephemeral CI containers (no hardcoded credentials)
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - name: Run migrations against test database
+        env:
+          DATABASE_URL: postgresql://postgres@localhost:5432/test_db
+        run: node apps/backend/src/infrastructure/database/run-migrations.js

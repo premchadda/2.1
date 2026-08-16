@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -20,7 +21,7 @@ router.get('/:examId', async (req, res) => {
     
     res.json({ success: true, data: yearlyData })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -35,7 +36,7 @@ router.get('/:examId/updates', async (req, res) => {
     
     res.json({ success: true, data: updates })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -67,7 +68,7 @@ router.post('/yearly', protect, admin, async (req, res) => {
     
     res.json({ success: true, data: result })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -81,7 +82,7 @@ router.post('/updates', protect, admin, async (req, res) => {
     })
     res.status(201).json({ success: true, data: newUpdate })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -99,7 +100,7 @@ router.put('/updates/:id', protect, admin, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -112,7 +113,7 @@ router.delete('/updates/:id', protect, admin, async (req, res) => {
     }
     res.json({ success: true, message: 'Update moved to trash' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

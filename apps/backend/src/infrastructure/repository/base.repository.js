@@ -1,7 +1,40 @@
 import { dbHelpers, pool } from "../database/postgres-helpers.js";
 
+// Table name allowlist — only tables that exist in the schema can be queried.
+// Prevents SQL injection via dynamic table names in count(), queryRaw(), etc.
+const ALLOWED_TABLES = new Set([
+  'users', 'tests', 'questions', 'test_categories', 'test_series', 'test_sections',
+  'test_questions', 'attempts', 'attempt_sections', 'attempt_answers',
+  'enrollments', 'exam_categories', 'exams', 'exam_info', 'exam_seasons',
+  'exam_yearly_data', 'study_materials', 'chapters', 'topics', 'subject_parts',
+  'units', 'subtopics', 'passages', 'stages', 'sections', 'quizzes',
+  'notifications', 'subscriptions', 'subscription_plans', 'results',
+  'doubts', 'bookmarks', 'leaderboards', 'leaderboard_entries',
+  'activity_logs', 'audit_trail', 'study_groups', 'group_posts',
+  'group_post_likes', 'group_messages', 'discussions', 'discussion_replies',
+  'discussion_likes', 'blog_posts', 'referrals', 'achievements',
+  'achievements_user', 'promotions', 'coupons', 'coupon_usage',
+  'referral_codes', 'email_templates', 'navigation_items',
+  'app_settings', 'user_sessions', 'two_factor_secrets', 'backup_codes',
+  'payments', 'user_events', 'recommendations', 'learning_progress',
+  'spaced_repetition', 'daily_quiz_history', 'moderation_queue',
+  'certificates', 'content_moderation', 'tags', 'question_tags',
+  'user_activity', 'current_affairs', 'banners', 'pyp_hierarchy',
+  'roles', 'permissions', 'role_permissions', 'user_roles',
+  'uploads', 'files', 'trash', 'practice_questions', 'practice_tests',
+  'ai_usage_logs', 'ai_cache', 'practice_ai_cache', 'rate_limits',
+  'feature_flags', 'system_health', 'backups',
+]);
+
+const assertValidTable = (table) => {
+  if (!ALLOWED_TABLES.has(table)) {
+    throw new Error(`[BaseRepository] Disallowed table name: "${table}"`);
+  }
+};
+
 export class BaseRepository {
   constructor(collectionName) {
+    assertValidTable(collectionName);
     this.collection = collectionName;
     this.db = dbHelpers;
     this.pool = pool;
@@ -23,12 +56,12 @@ export class BaseRepository {
     return this.db.find(this.collection, { ...query, isActive: true });
   }
 
-  async insert(data) {
-    return this.db.insertOne(this.collection, data);
+  async insert(data, client = null) {
+    return this.db.insertOne(this.collection, data, client);
   }
 
-  async update(id, data) {
-    return this.db.updateById(this.collection, id, data);
+  async update(id, data, client = null) {
+    return this.db.updateById(this.collection, id, data, client);
   }
 
   async softDelete(id, userId) {
@@ -80,8 +113,7 @@ export class BaseRepository {
       return result.rows[0]?.count || 0;
     } catch (error) {
       console.error(`DB Count Error (${table}):`, error.message);
-      const items = await this.db.find(this.collection, query);
-      return items.length;
+      throw error;
     }
   }
 

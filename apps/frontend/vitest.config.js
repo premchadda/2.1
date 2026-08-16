@@ -8,5 +8,10 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.js'],
+    server: {
+      deps: {
+        inline: [/@trstprep\//]
+      }
+    }
   },
 })

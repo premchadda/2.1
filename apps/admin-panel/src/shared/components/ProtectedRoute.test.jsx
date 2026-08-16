@@ -66,10 +66,10 @@ describe('ProtectedRoute', () => {
     expect(screen.getByRole('heading', { name: /access denied/i })).toBeInTheDocument()
   })
 
-  test('super_admin passes the adminOnly gate', () => {
-    mockUser.mockReturnValue({ user: { id: 1, role: 'super_admin' }, loading: false })
+  test('blocks non-admin roles from adminOnly routes', () => {
+    mockUser.mockReturnValue({ user: { id: 1, role: 'moderator' }, loading: false })
     renderRoute('/admin')
-    expect(screen.getByTestId('admin-child')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /access denied/i })).toBeInTheDocument()
   })
 
   test('blocks users missing the required permission', () => {

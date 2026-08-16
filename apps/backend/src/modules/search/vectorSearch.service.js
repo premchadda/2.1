@@ -221,7 +221,7 @@ const vectorSearchService = {
             1 - (qsi.embedding <=> $1::vector) as similarity
           FROM question_search_index qsi
           JOIN questions q ON q.id = qsi.question_id
-          LEFT JOIN topics t ON t.id = q.topic_id
+          LEFT JOIN subject_topics t ON t.id = q.topic_id
           LEFT JOIN subjects s ON s.id = t.subject_id
           WHERE qsi.embedding IS NOT NULL
             AND 1 - (qsi.embedding <=> $1::vector) >= $2

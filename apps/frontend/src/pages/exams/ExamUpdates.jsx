@@ -1,13 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getExamCategories, getTests } from '../../shared/lib/dataService'
+import { getExamCategories } from '../../shared/lib/dataService';
 import api from '../../shared/lib/api'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
-import { 
-  Bell, Calendar, Clock, ChevronRight, Filter, 
-  Megaphone, FileText, AlertCircle, CheckCircle2,
-  TrendingUp, ExternalLink, Share2, ArrowRight
-} from 'lucide-react'
+import {
+  Bell,
+  Calendar,
+  Clock,
+  ChevronRight,
+  Filter,
+  Megaphone,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  TrendingUp,
+  Share2,
+  ArrowRight,
+} from 'lucide-react';
 
 function ExamUpdates() {
   const { examId } = useParams()
@@ -17,17 +26,19 @@ function ExamUpdates() {
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchData = async () => {
       try {
         setLoading(true)
-        
+
         // Fetch exam categories and info
         const categories = await getExamCategories()
-        
+        if (controller.signal.aborted) return
+
         // Find the exam
         let currentExam = null
         for (const category of categories) {
-          const found = category.exams?.find(e => 
+          const found = category.exams?.find(e =>
             e.id === examId || e.examId === examId || e.slug === examId
           )
           if (found) {
@@ -35,33 +46,37 @@ function ExamUpdates() {
             break
           }
         }
-        
+
         if (currentExam) {
           setExam(currentExam)
-          
+
           // Fetch real updates from API
           try {
-            const response = await api.get(`/api/exam-updates/${examId}`)
+            const response = await api.get(`/api/exam-info/${examId}/updates`, { signal: controller.signal })
+            if (controller.signal.aborted) return
             if (response.data?.success) {
               setUpdates(response.data.data || [])
             } else {
               setUpdates([])
             }
           } catch (err) {
-            console.error('Failed to fetch exam updates:', err)
-            setUpdates([])
+            if (err.name !== 'AbortError') {
+              console.error('Failed to fetch exam updates:', err)
+              setUpdates([])
+            }
           }
         }
       } catch (error) {
-        console.error('Error fetching exam updates:', error)
+        if (error.name !== 'AbortError') console.error('Error fetching exam updates:', error)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
-    
+
     if (examId) {
       fetchData()
     }
+    return () => controller.abort()
   }, [examId])
 
   const getUpdateIcon = (type) => {

@@ -14,21 +14,21 @@ export const useFormManager = (initialData = {}, validationRules = {}) => {
   const [touched, setTouched] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Update form field
+  // Update form field — uses functional state update to avoid stale closure over errors
   const updateField = useCallback((field, value) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
 
-    // Clear error when field is updated
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: null
-      }));
-    }
-  }, [errors]);
+    // Clear error when field is updated (functional update avoids stale errors ref)
+    setErrors(prev => {
+      if (prev[field]) {
+        return { ...prev, [field]: null };
+      }
+      return prev;
+    });
+  }, []);
 
   // Handle input change
   const handleChange = useCallback((e) => {
@@ -149,7 +149,20 @@ export const useFormManager = (initialData = {}, validationRules = {}) => {
   }, [errors]);
 
   const isDirty = useMemo(() => {
-    return JSON.stringify(formData) !== JSON.stringify(initialData);
+    const formKeys = Object.keys(formData);
+    const initialKeys = Object.keys(initialData);
+    if (formKeys.length !== initialKeys.length) return true;
+    return formKeys.some(key => {
+      const a = formData[key];
+      const b = initialData[key];
+      if (a === b) return false;
+      if (a == null || b == null) return true;
+      if (typeof a !== typeof b) return true;
+      if (typeof a === 'object') {
+        try { return JSON.stringify(a) !== JSON.stringify(b); } catch { return true; }
+      }
+      return a !== b;
+    });
   }, [formData, initialData]);
 
   return {
@@ -174,3 +187,5 @@ export const useFormManager = (initialData = {}, validationRules = {}) => {
     setErrors
   };
 };
+
+export default useFormManager;

@@ -1,10 +1,15 @@
 import express from 'express'
 import { TestCategory } from '../../data/models/index.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
 // Get all active test categories (public endpoint)
-router.get('/', async (req, res) => {
+// PERF: cache the category list for 60s; it is read on nearly every page load
+// and rarely changes, so this removes a recurring multi-second DB hit.
+router.get('/', responseCache("test-categories", 60), async (req, res) => {
   try {
     const { examCategory } = req.query
     let categories = await TestCategory.findActive()
@@ -17,12 +22,12 @@ router.get('/', async (req, res) => {
     
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
 // Get categories as tree structure (public endpoint)
-router.get('/tree', async (req, res) => {
+router.get('/tree', responseCache("test-categories-tree", 60), async (req, res) => {
   try {
     const { examCategory } = req.query
     let categories = await TestCategory.findActive()
@@ -36,7 +41,7 @@ router.get('/tree', async (req, res) => {
     const tree = TestCategory.buildTree(categories)
     res.json({ success: true, data: tree })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -50,7 +55,7 @@ router.get('/roots', async (req, res) => {
     categories.sort((a, b) => ((a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0)))
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -60,7 +65,7 @@ router.get('/by-exam-category/:examCategoryId', async (req, res) => {
     const categories = await TestCategory.findByExamCategory(req.params.examCategoryId)
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -82,7 +87,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ success: true, data: category })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -95,7 +100,7 @@ router.get('/slug/:slug', async (req, res) => {
     }
     res.json({ success: true, data: category })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -107,7 +112,7 @@ router.get('/:id/children', async (req, res) => {
     children.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
     res.json({ success: true, data: children })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -118,7 +123,7 @@ router.get('/:id/path', async (req, res) => {
     const path = TestCategory.getCategoryPath(categories, req.params.id)
     res.json({ success: true, data: path })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -128,12 +133,12 @@ router.get('/by-test-series/:testSeriesId', async (req, res) => {
     const categories = await TestCategory.findByTestSeries(req.params.testSeriesId)
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
 // Get orphaned categories (admin endpoint)
-router.get('/orphaned/list', async (req, res) => {
+router.get('/orphaned/list', protect, admin, async (req, res) => {
   try {
     const orphanedCategories = await TestCategory.findOrphaned()
     res.json({ 
@@ -142,12 +147,12 @@ router.get('/orphaned/list', async (req, res) => {
       data: orphanedCategories 
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-// Bulk reassign orphaned categories to test series
-router.put('/orphaned/reassign', async (req, res) => {
+// Bulk reassign orphaned categories to test series (admin endpoint)
+router.put('/orphaned/reassign', protect, admin, async (req, res) => {
   try {
     const { categoryIds, testSeriesId } = req.body
     
@@ -172,7 +177,7 @@ router.put('/orphaned/reassign', async (req, res) => {
       data: updated 
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

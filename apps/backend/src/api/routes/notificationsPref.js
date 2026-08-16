@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { auth } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -13,7 +14,7 @@ router.get('/', auth, async (req, res) => {
     const userId = req.user.id
     const { read, page = 1, limit = 20 } = req.query
 
-    let query = 'SELECT * FROM notifications WHERE user_id = $1'
+    let query = 'SELECT id, user_id, type, title, message, data, image, action_url, action_text, is_read, read_at, sent_via, scheduled_at, is_sent, sent_at, priority, expires_at, created_at, updated_at, is_active, public_id_uuid, public_id, channel, is_deleted, deleted_at, deleted_by, read, metadata FROM notifications WHERE user_id = $1'
     const params = [userId]
     let paramCount = 2
 
@@ -44,7 +45,7 @@ router.get('/', auth, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -70,7 +71,7 @@ router.put('/:id/read', auth, async (req, res) => {
 
     res.json({ success: true, data: result.rows[0] })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -90,7 +91,7 @@ router.put('/read-all', auth, async (req, res) => {
 
     res.json({ success: true, message: 'All notifications marked as read' })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -110,7 +111,7 @@ router.delete('/:id', auth, async (req, res) => {
 
     res.json({ success: true, message: 'Notification deleted' })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 
@@ -123,6 +124,16 @@ router.post('/subscribe', auth, async (req, res) => {
     const userId = req.user.id
     const { type, email, sms, push } = req.body
 
+    // M33: validate notification type against a known allowlist to prevent
+    // arbitrary row insertion via spoofed topics.
+    const ALLOWED_TYPES = ['coming_soon', 'marketing', 'product', 'security', 'system']
+    if (!type || !ALLOWED_TYPES.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid notification type. Allowed: ${ALLOWED_TYPES.join(', ')}`,
+      })
+    }
+
     await dbHelpers.query(
       `INSERT INTO notification_preferences (user_id, notification_type, email, sms, push, created_at)
        VALUES ($1, $2, $3, $4, $5, NOW())
@@ -133,7 +144,7 @@ router.post('/subscribe', auth, async (req, res) => {
 
     res.json({ success: true, message: 'Subscription updated' })
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message })
+    res.status(500).json({ success: false, error: sanitizeErrorMessage(error) })
   }
 })
 

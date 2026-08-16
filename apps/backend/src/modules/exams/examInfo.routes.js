@@ -1,17 +1,23 @@
 import express from 'express'
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import { responseCache } from '../../middleware/responseCache.middleware.js';
 
 const router = express.Router()
 
 // @route   GET /api/exam-info
 // @desc    Get all exam information
 // @access  Public
-router.get('/', async (req, res) => {
+router.get('/', responseCache('exam-info', 120), async (req, res) => {
   try {
     // Query the exams table directly with snake_case columns via raw query
     // to avoid toCamel transformation that loses snake_case fields
     const result = await pool.query(
+      // Intentional SELECT * — the response spreads all exam columns (...e)
+      // and adds camelCase aliases for frontend compatibility. Listing columns
+      // here would silently drop fields the frontend depends on if the schema
+      // gains columns in a later migration.
       'SELECT * FROM exams WHERE is_active = true OR is_active IS NULL ORDER BY display_order ASC, id ASC'
     )
     const exams = result.rows
@@ -28,7 +34,28 @@ router.get('/', async (req, res) => {
     res.json({ success: true, count: examsWithAliases.length, data: examsWithAliases })
   } catch (error) {
     console.error('Error fetching exam info:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+// @route   POST /api/exam-info/report-error
+// @desc    Submit a content-error report from the public exam page
+// @access  Public
+router.post('/report-error', async (req, res) => {
+  const { examId, examTitle, year, category, details } = req.body || {}
+  const reason = String(category || '').slice(0, 100)
+  if (!reason) {
+    return res.status(400).json({ success: false, message: 'Report category is required' })
+  }
+  try {
+    await pool.query(
+      'INSERT INTO question_reports (question_id, reason, notes, status) VALUES (0, $1, $2, $3)',
+      [reason, JSON.stringify({ examId: examId ?? null, examTitle: examTitle ?? '', year: year ?? null, details: String(details || '').slice(0, 2000) }), 'open']
+    )
+    res.status(201).json({ success: true, message: 'Report submitted' })
+  } catch (error) {
+    console.error('POST /report-error error:', error.message)
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -45,7 +72,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ success: true, data: exam })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -61,53 +88,10 @@ router.get('/category/:categoryId', async (req, res) => {
     exams.sort((a, b) => (a.display_order ?? a.displayOrder ?? 0) - (b.display_order ?? b.displayOrder ?? 0))
     res.json({ success: true, count: exams.length, data: exams })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-// @route   GET /api/exams/category/:categoryId
-// @desc    Get category with exams by category ID (alternate route for frontend)
-// @access  Public
-router.get('/../exams/category/:categoryId', async (req, res) => {
-  try {
-    const categoryId = req.params.categoryId
-    const categories = await dbHelpers.find('examCategories', {
-      id: categoryId,
-      isActive: true
-    })
-    if (categories.length === 0) {
-      return res.status(404).json({ success: false, message: 'Category not found' })
-    }
-    const category = categories[0]
-    const exams = await dbHelpers.find('exams', {
-      categoryId,
-      isActive: true
-    })
-    exams.sort((a, b) => (a.displayOrder ?? a.display_order ?? 0) - (b.displayOrder ?? b.display_order ?? 0))
-    res.json({
-      success: true,
-      data: {
-        ...category,
-        exams: exams.map(exam => ({
-          id: exam.examId,
-          examId: exam.examId,
-          title: exam.title,
-          fullName: exam.fullName,
-          description: exam.description,
-          desc: exam.description,
-          notification: exam.notification,
-          eligibility: exam.eligibility,
-          ageLimit: exam.ageLimit,
-          syllabus: exam.syllabus,
-          seriesId: exam.seriesId,
-          isActive: exam.isActive
-        }))
-      }
-    })
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
-  }
-})
 
 // @route   GET /api/exam-info/:examId/updates
 // @desc    Get latest updates for a specific exam
@@ -131,7 +115,7 @@ router.get('/:examId/updates', async (req, res) => {
       }))
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -164,7 +148,7 @@ router.get('/:examId/yearly-data', async (req, res) => {
     })
     res.json({ success: true, data: dataByYear, list: yearlyData })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

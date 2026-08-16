@@ -65,15 +65,33 @@ const validators = {
     }
   },
 
-  // Sanitize string (remove potential XSS)
+  // Sanitize a plain-text string.
+  //
+  // SECURITY FIX (H7): the previous implementation attempted to strip dangerous
+  // HTML with a chain of blocklist regexes. Blocklist regex sanitization is
+  // fundamentally bypassable (nested/malformed tags, encoded payloads, novel
+  // vectors). Instead we deterministically HTML-entity-encode every character
+  // that is significant in HTML. This makes the value safe to render in any
+  // HTML context regardless of what it contains — there is no tag left to
+  // bypass. Rich-text/HTML fields must NOT use this generic validator; they
+  // should be sanitized with a real allowlist HTML sanitizer (DOMPurify) at
+  // render time.
   sanitizeString: (value, maxLength = 1000) => {
     if (typeof value !== 'string') return ''
     return value
       .trim()
       .substring(0, maxLength)
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+\s*=/gi, '')
+      // Strip control characters (except tab/newline/carriage return).
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      // HTML-entity-encode. Ampersand MUST be first to avoid double-encoding.
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;')
+      .replace(/`/g, '&#x60;')
   },
 
   // Check if object has required fields

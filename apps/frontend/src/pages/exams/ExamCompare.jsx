@@ -1,32 +1,37 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, ChevronRight, Scale, Calendar, Users, Clock, FileText, Check, X } from 'lucide-react'
+import { ArrowLeft, ChevronRight, Scale, Calendar, Users, Clock, FileText, Check } from 'lucide-react';
 import api from '../../shared/lib/dataService'
 
 export default function ExamCompare() {
   const { examId } = useParams()
   const [examData, setExamData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [selectedYears, setSelectedYears] = useState(['2026', '2025'])
+  const [selectedYears, _setSelectedYears] = useState(['2026', '2025'])
 
   useEffect(() => {
-    fetchExamData()
+    const controller = new AbortController()
+    fetchExamData(controller.signal)
+    return () => controller.abort()
   }, [examId])
 
-  const fetchExamData = async () => {
+  const fetchExamData = async (signal) => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/exams/${examId}/compare?years=${selectedYears.join(',')}`)
+      const response = await api.get(`/api/exams/${examId}/compare?years=${selectedYears.join(',')}`, { signal })
+      if (signal?.aborted) return
       if (response.data?.success) {
         setExamData(response.data.data)
       } else {
         setExamData(getSampleData())
       }
     } catch (error) {
-      console.error('Failed to fetch exam compare data:', error)
-      setExamData(getSampleData())
+      if (error.name !== 'AbortError') {
+        console.error('Failed to fetch exam compare data:', error)
+        setExamData(getSampleData())
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 

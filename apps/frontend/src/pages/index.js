@@ -79,8 +79,7 @@ export {
 
 // Community Pages
 export {
-  DoubtForum,
-  StudyGroups
+  Community
 } from './community'
 
 // Error Pages

@@ -2,6 +2,7 @@ import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import { idsMatch } from '../../services/core/common.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -68,7 +69,7 @@ router.get('/question/:questionId', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -91,7 +92,7 @@ router.post('/question/:questionId', protect, async (req, res) => {
 
     res.status(201).json({ success: true, data: inserted })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -119,7 +120,7 @@ router.post('/:discussionId/replies', protect, async (req, res) => {
 
     res.status(201).json({ success: true, data: inserted })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -151,7 +152,7 @@ router.post('/:discussionId/upvote', protect, async (req, res) => {
 
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -183,7 +184,7 @@ router.post('/replies/:replyId/upvote', protect, async (req, res) => {
 
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -215,7 +216,7 @@ router.put('/:discussionId', protect, async (req, res) => {
 
     res.json({ success: true, data: updated, message: 'Discussion updated successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -238,7 +239,7 @@ router.delete('/:discussionId', protect, async (req, res) => {
     
     res.json({ success: true, message: 'Discussion deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -269,7 +270,7 @@ router.put('/replies/:replyId', protect, async (req, res) => {
 
     res.json({ success: true, data: updated, message: 'Reply updated successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -292,7 +293,7 @@ router.delete('/replies/:replyId', protect, async (req, res) => {
     
     res.json({ success: true, message: 'Reply deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

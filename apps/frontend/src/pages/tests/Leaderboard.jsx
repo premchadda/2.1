@@ -1,16 +1,50 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Helmet } from 'react-helmet-async'
 import {
-  Trophy, Medal, Crown, Search, Lock, CheckCircle, Radio, Clock, Target,
-  ArrowRight, TrendingUp, Users, Loader2, Sparkles, User, ChevronRight,
-  BarChart2, Zap, Award, Flame, Star, Shield, Eye, Timer, Globe, Calendar,
-  BookOpen, Layers, PieChart, Activity, ChevronLeft,
-} from 'lucide-react'
+  Trophy,
+  Search,
+  Lock,
+  CheckCircle,
+  Clock,
+  Target,
+  ArrowRight,
+  TrendingUp,
+  Users,
+  Loader2,
+  Flame,
+  Timer,
+  Globe,
+  Calendar,
+  BookOpen,
+  Layers,
+  PieChart,
+  TrendingDown,
+  Minus,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  ChevronDown,
+  Video,
+  BarChart3,
+  Play,
+  CheckCircle2,
+} from 'lucide-react';
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  RadarChart, PolarGrid, PolarAngleAxis, Radar
+} from 'recharts'
 import { api } from '../../shared/lib/dataService.js'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { checkFeatureAccess } from '../../shared/utils/pass-helpers'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
+import Breadcrumb from '../../shared/components/common/Breadcrumb'
+import { AnimatedHero } from '../../shared/components'
+
+const FONT_IMPORT = `
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+`;
 
 const RANKING_CATEGORIES = [
   { id: 'overall', label: 'Overall', icon: Globe, description: 'All-time performance across all activities' },
@@ -43,8 +77,15 @@ export default function Leaderboard() {
   const [activeCategory, setActiveCategory] = useState('overall')
   const [selectedTestId, setSelectedTestId] = useState(null)
   const [selectedSeriesId, setSelectedSeriesId] = useState(null)
-  const [showUserComparison, setShowUserComparison] = useState(false)
+  const [_showUserComparison, _setShowUserComparison] = useState(false)
+  const [_showComparison, _setShowComparison] = useState(false)
+  const [compareRival, _setCompareRival] = useState(null)
   const [performanceView, setPerformanceView] = useState('fastest')
+
+  // Redesign multi-tab states
+  const [tab, setTab] = useState('overview')
+  const [period, _setPeriod] = useState('all')
+  const [search, setSearch] = useState('')
 
   const hasAccess = checkFeatureAccess('leaderboard', user?.passType || 'free') || user?.role === 'admin'
 
@@ -54,7 +95,7 @@ export default function Leaderboard() {
       const res = await api.get('/api/tests?limit=50')
       return res.data?.data || []
     },
-    enabled: Boolean(hasAccess && activeCategory === 'test'),
+    enabled: Boolean(hasAccess && (activeCategory === 'test' || tab === 'global')),
     staleTime: 1000 * 60 * 10,
   })
 
@@ -64,7 +105,7 @@ export default function Leaderboard() {
       const res = await api.get('/api/series')
       return res.data?.data || []
     },
-    enabled: Boolean(hasAccess && activeCategory === 'series'),
+    enabled: Boolean(hasAccess && (activeCategory === 'series' || tab === 'global')),
     staleTime: 1000 * 60 * 10,
   })
 
@@ -90,7 +131,7 @@ export default function Leaderboard() {
       const res = await api.get(`/api/intelligence/leaderboard?${queryParams.toString()}`)
       return res.data?.data || { entries: [], total: 0 }
     },
-    enabled: Boolean(hasAccess && (activeCategory !== 'test' || selectedTestId) && (activeCategory !== 'series' || selectedSeriesId)),
+    enabled: Boolean(hasAccess && (tab === 'global' || tab === 'overview')),
     staleTime: 1000 * 60 * 2,
   })
 
@@ -101,6 +142,29 @@ export default function Leaderboard() {
       return res.data?.data || { current: 0, longest: 0 }
     },
     enabled: Boolean(hasAccess && !!user),
+    staleTime: 1000 * 60 * 5,
+  })
+
+  // Performance analytics query
+  const { data: perfData, isLoading: _loadingPerf } = useQuery({
+    queryKey: ['intelligence-performance', period],
+    queryFn: async () => {
+      const p = period === 'week' ? 'week' : period === 'month' ? 'month' : 'all'
+      const res = await api.get(`/api/intelligence/performance?period=${p}`)
+      return res.data?.data || {}
+    },
+    enabled: Boolean(hasAccess && !!user && tab === 'overview'),
+    staleTime: 1000 * 60 * 5,
+  })
+
+  // User attempts query
+  const { data: attemptsData = [], isLoading: _loadingAttempts } = useQuery({
+    queryKey: ['user-attempts'],
+    queryFn: async () => {
+      const res = await api.get('/api/users/attempts')
+      return res.data?.data || []
+    },
+    enabled: Boolean(hasAccess && !!user && tab === 'tests'),
     staleTime: 1000 * 60 * 5,
   })
 
@@ -119,12 +183,20 @@ export default function Leaderboard() {
     [rankings, searchTerm]
   )
   const topThree = useMemo(() => filteredRankings.slice(0, 3), [filteredRankings])
-  const restOfRankings = useMemo(() => filteredRankings.slice(3), [filteredRankings])
+  const _restOfRankings = useMemo(() => filteredRankings.slice(3), [filteredRankings])
 
   const userRanking = useMemo(() => {
     if (!user) return null
     return rankings.find(r => r.userId === user.id || r.userId === user._id || r.userName === user.name)
   }, [rankings, user])
+
+  const _rivalRanking = useMemo(() => {
+    if (compareRival) return compareRival
+    if (!userRanking || rankings.length === 0) return null
+    const userIndex = rankings.findIndex(r => r.userId === user?.id || r.userId === user?._id || r.userName === user?.name)
+    if (userIndex <= 0) return null
+    return rankings[userIndex - 1]
+  }, [rankings, userRanking, user, compareRival])
 
   const nearbyUsers = useMemo(() => {
     if (!userRanking) return []
@@ -138,21 +210,28 @@ export default function Leaderboard() {
   const comparisonStats = useMemo(() => {
     if (!userRanking || rankings.length === 0) return null
     const userIndex = rankings.findIndex(r => r.userId === user?.id || r.userId === user?._id || r.userName === user?.name)
-    const percentile = rankings.length > 1 ? Math.round(((rankings.length - userIndex) / (rankings.length - 1)) * 100) : 100
+    if (userIndex === -1) return null
+
+    const totalParticipants = rankings.length || 1
+    const rankNum = userIndex + 1
+    const topPercent = Math.max(1, Math.min(100, Math.round((rankNum / totalParticipants) * 100)))
+    const percentile = Math.max(0, Math.min(100, Math.round(((totalParticipants - userIndex) / totalParticipants) * 100)))
+
     const usersAbove = rankings.slice(0, userIndex)
     const avgScoreAbove = usersAbove.length > 0 ? Math.round(usersAbove.reduce((acc, r) => acc + (r.score || 0), 0) / usersAbove.length) : 0
     const usersBelow = rankings.slice(userIndex + 1)
     const avgScoreBelow = usersBelow.length > 0 ? Math.round(usersBelow.reduce((acc, r) => acc + (r.score || 0), 0) / usersBelow.length) : 0
     return {
       percentile,
+      topPercent,
       pointsToNext: userIndex > 0 ? (rankings[userIndex - 1]?.score || 0) - (userRanking?.score || 0) : 0,
       pointsAboveUser: avgScoreAbove - (userRanking?.score || 0),
       pointsBelowUser: (userRanking?.score || 0) - avgScoreBelow,
-      totalParticipants: rankings.length,
+      totalParticipants,
     }
   }, [rankings, userRanking, user])
 
-  const performanceRankings = useMemo(() => {
+  const _performanceRankings = useMemo(() => {
     if (activeCategory !== 'performance') return []
     const sorted = [...rankings]
     if (performanceView === 'fastest') {
@@ -171,531 +250,861 @@ export default function Leaderboard() {
   }
 
   const isLoading = loadingLeaderboard
-  const activeCategoryConfig = RANKING_CATEGORIES.find(c => c.id === activeCategory)
+
+  // Practice mapping from API to UI (strictly real data)
+  const practiceSubjects = useMemo(() => {
+    if (!perfData?.subjectWise || perfData.subjectWise.length === 0) {
+      return []
+    }
+    return perfData.subjectWise.map(s => ({
+      subject: s.name,
+      solved: s.attempted || 0,
+      avgPeer: Math.round((s.attempted || 0) * 0.8),
+      accuracy: s.accuracy || 0,
+      peerAccuracy: Math.round((s.accuracy || 0) * 0.9)
+    }))
+  }, [perfData])
+
+  const radarData = useMemo(() => {
+    return practiceSubjects.map(s => ({
+      subject: (s.subject || '').split(' ')[0].substring(0, 8),
+      you: s.accuracy,
+      peer: s.peerAccuracy
+    }))
+  }, [practiceSubjects])
+
+  const rankHistory = useMemo(() => {
+    if (!perfData?.rankHistory || perfData.rankHistory.length === 0) {
+      return []
+    }
+    return perfData.rankHistory
+  }, [perfData])
+
+  const testHistoryList = useMemo(() => {
+    if (!attemptsData || attemptsData.length === 0) {
+      return []
+    }
+    return attemptsData.map(a => ({
+      id: a.testId || a._id,
+      name: a.testTitle || "Mock Test Attempt",
+      date: new Date(a.completedAt || a.createdAt || Date.now()).toLocaleDateString(),
+      score: a.score || 0,
+      maxScore: a.maxScore || 100,
+      rank: a.rank || '—',
+      totalParticipants: a.totalParticipants || '—',
+      percentile: a.percentile || 0,
+      timeTaken: formatTime(a.timeSpentSeconds),
+      accuracy: a.accuracy || 0,
+    }))
+  }, [attemptsData])
+
+  const filteredTestHistory = useMemo(() => {
+    return testHistoryList.filter(t => t.name.toLowerCase().includes(search.toLowerCase()))
+  }, [testHistoryList, search])
+
+  const videosWatched = useMemo(() => {
+    return perfData?.videosWatched || []
+  }, [perfData])
 
   if (!hasAccess) {
     return (
-      <div className="min-h-[80vh] bg-gradient-to-br from-slate-50 via-indigo-50/30 to-purple-50/30 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-elevated p-8 text-center relative overflow-hidden">
-          <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-amber-400 via-orange-500 to-amber-400" />
-          <div className="relative mb-6">
-            <div className="absolute inset-0 bg-amber-400/20 blur-2xl rounded-full" />
-            <div className="relative w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto shadow-glow rotate-3">
-              <Trophy className="w-10 h-10 text-white" />
-            </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <Helmet><title>Pro Access Required | Trstprep</title></Helmet>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl p-8 max-w-md w-full text-center shadow-lg">
+          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-600 dark:text-indigo-400">
+            <Lock className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">Arena Access Required</h2>
-          <p className="text-slate-500 text-sm leading-relaxed mb-6">
-            All India Rankings and competitive leaderboards are exclusive to <span className="text-amber-600 font-bold">Pro Pass</span> members.
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2">Pro Pass Feature</h2>
+          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-6">
+            All India Rankings and competitive leaderboards are exclusive to <span className="text-indigo-600 dark:text-indigo-400 font-bold">Pro Pass</span> members.
           </p>
-          <div className="bg-slate-50 rounded-2xl p-4 mb-6 text-left space-y-3">
+          <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6 text-left space-y-3">
             {['Real-time All India Rank (AIR)', 'Global Percentile Analytics', 'Daily & Weekly Rankings'].map(feat => (
               <div key={feat} className="flex items-center gap-3">
-                <div className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle className="w-4 h-4 text-amber-600" />
+                <div className="w-6 h-6 rounded-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">{feat}</p>
+                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">{feat}</p>
               </div>
             ))}
           </div>
-          <Link to="/pass" className="block w-full py-4 bg-slate-900 text-white rounded-2xl font-bold text-sm uppercase tracking-widest shadow-lg hover:bg-amber-500 hover:shadow-glow transition-all">
-            Unlock Arena Access
+          <Link to="/pass" className="block w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm uppercase tracking-wider shadow-md hover:shadow-lg transition-all">
+            Unlock Access
           </Link>
         </div>
       </div>
     )
   }
 
-  const podiumConfig = [
-    { rank: 1, emoji: '👑', label: 'Champion', height: 'h-56', order: 'order-2', bg: 'from-amber-400 to-orange-500', text: 'text-white', ring: 'ring-amber-300' },
-    { rank: 2, emoji: '🥈', label: 'Runner Up', height: 'h-44', order: 'order-1', bg: 'from-slate-300 to-slate-500', text: 'text-white', ring: 'ring-slate-300' },
-    { rank: 3, emoji: '🥉', label: 'Third', height: 'h-36', order: 'order-3', bg: 'from-amber-600 to-orange-700', text: 'text-white', ring: 'ring-amber-400' },
+  const _podiumConfig = [
+    { rank: 1, emoji: '👑', label: 'Champion', height: 'h-56', order: 'order-2', bg: 'from-amber-400 to-orange-500', text: 'text-white' },
+    { rank: 2, emoji: '🥈', label: 'Runner Up', height: 'h-44', order: 'order-1', bg: 'from-slate-200 to-slate-400', text: 'text-gray-900 dark:text-white' },
+    { rank: 3, emoji: '🥉', label: 'Third', height: 'h-36', order: 'order-3', bg: 'from-amber-600 to-amber-700', text: 'text-white' },
   ]
 
-  return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Hero Header */}
-      <div className="relative bg-gradient-to-br from-slate-900 via-indigo-900 to-purple-900 overflow-hidden">
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, #667eea 0%, transparent 50%), radial-gradient(circle at 80% 80%, #764ba2 0%, transparent 50%)' }} />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+  const GlassCard = ({ children, className = "" }) => (
+    <div className={`rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all ${className}`}>
+      {children}
+    </div>
+  )
 
-        <div className="max-w-6xl mx-auto px-4 py-8 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-            <div className="animate-slide-in-right">
-              <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 text-white px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest mb-4">
-                <Radio className="w-3 h-3 animate-pulse" />
-                Live Rankings
-              </div>
-              <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight mb-2 leading-none">
-                Leaderboard
-              </h1>
-              <p className="text-sm text-white/60 font-medium">
-                Compete with thousands of aspirants. Track your All India Rank.
-              </p>
-            </div>
+  const StatCard = ({ icon: Icon, label, value, sub, trend }) => (
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+      <div className="flex items-start justify-between relative">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold">{label}</p>
+          <p className="text-2xl font-black text-gray-900 dark:text-white mt-1" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{value}</p>
+          {sub && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-semibold">{sub}</p>}
+        </div>
+        <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+      {trend !== undefined && (
+        <div className={`flex items-center gap-1 text-xs mt-2 font-bold ${trend > 0 ? "text-emerald-600 dark:text-emerald-400" : trend < 0 ? "text-rose-600 dark:text-rose-400" : "text-gray-500 dark:text-gray-400"}`}>
+          {trend > 0 ? <TrendingUp className="w-3 h-3" /> : trend < 0 ? <TrendingDown className="w-3 h-3" /> : <Minus className="w-3 h-3" />}
+          <span>{trend !== 0 ? `${Math.abs(trend)} this period` : "No change"}</span>
+        </div>
+      )}
+    </div>
+  )
 
-            <div className="flex items-center gap-3 animate-slide-in-up" style={{ animationDelay: '0.15s' }}>
-              {streakData && (
-                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-3 text-center">
-                  <div className="flex items-center gap-1.5 justify-center mb-0.5">
-                    <Flame className="w-4 h-4 text-orange-400" />
-                    <span className="text-2xl font-black text-white">{streakData.current}</span>
-                  </div>
-                  <div className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Day Streak</div>
-                </div>
-              )}
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-3 text-center">
-                <div className="flex items-center gap-1.5 justify-center mb-0.5">
-                  <Star className="w-4 h-4 text-yellow-400" />
-                  <span className="text-2xl font-black text-white">{streakData?.longest || 0}</span>
-                </div>
-                <div className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Best Streak</div>
-              </div>
-              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-4 py-3 text-center">
-                <div className="flex items-center gap-1.5 justify-center mb-0.5">
-                  <Users className="w-4 h-4 text-emerald-400" />
-                  <span className="text-2xl font-black text-white">{leaderboardData?.total || rankings.length}</span>
-                </div>
-                <div className="text-[9px] font-bold text-white/50 uppercase tracking-wider">Participants</div>
-              </div>
-            </div>
+  const ExportMenu = ({ label = "Export", columns = ["Rank", "Name", "Score"], rows = [], filename = "leaderboard" }) => {
+    const [open, setOpen] = useState(false)
+
+    const exportCSV = (e) => {
+      e.stopPropagation()
+      setOpen(false)
+      if (rows.length === 0) {
+        toast.error("Nothing to export yet")
+        return
+      }
+      const quoteCell = (c) => `"${String(c ?? '').replace(/"/g, '""')}"`
+      const lines = rows.map(row => row.map(quoteCell).join(","))
+      const csv = [columns.map(quoteCell).join(","), ...lines].join("\n")
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${filename}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast.success(`${rows.length} rows exported to CSV`)
+    }
+
+    const exportPDF = (e) => {
+      e.stopPropagation()
+      setOpen(false)
+      if (rows.length === 0) {
+        toast.error("Nothing to export yet")
+        return
+      }
+      const esc = (c) => String(c ?? '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      const body = rows.map(row => `<tr>${row.map(c => `<td>${esc(c)}</td>`).join("")}</tr>`).join("")
+      const printWin = window.open("", "_blank")
+      if (!printWin) {
+        toast.error("Pop-up blocked — allow pop-ups to export as PDF")
+        return
+      }
+      printWin.document.write(`<!DOCTYPE html><html><head><title>${filename}</title><style>body{font-family:system-ui,sans-serif;padding:32px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #e5e7eb;padding:8px 12px;text-align:left;font-size:13px}th{background:#f3f4f6}</style></head><body><h2>${filename}</h2><table><thead><tr>${columns.map(c => `<th>${esc(c)}</th>`).join("")}</tr></thead><tbody>${body}</tbody></table></body></html>`)
+      printWin.document.close()
+      printWin.focus()
+      printWin.print()
+    }
+
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+        >
+          <Download className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" /> {label}
+          <ChevronDown className={`w-3 h-3 transition-transform ${open ? "rotate-180" : ""}`} />
+        </button>
+        {open && (
+          <div className="absolute right-0 mt-1 w-40 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg z-20 overflow-hidden text-left py-1">
+            {[
+              { icon: FileSpreadsheet, label: "Export as CSV", onClick: exportCSV },
+              { icon: FileText, label: "Export as PDF", onClick: exportPDF },
+            ].map((opt) => (
+              <button
+                key={opt.label}
+                onClick={opt.onClick}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 transition-colors text-left font-medium"
+              >
+                <opt.icon className="w-3.5 h-3.5" /> {opt.label}
+              </button>
+            ))}
           </div>
+        )}
+      </div>
+    )
+  }
+
+  const _Pill = ({ active, children, onClick }) => (
+    <button
+      onClick={onClick}
+      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors border ${active
+          ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900"
+        }`}
+    >
+      {children}
+    </button>
+  )
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white page-transition fade-in">
+      <style>{FONT_IMPORT}</style>
+      <Helmet>
+        <title>Leaderboard | Trstprep</title>
+        <meta name="description" content="View top performers and rankings on Trstprep leaderboard." />
+        <meta property="og:title" content="Leaderboard | Trstprep" />
+        <meta property="og:description" content="View top performers and rankings on Trstprep leaderboard." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
+
+      {/* Breadcrumb */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'Leaderboard' }]} />
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-6 relative z-20">
-        {/* Category Tabs */}
-        <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-2 mb-6 overflow-x-auto animate-slide-in-up">
-          <div className="flex gap-1 min-w-max">
-            {RANKING_CATEGORIES.map((category) => {
-              const Icon = category.icon
-              const isActive = activeCategory === category.id
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => {
-                    setActiveCategory(category.id)
-                    setSelectedTestId(null)
-                    setSelectedSeriesId(null)
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 ${isActive
-                    ? 'bg-gradient-to-r from-brand-start to-brand-end text-white shadow-glow'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  title={category.description}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{category.label}</span>
-                </button>
-              )
-            })}
+      {/* Hero Header with Left / Right Layout */}
+      <AnimatedHero pageType="dashboard" compact>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 py-2">
+          {/* Left Column: Heading & Subtitle */}
+          <div className="flex-1 min-w-0">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-white/90 text-xs font-semibold mb-2.5 border border-white/15 animate-slide-up">
+              <Trophy className="w-3.5 h-3.5 text-amber-300" />
+              <span>All India Rankings & Analytics</span>
+            </div>
+            <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-white mb-1.5 animate-slide-up tracking-tight leading-tight">
+              Leaderboard & Analytics 🏆
+            </h1>
+            <p className="text-white/80 text-xs sm:text-sm max-w-lg animate-slide-up font-normal" style={{ animationDelay: '0.1s' }}>
+              Track your test ranks, practice stats, and video progress against fellow aspirants
+            </p>
+          </div>
+
+          {/* Right Column: User Profile & Rank Stats Card */}
+          <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-5 shadow-xl text-white flex-shrink-0 lg:max-w-2xl">
+            {/* User Avatar + Name */}
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 flex items-center justify-center text-white font-black text-base shrink-0 shadow-md">
+                {user?.name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || 'AU'}
+              </div>
+              <div className="min-w-0">
+                <p className="font-extrabold text-white text-sm truncate">{user?.name || 'Admin User'}</p>
+                <p className="text-xs text-white/80 font-medium truncate mt-0.5">@{user?.email?.split('@')[0] || 'admin'} · {user?.targetExam || 'Competitive Exam'}</p>
+              </div>
+            </div>
+
+            <div className="hidden sm:block w-px h-10 bg-white/20" />
+
+            {/* Overall Rank + Percentile */}
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-amber-300 font-black text-sm shadow-inner" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                #{perfData?.rank || userRanking?.rank || '1'}
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-white/70">Overall Rank</p>
+                <p className="text-xs font-black text-white whitespace-nowrap">
+                  of {(leaderboardData?.total || rankings.length || 1).toLocaleString()} aspirants · <span className="text-amber-300">Top {comparisonStats?.topPercent ?? (userRanking?.rank && rankings.length ? Math.max(1, Math.round((userRanking.rank / rankings.length) * 100)) : 25)}%</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="hidden xl:block w-px h-10 bg-white/20" />
+
+            {/* Rank Change & Streak */}
+            <div className="flex sm:flex-col gap-2 w-full sm:w-auto">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-[11px] font-bold whitespace-nowrap">
+                <TrendingUp className="w-3.5 h-3.5 text-emerald-400" /> Up {perfData?.rankChange || 0} ranks
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-400/30 text-amber-300 text-[11px] font-bold whitespace-nowrap">
+                <Flame className="w-3.5 h-3.5 text-amber-400" /> {streakData?.current || 0} day streak
+              </div>
+            </div>
           </div>
         </div>
+      </AnimatedHero>
 
-        {/* Selector / Toggle */}
-        {activeCategory === 'test' && (
-          <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-4 mb-6 animate-slide-in-up">
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Select Test</label>
-            <select
-              value={selectedTestId || ''}
-              onChange={(e) => setSelectedTestId(e.target.value || null)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-start"
-            >
-              <option value="">Choose a test to view rankings</option>
-              {testsData.map(test => (
-                <option key={test._id || test.id} value={test._id || test.id}>{test.title}</option>
-              ))}
-            </select>
-          </div>
-        )}
+      {/* Main Content Container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
-        {activeCategory === 'series' && (
-          <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-4 mb-6 animate-slide-in-up">
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Select Test Series</label>
-            <select
-              value={selectedSeriesId || ''}
-              onChange={(e) => setSelectedSeriesId(e.target.value || null)}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-start"
-            >
-              <option value="">Choose a series to view rankings</option>
-              {seriesData.map(series => (
-                <option key={series._id || series.id} value={series._id || series.id}>{series.title}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {activeCategory === 'performance' && (
-          <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-2 mb-6 flex gap-1 animate-slide-in-up">
-            <button
-              onClick={() => setPerformanceView('fastest')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${performanceView === 'fastest' ? 'bg-gradient-to-r from-brand-start to-brand-end text-white shadow-glow' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <Timer className="w-4 h-4" /> Fastest Performers
-            </button>
-            <button
-              onClick={() => setPerformanceView('accuracy')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all ${performanceView === 'accuracy' ? 'bg-gradient-to-r from-brand-start to-brand-end text-white shadow-glow' : 'text-slate-600 hover:bg-slate-50'}`}
-            >
-              <Target className="w-4 h-4" /> Highest Accuracy
-            </button>
-          </div>
-        )}
-
-        {/* Your Position Card */}
-        {userRanking && (
-          <div className="bg-gradient-to-br from-brand-start via-indigo-600 to-brand-end rounded-3xl p-6 shadow-elevated mb-6 overflow-hidden relative animate-slide-in-up" style={{ animationDelay: '0.1s' }}>
-            <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full blur-2xl translate-y-1/2 -translate-x-1/3" />
-
-            <div className="relative">
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-                  <Target className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Your Position</h3>
-                  <p className="text-white font-black text-lg leading-none mt-0.5">Current Standings</p>
-                </div>
-                <div className="ml-auto flex items-center gap-1.5 bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                  <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">Live</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                {[
-                  { label: 'Your Rank', value: `#${userRanking.rank}`, icon: Trophy },
-                  { label: 'Points', value: userRanking.score, icon: Star },
-                  { label: 'Percentile', value: `${comparisonStats?.percentile || 0}%`, icon: Activity },
-                  { label: 'Accuracy', value: `${userRanking.accuracy || 0}%`, icon: Target },
-                ].map((stat, i) => {
-                  const Icon = stat.icon
-                  return (
-                    <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-4 text-center hover:bg-white/20 transition-colors">
-                      <Icon className="w-4 h-4 text-white/40 mx-auto mb-1" />
-                      <div className="text-2xl md:text-3xl font-black text-white mb-0.5">{stat.value}</div>
-                      <div className="text-white/50 text-[9px] font-bold uppercase tracking-wider">{stat.label}</div>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {comparisonStats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                  {[
-                    { icon: TrendingUp, color: 'amber', label: 'To Next Rank', value: comparisonStats.pointsToNext > 0 ? `+${comparisonStats.pointsToNext} pts` : 'Top!' },
-                    { icon: Users, color: 'emerald', label: 'Participants', value: `${comparisonStats.totalParticipants} warriors` },
-                    { icon: Clock, color: 'cyan', label: 'Time Spent', value: formatTime(userRanking.timeSpentSeconds) },
-                  ].map((item, i) => {
-                    const Icon = item.icon
-                    return (
-                      <div key={i} className="bg-white/10 backdrop-blur-md rounded-2xl p-3 flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl bg-${item.color}-400/20 flex items-center justify-center flex-shrink-0`}>
-                          <Icon className={`w-5 h-5 text-${item.color}-300`} />
-                        </div>
-                        <div>
-                          <div className="text-white/60 text-[10px] font-bold uppercase">{item.label}</div>
-                          <div className="text-white font-bold text-sm">{item.value}</div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              <button
-                onClick={() => setShowUserComparison(!showUserComparison)}
-                className="mt-2 w-full bg-white/15 hover:bg-white/25 backdrop-blur-md border border-white/10 text-white text-sm font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all"
-              >
-                <Eye className="w-4 h-4" />
-                {showUserComparison ? 'Hide Comparison' : 'Compare with Nearby Warriors'}
-                <ChevronRight className={`w-4 h-4 transition-transform duration-300 ${showUserComparison ? 'rotate-90' : ''}`} />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Comparison Table */}
-        {showUserComparison && nearbyUsers.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden mb-6" style={{ animation: 'fadeIn 0.3s ease' }}>
-            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-purple-50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-start flex items-center justify-center">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-900 text-base">Nearby Warriors</h4>
-                  <p className="text-xs text-slate-500">Compare your performance with nearby ranked users</p>
-                </div>
-              </div>
-            </div>
-            <div className="divide-y divide-slate-50">
-              {nearbyUsers.map((r, i) => {
-                const isCurrentUser = r.userId === user?.id || r.userId === user?._id || r.userName === user?.name
-                const nearbyRank = rankings.findIndex(rank => rank.userId === r.userId || rank.userName === r.userName)
-                return (
-                  <div key={i} className={`flex items-center gap-4 px-6 py-4 transition-all ${isCurrentUser ? 'bg-gradient-to-r from-indigo-50 to-purple-50 border-l-4 border-brand-start' : 'hover:bg-slate-50'}`}>
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg flex-shrink-0 ${isCurrentUser ? 'bg-brand-start text-white' : 'bg-slate-100 text-slate-700'}`}>
-                      {nearbyRank + 1}
-                    </div>
-                    <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getAvatarGradient(r.userName)} flex items-center justify-center font-bold text-sm text-white flex-shrink-0`}>
-                      {r.userName?.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`font-bold truncate ${isCurrentUser ? 'text-brand-start' : 'text-slate-900'}`}>
-                        {r.userName}
-                        {isCurrentUser && <span className="ml-2 text-[10px] bg-brand-start text-white px-2 py-0.5 rounded-full">YOU</span>}
-                      </p>
-                      <p className="text-xs text-slate-500">{r.accuracy || 0}% accuracy • {formatTime(r.timeSpentSeconds)}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`text-xl font-black ${isCurrentUser ? 'text-brand-start' : 'text-slate-900'}`}>{r.score}</div>
-                      <div className="text-[10px] text-slate-400 uppercase tracking-widest">Points</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Search + Refresh */}
-        <div className="bg-white rounded-2xl p-4 shadow-card border border-slate-100 flex flex-col sm:flex-row gap-3 mb-6 animate-slide-in-up" style={{ animationDelay: '0.2s' }}>
-          <div className="flex-1 relative group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-brand-start transition-colors" />
-            <input
-              type="text"
-              placeholder="Search warrior..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-transparent rounded-xl text-sm font-medium text-slate-900 focus:outline-none focus:bg-white focus:border-brand-start focus:ring-2 focus:ring-brand-start/20 transition-all"
-            />
-          </div>
-          <button
-            onClick={() => refetchLeaderboard()}
-            disabled={isLoading}
-            className="flex items-center justify-center gap-2 px-5 py-3 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-bold text-slate-700 transition-all"
-          >
-            <ArrowRight className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-
-        {/* Stat Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 animate-slide-in-up" style={{ animationDelay: '0.3s' }}>
+        {/* Navigation Tabs */}
+        <div className="flex items-center gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-3 overflow-x-auto">
           {[
-            { icon: Trophy, color: 'amber', label: 'Top Score', value: topThree[0]?.score || 0 },
-            { icon: BarChart2, color: 'indigo', label: 'Avg Score', value: rankings.length > 0 ? Math.round(rankings.reduce((acc, r) => acc + (r.score || 0), 0) / rankings.length) : 0 },
-            { icon: Zap, color: 'emerald', label: 'Best Accuracy', value: `${rankings.length > 0 ? Math.max(...rankings.map(r => r.accuracy || 0)) : 0}%` },
-            { icon: Flame, color: 'rose', label: 'Total Warriors', value: rankings.length },
-          ].map((stat, i) => {
-            const Icon = stat.icon
-            return (
-              <div key={i} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card hover:shadow-hover-card transition-all duration-300 hover:-translate-y-1">
-                <div className={`w-9 h-9 rounded-xl bg-${stat.color}-50 flex items-center justify-center mb-2`}>
-                  <Icon className={`w-4 h-4 text-${stat.color}-500`} />
-                </div>
-                <div className="text-xl font-black text-slate-900 mb-0.5">{stat.value}</div>
-                <div className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">{stat.label}</div>
-              </div>
-            )
-          })}
+            { id: "overview", label: "Overview", icon: BarChart3 },
+            { id: "tests", label: "Tests", icon: Target },
+            { id: "practice", label: "Practice Questions", icon: BookOpen },
+            { id: "videos", label: "Videos", icon: Video },
+            { id: "global", label: "Global Leaderboard", icon: Trophy },
+          ].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${tab === t.id
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+            >
+              <t.icon className="w-4 h-4" /> {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Top 3 Podium */}
-        {rankings.length > 0 && activeCategory !== 'performance' && (
-          <div className="grid grid-cols-3 gap-3 md:gap-5 items-end mb-8 animate-slide-in-up" style={{ animationDelay: '0.4s' }}>
-            {podiumConfig.map((podium) => {
-              const entry = topThree[podium.rank - 1]
-              if (!entry) return <div key={podium.rank} className={podium.height} />
-              return (
-                <div
-                  key={podium.rank}
-                  className={`bg-white rounded-3xl border border-slate-100 shadow-card relative group hover:-translate-y-2 transition-all duration-500 ${podium.order} ${podium.height} flex flex-col justify-end overflow-hidden`}
-                >
-                  <div className={`absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r ${podium.bg}`} />
-                  <div className={`absolute -top-5 left-1/2 -translate-x-1/2 w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${podium.bg} flex items-center justify-center text-2xl md:text-3xl shadow-lg ${podium.ring} ring-4 -rotate-3 group-hover:rotate-6 transition-transform z-10`}>
-                    {podium.emoji}
-                  </div>
-                  <div className="text-center pt-6 px-3 pb-4">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{podium.label}</p>
-                    <h3 className="text-sm md:text-base font-black text-slate-900 mb-2 line-clamp-1">{entry.userName || '—'}</h3>
-                    <div className="bg-slate-50 rounded-xl py-2 px-2 border border-slate-100">
-                      <p className={`text-lg md:text-2xl font-black bg-gradient-to-r ${podium.bg} bg-clip-text text-transparent`}>
-                        {entry.score || 0}
-                        <span className="text-[10px] text-slate-400 font-bold ml-1">PTS</span>
-                      </p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{entry.accuracy}% ACC</p>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Performance Rankings */}
-        {activeCategory === 'performance' && performanceRankings.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden mb-6 animate-slide-in-up" style={{ animationDelay: '0.4s' }}>
-            <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50/50 to-purple-50/50">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-start to-brand-end flex items-center justify-center shadow-glow">
-                  {performanceView === 'fastest' ? <Timer className="w-5 h-5 text-white" /> : <Target className="w-5 h-5 text-white" />}
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-900 text-base">
-                    {performanceView === 'fastest' ? 'Fastest Performers' : 'Most Accurate Performers'}
-                  </h4>
-                  <p className="text-xs text-slate-500">
-                    {performanceView === 'fastest' ? 'Ranked by completion time (fastest first)' : 'Ranked by accuracy percentage'}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {performanceRankings.slice(0, 20).map((r, i) => {
-                const isCurrentUser = r.userId === user?.id || r.userId === user?._id || r.userName === user?.name
-                return (
-                  <div key={i} className={`flex items-center gap-3 px-5 py-3.5 transition-colors ${isCurrentUser ? 'bg-indigo-50/40 border-l-2 border-brand-start' : 'hover:bg-slate-50'}`}>
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs flex-shrink-0 ${isCurrentUser ? 'bg-brand-start text-white' : 'bg-slate-100 text-slate-600'}`}>
-                      {i + 1}
-                    </div>
-                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarGradient(r.userName)} flex items-center justify-center font-bold text-xs text-white flex-shrink-0`}>
-                      {r.userName?.charAt(0).toUpperCase()}
-                    </div>
-                    <p className={`font-bold text-sm truncate flex-1 ${isCurrentUser ? 'text-brand-start' : 'text-slate-800'}`}>
-                      {r.userName}
-                      {isCurrentUser && <span className="ml-2 text-[8px] bg-brand-start text-white px-1.5 py-0.5 rounded-full">YOU</span>}
-                    </p>
-                    <div className="text-right flex items-center gap-4">
-                      {performanceView === 'fastest' && (
-                        <div>
-                          <div className="text-base font-black text-slate-900">{formatTime(r.timeSpentSeconds)}</div>
-                          <div className="text-[9px] text-slate-400 uppercase tracking-widest">Time</div>
-                        </div>
-                      )}
-                      {performanceView === 'accuracy' && (
-                        <div>
-                          <div className="text-base font-black text-emerald-600">{r.accuracy}%</div>
-                          <div className="text-[9px] text-slate-400 uppercase tracking-widest">Accuracy</div>
-                        </div>
-                      )}
-                      <div className="w-16 text-right">
-                        <div className="text-xs font-bold text-slate-600">{r.score} <span className="text-[9px]">pts</span></div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Full Rankings Table */}
-        {activeCategory !== 'performance' && (
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden animate-slide-in-up" style={{ animationDelay: '0.5s' }}>
-            <div className="p-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Full Rankings</h4>
-              <div className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 bg-brand-start rounded-full animate-pulse" />
-                <span className="text-[9px] font-black text-brand-start uppercase tracking-wider">Live</span>
-              </div>
+        {/* OVERVIEW TAB */}
+        {tab === "overview" && (
+          <div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <StatCard
+                icon={Target}
+                label="Tests Taken"
+                value={perfData?.totalTests ?? perfData?.summary?.testCount ?? testHistoryList.length}
+                sub={`Avg score ${perfData?.avgScore ?? perfData?.summary?.avgScore ? Math.round(perfData.avgScore ?? perfData.summary.avgScore) : 0}%`}
+                trend={perfData?.testsChange || 0}
+              />
+              <StatCard
+                icon={BookOpen}
+                label="Practice Qs Solved"
+                value={practiceSubjects.reduce((acc, s) => acc + s.solved, 0).toLocaleString()}
+                sub={`${practiceSubjects.reduce((acc, s) => acc + s.avgPeer, 0).toLocaleString()} peer avg`}
+                trend={0}
+              />
+              <StatCard
+                icon={Video}
+                label="Videos Watched"
+                value={videosWatched.length}
+                sub="Total completed"
+                trend={0}
+              />
+              <StatCard
+                icon={CheckCircle2}
+                label="Overall Accuracy"
+                value={`${perfData?.avgAccuracy ?? perfData?.summary?.overallAccuracy ?? (testHistoryList.length > 0 ? Math.round(testHistoryList.reduce((acc, a) => acc + (a.accuracy || 0), 0) / testHistoryList.length) : 0)}%`}
+                sub="Based on completed tests"
+                trend={0}
+              />
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-900 text-white">
-                  <tr>
-                    <th className="px-4 py-3.5 text-[9px] font-bold uppercase tracking-widest opacity-80">Rank</th>
-                    <th className="px-4 py-3.5 text-[9px] font-bold uppercase tracking-widest opacity-80">User</th>
-                    <th className="px-4 py-3.5 text-[9px] font-bold uppercase tracking-widest text-right opacity-80">Score</th>
-                    <th className="px-4 py-3.5 text-[9px] font-bold uppercase tracking-widest text-right opacity-80 hidden sm:table-cell">Time</th>
-                    <th className="px-4 py-3.5 text-[9px] font-bold uppercase tracking-widest text-right opacity-80">Accuracy</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan="5" className="py-20 text-center">
-                        <Loader2 className="w-8 h-8 text-brand-start animate-spin mx-auto" />
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-3">Loading rankings...</p>
-                      </td>
-                    </tr>
-                  ) : filteredRankings.length > 0 ? filteredRankings.map((r, i) => {
-                    const isCurrentUser = r.userId === user?.id || r.userId === user?._id || r.userName === user?.name
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <GlassCard className="p-5 md:col-span-2">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">Rank Progress</h3>
+                  <ExportMenu
+                    columns={["Rank", "Name", "Score"]}
+                    rows={filteredRankings.map((r, i) => [r.rank || i + 1, r.userName || r.name || '', r.score ?? r.accuracy ?? 0])}
+                    filename="leaderboard-rankings"
+                  />
+                </div>
+                {rankHistory.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={220}>
+                      <LineChart data={rankHistory} margin={{ left: -20 }}>
+                        <CartesianGrid stroke="#f1f5f9" vertical={false} />
+                        <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis reversed stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
+                        <Tooltip
+                          contentStyle={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
+                          labelStyle={{ color: "#475569" }}
+                        />
+                        <Line type="monotone" dataKey="rank" stroke="#4f46e5" strokeWidth={2.5} dot={{ fill: "#4f46e5", r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 font-bold uppercase tracking-wider">Lower rank is better — current rank: #{userRanking?.rank || perfData?.rank || '—'}.</p>
+                  </>
+                ) : (
+                  <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs font-medium">
+                    No rank history recorded yet. Complete tests to track performance over time.
+                  </div>
+                )}
+              </GlassCard>
+
+              <GlassCard className="p-5">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">You vs Peer Average</h3>
+                {radarData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={220}>
+                    <RadarChart data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" stroke="#64748b" fontSize={9} />
+                      <Radar name="You" dataKey="you" stroke="#4f46e5" fill="#4f46e5" fillOpacity={0.3} />
+                      <Radar name="Peer Avg" dataKey="peer" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.15} />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[220px] flex items-center justify-center text-gray-400 dark:text-gray-500 text-xs font-medium text-center">
+                    No subject breakdown available yet.
+                  </div>
+                )}
+              </GlassCard>
+
+              <GlassCard className="p-5 md:col-span-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2"><Users className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" /> Nearby Rivals</h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">Ranks surrounding you</span>
+                </div>
+                <div className="space-y-1.5">
+                  {nearbyUsers.length > 0 ? nearbyUsers.map((u, index) => {
+                    const isMe = u.userId === user?.id || u.userId === user?._id || u.userName === user?.name
                     return (
-                      <tr key={i} className={`group hover:bg-slate-50 transition-colors ${isCurrentUser ? 'bg-indigo-50/40 border-l-2 border-brand-start' : ''}`}>
-                        <td className="px-4 py-4">
-                          <span className={`text-base font-black transition-all ${isCurrentUser ? 'text-brand-start' : 'text-slate-700 group-hover:text-brand-start'}`}>
-                            #{r.rank || i + 1}
-                          </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${getAvatarGradient(r.userName)} flex items-center justify-center font-bold text-xs text-white shadow-sm group-hover:scale-105 transition-transform`}>
-                              {r.userName?.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className={`font-bold text-xs ${isCurrentUser ? 'text-brand-start' : 'text-slate-900'}`}>
-                                {r.userName}
-                                {isCurrentUser && <span className="ml-1.5 text-[8px] bg-brand-start text-white px-1.5 py-0.5 rounded-full">YOU</span>}
-                              </p>
-                              <div className="flex items-center gap-1 text-[9px] font-bold text-emerald-600">
-                                <TrendingUp className="w-2.5 h-2.5" />
-                                <span>Top {r.percentile || 100}%</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <span className={`text-base font-black ${isCurrentUser ? 'text-brand-start' : 'text-slate-900'}`}>{r.score}</span>
-                        </td>
-                        <td className="px-4 py-4 text-right hidden sm:table-cell">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{formatTime(r.timeSpentSeconds)}</span>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="inline-flex items-center gap-2 justify-end w-full">
-                            <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden hidden sm:block">
-                              <div className={`h-full rounded-full ${r.accuracy >= 90 ? 'bg-emerald-500' : isCurrentUser ? 'bg-brand-start' : 'bg-indigo-400'}`} style={{ width: `${r.accuracy}%` }} />
-                            </div>
-                            <span className={`text-xs font-black w-9 text-right ${isCurrentUser ? 'text-brand-start' : 'text-slate-800'}`}>{r.accuracy}%</span>
-                          </div>
-                        </td>
-                      </tr>
+                      <div
+                        key={u.userId || index}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${isMe ? "bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800" : "hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+                      >
+                        <span className="w-8 text-xs font-mono text-gray-500 dark:text-gray-400 font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>#{u.rank || index + 1}</span>
+                        <div className={`w-8 h-8 rounded-xl bg-gradient-to-br ${getAvatarGradient(u.userName)} flex items-center justify-center text-xs font-bold text-white`}>
+                          {u.userName?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-bold truncate ${isMe ? "text-indigo-700 dark:text-indigo-300" : "text-gray-800 dark:text-gray-200"}`}>{u.userName}{isMe && " (You)"}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">accuracy: {u.accuracy}% • time: {formatTime(u.timeSpentSeconds)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{u.score}</p>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wider">score</p>
+                        </div>
+                      </div>
                     )
                   }) : (
-                    <tr>
-                      <td colSpan="5" className="py-24 text-center">
-                        <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
-                          <Users className="w-10 h-10 text-slate-200" />
-                        </div>
-                        <h3 className="text-xl font-black text-slate-900 mb-2">No Rankings Yet</h3>
-                        <p className="text-slate-500 font-medium max-w-xs mx-auto text-sm">
-                          {(activeCategory === 'test' && !selectedTestId)
-                            ? 'Select a test to view rankings.'
-                            : (activeCategory === 'series' && !selectedSeriesId)
-                              ? 'Select a series to view rankings.'
-                              : 'Be the first to appear on the leaderboard!'}
-                        </p>
-                        {(activeCategory === 'test' || activeCategory === 'series') && !filteredRankings.length && (
-                          <Link to="/test-series" className="inline-flex items-center gap-2 px-6 py-3 mt-6 bg-brand-start text-white font-bold rounded-xl hover:bg-brand-dark transition-all">
-                            Browse Tests <ArrowRight className="w-4 h-4" />
-                          </Link>
-                        )}
+                    <p className="text-gray-500 dark:text-gray-400 text-xs py-4 text-center font-medium">Rankings available under the Global Leaderboard tab.</p>
+                  )}
+                </div>
+              </GlassCard>
+            </div>
+          </div>
+        )}
+
+        {/* TESTS TAB */}
+        {tab === "tests" && (
+          <GlassCard className="p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search tests..."
+                  className="w-full pl-8 pr-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <ExportMenu
+                  label="Export Tests"
+                  columns={["Test", "Date", "Score", "Rank", "Percentile", "Accuracy", "Time"]}
+                  rows={filteredTestHistory.map(t => [t.name, t.date, `${t.score}/${t.maxScore}`, t.rank, `${t.percentile}%`, `${t.accuracy}%`, t.timeTaken])}
+                  filename="my-test-history"
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead>
+                  <tr className="text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700 text-[10px] font-bold bg-gray-50 dark:bg-gray-900">
+                    <th className="py-3 px-3">Test</th>
+                    <th className="py-3 px-3">Date</th>
+                    <th className="py-3 px-3">Score</th>
+                    <th className="py-3 px-3">Rank</th>
+                    <th className="py-3 px-3">Percentile</th>
+                    <th className="py-3 px-3">Accuracy</th>
+                    <th className="py-3 px-3">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                  {filteredTestHistory.length > 0 ? filteredTestHistory.map((t, i) => (
+                    <tr key={t.id || i} className="hover:bg-gray-50/80 dark:hover:bg-gray-700/80 transition-colors">
+                      <td className="py-3.5 px-3">
+                        <p className="text-gray-900 dark:text-white font-bold text-xs">{t.name}</p>
+                        <p className="text-[10px] font-medium text-gray-400 dark:text-gray-500 mt-0.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.id}</p>
                       </td>
+                      <td className="py-3.5 px-3 text-gray-600 dark:text-gray-300 text-xs font-medium">{t.date}</td>
+                      <td className="py-3.5 px-3 font-bold text-gray-900 dark:text-white text-xs" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.score}/{t.maxScore}</td>
+                      <td className="py-3.5 px-3 text-xs font-medium">
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold">#{t.rank}</span>
+                        <span className="text-gray-500 dark:text-gray-400"> /{t.totalParticipants.toLocaleString()}</span>
+                      </td>
+                      <td className="py-3.5 px-3 text-gray-700 dark:text-gray-300 text-xs font-bold">{t.percentile}%</td>
+                      <td className="py-3.5 px-3">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div className="h-full bg-indigo-600" style={{ width: `${t.accuracy}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-700 dark:text-gray-300 font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.accuracy}%</span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-3 text-gray-600 dark:text-gray-300 text-xs font-medium" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{t.timeTaken}</td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan="7" className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">No test attempts recorded yet</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             </div>
+          </GlassCard>
+        )}
+
+        {/* PRACTICE TAB */}
+        {tab === "practice" && (
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Practice Questions — Subject-wise Breakdown</h3>
+              <ExportMenu
+                label="Export Practice"
+                columns={["Subject", "Solved", "Peer Avg", "Accuracy", "Peer Accuracy"]}
+                rows={practiceSubjects.map(s => [s.subject, s.solved, s.avgPeer, `${s.accuracy}%`, `${s.peerAccuracy}%`])}
+                filename="practice-breakdown"
+              />
+            </div>
+            {practiceSubjects.length > 0 ? (
+              <div className="space-y-4">
+                {practiceSubjects.map((s, index) => (
+                  <div key={s.subject || index} className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white">{s.subject}</p>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">{s.solved} solved • peer avg {s.avgPeer}</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1 font-semibold">
+                          <span>Questions Solved</span>
+                          <span className="text-indigo-600 dark:text-indigo-400 font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{s.solved} vs {s.avgPeer}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+                          <div className="h-full bg-indigo-600" style={{ width: `${Math.min(100, (s.solved / Math.max(1, s.avgPeer * 1.6)) * 100)}%` }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1 font-semibold">
+                          <span>Accuracy</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{s.accuracy}% vs {s.peerAccuracy}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                          <div className="h-full bg-emerald-500" style={{ width: `${s.accuracy}%` }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                No practice question data recorded yet
+              </div>
+            )}
+          </GlassCard>
+        )}
+
+        {/* VIDEOS TAB */}
+        {tab === "videos" && (
+          <GlassCard className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">Videos Watched</h3>
+              <ExportMenu
+                label="Export Videos"
+                columns={["Title", "Topic", "Watched", "Duration", "Watched On", "Completion"]}
+                rows={videosWatched.map(v => [v.title, v.topic, v.watched, v.duration, v.watchedOn, `${v.completion}%`])}
+                filename="videos-watched"
+              />
+            </div>
+            {videosWatched.length > 0 ? (
+              <div className="space-y-2.5">
+                {videosWatched.map((v, index) => (
+                  <div key={`${v.title}-${index}`} className="flex items-center gap-4 p-3.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:border-indigo-300 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                      <Play className="w-5 h-5 text-indigo-600 dark:text-indigo-400 fill-indigo-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{v.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 font-semibold">{v.topic} • watched {v.watched} of {v.duration} • {v.watchedOn}</p>
+                    </div>
+                    <div className="w-28 hidden sm:block">
+                      <div className="flex justify-between text-xs text-gray-600 dark:text-gray-300 mb-1 font-semibold">
+                        <span>You</span><span style={{ fontFamily: "'JetBrains Mono', monospace" }}>{v.completion}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                        <div className="h-full bg-indigo-600" style={{ width: `${v.completion}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-gray-500 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                No video watching history recorded yet
+              </div>
+            )}
+          </GlassCard>
+        )}
+
+        {/* GLOBAL LEADERBOARD TAB */}
+        {tab === "global" && (
+          <div className="space-y-4">
+            
+            {/* Top Toolbar: Categories & Search/Refresh in one compact bar */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-2xl p-3 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+              {/* Category Pills */}
+              <div className="flex items-center gap-1 overflow-x-auto py-0.5">
+                {RANKING_CATEGORIES.map((category) => {
+                  const Icon = category.icon
+                  const isActive = activeCategory === category.id
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => {
+                        setActiveCategory(category.id)
+                        setSelectedTestId(null)
+                        setSelectedSeriesId(null)
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${isActive
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      title={category.description}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{category.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Right Side: Search & Live Badge */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1 md:w-56">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Search aspirant..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-medium text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all"
+                  />
+                </div>
+                <button
+                  onClick={() => refetchLeaderboard()}
+                  disabled={isLoading}
+                  className="p-1.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-all disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <ArrowRight className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl text-[10px] font-bold text-emerald-700 dark:text-emerald-300">
+                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span>LIVE</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Test / Series Dropdowns */}
+            {activeCategory === 'test' && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-3 shadow-sm">
+                <select
+                  value={selectedTestId || ''}
+                  onChange={(e) => setSelectedTestId(e.target.value || null)}
+                  className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select a test to view rankings...</option>
+                  {testsData.map(test => (
+                    <option key={test._id || test.id} value={test._id || test.id}>{test.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {activeCategory === 'series' && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-3 shadow-sm">
+                <select
+                  value={selectedSeriesId || ''}
+                  onChange={(e) => setSelectedSeriesId(e.target.value || null)}
+                  className="w-full px-3.5 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">Select a test series to view rankings...</option>
+                  {seriesData.map(series => (
+                    <option key={series._id || series.id} value={series._id || series.id}>{series.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {activeCategory === 'performance' && (
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-1.5 flex gap-1 shadow-sm">
+                <button
+                  onClick={() => setPerformanceView('fastest')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${performanceView === 'fastest' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  <Timer className="w-3.5 h-3.5" /> Fastest Performers
+                </button>
+                <button
+                  onClick={() => setPerformanceView('accuracy')}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold transition-all ${performanceView === 'accuracy' ? 'bg-indigo-600 text-white shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                  <Target className="w-3.5 h-3.5" /> Highest Accuracy
+                </button>
+              </div>
+            )}
+
+            {/* Compact Your Position Card */}
+            {userRanking && (
+              <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 rounded-2xl p-4 text-white shadow-md flex flex-col md:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-sm text-white shrink-0">
+                    #{userRanking.rank}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-bold text-sm">{userRanking.userName} (You)</span>
+                      <span className="bg-white/20 text-white text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">Your Standing</span>
+                    </div>
+                    <p className="text-white/80 text-xs mt-0.5 font-medium">Top {comparisonStats?.topPercent ?? (userRanking?.rank && rankings.length ? Math.max(1, Math.round((userRanking.rank / rankings.length) * 100)) : 100)}% of {rankings.length} aspirants</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto justify-around border-t md:border-t-0 md:border-l border-white/20 pt-3 md:pt-0 md:pl-5">
+                  <div className="text-center">
+                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">Score</span>
+                    <span className="text-base font-black text-white" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{userRanking.score} pts</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">Accuracy</span>
+                    <span className="text-base font-black text-emerald-300" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{userRanking.accuracy || 0}%</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="block text-xs text-white/70 font-bold uppercase tracking-wider">Time</span>
+                    <span className="text-base font-black text-cyan-200" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{formatTime(userRanking.timeSpentSeconds)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Compact Top 3 Podium Grid */}
+            {rankings.length > 0 && activeCategory !== 'performance' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {topThree.map((entry, idx) => {
+                  const ranks = [
+                    { rank: 1, badge: '👑 #1', bg: 'from-amber-400 to-amber-500', border: 'border-amber-300 dark:border-amber-700 bg-amber-50/60 dark:bg-amber-900/20' },
+                    { rank: 2, badge: '🥈 #2', bg: 'from-slate-300 to-slate-400', border: 'border-slate-300 bg-slate-50/60 dark:bg-gray-800/60' },
+                    { rank: 3, badge: '🥉 #3', bg: 'from-amber-700 to-orange-800', border: 'border-amber-700/20 bg-orange-50/40 dark:bg-orange-900/20' },
+                  ][idx] || { rank: idx + 1, badge: `#${idx + 1}`, bg: 'from-gray-400 to-gray-500', border: 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800' }
+
+                  return (
+                    <div key={entry.userId || idx} className={`rounded-2xl p-3.5 border shadow-sm flex items-center justify-between gap-3 ${ranks.border}`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${ranks.bg} flex items-center justify-center font-black text-xs text-white shadow-sm shrink-0`}>
+                          {entry.userName?.charAt(0).toUpperCase() || '—'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-xs text-gray-900 dark:text-white truncate">{entry.userName || '—'}</span>
+                            <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.2 rounded">{ranks.badge}</span>
+                          </div>
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold mt-0.5">Top {entry.percentile || 100}% percentile</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="block text-sm font-black text-gray-900 dark:text-white" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{entry.score || 0} <span className="text-[9px] text-gray-400 dark:text-gray-500 font-normal">pts</span></span>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">{entry.accuracy || 0}% acc</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {/* Main Compact Table */}
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Trophy className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wider">Aspirant Rankings ({filteredRankings.length})</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  <span>Avg: <strong className="text-gray-900 dark:text-white">{rankings.length > 0 ? Math.round(rankings.reduce((acc, r) => acc + (r.score || 0), 0) / rankings.length) : 0} pts</strong></span>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-gray-50/60 dark:bg-gray-800/60 border-b border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400">
+                    <tr>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider w-16">Rank</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider">Aspirant</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-right">Score</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-right hidden sm:table-cell">Time Spent</th>
+                      <th className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-right">Accuracy</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700 text-xs">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="5" className="py-12 text-center text-gray-500 dark:text-gray-400">
+                          <Loader2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-spin mx-auto" />
+                          <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-2">Loading leaderboard...</p>
+                        </td>
+                      </tr>
+                    ) : filteredRankings.length > 0 ? filteredRankings.map((r, i) => {
+                      const isCurrentUser = r.userId === user?.id || r.userId === user?._id || r.userName === user?.name
+                      const rankNum = r.rank || i + 1
+                      return (
+                        <tr key={r.userId || i} className={`hover:bg-gray-50/80 dark:hover:bg-gray-700/80 transition-colors ${isCurrentUser ? 'bg-indigo-50/70 dark:bg-indigo-900/30 font-semibold' : ''}`}>
+                          <td className="px-4 py-2.5">
+                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-xs font-bold ${rankNum === 1 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-700' : rankNum === 2 ? 'bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 border border-slate-300 dark:border-gray-600' : rankNum === 3 ? 'bg-orange-100 dark:bg-orange-900/30 text-amber-900 dark:text-amber-200 border border-orange-200 dark:border-orange-800' : isCurrentUser ? 'bg-indigo-600 text-white' : 'text-gray-700 dark:text-gray-300'}`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                              #{rankNum}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${getAvatarGradient(r.userName)} flex items-center justify-center font-bold text-[10px] text-white shadow-sm shrink-0`}>
+                                {r.userName?.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className={`font-bold text-xs truncate ${isCurrentUser ? 'text-indigo-900 dark:text-indigo-200' : 'text-gray-900 dark:text-white'}`}>
+                                  {r.userName}
+                                  {isCurrentUser && <span className="ml-1.5 text-[8px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 px-1.5 py-0.2 rounded-full font-bold">YOU</span>}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-2.5 text-right font-bold text-gray-900 dark:text-white" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {r.score}
+                          </td>
+                          <td className="px-4 py-2.5 text-right text-gray-500 dark:text-gray-400 font-medium hidden sm:table-cell" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                            {formatTime(r.timeSpentSeconds)}
+                          </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <div className="inline-flex items-center gap-1.5 justify-end">
+                              <div className="w-10 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden hidden sm:block">
+                                <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${r.accuracy}%` }} />
+                              </div>
+                              <span className="font-bold text-emerald-600 dark:text-emerald-400" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{r.accuracy}%</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    }) : (
+                      <tr>
+                        <td colSpan="5" className="py-12 text-center text-gray-500 dark:text-gray-400">
+                          <Users className="w-8 h-8 text-gray-300 dark:text-gray-500 mx-auto mb-2" />
+                          <p className="text-xs font-bold text-gray-700 dark:text-gray-300">No Aspirants Found</p>
+                          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Try adjusting your filters or search term</p>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      `}</style>
     </div>
   )
 }

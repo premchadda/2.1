@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get('/', async (req, res) => {
 
     // Fetch paginated results with random ordering
     const questionsRes = await pool.query(
-      `SELECT * FROM questions WHERE ${whereClause} ORDER BY RANDOM() LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
+      `SELECT id, test_id, question_number, question_text, question_text_hi, options, options_hi, correct_option, marks, negative_marks, section, explanation, difficulty, image, is_active, created_at, updated_at, subject, chapter_id, topic, image_asset_id, series_id, category_id, sub_category_id, study_material_id, topic_id, quiz_id, public_id_uuid, public_id, category, type, status, tags, passage_id, chapter, is_practice, is_deleted, deleted_by, deleted_at, _orphaned, orphaned_at, _deleted_test_id, moderation_status, reviewed_by, reviewed_at, review_notes, submitted_for_review_at, submitted_by, external_question_id, language, solution_image_url, source, imported_from, section_id, subtopic_id, subject_id, estimated_time, explanation_hi, source_config, exam_category_ids, exam_ids, question_stage_ids, concept_ids, skill_ids, ai_generated, _deleted_series_id, created_by, correct_answer, question_type FROM questions WHERE ${whereClause} ORDER BY RANDOM() LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, parsedLimit, offset],
     );
 
@@ -71,7 +72,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Get practice questions error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

@@ -1,3 +1,5 @@
+import logger from '../../../infrastructure/logger/logger.js';
+
 // Error handler middleware
 
 // 404 Not Found
@@ -9,30 +11,25 @@ export const notFound = (req, res, next) => {
 
 // General error handler
 export const errorHandler = (err, req, res, next) => {
-  // Default to 500 if status code not set
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode
-  let message = err.message
+  let message = 'Internal server error'
 
-  // Mongoose bad ObjectId
   if (err.name === 'CastError' && err.kind === 'ObjectId') {
     statusCode = 404
     message = 'Resource not found'
   }
 
-  // Mongoose duplicate key
   if (err.code === 11000) {
     statusCode = 400
     const field = Object.keys(err.keyValue)[0]
     message = `${field} already exists`
   }
 
-  // Mongoose validation error
   if (err.name === 'ValidationError') {
     statusCode = 400
     message = Object.values(err.errors).map(e => e.message).join(', ')
   }
 
-  // JWT errors
   if (err.name === 'JsonWebTokenError') {
     statusCode = 401
     message = 'Invalid token'
@@ -41,6 +38,10 @@ export const errorHandler = (err, req, res, next) => {
   if (err.name === 'TokenExpiredError') {
     statusCode = 401
     message = 'Token expired'
+  }
+
+  if (statusCode >= 500) {
+    logger.error('Unhandled error:', err)
   }
 
   res.status(statusCode).json({

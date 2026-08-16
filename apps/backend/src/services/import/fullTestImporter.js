@@ -309,7 +309,12 @@ function mapStatus(jsonStatus) {
   return map[jsonStatus] || "draft";
 }
 
+const categoryPathCache = new Map();
+
 async function getCategoryPath(client, categoryId) {
+  if (!categoryId) return { pathIds: [], pathNames: [] };
+  if (categoryPathCache.has(categoryId)) return categoryPathCache.get(categoryId);
+
   const pathIds = [];
   const pathNames = [];
   let currentId = categoryId;
@@ -328,7 +333,9 @@ async function getCategoryPath(client, categoryId) {
       break;
     }
   }
-  return { pathIds, pathNames };
+  const result = { pathIds, pathNames };
+  categoryPathCache.set(categoryId, result);
+  return result;
 }
 
 // ─── Helper: build INSERT dynamically based on existing columns ────────────────
@@ -446,20 +453,21 @@ export async function importFullTest(json, config = {}) {
       description: json.description || "",
       thumbnail: json.thumbnail || null,
       banner: json.banner || null,
-      category: json.category || (json.isPyq ? "PYPs" : "Mock Tests"),
-      sub_category: json.subCategory || (json.subCategoryId ? String(json.subCategoryId).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null),
+      category: json.category || (json.isPyq || year ? "PYPs" : "Mock Tests"),
+      sub_category: json.subCategory || (year ? String(year) : (json.subCategoryId ? String(json.subCategoryId).replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null)),
       exam_category_id: examCategoryId || null,
       test_type: json.testType || "full-length",
-      status: json.status ? mapStatus(json.status) : "active",
+      status: json.status ? mapStatus(json.status) : "published",
       difficulty: json.difficulty || "medium",
       duration: json.duration || 60,
       total_questions: json.totalQuestions || 0,
       total_marks: json.totalMarks || 0,
-      negative_marking: json.negativeMarking || 0,
+      negative_marking: json.negativeMarking ?? json.negative_marking ?? json.negativeMarks ?? 0,
       is_active: true,
       is_pro: json.access?.type === "paid" || false,
-      is_pyq: json.isPyq || false,
-      pyq_year: year,
+      is_pyq: json.isPyq || (year ? true : false),
+      year: year || (json.year ? Number(json.year) : null) || (json.title ? Number((String(json.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0]) : null),
+      pyq_year: year || (json.year ? Number(json.year) : null) || (json.title ? Number((String(json.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0]) : null),
       is_live: json.isLive ?? false,
       is_coming_soon: json.isComingSoon ?? false,
       is_featured: json.isFeatured ?? false,
@@ -557,7 +565,7 @@ export async function importFullTest(json, config = {}) {
         duration: json.duration || 60,
         totalQuestions: json.totalQuestions || 0,
         totalMarks: json.totalMarks || 0,
-        negativeMarking: json.negativeMarking || 0,
+        negativeMarking: json.negativeMarking ?? json.negative_marking ?? json.negativeMarks ?? 0,
         sections: (json.sections || []).map((section, sIdx) => ({
           name: section.name || "Untitled Section",
           subjectId: section.subjectId || null,
@@ -565,7 +573,7 @@ export async function importFullTest(json, config = {}) {
           duration: section.duration || null,
           questionCount: section.questionCount || (section.questions || []).length,
           maxMarks: section.maxMarks || 0,
-          negativeMarking: section.negativeMarking || 0,
+          negativeMarking: section.negativeMarking ?? section.negative_marking ?? section.negativeMarks ?? 0,
           mandatory: section.mandatory ?? true,
           optional: section.optional ?? false,
           qualifying: section.qualifying ?? false,
@@ -591,7 +599,7 @@ export async function importFullTest(json, config = {}) {
               explanationHi: qExplanationHi,
               difficulty: q.difficulty || "medium",
               marks: q.marks || 2,
-              negativeMarks: q.negativeMarks || q.negative || 0,
+              negativeMarks: q.negativeMarks ?? q.negativeMarking ?? q.negative ?? 0,
               type: q.questionType || "mcq",
               subjectId: q.subjectId || section.subjectId || null,
               chapterId: q.chapterId || null,
@@ -665,7 +673,7 @@ export async function importFullTest(json, config = {}) {
         display_order: getSectionDisplayOrder(section.name, section.order ?? (sIdx + 1)),
         question_count: section.questionCount || 0,
         total_marks: section.maxMarks || 0,
-        negative_marking: section.negativeMarking || 0,
+        negative_marking: section.negativeMarking ?? section.negative_marking ?? section.negativeMarks ?? 0,
         subject_id: subjectId,
         mandatory: section.mandatory ?? true,
         optional: section.optional ?? false,
@@ -698,15 +706,15 @@ export async function importFullTest(json, config = {}) {
       const sectionDbId = sectionResult.rows[0].id;
       result.sectionsCreated++;
 
-      // ── 4. Process questions in this section ─────────────────────────────
+      // ── 4. Process questions in this section (Batch Multi-Row Insert) ───
 
       const questions = section.questions || [];
+      const validQRows = [];
+      const seenExternalIds = new Set();
 
       for (let qi = 0; qi < questions.length; qi++) {
         const q = questions[qi];
         try {
-          if (!dryRun) await client.query(`SAVEPOINT q${globalQuestionNumber}`);
-
           // ── Resolve subjectId on question level (may differ from section)
           const qSubjectSlug = q.subjectId || section.subjectId || "general";
           const qSubjectId = q.subjectId
@@ -743,16 +751,14 @@ export async function importFullTest(json, config = {}) {
             continue;
           }
 
-          // ── Dedup check
-          if (skipDuplicates && q.id) {
-            const dupCheck = await client.query(
-              `SELECT id FROM questions WHERE external_question_id = $1 AND test_id = $2 AND is_deleted = false LIMIT 1`,
-              [String(q.id), testDbId]
-            );
-            if (dupCheck.rows.length > 0) {
+          // ── In-memory Dedup check
+          const externalQId = String(q.id || "");
+          if (skipDuplicates && externalQId) {
+            if (seenExternalIds.has(externalQId)) {
               result.questionsSkipped++;
               continue;
             }
+            seenExternalIds.add(externalQId);
           }
 
           const qRow = {
@@ -765,13 +771,13 @@ export async function importFullTest(json, config = {}) {
             explanation_hi: explanationHi,
             difficulty: q.difficulty || "medium",
             marks: q.marks || 2,
-            negative_marks: q.negativeMarks || q.negative || 0,
+            negative_marks: q.negativeMarks ?? q.negativeMarking ?? q.negative ?? 0,
             type: q.questionType || "mcq",
             status: mapStatus(q.status),
             section: q.section || section.name || null,
             subject_id: qSubjectId,
             test_id: testDbId,
-            external_question_id: String(q.id || ""),
+            external_question_id: externalQId,
             estimated_time: q.estimatedTime || null,
             language: (q.languages || ["en"])[0] || "en",
             languages: q.languages || ["en"],
@@ -793,45 +799,111 @@ export async function importFullTest(json, config = {}) {
             is_active: true,
           };
 
-          let qResult;
-          if (dryRun) {
-            qResult = { rows: [{ id: -1 }] };
-          } else {
-            const cols = await getTableColumns(client, "questions");
-            const validCols = Object.keys(qRow).filter(c => cols.has(c));
-            const validVals = validCols.map(c => qRow[c]);
-            const validPlaceholders = validCols.map((_, i) => `$${i + 1}`);
-            const qSql = `
-              INSERT INTO questions (${validCols.map(c => `"${c}"`).join(", ")})
-              VALUES (${validPlaceholders.join(", ")})
-              RETURNING id
-            `;
-            qResult = await client.query(qSql, validVals);
-          }
-
-          const questionDbId = qResult.rows[0].id;
-
-          // ── Link question to test via junction table
-          if (!dryRun) {
-            await client.query(
-              `INSERT INTO test_questions (test_id, question_id, section_id, question_number, created_at)
-               VALUES ($1, $2, $3, $4, NOW())
-               ON CONFLICT DO NOTHING`,
-              [testDbId, questionDbId, sectionDbId, qi + 1]
-            );
-          }
-
-          result.questionsCreated++;
-        } catch (qErr) {
-          if (!dryRun) {
-            try { await client.query(`ROLLBACK TO SAVEPOINT q${globalQuestionNumber}`); } catch (rollbackErr) { /* ignore rollback errors */ }
-          }
+          validQRows.push({ qRow, qi, originalQ: q });
+        } catch (qPrepErr) {
           result.errors.push({
             questionId: q.id || "unknown",
             sectionId: section.name || "unknown",
-            message: qErr.message,
+            message: qPrepErr.message,
           });
           result.questionsSkipped++;
+        }
+      }
+
+      if (dryRun) {
+        result.questionsCreated += validQRows.length;
+      } else if (validQRows.length > 0) {
+        const batchSavepoint = `batch_sec_${sIdx}`;
+        try {
+          await client.query(`SAVEPOINT ${batchSavepoint}`);
+
+          // Batch Multi-Row Insert into questions
+          const cols = await getTableColumns(client, "questions");
+          const validColNames = Object.keys(validQRows[0].qRow).filter(c => cols.has(c));
+
+          const allVals = [];
+          const rowPlaceholders = [];
+
+          validQRows.forEach((item) => {
+            const placeholders = [];
+            validColNames.forEach((col) => {
+              allVals.push(item.qRow[col]);
+              placeholders.push(`$${allVals.length}`);
+            });
+            rowPlaceholders.push(`(${placeholders.join(", ")})`);
+          });
+
+          const batchQSql = `
+            INSERT INTO questions (${validColNames.map(c => `"${c}"`).join(", ")})
+            VALUES ${rowPlaceholders.join(",\n")}
+            RETURNING id, external_question_id, question_number
+          `;
+
+          const qInsertResult = await client.query(batchQSql, allVals);
+
+          // Batch Link Questions via test_questions junction table
+          const junctionVals = [];
+          const junctionPlaceholders = [];
+
+          qInsertResult.rows.forEach((insertedRow, rIdx) => {
+            const qDbId = insertedRow.id;
+            const qNum = validQRows[rIdx]?.qi !== undefined ? validQRows[rIdx].qi + 1 : (rIdx + 1);
+
+            junctionVals.push(testDbId, qDbId, sectionDbId, qNum);
+            const base = junctionVals.length - 3;
+            junctionPlaceholders.push(`($${base}, $${base + 1}, $${base + 2}, $${base + 3}, NOW())`);
+          });
+
+          if (junctionPlaceholders.length > 0) {
+            const batchJunctionSql = `
+              INSERT INTO test_questions (test_id, question_id, section_id, question_number, created_at)
+              VALUES ${junctionPlaceholders.join(",\n")}
+              ON CONFLICT DO NOTHING
+            `;
+            await client.query(batchJunctionSql, junctionVals);
+          }
+
+          await client.query(`RELEASE SAVEPOINT ${batchSavepoint}`);
+          result.questionsCreated += qInsertResult.rows.length;
+        } catch (batchErr) {
+          try { await client.query(`ROLLBACK TO SAVEPOINT ${batchSavepoint}`); } catch (_) {}
+          console.warn(`[FullTestImporter] Batch insertion failed for section "${section.name}", falling back to sequential insert:`, batchErr.message);
+
+          // Safe fallback: insert sequentially with savepoints if batch failed
+
+          for (let vi = 0; vi < validQRows.length; vi++) {
+            const { qRow, qi, originalQ } = validQRows[vi];
+            try {
+              await client.query(`SAVEPOINT q_fb_${qi}`);
+              const cols = await getTableColumns(client, "questions");
+              const validCols = Object.keys(qRow).filter(c => cols.has(c));
+              const validVals = validCols.map(c => qRow[c]);
+              const validPlaceholders = validCols.map((_, i) => `$${i + 1}`);
+              const qSql = `
+                INSERT INTO questions (${validCols.map(c => `"${c}"`).join(", ")})
+                VALUES (${validPlaceholders.join(", ")})
+                RETURNING id
+              `;
+              const qResult = await client.query(qSql, validVals);
+              const questionDbId = qResult.rows[0].id;
+
+              await client.query(
+                `INSERT INTO test_questions (test_id, question_id, section_id, question_number, created_at)
+                 VALUES ($1, $2, $3, $4, NOW())
+                 ON CONFLICT DO NOTHING`,
+                [testDbId, questionDbId, sectionDbId, qi + 1]
+              );
+              result.questionsCreated++;
+            } catch (qErr) {
+              try { await client.query(`ROLLBACK TO SAVEPOINT q_fb_${qi}`); } catch (_) {}
+              result.errors.push({
+                questionId: originalQ.id || "unknown",
+                sectionId: section.name || "unknown",
+                message: qErr.message,
+              });
+              result.questionsSkipped++;
+            }
+          }
         }
       }
 
@@ -924,15 +996,21 @@ export function validateJsonSchema(json) {
 
   const knownTestKeys = new Set([
     ...expectedTest,
-    'id', 'shortTitle', 'slug', 'description', 'thumbnail', 'banner', 'testType', 'status', 'difficulty', 
-    'isPyq', 'pyqYear', 'pyqShift', 'isLive', 'isComingSoon', 'isFeatured', 'passingMarks', 'cutoffMarks', 
-    'questionLanguageMode', 'languages', 'tags', 'showCalculator', 'showQuestionPalette', 'showSectionPalette', 
-    'showTimer', 'allowBookmark', 'allowReportIssue', 'timingConfig', 'optionalSectionConfig', 'attemptRules', 
-    'analysisConfig', 'access', 'availability', 'seo', 'proctoringEnabled', 'cameraMonitoring', 'tabSwitchLimit', 
-    'copyPasteDisabled', 'adaptiveTest', 'adaptiveAlgorithm', 'certificateEnabled', 'leaderboardEnabled', 
-    'shuffleQuestions', 'shuffleOptions', 'allowReview', 'instructions', 'version', 'sections', 'createdAt', 
-    'updatedAt', 'createdBy', 'updatedBy', 'statistics', 'resultPublished', 'analysisPublished', 'subcategory', 
-    'recommendedFor', 'aiGenerated', 'aiAlgorithm', 'cameraProctoring'
+    'id', 'shortTitle', 'short_title', 'slug', 'description', 'thumbnail', 'banner', 'testType', 'test_type', 'itemType', 'item_type',
+    'status', 'difficulty', 'isPyq', 'is_pyq', 'pyqYear', 'pyq_year', 'year', 'pyqShift', 'pyq_shift',
+    'isLive', 'is_live', 'isComingSoon', 'is_coming_soon', 'isFeatured', 'is_featured', 'isActive', 'is_active', 'isPro', 'is_pro', 'isFree', 'is_free',
+    'passingMarks', 'passing_marks', 'cutoffMarks', 'cutoff_marks', 'negativeMarking', 'negative_marking', 'negativeMarks', 'negMarks',
+    'marksPerQuestion', 'marks_per_question', 'questionLanguageMode', 'question_language_mode', 'languages', 'tags',
+    'category', 'subCategory', 'sub_category', 'subcategory', 'subCategoryId', 'sub_category_id',
+    'examCategoryId', 'exam_category_id', 'examId', 'exam_id', 'stageId', 'stage_id', 'testSeriesId', 'test_series_id', 'categoryId', 'category_id',
+    'scheduledAt', 'scheduled_at', 'startTime', 'start_time', 'endTime', 'end_time', 'windowTime', 'window_time',
+    'price', 'discountPrice', 'discount_price', 'currency', 'accessType', 'access_type',
+    'showCalculator', 'showQuestionPalette', 'showSectionPalette', 'showTimer', 'allowBookmark', 'allowReportIssue',
+    'timingConfig', 'optionalSectionConfig', 'attemptRules', 'analysisConfig', 'access', 'availability', 'seo',
+    'proctoringEnabled', 'cameraMonitoring', 'tabSwitchLimit', 'copyPasteDisabled', 'adaptiveTest', 'adaptiveAlgorithm',
+    'certificateEnabled', 'leaderboardEnabled', 'shuffleQuestions', 'shuffleOptions', 'allowReview', 'instructions',
+    'version', 'sections', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy', 'statistics', 'resultPublished',
+    'analysisPublished', 'recommendedFor', 'aiGenerated', 'aiAlgorithm', 'cameraProctoring'
   ]);
 
   Object.keys(sample).forEach(k => {
@@ -952,8 +1030,14 @@ export function validateJsonSchema(json) {
 
     const knownSectionKeys = new Set([
       ...expectedSection,
-      'id', 'order', 'questionCount', 'maxMarks', 'negativeMarking', 'duration', 'mandatory', 'optional', 
-      'qualifying', 'allowNavigation', 'isLocked', 'shuffleQuestions', 'instructions', 'description'
+      'id', 'order', 'sectionOrder', 'section_order', 'displayOrder', 'display_order',
+      'questionCount', 'question_count', 'totalQuestions', 'total_questions',
+      'maxMarks', 'max_marks', 'totalMarks', 'total_marks',
+      'negativeMarking', 'negative_marking', 'negativeMarks', 'negMarks',
+      'marksPerQuestion', 'marks_per_question', 'duration', 'timeLimit', 'time_limit',
+      'mandatory', 'optional', 'qualifying', 'isQualifying', 'is_qualifying',
+      'allowNavigation', 'allow_navigation', 'isLocked', 'is_locked',
+      'shuffleQuestions', 'shuffle_questions', 'instructions', 'description', 'subjectId', 'subject_id'
     ]);
 
     Object.keys(section).forEach(k => {
@@ -966,25 +1050,30 @@ export function validateJsonSchema(json) {
     const q = section.questions?.[0];
     if (q) {
       // Check for question text (english or bilingual)
-      if (!q.question && !q.text?.en && !q.text?.hn && !q.question_text_hi) {
+      if (!q.question && !q.text?.en && !q.text?.hn && !q.question_text_hi && !q.questionText) {
         missingFields.question.push('question (or text)');
       }
       // Check for options
-      if (!q.options && !q.options_bilingual?.en && !q.options_bilingual?.hn) {
+      if (!q.options && !q.options_bilingual?.en && !q.options_bilingual?.hn && !q.options_hi) {
         missingFields.question.push('options (or options_bilingual)');
       }
       // Check for correct answer
-      if (q.correctAnswer === undefined && q.correct_option_id === undefined) {
+      if (q.correctAnswer === undefined && q.correct_option_id === undefined && q.correctOption === undefined && q.correct_option === undefined) {
         missingFields.question.push('correctAnswer (or correct_option_id)');
       }
 
       const knownQuestionKeys = new Set([
-        'id', 'questionType', 'question', 'options', 'correctAnswer', 'correct_option_id', 'solution', 'explanation', 
-        'difficulty', 'estimatedTime', 'marks', 'negativeMarks', 'negative', 'languages', 'examCategoryIds', 'examIds', 
-        'stageIds', 'subjectId', 'chapterId', 'topicId', 'subtopicId', 'conceptIds', 'skillIds', 'tags', 'chapterIds', 
-        'topicIds', 'subtopicIds', 'aiGenerated', 'source', 'text', 'options_bilingual', 'solution_bilingual', 'section', 
-        'status', 'correct_option', 'explanation_hi', 'options_hi', 'question_text_hi', 'solution_hi',
-        'subtopicId'
+        'id', 'questionType', 'question_type', 'type', 'question', 'questionText', 'question_text', 'options',
+        'correctAnswer', 'correct_answer', 'correct_option_id', 'correct_option', 'correctOption',
+        'solution', 'solution_text', 'solutionText', 'explanation', 'explanation_text', 'explanationText',
+        'difficulty', 'estimatedTime', 'estimated_time', 'marks', 'marksPerQuestion', 'marks_per_question',
+        'negativeMarks', 'negative_marks', 'negativeMarking', 'negative_marking', 'negative', 'negMarks',
+        'languages', 'examCategoryIds', 'exam_category_ids', 'examIds', 'exam_ids', 'stageIds', 'stage_ids',
+        'subjectId', 'subject_id', 'chapterId', 'chapter_id', 'topicId', 'topic_id', 'subtopicId', 'subtopic_id',
+        'conceptIds', 'skillIds', 'tags', 'chapterIds', 'topicIds', 'subtopicIds', 'aiGenerated', 'source',
+        'text', 'options_bilingual', 'solution_bilingual', 'section', 'status',
+        'questionTextHi', 'question_text_hi', 'optionsHi', 'options_hi', 'explanationHi', 'explanation_hi', 'solutionHi', 'solution_hi',
+        'questionNumber', 'question_number', 'externalQuestionId', 'external_question_id'
       ]);
 
       Object.keys(q).forEach(k => {

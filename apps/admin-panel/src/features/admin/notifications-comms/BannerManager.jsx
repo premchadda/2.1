@@ -1,24 +1,24 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, X, Save, Image, Eye, EyeOff, GripVertical } from 'lucide-react'
-import { adminAPI } from '../../../shared/lib/dataService.js'
+import { Plus, Trash2, X, Save, Image, Eye, EyeOff } from 'lucide-react'
+import { apiClient } from '../../../shared/lib/dataService.js'
 import { toast } from 'react-hot-toast'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
 
 export default function BannerManager() {
   const [banners, setBanners] = useState([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
-  
+  const [statusFilter, setStatusFilter] = useState('all')
+
   const [formData, setFormData] = useState({
     title: '',
-    subtitle: '',
     imageUrl: '',
-    link: '',
+    linkUrl: '',
     position: 'home',
-    isActive: true,
-    startDate: '',
-    endDate: '',
-    order: 0
+    sortOrder: 0,
+    isActive: true
   })
 
   useEffect(() => {
@@ -27,12 +27,16 @@ export default function BannerManager() {
 
   const fetchBanners = async () => {
     try {
-      const response = await adminAPI.getBanners()
+      const response = await apiClient.get('/admin/banners', { params: { includeInactive: 'true' } })
       if (response.data.success) {
         setBanners(response.data.data || [])
+      } else {
+        toast.error(response.data.message || 'Failed to fetch banners')
+        setBanners([])
       }
     } catch (error) {
       console.error('Failed to fetch banners:', error)
+      toast.error(error.response?.data?.message || 'Failed to fetch banners')
       setBanners([])
     } finally {
       setLoading(false)
@@ -41,73 +45,95 @@ export default function BannerManager() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
+    if (saving) return
+    setSaving(true)
+
     try {
+      const payload = {
+        title: formData.title,
+        imageUrl: formData.imageUrl,
+        linkUrl: formData.linkUrl,
+        position: formData.position,
+        sortOrder: formData.sortOrder,
+        isActive: formData.isActive
+      }
       let response
       if (editingId) {
-        response = await adminAPI.updateBanner(editingId, formData)
+        response = await apiClient.put(`/admin/banners/${editingId}`, payload)
       } else {
-        response = await adminAPI.createBanner(formData)
+        response = await apiClient.post('/admin/banners', payload)
       }
 
       if (response.data?.success) {
-        fetchBanners()
+        await fetchBanners()
         resetForm()
         toast.success(editingId ? 'Banner updated!' : 'Banner created!')
+      } else {
+        toast.error(response.data?.message || 'Failed to save banner')
       }
     } catch (error) {
       console.error('Failed to save banner:', error)
-      toast.error('Failed to save banner')
+      toast.error(error.response?.data?.message || 'Failed to save banner')
+    } finally {
+      setSaving(false)
     }
   }
 
   const handleEdit = (banner) => {
     setFormData({
-      title: banner.title,
-      subtitle: banner.subtitle || '',
+      title: banner.title || '',
       imageUrl: banner.imageUrl || '',
-      link: banner.link || '',
+      linkUrl: banner.linkUrl ?? banner.link ?? '',
       position: banner.position || 'home',
-      isActive: banner.isActive !== false,
-      startDate: banner.startDate?.slice(0, 10) || '',
-      endDate: banner.endDate?.slice(0, 10) || '',
-      order: banner.order || 0
+      sortOrder: banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0,
+      isActive: banner.isActive !== false
     })
-    setEditingId(banner._id)
+    setEditingId(banner.id || banner._id)
     setShowForm(true)
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this banner?')) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Banner',
+      message: 'Are you sure you want to delete this banner?',
+      confirmLabel: 'Delete',
+      danger: true
+    })
+    if (!confirmed) return
 
     try {
-      const response = await adminAPI.deleteBanner(id)
+      const response = await apiClient.delete(`/admin/banners/${id}`)
       if (response.data?.success) {
         toast.success('Banner deleted!')
-        fetchBanners()
+        await fetchBanners()
+      } else {
+        toast.error(response.data?.message || 'Failed to delete banner')
       }
     } catch (error) {
       console.error('Failed to delete banner:', error)
-      toast.error('Failed to delete banner')
+      toast.error(error.response?.data?.message || 'Failed to delete banner')
     }
   }
 
   const toggleActive = async (banner) => {
     try {
-      const response = await adminAPI.updateBanner(banner._id, { 
-        ...banner, 
-        isActive: !banner.isActive 
+      const bannerId = banner.id || banner._id
+      const response = await apiClient.put(`/admin/banners/${bannerId}`, {
+        isActive: !banner.isActive
       })
       if (response.data.success) {
-        fetchBanners()
+        await fetchBanners()
+      } else {
+        toast.error(response.data?.message || 'Failed to toggle banner')
       }
     } catch (error) {
       console.error('Failed to toggle banner:', error)
+      toast.error(error.response?.data?.message || 'Failed to toggle banner')
     }
   }
 
   const resetForm = () => {
-    setFormData({ title: '', subtitle: '', imageUrl: '', link: '', position: 'home', isActive: true, startDate: '', endDate: '', order: 0 })
+    setFormData({ title: '', imageUrl: '', linkUrl: '', position: 'home', sortOrder: 0, isActive: true })
     setEditingId(null)
     setShowForm(false)
   }
@@ -119,6 +145,12 @@ export default function BannerManager() {
     { value: 'study', label: 'Study Materials' }
   ]
 
+  const visibleBanners = banners.filter(banner => {
+    if (statusFilter === 'active') return banner.isActive !== false
+    if (statusFilter === 'inactive') return banner.isActive === false
+    return true
+  })
+
   if (loading) {
     return <div className="p-6">Loading...</div>
   }
@@ -127,22 +159,36 @@ export default function BannerManager() {
     <div className="p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Banner Manager</h1>
-          <p className="text-gray-600">Manage homepage and promotional banners</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Banner Manager</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage homepage and promotional banners</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-        >
-          <Plus className="w-5 h-5" />
-          Add Banner
-        </button>
+        <div className="flex items-center gap-3">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            aria-label="Filter banners by status"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="all">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            <Plus className="w-5 h-5" />
+            Add Banner
+          </button>
+        </div>
       </div>
 
       {/* Banners Grid */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {banners.map((banner) => (
-          <div key={banner._id} className="bg-white rounded-xl shadow-sm border overflow-hidden">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {visibleBanners.map((banner) => {
+          const bannerId = banner.id || banner._id
+          return (
+          <div key={bannerId} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden">
             {/* Banner Preview */}
             <div className="h-40 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
               {banner.imageUrl ? (
@@ -155,118 +201,111 @@ export default function BannerManager() {
               <div className="absolute top-2 right-2 flex gap-1">
                 <button
                   onClick={() => toggleActive(banner)}
-                  className={`p-1 rounded ${banner.isActive ? 'bg-green-500' : 'bg-gray-500'}`}
+                  aria-label={banner.isActive ? 'Deactivate banner' : 'Activate banner'}
+                  className={`p-1 rounded ${banner.isActive ? 'bg-green-50 dark:bg-green-900/60' : 'bg-gray-500'}`}
                 >
                   {banner.isActive ? <Eye className="w-4 h-4 text-white" /> : <EyeOff className="w-4 h-4 text-white" />}
                 </button>
               </div>
               <div className="absolute bottom-2 left-2">
-                <span className={`px-2 py-1 text-xs rounded ${banner.isActive ? 'bg-green-500' : 'bg-gray-500'} text-white`}>
+                <span className={`px-2 py-1 text-xs rounded ${banner.isActive ? 'bg-green-50 dark:bg-green-900/60' : 'bg-gray-500'} text-white`}>
                   {banner.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
             </div>
             
             <div className="p-4">
-              <h3 className="font-semibold text-gray-900 mb-1">{banner.title}</h3>
-              <p className="text-sm text-gray-500 mb-3">{banner.subtitle}</p>
-              
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                <span className="px-2 py-1 bg-gray-100 rounded">{banner.position}</span>
-                <span>Order: {banner.order}</span>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{banner.title}</h3>
+              {(banner.linkUrl ?? banner.link) && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 truncate">{banner.linkUrl ?? banner.link}</p>
+              )}
+
+              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
+                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">{banner.position}</span>
+                <span>Order: {banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0}</span>
               </div>
-              
+
               <div className="flex gap-2">
                 <button
                   onClick={() => handleEdit(banner)}
-                  className="flex-1 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                  className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
                 >
                   Edit
                 </button>
                 <button
-                  onClick={() => handleDelete(banner._id)}
-                  className="py-2 px-3 border border-red-300 text-red-600 rounded-lg text-sm hover:bg-red-50"
+                  onClick={() => handleDelete(bannerId)}
+                  className="py-2 px-3 border border-red-300 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:bg-red-900/20"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
           </div>
-        ))}
+        )})}
       </div>
 
-      {banners.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-xl">
+      {visibleBanners.length === 0 && (
+        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
           <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500">No banners found</p>
+          <p className="text-gray-500 dark:text-gray-400">{statusFilter === 'all' ? 'No banners found' : `No ${statusFilter} banners found`}</p>
         </div>
       )}
 
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg w-full max-w-lg">
-            <div className="p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg">
+    <div className="p-3 sm:p-4 md:p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">
                   {editingId ? 'Edit Banner' : 'Add New Banner'}
                 </h2>
-                <button onClick={resetForm} className="p-2 hover:bg-gray-100 rounded">
+                <button onClick={resetForm} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded">
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
                   <input
                     type="text"
                     required
                     value={formData.title}
                     onChange={(e) => setFormData({...formData, title: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subtitle</label>
-                  <input
-                    type="text"
-                    value={formData.subtitle}
-                    onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Image URL</label>
                   <input
                     type="url"
                     value={formData.imageUrl}
                     onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     placeholder="https://example.com/banner.jpg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Link URL</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link URL</label>
                   <input
                     type="url"
-                    value={formData.link}
-                    onChange={(e) => setFormData({...formData, link: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    value={formData.linkUrl}
+                    onChange={(e) => setFormData({...formData, linkUrl: e.target.value})}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     placeholder="/test-series"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
                     <select
                       value={formData.position}
                       onChange={(e) => setFormData({...formData, position: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
                       {positions.map(pos => (
                         <option key={pos.value} value={pos.value}>{pos.label}</option>
@@ -274,33 +313,12 @@ export default function BannerManager() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Order</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
                     <input
                       type="number"
-                      value={formData.order}
-                      onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <input
-                      type="date"
-                      value={formData.startDate}
-                      onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <input
-                      type="date"
-                      value={formData.endDate}
-                      onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      value={formData.sortOrder}
+                      onChange={(e) => setFormData({...formData, sortOrder: parseInt(e.target.value) || 0})}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                 </div>
@@ -310,18 +328,18 @@ export default function BannerManager() {
                     type="checkbox"
                     checked={formData.isActive}
                     onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                    className="w-4 h-4 text-indigo-600 rounded"
+                    className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                   />
-                  <span className="text-sm font-medium text-gray-700">Active</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active</span>
                 </label>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={resetForm} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  <button type="button" onClick={resetForm} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
                     Cancel
                   </button>
-                  <button type="submit" className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                  <button type="submit" disabled={saving} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
                     <Save className="w-4 h-4" />
-                    {editingId ? 'Update' : 'Create'}
+                    {saving ? 'Saving...' : (editingId ? 'Update' : 'Create')}
                   </button>
                 </div>
               </form>

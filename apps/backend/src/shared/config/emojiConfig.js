@@ -31,6 +31,7 @@ export const SUBJECT_EMOJIS = {
   'Verbal Reasoning': '🧠',
   'General Intelligence': '🧩',
   'English': '📝',
+  'English Language & Comprehension': '📝',
   'General Awareness': '🌍',
   'GK': '🌍',
   'Current Affairs': '📰',

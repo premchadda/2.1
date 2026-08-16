@@ -36,8 +36,7 @@ class AuditTrailManager {
     ipAddress = null,
     userAgent = null,
     status = 'success',
-  }) {
-    const client = await this.pool.connect();
+  }, client = null) {
     try {
       const query = `
         SELECT log_audit_event(
@@ -57,20 +56,19 @@ class AuditTrailManager {
         status,
       ];
 
-      const result = await client.query(query, params);
+      const db = client || this.pool;
+      const result = await db.query(query, params);
       return result.rows[0]?.audit_id;
     } catch (error) {
       console.error('Audit logging failed:', error);
       throw error;
-    } finally {
-      client.release();
     }
   }
 
   /**
    * Log CREATE action
    */
-  async logCreate({ userId, resource, resourceId, data, ipAddress, userAgent }) {
+  async logCreate({ userId, resource, resourceId, data, ipAddress, userAgent }, client = null) {
     return this.log({
       userId,
       action: 'CREATE',
@@ -80,7 +78,7 @@ class AuditTrailManager {
       description: `Created new ${resource} record`,
       ipAddress,
       userAgent,
-    });
+    }, client);
   }
 
   /**
@@ -94,7 +92,7 @@ class AuditTrailManager {
     newValues,
     ipAddress,
     userAgent,
-  }) {
+  }, client = null) {
     return this.log({
       userId,
       action: 'UPDATE',
@@ -105,13 +103,13 @@ class AuditTrailManager {
       description: `Updated ${resource} record`,
       ipAddress,
       userAgent,
-    });
+    }, client);
   }
 
   /**
    * Log DELETE action
    */
-  async logDelete({ userId, resource, resourceId, oldValues, ipAddress, userAgent }) {
+  async logDelete({ userId, resource, resourceId, oldValues, ipAddress, userAgent }, client = null) {
     return this.log({
       userId,
       action: 'DELETE',
@@ -121,13 +119,13 @@ class AuditTrailManager {
       description: `Deleted ${resource} record`,
       ipAddress,
       userAgent,
-    });
+    }, client);
   }
 
   /**
    * Log soft-delete action
    */
-  async logSoftDelete({ userId, resource, resourceId, oldValues, ipAddress, userAgent }) {
+  async logSoftDelete({ userId, resource, resourceId, oldValues, ipAddress, userAgent }, client = null) {
     return this.log({
       userId,
       action: 'SOFT_DELETE',
@@ -137,7 +135,7 @@ class AuditTrailManager {
       description: `Soft-deleted ${resource} record`,
       ipAddress,
       userAgent,
-    });
+    }, client);
   }
 
   /**
@@ -145,7 +143,7 @@ class AuditTrailManager {
    */
   async getAuditLogsForResource(resource, resourceId, limit = 50) {
     const query = `
-      SELECT * FROM audit_logs
+      SELECT id, user_id, admin_id, action, table_name, record_id, old_data, new_data, ip_address, user_agent, created_at, resource, resource_id, description, status, request_method, request_path, response_status_code, admin_email, admin_name, details, entity_id, old_values, new_values FROM audit_logs
       WHERE resource = $1 AND resource_id = $2
       ORDER BY created_at DESC
       LIMIT $3
@@ -159,7 +157,7 @@ class AuditTrailManager {
    */
   async getAuditLogsForUser(userId, limit = 50) {
     const query = `
-      SELECT * FROM audit_logs
+      SELECT id, user_id, admin_id, action, table_name, record_id, old_data, new_data, ip_address, user_agent, created_at, resource, resource_id, description, status, request_method, request_path, response_status_code, admin_email, admin_name, details, entity_id, old_values, new_values FROM audit_logs
       WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT $2
@@ -218,7 +216,7 @@ class AuditTrailManager {
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const query = `
-      SELECT * FROM audit_logs
+      SELECT id, user_id, admin_id, action, table_name, record_id, old_data, new_data, ip_address, user_agent, created_at, resource, resource_id, description, status, request_method, request_path, response_status_code, admin_email, admin_name, details, entity_id, old_values, new_values FROM audit_logs
       ${whereClause}
       ORDER BY created_at DESC
       LIMIT $${paramIndex++}

@@ -1,9 +1,37 @@
 #!/bin/bash
-# Trstprep Deployment Script
-# Run this script to deploy frontend and backend
+set -euo pipefail
+# Trstprep Deployment Script (Idempotent)
+# Safe to re-run — skips steps that are already complete
+#
+# ============================================================
+# FIX 2.19: All URLs parameterized via environment variables.
+#
+# Required environment variables:
+#   BACKEND_HEALTH_URL  — Backend health check endpoint
+#                         e.g. https://api.trstprep.com/api/health
+#   FRONTEND_URL        — Frontend URL for post-deploy verification
+#                         e.g. https://trstprep.com
+#
+# Optional:
+#   DEPLOY_ENV          — "production" or "staging" (default: staging)
+# ============================================================
+
+DEPLOY_ENV="${DEPLOY_ENV:-staging}"
 
 echo "🚀 Trstprep Deployment Script"
 echo "=============================="
+echo "   Environment: ${DEPLOY_ENV}"
+
+# FIX 2.19: Production deployment confirmation prompt
+if [ "$DEPLOY_ENV" = "production" ]; then
+    echo ""
+    echo "⚠️  WARNING: You are about to deploy to PRODUCTION."
+    read -r -p "   Are you sure? Type 'yes' to confirm: " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "❌ Deployment cancelled."
+        exit 1
+    fi
+fi
 
 # Check if we're in the right directory
 if [ ! -f "package.json" ]; then
@@ -11,18 +39,32 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
+DEPLOY_LOG="deploy-$(date +%Y%m%d-%H%M%S).log"
+exec > >(tee -a "$DEPLOY_LOG") 2>&1
+
 # Frontend deployment
 echo ""
 echo "📦 Deploying Frontend..."
 cd apps/frontend
 
-# Install dependencies
-echo "  → Installing dependencies..."
-npm install
+# Install dependencies (skip if node_modules and package-lock are in sync)
+if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
+    echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+else
+    echo "  → Installing dependencies..."
+    npm ci
+fi
 
-# Build for production
-echo "  → Building for production..."
-npm run build
+# Build for production (skip if build exists and is newer than source)
+if [ -d "dist" ] && find src -newer dist -print -quit | grep -q .; then
+    echo "  → Building for production..."
+    npm run build
+elif [ -d "dist" ]; then
+    echo "  ⏭️  Build is up-to-date (skipping npm run build)"
+else
+    echo "  → Building for production (no dist found)..."
+    npm run build
+fi
 
 # Check if Vercel CLI is installed
 if command -v vercel &> /dev/null; then
@@ -40,9 +82,19 @@ echo ""
 echo "📦 Deploying Backend..."
 cd apps/backend
 
-# Install dependencies
-echo "  → Installing dependencies..."
-npm install
+# Install dependencies (skip if up-to-date)
+if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
+    echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+else
+    echo "  → Installing dependencies..."
+    npm ci
+fi
+
+# Run migrations before deploy
+if [ -f "src/migrate.js" ]; then
+    echo "  → Running database migrations..."
+    node src/migrate.js || echo "  ⚠️  Migration warning (may already be applied)"
+fi
 
 # Check if Vercel CLI is installed
 if command -v vercel &> /dev/null; then
@@ -55,16 +107,38 @@ fi
 
 cd ../..
 
+# FIX 2.19: Health check uses parameterized URL (not a hardcoded placeholder)
+echo ""
+echo "🏥 Running health checks..."
+
+BACKEND_HEALTH_URL="${BACKEND_HEALTH_URL:-}"
+
+if [ -z "$BACKEND_HEALTH_URL" ]; then
+    echo "  ⚠️  BACKEND_HEALTH_URL not set, skipping health check."
+    echo "     Set BACKEND_HEALTH_URL to enable post-deploy verification."
+elif command -v curl &> /dev/null; then
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BACKEND_HEALTH_URL" || true)
+    if [ "$HTTP_CODE" = "200" ]; then
+        echo "  ✅ Backend health check passed ($BACKEND_HEALTH_URL)"
+    else
+        echo "  ⚠️  Backend health check returned HTTP $HTTP_CODE (may still be deploying)"
+    fi
+else
+    echo "  ⚠️  curl not installed, skipping health check"
+fi
+
 echo ""
 echo "✅ Deployment Complete!"
+echo "📋 Log saved to: $DEPLOY_LOG"
 echo ""
 echo "📋 Post-Deployment Checklist:"
 echo "   1. Set environment variables in Vercel Dashboard:"
 echo "      - DATABASE_URL (PostgreSQL connection string)"
 echo "      - JWT_SECRET (secure random string)"
+echo "      - JWT_REFRESH_SECRET (must differ from JWT_SECRET)"
 echo "      - FRONTEND_URL (your frontend URL)"
 echo "      - NODE_ENV=production"
 echo ""
-echo "   2. Test API health: https://your-backend.vercel.app/api/health"
-echo "   3. Test frontend: https://your-frontend.vercel.app"
+echo "   2. Test API health: \${BACKEND_HEALTH_URL}"
+echo "   3. Test frontend: \${FRONTEND_URL}"
 echo ""

@@ -23,6 +23,15 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
   const searchInputRef = useRef(null)
   const notifRef = useRef(null)
   const searchTimerRef = useRef(null)
+  const searchGenerationRef = useRef(0)
+  const searchControllerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+      if (searchControllerRef.current) searchControllerRef.current.abort()
+    }
+  }, [])
 
   // Close profile dropdown when clicking outside
   useEffect(() => {
@@ -86,7 +95,7 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
 
   // Debounced search function — combines local page shortcuts with real
   // backend content search (tests, series, exams, study materials).
-  const performSearch = useCallback(async (query) => {
+  const performSearch = useCallback(async (query, generation) => {
     const trimmed = query.trim()
     if (!trimmed) {
       setSearchResults([])
@@ -96,7 +105,6 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
 
     setIsSearching(true)
 
-    // Local navigation shortcuts (always available, instant)
     const pageShortcuts = [
       { title: 'Home', path: '/', category: 'Pages', icon: '🏠' },
       { title: 'Exams', path: '/exams', category: 'Pages', icon: '🎓' },
@@ -107,6 +115,7 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
       { title: 'Practice Lab', path: '/practice', category: 'Tests', icon: '🎯' },
       { title: 'PYQ Papers', path: '/pyps', category: 'Tests', icon: '📄' },
       { title: 'Video Lectures', path: '/videos', category: 'Resources', icon: '🎥' },
+      { title: 'Saved & Reported Questions', path: '/bookmarks', category: 'Resources', icon: '🔖' },
       { title: 'Analysis & Reports', path: '/analysis', category: 'Pages', icon: '📈' },
       { title: 'Attempted Tests', path: '/attempted-tests', category: 'Pages', icon: '✅' },
       { title: 'Pro Pass', path: '/pass', category: 'Pages', icon: '👑' },
@@ -118,10 +127,18 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
       item.category.toLowerCase().includes(lowerQuery)
     ).slice(0, 5)
 
-    // Backend content search
     let contentResults = []
     try {
-      const response = await searchAll(trimmed, 'all', { limit: 15 })
+      if (searchControllerRef.current) {
+        searchControllerRef.current.abort()
+      }
+      searchControllerRef.current = new AbortController()
+
+      const response = await searchAll(trimmed, 'all', {
+        limit: 15,
+        signal: searchControllerRef.current.signal,
+      })
+      if (searchGenerationRef.current !== generation) return
       const data = response.data?.data || response.data || {}
       const raw = [
         ...(data.tests || []).map(t => ({
@@ -151,6 +168,8 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
       ]
       contentResults = raw.slice(0, 10)
     } catch (err) {
+      if (err.name === 'CanceledError' || err.name === 'AbortError') return
+      if (searchGenerationRef.current !== generation) return
       console.warn('Backend search failed, showing local results only:', err)
     }
 
@@ -168,8 +187,9 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
       clearTimeout(searchTimerRef.current)
     }
     
+    const generation = ++searchGenerationRef.current
     searchTimerRef.current = setTimeout(() => {
-      performSearch(query)
+      performSearch(query, generation)
     }, 300)
   }
 

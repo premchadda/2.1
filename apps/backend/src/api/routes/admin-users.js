@@ -1,17 +1,17 @@
 import express from 'express';
-import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js';
+import { dbHelpers, pool, withTransaction } from '../../infrastructure/database/postgres-helpers.js';
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js';
 import { invalidateSession } from '../../services/SessionCaptureService.js';
+import { protect, admin, superAdmin, invalidateUserCache } from '../../middleware/auth.middleware.js';
+import logger from '../../infrastructure/logger/logger.js';
+import { sanitizeUser } from '../../shared/utils/user-utils.js';
 
 const router = express.Router();
 
-const sanitizeUser = (user) => {
-  if (!user) return null;
-  const { password, salt, resetPasswordToken, resetPasswordExpires, ...safeUser } = user;
-  return safeUser;
-};
+router.use(protect)
+router.use(admin)
 
-// List users with pagination
+// List users with pagination and filters
 router.get('/users', async (req, res) => {
   try {
     const rawPage = parseInt(req.query.page) || 1;
@@ -20,8 +20,18 @@ router.get('/users', async (req, res) => {
     const limit = Math.min(Math.max(1, rawLimit), 100); // Max 100 per page
     const offset = (page - 1) * limit;
     const search = req.query.search?.toLowerCase();
+    const statusFilter = req.query.status; // 'active' | 'inactive'
+    const includeInactive = req.query.includeInactive === 'true';
+    const roleFilter = req.query.role; // 'admin' | 'user' | 'super_admin'
+    const proFilter = req.query.pro === 'true';
 
-    const allUsers = await dbHelpers.find('users', { isActive: true });
+    // Build query: by default only active users. If includeInactive or status=inactive,
+    // include all users so the filter can show inactive ones.
+    const query = (statusFilter === 'inactive' || includeInactive)
+      ? {}
+      : { isActive: true };
+
+    let allUsers = await dbHelpers.find('users', query);
     let filteredUsers = allUsers;
 
     // Apply search filter
@@ -31,6 +41,25 @@ router.get('/users', async (req, res) => {
         (u.email?.toLowerCase().includes(search)) ||
         (u.phone?.toLowerCase().includes(search))
       );
+    }
+
+    // Apply role filter
+    if (roleFilter) {
+      filteredUsers = filteredUsers.filter(u => u.role === roleFilter);
+    }
+
+    // Apply pro filter
+    if (proFilter) {
+      filteredUsers = filteredUsers.filter(u => u.isProUser === true);
+    }
+
+    // Apply status filter (active vs inactive) when includeInactive is not set
+    if (statusFilter && !includeInactive) {
+      if (statusFilter === 'active') {
+        filteredUsers = filteredUsers.filter(u => u.isActive !== false);
+      } else if (statusFilter === 'inactive') {
+        filteredUsers = filteredUsers.filter(u => u.isActive === false);
+      }
     }
 
     // Sort by created date descending
@@ -55,7 +84,7 @@ router.get('/users', async (req, res) => {
   }
 });
 
-router.put('/users/:id/pro-pass', async (req, res) => {
+router.put('/users/:id/pro-pass', superAdmin, async (req, res) => {
   try {
     const { isProUser, proPassExpiry, passType } = req.body;
     const user = await dbHelpers.findById('users', req.params.id);
@@ -79,8 +108,148 @@ router.put('/users/:id/pro-pass', async (req, res) => {
   }
 });
 
+// Per-user enrollments — returns enriched enrollment rows with related names
+router.get('/enrollments/user/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const user = await dbHelpers.findById('users', userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const hasPlanId = await dbHelpers.columnExists('enrollments', 'plan_id');
+
+    let enrollmentRecords = [];
+    try {
+      const planCols = hasPlanId ? ', e.plan_id' : '';
+      const planJoin = hasPlanId
+        ? ' LEFT JOIN subscription_plans sp ON sp.id = e.plan_id'
+        : '';
+      const planSelect = hasPlanId ? ', sp.name AS plan_name' : ', NULL AS plan_name';
+      const result = await pool.query(
+        `SELECT e.id, e.user_id, e.series_id, e.study_material_id, e.exam_id${planCols},
+                e.status, e.progress, e.enrolled_at, e.is_active, e.created_at,
+                ts.title AS series_name,
+                sm.title AS study_material_name${planSelect}
+         FROM enrollments e
+         LEFT JOIN test_series ts ON ts.id = e.series_id
+         LEFT JOIN study_materials sm ON sm.id = e.study_material_id${planJoin}
+         WHERE e.user_id = $1 AND (e.is_deleted IS NOT TRUE)
+         ORDER BY COALESCE(e.enrolled_at, e.created_at) DESC`,
+        [userId],
+      );
+      enrollmentRecords = result.rows;
+    } catch (_) { /* enrollments table may not exist — non-fatal */ }
+
+    const coveredSeriesIds = new Set();
+    const coveredMaterialIds = new Set();
+    const coveredExamIds = new Set();
+
+    const data = enrollmentRecords.map((row) => {
+      if (row.series_id != null) coveredSeriesIds.add(row.series_id);
+      if (row.study_material_id != null) coveredMaterialIds.add(row.study_material_id);
+      if (row.exam_id != null) coveredExamIds.add(row.exam_id);
+      const isPassPurchase = !!(row.isPassPurchase ?? row.is_pass_purchase ?? row.pro_pass ?? row.plan_name);
+      return {
+        id: row.id,
+        _id: row.id,
+        userId: row.user_id,
+        seriesId: row.series_id ?? null,
+        studyMaterialId: row.study_material_id ?? null,
+        examId: row.exam_id ?? null,
+        planId: row.plan_id ?? null,
+        seriesName: row.series_name ?? null,
+        studyMaterialName: row.study_material_name ?? null,
+        planName: row.plan_name ?? null,
+        isPassPurchase,
+        passType: isPassPurchase ? 'pro_pass' : 'subscription',
+        status: row.status ?? 'active',
+        progress: row.progress ?? 0,
+        isActive: row.is_active !== false,
+        enrolledAt: row.enrolled_at || row.created_at || null,
+      };
+    });
+
+    // Append legacy user-record arrays (users.enrolled_*) as synthetic rows
+    const enrolledExams = user.enrolledExams || [];
+    const enrolledSeries = user.enrolledSeries || [];
+    const enrolledStudyMaterials = user.enrolledStudyMaterials || [];
+
+    const missingSeriesIds = enrolledSeries
+      .map((s) => (typeof s === 'object' ? s.id ?? s._id : s))
+      .filter((id) => id != null && !coveredSeriesIds.has(id));
+    const missingMaterialIds = enrolledStudyMaterials
+      .map((m) => (typeof m === 'object' ? m.id ?? m._id : m))
+      .filter((id) => id != null && !coveredMaterialIds.has(id));
+    const missingExamIds = enrolledExams
+      .map((x) => (typeof x === 'object' ? x.id ?? x._id : x))
+      .filter((id) => id != null && !coveredExamIds.has(id));
+
+    const [seriesRows, materialRows, examRows] = await Promise.all([
+      missingSeriesIds.length ? pool.query('SELECT id, title, name FROM test_series WHERE id = ANY($1::int[])', [missingSeriesIds]).catch(() => ({ rows: [] })) : { rows: [] },
+      missingMaterialIds.length ? pool.query('SELECT id, title, name FROM study_materials WHERE id = ANY($1::int[])', [missingMaterialIds]).catch(() => ({ rows: [] })) : { rows: [] },
+      missingExamIds.length ? pool.query('SELECT id, name FROM exams WHERE id = ANY($1::int[])', [missingExamIds]).catch(() => ({ rows: [] })) : { rows: [] },
+    ]);
+
+    for (const s of seriesRows.rows) {
+      data.push({
+        id: `series-${s.id}`,
+        seriesId: s.id,
+        seriesName: s.title || s.name || `Series #${s.id}`,
+        studyMaterialName: null,
+        planName: null,
+        isPassPurchase: false,
+        passType: 'subscription',
+        status: 'active',
+        progress: 0,
+        enrolledAt: user.createdAt || null,
+      });
+    }
+    for (const m of materialRows.rows) {
+      data.push({
+        id: `material-${m.id}`,
+        studyMaterialId: m.id,
+        seriesName: null,
+        studyMaterialName: m.title || m.name || `Material #${m.id}`,
+        planName: null,
+        isPassPurchase: false,
+        passType: 'subscription',
+        status: 'active',
+        progress: 0,
+        enrolledAt: user.createdAt || null,
+      });
+    }
+    for (const x of examRows.rows) {
+      data.push({
+        id: `exam-${x.id}`,
+        examId: x.id,
+        seriesName: null,
+        studyMaterialName: null,
+        planName: null,
+        isPassPurchase: false,
+        passType: 'subscription',
+        status: 'active',
+        progress: 0,
+        enrolledAt: user.createdAt || null,
+      });
+    }
+
+    res.json({
+      success: true,
+      data,
+      proPass: {
+        isProUser: user.isProUser || false,
+        proPassExpiry: user.proPassExpiry || user.proExpiry || null,
+        passType: user.pass_type || (user.isProUser ? 'pro_yearly' : 'free'),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // Update user status (active/inactive)
-router.put('/users/:id/status', async (req, res) => {
+router.put('/users/:id/status', superAdmin, async (req, res) => {
   try {
     const { isActive } = req.body;
     if (typeof isActive !== 'boolean') {
@@ -104,14 +273,14 @@ router.put('/users/:id/status', async (req, res) => {
   }
 });
 
-// Update user role - restricted to super_admin for privilege changes
-router.put('/users/:id/role', async (req, res) => {
+// Update user role - admin is the highest role
+router.put('/users/:id/role', superAdmin, async (req, res) => {
   try {
     const { role } = req.body;
-    if (!role || !['admin', 'user', 'super_admin'].includes(role)) {
+    if (!role || !['admin', 'user'].includes(role)) {
       return res.status(400).json({
         success: false,
-        message: 'Valid role required (admin, user, or super_admin)',
+        message: 'Valid role required (admin or user)',
       });
     }
     const user = await dbHelpers.findById('users', req.params.id);
@@ -122,9 +291,8 @@ router.put('/users/:id/role', async (req, res) => {
     }
 
     const previousRole = user.role;
-    const isPromotingToAdmin = (role === 'admin' || role === 'super_admin') && previousRole === 'user';
-    const isPromotingToSuperAdmin = role === 'super_admin' && previousRole !== 'super_admin';
-    const isDemotingFromAdmin = (role === 'user') && (previousRole === 'admin' || previousRole === 'super_admin');
+    const isPromotingToAdmin = role === 'admin' && previousRole === 'user';
+    const isDemotingFromAdmin = role === 'user' && previousRole === 'admin';
 
     // Prevent self-demotion
     if (String(req.user.id) === String(req.params.id) && role === 'user') {
@@ -134,12 +302,20 @@ router.put('/users/:id/role', async (req, res) => {
       });
     }
 
-    // SECURITY: Role changes involving admin/super_admin roles require super_admin
-    const isPrivilegeChange = isPromotingToAdmin || isDemotingFromAdmin || isPromotingToSuperAdmin;
+    // Prevent demoting a super_admin
+    if (role === 'user' && user.role === 'super_admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Cannot demote a super admin',
+      });
+    }
+
+    // SECURITY: Role changes involving admin role require admin privileges
+    const isPrivilegeChange = isPromotingToAdmin || isDemotingFromAdmin;
 
     if (isPrivilegeChange) {
-      if (!req.user.isSuperAdmin) {
-        console.warn(`[SECURITY] Privilege escalation blocked: User ${req.user.id} (${req.user.email}, role: ${req.user.role}) ` +
+      if (!req.user.isAdmin) {
+        logger.warn(`[SECURITY] Privilege escalation blocked: User ${req.user.id} (${req.user.email}, role: ${req.user.role}) ` +
           `attempted to change role of user ${user.id} (${user.email}) from ${previousRole} to ${role}`);
 
         await dbHelpers.insertOne('audit_logs', {
@@ -158,17 +334,17 @@ router.put('/users/:id/role', async (req, res) => {
             previousRole,
             newRole: role,
             blocked: true,
-            reason: 'Requires super_admin role',
+            reason: 'Requires admin role',
           },
           status: 'failure',
           requestMethod: req.method,
           requestPath: req.originalUrl,
-          timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString(),
         });
 
         return res.status(403).json({
           success: false,
-          message: 'Role changes for admin users require super_admin privileges',
+          message: 'Role changes for users require admin privileges',
         });
       }
     }
@@ -194,16 +370,27 @@ router.put('/users/:id/role', async (req, res) => {
       status: 'success',
       requestMethod: req.method,
       requestPath: req.originalUrl,
-      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
     };
 
-    const updated = await dbHelpers.updateById('users', req.params.id, {
-      role,
-      updatedAt: new Date().toISOString(),
+    // Wrap the privilege change and its audit record in a single transaction
+    // (A01). A failure writing the audit log must roll back the role change so
+    // the two writes can never diverge.
+    const updated = await withTransaction(async (client) => {
+      const result = await dbHelpers.updateById(
+        'users',
+        req.params.id,
+        { role, updatedAt: new Date().toISOString() },
+        client,
+      );
+      auditEntry.details.successful = true;
+      await dbHelpers.insertOne('audit_logs', auditEntry, client);
+      return result;
     });
 
-    auditEntry.details.successful = true;
-    await dbHelpers.insertOne('audit_logs', auditEntry);
+    // M39: bust the in-memory user cache so the role change takes effect
+    // immediately (within 1 request) rather than after the 60s TTL.
+    invalidateUserCache(Number(req.params.id));
 
     res.json({ success: true, data: sanitizeUser(updated) });
   } catch (error) {
@@ -236,6 +423,8 @@ router.delete('/users/:id', async (req, res) => {
         .status(404)
         .json({ success: false, message: 'User not found' });
     }
+    // M39: bust cache so soft-deleted user is rejected immediately by protect()
+    invalidateUserCache(Number(req.params.id));
     res.json({ success: true, message: 'User moved to trash' });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Internal server error' });
@@ -279,7 +468,8 @@ router.get('/users/:id/sessions', async (req, res) => {
     
     res.json({ success: true, data: formattedSessions });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    logger.error('Failed to fetch user sessions', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -311,7 +501,8 @@ router.delete('/users/:userId/sessions/:sessionId', async (req, res) => {
 
     res.json({ success: true, message: 'Session revoked' });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    logger.error('Failed to revoke user session', error);
+    res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

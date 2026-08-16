@@ -39,7 +39,7 @@ export class TestRepository extends BaseRepository {
 
     const sql = `
       SELECT t.*,
-        ts.name as series_name,
+        ts.title as series_name,
         ts.slug as series_slug,
         (SELECT COUNT(*) FROM test_questions tq WHERE tq.test_id = t.id) as linked_question_count,
         (SELECT COUNT(*) FROM attempts a WHERE a.test_id = t.id AND a.is_completed = true) as attempt_count
@@ -64,13 +64,15 @@ export class TestRepository extends BaseRepository {
   }
 
   async linkQuestions(testId, questionIds, sectionId = null) {
-    for (let i = 0; i < questionIds.length; i++) {
-      await this.executeRaw(
-        `INSERT INTO test_questions (test_id, question_id, section_id, order_index, created_at)
-         VALUES ($1, $2, $3, $4, NOW()) ON CONFLICT DO NOTHING`,
-        [testId, questionIds[i], sectionId, i]
-      );
-    }
+    if (questionIds.length === 0) return;
+    const orderIndices = questionIds.map((_, i) => i);
+    await this.executeRaw(
+      `INSERT INTO test_questions (test_id, question_id, section_id, order_index, created_at)
+       SELECT $1, qid, $2, idx, NOW()
+       FROM unnest($3::int[], $4::int[]) AS t(qid, idx)
+       ON CONFLICT DO NOTHING`,
+      [testId, sectionId, questionIds, orderIndices]
+    );
   }
 
   async unlinkQuestions(testId) {

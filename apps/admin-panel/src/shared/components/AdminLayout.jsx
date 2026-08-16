@@ -6,17 +6,16 @@ import {
   Tag, Navigation, Info, Layers, Trash2, Ticket, Bell, Star,
   Search, ChevronDown, BarChart3, Trophy, Clock, HelpCircle,
   Database, Activity, Gift, Brain, Image, UserCheck,
-  CreditCard, AlertTriangle, Zap, User, Crown, Moon, Sun
+  CreditCard, AlertTriangle, Zap, User, Crown, Moon, Sun, RotateCw
 } from 'lucide-react'
 import { useAuth } from '../providers/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import adminNavConfig, { getFlatNavItems, getBreadcrumbs } from '../config/adminNavConfig'
 import { Logo, CommandPalette } from './index.jsx'
 import AdminBottomNav from './AdminBottomNav.jsx'
-import { API_BASE_URL } from '../lib/apiBase.js'
 
 // Main site URL - can be changed via environment variable
-const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL || 'http://localhost:3000'
+const MAIN_SITE_URL = import.meta.env.VITE_MAIN_SITE_URL || import.meta.env.VITE_FRONTEND_URL || (import.meta.env.DEV ? 'http://localhost:3000' : '/')
 
 export default function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -26,10 +25,21 @@ export default function AdminLayout() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
+
+  const handlePageRefresh = useCallback(() => {
+    setIsRefreshing(true)
+    setRefreshKey(prev => prev + 1)
+    window.dispatchEvent(new CustomEvent('admin:refresh-data', { detail: { timestamp: Date.now() } }))
+    setTimeout(() => {
+      setIsRefreshing(false)
+    }, 600)
+  }, [])
 
   // Cmd+K / Ctrl+K keyboard shortcut for command palette
   useEffect(() => {
@@ -104,56 +114,78 @@ export default function AdminLayout() {
     }
   }, [location.pathname])
 
-  // Filter navigation based on search
+  const canViewItem = useCallback((item) => {
+    const isSuper = user?.role === 'super_admin' || user?.role === 'admin' || user?.isAdmin === true || user?.isSuperAdmin === true || user?.is_super_admin === true
+    if (isSuper) return true
+    const permissions = Array.isArray(user?.permissions) && user.permissions.length > 0 ? user.permissions : []
+    if (permissions.includes('*')) return true
+    const segment = item.path.split('/').filter(Boolean)[1] || 'content'
+    const resource = ['users', 'enrollments', 'sessions', 'roles-permissions', 'user-activity-log'].includes(segment)
+      ? 'users'
+      : ['tests', 'test-series', 'questions', 'quizzes', 'sections', 'stages', 'exam-categories', 'exam-info'].includes(segment)
+        ? 'tests'
+        : ['settings', 'analytics', 'backups', 'recycle-bin', 'system-health', 'coming-soon', 'two-factor', 'navigation'].includes(segment)
+          ? 'settings'
+          : ['payments', 'subscription-plans', 'plans', 'coupons', 'promotions'].includes(segment)
+            ? 'monetization'
+            : ['banners', 'faqs', 'notifications', 'email-templates'].includes(segment)
+              ? 'communications'
+              : ['moderation'].includes(segment)
+                ? 'moderation'
+                : ['audit', 'audit-trail', 'results'].includes(segment)
+                  ? 'audit'
+                  : ['analytics', 'deep-analytics', 'leaderboards'].includes(segment)
+                    ? 'analytics'
+                    : 'content'
+
+    return permissions.some(p => {
+      const [permResource, permAction] = p.split(':')
+      const resourceMatch = permResource === '*' || permResource === resource ||
+        (resource === 'settings' && permResource === 'system') ||
+        (resource === 'users' && permResource === 'user') ||
+        (resource === 'tests' && (permResource === 'test' || permResource === 'assessment'))
+      const actionMatch = !permAction || permAction === '*' || permAction === 'view' || permAction === 'read' || permAction === 'manage'
+      return resourceMatch && actionMatch
+    })
+  }, [user])
+
+  // Filter navigation based on permissions and search
   const filteredNav = useMemo(() => {
-    if (!searchQuery.trim()) return adminNavConfig.categories
-    
     const query = searchQuery.toLowerCase()
     return adminNavConfig.categories.map(category => ({
       ...category,
-      items: category.items.filter(item => 
-        item.name.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query)
-      )
+      items: category.items.filter(item => canViewItem(item) && (
+        !query || item.name.toLowerCase().includes(query) || item.description?.toLowerCase().includes(query)
+      ))
     })).filter(category => category.items.length > 0)
-  }, [searchQuery])
+  }, [searchQuery, canViewItem])
 
   // Search results for command palette
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return []
     const query = searchQuery.toLowerCase()
-    return getFlatNavItems().filter(item =>
-      item.name.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query)
+    return getFlatNavItems().filter(item => canViewItem(item) && (
+      item.name.toLowerCase().includes(query) || item.description?.toLowerCase().includes(query)
+    )
     ).slice(0, 8)
-  }, [searchQuery])
+  }, [searchQuery, canViewItem])
 
-  // FIX CRIT-09: Remove localStorage clearing - auth uses httpOnly cookies
-  // Backend clears cookies on logout via /auth/logout endpoint
+  // FIX 2.14: Use AuthContext.logout() for consistent session cleanup
+  // (clears httpOnly cookie via backend, CSRF tokens, session metadata, user state)
+  const { logout } = useAuth()
+
   const handleLogout = async () => {
-    try {
-      // Call backend logout endpoint to clear httpOnly cookies
-      await fetch('/auth/logout', {
-        method: 'POST',
-        credentials: 'include', // Send cookies with request
-      })
-    } catch (err) {
-      // Even if logout request fails, still redirect to login
-      console.error('Logout error:', err)
-    } finally {
-      // Clear only sessionStorage metadata (not tokens - those are httpOnly)
-      sessionStorage.removeItem('trstprep_session')
-      sessionStorage.removeItem('trstprep_user')
-      window.dispatchEvent(new Event('unauthorized'))
-      navigate('/login')
-    }
+    await logout()
+    navigate('/login')
   }
 
   const isActive = (path) => {
-    if (path === '/admin') {
-      return location.pathname === '/admin'
+    if (path === '/admin' || path === '/admin/') {
+      return location.pathname === '/admin' || location.pathname === '/admin/'
     }
-    return location.pathname.startsWith(path)
+    const cleanPath = path.endsWith('/') ? path.slice(0, -1) : path
+    const cleanLoc = location.pathname.endsWith('/') && location.pathname.length > 1 ? location.pathname.slice(0, -1) : location.pathname
+    return cleanLoc === cleanPath || cleanLoc.startsWith(cleanPath + '/')
   }
 
   const toggleSection = (sectionId) => {
@@ -183,9 +215,7 @@ export default function AdminLayout() {
         className={`group flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
           active
             ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/25'
-            : isDarkMode
-              ? 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600'
+            : 'text-gray-600 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white'
         }`}
         aria-label={item.badge ? `${item.name} (${item.badge})` : item.name}
       >
@@ -222,8 +252,8 @@ export default function AdminLayout() {
           onClick={() => toggleSection(category.id)}
           className={`w-full flex items-center justify-between gap-3 px-3 py-3 rounded-xl text-sm font-semibold transition-all duration-200 ${
             hasActiveChild 
-              ? isDarkMode ? 'bg-gray-800/80 text-white' : 'bg-gray-100 text-indigo-700'
-              : isDarkMode ? 'text-gray-500 hover:bg-gray-800/50 hover:text-gray-300' : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600'
+              ? 'bg-gray-100 text-indigo-700 dark:bg-gray-800/80 dark:text-white'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-indigo-600 dark:text-gray-500 dark:hover:bg-gray-800/50 dark:hover:text-gray-300'
           }`}
           style={{ borderLeft: hasActiveChild ? `3px solid ${category.color}` : '3px solid transparent' }}
           aria-label={category.name}
@@ -246,7 +276,7 @@ export default function AdminLayout() {
         </button>
         
         {(sidebarOpen || mobileMenuOpen) && isExpanded && (
-          <div className={`mt-1 ml-4 pl-4 border-l space-y-1 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+          <div className={`mt-1 ml-4 pl-4 border-l space-y-1 border-gray-200 dark:border-gray-800`}>
             {category.items.map(item => renderNavItem(item, category.color))}
           </div>
         )}
@@ -255,7 +285,7 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className={`flex h-screen transition-colors duration-200 ${isDarkMode ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+    <div className={`flex h-screen transition-colors duration-200 bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white`}>
       {/* Command Palette */}
       <CommandPalette isOpen={commandPaletteOpen} onClose={() => setCommandPaletteOpen(false)} />
       {/* Skip to main content */}
@@ -277,11 +307,11 @@ export default function AdminLayout() {
       <aside className={`
         hidden md:flex flex-col
         ${sidebarOpen ? 'w-72' : 'w-20'} 
-        ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}
+        bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-800
         transition-all duration-300 border-r
       `}>
         {/* Logo */}
-        <div className={`h-16 flex items-center justify-between px-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+        <div className={`h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800`}>
           {sidebarOpen && (
             <div className="flex items-center gap-2">
               <Logo 
@@ -294,10 +324,10 @@ export default function AdminLayout() {
           )}
           <button 
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+            className={`p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800`}
             aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            {sidebarOpen ? <X className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} /> : <Menu className={`w-5 h-5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />}
+            {sidebarOpen ? <X className={`w-5 h-5 text-gray-500 dark:text-gray-400`} /> : <Menu className={`w-5 h-5 text-gray-500 dark:text-gray-400`} />}
           </button>
         </div>
 
@@ -310,11 +340,11 @@ export default function AdminLayout() {
       {/* Sidebar - Mobile */}
       <aside className={`
         fixed inset-y-0 left-0 z-50 w-80 transform transition-transform duration-300 ease-in-out md:hidden border-r
-        ${isDarkMode ? 'bg-gray-900 text-white border-gray-800' : 'bg-white text-gray-900 border-gray-200'}
+        bg-white text-gray-900 border-gray-200 dark:bg-gray-900 dark:text-white dark:border-gray-800
         ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         {/* Logo */}
-        <div className={`h-16 flex items-center justify-between px-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+        <div className={`h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800`}>
           <div className="flex items-center gap-2">
              <Logo 
                 containerSize="w-auto h-auto"
@@ -325,10 +355,10 @@ export default function AdminLayout() {
           </div>
           <button 
             onClick={() => setMobileMenuOpen(false)}
-            className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+            className={`p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800`}
             aria-label="Close menu"
           >
-            <X className={`w-5 h-5 ${isDarkMode ? 'text-white' : 'text-gray-600'}`} />
+            <X className={`w-5 h-5 text-gray-600 dark:text-white`} />
           </button>
         </div>
 
@@ -342,38 +372,32 @@ export default function AdminLayout() {
       <div className="flex-1 flex flex-col overflow-hidden">
         
         {/* Top Bar */}
-        <header className={`h-14 md:h-16 flex-shrink-0 border-b flex items-center justify-between px-4 md:px-6 transition-colors duration-200 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
+        <header className={`h-14 md:h-16 flex-shrink-0 border-b flex items-center justify-between px-4 md:px-6 transition-colors duration-200 bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-800`}>
           {/* Left Section - Breadcrumbs / Page Title */}
-          <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Mobile Menu Button */}
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className={`p-2 rounded-lg md:hidden ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+              className={`p-2 rounded-lg md:hidden hover:bg-gray-100 dark:hover:bg-gray-800`}
               aria-label="Open menu"
             >
               <Menu className="w-5 h-5 text-gray-400" />
             </button>
             
-            {/* Breadcrumbs */}
-            <div className="hidden md:flex items-center gap-2 text-sm flex-shrink-0">
-              {breadcrumbs.map((crumb, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  {idx > 0 && <ChevronRight className="w-4 h-4 text-gray-600" />}
-                  {crumb.path ? (
-                    <Link to={crumb.path} className="text-gray-400 hover:text-white transition-colors">
-                      {crumb.name}
-                    </Link>
-                  ) : (
-                    <span className="text-gray-600">{crumb.name}</span>
-                  )}
-                </div>
-              ))}
+            {/* Page Title & Subtitle */}
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-base md:text-lg font-black text-gray-900 dark:text-white truncate flex items-center gap-2">
+                  {currentPage?.icon && <currentPage.icon className="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" />}
+                  <span>{currentPage?.name || 'Admin Panel'}</span>
+                </h1>
+                {currentPage?.description && (
+                  <span className="hidden sm:inline-block text-xs text-gray-500 dark:text-gray-400 font-medium truncate max-w-md border-l border-gray-200 dark:border-gray-700 pl-2.5">
+                    {currentPage.description}
+                  </span>
+                )}
+              </div>
             </div>
-            
-            {/* Current Page Title - Mobile */}
-            <h2 className={`text-lg font-semibold md:hidden ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {currentPage?.name || 'Admin Panel'}
-            </h2>
           </div>
           
           {/* Right Section - Actions & Profile */}
@@ -390,7 +414,7 @@ export default function AdminLayout() {
                   if (!searchOpen) setSearchOpen(true)
                 }}
                 onFocus={() => setSearchOpen(true)}
-                className={`w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                className={`w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-gray-100 border-gray-200 text-gray-900 placeholder-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-white dark:placeholder-gray-500`}
               />
               {searchQuery && (
                 <button 
@@ -403,7 +427,7 @@ export default function AdminLayout() {
 
               {/* Search Results Dropdown */}
               {searchOpen && searchQuery && (
-                <div className={`absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border shadow-2xl z-50 ${isDarkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`} role="listbox" aria-label="Search results">
+                <div className={`absolute top-full right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border shadow-2xl z-50 bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-800`} role="listbox" aria-label="Search results">
                   {searchResults.length > 0 ? (
                     <div className="p-2">
                       {searchResults.map((item, idx) => (
@@ -411,15 +435,15 @@ export default function AdminLayout() {
                           key={idx}
                           to={item.path}
                           onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${isDarkMode ? 'hover:bg-gray-800' : 'hover:bg-gray-100'}`}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-gray-800`}
                         >
                           <div 
-                            className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}
+                            className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gray-100 dark:bg-gray-800`}
                           >
                             <item.icon className="w-4 h-4 text-gray-400" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.name}</p>
+                            <p className={`text-sm font-medium text-gray-900 dark:text-white`}>{item.name}</p>
                             <p className="text-xs text-gray-500 truncate">{item.description}</p>
                           </div>
                         </Link>
@@ -444,10 +468,21 @@ export default function AdminLayout() {
               View Site
             </a>
 
+            {/* Page Refresh Button */}
+            <button
+              onClick={handlePageRefresh}
+              disabled={isRefreshing}
+              className="p-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500 shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-400 cursor-pointer active:scale-95"
+              title="Refresh Current Page Data"
+              aria-label="Refresh page data"
+            >
+              <RotateCw className={`w-5 h-5 transition-transform ${isRefreshing ? 'animate-spin text-indigo-600 dark:text-indigo-400' : 'hover:rotate-45'}`} />
+            </button>
+
             {/* Theme Toggle */}
             <button
               onClick={toggleDarkMode}
-              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 shrink-0 ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-400' : 'bg-gray-100 hover:bg-gray-200 text-gray-600'}`}
+              className={`p-2 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 shrink-0 bg-gray-100 hover:bg-gray-200 text-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-400`}
               aria-label="Toggle dark mode"
             >
               {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
@@ -463,7 +498,7 @@ export default function AdminLayout() {
                 aria-haspopup="true"
               >
                 {hasValidAvatar ? (
-                  <div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shadow-sm border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-100 border-gray-200'}`}>
+                  <div className={`w-8 h-8 rounded-full overflow-hidden flex items-center justify-center shadow-sm border bg-gray-100 border-gray-200 dark:bg-gray-800 dark:border-gray-700`}>
                     <img 
                       src={getAvatarUrl(user.avatar)} 
                       alt={`${user?.name || 'User'} profile`} 
@@ -484,16 +519,16 @@ export default function AdminLayout() {
                     {getUserInitials()}
                   </div>
                 )}
-                <ChevronDown className={`hidden lg:block w-4 h-4 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                <ChevronDown className={`hidden lg:block w-4 h-4 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''} text-gray-500 dark:text-gray-400`} />
               </button>
 
               {/* Profile Dropdown Menu */}
               {isProfileOpen && (
-                <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl shadow-2xl overflow-hidden z-[100] border ${isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className={`absolute right-0 top-full mt-2 w-64 rounded-xl shadow-2xl overflow-hidden z-[100] border bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700`}>
                   {/* User Info Header */}
-                  <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-gray-50'}`}>
-                    <div className={`font-semibold truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{user?.name || 'Admin User'}</div>
-                    <div className={`text-xs truncate mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user?.email || 'admin'}</div>
+                  <div className={`p-4 border-b border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50`}>
+                    <div className={`font-semibold truncate text-gray-900 dark:text-white`}>{user?.name || 'Admin User'}</div>
+                    <div className={`text-xs truncate mt-1 text-gray-500 dark:text-gray-400`}>{user?.email || 'admin'}</div>
                     {user?.hasProPass && (
                       <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-amber-500/20 text-amber-500 text-[10px] font-bold rounded-full border border-amber-500/30">
                         <Crown className="w-3 h-3" /> PRO Member
@@ -502,40 +537,40 @@ export default function AdminLayout() {
                   </div>
 
                   {/* Menu Items */}
-                  <div className={`py-2 ${isDarkMode ? 'bg-gray-900' : 'bg-white'}`}>
+                  <div className={`py-2 bg-white dark:bg-gray-900`}>
                     <a 
                       href={MAIN_SITE_URL}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'}`} 
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`} 
                       onClick={() => setIsProfileOpen(false)}
                     >
-                      <LayoutDashboard className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <LayoutDashboard className={`w-4 h-4 text-gray-400 dark:text-gray-500`} />
                       Main Site
                     </a>
                     <a 
                       href={`${MAIN_SITE_URL}/profile`} 
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'}`} 
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`} 
                       onClick={() => setIsProfileOpen(false)}
                     >
-                      <User className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <User className={`w-4 h-4 text-gray-400 dark:text-gray-500`} />
                       My Profile
                     </a>
                     <a 
                       href={`${MAIN_SITE_URL}/analysis`} 
-                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm ${isDarkMode ? 'text-gray-300 hover:bg-gray-800 hover:text-white' : 'text-gray-700 hover:bg-gray-100 hover:text-indigo-600'}`} 
+                      className={`flex items-center gap-3 px-4 py-2.5 transition-colors text-sm text-gray-700 hover:bg-gray-100 hover:text-indigo-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-white`} 
                       onClick={() => setIsProfileOpen(false)}
                     >
-                      <BarChart3 className={`w-4 h-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                      <BarChart3 className={`w-4 h-4 text-gray-400 dark:text-gray-500`} />
                       My Analytics
                     </a>
                   </div>
 
                   {/* Logout */}
-                  <div className={`border-t py-1 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <div className={`border-t py-1 border-gray-200 dark:border-gray-700`}>
                     <button 
                       onClick={() => { handleLogout(); setIsProfileOpen(false) }}
-                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors text-sm ${isDarkMode ? 'text-red-400 hover:bg-red-500/10 hover:text-red-300' : 'text-red-600 hover:bg-red-50 hover:text-red-700'}`}
+                      className={`flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors text-sm text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300`}
                     >
                       <LogOut className="w-4 h-4" />
                       Logout
@@ -548,8 +583,8 @@ export default function AdminLayout() {
         </header>
 
         {/* Page Content */}
-        <main id="main-content" className={`flex-1 overflow-y-auto pb-16 md:pb-0 ${isDarkMode ? 'bg-gray-950' : 'bg-gray-50'}`} tabIndex={-1}>
-          <Outlet />
+        <main id="main-content" className={`flex-1 overflow-y-auto pb-16 md:pb-0 bg-gray-50 dark:bg-gray-950`} tabIndex={-1}>
+          <Outlet key={refreshKey} context={{ refreshKey, isRefreshing, triggerRefresh: handlePageRefresh }} />
         </main>
       </div>
 

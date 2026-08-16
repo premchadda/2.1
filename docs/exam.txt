@@ -1,0 +1,925 @@
+# Exam Category → Exam → Total Stages (Complete Exam Structure)
+
+यह hierarchy SSC + Railway exams के लिए है। इसमें **Exam Category → Exam Name → Selection Stages → Detailed Stage Pattern** शामिल है।
+
+```text
+Exam Category
+
+├── 1. SSC Exams (Staff Selection Commission)
+│
+│   ├── Exam: SSC CGL (Combined Graduate Level)
+│   │
+│   │   ├── Stage 1: Tier-I (Computer Based Test)
+│   │   │
+│   │   │   ├── Mode: Online CBT
+│   │   │   ├── Questions: 100
+│   │   │   ├── Marks: 200
+│   │   │   ├── Duration: 60 Minutes
+│   │   │   │
+│   │   │   ├── Sections:
+│   │   │   │   ├── General Intelligence & Reasoning
+│   │   │   │   ├── General Awareness
+│   │   │   │   ├── Quantitative Aptitude
+│   │   │   │   └── English Language
+│   │   │   │
+│   │   │   └── Negative Marking: Applicable
+│   │   │
+│   │   ├── Stage 2: Tier-II (Computer Based Test)
+│   │   │
+│   │   │   ├── Paper-I: All Posts
+│   │   │   │
+│   │   │   │   ├── Module-I: Mathematical Abilities
+│   │   │   │   ├── Module-II: Reasoning & General Intelligence
+│   │   │   │   ├── Module-III: English Language & Comprehension
+│   │   │   │   ├── Module-IV: General Awareness
+│   │   │   │   ├── Module-V: Computer Knowledge
+│   │   │   │   └── Module-VI: Data Entry Speed Test
+│   │   │   │
+│   │   │   └── Paper-II:
+│   │   │       └── Statistics (For JSO Posts)
+│   │   │
+│   │   └── Final Selection:
+│   │       ├── Tier-I + Tier-II Marks
+│   │       ├── Document Verification
+│   │       └── Post Allocation
+│   │
+│   │
+│   ├── Exam: SSC CHSL (10+2 Level)
+│   │
+│   │   ├── Stage 1: Tier-I CBT
+│   │   │
+│   │   │   ├── General Intelligence
+│   │   │   ├── General Awareness
+│   │   │   ├── Quantitative Aptitude
+│   │   │   └── English Language
+│   │   │
+│   │   ├── Stage 2: Tier-II CBT
+│   │   │
+│   │   │   ├── Mathematical Abilities
+│   │   │   ├── Reasoning
+│   │   │   ├── English
+│   │   │   ├── General Awareness
+│   │   │   ├── Computer Knowledge
+│   │   │   └── Skill Test
+│   │   │
+│   │   └── Final Stage:
+│   │       ├── Typing Test / Skill Test
+│   │       ├── Document Verification
+│   │       └── Final Merit
+│   │
+│   │
+│   ├── Exam: SSC MTS (Multi Tasking Staff)
+│   │
+│   │   ├── Stage 1: CBT
+│   │   │
+│   │   │   ├── Session-I
+│   │   │   │   ├── Numerical Ability
+│   │   │   │   └── Reasoning Ability
+│   │   │   │
+│   │   │   └── Session-II
+│   │   │       ├── General Awareness
+│   │   │       └── English Language
+│   │   │
+│   │   ├── Stage 2:
+│   │   │   └── Physical Efficiency Test (For Havaldar)
+│   │   │
+│   │   └── Final Selection:
+│   │       ├── CBT Marks
+│   │       ├── PET/PST (If Applicable)
+│   │       └── Document Verification
+│   │
+│   │
+│   ├── Exam: SSC CPO (Sub Inspector)
+│   │
+│   │   ├── Stage 1: Paper-I CBT
+│   │   │
+│   │   │   ├── General Intelligence & Reasoning
+│   │   │   ├── General Knowledge
+│   │   │   ├── Quantitative Aptitude
+│   │   │   └── English
+│   │   │
+│   │   ├── Stage 2: Physical Test
+│   │   │
+│   │   │   ├── PET
+│   │   │   └── PST
+│   │   │
+│   │   ├── Stage 3: Paper-II
+│   │   │   └── English Language
+│   │   │
+│   │   └── Stage 4:
+│   │       └── Medical Examination
+│   │
+│   │
+│   ├── Exam: SSC GD Constable
+│   │
+│   │   ├── Stage 1: CBT
+│   │   │
+│   │   │   ├── General Intelligence
+│   │   │   ├── General Knowledge
+│   │   │   ├── Mathematics
+│   │   │   └── Hindi/English
+│   │   │
+│   │   ├── Stage 2: Physical Efficiency Test
+│   │   │
+│   │   ├── Stage 3: Physical Standard Test
+│   │   │
+│   │   ├── Stage 4: Medical Examination
+│   │   │
+│   │   └── Stage 5:
+│   │       └── Document Verification
+│
+│
+├── 2. Railway Exams (RRB)
+│
+│   ├── Exam: RRB NTPC
+│   │
+│   │   ├── Stage 1: CBT-1
+│   │   │
+│   │   │   ├── Mathematics
+│   │   │   ├── General Intelligence & Reasoning
+│   │   │   └── General Awareness
+│   │   │
+│   │   ├── Stage 2: CBT-2
+│   │   │
+│   │   │   ├── Mathematics
+│   │   │   ├── Reasoning
+│   │   │   └── General Awareness
+│   │   │
+│   │   ├── Stage 3:
+│   │   │
+│   │   │   ├── Typing Skill Test
+│   │   │   │   (Applicable Posts)
+│   │   │   └── Aptitude Test
+│   │   │
+│   │   ├── Stage 4:
+│   │   │   └── Document Verification
+│   │   │
+│   │   └── Stage 5:
+│   │       └── Medical Examination
+│   │
+│   │
+│   ├── Exam: RRB Group D
+│   │
+│   │   ├── Stage 1: CBT
+│   │   │
+│   │   │   ├── Mathematics
+│   │   │   ├── Reasoning
+│   │   │   ├── General Science
+│   │   │   └── General Awareness
+│   │   │
+│   │   ├── Stage 2:
+│   │   │   └── Physical Efficiency Test
+│   │   │
+│   │   ├── Stage 3:
+│   │   │   └── Document Verification
+│   │   │
+│   │   └── Stage 4:
+│   │       └── Medical Examination
+│   │
+│   │
+│   ├── Exam: RRB ALP (Assistant Loco Pilot)
+│   │
+│   │   ├── Stage 1: CBT-1
+│   │   │
+│   │   ├── Stage 2: CBT-2
+│   │   │
+│   │   │   ├── Part A
+│   │   │   │   ├── Mathematics
+│   │   │   │   ├── Reasoning
+│   │   │   │   ├── Basic Science
+│   │   │   │   └── General Awareness
+│   │   │   │
+│   │   │   └── Part B
+│   │   │       └── Technical Ability
+│   │   │
+│   │   ├── Stage 3:
+│   │   │   └── Computer Based Aptitude Test
+│   │   │
+│   │   └── Final:
+│   │       ├── Document Verification
+│   │       └── Medical
+│   │
+│   │
+│   ├── Exam: RRB Technician
+│   │
+│   │   ├── Stage 1:
+│   │   │   └── CBT
+│   │   │
+│   │   ├── Subjects:
+│   │   │   ├── Mathematics
+│   │   │   ├── Reasoning
+│   │   │   ├── General Science
+│   │   │   └── Technical Subjects
+│   │   │
+│   │   └── Final:
+│   │       ├── Document Verification
+│   │       └── Medical Examination
+│
+│
+└── 3. Other Government Competitive Exams
+    │
+    ├── Exam: SSC Stenographer
+    │
+    │   ├── Stage 1:
+    │   │   └── CBT
+    │   │
+    │   ├── Stage 2:
+    │   │   └── Skill Test (Stenography)
+    │   │
+    │   └── Final:
+    │       └── Document Verification
+    │
+    │
+    ├── Exam: SSC JE
+    │
+    │   ├── Stage 1:
+    │   │   └── Paper-I CBT
+    │   │
+    │   ├── Stage 2:
+    │   │   └── Paper-II (Engineering)
+    │   │
+    │   └── Final:
+    │       └── Document Verification
+    │
+    │
+    └── Exam: Delhi Police Exams
+        │
+        ├── Stage 1:
+        │   └── Computer Based Test
+        │
+        ├── Stage 2:
+        │   └── Physical Test
+        │
+        ├── Stage 3:
+        │   └── Medical Examination
+        │
+        └── Stage 4:
+            └── Document Verification
+```
+
+यह **SSC + Railway Master Exam Hierarchy** का पहला भाग है।
+
+अगले भाग में शामिल होंगे:
+
+* SSC सभी remaining exams (Selection Post, JHT, JSA, Scientific Assistant आदि)
+* Railway remaining exams (RRB JE, RPF, Paramedical, Ministerial & Isolated Categories)
+* हर exam के लिए:
+
+  * Eligibility
+  * Qualification Level
+  * Age Group
+  * Exam Pattern
+  * Subjects Mapping
+  * Selection Flow
+  * Final Merit Process
+Understood. We will expand the **Exam Category → Exam → Complete Exam Details** hierarchy by adding:
+
+* Eligibility / Qualification
+* Age Criteria
+* Exam Stages
+* Stage-wise Sections
+* Total Questions
+* Total Marks
+* Time Duration
+* Negative Marking
+* Qualifying Conditions
+* Merit Stage
+* Skill/PET/PST/Medical Requirements
+* Final Selection Process
+
+Starting with **SSC Exams (Detailed Format)**.
+
+# Exam Category: SSC (Staff Selection Commission)
+
+```text
+SSC Exams
+
+├── Exam 1: SSC CGL (Combined Graduate Level)
+│
+│   ├── Basic Information
+│   │
+│   │   ├── Qualification:
+│   │   │   └── Graduation from recognized university
+│   │   │
+│   │   ├── Age:
+│   │   │   ├── Minimum: 18 Years
+│   │   │   └── Maximum: 27/30/32 Years (Post Wise)
+│   │   │
+│   │   └── Posts:
+│   │       ├── Assistant Section Officer
+│   │       ├── Inspector
+│   │       ├── Auditor
+│   │       ├── Accountant
+│   │       └── Tax Assistant
+│   │
+│   │
+│   ├── Stage 1: Tier-I CBT
+│   │
+│   │   ├── Purpose:
+│   │   │   └── Screening / Qualification
+│   │   │
+│   │   ├── Mode:
+│   │   │   └── Online Computer Based Test
+│   │   │
+│   │   ├── Total Questions:
+│   │   │   └── 100 Questions
+│   │   │
+│   │   ├── Total Marks:
+│   │   │   └── 200 Marks
+│   │   │
+│   │   ├── Time:
+│   │   │   └── 60 Minutes
+│   │   │
+│   │   ├── Sections:
+│   │   │
+│   │   │   ├── General Intelligence & Reasoning
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   ├── General Awareness
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   ├── Quantitative Aptitude
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   └── English Language
+│   │   │       ├── Questions: 25
+│   │   │       └── Marks: 50
+│   │   │
+│   │   ├── Negative Marking:
+│   │   │   └── 0.50 Marks per wrong answer
+│   │   │
+│   │   └── Qualification:
+│   │       └── Clear Cut-off
+│   │
+│   │
+│   ├── Stage 2: Tier-II CBT
+│   │
+│   │   ├── Purpose:
+│   │   │   └── Main Merit Stage
+│   │   │
+│   │   ├── Paper-I (Compulsory)
+│   │   │
+│   │   │   ├── Module-I:
+│   │   │   │   Mathematics Ability
+│   │   │   │
+│   │   │   │   ├── Questions: 30
+│   │   │   │   └── Marks: 90
+│   │   │   │
+│   │   │   ├── Module-II:
+│   │   │   │   Reasoning & General Intelligence
+│   │   │   │
+│   │   │   │   ├── Questions: 30
+│   │   │   │   └── Marks: 90
+│   │   │   │
+│   │   │   ├── Module-III:
+│   │   │   │   English Language & Comprehension
+│   │   │   │
+│   │   │   │   ├── Questions: 45
+│   │   │   │   └── Marks: 135
+│   │   │   │
+│   │   │   ├── Module-IV:
+│   │   │   │   General Awareness
+│   │   │   │
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 75
+│   │   │   │
+│   │   │   ├── Module-V:
+│   │   │   │   Computer Knowledge
+│   │   │   │
+│   │   │   │   ├── Questions: 20
+│   │   │   │   └── Marks: 60
+│   │   │   │
+│   │   │   └── Module-VI:
+│   │   │       Data Entry Speed Test
+│   │   │
+│   │   ├── Total:
+│   │   │   ├── Questions: 150
+│   │   │   ├── Marks: 450
+│   │   │   └── Time: 2 Hours 15 Minutes
+│   │   │
+│   │   ├── Negative Marking:
+│   │   │   └── 1 Mark per wrong answer
+│   │   │
+│   │   └── Merit:
+│   │       └── Tier-II Marks Only
+│   │
+│   │
+│   ├── Stage 3: Skill Test
+│   │
+│   │   ├── Data Entry Speed Test (DEST)
+│   │   │
+│   │   ├── Qualification:
+│   │   │   └── Qualifying Nature
+│   │   │
+│   │   └── Marks:
+│   │       └── Not Added In Merit
+│   │
+│   │
+│   ├── Stage 4: Document Verification
+│   │
+│   │   ├── Educational Certificates
+│   │   ├── Identity Proof
+│   │   ├── Category Certificate
+│   │   └── Other Documents
+│   │
+│   │
+│   └── Final Selection
+│       │
+│       ├── Merit Based On:
+│       │   └── Tier-II Score
+│       │
+│       ├── Skill Test:
+│       │   └── Qualifying Only
+│       │
+│       └── Final Allocation:
+│           ├── Rank
+│           ├── Preference
+│           └── Vacancy
+│
+│
+├── Exam 2: SSC CHSL (10+2 Level)
+│
+│   ├── Basic Information
+│   │
+│   │   ├── Qualification:
+│   │   │   └── 12th Pass
+│   │   │
+│   │   ├── Age:
+│   │   │   └── 18-27 Years
+│   │   │
+│   │   └── Posts:
+│   │       ├── LDC
+│   │       ├── JSA
+│   │       └── DEO
+│   │
+│   │
+│   ├── Stage 1: Tier-I CBT
+│   │
+│   │   ├── Total Questions:
+│   │   │   └── 100
+│   │   │
+│   │   ├── Total Marks:
+│   │   │   └── 200
+│   │   │
+│   │   ├── Time:
+│   │   │   └── 60 Minutes
+│   │   │
+│   │   ├── Sections:
+│   │   │
+│   │   │   ├── English
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   ├── Reasoning
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   ├── Mathematics
+│   │   │   │   ├── Questions: 25
+│   │   │   │   └── Marks: 50
+│   │   │   │
+│   │   │   └── General Awareness
+│   │   │       ├── Questions: 25
+│   │   │       └── Marks: 50
+│   │   │
+│   │   └── Negative Marking:
+│   │       └── 0.50 Marks
+│   │
+│   │
+│   ├── Stage 2: Tier-II
+│   │
+│   │   ├── Section-I
+│   │   │   ├── Mathematical Ability
+│   │   │   └── Reasoning
+│   │   │
+│   │   ├── Section-II
+│   │   │   ├── English
+│   │   │   └── General Awareness
+│   │   │
+│   │   ├── Section-III
+│   │   │   ├── Computer Knowledge
+│   │   │   └── Typing/Skill Test
+│   │   │
+│   │   ├── Total Questions:
+│   │   │   └── Approx. 135
+│   │   │
+│   │   ├── Marks:
+│   │   │   └── 405
+│   │   │
+│   │   └── Time:
+│   │       └── 2 Hours 15 Minutes
+│   │
+│   │
+│   └── Final Selection
+│       ├── Tier-II Marks
+│       ├── Skill Test Qualifying
+│       └── Document Verification
+```
+
+I will continue next with the same detailed format for:
+
+1. **SSC MTS**
+2. **SSC GD Constable**
+3. **SSC CPO SI**
+4. **SSC Stenographer**
+5. **SSC JE**
+
+with complete **questions + marks + sections + time + merit rules + qualifying stages**.
+I will convert the exam hierarchy into a **compact table format** with all important exam details.
+
+# Exam Category: SSC
+
+# Exam: SSC CGL (Combined Graduate Level)
+
+| Field                  | Details                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------- |
+| Exam Category          | SSC                                                                           |
+| Exam Name              | SSC CGL                                                                       |
+| Full Form              | Combined Graduate Level Examination                                           |
+| Qualification Required | Graduation from recognized university                                         |
+| Age Limit              | 18–27 / 30 / 32 Years (Post-wise)                                             |
+| Exam Purpose           | Recruitment for Group B & Group C Posts                                       |
+| Posts                  | Assistant Section Officer, Inspector, Auditor, Accountant, Tax Assistant etc. |
+| Total Stages           | 4 Stages                                                                      |
+
+## Stage 1: Tier-I CBT
+
+| Parameter        | Details                     |
+| ---------------- | --------------------------- |
+| Stage Type       | Computer Based Test         |
+| Purpose          | Screening / Shortlisting    |
+| Mode             | Online                      |
+| Total Questions  | 100                         |
+| Total Marks      | 200                         |
+| Time Duration    | 60 Minutes                  |
+| Question Type    | Objective MCQ               |
+| Negative Marking | 0.50 Marks per Wrong Answer |
+| Merit Count      | Not Included in Final Merit |
+
+### Tier-I Section Pattern
+
+| Section                          | Questions |   Marks |
+| -------------------------------- | --------: | ------: |
+| General Intelligence & Reasoning |        25 |      50 |
+| General Awareness                |        25 |      50 |
+| Quantitative Aptitude            |        25 |      50 |
+| English Language                 |        25 |      50 |
+| **Total**                        |   **100** | **200** |
+
+---
+
+# Stage 2: Tier-II CBT
+
+| Parameter        | Details                 |
+| ---------------- | ----------------------- |
+| Stage Type       | Computer Based Test     |
+| Purpose          | Main Merit Stage        |
+| Mode             | Online                  |
+| Paper            | Paper-I Compulsory      |
+| Total Questions  | 150                     |
+| Total Marks      | 450                     |
+| Time Duration    | 2 Hours 15 Minutes      |
+| Negative Marking | 1 Mark per Wrong Answer |
+| Merit Count      | Included in Final Merit |
+
+### Tier-II Paper-I Pattern
+
+| Module     | Subject                          |  Questions |      Marks |
+| ---------- | -------------------------------- | ---------: | ---------: |
+| Module-I   | Mathematical Abilities           |         30 |         90 |
+| Module-II  | Reasoning & General Intelligence |         30 |         90 |
+| Module-III | English Language & Comprehension |         45 |        135 |
+| Module-IV  | General Awareness                |         25 |         75 |
+| Module-V   | Computer Knowledge               |         20 |         60 |
+| Module-VI  | Data Entry Speed Test            | Qualifying | Qualifying |
+
+---
+
+# Stage 3: Skill Test
+
+| Parameter            | Details                      |
+| -------------------- | ---------------------------- |
+| Test Name            | Data Entry Speed Test (DEST) |
+| Applicable For       | Selected Posts               |
+| Nature               | Qualifying                   |
+| Marks Added in Merit | No                           |
+| Requirement          | Typing/Data Entry Speed      |
+
+---
+
+# Stage 4: Document Verification
+
+| Parameter | Details                                                                         |
+| --------- | ------------------------------------------------------------------------------- |
+| Purpose   | Verification of Eligibility                                                     |
+| Documents | Education Certificate, ID Proof, Category Certificate, Other Required Documents |
+| Nature    | Mandatory                                                                       |
+| Marks     | No                                                                              |
+
+---
+
+# Final Selection Process
+
+| Component             | Role                             |
+| --------------------- | -------------------------------- |
+| Tier-I                | Screening                        |
+| Tier-II               | Final Merit Calculation          |
+| Skill Test            | Qualifying                       |
+| Document Verification | Eligibility Confirmation         |
+| Final Allocation      | Rank + Post Preference + Vacancy |
+
+---
+
+## SSC CGL Exam Summary
+
+| Item                 | Details              |
+| -------------------- | -------------------- |
+| Total Stages         | 4                    |
+| Written Exams        | Tier-I + Tier-II     |
+| Final Merit Based On | Tier-II Marks        |
+| Qualification Level  | Graduate             |
+| Exam Mode            | Online CBT           |
+| Negative Marking     | Yes                  |
+| Skill Test           | For Applicable Posts |
+| Medical Test         | Post Specific        |
+
+---
+
+I will continue next in the same table format:
+
+1. **SSC CHSL**
+2. **SSC MTS**
+3. **SSC GD Constable**
+4. **SSC CPO SI**
+5. **SSC Stenographer**
+6. **SSC JE**
+
+with complete stage-wise tables.
+
+Correct. The previous table missed some important fields:
+
+* **Sectional timing**
+* **Tier-II additional papers**
+* **Paper applicability by post**
+* **Module-wise timing**
+* **Qualifying papers**
+* **Final merit calculation rules**
+
+I will use this expanded master table format going forward.
+
+# Exam Category: SSC
+
+# Exam: SSC CGL (Combined Graduate Level Examination)
+
+## 1. Basic Exam Information
+
+| Field                | Details                                               |
+| -------------------- | ----------------------------------------------------- |
+| Exam Category        | SSC                                                   |
+| Exam Name            | SSC CGL                                               |
+| Qualification        | Graduation from recognized university                 |
+| Age Limit            | 18–27 / 30 / 32 years (post-wise)                     |
+| Exam Mode            | Computer Based Test (CBT)                             |
+| Total Stages         | Tier-I + Tier-II + Skill Test + Document Verification |
+| Recruitment Level    | Group B & Group C Posts                               |
+| Final Merit Based On | Tier-II Marks                                         |
+
+---
+
+# Stage 1: Tier-I CBT
+
+| Parameter         | Details                     |
+| ----------------- | --------------------------- |
+| Purpose           | Screening / Shortlisting    |
+| Mode              | Online CBT                  |
+| Total Questions   | 100                         |
+| Total Marks       | 200                         |
+| Total Time        | 60 Minutes                  |
+| Sectional Timing  | No sectional timing         |
+| Question Type     | Objective MCQ               |
+| Negative Marking  | 0.50 marks per wrong answer |
+| Merit Calculation | Not included in final merit |
+
+## Tier-I Section Pattern
+
+| Section                          | Questions |   Marks | Time                |
+| -------------------------------- | --------: | ------: | ------------------- |
+| General Intelligence & Reasoning |        25 |      50 | Combined 60 Minutes |
+| General Awareness                |        25 |      50 | Combined 60 Minutes |
+| Quantitative Aptitude            |        25 |      50 | Combined 60 Minutes |
+| English Language                 |        25 |      50 | Combined 60 Minutes |
+| **Total**                        |   **100** | **200** | **60 Minutes**      |
+
+---
+
+# Stage 2: Tier-II CBT
+
+## Paper-I (Compulsory For All Posts)
+
+| Parameter        | Details                 |
+| ---------------- | ----------------------- |
+| Purpose          | Final Merit Stage       |
+| Mode             | Online CBT              |
+| Total Marks      | 450                     |
+| Total Questions  | 150                     |
+| Total Time       | 2 Hours 15 Minutes      |
+| Negative Marking | 1 Mark per wrong answer |
+| Merit Status     | Included in Final Merit |
+
+---
+
+## Paper-I Section Pattern
+
+### Session-I
+
+| Module        | Subject                          | Questions | Marks | Time                  |
+| ------------- | -------------------------------- | --------- | ----: | --------------------- |
+| Module-I      | Mathematical Abilities           | 30        |    90 | Included in Session-I |
+| Module-II     | Reasoning & General Intelligence | 30        |    90 | Included in Session-I |
+| Module-I + II | Total                            | 60        |   180 | 1 Hour                |
+
+---
+
+### Session-II
+
+| Module     | Subject                          | Questions  |      Marks | Time                   |
+| ---------- | -------------------------------- | ---------- | ---------: | ---------------------- |
+| Module-III | English Language & Comprehension | 45         |        135 | Included in Session-II |
+| Module-IV  | General Awareness                | 25         |         75 | Included in Session-II |
+| Module-V   | Computer Knowledge Test          | 20         |         60 | Included in Session-II |
+| Module-VI  | Data Entry Speed Test            | Qualifying | Qualifying | 15 Minutes             |
+
+---
+
+# Tier-II Additional Papers (Post Specific)
+
+## Paper-II: Statistics
+
+| Field                     | Details                                          |
+| ------------------------- | ------------------------------------------------ |
+| Applicable For            | Junior Statistical Officer (JSO)                 |
+| Qualification Requirement | Graduation with Statistics / related requirement |
+| Questions                 | 100                                              |
+| Marks                     | 200                                              |
+| Time                      | 2 Hours                                          |
+| Negative Marking          | 0.50 marks per wrong answer                      |
+| Merit Status              | Included                                         |
+
+### Statistics Paper Topics
+
+| Area                                |
+| ----------------------------------- |
+| Collection and Presentation of Data |
+| Measures of Central Tendency        |
+| Dispersion                          |
+| Probability                         |
+| Statistical Inference               |
+| Sampling Theory                     |
+| Correlation and Regression          |
+| Analysis of Variance                |
+| Time Series                         |
+| Index Numbers                       |
+
+---
+
+## Paper-III: General Studies (Finance & Economics)
+
+| Field            | Details                                                          |
+| ---------------- | ---------------------------------------------------------------- |
+| Applicable For   | Assistant Audit Officer (AAO) / Assistant Accounts Officer Posts |
+| Questions        | 100                                                              |
+| Marks            | 200                                                              |
+| Time             | 2 Hours                                                          |
+| Negative Marking | 0.50 marks per wrong answer                                      |
+| Merit Status     | Included                                                         |
+
+### Paper-III Sections
+
+| Part   | Subject                |
+| ------ | ---------------------- |
+| Part A | Finance & Accounts     |
+| Part B | Economics & Governance |
+
+---
+
+# Stage 3: Skill Test
+
+## Data Entry Speed Test (DEST)
+
+| Field             | Details                        |
+| ----------------- | ------------------------------ |
+| Applicable Posts  | Certain CGL posts              |
+| Test              | Data Entry Speed Test          |
+| Speed Requirement | 8,000 key depressions per hour |
+| Nature            | Qualifying                     |
+| Marks Added       | No                             |
+
+---
+
+# Stage 4: Document Verification
+
+| Field             | Details                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| Purpose           | Eligibility Verification                                   |
+| Checked Documents | Education, Age Proof, Category Certificate, Identity Proof |
+| Marks             | No                                                         |
+| Nature            | Mandatory                                                  |
+
+---
+
+# SSC CGL Final Selection Formula
+
+| Component             | Role                   |
+| --------------------- | ---------------------- |
+| Tier-I                | Qualifying / Screening |
+| Tier-II Paper-I       | Main Merit             |
+| Tier-II Paper-II      | Merit for JSO          |
+| Tier-II Paper-III     | Merit for AAO/AO Posts |
+| DEST                  | Qualifying             |
+| Document Verification | Mandatory              |
+
+---
+
+# SSC CGL Complete Stage Summary
+
+| Stage                 | Exam                |      Marks | Merit       |
+| --------------------- | ------------------- | ---------: | ----------- |
+| Tier-I                | CBT                 |        200 | No          |
+| Tier-II Paper-I       | CBT                 |        450 | Yes         |
+| Tier-II Paper-II      | Statistics          |        200 | JSO Only    |
+| Tier-II Paper-III     | Finance & Economics |        200 | AAO/AO Only |
+| DEST                  | Skill Test          | Qualifying | No          |
+| Document Verification | Verification        |          — | Final Step  |
+
+---
+
+I will use this **expanded exam database format** for all remaining SSC and Railway exams:
+
+**SSC CHSL → SSC MTS → SSC GD → SSC CPO → SSC Steno → SSC JE → RRB NTPC → RRB Group D → RRB ALP → RRB JE → RPF**.
+
+I checked the latest SSC exam-related updates. Key points relevant for our **SSC + Railway Exam Database** update are below. ([Staff Selection Commission][1])
+
+| Exam                    | Latest Update                                                                                                                                           | Impact on Exam Database                                                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| SSC CGL                 | SSC CGL 2026 cycle updates are being tracked; notification/application details are expected through SSC official channels. ([Careers360][2])            | Keep CGL structure with Tier-I + Tier-II detailed papers and post-wise papers       |
+| SSC CGL Tier-II Pattern | Recent exam discussions indicate changes in Tier-II structure, including separate Paper-III for AAO/Assistant Accounts Officer posts. ([Oliveboard][3]) | Add Tier-II Paper-II (Statistics) and Paper-III (Finance & Economics) separately    |
+| SSC CHSL                | CHSL continues with Tier-I + Tier-II structure; latest cycles are being updated through SSC notifications. ([Testbook][4])                              | Database should include Tier-II CBT + Skill/Typing stages                           |
+| SSC MTS                 | Recent MTS result-related updates are appearing for the latest cycle. ([Adda247][5])                                                                    | Include CBT + PET/PST (Havaldar only) + DV                                          |
+| SSC Exam Calendar       | SSC has released/updated examination calendar information for upcoming recruitment cycles. ([Adda247][6])                                               | Add "Notification → Application → Exam → Result → Final Selection Timeline" section |
+
+### Database Changes Required
+
+For our **Exam Master Hierarchy**, add these fields:
+
+| New Field             | Example                          |
+| --------------------- | -------------------------------- |
+| Notification Status   | Released / Expected / Completed  |
+| Exam Frequency        | Annual / As Required             |
+| Latest Exam Year      | 2026                             |
+| Current Pattern Year  | 2026 Pattern                     |
+| Stage Count           | 2 / 3 / 4 / 5                    |
+| Paper Applicability   | All Posts / Specific Posts       |
+| Merit Stage           | Tier-II / CBT-2 / Skill Test     |
+| Qualifying Stage      | DEST / PET / PST / Computer Test |
+| Sectional Timing      | Yes / No                         |
+| Session Division      | Session-I / Session-II           |
+| Normalization         | Applicable / Not Applicable      |
+| Negative Marking      | Stage-wise                       |
+| Document Verification | Required / Not Required          |
+| Medical Examination   | Post-wise                        |
+
+### Important Correction for SSC CGL Table
+
+The final database should show:
+
+| Stage             | Paper                                                             | Applicable For                       |                    Marks | Merit          |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------------ | -----------------------: | -------------- |
+| Tier-I            | General Paper                                                     | All Candidates                       |                      200 | No (Screening) |
+| Tier-II Paper-I   | Mathematical Ability + Reasoning + English + GA + Computer + DEST | All Posts                            | 450 + Qualifying Modules | Yes            |
+| Tier-II Paper-II  | Statistics                                                        | JSO Posts                            |                      200 | Yes            |
+| Tier-II Paper-III | Finance & Economics                                               | AAO/Assistant Accounts Officer Posts |                      200 | Yes            |
+| DEST              | Skill Test                                                        | Selected Posts                       |               Qualifying | No             |
+| DV                | Document Verification                                             | All Selected Candidates              |                        — | Mandatory      |
+
+Next I will update the **SSC CHSL table in the same latest detailed format** with:
+
+* qualification
+* age
+* stages
+* sections
+* questions
+* marks
+* timing
+* sectional timing
+* skill test rules
+* final merit formula.
+
+[1]: https://ssc.gov.in/?utm_source=chatgpt.com "SSC"
+[2]: https://competition.careers360.com/articles/ssc-cgl-notification-2026-release-date?utm_source=chatgpt.com "SSC CGL Notification 2026 Release Date"
+[3]: https://www.oliveboard.in/blog/major-changes-in-ssc-cgl-2026-exam/?utm_source=chatgpt.com "Major Changes in SSC CGL 2026 Exam, Check Latest Updates ..."
+[4]: https://testbook.com/ssc-chsl?utm_source=chatgpt.com "SSC CHSL 2026 Notification, Check Exam Date, Vacancy ... - Testbook"
+[5]: https://www.adda247.com/jobs/ssc-mts-result-2026/?utm_source=chatgpt.com "SSC MTS Result 2026 @ssc.gov.in, Merit List PDF and Scorecard Link"
+[6]: https://www.adda247.com/exams/ssc/ssc-calendar-2026/?utm_source=chatgpt.com "SSC Exam Calendar 2026-27 Out, SSC Recruitment Dates for CGL,CHSL, MTS and GD Exams"

@@ -27,9 +27,9 @@ BEGIN
     ALTER TABLE exams ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
     ALTER TABLE exams ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
 
-    -- Create unique index on slug if not exists
+    -- Create unique index IF NOT EXISTS on slug if not exists
     IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'exams' AND indexname = 'idx_exams_slug_unique') THEN
-      CREATE UNIQUE INDEX idx_exams_slug_unique ON exams(slug) WHERE slug IS NOT NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_exams_slug_unique ON exams(slug) WHERE slug IS NOT NULL;
     END IF;
 
     RAISE NOTICE 'exams: ensured slug, description, is_active, timestamps exist';

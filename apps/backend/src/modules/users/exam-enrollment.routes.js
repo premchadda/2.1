@@ -5,6 +5,7 @@ import { idsMatch } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, mapLookupId } from '../../shared/utils/public-id-response.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -67,7 +68,7 @@ router.post('/enroll-exam/:examId', protect, async (req, res) => {
     console.error('[Enroll Exam] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -123,7 +124,7 @@ router.delete('/unenroll-exam/:examId', protect, async (req, res) => {
     console.error('[Unenroll Exam] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -149,7 +150,7 @@ router.get('/enrolled-exams', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })

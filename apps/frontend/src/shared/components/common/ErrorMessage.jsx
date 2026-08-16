@@ -1,4 +1,3 @@
-import React from 'react'
 
 const ErrorMessage = ({ message, onClose, className = '' }) => {
   return (

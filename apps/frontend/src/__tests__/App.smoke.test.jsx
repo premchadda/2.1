@@ -1,24 +1,47 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-
-// TEST-03: Expanded route-level smoke tests for key frontend routes.
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import App from '../App'
+import { ThemeProvider } from '../shared/context/ThemeContext'
 
 // Mock heavy dependencies that aren't needed for smoke tests
 vi.mock('@react-oauth/google', () => ({
   GoogleOAuthProvider: ({ children }) => children,
 }))
 
-// Lazy-loaded pages will trigger Suspense — we just verify the app
-// renders without crashing and the route structure is intact.
-import App from '../App'
+vi.mock('../shared/providers/AuthContext', () => ({
+  useAuth: () => ({ user: null, loading: false }),
+  AuthProvider: ({ children }) => children,
+}))
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: false,
+    },
+  },
+})
+
+import { HelmetProvider } from 'react-helmet-async'
 
 const renderRoute = (route) =>
   render(
-    <MemoryRouter initialEntries={[route]}>
-      <App />
-    </MemoryRouter>,
+    <HelmetProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={[route]}>
+            <App />
+          </MemoryRouter>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </HelmetProvider>,
   )
+
+const expectNoRenderedError = (container) => {
+  expect(container).toBeTruthy()
+  expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
+}
 
 describe('App route smoke tests', () => {
   beforeEach(() => {
@@ -27,77 +50,87 @@ describe('App route smoke tests', () => {
 
   it('renders / (home) without crashing', async () => {
     const { container } = renderRoute('/')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /login without crashing', async () => {
     const { container } = renderRoute('/login')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
+
+    const dialog = container.querySelector('[role="dialog"]')
+    if (dialog) {
+      expect(dialog).toHaveClass('w-[min(100%,24rem)]')
+    }
   })
 
   it('renders /signup without crashing', async () => {
     const { container } = renderRoute('/signup')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /about without crashing', async () => {
     const { container } = renderRoute('/about')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /contact without crashing', async () => {
     const { container } = renderRoute('/contact')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /exams without crashing', async () => {
     const { container } = renderRoute('/exams')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /test-series without crashing', async () => {
     const { container } = renderRoute('/test-series')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /faq without crashing', async () => {
     const { container } = renderRoute('/faq')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /terms without crashing', async () => {
     const { container } = renderRoute('/terms')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /privacy without crashing', async () => {
     const { container } = renderRoute('/privacy')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /search without crashing', async () => {
     const { container } = renderRoute('/search')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /blog without crashing', async () => {
     const { container } = renderRoute('/blog')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /leaderboard without crashing', async () => {
     const { container } = renderRoute('/leaderboard')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders unknown route as 404', async () => {
     const { container } = renderRoute('/this-does-not-exist')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
   })
 
   it('renders /dashboard (protected) without crashing', async () => {
-    // Protected routes redirect to login — that's expected behavior, not a crash
     const { container } = renderRoute('/dashboard')
-    expect(container).toBeTruthy()
+    expectNoRenderedError(container)
+  })
+
+  it('renders the mobile bottom navigation', async () => {
+    renderRoute('/')
+    const bottomNav = await screen.findByRole('navigation', { name: /mobile navigation/i })
+    expect(bottomNav).toHaveClass('fixed', 'bottom-0')
   })
 })

@@ -30,7 +30,7 @@ export default function Timeline({ events }) {
     }
   }
 
-  const getStatusColor = (status) => {
+  const _getStatusColor = (status) => {
     switch (status) {
       case 'completed':
         return 'bg-green-500'

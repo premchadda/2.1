@@ -12,55 +12,79 @@
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import weakAreaDetectionService from '../analytics/weakAreaDetection.service.js'
 import AiGenerationLog from '../../data/models/ai/AiGenerationLog.js'
+import { AI_CONFIG, callAIWithFallback } from './aiClient.js'
+import AICache from './aiCache.js'
 
-const AI_CONFIG = {
-  model: process.env.AI_MODEL || 'gpt-4',
-  provider: process.env.AI_PROVIDER || 'openrouter',
-  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY,
-  baseUrl: process.env.AI_BASE_URL || 'https://openrouter.ai/api/v1',
-  maxTokens: parseInt(process.env.AI_MAX_TOKENS) || 2000,
-  temperature: parseFloat(process.env.AI_TEMPERATURE) || 0.7,
+async function getPromptTemplate(name, defaultSystem, defaultUser) {
+  try {
+    const result = await pool.query(
+      'SELECT system_prompt, user_prompt_template FROM prompt_templates WHERE name = $1 LIMIT 1',
+      [name]
+    )
+    if (result.rows.length > 0) {
+      return {
+        systemPrompt: result.rows[0].system_prompt,
+        userPromptTemplate: result.rows[0].user_prompt_template
+      }
+    }
+  } catch (err) {
+    console.warn('[AI Prompt] Failed to load prompt from DB, using defaults:', err.message)
+  }
+  return { systemPrompt: defaultSystem, userPromptTemplate: defaultUser }
+}
+
+// Shared AI cache — uses Redis when available, otherwise no-op
+const aiCache = new AICache(global.redis)
+
+// Token budget tracking (in-memory; use Redis in production)
+const userTokenUsage = new Map()
+
+function checkTokenBudget(userId, tokensRequested) {
+  const daily = userTokenUsage.get(userId) || { count: 0, date: new Date().toDateString() }
+  if (daily.date !== new Date().toDateString()) {
+    daily.count = 0
+    daily.date = new Date().toDateString()
+  }
+  const limit = parseInt(process.env.AI_DAILY_TOKEN_LIMIT || '50000')
+  if (daily.count + tokensRequested > limit) {
+    return false
+  }
+  daily.count += tokensRequested
+  userTokenUsage.set(userId, daily)
+  return true
+}
+
+// Sanitize user input to prevent prompt injection
+const sanitizeForPrompt = (input) => {
+  if (!input || typeof input !== 'string') return ''
+  // Remove potential injection patterns
+  return input
+    .replace(/system\s*:/gi, '[USER]')
+    .replace(/ignore\s*(all\s*)?(previous|above|prior)\s*(instructions?|prompts?)/gi, '[USER_INPUT]')
+    .substring(0, 2000) // Limit length
 }
 
 /**
- * Call AI API for chat completion.
+ * Call AI API for chat completion with cache + fallback.
  */
 async function callAI(messages, options = {}) {
-  const startTime = Date.now()
+  // Check cache first
+  const cached = await aiCache.get(messages, options.model || AI_CONFIG.model)
+  if (cached) return cached
+
+  // Check token budget before calling API
+  const tokensRequested = options.maxTokens || AI_CONFIG.maxTokens
+  if (!checkTokenBudget(options.userId || 'anonymous', tokensRequested)) {
+    throw { message: 'Daily token budget exceeded. Please try again tomorrow.', latencyMs: 0 }
+  }
 
   try {
-    const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
-        'HTTP-Referer': 'https://trstprep.com',
-        'X-Title': 'TrstPrep AI Mentor',
-      },
-      body: JSON.stringify({
-        model: options.model || AI_CONFIG.model,
-        messages,
-        max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
-        temperature: options.temperature || AI_CONFIG.temperature,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`AI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const latencyMs = Date.now() - startTime
-
-    return {
-      text: data.choices[0]?.message?.content || '',
-      model: data.model,
-      tokensInput: data.usage?.prompt_tokens || 0,
-      tokensOutput: data.usage?.completion_tokens || 0,
-      latencyMs,
-    }
+    const result = await callAIWithFallback(messages, options)
+    // Cache successful response
+    await aiCache.set(messages, options.model || AI_CONFIG.model, result)
+    return result
   } catch (error) {
-    const latencyMs = Date.now() - startTime
+    const latencyMs = error.latencyMs || 0
     throw {
       message: error.message,
       latencyMs,
@@ -75,43 +99,54 @@ const aiMentorService = {
   async generateStudyPlan(userId, options = {}) {
     const weakAreas = await weakAreaDetectionService.getFullAnalysis(userId)
 
-    const systemPrompt = `You are an expert exam preparation mentor for Indian competitive exams (SSC, Railway, Banking, etc.).
-Create a personalized study plan based on the student's performance analysis.
-The plan should be practical, achievable, and focused on improving weak areas.
-Include daily targets, weekly goals, and specific topics to focus on.`
-
-    const userPrompt = `
-Student Performance Analysis:
-- Overall Accuracy: ${weakAreas.overallAccuracy}%
-- Total Questions Attempted: ${weakAreas.totalQuestionsAttempted}
+    const promptTemplate = await getPromptTemplate(
+      'study_plan',
+      'You are an expert exam preparation mentor for Indian competitive exams (SSC, Railway, Banking, etc.). Create a personalized study plan based on the student\'s performance analysis. The plan should be practical, achievable, and focused on improving weak areas. Include daily targets, weekly goals, and specific topics to focus on.',
+      `Student Performance Analysis:
+- Overall Accuracy: {{overallAccuracy}}%
+- Total Questions Attempted: {{totalQuestionsAttempted}}
 
 Weak Topics (sorted by accuracy):
-${weakAreas.weakTopics.slice(0, 10).map((t, i) =>
-  `${i + 1}. ${t.topicName} (${t.subjectName}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`
-).join('\n')}
+{{weakTopics}}
 
 Subject Performance:
-${weakAreas.weakSubjects.map(s =>
-  `- ${s.subjectName}: ${s.accuracy}% accuracy`
-).join('\n')}
+{{subjectPerformance}}
 
 Difficulty Performance:
-${weakAreas.difficultyPerformance.map(d =>
-  `- ${d.difficulty}: ${d.accuracy}% accuracy`
-).join('\n')}
+{{difficultyPerformance}}
 
-Create a ${options.days || 30}-day study plan that:
+Create a {{days}}-day study plan that:
 1. Focuses heavily on weak topics (topics with < 40% accuracy)
 2. Includes daily practice targets
 3. Suggests specific types of questions to practice
 4. Includes revision schedules
-5. Is realistic and achievable
-`
+5. Is realistic and achievable`
+    )
+
+    const weakTopicsText = weakAreas.weakTopics.slice(0, 10).map((t, i) =>
+      `${i + 1}. ${t.topicName} (${t.subjectName}) - ${t.accuracy}% accuracy, ${t.totalAttempts} attempts`
+    ).join('\n')
+
+    const subjectPerformanceText = weakAreas.weakSubjects.map(s =>
+      `- ${s.subjectName}: ${s.accuracy}% accuracy`
+    ).join('\n')
+
+    const difficultyPerformanceText = weakAreas.difficultyPerformance.map(d =>
+      `- ${d.difficulty}: ${d.accuracy}% accuracy`
+    ).join('\n')
+
+    const userPrompt = promptTemplate.userPromptTemplate
+      .replace('{{overallAccuracy}}', weakAreas.overallAccuracy)
+      .replace('{{totalQuestionsAttempted}}', weakAreas.totalQuestionsAttempted)
+      .replace('{{weakTopics}}', weakTopicsText)
+      .replace('{{subjectPerformance}}', subjectPerformanceText)
+      .replace('{{difficultyPerformance}}', difficultyPerformanceText)
+      .replace('{{days}}', options.days || 30)
 
     const aiResult = await callAI([
-      { role: 'system', content: systemPrompt },
+      { role: 'system', content: promptTemplate.systemPrompt },
       { role: 'user', content: userPrompt },
-    ])
+    ], { userId, model: options.model || 'gpt-4' })
 
     await AiGenerationLog.logSuccess({
       entityType: 'study_plan',
@@ -140,13 +175,24 @@ Create a ${options.days || 30}-day study plan that:
    * Answer a study doubt.
    */
   async answerDoubt(userId, question, context = {}) {
+    // Retrieve GIN tsvector full-text-search context from index
+    let contextText = ''
+    try {
+      const { ragService } = await import('./rag.service.js')
+      contextText = await ragService.retrieveContext(question)
+    } catch (ragError) {
+      console.warn('[RAG] Failed to retrieve context for doubt resolution:', ragError.message)
+    }
+
     const systemPrompt = `You are an expert educator helping students with their exam preparation doubts.
 Provide clear, accurate, and helpful answers.
 Include relevant concepts, formulas, or shortcuts when applicable.
 Keep answers concise but comprehensive.`
 
+    const sanitizedQuestion = sanitizeForPrompt(question)
     const userPrompt = `
-Student's Doubt: ${question}
+${contextText ? `Relevant Course Material Reference:\n${contextText}\n\n` : ''}
+Student's Doubt: ${sanitizedQuestion}
 
 ${context.topic ? `Topic: ${context.topic}` : ''}
 ${context.subject ? `Subject: ${context.subject}` : ''}
@@ -158,7 +204,7 @@ Please provide a clear explanation to resolve this doubt.
     const aiResult = await callAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ])
+    ], { userId, model: context.model || 'gpt-3.5-turbo' })
 
     await AiGenerationLog.logSuccess({
       entityType: 'doubt_resolution',
@@ -172,6 +218,7 @@ Please provide a clear explanation to resolve this doubt.
       metadata: {
         topic: context.topic,
         subject: context.subject,
+        hasRAGContext: !!contextText
       },
       createdBy: userId,
     })
@@ -216,7 +263,7 @@ Provide exam strategy including:
     const aiResult = await callAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ])
+    ], { userId, model: options.model || 'gpt-4' })
 
     await AiGenerationLog.logSuccess({
       entityType: 'exam_strategy',
@@ -262,7 +309,7 @@ Keep it under 100 words.
     const aiResult = await callAI([
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
-    ])
+    ], { userId, model: 'gpt-3.5-turbo' })
 
     return {
       tip: aiResult.text,
@@ -270,49 +317,134 @@ Keep it under 100 words.
     }
   },
 
+  async chat(userId, message, conversationId = null) {
+    let activeConversationId = conversationId
+
+    const client = await pool.connect()
+    try {
+      await client.query('BEGIN')
+
+      if (!activeConversationId) {
+        // Create new conversation
+        const title = message.substring(0, 50).trim() || 'New Chat'
+        const convResult = await client.query(
+          'INSERT INTO ai_conversations (user_id, title) VALUES ($1, $2) RETURNING id',
+          [userId, title]
+        )
+        activeConversationId = convResult.rows[0].id
+      }
+
+      // Fetch history from DB if conversation exists
+      const msgsResult = await client.query(
+        'SELECT role, content FROM ai_messages WHERE conversation_id = $1 ORDER BY created_at ASC',
+        [activeConversationId]
+      )
+      const history = msgsResult.rows
+
+      // Save user message to database
+      await client.query(
+        'INSERT INTO ai_messages (conversation_id, role, content) VALUES ($1, $2, $3)',
+        [activeConversationId, 'user', message]
+      )
+
+      await client.query('COMMIT')
+
+      const promptTemplate = await getPromptTemplate(
+        'ai_mentor',
+        'You are TrstPrep AI Mentor, an expert in Indian competitive exam preparation. You help students with subject doubts, exam strategy, study planning, and motivation. Be friendly, encouraging, and provide practical advice. Keep responses concise but helpful.',
+        '{{message}}'
+      )
+
+      const messages = [
+        { role: 'system', content: promptTemplate.systemPrompt },
+        ...history.map(h => ({
+          role: h.role,
+          content: h.content,
+        })),
+        { role: 'user', content: sanitizeForPrompt(message) },
+      ]
+
+      const aiResult = await callAI(messages, { userId, model: 'gpt-3.5-turbo' })
+
+      // Save assistant response to database
+      await pool.query(
+        'INSERT INTO ai_messages (conversation_id, role, content, tokens) VALUES ($1, $2, $3, $4)',
+        [activeConversationId, 'assistant', aiResult.text, aiResult.tokensInput + aiResult.tokensOutput]
+      )
+
+      await AiGenerationLog.logSuccess({
+        entityType: 'mentor_chat',
+        entityId: activeConversationId,
+        prompt: message.substring(0, 500),
+        model: aiResult.model,
+        provider: AI_CONFIG.provider,
+        tokensInput: aiResult.tokensInput,
+        tokensOutput: aiResult.tokensOutput,
+        latencyMs: aiResult.latencyMs,
+        metadata: {
+          conversationId: activeConversationId,
+          historyLength: history.length,
+        },
+        createdBy: userId,
+      })
+
+      return {
+        response: aiResult.text,
+        conversationId: activeConversationId,
+        model: aiResult.model,
+      }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
+    } finally {
+      client.release()
+    }
+  },
+
   /**
-   * Chat with AI mentor.
+   * Socratic Step-by-Step AI Guidance for practice and test questions.
    */
-  async chat(userId, message, history = []) {
-    const systemPrompt = `You are TrstPrep AI Mentor, an expert in Indian competitive exam preparation.
-You help students with:
-- Subject doubts and concepts
-- Exam strategy and time management
-- Study planning and motivation
-- Previous year question analysis
+  async getSocraticHint(userId, { questionText, options = [], studentAttempt = '', explanation = '', stepNumber = 1, language = 'en' } = {}) {
+    const safeStep = Math.min(Math.max(parseInt(stepNumber) || 1, 1), 3)
+    const systemPrompt = `You are an elite Socratic tutor for competitive exams.
+Your purpose is to guide the student to discover the answer themselves through structured step-by-step thinking rather than immediately giving the final answer.
+- Step 1: Identify the underlying core theorem, definition, or formula required without revealing the arithmetic solution.
+- Step 2: Break down the first intermediate deduction or equation setup. If the student made an attempt, gently point out what assumption went wrong.
+- Step 3: Provide full structured steps with a closing check-question for the student to verify their final choice.
+Format equations clearly using standard LaTeX ($...$ for inline, $$...$$ for block).
+Language: ${language === 'hi' ? 'Hindi / Hinglish' : 'English'}. Keep responses encouraging, concise, and pedagogical.`
 
-Be friendly, encouraging, and provide practical advice.
-Keep responses concise but helpful.
-If you don't know something, say so honestly.`
+    const userPrompt = `
+Question: ${sanitizeForPrompt(questionText)}
+${options && options.length ? `Options:\n${options.map((o, i) => `${String.fromCharCode(65 + i)}. ${o}`).join('\n')}` : ''}
+${studentAttempt ? `Student's Thought/Attempt: ${sanitizeForPrompt(studentAttempt)}` : ''}
+${explanation ? `Reference Solution: ${sanitizeForPrompt(explanation)}` : ''}
 
-    const messages = [
+Requested Guidance Level: Step ${safeStep} of 3
+Provide the Step ${safeStep} Socratic hint now.
+`
+
+    const aiResult = await callAI([
       { role: 'system', content: systemPrompt },
-      ...history.map(h => ({
-        role: h.role,
-        content: h.content,
-      })),
-      { role: 'user', content: message },
-    ]
-
-    const aiResult = await callAI(messages)
+      { role: 'user', content: userPrompt },
+    ], { userId, model: 'gpt-4o-mini', maxTokens: 800 })
 
     await AiGenerationLog.logSuccess({
-      entityType: 'mentor_chat',
+      entityType: 'socratic_hint',
       entityId: userId,
-      prompt: message.substring(0, 500),
+      prompt: userPrompt.substring(0, 500),
       model: aiResult.model,
       provider: AI_CONFIG.provider,
       tokensInput: aiResult.tokensInput,
       tokensOutput: aiResult.tokensOutput,
       latencyMs: aiResult.latencyMs,
-      metadata: {
-        historyLength: history.length,
-      },
+      metadata: { stepNumber: safeStep, language },
       createdBy: userId,
     })
 
     return {
-      response: aiResult.text,
+      hint: aiResult.text,
+      stepNumber: safeStep,
       model: aiResult.model,
     }
   },
