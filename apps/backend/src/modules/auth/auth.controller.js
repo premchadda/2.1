@@ -36,11 +36,7 @@ const getRefreshSecret = () => {
 }
 
 const getGoogleClientId = () => {
-  if (process.env.GOOGLE_CLIENT_ID) return process.env.GOOGLE_CLIENT_ID
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('GOOGLE_CLIENT_ID must be configured in production')
-  }
-  return null
+  return process.env.GOOGLE_CLIENT_ID || null
 }
 
 const googleClientId = getGoogleClientId()
