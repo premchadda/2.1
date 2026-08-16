@@ -1,15 +1,15 @@
 import { useState } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { ChevronDown, ChevronUp, Loader2, HelpCircle, AlertCircle } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../shared/lib/api'
 import { AnimatedHero, Breadcrumb } from '../../shared/components'
-import PageComingSoon from '../../shared/components/common/PageComingSoon'
 
 export default function Faq() {
   const [openIndex, setOpenIndex] = useState(0)
 
   // Fetch FAQ data from real API - NO HARDCODED FALLBACK
-  const { data: faqs = [], isLoading, error, isError } = useQuery({
+  const { data: faqs = [], isLoading, _error, isError } = useQuery({
     queryKey: ['public-faqs'],
     queryFn: async () => {
       try {
@@ -34,6 +34,14 @@ export default function Faq() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Helmet>
+        <title>FAQ | Trstprep</title>
+        <meta name="description" content="Frequently asked questions about Trstprep - test preparation, accounts, subscriptions, and more." />
+        <meta property="og:title" content="FAQ | Trstprep" />
+        <meta property="og:description" content="Frequently asked questions about Trstprep." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       {/* Breadcrumb Section */}
       <div className="bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto px-4 py-3">

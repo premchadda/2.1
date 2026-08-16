@@ -1,14 +1,12 @@
 import { pool } from '../infrastructure/database/postgres-helpers.js'
 
 /**
- * CRIT-08 FIX: DB-backed CSRF token store
- * Replaces in-memory Map with persistent file-based storage via JSON file
+ * DB-backed CSRF token store
+ * Falls back to in-memory Map (never filesystem) when DB is unavailable
  */
 
-const TOKEN_FILE = './csrf-tokens-store.json'
-
-// Simple file-based persistent store as fallback when DB isn't available
-import fs from 'fs'
+// In-memory fallback — never persists tokens to disk
+const memoryStore = new Map()
 
 /**
  * Initialize CSRF token table if not exists
@@ -28,7 +26,7 @@ export async function initCsrfTable() {
     await pool.query('CREATE INDEX IF NOT EXISTS idx_csrf_tokens_expires ON csrf_tokens(expires_at)')
     console.log('✅ CSRF token table initialized')
   } catch (e) {
-    console.warn('⚠️  Using file-based CSRF token store (table creation failed)')
+    console.warn('⚠️  Using in-memory CSRF token store (table creation failed)')
   }
 }
 
@@ -42,10 +40,8 @@ export async function createCsrfToken(userId, token, expiresAt) {
       [token, userId, expiresAt]
     )
   } catch (e) {
-    // Fallback to file storage
-    const tokens = loadTokens()
-    tokens[token] = { userId, expiresAt: expiresAt.toISOString() }
-    saveTokens(tokens)
+    // Fallback to in-memory storage
+    memoryStore.set(token, { userId, expiresAt: expiresAt.toISOString() })
   }
 }
 
@@ -64,11 +60,10 @@ export async function verifyCsrfToken(token) {
     }
     return false
   } catch {
-    // Fallback to file storage
-    const tokens = loadTokens()
-    if (tokens[token] && new Date(tokens[token].expiresAt) > new Date()) {
-      delete tokens[token]
-      saveTokens(tokens)
+    // Fallback to in-memory storage
+    const entry = memoryStore.get(token)
+    if (entry && new Date(entry.expiresAt) > new Date()) {
+      memoryStore.delete(token)
       return true
     }
     return false
@@ -86,39 +81,33 @@ export async function cleanupExpiredCsrfTokens() {
     console.log(`🧹 Cleaned up ${result.rowCount} expired CSRF tokens`)
     return result.rowCount
   } catch {
-    // Fallback to file storage
-    const tokens = loadTokens()
+    // Fallback to in-memory storage
     const now = new Date()
     let cleaned = 0
-    for (const [key, value] of Object.entries(tokens)) {
+    for (const [key, value] of memoryStore.entries()) {
       if (new Date(value.expiresAt) < now) {
-        delete tokens[key]
+        memoryStore.delete(key)
         cleaned++
       }
     }
-    saveTokens(tokens)
     return cleaned
   }
 }
 
-// File-based fallback helpers
-function loadTokens() {
-  try {
-    if (fs.existsSync(TOKEN_FILE)) {
-      return JSON.parse(fs.readFileSync(TOKEN_FILE, 'utf8'))
+// Periodic cleanup: purge expired tokens from the in-memory fallback every 5 min
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+setInterval(() => {
+  const now = new Date()
+  let cleaned = 0
+  for (const [key, value] of memoryStore.entries()) {
+    if (new Date(value.expiresAt) < now) {
+      memoryStore.delete(key)
+      cleaned++
     }
-    return {}
-  } catch {
-    return {}
   }
-}
-
-function saveTokens(tokens) {
-  try {
-    fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens))
-  } catch (e) {
-    console.error('Failed to save CSRF tokens:', e.message)
+  if (cleaned > 0) {
+    console.log(`🧹 In-memory CSRF cleanup: removed ${cleaned} expired token(s)`)
   }
-}
+}, CLEANUP_INTERVAL_MS).unref()
 
 export default { initCsrfTable, createCsrfToken, verifyCsrfToken, cleanupExpiredCsrfTokens }

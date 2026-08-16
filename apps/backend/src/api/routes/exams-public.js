@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get('/:examId/year/:year', async (req, res) => {
     res.json({ success: true, data: yearlyData });
   } catch (error) {
     console.error('Get yearly data error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -35,7 +36,7 @@ router.get('/:examId/years', async (req, res) => {
     res.json({ success: true, data: years, count: years.length });
   } catch (error) {
     console.error('Get years error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -69,7 +70,7 @@ router.get('/:examId/updates', async (req, res) => {
 
     // Fetch paginated results sorted by created_at descending
     const updatesRes = await pool.query(
-      `SELECT * FROM exam_updates WHERE ${whereClause}
+      `SELECT id, type, title, description, priority, update_date, is_active, created_at, exam_id, updated_at, is_deleted, deleted_at, deleted_by FROM exam_updates WHERE ${whereClause}
        ORDER BY created_at DESC NULLS LAST
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, parsedLimit, offset],
@@ -90,7 +91,7 @@ router.get('/:examId/updates', async (req, res) => {
     });
   } catch (error) {
     console.error('Get updates error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -121,7 +122,7 @@ router.get('/:examId/compare', async (req, res) => {
     res.json({ success: true, data: formatted });
   } catch (error) {
     console.error('Get comparison error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

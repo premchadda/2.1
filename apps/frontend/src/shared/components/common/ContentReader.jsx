@@ -1,15 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { X, BookOpen, Clock, User, Calendar, Share2, Bookmark, Check } from 'lucide-react'
 import sanitizeHtml from '../../lib/sanitizeHtml'
 import apiClient from '../../lib/api'
+import { toast } from 'react-hot-toast'
 
 export default function ContentReader({ isOpen, onClose, contentData }) {
   const [isBookmarked, setIsBookmarked] = useState(false)
-  const [bookmarkId, setBookmarkId] = useState(null)
+  const [_bookmarkId, setBookmarkId] = useState(null)
   const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const [shareSuccess, setShareSuccess] = useState(false)
+  const shareTimerRef = useRef(null)
   const bookmarkItemType = contentData?.itemType || 'study-material'
-  const safeContent = sanitizeHtml(contentData?.content || contentData?.body || contentData?.htmlContent || '')
+
+  useEffect(() => {
+    return () => {
+      if (shareTimerRef.current) clearTimeout(shareTimerRef.current)
+    }
+  }, [])
+  // Memoize the sanitized content — DOMPurify is expensive and was previously
+  // re-computed on every parent re-render even when contentData didn't change.
+  const safeContent = useMemo(
+    () => sanitizeHtml(contentData?.content || contentData?.body || contentData?.htmlContent || ''),
+    [contentData?.content, contentData?.body, contentData?.htmlContent]
+  )
 
   useEffect(() => {
     if (isOpen && contentData?.id) {
@@ -46,7 +59,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       setBookmarkId(data?.bookmarkId || null)
     } catch (err) {
       if (err.response?.status === 401) {
-        alert('Please login to bookmark this content.')
+        toast.error('Please login to bookmark this content.')
       } else {
         console.error('Bookmark toggle failed:', err)
       }
@@ -67,7 +80,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       // Fallback: copy URL to clipboard
       navigator.clipboard.writeText(window.location.href).then(() => {
         setShareSuccess(true)
-        setTimeout(() => setShareSuccess(false), 3000)
+        shareTimerRef.current = setTimeout(() => setShareSuccess(false), 3000)
       }).catch(err => console.error('Copy failed:', err))
     }
   }

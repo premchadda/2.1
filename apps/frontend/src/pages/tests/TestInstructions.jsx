@@ -1,18 +1,34 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { getTests, getTestSeries, getQuestionsByTestId } from '../../shared/lib/dataService'
+import { getTests, getTestSeries, getTestById, getTestsBySeriesId } from '../../shared/lib/dataService';
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { toast } from 'react-hot-toast'
-import { 
-  Clock, AlertCircle, CheckCircle, BookOpen, Eye,
-  ChevronRight, ChevronDown, ArrowRight, FileText, BarChart3, Timer, AlertTriangle, Info,
-  Shield, Monitor, Award, Zap, Construction
-} from 'lucide-react'
+import {
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  BookOpen,
+  Eye,
+  ChevronDown,
+  ArrowRight,
+  FileText,
+  BarChart3,
+  Timer,
+  Shield,
+  Monitor,
+  Award,
+  Zap,
+  Construction,
+  Globe,
+} from 'lucide-react';
 import { checkFeatureAccess } from '../../shared/utils/pass-helpers'
+import { checkIsLive } from '../../shared/utils/testClassification'
 
 function TestInstructions() {
-  const { seriesId, testId } = useParams()
+  const routeParams = useParams()
+  const testId = routeParams.testId
+  const seriesId = routeParams.seriesSlug || routeParams.seriesId
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
@@ -20,25 +36,111 @@ function TestInstructions() {
   const [series, setSeries] = useState(null)
   const [loading, setLoading] = useState(true)
   const [agreedToRules, setAgreedToRules] = useState(false)
-  const [showFullInstructions, setShowFullInstructions] = useState(false)
+  const [_showFullInstructions, _setShowFullInstructions] = useState(false)
   const [systemCheck, setSystemCheck] = useState({
     browser: true,
     connection: true,
     javascript: true
   })
-  const [actualQuestionCount, setActualQuestionCount] = useState(null)
+
+  const [language, setLanguage] = useState(() => localStorage.getItem('test_language') || 'EN')
+  const [showRules, setShowRules] = useState(false)
+  const [actualQuestionCount, setActualQuestionCount] = useState(0)
   const [questionsLoading, setQuestionsLoading] = useState(true)
   const [noQuestions, setNoQuestions] = useState(false)
-  const [showSyllabus, setShowSyllabus] = useState(false)
+
+  const isHindi = language === 'HI' || language === 'hi'
+
+  const getSectionNameInLanguage = (name) => {
+    if (!isHindi || !name) return name;
+    let n = name;
+    n = n.replace(/General Intelligence & Reasoning|General Intelligence|Reasoning/gi, 'सामान्य बुद्धिमत्ता और तर्कशक्ति');
+    n = n.replace(/General Awareness|General Knowledge|GK/gi, 'सामान्य जागरूकता');
+    n = n.replace(/Quantitative Aptitude|Mathematics|Quant/gi, 'मात्रात्मक योग्यता');
+    n = n.replace(/English Comprehension|English Language|English/gi, 'अंग्रेजी समझ');
+    return n;
+  };
+
+  const getTranslatedTestType = (type) => {
+    if (!isHindi) return type;
+    const lower = (type || '').toLowerCase();
+    if (lower.includes('full')) return 'पूर्ण मॉक परीक्षा';
+    if (lower.includes('chapter')) return 'अध्याय परीक्षा';
+    if (lower.includes('sectional')) return 'अनुभागीय परीक्षा';
+    if (lower.includes('subject')) return 'विषय परीक्षा';
+    if (lower.includes('previous')) return 'गत वर्ष प्रश्नपत्र';
+    return type || 'मॉक टेस्ट';
+  };
+
+  const [_showSyllabus, _setShowSyllabus] = useState(false)
   const [countdown, setCountdown] = useState(null)
-  const [startDateCountdown, setStartDateCountdown] = useState(null)
-  const [language, setLanguage] = useState(() => {
-    try {
-      return localStorage.getItem('trstprep_language') || 'EN'
-    } catch {
-      return 'EN'
+  const [_startDateCountdown, setStartDateCountdown] = useState(null)
+
+  // Compute attempt number from URL query parameter or test data
+  const attemptNo = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    const urlAttemptNo = params.get('attemptNo')
+    if (urlAttemptNo && !isNaN(Number(urlAttemptNo))) {
+      return Number(urlAttemptNo)
     }
-  })
+    if (test?.userAttemptCount !== undefined && test?.userAttemptCount !== null) {
+      return Number(test.userAttemptCount) + 1
+    }
+    return 1
+  }, [location.search, test])
+
+  const displayQuestionCount = questionsLoading ? '...' : (actualQuestionCount !== null ? actualQuestionCount : test?.totalQuestions)
+
+  const hasSectionalTiming = Boolean(test?.hasSectionalTiming || test?.has_sectional_timing || test?.sectionalTiming || test?.enableSectionalTiming)
+
+  const effectiveSections = useMemo(() => {
+    if (Array.isArray(test?.sections) && test.sections.length > 0) {
+      return test.sections.map(s => {
+        const qCount = s.questionCount ?? s.question_count ?? Math.round((test.totalQuestions || 100) / test.sections.length)
+        const tMarks = s.totalMarks ?? s.total_marks ?? (qCount ? qCount * (test.marksPerQuestion || 2) : Math.round((test.totalMarks || 200) / test.sections.length))
+        const tLimit = (hasSectionalTiming || s.timeLimit !== null || s.time_limit !== null)
+          ? (s.timeLimit ?? s.time_limit ?? Math.round((test.duration || 60) / test.sections.length))
+          : null
+        return {
+          name: s.name || s.section_name || 'General Section',
+          questionCount: qCount,
+          totalMarks: tMarks,
+          timeLimit: tLimit
+        }
+      })
+    }
+
+    const sectionNames = Array.isArray(test?.testSections) 
+      ? test.testSections 
+      : (typeof test?.testSections === 'string' && test.testSections.trim() ? test.testSections.split(',').map(s => s.trim()) : null)
+
+    const names = sectionNames && sectionNames.length > 0
+      ? sectionNames
+      : null
+
+    if (!names || names.length === 0) {
+      const totalQs = Number(displayQuestionCount !== '...' ? displayQuestionCount : (test?.totalQuestions || 0))
+      const totalM = Number(test?.totalMarks || 0)
+      return [{
+        name: 'Full Test',
+        questionCount: totalQs || 0,
+        totalMarks: totalM || 0,
+        timeLimit: hasSectionalTiming ? Number(test?.duration || 0) : null
+      }]
+    }
+
+    const totalQs = Number(displayQuestionCount !== '...' ? displayQuestionCount : (test?.totalQuestions || 100))
+    const totalM = Number(test?.totalMarks || (totalQs * 2))
+    const qPerSec = Math.floor(totalQs / names.length)
+    const mPerSec = Math.floor(totalM / names.length)
+
+    return names.map((name, i) => ({
+      name,
+      questionCount: i === names.length - 1 ? totalQs - qPerSec * (names.length - 1) : qPerSec,
+      totalMarks: i === names.length - 1 ? totalM - mPerSec * (names.length - 1) : mPerSec,
+      timeLimit: hasSectionalTiming ? Math.round((test?.duration || 60) / names.length) : null
+    }))
+  }, [test, displayQuestionCount, hasSectionalTiming])
 
   // Check if user came back from test interface with no questions
   useEffect(() => {
@@ -49,63 +151,82 @@ function TestInstructions() {
   }, [location.search])
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchData = async () => {
       try {
         setLoading(true)
         
-        // Fetch test details
-        const tests = await getTests()
-        const currentTest = tests.find(t => 
-          t._id === testId || t.id === testId || t.slug === testId
-        )
-        
+        let currentTest = null
+        try {
+          currentTest = await getTestById(testId)
+        } catch {
+          // getTestById failed, try next strategy
+        }
+
+        if (!currentTest && seriesId) {
+          try {
+            const seriesTests = await getTestsBySeriesId(seriesId)
+            currentTest = seriesTests.find(t => 
+              t._id === testId || t.id === testId || t.slug === testId ||
+              String(t._id || t.id) === testId || String(t.public_id || '') === testId || String(t.public_id_uuid || '') === testId
+            )
+          } catch {
+            // series tests fetch failed
+          }
+        }
+
+        if (!currentTest) {
+          const tests = await getTests()
+          if (controller.signal.aborted) return
+          currentTest = tests.find(t => 
+            t._id === testId || t.id === testId || t.slug === testId ||
+            String(t._id || t.id) === testId || String(t.public_id || '') === testId || String(t.public_id_uuid || '') === testId
+          )
+        }
+
         if (currentTest) {
           setTest(currentTest)
           
           // Fetch series details
-          const allSeries = await getTestSeries()
-          const currentSeries = allSeries.find(s => 
-            s._id === seriesId || s.id === seriesId || s.slug === seriesId
-          )
-          setSeries(currentSeries)
-
-          // Fetch actual questions to get real count
-          setQuestionsLoading(true)
-          const testDbId = currentTest._id || currentTest.id
-          if (testDbId) {
-            try {
-              const questions = await getQuestionsByTestId(testDbId)
-              const qCount = Array.isArray(questions) ? questions.length : 0
-              setActualQuestionCount(qCount)
-              if (qCount === 0) {
-                setNoQuestions(true)
-              }
-            } catch (err) {
-              setActualQuestionCount(0)
-              setNoQuestions(true)
+          try {
+            const allSeries = await getTestSeries()
+            if (!controller.signal.aborted) {
+              const currentSeries = allSeries.find(s => 
+                s._id === seriesId || s.id === seriesId || s.slug === seriesId ||
+                String(s.subcategory || s.category || '').toLowerCase() === String(seriesId).toLowerCase() ||
+                String(s.public_id || '') === seriesId
+              )
+              setSeries(currentSeries || null)
             }
-          } else {
-            setActualQuestionCount(0)
+          } catch (e) {
+            console.error('Failed to fetch series:', e)
+          }
+
+          // Use question count from test metadata
+          const qCount = Number(currentTest.totalQuestions ?? currentTest.questions ?? currentTest.total_questions ?? currentTest.expectedQuestions ?? 0)
+          setActualQuestionCount(qCount)
+          setQuestionsLoading(false)
+          if (qCount === 0 && currentTest.isComingSoon) {
             setNoQuestions(true)
           }
-          setQuestionsLoading(false)
         }
       } catch (error) {
-        // test fetch failed silently
+        console.error('Test instructions fetch error:', error)
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
     
-    if (testId && seriesId) {
+    if (testId) {
       fetchData()
     }
+    return () => controller.abort()
   }, [testId, seriesId])
 
   // Check access once test is loaded
   useEffect(() => {
     if (test && user && user.role !== 'admin') {
-      const isLive = test.tags?.includes('Live') || test.type === 'live' || test.isLive
+      const isLive = checkIsLive(test)
       const isFree = test.type === 'Free' || !test.isPro
       
       const featureKey = isLive ? 'live_tests' : 
@@ -122,6 +243,8 @@ function TestInstructions() {
 
   // System check
   useEffect(() => {
+    const handleOnline = () => setSystemCheck(prev => ({ ...prev, connection: true }))
+    const handleOffline = () => setSystemCheck(prev => ({ ...prev, connection: false }))
     const checkSystem = () => {
       setSystemCheck({
         browser: !(/MSIE|Trident/.test(window.navigator.userAgent)),
@@ -130,11 +253,11 @@ function TestInstructions() {
       })
     }
     checkSystem()
-    window.addEventListener('online', () => setSystemCheck(prev => ({ ...prev, connection: true })))
-    window.addEventListener('offline', () => setSystemCheck(prev => ({ ...prev, connection: false })))
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
     return () => {
-      window.removeEventListener('online', () => {})
-      window.removeEventListener('offline', () => {})
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
     }
   }, [])
 
@@ -142,24 +265,32 @@ function TestInstructions() {
     if (agreedToRules && !noQuestions) {
       setCountdown(3)
     } else if (!noQuestions) {
-      toast.error('Please agree to the rules first')
+      toast.error(isHindi ? 'कृपया पहले नियमों से सहमत हों' : 'Please agree to the rules first')
     }
   }
 
   useEffect(() => {
     if (countdown === null) return
-    if (countdown === 0) {
-      toast.success('Test starting... get ready!')
-      navigate(`/test/${seriesId}/${testId}`)
-      return
+    if (countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown((prev) => (prev > 0 ? prev - 1 : 0))
+      }, 1000)
+      return () => clearTimeout(timer)
     }
-    const id = setInterval(() => {
-      setCountdown((prev) => (prev === null ? null : prev - 1))
-    }, 1000)
-    return () => clearInterval(id)
-  }, [countdown, navigate, seriesId, testId])
 
-  const cancelCountdown = useCallback(() => {
+    if (countdown === 0) {
+      setCountdown(null)
+      toast.success(isHindi ? 'परीक्षण शुरू हो रहा है... तैयार हो जाइए!' : 'Test starting... get ready!')
+      const slug = series?.slug || routeParams.seriesSlug || (seriesId && seriesId !== 'undefined' ? seriesId : 'test')
+      const targetTestId = test?.public_id_uuid || test?.public_id || test?.id || test?._id || testId
+      const searchParams = new URLSearchParams(location.search)
+      const currentAttemptNo = searchParams.get('attemptNo') || attemptNo || 1
+      const targetUrl = `/${slug}/tests/${targetTestId}?attemptNo=${currentAttemptNo}`
+      navigate(targetUrl, { replace: true })
+    }
+  }, [countdown, navigate, series, routeParams.seriesSlug, seriesId, test, testId, location.search, attemptNo, isHindi])
+
+    const _cancelCountdown = useCallback(() => {
     setCountdown(null)
   }, [])
 
@@ -192,9 +323,11 @@ function TestInstructions() {
 
   const handleLanguageChange = (lang) => {
     setLanguage(lang)
+    document.documentElement.lang = lang === 'hi' || lang === 'HI' ? 'hi' : 'en'
     try {
+      localStorage.setItem('test_language', lang)
       localStorage.setItem('trstprep_language', lang)
-    } catch (err) {
+    } catch {
       // language save failed silently
     }
   }
@@ -209,7 +342,7 @@ function TestInstructions() {
     return 'Mock Test'
   }, [test])
 
-  const testTypeStyles = {
+  const _testTypeStyles = {
     'Live Test': 'bg-red-100 text-red-700',
     Quiz: 'bg-purple-100 text-purple-700',
     'Previous Year Paper': 'bg-blue-100 text-blue-700',
@@ -217,11 +350,11 @@ function TestInstructions() {
     'Mock Test': 'bg-tcs-primary/10 text-tcs-primary',
   }
 
-  const handleGoBack = useCallback(() => {
+  const _handleGoBack = useCallback(() => {
     navigate(`/test-series/${seriesId}`)
   }, [navigate, seriesId])
 
-  const generalInstructions = [
+  const _generalInstructions = [
     {
       icon: Clock,
       title: 'Time Limit',
@@ -260,8 +393,8 @@ function TestInstructions() {
     }
   ]
 
-  const rules = [
-    'This is a timed test. Once started, the timer cannot be paused.',
+  const rulesEN = [
+    'You can pause and resume the test, but the timer will continue counting down during pauses.',
     'You can attempt the test only once unless reattempt is allowed.',
     'Switching tabs or applications during the test is monitored.',
     'Ensure you have a stable internet connection before starting.',
@@ -271,14 +404,36 @@ function TestInstructions() {
     'Contact support immediately if you face any technical issues.'
   ]
 
+  const rulesHI = [
+    'आप परीक्षण को रोक और फिर से शुरू कर सकते हैं, लेकिन विराम के दौरान भी टाइमर चलता रहेगा।',
+    'आप परीक्षण को केवल एक बार दे सकते हैं जब तक कि पुन: प्रयास (Reattempt) की अनुमति न हो।',
+    'परीक्षण के दौरान टैब या एप्लिकेशन स्विच करने पर निगरानी की जाती है।',
+    'परीक्षण शुरू करने से पहले सुनिश्चित करें कि आपके पास एक स्थिर इंटरनेट कनेक्शन है।',
+    'कैलकुलेटर, मोबाइल फोन या किसी बाहरी सहायता का उपयोग सख्त मना है।',
+    'सबमिशन के तुरंत बाद आपके परिणाम उपलब्ध होंगे।',
+    'परीक्षण के दौरान ब्राउज़र विंडो को रिफ्रेश या बंद न करें।',
+    'यदि आप किसी तकनीकी समस्या का सामना करते हैं तो तुरंत सहायता से संपर्क करें।'
+  ]
+
+  const rules = isHindi ? rulesHI : rulesEN
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-tcs-surface">
-        <div className="text-center">
-          <div className="relative mb-4">
-            <div className="w-16 h-16 border-4 border-tcs-primary/20 border-tcs-primary rounded-full animate-spin"></div>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-transparent">
+        <div className="flex flex-col items-center justify-center p-8 max-w-md w-full animate-fade-in text-center space-y-4">
+          <div className="relative flex items-center justify-center">
+            <div className="w-14 h-14 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 animate-spin"></div>
+            <div className="absolute w-8 h-8 rounded-full bg-indigo-500/20 animate-ping"></div>
+            <div className="absolute w-3.5 h-3.5 rounded-full bg-indigo-600"></div>
           </div>
-          <p className="text-tcs-text-secondary font-medium">Loading test instructions...</p>
+          <div>
+            <h3 className="text-base font-bold text-gray-900 dark:text-gray-100 tracking-wide">
+              {isHindi ? 'परीक्षण निर्देश लोड हो रहे हैं...' : 'Loading Test Instructions...'}
+            </h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {isHindi ? 'नियम, अवधि और परीक्षा निर्देश तैयार किए जा रहे हैं' : 'Preparing test rules, duration & exam instructions'}
+            </p>
+          </div>
         </div>
       </div>
     )
@@ -291,13 +446,17 @@ function TestInstructions() {
           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-tcs-error/10 flex items-center justify-center">
             <AlertCircle className="w-10 h-10 text-tcs-error" />
           </div>
-          <h2 className="text-2xl font-bold text-tcs-text-primary mb-2">Test Not Found</h2>
-          <p className="text-tcs-text-secondary mb-6">The test you're looking for doesn't exist or has been removed.</p>
+          <h2 className="text-2xl font-bold text-tcs-text-primary mb-2">
+            {isHindi ? 'परीक्षण नहीं मिला' : 'Test Not Found'}
+          </h2>
+          <p className="text-tcs-text-secondary mb-6">
+            {isHindi ? 'आप जिस परीक्षण की तलाश कर रहे हैं वह मौजूद नहीं है या हटा दिया गया है।' : "The test you're looking for doesn't exist or has been removed."}
+          </p>
           <Link 
             to="/test-series"
             className="inline-flex items-center gap-2 px-6 py-3 bg-tcs-primary text-white font-semibold rounded-lg hover:bg-tcs-primary-dark transition-colors"
           >
-            Browse Test Series
+            {isHindi ? 'परीक्षण श्रृंखला देखें' : 'Browse Test Series'}
           </Link>
         </div>
       </div>
@@ -305,37 +464,72 @@ function TestInstructions() {
   }
 
   const isAllSystemsReady = Object.values(systemCheck).every(Boolean)
-  const isQuestionsReady = !noQuestions && actualQuestionCount > 0
-  const displayQuestionCount = questionsLoading ? '...' : (actualQuestionCount !== null ? actualQuestionCount : test.totalQuestions)
+  const _isQuestionsReady = !noQuestions && actualQuestionCount > 0
 
   return (
-    <div className="min-h-screen bg-tcs-surface">
-      {/* TCS Style Header Bar */}
-      <header className="bg-white border-b border-tcs-border sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-14">
-            {/* Left: Breadcrumbs */}
+    <div className="min-h-screen flex flex-col bg-tcs-surface pb-16 lg:pb-3">
+      {/* Top Header Bar - Non Sticky on Desktop */}
+      <header className="bg-white border-b border-tcs-border shrink-0 z-10">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between py-2.5 sm:h-14 gap-2">
+            {/* Left: Breadcrumbs & Mobile Test Name */}
             <div className="flex-1 min-w-0">
-              <Breadcrumb 
-                items={[
-                  { label: 'Test Series', path: '/test-series' },
-                  { label: series?.title || 'Series', path: `/test-series/${seriesId}` },
-                  { label: 'Instructions' }
-                ]}
-              />
+              <div className="hidden sm:block">
+                <Breadcrumb 
+                  items={[
+                    { label: isHindi ? 'परीक्षण श्रृंखला' : 'Test Series', path: '/test-series' },
+                    { label: series?.title || (isHindi ? 'श्रृंखला' : 'Series'), path: `/test-series/${seriesId}` },
+                    { label: isHindi ? 'निर्देश' : 'Instructions' }
+                  ]}
+                />
+              </div>
+              <div className="sm:hidden font-bold text-tcs-text-primary text-sm truncate">
+                {test.title}
+              </div>
             </div>
             
-            {/* Right: Test Status */}
-            <div className="flex items-center gap-3 ml-4">
+            {/* Right: Language Switcher, Test Status & Attempt Number */}
+            <div className="flex items-center gap-2.5 sm:ml-4 shrink-0">
+              <div className="inline-flex items-center p-0.5 rounded-full border border-indigo-200/80 dark:border-indigo-800/60 bg-slate-100 dark:bg-slate-800 shadow-inner">
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('EN')}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer ${
+                    !isHindi
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-sm scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Globe className={`w-3 h-3 ${!isHindi ? 'text-indigo-200' : 'text-slate-400'}`} />
+                  <span>English</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLanguageChange('HI')}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer ${
+                    isHindi
+                      ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-sm scale-[1.02]'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  <Globe className={`w-3 h-3 ${isHindi ? 'text-indigo-200' : 'text-slate-400'}`} />
+                  <span>हिंदी</span>
+                </button>
+              </div>
+
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-bold rounded-full shadow-xs">
+                <Award className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                {isHindi ? `प्रयास #${attemptNo}` : `Attempt #${attemptNo}`}
+              </span>
               {noQuestions ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-tcs-warning/10 text-tcs-warning text-xs font-medium rounded-full">
                   <Construction className="w-3 h-3" />
-                  Questions Being Updated
+                  {isHindi ? 'अद्यतन जारी' : 'Updating'}
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-tcs-success/10 text-tcs-success text-xs font-medium rounded-full">
                   <span className="w-1.5 h-1.5 rounded-full bg-tcs-success animate-pulse"></span>
-                  Ready
+                  {isHindi ? 'तैयार' : 'Ready'}
                 </span>
               )}
             </div>
@@ -343,438 +537,370 @@ function TestInstructions() {
         </div>
       </header>
 
-      {/* Main Content Window */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        <div className="bg-white rounded-xl shadow-tcs border border-tcs-border overflow-hidden">
-          {/* Window Title Bar - TCS Style */}
-          <div className="bg-gradient-to-r from-tcs-primary to-tcs-primary-dark px-5 py-4">
+      {/* Main Content Area - Full Vertical Stretch */}
+      <div className="flex-1 flex flex-col w-full px-3 py-3 sm:px-5 lg:px-6">
+        <div className="flex-1 flex flex-col w-full bg-white rounded-xl shadow-tcs border border-tcs-border overflow-hidden">
+          {/* Window Title Bar - TCS High Contrast Style */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-5 py-3.5 border-b border-indigo-900/50 shadow-md shrink-0">
             <div className="flex items-center gap-3">
-              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
-                <FileText className="w-5 h-5 text-white" />
+              <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center shadow-inner">
+                <FileText className="w-5 h-5 text-indigo-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg font-semibold text-white">{test.title}</h1>
-                  <span className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${testTypeStyles[testType] || testTypeStyles['Mock Test']}`}>
-                    {testType}
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h1 className="text-lg sm:text-xl font-black text-white tracking-tight drop-shadow-xs">{test.title}</h1>
+                  <span className="inline-flex items-center gap-1 px-3 py-0.5 text-xs font-bold rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/40">
+                    🎯 {getTranslatedTestType(testType)}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-3 py-0.5 text-xs font-bold rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/40">
+                    🏆 {isHindi ? `प्रयास #${attemptNo}` : `Attempt #${attemptNo}`}
                   </span>
                 </div>
-                <p className="text-tcs-text-secondary text-sm opacity-90">{series?.title || 'Test Series'}</p>
+                <p className="text-indigo-200/80 text-xs font-medium flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                  {series?.title || (isHindi ? 'परीक्षण श्रृंखला' : 'Test Series')}
+                </p>
               </div>
             </div>
           </div>
-
-          {/* Quick Stats Bar */}
-          <div className="bg-tcs-surface border-b border-tcs-border px-5 py-3">
-            <div className="flex items-center gap-6 flex-wrap">
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="w-4 h-4 text-tcs-primary" />
-                <span className="text-tcs-text-secondary">Duration:</span>
-                <span className="font-semibold text-tcs-text-primary">{test.duration} min</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <BookOpen className="w-4 h-4 text-tcs-primary" />
-                <span className="text-tcs-text-secondary">Questions:</span>
-                <span className="font-semibold text-tcs-text-primary">
-                  {questionsLoading ? (
-                    <span className="inline-block w-6 h-4 bg-gray-200 rounded animate-pulse" />
-                  ) : (
-                    displayQuestionCount
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <BarChart3 className="w-4 h-4 text-tcs-primary" />
-                <span className="text-tcs-text-secondary">Marks:</span>
-                <span className="font-semibold text-tcs-text-primary">{test.totalMarks || test.totalQuestions}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Award className="w-4 h-4 text-tcs-primary" />
-                <span className="text-tcs-text-secondary">Difficulty:</span>
-                <span className="font-semibold text-tcs-text-primary">{test.difficulty ? test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1) : 'Medium'}</span>
-              </div>
-              {test.isPro && (
-                <span className="px-2.5 py-0.5 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">
-                  PRO
-                </span>
-              )}
-              {startDateCountdown && !startDateCountdown.expired && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Timer className="w-4 h-4 text-red-500 animate-pulse" />
-                  <span className="text-tcs-text-secondary">Starts in:</span>
-                  <span className="font-mono font-bold text-tcs-text-primary">
-                    {String(startDateCountdown.hours).padStart(2, '0')}:{String(startDateCountdown.minutes).padStart(2, '0')}:{String(startDateCountdown.seconds).padStart(2, '0')}
-                  </span>
-                </div>
-              )}
-              <div className="flex items-center gap-1 ml-auto">
-                <span className="text-tcs-text-secondary text-sm">Language:</span>
-                {Array.isArray(test.languages) && test.languages.length > 1 ? (
-                  <select
-                    value={language}
-                    onChange={(e) => handleLanguageChange(e.target.value)}
-                    className="px-2 py-1 text-xs font-semibold rounded-lg border border-tcs-border bg-white text-tcs-text-primary focus:outline-none focus:ring-2 focus:ring-tcs-primary"
-                  >
-                    {test.languages.map((lang) => (
-                      <option key={typeof lang === 'string' ? lang : lang.code || lang.value} value={typeof lang === 'string' ? lang : lang.code || lang.value}>
-                        {typeof lang === 'string' ? lang : lang.label || lang.name || lang.code || lang.value}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="inline-flex rounded-lg border border-tcs-border overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => handleLanguageChange('EN')}
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        language === 'EN' || language === 'en'
-                          ? 'bg-tcs-primary text-white'
-                          : 'bg-white text-tcs-text-secondary hover:bg-tcs-surface'
-                      }`}
-                    >
-                      EN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLanguageChange('HI')}
-                      className={`px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        language === 'HI' || language === 'hi'
-                          ? 'bg-tcs-primary text-white'
-                          : 'bg-white text-tcs-text-secondary hover:bg-tcs-surface'
-                      }`}
-                    >
-                      HI
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Section Breakdown */}
-          {Array.isArray(test.sections) && test.sections.length > 0 && (
-            <div className="bg-white border-b border-tcs-border px-5 py-4">
-              <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-4 h-4 text-tcs-primary" />
-                <h2 className="text-sm font-semibold text-tcs-text-primary">Section Breakdown</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-tcs-border">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Section Name</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Questions</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Marks</th>
-                      <th className="text-center py-2 px-3 text-xs font-semibold text-tcs-text-secondary uppercase tracking-wider">Time Limit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {test.sections.map((section, index) => (
-                      <tr key={index} className="border-b border-tcs-border last:border-b-0 hover:bg-tcs-surface/50 transition-colors">
-                        <td className="py-2.5 px-3 font-medium text-tcs-text-primary">
-                          {section.name || `Section ${index + 1}`}
-                        </td>
-                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
-                          {section.questionCount ?? 0}
-                        </td>
-                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
-                          {section.totalMarks ?? 0}
-                        </td>
-                        <td className="py-2.5 px-3 text-center text-tcs-text-secondary">
-                          {section.timeLimit != null ? `${section.timeLimit} min` : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Questions Not Available Warning Banner */}
-          {noQuestions && (
-            <div className="bg-amber-50 border-b border-amber-200 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <Construction className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-amber-800 text-sm">Questions Are Being Updated</h3>
-                  <p className="text-amber-700 text-sm mt-1">
-                    This test doesn't have any questions yet. Our team is currently preparing the questions for this test. 
-                    Please check back later or try another test from this series.
-                  </p>
-                  <button 
-                    onClick={handleGoBack}
-                    className="mt-2 inline-flex items-center gap-1 text-amber-700 font-medium text-sm hover:underline"
-                  >
-                    <ChevronRight className="w-4 h-4 rotate-180" />
-                    Back to Test Series
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Mock Test Disclaimer */}
-          {testType === 'Mock Test' && (
-            <div className="bg-yellow-50 border-b border-yellow-200 px-5 py-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-semibold text-yellow-800 text-sm">Mock Test</h3>
-                  <p className="text-yellow-700 text-sm mt-1">
-                    This is a mock test. Your performance will be simulated under real exam conditions.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Syllabus Section */}
-          {test.syllabus && (
-            <div className="bg-white border-b border-tcs-border px-5 py-4">
-              <button
-                onClick={() => setShowSyllabus(!showSyllabus)}
-                className="flex items-center gap-2 w-full text-left"
-              >
-                <BookOpen className="w-4 h-4 text-tcs-primary" />
-                <h2 className="text-sm font-semibold text-tcs-text-primary flex-1">Syllabus</h2>
-                <ChevronDown className={`w-4 h-4 text-tcs-text-muted transition-transform duration-200 ${showSyllabus ? 'rotate-180' : ''}`} />
-              </button>
-              {showSyllabus && (
-                <div className="mt-3 text-sm text-tcs-text-secondary leading-relaxed whitespace-pre-wrap">
-                  {test.syllabus}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3">
-            {/* Main Content */}
-            <div className="lg:col-span-2 p-5 border-r border-tcs-border">
-              {/* Instructions Section */}
-              <section className="mb-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Info className="w-5 h-5 text-tcs-primary" />
-                  <h2 className="text-base font-semibold text-tcs-text-primary">Test Instructions</h2>
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3">
+            {/* Left Main Column: Full Exam Pattern & Rules */}
+            <div className="lg:col-span-2 p-4 sm:p-5 border-r border-tcs-border flex flex-col justify-between space-y-4">
+              
+              {/* Exam Pattern & Dynamic Section Breakdown Card */}
+              <section className="bg-white rounded-xl border border-tcs-border overflow-hidden shadow-2xs">
+                <div className="bg-gradient-to-r from-indigo-50 to-slate-50 px-4 py-2.5 border-b border-tcs-border flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-indigo-600" />
+                    <h2 className="text-sm sm:text-base font-bold text-tcs-text-primary">
+                      {isHindi ? 'परीक्षा पैटर्न और योजना' : 'Exam Pattern & Scheme'}
+                    </h2>
+                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                      {effectiveSections.length} {isHindi ? 'अनुभाग' : 'Sections'}
+                    </span>
+                  </div>
+                  {hasSectionalTiming ? (
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                      <Timer className="w-3.5 h-3.5 text-emerald-600" /> {isHindi ? 'अनुभाग टाइमर: सक्षम' : 'Sectional Timer: Enabled'}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-amber-100/80 text-amber-800 border border-amber-300 flex items-center gap-1">
+                      <Timer className="w-3.5 h-3.5 text-amber-600" /> {isHindi ? `अनुभाग टाइमर: निष्क्रिय (साझा ${test?.duration || 60} मिनट टाइमर)` : `Sectional Timer: Disabled (Shared ${test?.duration || 60} Min Timer)`}
+                    </span>
+                  )}
                 </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {generalInstructions.map((instruction, index) => (
-                    <div 
-                      key={index}
-                      className="p-3 rounded-lg bg-tcs-surface border border-tcs-border hover:border-tcs-primary/30 transition-colors group"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white border border-tcs-border flex items-center justify-center group-hover:border-tcs-primary transition-colors">
-                          <instruction.icon className="w-4 h-4 text-tcs-primary" />
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-medium text-tcs-text-primary text-sm mb-0.5">
-                            {instruction.title}
-                          </h3>
-                          <p className="text-xs text-tcs-text-secondary">
-                            {instruction.description}
-                          </p>
-                        </div>
+
+                {/* Exam Key Metrics Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 bg-tcs-surface/40 border-b border-tcs-border text-xs">
+                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'अवधि' : 'Duration'}</div>
+                      <div className="font-bold text-tcs-text-primary text-xs sm:text-sm">{test.duration || 60} {isHindi ? 'मिनट' : 'Mins'}</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'प्रश्न' : 'Questions'}</div>
+                      <div className="font-bold text-tcs-text-primary text-xs sm:text-sm">{displayQuestionCount} {isHindi ? 'प्रश्न' : 'Qs'}</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
+                    <Award className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'कुल अंक' : 'Total Marks'}</div>
+                      <div className="font-bold text-tcs-text-primary text-xs sm:text-sm">{test.totalMarks || (displayQuestionCount !== '...' ? Number(displayQuestionCount) * 2 : 200)} {isHindi ? 'अंक' : 'Marks'}</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'अंकन' : 'Marking'}</div>
+                      <div className="font-bold text-emerald-600 text-xs sm:text-sm">+2 / -{test.negativeMarking || 0.25}</div>
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-indigo-600 shrink-0" />
+                    <div>
+                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'कठिनाई' : 'Difficulty'}</div>
+                      <div className="font-bold text-tcs-text-primary text-xs sm:text-sm">
+                        {isHindi 
+                          ? (test.difficulty === 'easy' ? 'आसान' : test.difficulty === 'hard' ? 'कठिन' : 'मध्यम') 
+                          : (test.difficulty ? test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1) : 'Medium')
+                        }
                       </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
 
-                {/* Detailed Instructions Toggle */}
-                <button
-                  onClick={() => setShowFullInstructions(!showFullInstructions)}
-                  className="mt-4 flex items-center gap-1 text-tcs-primary text-sm font-medium hover:underline"
-                >
-                  {showFullInstructions ? 'Hide' : 'View'} Detailed Instructions
-                  <ChevronRight className={`w-4 h-4 transition-transform ${showFullInstructions ? 'rotate-90' : ''}`} />
-                </button>
-
-                {showFullInstructions && (
-                  <div className="mt-3 p-4 rounded-lg bg-tcs-info/10 border border-tcs-info/20">
-                    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-tcs-text-secondary">
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        Read each question carefully before answering
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        You can change your answer before submission
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        Use question palette for quick navigation
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        Mark questions for review if unsure
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        On-screen calculator available for calculations
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <CheckCircle className="w-4 h-4 text-tcs-success mt-0.5 flex-shrink-0" />
-                        Section-wise timing may be displayed
-                      </li>
-                    </ul>
+                {/* Section Breakdown Table */}
+                <div className="p-3">
+                  <h3 className="text-xs font-bold text-tcs-text-secondary uppercase tracking-wider mb-2">
+                    {isHindi ? 'अनुभाग-वार विवरण' : 'Section-wise Details'}
+                  </h3>
+                  <div className="overflow-x-auto rounded-lg border border-tcs-border">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="bg-tcs-surface border-b border-tcs-border text-tcs-text-secondary font-semibold uppercase text-xs">
+                          <th className="py-2 px-3">{isHindi ? '# अनुभाग का नाम' : '# Section Name'}</th>
+                          <th className="py-2 px-3 text-center">{isHindi ? 'प्रश्न' : 'Questions'}</th>
+                          <th className="py-2 px-3 text-center">{isHindi ? 'अंक' : 'Marks'}</th>
+                          <th className="py-2 px-3 text-center">{isHindi ? 'समय सीमा' : 'Section Time Limit'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-tcs-border">
+                        {effectiveSections.map((sec, idx) => (
+                          <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
+                            <td className="py-2 px-3 font-semibold text-tcs-text-primary flex items-center gap-2 text-xs sm:text-sm">
+                              <span className="w-4 h-4 rounded-full bg-indigo-100 text-indigo-700 text-[11px] font-bold flex items-center justify-center shrink-0">
+                                {idx + 1}
+                              </span>
+                              {getSectionNameInLanguage(sec.name)}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm">
+                              {sec.questionCount} {isHindi ? 'प्रश्न' : 'Qs'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-mono font-medium text-tcs-text-primary text-xs sm:text-sm">
+                              {sec.totalMarks} {isHindi ? 'अंक' : 'Marks'}
+                            </td>
+                            <td className="py-2 px-3 text-center font-medium text-xs">
+                              {sec.timeLimit ? (
+                                <span className="font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">{sec.timeLimit} {isHindi ? 'मिनट' : 'Mins'}</span>
+                              ) : (
+                                <span className="text-gray-500 italic text-xs">
+                                  {isHindi ? `कोई अनुभाग सीमा नहीं (साझा ${test?.duration || 60} मिनट)` : `No Sectional Limit (Shared ${test?.duration || 60} Mins)`}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
+                </div>
               </section>
 
-              {/* Rules Section */}
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield className="w-5 h-5 text-tcs-warning" />
-                  <h2 className="text-base font-semibold text-tcs-text-primary">Important Rules & Guidelines</h2>
+              {/* Expandable Rules Section - Shows 2 rules by default */}
+              <section className="bg-amber-50/50 rounded-xl border border-amber-200/80 overflow-hidden shadow-2xs">
+                <div className="px-4 py-2.5 bg-amber-100/60 border-b border-amber-200/60 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-amber-700" />
+                    <h2 className="text-xs sm:text-sm font-bold text-amber-900">
+                      {isHindi ? 'महत्वपूर्ण नियम और दिशानिर्देश' : 'Important Rules & Guidelines'} ({rules.length} {isHindi ? 'नियम' : 'Rules'})
+                    </h2>
+                  </div>
+                  <span className="text-xs font-semibold text-amber-800 bg-amber-200/60 px-2.5 py-0.5 rounded-full">
+                    {showRules 
+                      ? (isHindi ? 'सभी दिखा रहे हैं' : 'Showing All') 
+                      : (isHindi ? '2 पूर्वावलोकन' : '2 Previewed')
+                    }
+                  </span>
                 </div>
                 
-                <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 p-4">
+                <div className="p-3 space-y-2.5">
                   <ul className="space-y-2">
-                    {rules.map((rule, index) => (
-                      <li key={index} className="flex items-start gap-2.5 text-sm text-tcs-text-secondary">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-300 text-xs font-bold flex items-center justify-center mt-0.5">
+                    {(showRules ? rules : rules.slice(0, 2)).map((rule, index) => (
+                      <li key={index} className="flex items-start gap-2.5 text-xs sm:text-sm text-amber-900/90 leading-relaxed">
+                        <span className="flex-shrink-0 w-4 h-4 rounded-full bg-amber-200 text-amber-800 text-[10px] font-bold flex items-center justify-center mt-0.5">
                           {index + 1}
                         </span>
                         <span>{rule}</span>
                       </li>
                     ))}
                   </ul>
+
+                  {rules.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRules(!showRules)}
+                      className="w-full py-1.5 px-3 text-xs font-bold text-amber-900 bg-amber-200/50 hover:bg-amber-200 border border-amber-300/70 rounded-md flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <span>
+                        {showRules 
+                          ? (isHindi ? 'कम दिखाएं' : 'Show Less') 
+                          : (isHindi ? `+ ${rules.length - 2} और नियम दिखाएं` : `+ Show ${rules.length - 2} More Rules`)
+                        }
+                      </span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${showRules ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
                 </div>
               </section>
+
             </div>
 
-            {/* Sidebar */}
-            <div className="lg:col-span-1 p-5">
-              {/* System Check */}
-              <div className="mb-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Monitor className="w-4 h-4 text-tcs-text-secondary" />
-                  <h3 className="text-sm font-semibold text-tcs-text-primary">System Check</h3>
+            {/* Right Sidebar Column: Desktop Actions & Readiness */}
+            <div className="lg:col-span-1 p-4 sm:p-5 border-l border-tcs-border bg-tcs-surface/30 flex flex-col justify-between space-y-3">
+              
+              {/* Exam Readiness Card (Top) */}
+              <div className="bg-white p-3.5 rounded-xl border border-tcs-border shadow-2xs">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <Monitor className="w-4 h-4 text-tcs-primary" />
+                  <h3 className="text-xs sm:text-sm font-bold text-tcs-text-primary uppercase tracking-wider">
+                    {isHindi ? 'सिस्टम स्थिति जांच' : 'Exam System Check'}
+                  </h3>
                 </div>
-                <div className="space-y-2">
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                    systemCheck.browser 
-                      ? 'bg-tcs-success/5 border-tcs-success/20' 
-                      : 'bg-tcs-error/5 border-tcs-error/20'
-                  }`}>
-                    <span className="text-xs text-tcs-text-secondary">Browser Compatibility</span>
-                    {systemCheck.browser ? (
-                      <CheckCircle className="w-4 h-4 text-tcs-success" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-tcs-error" />
-                    )}
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
+                    <span>{isHindi ? 'ब्राउज़र अनुकूलता' : 'Browser Compatibility'}</span>
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                    systemCheck.connection 
-                      ? 'bg-tcs-success/5 border-tcs-success/20' 
-                      : 'bg-tcs-error/5 border-tcs-error/20'
-                  }`}>
-                    <span className="text-xs text-tcs-text-secondary">Internet Connection</span>
-                    {systemCheck.connection ? (
-                      <CheckCircle className="w-4 h-4 text-tcs-success" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-tcs-error" />
-                    )}
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
+                    <span>{isHindi ? 'इंटरनेट कनेक्शन' : 'Internet Connection'}</span>
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
                   </div>
-                  <div className={`flex items-center justify-between p-2.5 rounded-lg border ${
-                    systemCheck.javascript 
-                      ? 'bg-tcs-success/5 border-tcs-success/20' 
-                      : 'bg-tcs-error/5 border-tcs-error/20'
-                  }`}>
-                    <span className="text-xs text-tcs-text-secondary">JavaScript Enabled</span>
-                    {systemCheck.javascript ? (
-                      <CheckCircle className="w-4 h-4 text-tcs-success" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-tcs-error" />
-                    )}
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
+                    <span>{isHindi ? 'जावास्क्रिप्ट समर्थन' : 'JavaScript Support'}</span>
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
               </div>
 
-              {noQuestions ? (
-                /* Questions Not Available - Disable Start Button */
-                <>
-                  <div className="mb-4 p-4 rounded-lg bg-tcs-warning/5 border border-tcs-warning/20">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Construction className="w-5 h-5 text-tcs-warning" />
-                      <span className="text-sm font-semibold text-tcs-warning">Coming Soon</span>
-                    </div>
-                    <p className="text-xs text-tcs-text-secondary">
-                      Questions for this test are being prepared. It will be available shortly.
-                    </p>
-                  </div>
+              {/* Security & Monitoring Alert (Middle) */}
+              <div className="bg-white p-3.5 rounded-xl border border-tcs-border shadow-2xs text-xs space-y-2">
+                <div className="flex items-center gap-2 text-indigo-700 font-bold text-xs sm:text-sm">
+                  <Zap className="w-4 h-4 text-indigo-600" />
+                  <span>{isHindi ? 'प्रॉक्टर्ड परीक्षा नियम' : 'Proctored Test Rules'}</span>
+                </div>
+                <p className="text-tcs-text-secondary leading-relaxed text-xs">
+                  {isHindi 
+                    ? 'टैब बदलना, स्क्रीन छोटा करना या बाहरी ऐप खोलना सख्त वर्जित है।' 
+                    : 'Tab switching, browser minimization, or opening external applications is strictly monitored.'
+                  }
+                </p>
+                <div className="pt-2 border-t border-gray-100 text-xs text-tcs-text-muted">
+                  {isHindi ? 'सहायता चाहिए? ' : 'Need assistance? '}
+                  <Link to="/contact" className="text-tcs-primary hover:underline font-semibold">
+                    {isHindi ? 'तकनीकी सहायता से संपर्क करें' : 'Contact Technical Support'}
+                  </Link>
+                </div>
+              </div>
 
+              {/* Desktop Start Action Card (Bottom of Sidebar / Hidden on Mobile) */}
+              <div className="hidden lg:block bg-white p-4 rounded-xl border border-indigo-200 shadow-md space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold text-tcs-text-primary uppercase tracking-wider">
+                    {isHindi ? 'परीक्षण शुरू करें' : 'Start Assessment'}
+                  </h4>
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                    {isHindi ? `प्रयास #${attemptNo}` : `Attempt #${attemptNo}`}
+                  </span>
+                </div>
+
+                <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-lg bg-tcs-surface border border-tcs-border hover:border-tcs-primary/30 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={agreedToRules}
+                    onChange={(e) => setAgreedToRules(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
+                  />
+                  <span className="text-xs sm:text-sm font-medium text-tcs-text-primary select-none leading-normal">
+                    {isHindi 
+                      ? 'मैंने सभी निर्देश, नियम और दिशानिर्देश पढ़ लिए हैं और उनसे सहमत हूँ।' 
+                      : 'I have read and agree to all instructions, rules & guidelines.'
+                    }
+                  </span>
+                </label>
+
+                {noQuestions ? (
                   <button
                     disabled
-                    className="w-full py-3 rounded-lg font-semibold flex items-center justify-center gap-2 bg-gray-200 text-gray-400 cursor-not-allowed"
+                    className="w-full py-3 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center gap-2 bg-gray-200 text-gray-400 cursor-not-allowed"
                   >
-                    Coming Soon
+                    {isHindi ? 'अद्यतन जारी' : 'Questions Being Updated'}
                     <Construction className="w-4 h-4" />
                   </button>
-                </>
-              ) : (
-                /* Normal Start Flow */
-                <>
-                  {/* Agreement */}
-                  <div className="mb-5">
-                    <label className="flex items-start gap-3 p-3 rounded-lg border border-tcs-border bg-tcs-surface cursor-pointer hover:border-tcs-primary/30 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={agreedToRules}
-                        onChange={(e) => setAgreedToRules(e.target.checked)}
-                        className="w-4 h-4 mt-0.5 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary"
-                      />
-                      <span className="text-sm text-tcs-text-secondary">
-                        I have read and agree to all the instructions, rules, and guidelines mentioned above.
-                      </span>
-                    </label>
-                  </div>
-
-                  {/* Start Button */}
+                ) : (
                   <button
                     onClick={handleStartTest}
                     disabled={!agreedToRules || !isAllSystemsReady}
-                    className={`w-full py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                    className={`w-full py-3 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
                       agreedToRules && isAllSystemsReady
-                        ? 'bg-tcs-primary text-white hover:bg-tcs-primary-dark shadow-tcs hover:shadow-tcs-lg'
-                        : 'bg-tcs-border text-tcs-text-muted cursor-not-allowed'
+                        ? 'bg-tcs-primary text-white hover:bg-tcs-primary-dark shadow-tcs hover:shadow-tcs-lg active:scale-95'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     }`}
                   >
-                    {user?.attemptedTestIds?.includes(String(test.id || test._id)) ? 'Reattempt Test' : 'Start Test'}
+                    {user?.attemptedTestIds?.includes(String(test.id || test._id)) 
+                      ? (isHindi ? 'पुन: प्रयास करें' : 'Reattempt Test') 
+                      : (isHindi ? 'परीक्षण शुरू करें' : 'Start Test')
+                    }
                     <ArrowRight className="w-4 h-4" />
                   </button>
-
-                  {!agreedToRules && (
-                    <p className="text-xs text-center text-tcs-warning mt-2 flex items-center justify-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Please agree to the rules to continue
-                    </p>
-                  )}
-                </>
-              )}
-
-              {/* Info Card */}
-              <div className="mt-4 p-3 rounded-lg bg-tcs-info/5 border border-tcs-info/20">
-                <div className="flex items-start gap-2">
-                  <Zap className="w-4 h-4 text-tcs-info mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-tcs-text-secondary">
-                    Once you click "Start Test", the timer will begin immediately.
-                  </p>
-                </div>
+                )}
               </div>
+
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Footer Info */}
-        <div className="mt-4 text-center">
-          <p className="text-xs text-tcs-text-muted">
-            Need help? <Link to="/contact" className="text-tcs-primary hover:underline">Contact Support</Link>
-          </p>
+      {/* Mobile Sticky Bottom Action Bar (Visible ONLY on Mobile & Hidden on Desktop) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-tcs-border p-3 shadow-tcs">
+        <div className="w-full flex items-center justify-between gap-2">
+          <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+            <input
+              type="checkbox"
+              checked={agreedToRules}
+              onChange={(e) => setAgreedToRules(e.target.checked)}
+              className="w-4 h-4 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
+            />
+            <span className="text-[11px] font-medium text-tcs-text-primary select-none truncate">
+              {isHindi ? 'मैं सभी नियमों से सहमत हूँ।' : 'I agree to all rules & instructions.'}
+            </span>
+          </label>
+          
+          <div className="shrink-0">
+            {noQuestions ? (
+              <button
+                disabled
+                className="px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 bg-gray-200 text-gray-400 cursor-not-allowed"
+              >
+                {isHindi ? 'अद्यतन' : 'Updating'}
+                <Construction className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <button
+                onClick={handleStartTest}
+                disabled={!agreedToRules || !isAllSystemsReady}
+                className={`px-5 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
+                  agreedToRules && isAllSystemsReady
+                    ? 'bg-tcs-primary text-white hover:bg-tcs-primary-dark shadow-tcs active:scale-95'
+                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {user?.attemptedTestIds?.includes(String(test.id || test._id)) 
+                  ? (isHindi ? 'पुन: प्रयास' : 'Reattempt') 
+                  : (isHindi ? 'शुरू करें' : 'Start Test')
+                }
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Fullscreen Countdown Overlay */}
+      {countdown !== null && countdown > 0 && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in">
+          <div className="text-center space-y-4 max-w-sm px-6">
+            <div className="relative inline-flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin" />
+              <span className="absolute text-5xl font-black text-white font-mono animate-scale-in">
+                {countdown}
+              </span>
+            </div>
+            <h2 className="text-2xl font-bold text-white tracking-tight">
+              {isHindi ? 'परीक्षण शुरू हो रहा है...' : 'Test Starting...'}
+            </h2>
+            <p className="text-sm text-indigo-200">
+              {isHindi ? 'कृपया तैयार हो जाइए। शुभकामनाएँ!' : 'Get ready! Good luck with your test.'}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,3 @@
-import React from 'react';
 
 const AdminLayout = ({ children, className = '' }) => {
   return (

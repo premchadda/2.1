@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+import { request } from './apiClientConfig.js'
 
-export function useTestCategories() {
+export function useTestCategories(options = {}) {
+  const { apiClient = null } = options
   const [categories, setCategories] = useState([])
   const [tree, setTree] = useState([])
   const [roots, setRoots] = useState([])
@@ -12,8 +13,7 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories`)
-      const data = await response.json()
+      const data = await request('GET', '/test-categories', null, { apiClient })
       if (data.success) {
         setCategories(data.data)
       } else {
@@ -24,14 +24,13 @@ export function useTestCategories() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [apiClient])
 
   const fetchTree = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/tree`)
-      const data = await response.json()
+      const data = await request('GET', '/test-categories/tree', null, { apiClient })
       if (data.success) {
         setTree(data.data)
       } else {
@@ -42,14 +41,13 @@ export function useTestCategories() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [apiClient])
 
   const fetchRoots = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/roots`)
-      const data = await response.json()
+      const data = await request('GET', '/test-categories/roots', null, { apiClient })
       if (data.success) {
         setRoots(data.data)
       } else {
@@ -60,7 +58,7 @@ export function useTestCategories() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [apiClient])
 
   // Build tree from flat categories
   const buildTree = useCallback((items, parentId = null) => {
@@ -98,6 +96,7 @@ export function useTestCategories() {
     const rootCats = categories
       .filter(cat => !cat.parentId && cat.isActive !== false)
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+    // HARDCODED-COLOR-MAP: category slug -> color name; used only here, so left local
     const colorMap = {
       'ssc': 'red',
       'railway': 'blue',
@@ -123,6 +122,7 @@ export function useTestCategories() {
     )
     if (category?.icon) return category.icon
     
+    // HARDCODED-COLOR-MAP: category name -> emoji; used only here, so left local
     const emojis = {
       'ssc': '📝',
       'banking': '💰',
@@ -138,6 +138,7 @@ export function useTestCategories() {
 
   // Get gradient color for category
   const getCategoryColor = useCallback((categoryName) => {
+    // HARDCODED-COLOR-MAP: category name -> tailwind gradient classes; used only here, so left local
     const colors = {
       'ssc': 'from-red-500 to-red-600',
       'railway': 'from-green-500 to-green-600',

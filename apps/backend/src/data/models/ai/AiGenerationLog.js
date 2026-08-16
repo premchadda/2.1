@@ -1,5 +1,18 @@
 import { dbHelpers } from '../../../infrastructure/database/postgres-helpers.js'
 
+const MODEL_PRICING = {
+  'gpt-4': { input: 0.03 / 1000, output: 0.06 / 1000 },
+  'gpt-3.5-turbo': { input: 0.0015 / 1000, output: 0.002 / 1000 },
+  'claude-3': { input: 0.015 / 1000, output: 0.075 / 1000 },
+  'default': { input: 0.002 / 1000, output: 0.002 / 1000 }
+}
+
+function calculateCost(model, inputTokens, outputTokens) {
+  const modelKey = Object.keys(MODEL_PRICING).find(key => model?.toLowerCase()?.includes(key)) || 'default';
+  const pricing = MODEL_PRICING[modelKey];
+  return (inputTokens * pricing.input) + (outputTokens * pricing.output);
+}
+
 class AiGenerationLog {
   static collection = 'ai_generation_logs'
 
@@ -32,7 +45,7 @@ class AiGenerationLog {
     const client = await pool.connect()
     try {
       const result = await client.query(
-        `SELECT * FROM ai_generation_logs ORDER BY created_at DESC LIMIT $1`,
+        `SELECT id, entity_type, entity_id, prompt, model, provider, tokens_input, tokens_output, cost_usd, latency_ms, status, error_message, metadata, created_by, created_at FROM ai_generation_logs ORDER BY created_at DESC LIMIT $1`,
         [limit]
       )
       return result.rows
@@ -110,15 +123,19 @@ class AiGenerationLog {
 
   static async create(data) {
     const now = new Date()
+    const inputTokens = data.tokensInput || 0
+    const outputTokens = data.tokensOutput || 0
+    const costUsd = data.costUsd || calculateCost(data.model, inputTokens, outputTokens)
+
     const payload = {
       entityType: data.entityType,
       entityId: data.entityId || null,
       prompt: data.prompt || null,
       model: data.model || null,
       provider: data.provider || null,
-      tokensInput: data.tokensInput || 0,
-      tokensOutput: data.tokensOutput || 0,
-      costUsd: data.costUsd || 0,
+      tokensInput: inputTokens,
+      tokensOutput: outputTokens,
+      costUsd: costUsd,
       latencyMs: data.latencyMs || 0,
       status: data.status || 'success',
       errorMessage: data.errorMessage || null,

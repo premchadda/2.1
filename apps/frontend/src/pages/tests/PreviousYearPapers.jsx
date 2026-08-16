@@ -1,12 +1,11 @@
 import { useState, useMemo } from 'react'
-import { FileText, Download, Search, Loader2, Calendar, BookOpen, ChevronRight, Lock, Target } from 'lucide-react'
+import { FileText, Download, Search, Loader2, Calendar, ChevronRight, Lock, Target } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query'
 import api from '../../shared/lib/api'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { checkFeatureAccess } from '../../shared/utils/pass-helpers.js'
 import { useNavigate } from 'react-router-dom'
 import { AnimatedHero, Breadcrumb } from '../../shared/components'
-import SearchBox from '../../shared/components/common/SearchBox'
 import { getPublicStats } from '../../shared/lib/dataService'
 import { useEffect } from 'react'
 
@@ -19,9 +18,11 @@ export default function PreviousYearPapers() {
   const [platformStats, setPlatformStats] = useState({ mockTests: 0, examsCovered: 0 })
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchStats = async () => {
       try {
         const stats = await getPublicStats()
+        if (controller.signal.aborted) return
         if (stats) {
           setPlatformStats({
             mockTests: stats.mockTests || 0,
@@ -29,10 +30,11 @@ export default function PreviousYearPapers() {
           })
         }
       } catch (error) {
-        console.error('Failed to fetch stats:', error)
+        if (error.name !== 'AbortError') console.error('Failed to fetch stats:', error)
       }
     }
     fetchStats()
+    return () => controller.abort()
   }, [])
   
   const hasDownloadAccess = checkFeatureAccess('pdf_downloads', user?.passType || 'free') || user?.role === 'admin';

@@ -4,7 +4,7 @@ import { API_BASE_URL } from '../shared/lib/apiBase.js'
 export const APP_CONFIG = {
   NAME: 'Trstprep',
   DESCRIPTION: 'India\'s #1 Platform for SSC & Railway Exam Preparation',
-  VERSION: '2.0.0',
+  VERSION: '2.1.0',
   
   // API Configuration
   API: {
@@ -26,7 +26,8 @@ export const APP_CONFIG = {
   
   // File Upload
   UPLOAD: {
-    MAX_FILE_SIZE: 500 * 1024 * 1024, // 500MB
+    // M26: 10MB cap (was 500MB — a DoS vector). Tune via VITE_MAX_FILE_SIZE_MB.
+    MAX_FILE_SIZE: (Number(import.meta.env.VITE_MAX_FILE_SIZE_MB) || 10) * 1024 * 1024,
     ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
     ALLOWED_VIDEO_TYPES: ['video/mp4', 'video/webm'],
     ALLOWED_DOCUMENT_TYPES: ['application/pdf']

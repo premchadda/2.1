@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import Breadcrumb from '../../../shared/components/common/Breadcrumb'
 import { toast } from 'react-hot-toast'
 import { 
-  Server, Activity, Cpu, HardDrive, Database, 
-  RefreshCw, AlertTriangle, CheckCircle, Clock,
+  Server, Activity, Cpu, Database, 
+  RefreshCw, AlertTriangle, CheckCircle,
   TrendingUp, TrendingDown, Wifi, Shield, Clock3
 } from 'lucide-react'
-import api from '../../../shared/lib/api'
+import { apiClient as api } from '../../../shared/lib/dataService'
 
 function SystemHealthMonitor() {
   const [health, setHealth] = useState({
@@ -26,6 +26,7 @@ function SystemHealthMonitor() {
   })
   const [loading, setLoading] = useState(false)
   const [autoRefresh, setAutoRefresh] = useState(false)
+  const [fetchError, setFetchError] = useState(false)
 
   const formatUptime = (seconds = 0) => {
     const total = Math.max(0, Math.floor(seconds))
@@ -94,10 +95,12 @@ function SystemHealthMonitor() {
         },
         alerts
       })
+      setFetchError(false)
       
       if (showToast) toast.success('System health refreshed')
     } catch (error) {
       console.error('Failed to fetch system health:', error)
+      setFetchError(true)
       if (showToast) toast.error('Failed to fetch system health')
     } finally {
       setLoading(false)
@@ -142,7 +145,7 @@ function SystemHealthMonitor() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 md:p-6">
       <div className="mb-6">
         <Breadcrumb 
           items={[
@@ -184,6 +187,16 @@ function SystemHealthMonitor() {
         </div>
       </div>
 
+      {fetchError && (
+        <div className="mb-6 flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-800 dark:text-red-200">Unable to fetch system health</p>
+            <p className="text-xs text-red-600 dark:text-red-400">Check the server connection and try refreshing.</p>
+          </div>
+        </div>
+      )}
+
       {/* Status Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
@@ -191,8 +204,10 @@ function SystemHealthMonitor() {
             <div className="p-3 bg-green-100 rounded-lg">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-            <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">
-              Healthy
+            <span className={`px-3 py-1 text-sm font-medium rounded-full ${
+                health.status === 'healthy' ? 'bg-green-100 text-green-700' : health.status === 'degraded' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+              }`}>
+              {health.status === 'healthy' ? 'Healthy' : health.status === 'degraded' ? 'Degraded' : 'Unhealthy'}
             </span>
           </div>
           <p className="text-3xl font-bold text-gray-900 dark:text-white">{health.uptime}</p>

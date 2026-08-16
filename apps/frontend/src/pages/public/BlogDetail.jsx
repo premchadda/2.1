@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Calendar, User, Clock, ArrowLeft, Share2, ThumbsUp, MessageCircle } from 'lucide-react'
+import { Calendar, User, Clock, ArrowLeft, Share2 } from 'lucide-react';
 import api from '../../shared/lib/dataService'
+import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 
 export default function BlogDetail() {
   const { id } = useParams()
@@ -10,23 +11,33 @@ export default function BlogDetail() {
   const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetchBlog()
+    const controller = new AbortController()
+    fetchBlog(controller.signal)
+    return () => controller.abort()
   }, [id])
 
-  const fetchBlog = async () => {
+  const fetchBlog = async (signal) => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/blogs/${id}`)
+      const response = await api.get(`/api/blogs/${id}`, { signal })
+      if (signal?.aborted) return
       if (response.data?.success) {
-        setBlog(response.data.data)
+        const data = response.data.data
+        setBlog({
+          ...data,
+          imageUrl: data.featuredImage || data.thumbnail || data.image || data.coverImage,
+          author: data.author || 'Trstprep Team',
+        })
       } else {
         setError('Blog post not found')
       }
     } catch (error) {
-      console.error('Failed to fetch blog:', error)
-      setError('Failed to load blog post')
+      if (error.name !== 'AbortError') {
+        console.error('Failed to fetch blog:', error)
+        setError('Failed to load blog post')
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -120,10 +131,9 @@ export default function BlogDetail() {
               </div>
             )}
 
-            {/* Content */}
-            <div className="prose max-w-none text-gray-700 leading-relaxed">
-              {blog.description || blog.content}
-            </div>
+            {/* FIX 2.11: Sanitize blog content to prevent stored XSS */}
+            <div className="prose max-w-none text-gray-700 leading-relaxed"
+                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(blog.description || blog.content || '') }} />
 
             {/* Share */}
             <div className="mt-8 pt-6 border-t border-gray-100">

@@ -4,6 +4,7 @@
  */
 
 import { validators, createSchema } from '../middleware/validation/inputValidation.js'
+import { loginSchema, registerSchema } from '../api/validators/auth.validator.js'
 
 describe('Input Validation', () => {
   describe('validators', () => {
@@ -96,5 +97,85 @@ describe('API Health Check', () => {
     expect(healthResponse).toHaveProperty('status')
     expect(healthResponse).toHaveProperty('timestamp')
     expect(healthResponse.status).toBe('ok')
+  })
+})
+
+describe('Auth Validators', () => {
+  describe('loginSchema', () => {
+    it('rejects empty email', () => {
+      const result = loginSchema.validate({ email: '', password: 'secret123' })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'email')).toBe(true)
+    })
+
+    it('rejects invalid email format', () => {
+      const result = loginSchema.validate({ email: 'not-an-email', password: 'secret123' })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'email' && e.code === 'INVALID_EMAIL')).toBe(true)
+    })
+
+    it('rejects missing password', () => {
+      const result = loginSchema.validate({ email: 'user@test.com' })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'password')).toBe(true)
+    })
+
+    it('accepts valid email and password', () => {
+      const result = loginSchema.validate({ email: 'user@test.com', password: 'secret123' })
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+  })
+
+  describe('registerSchema', () => {
+    it('rejects password shorter than 8 chars', () => {
+      const result = registerSchema.validate({
+        email: 'new@test.com',
+        password: 'short',
+        name: 'Test User',
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'password' && e.code === 'MIN_LENGTH')).toBe(true)
+    })
+
+    it('rejects invalid mobile number', () => {
+      const result = registerSchema.validate({
+        email: 'new@test.com',
+        password: 'validpass123',
+        name: 'Test User',
+        mobile: '12345',
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'mobile' && e.code === 'PATTERN_MISMATCH')).toBe(true)
+    })
+
+    it('rejects missing email', () => {
+      const result = registerSchema.validate({
+        password: 'validpass123',
+        name: 'Test User',
+      })
+      expect(result.isValid).toBe(false)
+      expect(result.errors.some(e => e.field === 'email')).toBe(true)
+    })
+
+    it('accepts valid registration data with mobile', () => {
+      const result = registerSchema.validate({
+        email: 'new@test.com',
+        password: 'validpass123',
+        name: 'Test User',
+        mobile: '9876543210',
+      })
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('accepts valid registration data without mobile (optional)', () => {
+      const result = registerSchema.validate({
+        email: 'new@test.com',
+        password: 'validpass123',
+        name: 'Test User',
+      })
+      expect(result.isValid).toBe(true)
+    })
   })
 })

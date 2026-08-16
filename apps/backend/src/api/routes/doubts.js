@@ -3,6 +3,8 @@ import { protect } from '../../middleware/auth.middleware.js'
 import rateLimit from 'express-rate-limit'
 import { idsMatch } from '../../services/core/common.js'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -53,7 +55,7 @@ const sanitizeReply = (reply) => {
 // @route   GET /api/doubts
 // @desc    Get all doubts/questions
 // @access  Public (can filter by auth)
-router.get('/', async (req, res) => {
+router.get('/', responseCache("doubts", 60), async (req, res) => {
   try {
     const { category, status, limit = 20, offset = 0, search } = req.query
     
@@ -99,7 +101,7 @@ router.get('/', async (req, res) => {
       count: doubtsWithCounts.length
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -134,7 +136,7 @@ router.get('/:id', async (req, res, next) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -165,7 +167,7 @@ router.post('/', protect, contentCreationLimiter, async (req, res) => {
     
     res.status(201).json({ success: true, data: sanitizeDoubt(doubt) })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -198,7 +200,7 @@ router.put('/:id', protect, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -223,7 +225,7 @@ router.delete('/:id', protect, async (req, res) => {
     
     res.json({ success: true, message: 'Doubt deleted' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -267,7 +269,7 @@ router.post('/:id/reply', protect, async (req, res) => {
     
     res.status(201).json({ success: true, data: reply })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -312,7 +314,7 @@ router.put('/:id/reply/:replyId/accept', protect, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -349,7 +351,7 @@ router.put('/:id/reply/:replyId/upvote', protect, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -370,7 +372,7 @@ router.get('/categories', async (req, res) => {
     
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

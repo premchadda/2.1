@@ -1,151 +1,274 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Users, FileText, BookOpen, Video, Upload, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend
+} from 'recharts'
+import {
+  Users, FileText, BookOpen, Video,
   Settings, TrendingUp, TestTube2, HelpCircle,
   BarChart3, Activity, Calendar, Clock, Eye,
   DollarSign, AlertTriangle, CheckCircle, Filter,
-  ArrowUp, ArrowDown, FileQuestion, Gift
+  ArrowUp, ArrowDown, ArrowRight, FileQuestion, Gift, RefreshCw,
+  Server, UserCheck, Tag, Image, Trash2, Download
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { apiClient } from '../../../shared/lib/dataService.js'
 import { useAuth } from '../../../shared/providers/AuthContext'
-import { useTheme } from '../../../shared/context/ThemeContext'
+import { formatCurrency, formatNumber, exportToCSV } from '@trstprep/shared-config'
+import { useAdminStats, useAdminAnalytics, useAdminRecentActivity } from '../../../shared/hooks/useAdminQueries.js'
+
+const AUTO_REFRESH_INTERVAL = 30000
+
+function DashboardSkeleton() {
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-2" />
+          <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        </div>
+        <div className="h-10 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mt-4 md:mt-0" />
+      </div>
+
+      {/* Stats grid skeleton */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+          <div key={i} className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-3">
+            <div className="flex items-start justify-between mb-2">
+              <div className="h-3 w-12 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+              <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded-md animate-pulse" />
+            </div>
+            <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1" />
+          </div>
+        ))}
+      </div>
+
+      {/* Charts skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <div className="h-5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-4" />
+          <div className="h-64 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />
+        </div>
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <div className="h-5 w-40 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-4" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-14 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-3 text-sm">
+      <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>
+      {payload.map((entry, i) => (
+        <p key={i} className="text-gray-600 dark:text-gray-400">
+          <span className="inline-block w-2.5 h-2.5 rounded-full mr-2" style={{ backgroundColor: entry.color }} />
+          {entry.name}: <span className="font-medium text-gray-900 dark:text-white">{entry.value}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState(null)
-  const [analytics, setAnalytics] = useState(null)
-  const [recentActivity, setRecentActivity] = useState([])
-  const [loading, setLoading] = useState(true)
   const [timeRange, setTimeRange] = useState('7d')
-  const [error, setError] = useState(null)
-  const { user, isAdmin } = useAuth()
-  const { isDarkMode } = useTheme()
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [lastRefreshed, setLastRefreshed] = useState(() => new Date())
+  const { user, isAdmin, on, socket } = useAuth()
+  const queryClient = useQueryClient()
 
+  const hasAdmin = typeof isAdmin === 'function' ? isAdmin() : true
+
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    error: statsError,
+    refetch: refetchStats
+  } = useAdminStats(timeRange, {
+    enabled: hasAdmin,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
+  })
+
+  const {
+    data: analytics,
+    isLoading: analyticsLoading,
+    error: analyticsError,
+    refetch: refetchAnalytics
+  } = useAdminAnalytics(timeRange, {
+    enabled: hasAdmin,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
+  })
+
+  const {
+    data: recentActivity = [],
+    isLoading: activityLoading,
+    error: activityError,
+    refetch: refetchActivity
+  } = useAdminRecentActivity({
+    enabled: hasAdmin,
+    refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL : false,
+  })
+
+  const loading = (statsLoading || analyticsLoading || activityLoading) && !stats
+  const error = statsError?.message || analyticsError?.message || activityError?.message || null
+
+  const fetchData = useCallback(async () => {
+    await Promise.allSettled([refetchStats(), refetchAnalytics(), refetchActivity()])
+    setLastRefreshed(new Date())
+  }, [refetchStats, refetchAnalytics, refetchActivity])
+
+  // Real-time WebSocket synchronization for immediate live metric updates
   useEffect(() => {
-    if (isAdmin()) {
-      fetchData()
-    } else {
-      setLoading(false)
+    if (!socket || typeof on !== 'function') return
+
+    const unsubStats = on('admin:stats_update', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'analytics'] })
+    })
+    const unsubAttempt = on('live-test:attempt_submitted', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'recent-activity'] })
+    })
+    const unsubSession = on('session:created', () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'stats'] })
+    })
+
+    return () => {
+      unsubStats?.()
+      unsubAttempt?.()
+      unsubSession?.()
     }
-  }, [timeRange])
+  }, [socket, on, queryClient])
 
-  // CRIT-03 FIX: Use shared apiClient with cookie-based auth instead of localStorage token
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      // Fetch dashboard stats
-      const statsResponse = await apiClient.get('/admin/stats?range=' + timeRange)
-      setStats(statsResponse?.data?.data || null)
-
-      // Fetch analytics data
-      const analyticsResponse = await apiClient.get('/admin/analytics?range=' + timeRange)
-      setAnalytics(analyticsResponse?.data?.data || null)
-
-      // Fetch recent activity
-      const activityResponse = await apiClient.get('/admin/recent-activity')
-      setRecentActivity(activityResponse?.data?.data || [])
-    } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        setError('Access denied. Please check your admin privileges.')
-      } else {
-        setError('Failed to load dashboard data. Please try again later.')
-      }
-    } finally {
-      setLoading(false)
-    }
+  const handleExportCSV = () => {
+    if (!stats) return
+    const rows = [
+      ['Metric', 'Value'],
+      ['Total Users', stats?.users || 0],
+      ['Active Users', stats?.activeUsers || 0],
+      ['Total Tests', stats?.tests || 0],
+      ['Total PDFs', stats?.pdfs || 0],
+      ['Total Submissions', stats?.testAttempts || stats?.submissions || 0],
+      ['Revenue (INR)', stats?.revenue || 0],
+      ['Time Range', timeRange],
+      ['Exported At', new Date().toISOString()]
+    ]
+    exportToCSV(`trstprep_dashboard_stats_${timeRange}_${Date.now()}`, rows)
   }
 
   const statCards = [
     {
-      title: 'Topics',
-      value: stats?.topics || 0,
-      icon: BookOpen,
-      color: 'bg-blue-500',
-      trend: stats?.trends?.topics || null,
-      link: '/admin/study-materials'
-    },
-
-    {
-      title: 'PDFs',
-      value: stats?.pdfs || 0,
-      icon: FileText,
-      color: 'bg-orange-500',
-      trend: stats?.trends?.pdfs || null,
-      link: '/admin/media'
+      title: 'Total Users', value: formatNumber(stats?.users), icon: Users,
+      color: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200/50', trend: stats?.trends?.users || null, link: '/admin/users'
     },
     {
-      title: 'Tests',
-      value: stats?.tests || 0,
-      icon: TestTube2,
-      color: 'bg-green-500',
-      trend: stats?.trends?.tests || null,
-      link: '/admin/tests'
+      title: 'Active Users', value: formatNumber(stats?.activeUsers || analytics?.userGrowth?.activeUsers), icon: UserCheck,
+      color: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-200/50', trend: stats?.trends?.activeUsers || null, link: '/admin/users'
     },
     {
-      title: 'Total Users',
-      value: stats?.users || 0,
-      icon: Users,
-      color: 'bg-purple-500',
-      trend: stats?.trends?.users || null,
-      link: '/admin/users'
+      title: 'Tests', value: formatNumber(stats?.tests), icon: TestTube2,
+      color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200/50', trend: stats?.trends?.tests || null, link: '/admin/tests'
     },
     {
-      title: 'Questions',
-      value: stats?.questions || 0,
-      icon: HelpCircle,
-      color: 'bg-indigo-500',
-      trend: stats?.trends?.questions || null,
-      link: '/admin/questions'
-    }
+      title: 'PDFs', value: formatNumber(stats?.pdfs), icon: FileText,
+      color: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200/50', trend: stats?.trends?.pdfs || null, link: '/admin/content-management'
+    },
+    {
+      title: 'Submissions', value: formatNumber(stats?.testAttempts || stats?.submissions), icon: CheckCircle,
+      color: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-200/50', trend: stats?.trends?.submissions || null, link: '/admin/results'
+    },
+    {
+      title: 'Revenue', value: formatCurrency(stats?.revenue), icon: DollarSign,
+      color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200/50', trend: stats?.trends?.revenue || null, link: '/admin/payments'
+    },
   ]
 
   const quickActions = [
-    { title: 'New Test', icon: FileText, link: '/admin/tests', color: 'text-pink-500' },
-    { title: 'Add Question', icon: FileQuestion, link: '/admin/questions', color: 'text-purple-600' },
-    { title: 'Manage Users', icon: Users, link: '/admin/users', color: 'text-blue-500' },
-    { title: 'New Promo', icon: Gift, link: '/admin/promotions', color: 'text-emerald-500' },
-    { title: 'Site Settings', icon: Settings, link: '/admin/settings', color: isDarkMode ? 'text-gray-400' : 'text-gray-600' }
+    { title: 'New Test', icon: FileText, link: '/admin/tests', cardBg: 'bg-pink-50/80 dark:bg-pink-950/20 border-pink-100 dark:border-pink-900/30 hover:border-pink-400', iconBg: 'bg-pink-500 text-white shadow-pink-500/30', textColor: 'text-pink-700 dark:text-pink-300' },
+    { title: 'Add Question', icon: FileQuestion, link: '/admin/questions', cardBg: 'bg-purple-50/80 dark:bg-purple-950/20 border-purple-100 dark:border-purple-900/30 hover:border-purple-400', iconBg: 'bg-purple-500 text-white shadow-purple-500/30', textColor: 'text-purple-700 dark:text-purple-300' },
+    { title: 'Manage Users', icon: Users, link: '/admin/users', cardBg: 'bg-blue-50/80 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30 hover:border-blue-400', iconBg: 'bg-blue-500 text-white shadow-blue-500/30', textColor: 'text-blue-700 dark:text-blue-300' },
+    { title: 'Study Notes', icon: BookOpen, link: '/admin/study-materials', cardBg: 'bg-amber-50/80 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30 hover:border-amber-400', iconBg: 'bg-amber-500 text-white shadow-amber-500/30', textColor: 'text-amber-700 dark:text-amber-300' },
+    { title: 'New Promo', icon: Gift, link: '/admin/promotions', cardBg: 'bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30 hover:border-emerald-400', iconBg: 'bg-emerald-500 text-white shadow-emerald-500/30', textColor: 'text-emerald-700 dark:text-emerald-300' },
+    { title: 'Coupon Codes', icon: Tag, link: '/admin/coupons', cardBg: 'bg-teal-50/80 dark:bg-teal-950/20 border-teal-100 dark:border-teal-900/30 hover:border-teal-400', iconBg: 'bg-teal-500 text-white shadow-teal-500/30', textColor: 'text-teal-700 dark:text-teal-300' },
+    { title: 'Banners & Ads', icon: Image, link: '/admin/banners', cardBg: 'bg-sky-50/80 dark:bg-sky-950/20 border-sky-100 dark:border-sky-900/30 hover:border-sky-400', iconBg: 'bg-sky-500 text-white shadow-sky-500/30', textColor: 'text-sky-700 dark:text-sky-300' },
+    { title: 'Live Tests', icon: Video, link: '/admin/live-tests', cardBg: 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30 hover:border-rose-400', iconBg: 'bg-rose-500 text-white shadow-rose-500/30', textColor: 'text-rose-700 dark:text-rose-300' },
+    { title: 'System Health', icon: Server, link: '/admin/system-health', cardBg: 'bg-indigo-50/80 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/30 hover:border-indigo-400', iconBg: 'bg-indigo-500 text-white shadow-indigo-500/30', textColor: 'text-indigo-700 dark:text-indigo-300' },
+    { title: 'Activity Log', icon: Activity, link: '/admin/activity-log', cardBg: 'bg-violet-50/80 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/30 hover:border-violet-400', iconBg: 'bg-violet-500 text-white shadow-violet-500/30', textColor: 'text-violet-700 dark:text-violet-300' },
+    { title: 'Recycle Bin', icon: Trash2, link: '/admin/recycle-bin', cardBg: 'bg-red-50/80 dark:bg-red-950/20 border-red-100 dark:border-red-900/30 hover:border-red-400', iconBg: 'bg-red-500 text-white shadow-red-500/30', textColor: 'text-red-700 dark:text-red-300' },
+    { title: 'Site Settings', icon: Settings, link: '/admin/settings', cardBg: 'bg-slate-100/80 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700/40 hover:border-slate-400', iconBg: 'bg-slate-600 text-white shadow-slate-600/30', textColor: 'text-slate-700 dark:text-slate-300' }
   ]
 
-  if (loading) {
-    return (
-      <div className={`flex items-center justify-center min-h-screen`}>
-        <div className={`animate-spin rounded-full h-12 w-12 border-4 border-indigo-500 border-t-transparent`}></div>
-      </div>
-    )
+  const chartData = (analytics?.dailyUsers || []).map(item => ({
+    day: item.day,
+    Users: item.users,
+    Tests: item.tests,
+  }))
+
+  if (loading && !stats) {
+    return <DashboardSkeleton />
   }
 
   return (
-    <div className={`p-6 space-y-6`}>
-      {/* Error Message */}
+    <div className="p-6 space-y-6">
       {error && (
-        <div className={`bg-red-50 border-l-4 border-red-500 p-4 rounded`}>
-          <div className={`flex items-start`}>
-            <AlertTriangle className={`h-5 w-5 text-red-500 mt-0.5 mr-3`} />
-            <div>
-              <p className={`text-sm font-medium text-red-800`}>{error}</p>
-            </div>
+        <div className="bg-red-50 dark:bg-red-500/10 border-l-4 border-red-500 p-4 rounded">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 mr-3" />
+            <p className="text-sm font-medium text-red-800 dark:text-red-400">{error}</p>
           </div>
         </div>
       )}
-      
-      {/* Header */}
-      <div className={`flex flex-col md:flex-row md:items-center md:justify-between`}>
-        <div>
-          <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-2`}>Admin Dashboard</h1>
-          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Monitor and manage your platform performance</p>
+
+      {/* Top Action Controls */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 rounded-xl shadow-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            Live Data (30s)
+          </span>
+          {lastRefreshed && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+              <Clock className="w-3.5 h-3.5 text-indigo-500" />
+              Last updated: {lastRefreshed.toLocaleTimeString()}
+            </span>
+          )}
         </div>
-        <div className={`flex items-center gap-4 mt-4 md:mt-0`}>
-          <select 
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            onClick={handleExportCSV}
+            disabled={!stats}
+            title="Download metrics as CSV"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs md:text-sm font-bold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
+          <button
+            onClick={() => fetchData()}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs md:text-sm font-extrabold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-indigo-500 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className={`border ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+            className="border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-1.5 text-xs md:text-sm font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
           >
-            <option value="24h">Last 24 hours</option>
+            <option value="24h">Today (24h)</option>
             <option value="7d">Last 7 days</option>
             <option value="30d">Last 30 days</option>
             <option value="90d">Last 90 days</option>
@@ -154,249 +277,334 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className={`grid grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4`}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {statCards.map((card, index) => {
           const Icon = card.icon
           return (
-            <div 
+            <Link
               key={index}
-              className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-sm border ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} p-3 md:p-5 hover:shadow-md transition-shadow flex flex-col justify-between`}
+              to={card.link}
+              className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-3 sm:p-3.5 hover:shadow-md hover:border-indigo-300 dark:hover:border-indigo-700 transition-all flex flex-col justify-between group"
             >
-              <div className={`flex items-start justify-between mb-2`}>
-                <p className={`text-gray-500 text-[10px] md:text-xs font-semibold leading-tight uppercase tracking-wide`}>{card.title}</p>
-                <div className={`${card.color} p-1.5 md:p-2 rounded-md shrink-0 ml-1`}>
-                  <Icon className={`w-3.5 h-3.5 md:w-5 md:h-5 text-white`} />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-gray-500 dark:text-gray-400 text-[10px] font-extrabold uppercase tracking-wider truncate pr-1">{card.title}</p>
+                <div className={`w-7 h-7 rounded-xl flex items-center justify-center border ${card.color} shrink-0 group-hover:scale-110 transition-transform`}>
+                  <Icon className="w-3.5 h-3.5" />
                 </div>
               </div>
               <div>
-                <p className={`text-lg md:text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-1`}>{card.value}</p>
+                <p className="text-base sm:text-lg md:text-xl font-black text-gray-900 dark:text-white leading-none mb-1">{card.value}</p>
                 {card.trend && (
-                  <div className={`flex flex-wrap items-center`}>
-                    <span className={`flex items-center text-green-600 text-[10px] md:text-xs font-semibold ${isDarkMode ? 'bg-green-500/10' : 'bg-green-50'} px-1 py-0.5 rounded mr-1`}>
-                      <ArrowUp className={`w-2.5 h-2.5 mr-0.5`} />
+                  <div className="flex items-center mt-1">
+                    <span className="flex items-center text-emerald-600 dark:text-emerald-400 text-[9px] font-bold bg-emerald-50 dark:bg-emerald-500/10 px-1 py-0.5 rounded-md">
+                      <ArrowUp className="w-2.5 h-2.5 mr-0.5" />
                       {card.trend}
                     </span>
-                    <span className={`hidden xl:inline-block text-gray-400 text-[9px] truncate`}>vs last period</span>
                   </div>
                 )}
               </div>
-            </div>
+            </Link>
           )
         })}
       </div>
 
-      {/* Quick Actions - Second Section */}
-      <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-sm border ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} p-5 md:p-6 mb-6`}>
-        <h2 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4 flex items-center gap-2`}>
-          <TrendingUp className={`w-5 h-5 text-indigo-500`} />
-          Quick Actions
-        </h2>
-        <div className={`grid grid-cols-3 md:grid-cols-6 gap-3 md:gap-4`}>
+      {/* Quick Actions */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 md:p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-indigo-500" />
+            <h2 className="text-base font-extrabold text-gray-900 dark:text-white">Quick Actions & Shortcuts</h2>
+          </div>
+          <span className="text-xs text-gray-400 font-medium">Fast Admin Workflows</span>
+        </div>
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 md:gap-3">
           {quickActions.map((action, index) => {
             const Icon = action.icon
             return (
               <Link
                 key={index}
                 to={action.link}
-                className={`flex flex-col items-center justify-center p-3 md:p-4 border ${isDarkMode ? 'border-gray-800' : 'border-gray-100'} ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-lg hover:border-indigo-500 hover:bg-indigo-50/50 transition-all group`}
+                className={`flex flex-col items-center justify-center p-3 rounded-2xl border ${action.cardBg} hover:shadow-md transition-all group`}
               >
-                <Icon className={`w-5 h-5 md:w-6 md:h-6 mb-2 ${action.color} group-hover:scale-110 transition-transform`} />
-                <span className={`text-[10px] md:text-xs text-center ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-medium`}>{action.title}</span>
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-2 ${action.iconBg} group-hover:scale-110 transition-transform shadow-sm`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <span className={`text-[10px] sm:text-xs text-center font-extrabold truncate w-full ${action.textColor}`}>{action.title}</span>
               </Link>
             )
           })}
         </div>
       </div>
 
-      {/* Charts and Analytics Section */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        {/* User Activity Chart */}
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6`}>
-          <div className={`flex items-center justify-between mb-4`}>
-            <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>User Activity</h3>
-            <BarChart3 className={`w-5 h-5 text-gray-500`} />
+      {/* Charts and Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recharts Bar Chart */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">User Activity</h3>
+            <BarChart3 className="w-5 h-5 text-gray-500" />
           </div>
-          <div className={`h-64`}>
-            <div className={`flex items-end justify-between h-48 space-x-2`}>
-              {analytics?.dailyUsers?.map((item, index) => (
-                <div key={index} className={`flex flex-col items-center flex-1`}>
-                  <div className={`flex items-end justify-center space-x-1 flex-1 w-full`}>
-                    <div 
-                      className={`w-8 bg-blue-500 rounded-t hover:bg-blue-600 transition-colors`}
-                      style={{ height: `${(item.users / Math.max(...analytics.dailyUsers.map(d => d.users))) * 80}%` }}
-                    ></div>
-                    <div 
-                      className={`w-8 bg-green-500 rounded-t hover:bg-green-600 transition-colors`}
-                      style={{ height: `${(item.tests / Math.max(...analytics.dailyUsers.map(d => d.tests))) * 80}%` }}
-                    ></div>
-                  </div>
-                  <span className={`text-xs text-gray-500 mt-2`}>{item.day}</span>
-                </div>
-              )) || (
-                <div className={`flex flex-col items-center justify-center w-full h-48 gap-3`}>
-                  <BarChart3 className={`w-10 h-10 ${isDarkMode ? 'text-gray-700' : 'text-gray-200'}`} />
-                  <p className={`text-sm ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>No activity data yet</p>
-                  <div className={`flex items-end gap-2 opacity-30`}>
-                    {[40, 65, 30, 80, 50, 70, 45].map((h, i) => (
-                      <div key={i} className="flex gap-1 items-end">
-                        <div className={`w-4 rounded-t ${isDarkMode ? 'bg-blue-900' : 'bg-blue-200'}`} style={{ height: `${h}px` }} />
-                        <div className={`w-4 rounded-t ${isDarkMode ? 'bg-green-900' : 'bg-green-200'}`} style={{ height: `${h * 0.6}px` }} />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
-            <div className={`flex justify-center space-x-6 mt-4`}>
-              <div className={`flex items-center`}>
-                <div className={`w-3 h-3 bg-blue-500 rounded mr-2`}></div>
-                <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Users</span>
+          <div className="h-64">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Users" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="Tests" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <BarChart3 className="w-10 h-10 text-gray-200 dark:text-gray-700" />
+                <p className="text-sm text-gray-400 dark:text-gray-600">No activity data yet</p>
               </div>
-              <div className={`flex items-center`}>
-                <div className={`w-3 h-3 bg-green-500 rounded mr-2`}></div>
-                <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tests</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Top Performing Tests */}
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6`}>
-          <div className={`flex items-center justify-between mb-4`}>
-            <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Top Performing Tests</h3>
-            <TrendingUp className={`w-5 h-5 text-gray-500`} />
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performing Tests</h3>
+            <TrendingUp className="w-5 h-5 text-gray-500" />
           </div>
-          <div className={`space-y-3`}>
-            {(analytics?.topTests || []).map((test, index) => (
-              <div key={index} className={`flex items-center justify-between p-3 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-lg`}>
-                <div className={`flex-1`}>
-                  <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} text-sm`}>{test.name}</p>
-                  <div className={`flex items-center mt-1`}>
-                    <span className={`text-xs text-gray-500 mr-3`}>Attempts: {test.attempts}</span>
-                    <span className={`text-xs text-gray-500`}>Completion: {test.completion}</span>
+          <div className="space-y-3">
+            {analytics?.topTests?.length > 0 ? (
+              analytics.topTests.map((test, index) => {
+                const completionVal = typeof test.completion === 'string'
+                  ? parseFloat(test.completion.replace('%', ''))
+                  : (Number(test.completion) || 0)
+                const safeWidth = isNaN(completionVal) ? 0 : Math.min(100, Math.max(0, completionVal))
+                return (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{test.name}</p>
+                      <div className="flex items-center mt-1">
+                        <span className="text-xs text-gray-500 mr-3">Attempts: {test.attempts}</span>
+                        <span className="text-xs text-gray-500">Completion: {test.completion}</span>
+                      </div>
+                    </div>
+                    <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2 ml-3 shrink-0">
+                      <div
+                        className="bg-green-500 h-2 rounded-full"
+                        style={{ width: `${safeWidth}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className={`w-16 bg-gray-200 rounded-full h-2`}>
-                  <div 
-                    className={`bg-green-500 h-2 rounded-full`} 
-                    style={{ width: test.completion.replace('%', '') + '%' }}
-                  ></div>
-                </div>
+                )
+              })
+            ) : (
+              <div className="text-center py-8 text-gray-400 dark:text-gray-600 text-sm">
+                No test data available yet
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        {/* We place an empty div or combine with another dashboard component to maintain grid layout, or just let Recent Activity span */}
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6 lg:col-span-2`}>
-          <div className={`flex items-center justify-between mb-4`}>
-            <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Recent Activity</h2>
-            <Filter className={`w-5 h-5 text-gray-500`} />
+      {/* User Activity */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-5 md:p-6 transition-all">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold shadow-sm">
+              <Activity className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-extrabold text-gray-900 dark:text-white">User Activity</h2>
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Real-time user actions & platform activity</p>
+            </div>
           </div>
-          <div className={`space-y-4`}>
-            {recentActivity.map((activity, index) => {
-              const getIcon = (iconName) => {
-                switch(iconName) {
-                  case 'users': return Users;
-                  case 'test': return TestTube2;
-                  case 'book': return BookOpen;
-                  case 'video': return Video;
-                  default: return HelpCircle;
+          <Link
+            to="/admin/activity-log"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 bg-indigo-50 dark:bg-indigo-500/10 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 rounded-xl transition-all"
+          >
+            View Full Log <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="divide-y divide-gray-100 dark:divide-gray-800/60 max-h-[380px] overflow-y-auto pr-1">
+          {recentActivity.length > 0 ? (
+            recentActivity.map((activity, index) => {
+              const getIconConfig = (iconName) => {
+                switch (iconName) {
+                  case 'users':
+                  case 'user':
+                    return { icon: Users, bg: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200/40', tag: 'User' }
+                  case 'test':
+                    return { icon: TestTube2, bg: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200/40', tag: 'Test' }
+                  case 'book':
+                    return { icon: BookOpen, bg: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-200/40', tag: 'Study' }
+                  case 'video':
+                    return { icon: Video, bg: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-200/40', tag: 'Video' }
+                  default:
+                    return { icon: Activity, bg: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-200/40', tag: 'Activity' }
                 }
               }
-              
-              const Icon = getIcon(activity.icon)
+              const config = getIconConfig(activity.icon)
+              const Icon = config.icon
+
               return (
-                <div key={index} className={`flex items-start gap-3 p-3 hover:${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'} rounded-lg transition-colors`}>
-                  <div className={`bg-gray-100 p-2 rounded-full ${activity.color}`}>
-                    <Icon className={`w-4 h-4`} />
+                <div
+                  key={activity.id || activity._id || `${activity.type || 'act'}-${activity.time || activity.timestamp || ''}-${index}`}
+                  className="flex items-center gap-3.5 py-3 px-2 rounded-xl hover:bg-slate-50 dark:hover:bg-gray-800/50 transition-all group"
+                >
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 border ${config.bg} shadow-sm group-hover:scale-105 transition-transform`}>
+                    <Icon className="w-4 h-4" />
                   </div>
-                  <div className={`flex-1`}>
-                    <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'} text-sm`}>{activity.title}</p>
-                    <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-sm`}>{activity.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-gray-900 dark:text-white text-xs truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                        {activity.title}
+                      </p>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                        {config.tag}
+                      </span>
+                    </div>
+                    {activity.description && (
+                      <p className="text-gray-500 dark:text-gray-400 text-xs truncate mt-0.5 font-medium">
+                        {activity.description}
+                      </p>
+                    )}
                   </div>
-                  <span className={`text-xs text-gray-500 whitespace-nowrap`}>{activity.time}</span>
+                  <div className="flex items-center gap-1 text-[11px] font-semibold text-gray-400 dark:text-gray-500 whitespace-nowrap bg-gray-50 dark:bg-gray-800/80 px-2 py-1 rounded-md">
+                    <Clock className="w-3 h-3 text-gray-400" />
+                    {activity.time || 'Recently'}
+                  </div>
                 </div>
               )
-            })}
-          </div>
+            })
+          ) : (
+            <div className="text-center py-10">
+              <Activity className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">No user activity recorded yet.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Live user actions will appear here in real-time.</p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Platform Overview */}
-      <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6`}>
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6`}>
-          <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4`}>User Growth</h2>
-          <div className={`grid grid-cols-2 gap-4`}>
-            <div className={`text-center p-4 bg-blue-50 rounded-lg`}>
-              <Users className={`w-8 h-8 text-blue-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{analytics?.userGrowth?.total || stats?.users || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Users</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* User Growth */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" />
+            User Growth
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Total Users</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">
+                {formatNumber(analytics?.userGrowth?.total || stats?.users)}
+              </span>
             </div>
-            <div className={`text-center p-4 ${isDarkMode ? 'bg-green-500/10' : 'bg-green-50'} rounded-lg`}>
-              <Activity className={`w-8 h-8 text-green-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{analytics?.userGrowth?.activeUsers || stats?.activeUsers || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Active Users</p>
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Active Users</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">
+                {formatNumber(analytics?.userGrowth?.activeUsers || stats?.activeUsers)}
+              </span>
             </div>
-            <div className={`text-center p-4 bg-purple-50 rounded-lg col-span-2`}>
-              <TrendingUp className={`w-8 h-8 text-purple-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>+{analytics?.userGrowth?.growthRate || '0'}%</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Growth Rate</p>
+            <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-purple-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Growth Rate</span>
+              </div>
+              <span className="text-lg font-bold text-green-600">+{analytics?.userGrowth?.growthRate || '0'}%</span>
             </div>
           </div>
         </div>
 
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6`}>
-          <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4`}>Content Engagement</h2>
-          <div className={`grid grid-cols-2 md:grid-cols-2 gap-4`}>
-            <div className={`text-center p-4 bg-blue-50 rounded-lg`}>
-              <BookOpen className={`w-8 h-8 text-blue-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.topics || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Topics</p>
+        {/* Content Engagement */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-orange-500" />
+            Content
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-blue-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Topics</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{formatNumber(stats?.topics)}</span>
             </div>
+            <div className="flex items-center justify-between p-3 bg-orange-50 dark:bg-orange-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-orange-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">PDFs</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{formatNumber(stats?.pdfs)}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <TestTube2 className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Tests</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{formatNumber(stats?.tests)}</span>
+            </div>
+          </div>
+        </div>
 
-            <div className={`text-center p-4 bg-orange-50 rounded-lg`}>
-              <FileText className={`w-8 h-8 text-orange-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.pdfs || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>PDFs</p>
+        {/* Platform Performance */}
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md p-6">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Server className="w-5 h-5 text-gray-500" />
+            Performance
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-blue-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Page Views</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{formatNumber(stats?.pageViews)}</span>
             </div>
-            <div className={`text-center p-4 ${isDarkMode ? 'bg-green-500/10' : 'bg-green-50'} rounded-lg`}>
-              <TestTube2 className={`w-8 h-8 text-green-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.tests || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Tests</p>
+            <div className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-green-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Avg Time</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{stats?.avgTimeOnSite || '0m'}</span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-500/10 rounded-lg">
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-purple-600" />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Revenue</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900 dark:text-white">{formatCurrency(stats?.revenue)}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Additional Stats */}
-      {stats?.pageViews && (
-        <div className={`${isDarkMode ? 'bg-gray-900' : 'bg-white'} rounded-lg shadow-md p-6`}>
-          <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} mb-4`}>Platform Performance</h2>
-          <div className={`grid grid-cols-2 md:grid-cols-4 gap-4`}>
-            <div className={`text-center p-4 bg-blue-50 rounded-lg`}>
-              <Eye className={`w-8 h-8 text-blue-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.pageViews || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Page Views</p>
-            </div>
-            <div className={`text-center p-4 ${isDarkMode ? 'bg-green-500/10' : 'bg-green-50'} rounded-lg`}>
-              <Clock className={`w-8 h-8 text-green-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.avgTimeOnSite || '0m'}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Avg Time</p>
-            </div>
-            <div className={`text-center p-4 bg-yellow-50 rounded-lg`}>
-              <AlertTriangle className={`w-8 h-8 text-yellow-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.errors || 0}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Errors</p>
-            </div>
-            <div className={`text-center p-4 bg-purple-50 rounded-lg`}>
-              <DollarSign className={`w-8 h-8 text-purple-600 mx-auto mb-2`} />
-              <p className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{stats?.revenue || '₹0'}</p>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Revenue</p>
+      {/* Error count if present */}
+      {Number(stats?.errors || 0) > 0 && (
+        <div className="bg-yellow-50 dark:bg-yellow-500/10 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+            <div>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-400">
+                {stats.errors} error{stats.errors !== 1 ? 's' : ''} detected in the selected period
+              </p>
+              <p className="text-xs text-yellow-600 dark:text-yellow-500 mt-0.5">
+                Check the <Link to="/admin/system-health" className="underline">system health</Link> page for details
+              </p>
             </div>
           </div>
         </div>

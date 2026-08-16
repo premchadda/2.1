@@ -143,9 +143,15 @@ END $$;
 
 
 -- 2d. Clean up residual RLS policies on user_topic_performance
-DROP POLICY IF EXISTS user_topic_performance_self ON user_topic_performance;
-DROP POLICY IF EXISTS user_topic_performance_admin ON user_topic_performance;
-DROP POLICY IF EXISTS user_topic_performance_access_policy ON user_topic_performance;
+-- (guarded: policies only dropped if table still exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_topic_performance') THEN
+    DROP POLICY IF EXISTS user_topic_performance_self ON user_topic_performance;
+    DROP POLICY IF EXISTS user_topic_performance_admin ON user_topic_performance;
+    DROP POLICY IF EXISTS user_topic_performance_access_policy ON user_topic_performance;
+  END IF;
+END $$;
 
 
 -- =====================================================
@@ -177,9 +183,15 @@ BEGIN
 END $$;
 
 -- Clean up residual RLS policies on ai_api_usage
-DROP POLICY IF EXISTS ai_api_usage_self ON ai_api_usage;
-DROP POLICY IF EXISTS ai_api_usage_admin ON ai_api_usage;
-DROP POLICY IF EXISTS ai_api_usage_access_policy ON ai_api_usage;
+-- (guarded: policies only dropped if table still exists)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'ai_api_usage') THEN
+    DROP POLICY IF EXISTS ai_api_usage_self ON ai_api_usage;
+    DROP POLICY IF EXISTS ai_api_usage_admin ON ai_api_usage;
+    DROP POLICY IF EXISTS ai_api_usage_access_policy ON ai_api_usage;
+  END IF;
+END $$;
 
 
 -- =====================================================

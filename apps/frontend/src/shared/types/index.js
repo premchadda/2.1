@@ -164,11 +164,15 @@ export function mapUserToFrontend(backendUser) {
  * @returns {TestSeries} Frontend test series object
  */
 export function mapTestSeriesToFrontend(backendSeries) {
+  if (!backendSeries) return null;
+  const publicId = backendSeries.publicId || backendSeries.public_id || (typeof backendSeries.id === 'string' && backendSeries.id.startsWith('ser_') ? backendSeries.id : null);
+  const resolvedId = publicId || backendSeries.slug || backendSeries.id;
   return {
-    id: backendSeries.publicId || backendSeries.slug,
+    id: resolvedId,
     _id: backendSeries._id || backendSeries.id,
     dbId: backendSeries._id || backendSeries.id,
-    public_id: backendSeries.publicId,
+    public_id: publicId,
+    publicId: publicId,
     slug: backendSeries.slug,
     title: backendSeries.title,
     // Keep category and subcategory as IDs/Slugs for stable filtering/routing
@@ -190,6 +194,7 @@ export function mapTestSeriesToFrontend(backendSeries) {
     rating: backendSeries.rating || '4.5',
     tags: backendSeries.tags || [],
     testTypes: backendSeries.testTypes || backendSeries.test_types || [],
+    testCounts: backendSeries.testCounts || backendSeries.test_counts || {},
     isActive: backendSeries.is_active !== undefined ? backendSeries.is_active : (backendSeries.isActive !== false),
     status: (backendSeries.status === 'disabled' ? 'archived' : backendSeries.status || 'draft'),
     isPro: backendSeries.is_pro !== undefined ? backendSeries.is_pro : (backendSeries.isPro || false),
@@ -208,39 +213,61 @@ export function mapTestSeriesToFrontend(backendSeries) {
 }
 
 export function mapTestToFrontend(backendTest) {
+  if (!backendTest) return null
   const bannerAssetId = backendTest.bannerAssetId || backendTest.banner_asset_id || null
   const promotionBannerAssetId = backendTest.promotionBannerAssetId || backendTest.promotion_banner_asset_id || null
+  const resolvedId = backendTest.public_id || backendTest.public_id_uuid || backendTest.uuid || (backendTest.id !== undefined && backendTest.id !== null ? String(backendTest.id) : null) || (backendTest._id !== undefined && backendTest._id !== null ? String(backendTest._id) : null) || backendTest.slug
+
+  const subCat = backendTest.subcategory || backendTest.subCategory || backendTest.sub_category || null
+  const testCatId = backendTest.test_category_id || backendTest.testCategoryId || backendTest.category_id || backendTest.categoryId || null
+  const subCatId = backendTest.sub_category_id || backendTest.subCategoryId || null
+  const examId = backendTest.exam_id || backendTest.examId || subCat || null
 
   return {
-    id: backendTest.public_id || backendTest.slug || String(backendTest.id || backendTest._id),
+    id: resolvedId,
     _id: backendTest.id || backendTest._id,
-    public_id: backendTest.public_id,
+    public_id: backendTest.public_id || backendTest.public_id_uuid || resolvedId,
     slug: backendTest.slug,
     title: backendTest.title,
     category: backendTest.category,
-    subCategory: backendTest.subcategory || backendTest.subCategory || backendTest.sub_category,
-    // Add examId for compatibility with older components
-    examId: backendTest.subcategory || backendTest.subCategory || backendTest.sub_category,
-    testCategoryId: backendTest.test_category_id || backendTest.testCategoryId || null,
-    test_category_id: backendTest.test_category_id || backendTest.testCategoryId || null,
+    subCategory: subCat,
+    subcategory: subCat,
+    sub_category: subCat,
+    examId: examId,
+    exam_id: examId,
+    testCategoryId: testCatId,
+    test_category_id: testCatId,
+    categoryId: testCatId,
+    category_id: testCatId,
+    subCategoryId: subCatId,
+    sub_category_id: subCatId,
+    testCategoryName: backendTest.test_category_name || backendTest.testCategoryName || null,
+    categoryName: backendTest.category_name || backendTest.categoryName || null,
+    categorySlug: backendTest.category_slug || backendTest.categorySlug || null,
+    category_slug: backendTest.category_slug || backendTest.categorySlug || null,
+    subCategorySlug: backendTest.sub_category_slug || backendTest.subCategorySlug || null,
+    sub_category_slug: backendTest.sub_category_slug || backendTest.subCategorySlug || null,
     categoryPathIds: backendTest.category_path_ids || backendTest.categoryPathIds || [],
+    category_path_ids: backendTest.category_path_ids || backendTest.categoryPathIds || [],
     categoryPathNames: backendTest.category_path_names || backendTest.categoryPathNames || [],
+    category_path_names: backendTest.category_path_names || backendTest.categoryPathNames || [],
     type: backendTest.type || (backendTest.is_pro ? 'Pro' : 'Free'),
     isPro: backendTest.is_pro !== undefined ? backendTest.is_pro : (backendTest.isPro || false),
     totalQuestions: backendTest.total_questions || backendTest.totalQuestions || 0,
     totalMarks: backendTest.total_marks || backendTest.totalMarks || 0,
     questions: backendTest.questions || backendTest.total_questions || backendTest.totalQuestions || 0,
     duration: backendTest.duration || 60,
-    marks: backendTest.marks || backendTest.total_marks || backendTest.totalMarks || 0,
+    year: backendTest.year || backendTest.pyq_year || backendTest.pyqYear || null,
+    pyqYear: backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
+    pyq_year: backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
+    isPyq: backendTest.is_pyq !== undefined ? backendTest.is_pyq : (backendTest.isPyq || false),
+    is_pyq: backendTest.is_pyq !== undefined ? backendTest.is_pyq : (backendTest.isPyq || false),
     tags: backendTest.tags || [],
     languages: backendTest.languages || [],
     isComingSoon: backendTest.is_coming_soon !== undefined ? backendTest.is_coming_soon : (backendTest.isComingSoon || false),
-    // REMOVED duplicate: is_coming_soon - use isComingSoon instead
     comingSoonDate: backendTest.coming_soon_date || backendTest.comingSoonDate || null,
-    // REMOVED duplicate: coming_soon_date - use comingSoonDate instead
     testSeriesId: backendTest.test_series_id || backendTest.testSeriesId || backendTest.series_id || backendTest.seriesId,
     seriesId: backendTest.test_series_id || backendTest.testSeriesId || backendTest.series_id || backendTest.seriesId,
-    // REMOVED duplicate: series_id - use testSeriesId/seriesId instead
     bannerAssetId,
     promotionBannerAssetId,
     bannerUrl: backendTest.bannerUrl || backendTest.banner_url || backendTest.bannerImageUrl || backendTest.banner_image_url || null,
@@ -248,7 +275,11 @@ export function mapTestToFrontend(backendTest) {
     isActive: backendTest.is_active !== undefined ? backendTest.is_active : (backendTest.isActive !== false),
     difficulty: (backendTest.difficulty || backendTest.difficulty_level || 'medium').toLowerCase(),
     stageId: backendTest.stage_id || backendTest.stageId,
-    status: (backendTest.status === 'disabled' ? 'archived' : backendTest.status || 'draft'),
+    stage_id: backendTest.stage_id || backendTest.stageId,
+    stageIds: backendTest.stage_ids || backendTest.stageIds || [],
+    stage_ids: backendTest.stage_ids || backendTest.stageIds || [],
+    tier: backendTest.tier || null,
+    status: backendTest.status === 'disabled' ? 'archived' : (backendTest.status || (backendTest.is_active !== false && backendTest.isActive !== false ? 'published' : 'draft')),
     createdAt: backendTest.created_at || backendTest.createdAt,
     updatedAt: backendTest.updated_at || backendTest.updatedAt
   };
@@ -291,6 +322,21 @@ export function mapQuestionToFrontend(backendQuestion) {
     textFormatted = { en: backendQuestion.text || '' }
   }
 
+  // Handle explanation translations
+  let explanationFormatted
+  const explanationText = backendQuestion.explanation
+  const explanationTextHi = backendQuestion.explanationHi || backendQuestion.explanation_hi
+  if (explanationText) {
+    explanationFormatted = { en: explanationText }
+    if (explanationTextHi) {
+      explanationFormatted.hi = explanationTextHi
+    }
+  } else if (typeof backendQuestion.explanation === 'object') {
+    explanationFormatted = backendQuestion.explanation
+  } else {
+    explanationFormatted = { en: '' }
+  }
+
   return {
     id: backendQuestion.public_id || String(backendQuestion.id || backendQuestion._id),
     _id: backendQuestion.id || backendQuestion._id,
@@ -298,7 +344,7 @@ export function mapQuestionToFrontend(backendQuestion) {
     text: textFormatted,
     options: optionsFormatted,
     correct: backendQuestion.correctAnswer !== undefined ? backendQuestion.correctAnswer : (backendQuestion.correct_answer !== undefined ? backendQuestion.correct_answer : (backendQuestion.correctOption !== undefined ? backendQuestion.correctOption : (backendQuestion.correct_option !== undefined ? backendQuestion.correct_option : backendQuestion.correct))),
-    explanation: backendQuestion.explanation,
+    explanation: explanationFormatted,
     section: backendQuestion.section || backendQuestion.subject || 'General',
     subject: backendQuestion.subject,
     testId: backendQuestion.testId || backendQuestion.test_id,

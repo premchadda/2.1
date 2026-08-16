@@ -1,6 +1,8 @@
 import express from 'express'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js'
 import {
   analyticsService,
   leaderboardService,
@@ -11,14 +13,14 @@ import {
 
 const router = express.Router()
 
-router.get('/top-performers', async (req, res) => {
+router.get('/top-performers', protect, responseCache("intelligence-top-performers", 60), async (req, res) => {
   try {
     const limit = Number(req.query.limit || 10)
     const seriesId = req.query.seriesId || null
     const data = await analyticsService.getTopPerformers(limit, { seriesId })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -29,7 +31,7 @@ router.get('/performance', async (req, res) => {
     const data = await analyticsService.getUserPerformanceAnalytics(req.user.id)
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -40,7 +42,7 @@ router.get('/weak-topics', async (req, res) => {
     const data = await analyticsService.getUserWeakTopics(req.user.id, { minAttempts, limit })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -50,7 +52,7 @@ router.get('/recommendations', async (req, res) => {
     const data = await recommendationService.getRecommendationsForUser(req.user.id, { limit })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -67,7 +69,7 @@ router.get('/rank-prediction', async (req, res) => {
     const data = await rankPredictionService.predictRankForScore({ testId, score, totalStudents })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -78,7 +80,7 @@ router.get('/wrong-questions', async (req, res) => {
     const data = await learningService.getWrongQuestionBank(req.user.id, { testId, limit })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -89,7 +91,7 @@ router.get('/revision-queue', async (req, res) => {
     const data = await learningService.getRevisionQueue(req.user.id, { dueOnly, limit })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -105,11 +107,11 @@ router.put('/revision-queue/:id/complete', async (req, res) => {
     }
     res.json({ success: true, data: result.item })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-router.get('/leaderboard', async (req, res) => {
+router.get('/leaderboard', responseCache("intelligence-leaderboard", 60), async (req, res) => {
   try {
     const type = req.query.type || 'test'
     const testId = req.query.testId || null
@@ -122,7 +124,7 @@ router.get('/leaderboard', async (req, res) => {
     const data = await leaderboardService.getLeaderboard({ type, testId, seriesId, sortBy, page, limit, date })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -136,16 +138,16 @@ router.post('/leaderboard/recalculate', async (req, res) => {
     })
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-router.get('/streak', async (req, res) => {
+router.get('/streak', responseCache("intelligence-streak", 60), async (req, res) => {
   try {
     const data = await analyticsService.getStudyStreak(req.user.id)
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -155,7 +157,7 @@ router.get('/daily-quiz', async (req, res) => {
     const data = await learningService.getDailyQuizForUser(req.user.id, date)
     res.json({ success: true, data })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -168,7 +170,7 @@ router.post('/daily-quiz/:quizId/submit', async (req, res) => {
     }
     res.json({ success: true, data: result.result })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

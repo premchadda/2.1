@@ -103,7 +103,7 @@ BEGIN
                       WHERE tablename = t
                         AND indexname = 'idx_' || t || '_is_deleted') THEN
         EXECUTE format(
-          'CREATE INDEX %I ON %I (is_deleted) WHERE is_deleted = true',
+          'CREATE INDEX IF NOT EXISTS %I ON %I (is_deleted) WHERE is_deleted = true',
           'idx_' || t || '_is_deleted', t
         );
       END IF;
@@ -114,7 +114,7 @@ BEGIN
                       WHERE tablename = t
                         AND indexname = 'idx_' || t || '_active_undeleted') THEN
         EXECUTE format(
-          'CREATE INDEX %I ON %I (id) WHERE is_active = true AND is_deleted = false',
+          'CREATE INDEX IF NOT EXISTS %I ON %I (id) WHERE is_active = true AND is_deleted = false',
           'idx_' || t || '_active_undeleted', t
         );
       END IF;

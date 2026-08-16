@@ -1,5 +1,6 @@
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { addDays, idsMatch, safeNumber, nullIfEmpty } from './common.js'
+import logger from '../../infrastructure/logger/logger.js'
 
 const REVISION_SCHEDULE_DAYS = [1, 3, 7, 14]
 
@@ -28,7 +29,7 @@ const getQuestionId = (question) => question?.id || question?._id
 
 const getQuestionMapForTest = async (testId) => {
   const result = await pool.query(
-    `SELECT * FROM questions WHERE is_active = true AND (test_id = $1 OR "testId" = $1 OR test_id = $2 OR "testId" = $2)`,
+    `SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE is_active = true AND (test_id = $1 OR "testId" = $1 OR test_id = $2 OR "testId" = $2)`,
     [Number(testId) || -1, String(testId)]
   )
   const filtered = result.rows.map(row => dbHelpers.toCamel(row))
@@ -71,6 +72,8 @@ const evaluateAttemptAnswers = (attempt, questionMap) => {
       attempted,
       isCorrect,
       isWrong: attempted && !isCorrect,
+      timeSpentSeconds:
+        Number(entry?.timeSpent ?? entry?.time_spent ?? entry?.timeTakenSec ?? entry?.time_taken_sec ?? entry?.timeSpentSeconds ?? 0) || 0,
     })
   })
 
@@ -88,12 +91,14 @@ const aggregateByTopic = (evaluatedRows) => {
       correct: 0,
       wrong: 0,
       unattempted: 0,
+      timeSpentSeconds: 0,
     }
 
     if (row.attempted) existing.attempts += 1
     if (row.isCorrect) existing.correct += 1
     if (row.isWrong) existing.wrong += 1
     if (!row.attempted) existing.unattempted += 1
+    if (row.timeSpentSeconds) existing.timeSpentSeconds += row.timeSpentSeconds
 
     map.set(key, existing)
   })
@@ -110,7 +115,7 @@ const upsertUserTopicStats = async (userId, topicRows, submittedAt) => {
       INSERT INTO user_topic_stats
         (user_id, topic, subject, total_attempts, correct_answers, wrong_answers, unattempted_answers, total_time_spent_seconds, accuracy, last_attempted_at, created_at, updated_at)
       VALUES
-        ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, NOW(), NOW())
+        ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
       ON CONFLICT (user_id, topic)
       DO UPDATE SET
         subject = EXCLUDED.subject,
@@ -118,12 +123,13 @@ const upsertUserTopicStats = async (userId, topicRows, submittedAt) => {
         correct_answers = user_topic_stats.correct_answers + EXCLUDED.correct_answers,
         wrong_answers = user_topic_stats.wrong_answers + EXCLUDED.wrong_answers,
         unattempted_answers = user_topic_stats.unattempted_answers + EXCLUDED.unattempted_answers,
+        total_time_spent_seconds = user_topic_stats.total_time_spent_seconds + EXCLUDED.total_time_spent_seconds,
         accuracy = ROUND(((user_topic_stats.correct_answers + EXCLUDED.correct_answers)::numeric /
           NULLIF((user_topic_stats.total_attempts + EXCLUDED.total_attempts), 0)::numeric) * 100, 2),
         last_attempted_at = EXCLUDED.last_attempted_at,
         updated_at = NOW()
       `,
-      [userId, row.topic, row.subject, totalAttempts, row.correct, row.wrong, row.unattempted, accuracy, submittedAt]
+      [userId, row.topic, row.subject, totalAttempts, row.correct, row.wrong, row.unattempted, safeNumber(row.timeSpentSeconds), accuracy, submittedAt]
     )
   }
 }
@@ -218,63 +224,50 @@ const enqueueRevisionRows = async (attempt, evaluatedRows, submittedAt) => {
   }
 }
 
-const updateStudyStreak = async (userId, date = new Date()) => {
+const updateStudyStreak = async (userId, date = new Date(), client = null) => {
+  const db = client || pool
   const today = new Date(date)
   today.setHours(0, 0, 0, 0)
   const todayStr = today.toISOString().slice(0, 10)
 
-  const existing = await pool.query('SELECT * FROM study_streaks WHERE user_id = $1 LIMIT 1', [userId])
-  const streak = existing.rows[0]
-
-  if (!streak) {
-    await pool.query(
-      `
-      INSERT INTO study_streaks (user_id, current_streak, best_streak, total_active_days, last_active_date, updated_at, created_at)
-      VALUES ($1, 1, 1, 1, $2, NOW(), NOW())
-      `,
-      [userId, todayStr]
-    )
-    return { currentStreak: 1, bestStreak: 1, totalActiveDays: 1 }
-  }
-
-  const lastActive = streak.last_active_date ? new Date(streak.last_active_date) : null
-  let currentStreak = safeNumber(streak.current_streak)
-  let bestStreak = safeNumber(streak.best_streak)
-  let totalActiveDays = safeNumber(streak.total_active_days)
-
-  if (!lastActive) {
-    currentStreak = 1
-    totalActiveDays += 1
-  } else {
-    lastActive.setHours(0, 0, 0, 0)
-    const diffDays = Math.floor((today.getTime() - lastActive.getTime()) / (1000 * 60 * 60 * 24))
-    if (diffDays === 0) {
-      return {
-        currentStreak: safeNumber(streak.current_streak),
-        bestStreak: safeNumber(streak.best_streak),
-        totalActiveDays: safeNumber(streak.total_active_days),
-      }
-    }
-    if (diffDays === 1) {
-      currentStreak += 1
-    } else {
-      currentStreak = 1
-    }
-    totalActiveDays += 1
-  }
-
-  bestStreak = Math.max(bestStreak, currentStreak)
-
-  await pool.query(
+  // Atomic upsert — uses a single query with CASE/WHEN to avoid the
+  // read-compute-write race where two concurrent submissions both read
+  // current_streak=5, both compute 6, and the second write wins (lost update).
+  const result = await db.query(
     `
-    UPDATE study_streaks
-    SET current_streak = $2, best_streak = $3, total_active_days = $4, last_active_date = $5, updated_at = NOW()
-    WHERE user_id = $1
+    INSERT INTO study_streaks (user_id, current_streak, best_streak, total_active_days, last_active_date, created_at, updated_at)
+    VALUES ($1, 1, 1, 1, $2, NOW(), NOW())
+    ON CONFLICT (user_id) DO UPDATE SET
+      current_streak = CASE
+        WHEN study_streaks.last_active_date = $2 THEN study_streaks.current_streak
+        WHEN study_streaks.last_active_date = ($2::date - INTERVAL '1 day')::date THEN study_streaks.current_streak + 1
+        ELSE 1
+      END,
+      best_streak = GREATEST(
+        study_streaks.best_streak,
+        CASE
+          WHEN study_streaks.last_active_date = $2 THEN study_streaks.current_streak
+          WHEN study_streaks.last_active_date = ($2::date - INTERVAL '1 day')::date THEN study_streaks.current_streak + 1
+          ELSE 1
+        END
+      ),
+      total_active_days = CASE
+        WHEN study_streaks.last_active_date = $2 THEN study_streaks.total_active_days
+        ELSE study_streaks.total_active_days + 1
+      END,
+      last_active_date = $2,
+      updated_at = NOW()
+    RETURNING current_streak, best_streak, total_active_days
     `,
-    [userId, currentStreak, bestStreak, totalActiveDays, todayStr]
+    [userId, todayStr]
   )
 
-  return { currentStreak, bestStreak, totalActiveDays }
+  const row = result.rows[0]
+  return {
+    currentStreak: safeNumber(row.current_streak),
+    bestStreak: safeNumber(row.best_streak),
+    totalActiveDays: safeNumber(row.total_active_days),
+  }
 }
 
 const getCompletedAttempt = async ({ userId, testId, attemptId }) => {
@@ -310,10 +303,28 @@ export const processTestSubmissionAnalytics = async ({ userId, testId, attemptId
   const topicRows = aggregateByTopic(evaluated)
   const submittedAt = attempt.submittedAt || attempt.updatedAt || new Date().toISOString()
 
-  await upsertUserTopicStats(effectiveUserId, topicRows, submittedAt)
-  await upsertTopicAnalytics(topicRows, submittedAt)
-  await upsertWrongQuestions(attempt, evaluated, submittedAt)
-  await enqueueRevisionRows(attempt, evaluated, submittedAt)
+  // Wrap the 5-step analytics pipeline in a transaction so a crash mid-pipeline
+  // doesn't leave partial analytics (wrong questions tracked but no revision queue,
+  // etc.). Was: 5 independent awaits with no atomicity.
+  const client = await pool.connect()
+  try {
+    await client.query('BEGIN')
+
+    await upsertUserTopicStats(effectiveUserId, topicRows, submittedAt)
+    await upsertTopicAnalytics(topicRows, submittedAt)
+    await upsertWrongQuestions(attempt, evaluated, submittedAt)
+    await enqueueRevisionRows(attempt, evaluated, submittedAt)
+
+    await client.query('COMMIT')
+  } catch (err) {
+    await client.query('ROLLBACK')
+    throw err
+  } finally {
+    client.release()
+  }
+
+  // Streak update is outside the transaction — it's a best-effort counter
+  // and shouldn't roll back the analytics pipeline if it fails.
   const streak = await updateStudyStreak(effectiveUserId, submittedAt)
 
   return {
@@ -352,13 +363,32 @@ export const getUserWeakTopics = async (userId, { minAttempts = 3, limit = 5 } =
 }
 
 export const getUserPerformanceAnalytics = async (userId) => {
-  const attempts = await dbHelpers.find('attempts', { userId })
-  const completed = attempts
-    .filter((attempt) => {
-      const status = String(attempt.status || '').toLowerCase()
-      return attempt.isCompleted === true || status === 'completed' || status === 'submitted'
-    })
-    .sort((a, b) => new Date(a.submittedAt || a.createdAt || 0) - new Date(b.submittedAt || b.createdAt || 0))
+  let completed = []
+  try {
+    const attemptsResult = await pool.query(
+      `SELECT * FROM attempts WHERE (user_id = $1 OR user_id = $2) AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted')) ORDER BY submitted_at ASC, created_at ASC`,
+      [Number(userId) || -1, String(userId)]
+    )
+    completed = attemptsResult.rows.map(r => ({
+      ...r,
+      totalQuestions: r.total_questions ?? r.totalQuestions ?? 0,
+      correct: r.correct ?? 0,
+      wrong: r.wrong ?? r.incorrect ?? 0,
+      timeSpent: r.time_spent ?? r.time_taken ?? r.timeSpentSeconds ?? 0,
+      score: r.score ?? 0,
+      accuracy: r.accuracy ?? 0,
+      submittedAt: r.submitted_at ?? r.created_at,
+    }))
+  } catch (err) {
+    logger.warn('Failed to query attempts for user performance analytics:', err.message)
+    const attempts = await dbHelpers.find('attempts', { userId })
+    completed = attempts
+      .filter((attempt) => {
+        const status = String(attempt.status || '').toLowerCase()
+        return attempt.isCompleted === true || status === 'completed' || status === 'submitted'
+      })
+      .sort((a, b) => new Date(a.submittedAt || a.createdAt || 0) - new Date(b.submittedAt || b.createdAt || 0))
+  }
 
   const testCount = completed.length
   const totalQuestions = completed.reduce((sum, attempt) => sum + safeNumber(attempt.totalQuestions), 0)
@@ -367,7 +397,7 @@ export const getUserPerformanceAnalytics = async (userId) => {
   const totalAttempted = totalCorrect + totalWrong
   const totalTimeSpent = completed.reduce((sum, attempt) => sum + safeNumber(attempt.timeSpent), 0)
   const averageScore = testCount > 0 ? completed.reduce((sum, attempt) => sum + safeNumber(attempt.score), 0) / testCount : 0
-  const overallAccuracy = totalAttempted > 0 ? (totalCorrect / totalAttempted) * 100 : 0
+  const overallAccuracy = totalAttempted > 0 ? (totalCorrect / totalAttempted) * 100 : (testCount > 0 && totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0)
   const speedPerQuestion = totalAttempted > 0 ? totalTimeSpent / totalAttempted : 0
 
   const performanceTrend = completed.map((attempt) => ({
@@ -378,15 +408,51 @@ export const getUserPerformanceAnalytics = async (userId) => {
   }))
 
   const weakTopics = await getUserWeakTopics(userId, { minAttempts: 2, limit: 10 })
+  const rank = await calculateUserRank(userId, averageScore)
+
+  // Subject-wise stats from user_topic_stats
+  let subjectWise = []
+  try {
+    const subResult = await pool.query(
+      `SELECT COALESCE(subject, 'General') as name, SUM(total_attempts) as attempted, SUM(correct_answers) as correct, AVG(accuracy) as accuracy FROM user_topic_stats WHERE user_id = $1 GROUP BY COALESCE(subject, 'General')`,
+      [Number(userId) || -1]
+    )
+    subjectWise = subResult.rows.map(r => ({
+      name: r.name,
+      attempted: parseInt(r.attempted) || 0,
+      correct: parseInt(r.correct) || 0,
+      accuracy: Math.round(parseFloat(r.accuracy) || 0)
+    }))
+  } catch (subErr) {
+    logger.warn('Failed to fetch subjectWise stats:', subErr.message)
+  }
+
+  const roundedAvgScore = Number(averageScore.toFixed(2))
+  const roundedAccuracy = Number(overallAccuracy.toFixed(2))
 
   return {
+    totalTests: testCount,
+    testCount,
+    avgScore: roundedAvgScore,
+    averageScore: roundedAvgScore,
+    avgAccuracy: roundedAccuracy,
+    overallAccuracy: roundedAccuracy,
+    speedPerQuestion: Number(speedPerQuestion.toFixed(2)),
+    totalQuestions,
+    totalAttempted,
+    rank: rank || 1,
+    subjectWise,
     summary: {
       testCount,
-      averageScore: Number(averageScore.toFixed(2)),
-      overallAccuracy: Number(overallAccuracy.toFixed(2)),
+      totalTests: testCount,
+      averageScore: roundedAvgScore,
+      avgScore: roundedAvgScore,
+      overallAccuracy: roundedAccuracy,
+      avgAccuracy: roundedAccuracy,
       speedPerQuestion: Number(speedPerQuestion.toFixed(2)),
       totalQuestions,
       totalAttempted,
+      rank: rank || 1,
     },
     trends: performanceTrend,
     weakTopics,
@@ -394,7 +460,7 @@ export const getUserPerformanceAnalytics = async (userId) => {
 }
 
 export const getQuestionAnalytics = async ({ testId = null, subject = null, topic = null, limit = 500 } = {}) => {
-  let queryStr = `SELECT * FROM questions WHERE is_active = true`
+  let queryStr = `SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE is_active = true`
   const params = []
   if (testId) {
     params.push(String(testId), Number(testId) || -1)
@@ -411,7 +477,7 @@ export const getQuestionAnalytics = async ({ testId = null, subject = null, topi
   })
 
   const attemptsResult = await pool.query(
-    `SELECT * FROM attempts WHERE is_completed = true OR status ILIKE 'completed' OR status ILIKE 'submitted'`
+    `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE is_completed = true OR status ILIKE 'completed' OR status ILIKE 'submitted'`
   )
   const completed = attemptsResult.rows.map(r => dbHelpers.toCamel(r))
 
@@ -509,7 +575,7 @@ export const calculateUserRank = async (userId, userAvgScore) => {
     const countResult = await pool.query(`SELECT COUNT(DISTINCT user_id) as total FROM attempts`);
     return parseInt(countResult.rows[0].total) + 1;
   } catch (error) {
-    console.error('Error calculating rank:', error)
+    logger.error('Error calculating rank:', error)
     return 0
   }
 }
@@ -554,8 +620,115 @@ export const getTopPerformers = async (limit = 10, filter = {}) => {
       }
     });
   } catch (error) {
-    console.error('Error getting top performers:', error)
+    logger.error('Error getting top performers:', error)
     return []
+  }
+}
+
+const resolveTopicName = async (topic) => {
+  if (topic === null || topic === undefined || topic === '') return null
+  const isNumeric = typeof topic === 'number' || /^-?[0-9]+$/.test(String(topic).trim())
+  if (!isNumeric) return topic
+  const r = await pool.query(`SELECT name FROM subject_topics WHERE id = $1 LIMIT 1`, [Number(topic)])
+  return r.rows[0]?.name ?? topic
+}
+
+const resolveSubjectName = async (subject) => {
+  if (subject === null || subject === undefined || subject === '') return null
+  const isNumeric = typeof subject === 'number' || /^-?[0-9]+$/.test(String(subject).trim())
+  if (!isNumeric) return subject
+  const r = await pool.query(`SELECT name FROM subjects WHERE id = $1 LIMIT 1`, [Number(subject)])
+  return r.rows[0]?.name ?? subject
+}
+
+/**
+ * Bridge a completed Practice Lab session into the analytics pipeline so that
+ * streaks, weak-area detection, the recommendation engine, and the SRS
+ * revision queue also reflect practice activity. Previously only test
+ * submissions fed these systems, leaving practice-only users with no durable
+ * progress, no weak-area signal, and no spaced-repetition scheduling.
+ *
+ * Failures here are non-fatal: a practice session completion must still succeed
+ * even if analytics enrichment is temporarily unavailable.
+ */
+export const recordPracticeAnalytics = async (userId, sessionId, { topic, subject } = {}) => {
+  try {
+    // Resolve numeric IDs to display names so user_topic_stats.topic/subject
+    // hold names (weak-area detection joins on LOWER(name) = LOWER(topic)).
+    const resolvedTopic = await resolveTopicName(topic)
+    const resolvedSubject = await resolveSubjectName(subject)
+
+    // 1. Study streak (dashboard reads study_streaks, not orphaned practice_streaks)
+    await updateStudyStreak(userId)
+
+    // 2. Aggregate this session's answers into user_topic_stats so weak-area
+    //    detection and recommendations pick up practice performance.
+    if (resolvedTopic) {
+      const agg = await pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE is_correct) AS correct,
+           COUNT(*) FILTER (WHERE NOT is_correct AND NOT is_skipped) AS wrong,
+           COUNT(*) FILTER (WHERE is_skipped) AS skipped,
+           COUNT(*) AS total,
+           COALESCE(SUM(time_taken_sec), 0) AS time_spent_seconds
+         FROM practice_answers
+         WHERE user_id = $1 AND session_id = $2`,
+        [userId, sessionId]
+      )
+      const a = agg.rows[0]
+      const attempts = parseInt(a.total, 10) || 0
+      if (attempts > 0) {
+        const correct = parseInt(a.correct, 10) || 0
+        const wrong = parseInt(a.wrong, 10) || 0
+        const unattempted = parseInt(a.skipped, 10) || 0
+        const timeSpentSeconds = parseInt(a.time_spent_seconds, 10) || 0
+        const accuracy = attempts > 0 ? (correct / attempts) * 100 : 0
+        await pool.query(
+          `INSERT INTO user_topic_stats
+             (user_id, topic, subject, total_attempts, correct_answers, wrong_answers, unattempted_answers, total_time_spent_seconds, accuracy, last_attempted_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+           ON CONFLICT (user_id, topic)
+           DO UPDATE SET
+             subject = EXCLUDED.subject,
+             total_attempts = user_topic_stats.total_attempts + EXCLUDED.total_attempts,
+             correct_answers = user_topic_stats.correct_answers + EXCLUDED.correct_answers,
+             wrong_answers = user_topic_stats.wrong_answers + EXCLUDED.wrong_answers,
+             unattempted_answers = user_topic_stats.unattempted_answers + EXCLUDED.unattempted_answers,
+             total_time_spent_seconds = user_topic_stats.total_time_spent_seconds + EXCLUDED.total_time_spent_seconds,
+             accuracy = ROUND(((user_topic_stats.correct_answers + EXCLUDED.correct_answers)::numeric /
+               NULLIF((user_topic_stats.total_attempts + EXCLUDED.total_attempts), 0)::numeric) * 100, 2),
+             last_attempted_at = EXCLUDED.last_attempted_at,
+             updated_at = NOW()`,
+          [userId, resolvedTopic, resolvedSubject || null, attempts, correct, wrong, unattempted, timeSpentSeconds, accuracy]
+        )
+      }
+    }
+
+    // 3. Enqueue wrong (non-skipped) answers into the spaced-repetition queue.
+    const wrong = await pool.query(
+      `SELECT DISTINCT question_id FROM practice_answers
+       WHERE user_id = $1 AND session_id = $2 AND is_correct = false AND is_skipped = false`,
+      [userId, sessionId]
+    )
+    for (const row of wrong.rows) {
+      for (const day of REVISION_SCHEDULE_DAYS) {
+        const dueAt = addDays(new Date(), day)
+        await pool.query(
+          `INSERT INTO revision_queue
+             (user_id, question_id, source_attempt_id, schedule_day, due_at, status, priority, metadata, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, $5, 'pending', $6, '{}'::jsonb, NOW(), NOW())
+           ON CONFLICT (user_id, question_id, source_attempt_id, schedule_day)
+           DO UPDATE SET
+             due_at = EXCLUDED.due_at,
+             status = 'pending',
+             priority = EXCLUDED.priority,
+             updated_at = NOW()`,
+          [userId, row.question_id, `practice:${sessionId}`, day, dueAt.toISOString(), day <= 3 ? 2 : 1]
+        )
+      }
+    }
+  } catch (err) {
+    logger.error('recordPracticeAnalytics failed (non-fatal):', err)
   }
 }
 
@@ -566,6 +739,7 @@ export const analyticsService = {
   getQuestionAnalytics,
   getStudyStreak,
   updateStudyStreak,
+  recordPracticeAnalytics,
   calculateUserRank,
   getTopPerformers,
 }

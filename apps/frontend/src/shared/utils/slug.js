@@ -1,5 +1,5 @@
 export function slugify(input) {
-  if (input == null) return ''
+  if (input === null || input === undefined) return ''
   return String(input)
     .toLowerCase()
     .trim()

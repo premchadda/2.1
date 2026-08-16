@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -111,7 +112,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch coming soon features',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -125,7 +126,7 @@ router.get('/:id', async (req, res) => {
   
   try {
     const { rows } = await pool.query(
-      'SELECT * FROM coming_soon_features WHERE id = $1',
+      'SELECT id, name, description, eta, category, status, created_at, updated_at FROM coming_soon_features WHERE id = $1',
       [id]
     )
     
@@ -145,7 +146,7 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch coming soon feature',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -210,7 +211,7 @@ router.post('/', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to create coming soon feature',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -294,7 +295,7 @@ router.put('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update coming soon feature',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -328,7 +329,7 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete coming soon feature',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -389,7 +390,7 @@ router.patch('/:id/progress', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to update progress',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })

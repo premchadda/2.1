@@ -1,6 +1,5 @@
 import express from "express";
 import multer from "multer";
-import * as XLSX from "xlsx";
 import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
 import { Test } from "../../data/models/index.js";
 import { createSchema, validateBody } from "../../middleware/validation/inputValidation.js";
@@ -8,8 +7,16 @@ import { memoryUpload as bulkQuestionUpload } from "../../infrastructure/storage
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import { logAuditEvent } from "../../middleware/audit.middleware.js";
 import { asyncHandler } from "../../middleware/asyncHandler.js";
+import logger from "../../infrastructure/logger/logger.js";
+import { parseCSVBuffer, parseJSONBuffer, parseSpreadsheetBuffer } from "../../services/import/enhancedImporter.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+
+import { protect, admin } from "../../middleware/auth.middleware.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
+router.use(protect);
+router.use(admin);
 
 const optionalIdField = { type: "id", required: false };
 const optionalIntegerField = { type: "integer", required: false };
@@ -70,23 +77,154 @@ const normalizeTestPayloadForDb = (data = {}) => {
   delete payload.test_series_id;
   delete payload.sectionIds;
   delete payload.section_ids;
+  delete payload.maxParticipants;
+  delete payload.max_participants;
 
   if (testSeriesId !== null && testSeriesId !== undefined && testSeriesId !== "") {
     payload.seriesId = testSeriesId;
     payload.series_id = testSeriesId;
   }
 
+  // Handle examId / exam_id (INTEGER column in DB)
+  const rawExamId = payload.examId ?? payload.exam_id;
+  if (rawExamId !== null && rawExamId !== undefined && rawExamId !== "") {
+    const parsedInt = parseInt(rawExamId, 10);
+    if (!isNaN(parsedInt) && String(parsedInt) === String(rawExamId).trim()) {
+      payload.exam_id = parsedInt;
+      payload.examId = parsedInt;
+    } else {
+      if (!payload.sub_category) payload.sub_category = String(rawExamId);
+      delete payload.exam_id;
+      delete payload.examId;
+    }
+  }
+
+  // Handle testCategoryId / test_category_id
+  const rawCatId = payload.testCategoryId ?? payload.test_category_id;
+  if (rawCatId !== null && rawCatId !== undefined && rawCatId !== "") {
+    const parsedInt = parseInt(rawCatId, 10);
+    if (!isNaN(parsedInt) && String(parsedInt) === String(rawCatId).trim()) {
+      payload.test_category_id = parsedInt;
+      payload.testCategoryId = parsedInt;
+    } else {
+      if (!payload.sub_category) payload.sub_category = String(rawCatId);
+      delete payload.test_category_id;
+      delete payload.testCategoryId;
+    }
+  }
+
+  // Handle scheduledEnd / scheduled_end: map to end_time column & availability JSONB to avoid DB column error
+  if (payload.scheduledEnd || payload.scheduled_end) {
+    const endVal = payload.scheduledEnd || payload.scheduled_end;
+    delete payload.scheduledEnd;
+    delete payload.scheduled_end;
+
+    payload.end_time = endVal;
+
+    let existingAvailability = {};
+    if (typeof payload.availability === "object" && payload.availability !== null) {
+      existingAvailability = payload.availability;
+    }
+    payload.availability = {
+      ...existingAvailability,
+      scheduledEnd: endVal
+    };
+  }
+
+  // Handle Sectional Timing: store in timing_config JSONB column to avoid non-existent top-level column error
+  if (payload.hasSectionalTiming !== undefined || payload.has_sectional_timing !== undefined || payload.sectionalTiming !== undefined) {
+    const hasSecTiming = Boolean(payload.hasSectionalTiming ?? payload.has_sectional_timing ?? payload.sectionalTiming);
+    delete payload.hasSectionalTiming;
+    delete payload.has_sectional_timing;
+    delete payload.sectionalTiming;
+
+    let existingTimingConfig = {};
+    if (typeof payload.timing_config === "object" && payload.timing_config !== null) {
+      existingTimingConfig = payload.timing_config;
+    } else if (typeof payload.timingConfig === "object" && payload.timingConfig !== null) {
+      existingTimingConfig = payload.timingConfig;
+    }
+    payload.timing_config = {
+      ...existingTimingConfig,
+      hasSectionalTiming: hasSecTiming
+    };
+    delete payload.timingConfig;
+  }
+
+  // Handle year & pyq_year normalization
+  const rawYear = payload.year ?? payload.pyq_year ?? payload.pyqYear;
+  let parsedYear = rawYear ? parseInt(rawYear, 10) : null;
+  if (!parsedYear || isNaN(parsedYear)) {
+    const extractedYear = payload.title ? (String(payload.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0] : null;
+    if (extractedYear) parsedYear = parseInt(extractedYear, 10);
+  }
+  if (parsedYear && !isNaN(parsedYear)) {
+    payload.year = parsedYear;
+  }
+
+  const isExplicitMock = payload.category === 'Mock Tests' ||
+    (payload.title && /\b(mock|live test)\b/i.test(payload.title) && !/\b(previous year|pyp|pyq)\b/i.test(payload.title));
+
+  const isExplicitPyp = payload.category === 'PYPs' ||
+    payload.is_pyq === true ||
+    (Array.isArray(payload.tags) && payload.tags.some(t => /pyp|previous/i.test(String(t)))) ||
+    (payload.title && /\b(previous year|pyp|pyq|shift\s*\d)\b/i.test(payload.title));
+
+  if (isExplicitPyp && !isExplicitMock) {
+    payload.is_pyq = true;
+    if (parsedYear) {
+      payload.pyq_year = parsedYear;
+      payload.pyqYear = parsedYear;
+    }
+  } else if (isExplicitMock) {
+    payload.is_pyq = false;
+    payload.pyq_year = null;
+    payload.pyqYear = null;
+  }
+
+  // Handle status defaulting (default active tests to published)
+  if (!payload.status || payload.status === 'active' || payload.status === '') {
+    payload.status = 'published';
+  }
+
+  // Handle category & sub_category defaults
+  if (parsedYear && (!payload.category || payload.category === 'ssc' || payload.category === 'all') && isExplicitPyp) {
+    payload.category = 'PYPs';
+  }
+  if (!payload.sub_category && !payload.subcategory && parsedYear && isExplicitPyp) {
+    payload.sub_category = String(parsedYear);
+    payload.subcategory = String(parsedYear);
+  }
+
   return payload;
 };
 
 const withTestSeriesAliases = (test) => {
+  if (!test) return test;
   const testSeriesId = getTestSeriesId(test);
+  const scheduledEnd = test.scheduledEnd || test.scheduled_end || test.end_time || test.availability?.scheduledEnd || null;
+  const scheduledAt = test.scheduledAt || test.scheduled_at || test.start_time || test.live_schedule || null;
+  const hasSectionalTiming = test.hasSectionalTiming ?? test.has_sectional_timing ?? test.timing_config?.hasSectionalTiming ?? true;
+  const yearVal = test.year || test.pyq_year || test.pyqYear || (test.title ? (String(test.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0] : null);
+
   return {
     ...test,
     testSeriesId,
     seriesId: test.seriesId ?? test.series_id ?? testSeriesId ?? null,
     stageId: test.stageId || test.stage_id || null,
     testCategoryId: test.testCategoryId || test.test_category_id || null,
+    test_category_id: test.testCategoryId || test.test_category_id || null,
+    subCategory: test.subCategory || test.sub_category || (yearVal ? String(yearVal) : null),
+    sub_category: test.sub_category || test.subCategory || (yearVal ? String(yearVal) : null),
+    year: yearVal ? Number(yearVal) : null,
+    pyqYear: yearVal ? Number(yearVal) : null,
+    pyq_year: yearVal ? Number(yearVal) : null,
+    scheduledAt,
+    scheduled_at: scheduledAt,
+    scheduledEnd,
+    scheduled_end: scheduledEnd,
+    hasSectionalTiming,
+    has_sectional_timing: hasSectionalTiming
   };
 };
 
@@ -97,39 +235,6 @@ const attachTestBannerUrls = async (testList) => {
     bannerUrl: t.bannerAssetId ? `/api/admin/assets/${t.bannerAssetId}/view` : null,
     promotionBannerUrl: t.promotionBannerAssetId ? `/api/admin/assets/${t.promotionBannerAssetId}/view` : null,
   }));
-};
-
-// Parse CSV for bulk test upload
-const parseQuestionsCsv = (buffer) => {
-  const content = buffer.toString("utf-8");
-  const lines = content.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    const row = {};
-    headers.forEach((h, i) => {
-      row[h] = values[i] || "";
-    });
-    return row;
-  });
-};
-
-// Parse JSON for bulk test upload
-const parseJson = (buffer) => {
-  try {
-    const data = JSON.parse(buffer.toString("utf-8"));
-    return Array.isArray(data) ? data : data.tests || [];
-  } catch {
-    return [];
-  }
-};
-
-// Parse spreadsheet for bulk test upload
-const parseQuestionsSpreadsheet = (buffer) => {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  return XLSX.utils.sheet_to_json(sheet, { defval: "" });
 };
 
 // Map bulk row to test payload
@@ -183,11 +288,8 @@ router.get("/tests/orphaned", asyncHandler(async (req, res) => {
   const normalized = tests.slice(offset, offset + limit).map(withTestSeriesAliases);
 
   res.json({ success: true, data: normalized, total, limit, offset });
-})
-});
-
-// GET /api/admin/tests - List all tests
-router.get("/tests", asyncHandler(async (req, res) => {
+}));
+router.get("/tests", responseCache("admin-tests-list", 30), asyncHandler(async (req, res) => {
   const rawLimit = Number(req.query.limit);
   const rawOffset = Number(req.query.offset);
   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 1000, 1), 2000);
@@ -218,8 +320,7 @@ router.get("/tests", asyncHandler(async (req, res) => {
     limit,
     offset,
   });
-})
-});
+}));
 
 // GET /api/admin/tests/export - Export tests to CSV
 // NOTE: Must be defined BEFORE /tests/:id to avoid being matched by the param route
@@ -281,13 +382,82 @@ router.get("/tests/export", async (req, res) => {
     res.end();
   } catch (error) {
     if (!res.headersSent) {
-      res.status(500).json({ success: false, message: error.message });
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
     } else {
-      console.error("Export tests error during stream:", error);
+      logger.error("Export tests error during stream:", error);
       res.end();
     }
   }
 });
+
+// DELETE /api/admin/tests/bulk - Bulk delete multiple tests
+router.delete("/tests/bulk", async (req, res) => {
+  try {
+    const { ids } = req.body
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No test IDs provided' })
+    }
+
+    const deletedIds = []
+    for (const id of ids) {
+      try {
+        await dbHelpers.softDelete('tests', id, req.user?.id)
+        deletedIds.push(id)
+      } catch (e) {
+        logger.error(`Failed to delete test ${id}:`, e)
+      }
+    }
+
+    res.json({ success: true, deleted: deletedIds.length, ids: deletedIds })
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+// POST /api/admin/tests/bulk-delete - Bulk delete multiple tests
+router.post("/tests/bulk-delete", async (req, res) => {
+  try {
+    const { ids } = req.body
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No test IDs provided' })
+    }
+
+    const deletedIds = []
+    for (const id of ids) {
+      try {
+        await dbHelpers.softDelete('tests', id, req.user?.id)
+        deletedIds.push(id)
+      } catch (e) {
+        logger.error(`Failed to delete test ${id}:`, e)
+      }
+    }
+
+    res.json({ success: true, deleted: deletedIds.length, ids: deletedIds })
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+// POST /api/admin/tests/bulk-status - Bulk update test status
+router.post("/tests/bulk-status", async (req, res) => {
+  try {
+    const { ids, status } = req.body
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ success: false, message: 'No test IDs provided' })
+    }
+    const targetStatus = status === 'published' || status === 'active' ? 'published' : 'draft'
+    const isActive = targetStatus === 'published'
+
+    await pool.query(
+      `UPDATE tests SET status = $1, is_active = $2, updated_at = NOW() WHERE id = ANY($3)`,
+      [targetStatus, isActive, ids]
+    )
+
+    res.json({ success: true, updated: ids.length, status: targetStatus })
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
 
 // GET /api/admin/tests/:id - Get single test
 router.get("/tests/:id", async (req, res) => {
@@ -299,7 +469,7 @@ router.get("/tests/:id", async (req, res) => {
     const testsWithBanners = await attachTestBannerUrls([test]);
     res.json({ success: true, data: testsWithBanners[0] });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -360,7 +530,7 @@ router.post("/tests", validateBody(testSchema), async (req, res) => {
     });
 
     if (req.body.tier && stageIds.length > 0) {
-      console.warn(
+      logger.warn(
         `[DEPRECATION] Test created with tier="${req.body.tier}" — prefer using stageIds[] instead.`,
       );
     }
@@ -377,7 +547,7 @@ router.post("/tests", validateBody(testSchema), async (req, res) => {
 
     res.status(201).json({ success: true, data: newTest });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -436,7 +606,7 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
     });
 
     if (req.body.tier && stageIds.length > existingStageIds.length) {
-      console.warn(
+      logger.warn(
         `[DEPRECATION] Test updated with tier="${req.body.tier}" — prefer using stageIds[] instead.`,
       );
     }
@@ -456,7 +626,7 @@ router.put("/tests/:id", validateBody(testSchema), async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -522,7 +692,7 @@ router.post("/tests/:id/duplicate", async (req, res) => {
 
       // 3. Copy questions linked to the source test (via questions.test_id) and re-link via test_questions
       const questionsResult = await client.query(
-        `SELECT * FROM questions WHERE test_id = $1 AND is_active = true`,
+        `SELECT id, test_id, question_number, question_text, question_text_hi, options, options_hi, correct_option, marks, negative_marks, section, explanation, difficulty, image, is_active, created_at, updated_at, subject, chapter_id, topic, image_asset_id, series_id, category_id, sub_category_id, study_material_id, topic_id, quiz_id, public_id_uuid, public_id, category, type, status, tags, passage_id, chapter, is_practice, is_deleted, deleted_by, deleted_at, _orphaned, orphaned_at, _deleted_test_id, moderation_status, reviewed_by, reviewed_at, review_notes, submitted_for_review_at, submitted_by, external_question_id, language, solution_image_url, source, imported_from, section_id, subtopic_id, subject_id, estimated_time, explanation_hi, source_config, exam_category_ids, exam_ids, question_stage_ids, concept_ids, skill_ids, ai_generated, _deleted_series_id, created_by, correct_answer, question_type FROM questions WHERE test_id = $1 AND is_active = true`,
         [sourceTestId],
       );
 
@@ -577,7 +747,7 @@ router.post("/tests/:id/duplicate", async (req, res) => {
 
       // 4. Re-link via test_questions junction (preserve section_id mapping + order)
       const junctionResult = await client.query(
-        `SELECT * FROM test_questions WHERE test_id = $1`,
+        `SELECT id, test_id, question_id, order_index, marks, negative_marks, section_id, created_at, is_active, question_number, is_deleted, deleted_at, deleted_by FROM test_questions WHERE test_id = $1`,
         [sourceTestId],
       );
       for (const tq of junctionResult.rows) {
@@ -613,8 +783,8 @@ router.post("/tests/:id/duplicate", async (req, res) => {
 
     res.status(201).json({ success: true, data: { newTestId: result.newTestId, newTitle: result.newTitle } });
   } catch (error) {
-    console.error("[Tests] Error duplicating test:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    logger.error("[Tests] Error duplicating test:", error);
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -635,12 +805,9 @@ router.post("/tests/:id/publish", async (req, res) => {
       "SELECT COUNT(*)::int as c FROM questions WHERE test_id = $1 AND is_active = true",
       [testIdNum]
     );
-    const questionCount = questionsResult.rows[0]?.c ?? 0;
+    const questionCount = questionsResult.rows[0]?.c || 0;
 
-    if (questionCount === 0) {
-      validationErrors.push({ field: "questions", message: "Test has no linked questions. Add questions before publishing." });
-    }
-
+    // Allow publishing tests even if questionCount === 0 (e.g. for coming soon or scheduled tests)
     if (!test.duration || test.duration <= 0) {
       validationErrors.push({ field: "duration", message: "Test duration must be greater than 0." });
     }
@@ -694,10 +861,19 @@ router.post("/tests/:id/publish", async (req, res) => {
     const updated = await dbHelpers.updateById("tests", testId, {
       status: "published",
       publishedAt: new Date().toISOString(),
+      published_at: new Date().toISOString(),
       isActive: true,
+      is_active: true,
       total_questions: questionCount,
       total_marks: totalMarks
     });
+
+    try {
+      const { deleteCacheByPrefix } = await import("../../infrastructure/cache/cacheService.js");
+      await deleteCacheByPrefix("tests-list").catch(() => {});
+      await deleteCacheByPrefix("tests-tag").catch(() => {});
+      await deleteCacheByPrefix("admin-tests").catch(() => {});
+    } catch (_) { /* cache clear non-fatal */ }
 
     res.json({
       success: true,
@@ -705,7 +881,7 @@ router.post("/tests/:id/publish", async (req, res) => {
       data: { ...updated, status: "published", total_questions: questionCount, total_marks: totalMarks }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -719,17 +895,40 @@ router.post("/tests/:id/unpublish", async (req, res) => {
 
     const updated = await dbHelpers.updateById("tests", test.id, {
       status: "draft",
-      publishedAt: null,
+      isActive: true
+    });
+
+    res.json({
+      success: true,
+      message: "Test unpublished successfully",
+      data: { ...updated, status: "draft" }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// POST /api/admin/tests/:id/archive - Archive test (transition to archived)
+router.post("/tests/:id/archive", async (req, res) => {
+  try {
+    const test = await Test.findByIdentifier(req.params.id);
+    if (!test) {
+      return res.status(404).json({ success: false, message: "Test not found" });
+    }
+
+    const updated = await dbHelpers.updateById("tests", test.id, {
+      status: "archived",
+      archivedAt: new Date().toISOString(),
       isActive: false
     });
 
     res.json({
       success: true,
-      message: "Test unpublished (reverted to draft)",
-      data: { ...updated, status: "draft" }
+      message: "Test archived successfully",
+      data: { ...updated, status: "archived", isActive: false }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -756,10 +955,10 @@ router.delete("/tests/:id", async (req, res) => {
            WHERE id = ANY($2)`,
           [testId, idsArray]
         );
-        console.log(`[Cascade] Flagged ${combinedIds.size} questions as orphaned from test ${testId}`);
+        logger.info(`[Cascade] Flagged ${combinedIds.size} questions as orphaned from test ${testId}`);
       }
     } catch (err) {
-      console.warn(`[Cascade] Warning: Could not flag orphaned questions for test ${testId}:`, err.message);
+      logger.warn(`[Cascade] Warning: Could not flag orphaned questions for test ${testId}:`, err);
     }
 
     const deleted = await dbHelpers.softDelete("tests", test.id, req.user.id);
@@ -768,7 +967,7 @@ router.delete("/tests/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Test moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -808,7 +1007,7 @@ router.put("/tests/:id/reassign", async (req, res) => {
     const updated = await dbHelpers.updateById("tests", test.id, updateData);
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -848,24 +1047,26 @@ router.post("/tests/bulk-publish", async (req, res) => {
 
     res.json({ success: true, updated: result.rowCount });
   } catch (error) {
-    console.error("[Tests] Error bulk publishing:", error.message);
-    res.status(500).json({ success: false, message: error.message });
+    logger.error("[Tests] Error bulk publishing:", error);
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // POST /api/admin/tests/bulk - Bulk upload tests
 router.post("/tests/bulk", bulkQuestionUpload.single("file"), async (req, res) => {
+  const startTime = new Date().toISOString();
   try {
     let normalizedRows = [];
 
     if (req.file?.buffer) {
       const extension = req.file.originalname.toLowerCase().slice(req.file.originalname.lastIndexOf("."));
       if (extension === ".csv") {
-        normalizedRows = parseQuestionsCsv(req.file.buffer);
+        normalizedRows = parseCSVBuffer(req.file.buffer);
       } else if (extension === ".json") {
-        normalizedRows = parseJson(req.file.buffer);
+        const data = parseJSONBuffer(req.file.buffer);
+        normalizedRows = Array.isArray(data) ? data : data.tests || [];
       } else {
-        normalizedRows = parseQuestionsSpreadsheet(req.file.buffer);
+        normalizedRows = await parseSpreadsheetBuffer(req.file.buffer);
       }
     } else if (Array.isArray(req.body?.tests)) {
       normalizedRows = req.body.tests;
@@ -933,10 +1134,31 @@ router.post("/tests/bulk", bulkQuestionUpload.single("file"), async (req, res) =
         payload.test_category_id = null;
       }
       if (!getTestSeriesId(payload)) {
-        console.warn(`[BulkUpload] Row ${index + 1} ("${payload.title}") has no testSeriesId`);
+        logger.warn(`[BulkUpload] Row ${index + 1} ("${payload.title}") has no testSeriesId`);
       }
       return payload;
     }).filter((row) => row !== null);
+
+    const validateOnly = req.body.validateOnly === "true" || req.body.validateOnly === true || req.body.validateOnly === "1";
+    if (validateOnly) {
+      return res.json({
+        success: true,
+        validateOnly: true,
+        validation: mapped.map((p) => ({
+          title: p.title,
+          duration: p.duration,
+          totalQuestions: p.totalQuestions,
+          totalMarks: p.totalMarks,
+          difficulty: p.difficulty,
+          category: p.category,
+          testSeriesId: getTestSeriesId(p),
+        })),
+        totalRows: normalizedRows.length,
+        validRows: mapped.length,
+        skipped: skipDetails.length,
+        skipDetails: skipDetails.length > 0 ? skipDetails : undefined,
+      });
+    }
 
     if (mapped.length === 0) {
       return res.status(400).json({ success: false, message: "All rows failed validation.", skipped: skipDetails.length, skipDetails });
@@ -950,6 +1172,22 @@ router.post("/tests/bulk", bulkQuestionUpload.single("file"), async (req, res) =
       allInserted = allInserted.concat(inserted);
     }
 
+    try {
+      await dbHelpers.insertOne('import_logs', {
+        source: 'admin-tests-bulk',
+        filename: req.file?.originalname || 'unknown',
+        total_rows: normalizedRows?.length || 0,
+        imported: allInserted.length || 0,
+        failed: (normalizedRows?.length || 0) - allInserted.length,
+        started_at: startTime,
+        completed_at: new Date().toISOString(),
+        user_id: req.user?.id,
+        status: 'completed'
+      });
+    } catch (logErr) {
+      logger.error('Import log error:', logErr);
+    }
+
     res.status(201).json({
       success: true,
       data: allInserted,
@@ -958,7 +1196,7 @@ router.post("/tests/bulk", bulkQuestionUpload.single("file"), async (req, res) =
       skipDetails: skipDetails.length > 0 ? skipDetails : undefined,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

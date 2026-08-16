@@ -4,13 +4,22 @@ import { useAuth } from '../../shared/providers/AuthContext'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { AnimatedHero } from '../../shared/components'
 import { getExamCategories, getExams, getTestSeries, getPublicStats } from '../../shared/lib/dataService'
-import { 
-  Search, ChevronRight, Calendar, Users, FileText, TrendingUp, Award, 
-  GraduationCap, BookOpen, ArrowRight, Filter, X, CheckCircle, 
-  Clock, Star, Bell, ChevronDown, Grid, List, SlidersHorizontal,
-  Building2, Target, Zap, RefreshCw, Bookmark, BookmarkCheck
-} from 'lucide-react'
-import SearchBox from '../../shared/components/common/SearchBox'
+import {
+  Search,
+  ChevronRight,
+  BookOpen,
+  ArrowRight,
+  X,
+  ChevronDown,
+  Grid,
+  List,
+  SlidersHorizontal,
+  Target,
+  Zap,
+  RefreshCw,
+  Bookmark,
+  BookmarkCheck,
+} from 'lucide-react';
 
 // Dynamic UI styles base
 const MODERN_GRADIENTS = [
@@ -26,7 +35,7 @@ const MODERN_GRADIENTS = [
 
 const MODERN_ICONS = ['🎯', '✨', '🚀', '💡', '🎓', '📚', '⚡', '🏆', '📝', '🛡️', '🏛️'];
 
-export const getCategoryConfig = (category, index = 0) => {
+const getCategoryConfig = (category, index = 0) => {
   if (!category) return {
     label: 'Other',
     icon: '📚',
@@ -45,7 +54,7 @@ export const getCategoryConfig = (category, index = 0) => {
 
 function ExamsNew() {
   const { user } = useAuth()
-  const navigate = useNavigate()
+  const _navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   
   // State management
@@ -74,21 +83,25 @@ function ExamsNew() {
 
   // Fetch data on mount
   useEffect(() => {
-    fetchData()
+    const controller = new AbortController()
+    fetchData(controller.signal)
+    return () => controller.abort()
   }, [])
 
-  const fetchData = async () => {
+  const fetchData = async (signal) => {
     try {
       setLoading(true)
       setError(null)
-      
+
       const [categoriesData, examsData, seriesData, statsData] = await Promise.all([
         getExamCategories().catch(() => []),
         getExams().catch(() => []),
         getTestSeries().catch(() => []),
         getPublicStats().catch(() => null)
       ])
-      
+
+      if (signal?.aborted) return
+
       setExamCategories(categoriesData)
       setAllExams(examsData)
       setTestSeries(seriesData)
@@ -99,17 +112,19 @@ function ExamsNew() {
           mockTests: statsData.mockTests || 0
         })
       }
-      
+
       // Load bookmarks from localStorage
       const savedBookmarks = localStorage.getItem('bookmarkedExams')
       if (savedBookmarks) {
         setBookmarkedExams(JSON.parse(savedBookmarks))
       }
     } catch (err) {
-      console.error('Failed to fetch data:', err)
-      setError('Failed to load exam data')
+      if (err.name !== 'AbortError') {
+        console.error('Failed to fetch data:', err)
+        setError('Failed to load exam data')
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 
@@ -148,7 +163,15 @@ function ExamsNew() {
     
     // Category filter
     if (selectedCategory !== 'all') {
-      result = result.filter(exam => exam.categoryId === selectedCategory)
+      if (selectedCategory === 'other') {
+        // N1 FIX: "other" = exams whose categoryId matches no known category,
+        // matching how categoryStats['other'] is computed.
+        result = result.filter(exam => !examCategories.some(cat =>
+          (cat.categoryId || cat.slug || String(cat.id || cat._id)) === exam.categoryId
+        ))
+      } else {
+        result = result.filter(exam => exam.categoryId === selectedCategory)
+      }
     }
     
     // Search filter

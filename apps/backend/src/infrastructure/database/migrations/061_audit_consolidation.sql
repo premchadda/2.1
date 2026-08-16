@@ -253,6 +253,23 @@ END $$;
 
 DO $$
 BEGIN
+  -- Ensure questions.created_by column exists (PHASE 1's CREATE TABLE
+  -- doesn't add columns to pre-existing tables)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'questions' AND column_name = 'created_by'
+  ) THEN
+    ALTER TABLE questions ADD COLUMN created_by INTEGER;
+  END IF;
+
+  -- Ensure quizzes.created_by column exists (same reason)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'quizzes' AND column_name = 'created_by'
+  ) THEN
+    ALTER TABLE quizzes ADD COLUMN created_by INTEGER;
+  END IF;
+
   -- questions.test_id -> tests.id
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'questions_test_id_fkey') THEN
     EXECUTE 'ALTER TABLE questions ADD CONSTRAINT questions_test_id_fkey FOREIGN KEY (test_id) REFERENCES tests(id) ON DELETE SET NULL';
@@ -298,10 +315,7 @@ BEGIN
     EXECUTE 'ALTER TABLE attempts ADD CONSTRAINT attempts_series_id_fkey FOREIGN KEY (series_id) REFERENCES test_series(id) ON DELETE SET NULL';
   END IF;
 
-  -- quizzes.created_by column + FK
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'quizzes' AND column_name = 'created_by') THEN
-    EXECUTE 'ALTER TABLE quizzes ADD COLUMN created_by INTEGER';
-  END IF;
+  -- quizzes.created_by FK
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'quizzes_created_by_fkey') THEN
     EXECUTE 'ALTER TABLE quizzes ADD CONSTRAINT quizzes_created_by_fkey FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL';
   END IF;
@@ -321,45 +335,98 @@ CREATE INDEX IF NOT EXISTS idx_quizzes_created_by ON quizzes(created_by);
 CREATE INDEX IF NOT EXISTS idx_questions_subject ON questions(subject);
 
 -- =====================================================
+-- PHASE 4b: Ensure questions columns required by PHASE 5 exist
+-- (CREATE TABLE IF NOT EXISTS in PHASE 1 is a no-op when the
+--  table already exists, so these columns may be missing.)
+-- =====================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'correct_answer') THEN
+    ALTER TABLE questions ADD COLUMN correct_answer INTEGER DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'correct_option') THEN
+    ALTER TABLE questions ADD COLUMN correct_option INTEGER DEFAULT 0;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'is_practice') THEN
+    ALTER TABLE questions ADD COLUMN is_practice BOOLEAN DEFAULT false;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'language') THEN
+    ALTER TABLE questions ADD COLUMN language VARCHAR(20) DEFAULT 'en';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'question_type') THEN
+    ALTER TABLE questions ADD COLUMN question_type VARCHAR(50) DEFAULT 'single_correct';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'marks') THEN
+    ALTER TABLE questions ADD COLUMN marks DECIMAL(5,2) DEFAULT 1.00;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'questions' AND column_name = 'negative_marks') THEN
+    ALTER TABLE questions ADD COLUMN negative_marks DECIMAL(5,2) DEFAULT 0.00;
+  END IF;
+END $$;
+
+-- =====================================================
 -- PHASE 5: Migrate practice_questions data to questions.is_practice
 -- (Guarded — only runs if practice_questions table exists)
 -- =====================================================
 
 DO $$
+DECLARE
+  v_cols TEXT;
+  v_sql  TEXT;
+  v_count INTEGER;
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'practice_questions') THEN
-    EXECUTE $q$
-      INSERT INTO questions (
-        question_text, options, correct_answer, explanation,
-        subject, topic, difficulty, language, is_active, is_practice,
-        question_type, marks, negative_marks, status, created_at, updated_at
-      )
-      SELECT
-        pq.question_text,
-        pq.options,
-        pq.correct_answer,
-        pq.explanation,
-        pq.subject,
-        pq.topic,
-        pq.difficulty,
-        pq.language,
-        pq.is_active,
-        true,
-        'single_correct',
-        1.00,
-        0.00,
-        'active',
-        pq.created_at,
-        pq.updated_at
-      FROM practice_questions pq
-      WHERE NOT EXISTS (
-        SELECT 1 FROM questions q
-        WHERE q.question_text = pq.question_text
-          AND q.is_practice = true
-          AND q.created_at = pq.created_at
-      )
-    $q$;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                  WHERE table_schema = 'public' AND table_name = 'practice_questions') THEN
+    RAISE NOTICE 'practice_questions does not exist — skipping data migration';
+    RETURN;
   END IF;
+
+  -- Build column list dynamically: only columns present in BOTH tables
+  -- with compatible data types (exact match on data_type + udt_name).
+  SELECT string_agg(pq.column_name, ', ' ORDER BY pq.ordinal_position)
+    INTO v_cols
+  FROM information_schema.columns pq
+  JOIN information_schema.columns q
+    ON  q.table_schema  = 'public'
+    AND q.table_name    = 'questions'
+    AND q.column_name   = pq.column_name
+    AND q.data_type     = pq.data_type
+    AND q.udt_name      = pq.udt_name
+  WHERE pq.table_schema = 'public'
+    AND pq.table_name   = 'practice_questions'
+    AND pq.column_name NOT IN ('id');          -- skip PK
+
+  IF v_cols IS NULL OR v_cols = '' THEN
+    RAISE WARNING 'No compatible columns between practice_questions and questions — skipping data migration';
+    RETURN;
+  END IF;
+
+  -- Ensure is_practice is in the target column list
+  IF v_cols NOT LIKE '%is_practice%' THEN
+    v_cols := v_cols || ', is_practice';
+  END IF;
+
+  v_sql := format(
+    'INSERT INTO questions (%s) '
+    'SELECT %s FROM practice_questions pq '
+    'WHERE NOT EXISTS ('
+    '  SELECT 1 FROM questions q '
+    '  WHERE q.question_text = pq.question_text '
+    '    AND q.is_practice = true '
+    '    AND q.created_at = pq.created_at'
+    ')',
+    v_cols,
+    replace(v_cols, 'is_practice', 'true')
+  );
+
+  BEGIN
+    EXECUTE v_sql;
+    GET DIAGNOSTICS v_count = ROW_COUNT;
+    RAISE NOTICE 'Migrated % practice_questions rows into questions (cols: %)', v_count, v_cols;
+  EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING 'practice_questions migration failed (non-fatal): % — %', SQLSTATE, SQLERRM;
+  END;
 END $$;
 
 -- =====================================================
@@ -369,10 +436,12 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'practice_answers') THEN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relname = 'practice_answers' AND c.relkind = 'r') THEN
     EXECUTE 'DROP TABLE IF EXISTS practice_answers CASCADE';
   END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'practice_questions') THEN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relname = 'practice_questions' AND c.relkind = 'r') THEN
     EXECUTE 'DROP TABLE IF EXISTS practice_questions CASCADE';
   END IF;
 END $$;
@@ -384,11 +453,20 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'test_attempts') THEN
-    EXECUTE 'DROP TABLE IF EXISTS test_attempts CASCADE';
-  END IF;
-  IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'test_attempts') THEN
-    EXECUTE 'DROP VIEW IF EXISTS test_attempts CASCADE';
+  -- Use pg_class + pg_namespace to robustly detect whatever kind of relation exists.
+  -- Covers cases where information_schema misses views owned by other roles/schemas.
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = 'test_attempts'
+      AND c.relkind IN ('r', 'v', 'm', 'f', 'p')
+  ) THEN
+    BEGIN
+      EXECUTE 'DROP TABLE IF EXISTS test_attempts CASCADE';
+    EXCEPTION WHEN wrong_object_type THEN
+      EXECUTE 'DROP VIEW IF EXISTS test_attempts CASCADE';
+    END;
   END IF;
 END $$;
 
@@ -400,7 +478,8 @@ END $$;
 
 DO $$
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_answers') THEN
+  IF EXISTS (SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'public' AND c.relname = 'user_answers' AND c.relkind = 'r') THEN
     EXECUTE 'DROP TABLE IF EXISTS user_answers CASCADE';
   END IF;
 END $$;

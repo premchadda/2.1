@@ -17,7 +17,8 @@ const getCorrectOption = (question) =>
       question?.correct
   )
 
-const buildQuestionMap = async () => {
+const buildQuestionMap = async (cachedMap = null) => {
+  if (cachedMap instanceof Map) return cachedMap
   const questions = await dbHelpers.find('questions', { isActive: true })
   const map = new Map()
   questions.forEach((question) => {
@@ -57,10 +58,20 @@ export const getRevisionQueue = async (userId, { dueOnly = false, limit = 200 } 
       return new Date(row.dueAt || row.due_at || 0).getTime() <= now
     })
     .sort((a, b) => new Date(a.dueAt || a.due_at || 0) - new Date(b.dueAt || b.due_at || 0))
-    .slice(0, limit)
+
+  // Dedupe: at most one pending row per question (keep the earliest due) so
+  // the 4 pre-inserted SRS rows never surface the same question 4 times.
+  const deduped = []
+  const seen = new Set()
+  for (const row of filtered) {
+    const key = String(row.questionId || row.question_id)
+    if (seen.has(key)) continue
+    seen.add(key)
+    deduped.push(row)
+  }
 
   const questionMap = await buildQuestionMap()
-  return filtered.map((row) => ({
+  return deduped.slice(0, limit).map((row) => ({
     id: row.id || row._id,
     dueAt: row.dueAt || row.due_at,
     scheduleDay: safeNumber(row.scheduleDay || row.schedule_day),
@@ -85,6 +96,14 @@ export const completeRevisionItem = async (userId, revisionId, { isCorrect = tru
     completedAt,
     updatedAt: completedAt,
   })
+
+  // Clear the other pending rows for this question (pre-inserted SRS
+  // day 1/3/7/14 rows) so the question never resurfaces as duplicates.
+  await pool.query(
+    `UPDATE revision_queue SET status = 'completed', completed_at = $1, updated_at = $1
+     WHERE user_id = $2 AND question_id = $3 AND status = 'pending' AND id <> $4`,
+    [completedAt, userId, revisionRow.questionId || revisionRow.question_id, revisionId]
+  )
 
   // If still wrong during revision, create a follow-up 3-day reminder.
   if (!isCorrect) {
@@ -120,7 +139,7 @@ export const completeRevisionItem = async (userId, revisionId, { isCorrect = tru
 
 const getOrCreateDailyQuiz = async (date = new Date()) => {
   const dateStr = date.toISOString().slice(0, 10)
-  const existing = await pool.query('SELECT * FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1', [dateStr])
+  const existing = await pool.query('SELECT id, title, quiz_date, questions, is_active, created_at, updated_at FROM daily_quizzes WHERE quiz_date = $1 LIMIT 1', [dateStr])
   if (existing.rows[0]) {
     return existing.rows[0]
   }
@@ -129,15 +148,28 @@ const getOrCreateDailyQuiz = async (date = new Date()) => {
   const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
   const selected = shuffled.slice(0, 10)
 
+  // Atomic insert — ON CONFLICT DO NOTHING prevents two concurrent requests
+  // from both creating a quiz for the same date (unique constraint violation).
+  // If a concurrent request wins the race, we just re-read.
   const inserted = await pool.query(
     `
     INSERT INTO daily_quizzes (quiz_date, title, total_questions, metadata, is_active, created_at)
     VALUES ($1, $2, $3, '{}'::jsonb, true, NOW())
+    ON CONFLICT (quiz_date) DO NOTHING
     RETURNING *
     `,
     [dateStr, `Daily Quiz - ${dateStr}`, selected.length]
   )
-  const quiz = inserted.rows[0]
+
+  // If the insert was a no-op (concurrent request won), re-read
+  const quiz = inserted.rows[0] || (await pool.query(
+    'SELECT * FROM daily_quizzes WHERE quiz_date = $1',
+    [dateStr]
+  )).rows[0]
+
+  if (!quiz) {
+    throw new Error('Failed to create or retrieve daily quiz')
+  }
 
   let position = 1
   for (const question of selected) {
@@ -227,25 +259,29 @@ export const submitDailyQuiz = async (userId, quizId, answers = []) => {
   const accuracy = totalQuestions > 0 ? (correct / totalQuestions) * 100 : 0
   const score = correct
 
-  const upsert = await pool.query(
-    `
-    INSERT INTO daily_quiz_attempts
-      (quiz_id, user_id, answers, score, accuracy, submitted_at, created_at, updated_at)
-    VALUES
-      ($1, $2, $3::jsonb, $4, $5, NOW(), NOW(), NOW())
-    ON CONFLICT (quiz_id, user_id)
-    DO UPDATE SET
-      answers = EXCLUDED.answers,
-      score = EXCLUDED.score,
-      accuracy = EXCLUDED.accuracy,
-      submitted_at = NOW(),
-      updated_at = NOW()
-    RETURNING *
-    `,
-    [quizId, userId, JSON.stringify(normalizedAnswers), score, accuracy]
-  )
+  const { upsert, streak } = await dbHelpers.withTransaction(async (client) => {
+    const upsert = await client.query(
+      `
+      INSERT INTO daily_quiz_attempts
+        (quiz_id, user_id, answers, score, accuracy, submitted_at, created_at, updated_at)
+      VALUES
+        ($1, $2, $3::jsonb, $4, $5, NOW(), NOW(), NOW())
+      ON CONFLICT (quiz_id, user_id)
+      DO UPDATE SET
+        answers = EXCLUDED.answers,
+        score = EXCLUDED.score,
+        accuracy = EXCLUDED.accuracy,
+        submitted_at = NOW(),
+        updated_at = NOW()
+      RETURNING *
+      `,
+      [quizId, userId, JSON.stringify(normalizedAnswers), score, accuracy]
+    )
 
-  const streak = await analyticsService.updateStudyStreak(userId)
+    const streak = await analyticsService.updateStudyStreak(userId, new Date(), client)
+
+    return { upsert, streak }
+  })
 
   return {
     success: true,

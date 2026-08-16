@@ -1,6 +1,8 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
 
 const router = express.Router()
 
@@ -13,7 +15,7 @@ router.use(admin)
  * Get user conversion funnel analysis
  * Shows progression: Registered → Active → Enrolled → Test Takers → Subscribed
  */
-router.get('/funnel', async (req, res) => {
+router.get('/funnel', responseCache('admin-analytics-funnel', 60), async (req, res) => {
   try {
     const client = await pool.connect()
     
@@ -28,7 +30,7 @@ router.get('/funnel', async (req, res) => {
       // Stage 2: Active users (logged in within last 30 days)
       const activeUsersResult = await client.query(
         `SELECT COUNT(DISTINCT user_id) as count 
-         FROM sessions 
+         FROM user_sessions 
          WHERE created_at > NOW() - INTERVAL '30 days'`
       )
       const activeUsers = parseInt(activeUsersResult.rows[0].count) || 0
@@ -41,7 +43,7 @@ router.get('/funnel', async (req, res) => {
       
       // Stage 4: Test takers (have attempted at least one test)
       const testTakersResult = await client.query(
-        'SELECT COUNT(DISTINCT user_id) as count FROM test_attempts'
+        'SELECT COUNT(DISTINCT user_id) as count FROM attempts'
       )
       const testTakers = parseInt(testTakersResult.rows[0].count)
       
@@ -50,7 +52,7 @@ router.get('/funnel', async (req, res) => {
         `SELECT COUNT(DISTINCT user_id) as count 
          FROM subscriptions 
          WHERE status = 'active' 
-         AND end_date > NOW()`
+         AND expiry_date > NOW()`
       )
       const subscribedUsers = parseInt(subscribedUsersResult.rows[0].count) || 0
       
@@ -114,7 +116,7 @@ router.get('/funnel', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch funnel analytics',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -124,12 +126,15 @@ router.get('/funnel', async (req, res) => {
  * Get cohort-based retention analysis
  * Query params: period (weekly|monthly), months (number of months to look back)
  */
-router.get('/cohort', async (req, res) => {
+router.get('/cohort', responseCache('admin-analytics-cohort', 60), async (req, res) => {
   try {
     const { period = 'monthly', months = 6 } = req.query
     const dateTrunc = period === 'weekly' ? 'week' : 'month'
     // FIX CRIT-04: Calculate interval as integer for parameterized query
-    const intervalDays = period === 'weekly' ? parseInt(months) * 4 * 7 : parseInt(months) * 30
+    // Validate/clamp months — non-numeric input must not produce NaN
+    const parsedMonths = Number(months)
+    const safeMonths = Number.isFinite(parsedMonths) && parsedMonths > 0 ? Math.min(Math.floor(parsedMonths), 120) : 6
+    const intervalDays = period === 'weekly' ? safeMonths * 4 * 7 : safeMonths * 30
     
     const client = await pool.connect()
     
@@ -148,75 +153,73 @@ router.get('/cohort', async (req, res) => {
           ORDER BY cohort_period DESC
           LIMIT $3
         )
-        SELECT * FROM user_cohorts
+        SELECT cohort_period, user_count FROM user_cohorts
       `
       
-      const { rows: cohorts } = await client.query(cohortQuery, [dateTrunc, intervalDays, parseInt(months)])
+      const { rows: cohorts } = await client.query(cohortQuery, [dateTrunc, intervalDays, safeMonths])
       
-      // For each cohort, calculate retention at different time intervals
-      const cohortsWithRetention = []
-      
-      for (const cohort of cohorts) {
-        const cohortDate = new Date(cohort.cohort_period)
-        const retentionRates = []
-        
-        // Calculate retention for periods 1-6
-        for (let i = 1; i <= 6; i++) {
-          const periodDate = new Date(cohortDate)
-          if (period === 'weekly') {
-            periodDate.setDate(periodDate.getDate() + (i * 7))
-          } else {
-            periodDate.setMonth(periodDate.getMonth() + i)
+      // Calculate retention rates for all cohorts concurrently
+      const cohortsWithRetention = await Promise.all(
+        cohorts.map(async (cohort) => {
+          const cohortDate = new Date(cohort.cohort_period)
+          const periods = Array.from({ length: 6 }, (_, idx) => idx + 1)
+          
+          const retentionRates = await Promise.all(
+            periods.map(async (i) => {
+              const periodDate = new Date(cohortDate)
+              const nextPeriodDate = new Date(cohortDate)
+              if (period === 'weekly') {
+                periodDate.setDate(periodDate.getDate() + (i * 7))
+                nextPeriodDate.setDate(nextPeriodDate.getDate() + ((i + 1) * 7))
+              } else {
+                periodDate.setMonth(periodDate.getMonth() + i)
+                nextPeriodDate.setMonth(nextPeriodDate.getMonth() + (i + 1))
+              }
+              
+              const retentionQuery = `
+                SELECT COUNT(DISTINCT s.user_id) as active_users
+                FROM user_sessions s
+                JOIN users u ON s.user_id = u.id
+                WHERE DATE_TRUNC($1, u.created_at) = $2
+                AND s.created_at >= $3
+                AND s.created_at < $4
+              `
+              
+              const { rows } = await pool.query(retentionQuery, [
+                dateTrunc,
+                cohort.cohort_period,
+                periodDate,
+                nextPeriodDate
+              ])
+              
+              const activeUsers = parseInt(rows[0]?.active_users || 0, 10)
+              const retentionRate = cohort.user_count > 0 
+                ? ((activeUsers / cohort.user_count) * 100).toFixed(2) 
+                : 0
+              
+              return {
+                period: i,
+                period_date: periodDate.toISOString().split('T')[0],
+                active_users: activeUsers,
+                retention_rate: parseFloat(retentionRate)
+              }
+            })
+          )
+          
+          return {
+            cohort_period: cohort.cohort_period.toISOString().split('T')[0],
+            user_count: parseInt(cohort.user_count, 10),
+            retention_rates: retentionRates
           }
-          
-          const retentionQuery = `
-            SELECT COUNT(DISTINCT s.user_id) as active_users
-            FROM sessions s
-            JOIN users u ON s.user_id = u.id
-            WHERE DATE_TRUNC($1, u.created_at) = $2
-            AND s.created_at >= $3
-            AND s.created_at < $4
-          `
-          
-          const nextPeriodDate = new Date(periodDate)
-          if (period === 'weekly') {
-            nextPeriodDate.setDate(nextPeriodDate.getDate() + 7)
-          } else {
-            nextPeriodDate.setMonth(nextPeriodDate.getMonth() + 1)
-          }
-          
-          const { rows } = await client.query(retentionQuery, [
-            dateTrunc,
-            cohort.cohort_period,
-            periodDate,
-            nextPeriodDate
-          ])
-          
-          const activeUsers = parseInt(rows[0].active_users)
-          const retentionRate = cohort.user_count > 0 
-            ? ((activeUsers / cohort.user_count) * 100).toFixed(2) 
-            : 0
-          
-          retentionRates.push({
-            period: i,
-            active_users: activeUsers,
-            retention_rate: parseFloat(retentionRate)
-          })
-        }
-        
-        cohortsWithRetention.push({
-          cohort_period: cohort.cohort_period.toISOString().split('T')[0],
-          user_count: parseInt(cohort.user_count),
-          retention_rates: retentionRates
         })
-      }
+      )
       
       res.json({
         success: true,
         data: {
           cohorts: cohortsWithRetention,
-          period: period,
-          months: parseInt(months)
+          period,
+          months: safeMonths
         }
       })
     } finally {
@@ -227,7 +230,7 @@ router.get('/cohort', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch cohort analytics',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })
@@ -237,7 +240,7 @@ router.get('/cohort', async (req, res) => {
  * Get user engagement metrics over time
  * Query params: range (7d|30d|90d), granularity (daily|weekly)
  */
-router.get('/engagement', async (req, res) => {
+router.get('/engagement', responseCache('admin-analytics-engagement', 60), async (req, res) => {
   try {
     const { range = '30d', granularity = 'daily' } = req.query
     const days = Math.min(365, Math.max(1, parseInt(range.replace('d', ''))))
@@ -252,7 +255,7 @@ router.get('/engagement', async (req, res) => {
         SELECT 
           DATE_TRUNC($1, created_at) as date,
           COUNT(DISTINCT user_id) as daily_active
-        FROM sessions
+        FROM user_sessions
         WHERE created_at > NOW() - make_interval(days => $2)
         GROUP BY DATE_TRUNC($1, created_at)
         ORDER BY date ASC
@@ -267,7 +270,7 @@ router.get('/engagement', async (req, res) => {
           COUNT(*) as attempts,
           COUNT(DISTINCT user_id) as unique_test_takers,
           AVG(score) as avg_score
-        FROM test_attempts
+        FROM attempts
         WHERE created_at > NOW() - make_interval(days => $2)
         GROUP BY DATE_TRUNC($1, created_at)
         ORDER BY date ASC
@@ -335,7 +338,7 @@ router.get('/engagement', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch engagement analytics',
-      details: error.message
+      details: sanitizeErrorMessage(error)
     })
   }
 })

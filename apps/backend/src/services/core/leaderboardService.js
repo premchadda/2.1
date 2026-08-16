@@ -1,12 +1,47 @@
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { idsMatch, safeNumber } from './common.js'
 
-const getCompletedAttempts = async () => {
-  const attempts = await dbHelpers.find('attempts', {})
-  return attempts.filter((attempt) => {
-    const status = String(attempt.status || '').toLowerCase()
-    return attempt.isCompleted === true || status === 'completed' || status === 'submitted'
-  })
+const getCompletedAttempts = async (filter = {}) => {
+  // Build a targeted WHERE clause instead of loading ALL attempts into memory.
+  // `filter` accepts: { testId, seriesId, startDate, endDate }
+  const conditions = []
+  const params = []
+  let paramIdx = 1
+
+  // Status conditions — match isCompleted flag OR status text
+  conditions.push(`(is_completed = true OR LOWER(status) IN ('completed', 'submitted'))`)
+
+  if (filter.testId !== undefined) {
+    conditions.push(`test_id = $${paramIdx++}`)
+    params.push(filter.testId)
+  }
+  if (filter.seriesId !== undefined) {
+    conditions.push(`series_id = $${paramIdx++}`)
+    params.push(filter.seriesId)
+  }
+  if (filter.startDate) {
+    conditions.push(`submitted_at >= $${paramIdx++}`)
+    params.push(filter.startDate)
+  }
+  if (filter.endDate) {
+    conditions.push(`submitted_at <= $${paramIdx++}`)
+    params.push(filter.endDate)
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const query = `SELECT * FROM attempts ${whereClause}`
+
+  const { rows } = await pool.query(query, params)
+  return rows.map((row) => ({
+    ...row,
+    // Normalize camelCase aliases for downstream code that expects them
+    userId: row.user_id ?? row.userId,
+    testId: row.test_id ?? row.testId,
+    seriesId: row.series_id ?? row.seriesId,
+    isCompleted: row.is_completed ?? row.isCompleted,
+    timeSpent: row.time_spent ?? row.timeSpent,
+    timeSpentSeconds: row.time_spent_seconds ?? row.timeSpentSeconds,
+  }))
 }
 
 const getBestAttemptByUser = (attempts) => {
@@ -134,8 +169,17 @@ const buildAttemptLeaderboard = ({ attempts, type, scopeKey, batchDate, page, li
 }
 
 const withUserNames = async (leaderboard) => {
-  const users = await dbHelpers.find('users', {})
-  const userMap = new Map(users.map((user) => [String(user.id || user._id), user]))
+  // Fetch only the user IDs present in the leaderboard (not ALL users).
+  const userIds = [...new Set(leaderboard.entries.map((e) => String(e.userId)).filter(Boolean))]
+  if (userIds.length === 0) {
+    return { ...leaderboard, entries: leaderboard.entries.map((e) => ({ ...e, userName: 'User' })) }
+  }
+
+  const { rows } = await pool.query(
+    `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
+    [userIds.map(Number).filter((n) => !Number.isNaN(n))]
+  )
+  const userMap = new Map(rows.map((user) => [String(user.id), user]))
   return {
     ...leaderboard,
     entries: leaderboard.entries.map((entry) => {
@@ -211,7 +255,7 @@ const toDateString = (date) => {
 }
 
 export const recalculateTestLeaderboard = async (testId, batchDate = toDateString()) => {
-  const completed = await getCompletedAttempts()
+  const completed = await getCompletedAttempts({ testId })
   const attemptsForTest = completed.filter((attempt) => idsMatch(attempt.testId, testId))
   const bestAttempts = getBestAttemptByUser(attemptsForTest)
   const rankedEntries = rankEntries(
@@ -344,6 +388,17 @@ export const recalculateLeaderboards = async ({ testId = null } = {}) => {
   }
   results.push(await recalculateDailyLeaderboard())
   results.push(await recalculateWeeklyLeaderboard())
+
+  // Update rank predictions after leaderboard recalculation
+  try {
+    const { default: rankPredictionService } = await import('./rankPredictionService.js')
+    if (rankPredictionService && typeof rankPredictionService.batchUpdatePredictions === 'function') {
+      await rankPredictionService.batchUpdatePredictions(testId)
+    }
+  } catch (e) {
+    console.error('Rank prediction update error:', e.message)
+  }
+
   return results
 }
 
@@ -356,7 +411,8 @@ export const getLeaderboard = async ({ type = 'test', testId = null, seriesId = 
   const batchDate = toDateString(referenceDate)
 
   if (normalizedType === 'overall' || normalizedType === 'series') {
-    const completed = await getCompletedAttempts()
+    const filter = normalizedType === 'series' ? { seriesId } : {}
+    const completed = await getCompletedAttempts(filter)
     const filtered = normalizedType === 'series'
       ? completed.filter((attempt) => idsMatch(attempt.seriesId, seriesId))
       : completed
@@ -373,8 +429,8 @@ export const getLeaderboard = async ({ type = 'test', testId = null, seriesId = 
   }
 
   if (normalizedType === 'daily' || normalizedType === 'weekly') {
-    const completed = await getCompletedAttempts()
     const range = normalizedType === 'daily' ? getLocalDayRange(referenceDate) : getLocalWeekRange(referenceDate)
+    const completed = await getCompletedAttempts({ startDate: range.start, endDate: range.end })
     const filtered = completed.filter((attempt) => {
       const submitted = attemptSubmittedAt(attempt)
       return submitted >= range.start && submitted <= range.end
@@ -397,7 +453,7 @@ export const getLeaderboard = async ({ type = 'test', testId = null, seriesId = 
     return { type: normalizedType, scopeKey, batchDate, entries: [], total: 0, page: normalizedPage, limit: normalizedLimit }
   }
 
-  const completed = await getCompletedAttempts()
+  const completed = await getCompletedAttempts({ testId })
   const attemptsForTest = completed.filter((attempt) => idsMatch(attempt.testId, testId))
   const bestAttempts = getBestAttemptByUser(attemptsForTest)
   const leaderboard = buildAttemptLeaderboard({

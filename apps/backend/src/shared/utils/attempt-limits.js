@@ -43,7 +43,7 @@ export function checkAttemptLimit(user, attempts, test) {
   if (isAdmin || isPro) return { hasReached: false };
   
   const testType = String(test.type || '').toLowerCase();
-  const isLiveTest = test.isLive || testType === 'live' || test.tags?.some(t => String(t).toLowerCase() === 'live');
+  const isLiveTest = test.isLive || test.is_live || testType === 'live' || test.tags?.some(t => String(t).toLowerCase() === 'live');
   
   // 1. Live Tests are restricted to Pro users only
   if (isLiveTest) {
@@ -55,19 +55,21 @@ export function checkAttemptLimit(user, attempts, test) {
   
   const limits = LIMITS[passType] || LIMITS[PASS_TYPES.FREE];
   
-  // 2. Check total completed attempts cap for free users
+  // 2. Check total attempts cap for free users (Per Test)
   if (passType === 'free') {
-    const completedAttempts = attempts.filter(a => {
-      const statusStr = String(a.status || '').toLowerCase();
-      return a.isCompleted === true || 
-             a.is_completed === true || 
-             statusStr === 'completed' || 
-             statusStr === 'submitted' ||
-             statusStr === 'finish' ||
-             statusStr === 'finished';
+    const testIdStr = String(test._id || test.id);
+    const testAttempts = attempts.filter(a => {
+      const aTestIdStr = String(a.test_id || a.testId);
+      return aTestIdStr === testIdStr;
     });
     
-    if (completedAttempts.length >= 3) {
+    const validAttempts = testAttempts.filter(a => {
+      const statusStr = String(a.status || '').toLowerCase();
+      return statusStr !== 'not_started' && statusStr !== 'cancelled';
+    });
+
+    
+    if (validAttempts.length >= 3) {
       return { 
         hasReached: true, 
         message: 'You have reached the free limit of 3 test attempts. Upgrade to a Test Series or Pro Pass for unlimited access.'

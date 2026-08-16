@@ -1,32 +1,32 @@
 
-> trstprep-admin@2.0.0 test
+> trstprep-admin@2.1.0 test
 > vitest run
 
 
 [7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mE:/Tech/Testprep/Trstprep V2.1/apps/admin-panel[39m
 
+ [32m✓[39m src/shared/lib/settingsSchema.test.js [2m ([22m[2m11 tests[22m[2m)[22m[90m 12[2mms[22m[39m
+ [32m✓[39m src/shared/lib/iconResolver.test.js [2m ([22m[2m4 tests[22m[2m)[22m[90m 4[2mms[22m[39m
 [90mstderr[2m | src/shared/lib/env-validation.test.js[2m > [22m[2menv-validation[2m > [22m[2mreturns false (warning only) when required env vars are missing in dev[22m[39m
 [Admin Env Validation] Missing: VITE_ADMIN_SITE_URL
 
- [32m✓[39m src/test/useKeyboardShortcuts.test.js [2m ([22m[2m1 test[22m[2m)[22m[90m 48[2mms[22m[39m
- [32m✓[39m src/shared/lib/env-validation.test.js [2m ([22m[2m2 tests[22m[2m)[22m[90m 5[2mms[22m[39m
- [32m✓[39m src/shared/lib/format.test.js [2m ([22m[2m6 tests[22m[2m)[22m[90m 54[2mms[22m[39m
- [32m✓[39m src/shared/lib/iconResolver.test.js [2m ([22m[2m4 tests[22m[2m)[22m[90m 5[2mms[22m[39m
- [32m✓[39m src/test/validationSchemas.test.js [2m ([22m[2m8 tests[22m[2m)[22m[90m 17[2mms[22m[39m
- [32m✓[39m src/shared/lib/settingsSchema.test.js [2m ([22m[2m11 tests[22m[2m)[22m[90m 12[2mms[22m[39m
- [32m✓[39m src/shared/components/ProtectedRoute.test.jsx [2m ([22m[2m6 tests[22m[2m)[22m[90m 74[2mms[22m[39m
+ [32m✓[39m src/shared/lib/env-validation.test.js [2m ([22m[2m2 tests[22m[2m)[22m[90m 8[2mms[22m[39m
+ [32m✓[39m src/test/useKeyboardShortcuts.test.js [2m ([22m[2m1 test[22m[2m)[22m[90m 22[2mms[22m[39m
+ [32m✓[39m src/test/validationSchemas.test.js [2m ([22m[2m8 tests[22m[2m)[22m[90m 16[2mms[22m[39m
 [90mstderr[2m | src/shared/components/ProtectedRoute.test.jsx[2m > [22m[2mProtectedRoute[2m > [22m[2mredirects unauthenticated users to /login[22m[39m
 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
 
+ [32m✓[39m src/shared/components/ProtectedRoute.test.jsx [2m ([22m[2m6 tests[22m[2m)[22m[90m 64[2mms[22m[39m
+ [32m✓[39m src/shared/lib/format.test.js [2m ([22m[2m6 tests[22m[2m)[22m[90m 64[2mms[22m[39m
+ [32m✓[39m tests/App.test.jsx [2m ([22m[2m1 test[22m[2m)[22m[90m 33[2mms[22m[39m
 [90mstderr[2m | tests/App.test.jsx[2m > [22m[2mApp[2m > [22m[2mrenders without throwing[22m[39m
 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
 
- [32m✓[39m tests/App.test.jsx [2m ([22m[2m1 test[22m[2m)[22m[90m 105[2mms[22m[39m
 
 [2m Test Files [22m [1m[32m8 passed[39m[22m[90m (8)[39m
 [2m      Tests [22m [1m[32m39 passed[39m[22m[90m (39)[39m
-[2m   Start at [22m 22:45:15
-[2m   Duration [22m 8.75s[2m (transform 2.34s, setup 6.89s, collect 5.54s, tests 320ms, environment 7.48s, prepare 4.32s)[22m
+[2m   Start at [22m 22:15:05
+[2m   Duration [22m 4.15s[2m (transform 541ms, setup 7.34s, collect 1.30s, tests 223ms, environment 9.19s, prepare 4.63s)[22m
 

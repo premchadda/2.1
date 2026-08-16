@@ -1,5 +1,6 @@
 import { Target, Users, Award, TrendingUp, BookOpen, Shield } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { getPublicStats } from '../../shared/lib/dataService'
 
 export default function About() {
@@ -11,9 +12,11 @@ export default function About() {
   ])
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchStats = async () => {
       try {
         const stats = await getPublicStats()
+        if (controller.signal.aborted) return
         if (stats) {
           setStats([
             { value: stats.activeLearners || 0, label: 'Students' },
@@ -23,10 +26,12 @@ export default function About() {
           ])
         }
       } catch (error) {
+        if (error.name === 'AbortError' || controller.signal.aborted) return
         console.error('Failed to fetch stats:', error)
       }
     }
     fetchStats()
+    return () => controller.abort()
   }, [])
 
   const features = [
@@ -40,6 +45,14 @@ export default function About() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Helmet>
+        <title>About Us | Trstprep</title>
+        <meta name="description" content="Learn about Trstprep - your trusted companion for competitive exam preparation with mock tests and study materials." />
+        <meta property="og:title" content="About Us | Trstprep" />
+        <meta property="og:description" content="Learn about Trstprep - your trusted companion for competitive exam preparation." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       {/* Hero */}
       <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white py-20">
         <div className="max-w-6xl mx-auto px-4 text-center">

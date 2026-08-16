@@ -1,33 +1,97 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { Search, ChevronRight, Users } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { apiClient } from '../../shared/lib/dataService'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { AnimatedHero } from '../../shared/components'
-import YearChips from './components/YearChips'
-import TierSelector from './components/TierSelector'
 import YearGroupSection from './components/YearGroupSection'
-import TestCategoryFilter from './components/TestCategoryFilter'
+import PypCategoryCascade from './components/PypCategoryCascade'
 import WhyAttemptRow from './components/WhyAttemptRow'
 import InsightsPanel from './components/InsightsPanel'
 
-const API_URL = import.meta.env.VITE_API_URL || ''
+const PREFERRED_CATEGORY_PATTERN = /year\s*based/i
 
-function PypsExam() {
-  const { examCategory, examSlug } = useParams()
+function getCategoryCount(category) {
+  return Number(category?.testCount || category?.paperCount || 0)
+}
+
+function buildCategoryLookup(categories) {
+  const byId = {}
+
+  categories.forEach((category) => {
+    byId[String(category.id)] = category
+  })
+
+  return byId
+}
+
+function getDepthOneAncestor(category, byId) {
+  let current = category
+
+  while (current && (current.depth || 0) > 1) {
+    current = current.parentId !== null ? byId[String(current.parentId)] : null
+  }
+
+  return current || null
+}
+
+function chooseDefaultTier(tiers) {
+  return tiers.find((tier) => /tier\s*1/i.test(tier.name)) || tiers[0] || null
+}
+
+function chooseDefaultTestCategory(categories) {
+  const byId = buildCategoryLookup(categories)
+  const leafCandidates = categories.filter(
+    (category) => (category.depth || 0) >= 2 && getCategoryCount(category) > 0
+  )
+  const candidates = leafCandidates.length
+    ? leafCandidates
+    : categories.filter((category) => (category.depth || 0) >= 1 && getCategoryCount(category) > 0)
+
+  if (!candidates.length) return null
+
+  return candidates
+    .slice()
+    .sort((a, b) => {
+      const aParent = getDepthOneAncestor(a, byId)
+      const bParent = getDepthOneAncestor(b, byId)
+      const aPreferred = PREFERRED_CATEGORY_PATTERN.test(aParent?.name || a.name) ? 1 : 0
+      const bPreferred = PREFERRED_CATEGORY_PATTERN.test(bParent?.name || b.name) ? 1 : 0
+
+      if (aPreferred !== bPreferred) return bPreferred - aPreferred
+
+      const orderDiff = (a.displayOrder || 0) - (b.displayOrder || 0)
+      if (orderDiff !== 0) return orderDiff
+
+      return String(a.name).localeCompare(String(b.name), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      })
+    })[0]
+}
+
+function PypsExam({ examSlug: examSlugOverride } = {}) {
+  const { examSlug: examSlugParam } = useParams()
+  const examSlug = examSlugOverride || examSlugParam
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [insights, setInsights] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedYear, setSelectedYear] = useState('all')
   const [selectedTier, setSelectedTier] = useState('all')
   const [selectedTestCat, setSelectedTestCat] = useState('all')
   const [visibleYearCount, setVisibleYearCount] = useState(3)
+  const firstLoad = useRef(true)
+  const defaultTierApplied = useRef(false)
+  const defaultTestCatTier = useRef(null)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (signal) => {
+    const isFirst = firstLoad.current
+    if (isFirst) setLoading(true)
+    else setRefreshing(true)
     try {
       const params = new URLSearchParams()
       if (selectedYear !== 'all') params.set('year', selectedYear)
@@ -36,21 +100,56 @@ function PypsExam() {
       params.set('limit', '100')
 
       const [pypsRes, insightsRes] = await Promise.all([
-        apiClient.get(`${API_URL}/api/pyps/exams/${examSlug}?${params.toString()}`),
-        apiClient.get(`${API_URL}/api/pyps/exams/${examSlug}/insights`).catch(() => ({ data: { data: {} } })),
+        apiClient.get(`/api/pyps/exams/${examSlug}?${params.toString()}`, { signal }),
+        apiClient.get(`/api/pyps/exams/${examSlug}/insights`, { signal }).catch(() => ({ data: { data: {} } })),
       ])
+      if (signal?.aborted) return
 
-      setData(pypsRes.data?.data || null)
+      const pd = pypsRes.data?.data || {}
+      setData(pd)
       setInsights(insightsRes.data?.data || null)
+
+      // Apply defaults in steps so category selection uses stage-scoped counts.
+      if (!defaultTierApplied.current && selectedTier === 'all') {
+        defaultTierApplied.current = true
+        const defaultTier = chooseDefaultTier(pd.availableTiers || [])
+
+        if (defaultTier) {
+          setSelectedTier(String(defaultTier.id))
+        }
+      }
+
+      if (
+        selectedTier !== 'all' &&
+        selectedTestCat === 'all' &&
+        defaultTestCatTier.current !== String(selectedTier)
+      ) {
+        defaultTestCatTier.current = String(selectedTier)
+        const defaultTestCat = chooseDefaultTestCategory(pd.availableTestCategories || [])
+
+        if (defaultTestCat) {
+          setSelectedTestCat(String(defaultTestCat.id))
+        }
+      }
     } catch (error) {
+      if (error.name === 'AbortError' || signal?.aborted) return
       console.error('PYP exam fetch error:', error)
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        if (isFirst) {
+          setLoading(false)
+          firstLoad.current = false
+        } else {
+          setRefreshing(false)
+        }
+      }
     }
-  }, [examSlug, selectedYear, selectedTier])
+  }, [examSlug, selectedYear, selectedTier, selectedTestCat])
 
   useEffect(() => {
-    fetchData()
+    const controller = new AbortController()
+    fetchData(controller.signal)
+    return () => controller.abort()
   }, [fetchData])
 
   useEffect(() => {
@@ -63,6 +162,13 @@ function PypsExam() {
   const availableTiers = data?.availableTiers || []
   const availableTestCategories = data?.availableTestCategories || []
   const totalPapers = data?.total || 0
+
+  const selectedCatNode = availableTestCategories.find(
+    (c) => String(c.id) === String(selectedTestCat)
+  )
+  const isSubcategorySelected =
+    !!selectedCatNode && (selectedCatNode.depth || 0) >= 2
+  const fullPathSelected = selectedTier !== 'all' && isSubcategorySelected
 
   const filteredGroups = yearGroups.map((g) => ({
     ...g,
@@ -119,7 +225,6 @@ function PypsExam() {
             items={[
               { label: 'Home', path: '/' },
               { label: 'PYPs', path: '/pyps' },
-              ...(examCategory ? [{ label: examCategory.toUpperCase(), path: `/pyps/${examCategory}` }] : []),
               { label: exam?.title || examSlug },
             ]}
           />
@@ -147,35 +252,26 @@ function PypsExam() {
         <div className="flex flex-col lg:flex-row gap-4">
           {/* LEFT: Filters sidebar */}
           <div className="lg:w-56 flex-shrink-0 space-y-4">
-            {/* Test category filter (PYP subcategories tree) */}
-            {availableTestCategories.length > 0 && (
+            {/* Paper category filter (Stage → Category → Subcategory) */}
+            {(availableTiers.length > 0 || availableTestCategories.length > 0) && (
               <div className="bg-white rounded-lg border border-gray-100 p-3">
-                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2">Paper Type</div>
-                <TestCategoryFilter
+                <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wide mb-2">
+                  Filter by
+                </div>
+                <PypCategoryCascade
+                  tiers={availableTiers}
                   categories={availableTestCategories}
-                  selected={selectedTestCat}
-                  onSelect={setSelectedTestCat}
+                  selectedTier={selectedTier}
+                  onSelectTier={(val) => {
+                    setSelectedTier(val)
+                    setSelectedTestCat('all')
+                    defaultTestCatTier.current = null
+                  }}
+                  selectedTestCat={selectedTestCat}
+                  onSelectTestCat={setSelectedTestCat}
                 />
               </div>
             )}
-
-            {/* Tier + Year filters */}
-            <div className="bg-white rounded-lg border border-gray-100 p-3 space-y-2.5">
-              {availableTiers.length > 0 && (
-                <TierSelector
-                  tiers={availableTiers}
-                  selected={selectedTier}
-                  onSelect={setSelectedTier}
-                />
-              )}
-              {availableYears.length > 0 && (
-                <YearChips
-                  years={availableYears}
-                  selected={selectedYear}
-                  onSelect={setSelectedYear}
-                />
-              )}
-            </div>
           </div>
 
           {/* RIGHT: Search + papers */}
@@ -202,48 +298,76 @@ function PypsExam() {
               </div>
             </div>
 
-        {/* Year-grouped papers */}
-        <div className="space-y-3">
-          {visibleGroups.map((group, idx) => (
-            <YearGroupSection
-              key={`${group.year}-${idx}`}
-              group={group}
-              user={user}
-              examSlug={examSlug}
-              initiallyExpanded={idx === 0}
-            />
-          ))}
+            {refreshing && (
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <span className="w-3.5 h-3.5 border-2 border-gray-300 border-t-indigo-500 rounded-full animate-spin" />
+                Updating…
+              </div>
+            )}
 
-          {hasMoreYears && (
-            <button
-              onClick={() => setVisibleYearCount((c) => c + 5)}
-              className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-700 py-3 bg-white rounded-xl border border-gray-200"
-            >
-              Load More Years ({filteredGroups.length - visibleYearCount} remaining) →
-            </button>
-          )}
+        {/* Year-grouped papers — only after Stage → Category → Subcategory selection */}
+        {fullPathSelected ? (
+          <div className="space-y-3">
+            {visibleGroups.map((group, idx) => (
+              <YearGroupSection
+                key={`${group.year}-${idx}`}
+                group={group}
+                user={user}
+                examSlug={examSlug}
+                initiallyExpanded={idx === 0}
+              />
+            ))}
 
-          {filteredGroups.length === 0 && (
-            <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
-              <div className="text-4xl mb-4">🔍</div>
-              <h3 className="text-lg font-bold text-gray-900">No Papers Found</h3>
-              <p className="text-gray-500 mt-2">Try adjusting your filters or search</p>
-              {(searchQuery || selectedYear !== 'all' || selectedTier !== 'all' || selectedTestCat !== 'all') && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('')
-                    setSelectedYear('all')
-                    setSelectedTier('all')
-                    setSelectedTestCat('all')
-                  }}
-                  className="mt-3 text-sm font-medium text-indigo-600 hover:underline"
-                >
-                  Clear all filters
-                </button>
-              )}
+            {hasMoreYears && (
+              <button
+                onClick={() => setVisibleYearCount((c) => c + 5)}
+                className="w-full text-center text-sm font-medium text-indigo-600 hover:text-indigo-700 py-3 bg-white rounded-xl border border-gray-200"
+              >
+                Load More Years ({filteredGroups.length - visibleYearCount} remaining) →
+              </button>
+            )}
+
+            {filteredGroups.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+                <div className="text-4xl mb-4">🔍</div>
+                <h3 className="text-lg font-bold text-gray-900">No Papers Found</h3>
+                <p className="text-gray-500 mt-2">Try adjusting your filters or search</p>
+                {(searchQuery || selectedYear !== 'all' || selectedTier !== 'all' || selectedTestCat !== 'all') && (
+                  <button
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSelectedYear('all')
+                      setSelectedTier('all')
+                      setSelectedTestCat('all')
+                    }}
+                    className="mt-3 text-sm font-medium text-indigo-600 hover:underline"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-16 bg-white rounded-2xl border border-dashed border-gray-200">
+            <div className="text-4xl mb-4">🗂️</div>
+            <h3 className="text-lg font-bold text-gray-900">Select filters to view papers</h3>
+            <p className="text-gray-500 mt-2">Choose a Stage, then a Category and Subcategory to see matching Previous Year Papers.</p>
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+              <span className={selectedTier !== 'all' ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+                1. Stage {selectedTier !== 'all' ? '✓' : ''}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+              <span className={selectedTestCat !== 'all' ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+                2. Category
+              </span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+              <span className={isSubcategorySelected ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+                3. Subcategory
+              </span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
         </div>
         </div>
 

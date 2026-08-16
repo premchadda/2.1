@@ -9,7 +9,7 @@ function Breadcrumb({ items }) {
         const path = item.path || item.to;
         
         return (
-          <div key={index} className="flex items-center gap-2 whitespace-nowrap">
+          <div key={`${item.label}-${index}`} className="flex items-center gap-2 whitespace-nowrap">
             {index === 0 && <Home className="w-4 h-4" />}
             
             {path && !isLast ? (

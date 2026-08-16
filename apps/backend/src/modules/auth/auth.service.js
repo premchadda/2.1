@@ -14,12 +14,41 @@ export const generateToken = (id, role = 'user', options = {}) => {
 }
 
 // Cookie options for httpOnly cookies (Issue #21 fix)
+// sameSite: 'lax' by default so the cookie is sent on same-site requests
+// (and shared across subdomains when COOKIE_DOMAIN is set). For fully
+// cross-site deployments (different registrable domains) set
+// COOKIE_SAMESITE=none together with COOKIE_SECURE=true (or NODE_ENV=production).
+const cookieSameSite = process.env.COOKIE_SAMESITE || 'lax'
+const cookieDomain = process.env.COOKIE_DOMAIN || undefined
+const cookieSecure = process.env.COOKIE_SECURE === 'true' || ['production', 'staging'].includes(process.env.NODE_ENV)
+
 export const CookieOptions = {
   httpOnly: true, // Prevents JavaScript access (XSS protection)
-  secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-  sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Use 'lax' in dev for cross-origin
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  secure: cookieSecure,
+  sameSite: cookieSameSite,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (matches JWT_EXPIRES_IN default)
   path: '/',
+  ...(cookieDomain ? { domain: cookieDomain } : {}),
+}
+
+// Refresh token cookie must last as long as the refresh token JWT (default 30d).
+// Without this, the cookie expires after 7d even though the JWT is still valid,
+// forcing the user to re-login.
+const REFRESH_COOKIE_MAX_AGE = (() => {
+  const match = (process.env.JWT_REFRESH_EXPIRES_IN || '30d').match(/^(\d+)([dhm])$/)
+  if (!match) return 30 * 24 * 60 * 60 * 1000
+  const val = parseInt(match[1], 10)
+  switch (match[2]) {
+    case 'd': return val * 24 * 60 * 60 * 1000
+    case 'h': return val * 60 * 60 * 1000
+    case 'm': return val * 60 * 1000
+    default: return 30 * 24 * 60 * 60 * 1000
+  }
+})()
+
+export const RefreshCookieOptions = {
+  ...CookieOptions,
+  maxAge: REFRESH_COOKIE_MAX_AGE,
 }
 
 export const setAuthCookies = (res, { token, refreshToken }) => {
@@ -28,18 +57,22 @@ export const setAuthCookies = (res, { token, refreshToken }) => {
   }
 
   if (refreshToken) {
-    res.cookie('refreshToken', refreshToken, CookieOptions)
+    res.cookie('refreshToken', refreshToken, RefreshCookieOptions)
   }
 }
 
-// Clear auth cookies helper
+// Clear auth cookies helper — use each cookie's own maxAge so the browser
+// actually clears the cookie (some browsers ignore clearCookie without matching options).
 export const clearAuthCookies = (res) => {
   res.clearCookie('token', CookieOptions)
-  res.clearCookie('refreshToken', CookieOptions)
+  res.clearCookie('refreshToken', RefreshCookieOptions)
 }
 
 // ===== PASSWORD STRENGTH VALIDATION (Issue #13) =====
 export const validatePasswordStrength = (password) => {
+  if (!password || typeof password !== 'string') {
+    return { isValid: false, errors: ['Password is required'], strength: 0 }
+  }
   const minLength = 8
   const hasUpperCase = /[A-Z]/.test(password)
   const hasLowerCase = /[a-z]/.test(password)

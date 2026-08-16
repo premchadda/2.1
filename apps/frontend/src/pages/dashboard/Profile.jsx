@@ -1,431 +1,158 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Helmet } from 'react-helmet-async'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { useTheme } from '../../shared/context/ThemeContext'
-import { getUserAnalytics, getTestSeries, userAPI, getExams, authAPI } from '../../shared/lib/dataService'
+import { getUserAnalytics, userAPI, getExams } from '../../shared/lib/dataService';
 import useProPass from '../../shared/hooks/useProPass'
 import ImageCropperModal from '../../shared/components/common/ImageCropperModal'
-import { 
-  User, Mail, MessageCircle, Phone, Crown, Settings, Bell, Moon, Sun, 
-  LogOut, ChevronRight, Shield, CreditCard, HelpCircle,
-  Edit2, Camera, Check, LayoutDashboard, SidebarOpen,
-  Trophy, Target, Clock, Flame, Award, BookOpen, TrendingUp,
-  Calendar, Star, Zap, Activity, ClipboardCheck, Lock,
-  Globe, Smartphone, AlertTriangle, Trash2, Plus, ChevronDown,
-  MapPin, GraduationCap, AlertCircle, Timer, Sparkles, X, Save,
-  BarChart2, Layers, MoreHorizontal, Download, RefreshCw,
-  Gift, Users, Share2, Brain, LineChart, PieChart as PieChartIcon, Rocket, FileText
-} from 'lucide-react'
-
-// Toggle Switch Component
-function ToggleSwitch({ checked, onChange, disabled = false }) {
-  return (
-    <button onClick={() => !disabled && onChange(!checked)} disabled={disabled}
-      className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${checked ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
-    </button>
-  )
-}
-
-// Section Label Component
-function SectionLabel({ children, right }) {
-  return (
-    <div className="flex items-center justify-between py-3 px-1">
-      <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{children}</span>
-      {right}
-    </div>
-  )
-}
-
-// Cell Component
-function Cell({ icon, iconBg, label, sub, right, onClick, danger, last }) {
-  const [pressed, setPressed] = useState(false)
-  return (
-    <div onClick={onClick}
-      onPointerDown={() => onClick && setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerLeave={() => setPressed(false)}
-      className={`flex items-center gap-3 px-5 py-4 ${!last ? 'border-b border-gray-100 dark:border-gray-700' : ''} ${onClick ? 'cursor-pointer' : ''} transition-colors ${pressed ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}>
-      {icon && (
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: iconBg || '#F2F2F7' }}>
-          {icon}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className={`text-[15px] font-medium ${danger ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{label}</div>
-        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
-      </div>
-      {right}
-    </div>
-  )
-}
-
-// Compact Feature Card Component
-function CompactFeatureCard({ icon, iconBg, title, description, onClick, comingSoon, badge, color = '#007AFF' }) {
-  return (
-    <div onClick={!comingSoon ? onClick : undefined}
-      className={`relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 p-3 transition-all duration-200 ${comingSoon ? 'opacity-75' : 'hover:shadow-md hover:border-gray-200 dark:hover:border-gray-600 cursor-pointer'}`}>
-      {comingSoon && (<div className="absolute top-2 right-2"><span className="px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[9px] font-bold rounded-full shadow-sm">Coming Soon</span></div>)}
-      {badge && !comingSoon && (<div className="absolute top-2 right-2"><span className={`px-2 py-0.5 text-white text-[9px] font-bold rounded-full shadow-sm ${badge === 'New' ? 'bg-green-500' : badge === 'Pro' ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 'bg-gray-500'}`}>{badge}</span></div>)}
-      <div className="flex items-start gap-2.5">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: iconBg }}>{icon}</div>
-        <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-bold text-gray-900 dark:text-white truncate">{title}</h4>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">{description}</p>
-        </div>
-        {!comingSoon && (<ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />)}
-      </div>
-    </div>
-  )
-}
-
-// Settings Content Component (integrated into Profile)
-function SettingsContent({ user, refreshUser, logout, proPass, isDarkMode, toggleDarkMode, navigate, settingsTab, setSettingsTab }) {
-  const [saving, setSaving] = useState(false)
-  const [passwordForm, setPasswordForm] = useState({ current: '', new: '', confirm: '' })
-  const [passwordErrors, setPasswordErrors] = useState({})
-  const [showPasswords, setShowPasswords] = useState(false)
-  const [notifications, setNotifications] = useState({ email: true, push: true, sms: false, testReminders: true, promotional: false, weeklyReport: true })
-  const [privacy, setPrivacy] = useState({ profileVisibility: 'public', showProgress: true, showOnLeaderboard: true, allowMessages: true })
-  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('trstprep_language') || 'en')
-  
-  const [showSessionsModal, setShowSessionsModal] = useState(false)
-  const [sessions, setSessions] = useState([])
-  const [sessionsLoading, setSessionsLoading] = useState(false)
-
-  useEffect(() => {
-    if (user?.notificationPreferences) setNotifications(prev => ({ ...prev, ...user.notificationPreferences }))
-    if (user?.privacy) setPrivacy(prev => ({ ...prev, ...user.privacy }))
-  }, [user])
-
-  const persistPreferences = async (updates) => {
-    await userAPI.updateProfile(updates)
-    await refreshUser()
-  }
-
-  const validatePasswordForm = () => {
-    const errors = {}
-    if (!passwordForm.current) errors.current = 'Current password is required'
-    if (!passwordForm.new || passwordForm.new.length < 8) errors.new = 'New password must be at least 8 characters'
-    if (passwordForm.new !== passwordForm.confirm) errors.confirm = 'Passwords do not match'
-    setPasswordErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handlePasswordSave = async () => {
-    if (!validatePasswordForm()) return
-    try {
-      setSaving(true)
-      await authAPI.changePassword(passwordForm.current, passwordForm.new)
-      setPasswordForm({ current: '', new: '', confirm: '' })
-      setPasswordErrors({})
-      await logout()
-      navigate('/login', { state: { from: '/profile', message: 'Password updated. Please sign in again.' } })
-    } catch (error) {
-      console.error('Failed to update password:', error)
-      alert(error.response?.data?.message || 'Failed to update password')
-    } finally { setSaving(false) }
-  }
-
-  const handleNotificationChange = async (key, value) => {
-    const next = { ...notifications, [key]: value }
-    setNotifications(next)
-    try { await persistPreferences({ notificationPreferences: next }) }
-    catch (error) { setNotifications(notifications) }
-  }
-
-  const handlePrivacyChange = async (updates) => {
-    const next = { ...privacy, ...updates }
-    setPrivacy(next)
-    try { await persistPreferences({ privacy: next }) }
-    catch (error) { setPrivacy(privacy) }
-  }
-
-  const handleExportData = async () => {
-    try {
-      const [p, a, an] = await Promise.all([userAPI.getProfile(), userAPI.getAttempts(), userAPI.getAnalytics()])
-      const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), profile: p.data?.data, attempts: a.data?.data, analytics: an.data?.data }, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `trstprep-export-${new Date().toISOString().slice(0, 10)}.json`
-      link.click()
-      URL.revokeObjectURL(url)
-    } catch (error) { alert('Failed to export data') }
-  }
-
-  const handleDeactivate = async () => {
-    if (!confirm('Deactivate your account?')) return
-    await userAPI.updateProfile({ isActive: false })
-    await logout()
-    navigate('/login', { state: { from: '/', message: 'Account deactivated' } })
-  }
-
-  const handleDelete = async () => {
-    if (!confirm('Delete your account permanently?')) return
-    await userAPI.deleteAccount()
-    await logout()
-    navigate('/login', { state: { from: '/', message: 'Account deleted' } })
-  }
-
-  const fetchSessions = async () => {
-    try {
-      setSessionsLoading(true)
-      const res = await userAPI.getSessions()
-      setSessions(res.data?.data || [])
-    } catch (err) {
-      console.error(err)
-      alert('Failed to load sessions')
-    } finally {
-      setSessionsLoading(false)
-    }
-  }
-
-  const handleRevokeSession = async (sessionId) => {
-    try {
-      setSessionsLoading(true)
-      await userAPI.revokeSession(sessionId)
-      setSessions(prev => prev.filter(s => s.id !== sessionId && s.sessionId !== sessionId))
-    } catch (err) {
-      console.error(err)
-      alert('Failed to revoke session')
-    } finally {
-      setSessionsLoading(false)
-    }
-  }
-
-  const settingsTabs = [
-    { id: 'security', label: 'Security', icon: Lock },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'privacy', label: 'Privacy', icon: Shield },
-    { id: 'billing', label: 'Pro Pass', icon: Crown },
-    { id: 'appearance', label: 'Appearance', icon: Moon },
-  ]
-
-  return (
-    <div>
-
-      {/* Security */}
-      {settingsTab === 'security' && (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Update Password</h3>
-            <div className="space-y-3">
-              <input type={showPasswords ? "text" : "password"} placeholder="Current Password" value={passwordForm.current} onChange={(e) => setPasswordForm(f => ({...f, current: e.target.value}))}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white" />
-              <div className="grid grid-cols-2 gap-3">
-                <input type={showPasswords ? "text" : "password"} placeholder="New Password" value={passwordForm.new} onChange={(e) => setPasswordForm(f => ({...f, new: e.target.value}))}
-                  className={`w-full px-4 py-2.5 rounded-xl border ${passwordErrors.new ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white`} />
-                <input type={showPasswords ? "text" : "password"} placeholder="Confirm" value={passwordForm.confirm} onChange={(e) => setPasswordForm(f => ({...f, confirm: e.target.value}))}
-                  className={`w-full px-4 py-2.5 rounded-xl border ${passwordErrors.confirm ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white`} />
-              </div>
-              <button onClick={() => setShowPasswords(!showPasswords)} className="text-xs font-bold text-indigo-600 hover:underline">{showPasswords ? 'Hide' : 'Show'} Characters</button>
-              <button onClick={handlePasswordSave} disabled={saving} className="w-full py-2.5 bg-gray-900 dark:bg-indigo-600 text-white rounded-xl text-sm font-bold disabled:opacity-50">
-                {saving ? 'Updating...' : 'Update Password'}
-              </button>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <div className="relative">
-              <Cell 
-                icon={<Smartphone className="w-4 h-4 text-indigo-500" />} 
-                iconBg="#EEF2FF" 
-                label="Session Management" 
-                sub="View and manage active devices" 
-                onClick={() => {
-                  setShowSessionsModal(true)
-                  fetchSessions()
-                }} 
-              />
-            </div>
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-red-100 dark:border-red-900/20 overflow-hidden">
-            <div className="px-4 py-2 bg-red-50/50 dark:bg-red-900/10"><span className="text-[10px] font-bold uppercase tracking-wider text-red-500">Danger Zone</span></div>
-            <Cell icon={<AlertCircle className="w-4 h-4 text-red-500" />} iconBg="#FEF2F2" label="Deactivate Account" sub="Temporarily disable" onClick={handleDeactivate} />
-            <Cell icon={<Trash2 className="w-4 h-4 text-red-600" />} iconBg="#FEF2F2" label="Delete Account" sub="Permanently remove all data" danger last onClick={handleDelete} />
-          </div>
-        </div>
-      )}
-
-      {/* Notifications */}
-      {settingsTab === 'notifications' && (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <SectionLabel>Channels</SectionLabel>
-            <Cell label="Email Notifications" sub="Results, reports, updates" right={<ToggleSwitch checked={notifications.email} onChange={(v) => handleNotificationChange('email', v)} />} />
-            <Cell label="Push Notifications" sub="Mobile & desktop alerts" right={<ToggleSwitch checked={notifications.push} onChange={(v) => handleNotificationChange('push', v)} />} />
-            <Cell label="SMS Alerts" sub="Critical updates" right={<ToggleSwitch checked={notifications.sms} onChange={(v) => handleNotificationChange('sms', v)} />} last />
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <SectionLabel>Reminders</SectionLabel>
-            <Cell label="Daily Study Goal" sub="Remind to study" right={<ToggleSwitch checked={notifications.testReminders} onChange={(v) => handleNotificationChange('testReminders', v)} />} />
-            <Cell label="Weekly Report" sub="Performance summary" right={<ToggleSwitch checked={notifications.weeklyReport} onChange={(v) => handleNotificationChange('weeklyReport', v)} />} />
-            <Cell label="Promotional" sub="New features & offers" right={<ToggleSwitch checked={notifications.promotional} onChange={(v) => handleNotificationChange('promotional', v)} />} last />
-          </div>
-        </div>
-      )}
-
-      {/* Privacy */}
-      {settingsTab === 'privacy' && (
-        <div className="space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <SectionLabel>Account Privacy</SectionLabel>
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">Profile Visibility</label>
-              <select value={privacy.profileVisibility} onChange={(e) => handlePrivacyChange({ profileVisibility: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 border-transparent text-sm font-medium">
-                <option value="public">Public</option>
-                <option value="friends">Friends Only</option>
-                <option value="private">Private</option>
-              </select>
-            </div>
-            <Cell label="Show Progress" sub="Let others see scores" right={<ToggleSwitch checked={privacy.showProgress} onChange={(v) => handlePrivacyChange({ showProgress: v })} />} />
-            <Cell label="Leaderboard" sub="Show name on rank lists" right={<ToggleSwitch checked={privacy.showOnLeaderboard} onChange={(v) => handlePrivacyChange({ showOnLeaderboard: v })} />} />
-            <Cell label="Allow Messages" sub="Receive study invites" right={<ToggleSwitch checked={privacy.allowMessages} onChange={(v) => handlePrivacyChange({ allowMessages: v })} />} last />
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
-            <SectionLabel>Your Data</SectionLabel>
-            <p className="text-xs text-gray-500 mb-3">Download your personal data and test history.</p>
-            <button onClick={handleExportData} className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 dark:bg-gray-700 rounded-xl text-sm font-bold text-gray-700 dark:text-gray-200">
-              <Download className="w-4 h-4" /> Export Data (.json)
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Billing */}
-      {settingsTab === 'billing' && (
-        <div className="space-y-4">
-          <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl p-5 text-white">
-            <div className="flex justify-between items-start mb-6">
-              <div><h3 className="text-lg font-black">Trstprep Pro</h3><p className="text-indigo-100 text-xs">{proPass.isActive ? 'Active' : 'Inactive'}</p></div>
-              <Crown className="w-7 h-7 text-yellow-400" />
-            </div>
-            {proPass.isActive ? (
-              <p className="text-sm">Renews: {proPass.formattedExpiry || 'N/A'}</p>
-            ) : (
-              <Link to="/pass" className="inline-block px-5 py-2 bg-white text-indigo-600 rounded-xl text-sm font-bold">Upgrade Now</Link>
-            )}
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <Cell label="Payment Methods" sub="Manage payment options" onClick={() => toast('Payment methods available in account settings', { icon: '💳' })} />
-            <Cell label="Billing History" sub="View invoices" right={<Link to="/pass" className="text-xs font-bold text-indigo-600 hover:underline">View</Link>} last />
-          </div>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-            <SectionLabel>Help</SectionLabel>
-            <Cell icon={<HelpCircle className="w-4 h-4 text-blue-500" />} iconBg="#EFF5FF" label="Help Center" onClick={() => window.open('https://help.trstprep.com', '_blank')} />
-            <Cell icon={<Shield className="w-4 h-4 text-gray-500" />} iconBg="#F9FAFB" label="Privacy Policy" onClick={() => window.open('/privacy', '_blank')} />
-            <Cell icon={<BookOpen className="w-4 h-4 text-gray-500" />} iconBg="#F9FAFB" label="Terms of Service" last onClick={() => window.open('/terms', '_blank')} />
-          </div>
-        </div>
-      )}
-
-      {/* Appearance */}
-      {settingsTab === 'appearance' && (
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
-          <SectionLabel>Display</SectionLabel>
-          <Cell icon={isDarkMode ? <Moon className="w-4 h-4 text-blue-500" /> : <Sun className="w-4 h-4 text-orange-500" />}
-            label="Dark Mode" sub="Toggle theme"
-            right={<ToggleSwitch checked={isDarkMode} onChange={toggleDarkMode} />} />
-          <SectionLabel>Language</SectionLabel>
-          {[
-            { code: 'en', name: 'English' },
-            { code: 'hi', name: 'हिंदी (Hindi)' },
-          ].map(({ code, name }) => (
-            <Cell key={code} label={name}
-              right={selectedLanguage === code && <Check className="w-4 h-4 text-indigo-600" />}
-              onClick={() => { setSelectedLanguage(code); localStorage.setItem('trstprep_language', code) }}
-              last={code === 'hi'} />
-          ))}
-          <p className="px-5 py-2 text-[10px] text-gray-400">More languages coming soon</p>
-        </div>
-      )}
-
-      {/* Sessions Modal */}
-      {showSessionsModal && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Active Sessions</h3>
-                <p className="text-xs text-gray-500">Devices where you are currently logged in</p>
-              </div>
-              <button onClick={() => setShowSessionsModal(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="p-5 overflow-y-auto flex-1 space-y-3">
-              {sessionsLoading && sessions.length === 0 ? (
-                <div className="flex justify-center py-8"><RefreshCw className="w-6 h-6 text-indigo-500 animate-spin" /></div>
-              ) : sessions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500 text-sm">No active sessions found.</div>
-              ) : (
-                sessions.map((session) => (
-                  <div key={session.sessionId || session.id} className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex flex-col gap-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
-                          {session.device === 'mobile' ? <Smartphone className="w-5 h-5" /> : session.device === 'tablet' ? <Globe className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-gray-900 dark:text-white">
-                              {session.browser && session.browser.toLowerCase() !== 'unknown' ? session.browser : 'Browser'} on {session.os && session.os.toLowerCase() !== 'unknown' ? session.os : 'Unknown OS'}
-                            </span>
-                            {/* All returned sessions are active */}
-                            <span className="px-2 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[9px] font-bold uppercase rounded-full tracking-wider">Active</span>
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                            <span>IP: {session.ip}</span>
-                            <span>•</span>
-                            <span>{session.location}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between mt-1 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <div className="text-[11px] text-gray-500">
-                        <span className="block">Last active: {session.lastActive ? new Date(session.lastActive).toLocaleString() : 'N/A'}</span>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          if (confirm('Revoke this session? This will sign you out on that device.')) {
-                            handleRevokeSession(session.id || session.sessionId)
-                          }
-                        }}
-                        disabled={sessionsLoading}
-                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        Revoke
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
-    </div>
-  )
-}
+import { toast } from 'react-hot-toast'
+import {
+  User,
+  Mail,
+  Phone,
+  Crown,
+  Settings,
+  Bell,
+  Moon,
+  LogOut,
+  ChevronRight,
+  Shield,
+  HelpCircle,
+  Edit2,
+  Camera,
+  Check,
+  Trophy,
+  Target,
+  Clock,
+  Flame,
+  Award,
+  BookOpen,
+  TrendingUp,
+  Calendar,
+  Star,
+  Zap,
+  Activity,
+  Lock,
+  AlertTriangle,
+  Trash2,
+  Plus,
+  ChevronDown,
+  MapPin,
+  GraduationCap,
+  Sparkles,
+  X,
+  Save,
+  BarChart2,
+  MoreHorizontal,
+  Download,
+  RefreshCw,
+  Gift,
+  Users,
+  Share2,
+  Brain,
+  LineChart,
+  PieChart as PieChartIcon,
+  Rocket,
+  FileText,
+} from 'lucide-react';
+import SettingsContent from './SettingsContent'
+import { SectionLabel, CompactFeatureCard } from './ProfilePrimitives'
 
 function Profile({ initialTab = 'personal' }) {
   const { user, refreshUser, logout } = useAuth()
   const { isDarkMode, toggleDarkMode } = useTheme()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const proPass = useProPass()
   const fileInputRef = useRef(null)
   const bannerFileInputRef = useRef(null)
-  const [activeTab, setActiveTab] = useState(initialTab)
-  const [settingsTab, setSettingsTab] = useState('security')
+  const editTimerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (editTimerRef.current) clearTimeout(editTimerRef.current)
+    }
+  }, [])
+
+  // Parse initial tab from URL params or localStorage fallback
+  const getInitialActiveTab = () => {
+    const urlTab = searchParams.get('tab')
+    if (urlTab) {
+      if (['personal', 'exams', 'features', 'pro', 'settings'].includes(urlTab)) {
+        return urlTab
+      }
+      if (['security', 'notifications', 'privacy', 'appearance'].includes(urlTab)) {
+        return 'settings'
+      }
+    }
+    const saved = localStorage.getItem('trstprep_profileTab')
+    if (saved && ['personal', 'exams', 'features', 'pro', 'settings'].includes(saved)) {
+      return saved
+    }
+    return initialTab
+  }
+
+  const getInitialSettingsTab = () => {
+    const urlTab = searchParams.get('tab')
+    const urlSubTab = searchParams.get('subtab') || searchParams.get('section')
+    if (urlSubTab && ['security', 'notifications', 'privacy', 'appearance'].includes(urlSubTab)) {
+      return urlSubTab
+    }
+    if (urlTab && ['security', 'notifications', 'privacy', 'appearance'].includes(urlTab)) {
+      return urlTab
+    }
+    return 'security'
+  }
+
+  const [activeTab, setActiveTab] = useState(getInitialActiveTab)
+  const [settingsTab, setSettingsTab] = useState(getInitialSettingsTab)
+
+  // Handle tab navigation and update URL query params
+  const handleTabChange = useCallback((tabId, subTabId = null) => {
+    setActiveTab(tabId)
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('tab', tabId)
+    if (tabId === 'settings') {
+      const activeSub = subTabId || settingsTab || 'security'
+      newParams.set('subtab', activeSub)
+      setSettingsTab(activeSub)
+    } else {
+      newParams.delete('subtab')
+      newParams.delete('section')
+    }
+    setSearchParams(newParams, { replace: true })
+    localStorage.setItem('trstprep_profileTab', tabId)
+  }, [searchParams, setSearchParams, settingsTab])
+
+  const handleSettingsTabChange = useCallback((subTabId) => {
+    setSettingsTab(subTabId)
+    const newParams = new URLSearchParams(searchParams)
+    newParams.set('tab', 'settings')
+    newParams.set('subtab', subTabId)
+    setSearchParams(newParams, { replace: true })
+  }, [searchParams, setSearchParams])
+
+  // Sync state with URL when back/forward navigation occurs
+  useEffect(() => {
+    const urlTab = searchParams.get('tab')
+    const urlSubTab = searchParams.get('subtab') || searchParams.get('section')
+    if (urlTab) {
+      if (['personal', 'exams', 'features', 'pro', 'settings'].includes(urlTab)) {
+        setActiveTab(urlTab)
+        if (urlTab === 'settings' && urlSubTab && ['security', 'notifications', 'privacy', 'appearance'].includes(urlSubTab)) {
+          setSettingsTab(urlSubTab)
+        }
+      } else if (['security', 'notifications', 'privacy', 'appearance'].includes(urlTab)) {
+        setActiveTab('settings')
+        setSettingsTab(urlTab)
+      }
+    }
+  }, [searchParams])
   const [isEditing, setIsEditing] = useState(false)
-  const [navMode, setNavMode] = useState('top')
-  const [loading, setLoading] = useState(true)
+  const [_navMode, setNavMode] = useState('top')
+  const [_loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [enrolledExams, setEnrolledExams] = useState([])
   const [enrolledTestSeries, setEnrolledTestSeries] = useState([])
@@ -437,7 +164,7 @@ function Profile({ initialTab = 'personal' }) {
   const [editSuccess, setEditSuccess] = useState(false)
   
   const [showPhotoOptionsModal, setShowPhotoOptionsModal] = useState(false)
-  const [selectedLanguage, setSelectedLanguage] = useState('en')
+  const [_selectedLanguage, setSelectedLanguage] = useState('en')
   const [privacy, setPrivacy] = useState({ profileVisibility: 'public', showProgress: true, showOnLeaderboard: true, allowMessages: true })
   
   const [personalInfo, setPersonalInfo] = useState({ fullName: '', email: '', phone: '', dateOfBirth: '', location: '', education: '' })
@@ -456,7 +183,7 @@ function Profile({ initialTab = 'personal' }) {
   const [selectedCity, setSelectedCity] = useState('')
   const [selectedPincode, setSelectedPincode] = useState('')
 
-  const getSeriesAttemptCount = (series) => {
+  const getSeriesAttemptCount = (series, rows = attemptRows) => {
     if (!user || !series) return 0
 
     const attemptCountFromRows = [
@@ -471,7 +198,7 @@ function Profile({ initialTab = 'personal' }) {
     ]
       .filter(Boolean)
       .reduce((max, key) => {
-        const count = attemptRows
+        const count = rows
           .filter((attempt) => [attempt.seriesId, attempt.seriesSlug].filter(Boolean).map(String).includes(String(key)))
           .reduce((tests, attempt) => {
             tests.add(String(attempt.testId || attempt.testSlug || attempt.id || ''))
@@ -541,9 +268,10 @@ function Profile({ initialTab = 'personal' }) {
     if (savedNavMode) setNavMode(savedNavMode)
     const savedLanguage = localStorage.getItem('trstprep_language') || 'en'
     setSelectedLanguage(savedLanguage)
+    document.documentElement.lang = savedLanguage === 'hi' ? 'hi' : 'en'
   }, [])
 
-  const toggleNavMode = (mode) => { setNavMode(mode); localStorage.setItem('trstprep_navMode', mode); window.location.reload() }
+  const _toggleNavMode = (mode) => { setNavMode(mode); localStorage.setItem('trstprep_navMode', mode); window.location.reload() }
 
   useEffect(() => {
     if (!user) { navigate('/login', { state: { from: '/profile' } }); return }
@@ -565,6 +293,7 @@ function Profile({ initialTab = 'personal' }) {
       bio: user.bio || '' 
     })
     
+    const controller = new AbortController()
     const fetchUserData = async () => {
       try {
         setLoading(true)
@@ -576,7 +305,8 @@ function Profile({ initialTab = 'personal' }) {
         ])
         
         const data = analyticsResponse || {}
-        setAttemptRows(attemptsResponse?.data?.data || [])
+        const attemptRowsData = attemptsResponse?.data?.data || []
+        setAttemptRows(attemptRowsData)
         setUserStats({
           testsAttempted: data.totalTests || user?.testsTaken || 0,
           avgAccuracy: data.avgAccuracy || user?.accuracy || 0,
@@ -591,7 +321,7 @@ function Profile({ initialTab = 'personal' }) {
         // Enrich enrolled series with test counts from user.attemptedTests
         const enrichedSeries = enrolledSeries.map(series => {
           const totalTests = series.totalTests || 0
-          const attemptedCount = getSeriesAttemptCount(series)
+          const attemptedCount = getSeriesAttemptCount(series, attemptRowsData)
           return { ...series, done: attemptedCount, tests: totalTests, completed: totalTests > 0 && attemptedCount >= totalTests }
         })
         setEnrolledTestSeries(enrichedSeries)
@@ -616,24 +346,27 @@ function Profile({ initialTab = 'personal' }) {
         })
         setEnrolledExams(Array.from(enrolledExamsMap.values()))
       } catch (error) {
+        if (controller.signal.aborted) return
         console.error('Failed to fetch user stats:', error)
       } finally {
         setLoading(false)
       }
     }
     fetchUserData()
+    return () => controller.abort()
   }, [user, navigate])
 
   const handleLogout = () => { if (confirm('Are you sure you want to logout?')) logout() }
 
   const handlePhotoClick = () => { if (user.avatar) setShowPhotoOptionsModal(true); else fileInputRef.current?.click() }
 
-  const handleLanguageChange = (lang) => {
+  const _handleLanguageChange = (lang) => {
     setSelectedLanguage(lang); localStorage.setItem('trstprep_language', lang)
-    alert(`Language changed to ${lang === 'en' ? 'English' : lang === 'hi' ? 'Hindi' : 'English'}`)
+    document.documentElement.lang = lang === 'hi' ? 'hi' : 'en'
+    toast.success(`Language changed to ${lang === 'en' ? 'English' : lang === 'hi' ? 'Hindi' : 'English'}`)
   }
 
-  const handleNotificationToggle = async (key) => {
+  const _handleNotificationToggle = async (key) => {
     const newNotifications = { ...notifications, [key]: !notifications[key] }
     setNotifications(newNotifications)
     try {
@@ -643,7 +376,7 @@ function Profile({ initialTab = 'personal' }) {
     catch (error) { console.error('Failed to save notification preferences:', error); setNotifications(notifications) }
   }
 
-  const handlePrivacyChange = async (updates) => {
+  const _handlePrivacyChange = async (updates) => {
     const previousPrivacy = privacy
     const nextPrivacy = { ...privacy, ...updates }
     setPrivacy(nextPrivacy)
@@ -655,7 +388,7 @@ function Profile({ initialTab = 'personal' }) {
     } catch (error) {
       console.error('Failed to save privacy preferences:', error)
       setPrivacy(previousPrivacy)
-      alert('Failed to save privacy settings.')
+      toast.error('Failed to save privacy settings.')
     } finally {
       setSaving(false)
     }
@@ -666,14 +399,14 @@ function Profile({ initialTab = 'personal' }) {
       setSaving(true)
       const response = await userAPI.updateProfile({ avatar: '' })
       if (response.data?.success) { refreshUser(); setShowPhotoOptionsModal(false) }
-    } catch (error) { console.error('Failed to remove photo:', error); alert('Failed to remove photo.') }
+    } catch (error) { console.error('Failed to remove photo:', error); toast.error('Failed to remove photo.') }
     finally { setSaving(false) }
   }
 
   const handlePhotoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { alert('Image size should be less than 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image size should be less than 5MB'); return }
     const reader = new FileReader()
     reader.onloadend = () => {
       setCropperState({ isOpen: true, src: reader.result, type: 'avatar' })
@@ -686,7 +419,7 @@ function Profile({ initialTab = 'personal' }) {
   const handleBannerChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 5 * 1024 * 1024) { alert('Cover photo must be less than 5MB'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Cover photo must be less than 5MB'); return }
     const reader = new FileReader()
     reader.onloadend = () => {
       setCropperState({ isOpen: true, src: reader.result, type: 'banner' })
@@ -705,14 +438,14 @@ function Profile({ initialTab = 'personal' }) {
       }
     } catch (error) {
       console.error('Failed to update photo:', error)
-      alert('Failed to update photo.')
+      toast.error('Failed to update photo.')
     } finally {
       setSaving(false)
       setCropperState({ isOpen: false, src: null, type: null })
     }
   }
 
-  const handleDeactivateAccount = async () => {
+  const _handleDeactivateAccount = async () => {
     if (!confirm('Deactivate your account? You can sign in again later to reactivate it.')) return
 
     try {
@@ -722,13 +455,13 @@ function Profile({ initialTab = 'personal' }) {
       navigate('/login', { state: { from: '/', message: 'Account deactivated' } })
     } catch (error) {
       console.error('Failed to deactivate account:', error)
-      alert('Failed to deactivate account.')
+      toast.error('Failed to deactivate account.')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleDeleteAccount = async () => {
+  const _handleDeleteAccount = async () => {
     if (!confirm('Delete your account? This will start the account deletion flow and sign you out.')) return
 
     try {
@@ -738,13 +471,13 @@ function Profile({ initialTab = 'personal' }) {
       navigate('/login', { state: { from: '/', message: 'Account deletion requested' } })
     } catch (error) {
       console.error('Failed to delete account:', error)
-      alert('Failed to delete account.')
+      toast.error('Failed to delete account.')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleExportData = async () => {
+  const _handleExportData = async () => {
     try {
       const [profileResponse, attemptsResponse, analyticsResponse] = await Promise.all([
         userAPI.getProfile(),
@@ -768,7 +501,7 @@ function Profile({ initialTab = 'personal' }) {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('Failed to export account data:', error)
-      alert('Failed to export account data.')
+      toast.error('Failed to export account data.')
     }
   }
 
@@ -797,9 +530,9 @@ function Profile({ initialTab = 'personal' }) {
         setPersonalInfo({ fullName: editForm.name, email: user.email, phone: editForm.phone, dateOfBirth: editForm.dateOfBirth, location: editForm.location, education: editForm.education })
         refreshUser()
         setEditSuccess(true)
-        setTimeout(() => { setIsEditing(false); setEditSuccess(false) }, 1500)
+        editTimerRef.current = setTimeout(() => { setIsEditing(false); setEditSuccess(false) }, 1500)
       }
-    } catch (error) { console.error('Failed to update profile:', error); alert('Failed to update profile.') }
+    } catch (error) { console.error('Failed to update profile:', error); toast.error('Failed to update profile.') }
     finally { setSaving(false) }
   }
 
@@ -820,7 +553,7 @@ function Profile({ initialTab = 'personal' }) {
       setActiveMenuId(null)
     } catch (error) {
       console.error('Failed to unenroll from exam:', error)
-      alert('Failed to unenroll. Please try again.')
+      toast.error('Failed to unenroll. Please try again.')
     } finally {
       setUnenrollingId(null)
     }
@@ -835,7 +568,7 @@ function Profile({ initialTab = 'personal' }) {
       setActiveMenuId(null)
     } catch (error) {
       console.error('Failed to unenroll from series:', error)
-      alert('Failed to unenroll. Please try again.')
+      toast.error('Failed to unenroll. Please try again.')
     } finally {
       setUnenrollingId(null)
     }
@@ -845,14 +578,15 @@ function Profile({ initialTab = 'personal' }) {
 
   return (
     <>
+      <Helmet>
+        <title>Profile | Trstprep</title>
+        <meta name="description" content="Manage your Trstprep profile - update personal information, view stats, and manage settings." />
+        <meta property="og:title" content="Profile | Trstprep" />
+        <meta property="og:description" content="Manage your Trstprep profile - update personal information, view stats, and manage settings." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       <div className="bg-gray-50 dark:bg-gray-900 pb-4 md:pb-8">
-        <style>{`
-          @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-          @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-          .hide-scrollbar::-webkit-scrollbar { display: none; }
-          .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        `}</style>
-        
         <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
         <input ref={bannerFileInputRef} type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
 
@@ -1109,7 +843,7 @@ function Profile({ initialTab = 'personal' }) {
             }}>
             {activeTab === 'settings' ? (
               <>
-                <button onClick={() => setActiveTab('personal')}
+                <button onClick={() => handleTabChange('personal')}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                   style={{ animation: 'fadeIn 0.2s ease' }}>
                   <ChevronRight className="w-3.5 h-3.5 rotate-180" />
@@ -1122,7 +856,7 @@ function Profile({ initialTab = 'personal' }) {
                   { id: 'privacy', label: 'Privacy', icon: Shield },
                   { id: 'appearance', label: 'Appearance', icon: Moon },
                 ].map((tab) => (
-                  <button key={tab.id} onClick={() => setSettingsTab(tab.id)}
+                  <button key={tab.id} onClick={() => handleSettingsTabChange(tab.id)}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                       settingsTab === tab.id
                         ? 'bg-indigo-600 text-white shadow'
@@ -1142,7 +876,7 @@ function Profile({ initialTab = 'personal' }) {
                   { id: 'features', label: 'Features', icon: Sparkles },
                   { id: 'pro', label: 'Pro Pass', icon: Crown },
                 ].map((tab) => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                       activeTab === tab.id
                         ? 'bg-indigo-600 text-white shadow'
@@ -1154,7 +888,7 @@ function Profile({ initialTab = 'personal' }) {
                   </button>
                 ))}
                 <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-0.5 self-center"></div>
-                <button onClick={() => { setActiveTab('settings'); setSettingsTab('security'); }}
+                <button onClick={() => handleTabChange('settings', 'security')}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                     activeTab === 'settings'
                       ? 'bg-indigo-600 text-white shadow'
@@ -1228,7 +962,7 @@ function Profile({ initialTab = 'personal' }) {
                           { label: 'Date of Birth', val: personalInfo.dateOfBirth || 'Not set', icon: Calendar, color: '#AF52DE', bg: 'from-purple-500 to-pink-600' },
                           { label: 'Location', val: personalInfo.location?.split(' -')[0] || 'Not set', icon: MapPin, color: '#FF3B30', bg: 'from-red-500 to-rose-600' },
                           { label: 'Education', val: personalInfo.education || 'Not set', icon: GraduationCap, color: '#00C7BE', bg: 'from-teal-500 to-cyan-600' },
-                        ].map(({ label, val, icon: Icon, color, bg }) => (
+                        ].map(({ label, val, icon: Icon, color: _color, bg }) => (
                           <div key={label} className="group relative bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3.5 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 border border-transparent hover:border-gray-200 dark:hover:border-gray-600">
                             <div className="flex items-start gap-3">
                               <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${bg} flex items-center justify-center shadow-sm flex-shrink-0`}>
@@ -1264,7 +998,7 @@ function Profile({ initialTab = 'personal' }) {
                   {/* Logout Option */}
                   <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden mt-5">
                     <button
-                      onClick={() => { if (window.confirm('Are you sure you want to logout?')) { logout(); navigate('/') } }}
+                      onClick={async () => { const ok = await window.confirm('Are you sure you want to logout?'); if (ok) { logout(); navigate('/') } }}
                       className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors group"
                     >
                       <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0 group-hover:bg-red-200 dark:group-hover:bg-red-900/50">
@@ -1352,7 +1086,7 @@ function Profile({ initialTab = 'personal' }) {
                     {enrolledExams.slice(0, 6).map((exam, i) => {
                       const color = ['#007AFF', '#34C759', '#FF9500', '#AF52DE'][i % 4]
                       const examId = exam.id || exam._id || i
-                      const isLoading = unenrollingId === examId
+                      const _isLoading = unenrollingId === examId
                       const examSeries = exam.series || []
                       
                       return (
@@ -1512,7 +1246,7 @@ function Profile({ initialTab = 'personal' }) {
                   { label: 'Accuracy', value: `${userStats.avgAccuracy || 0}%`, icon: Target, color: '#34C759', bg: 'from-green-400 to-emerald-500' },
                   { label: 'Rank', value: userStats.rank || '--', icon: Star, color: '#AF52DE', bg: 'from-purple-400 to-pink-500' },
                   { label: 'Streak', value: `${userStats.streak}d`, icon: Flame, color: '#FF9500', bg: 'from-orange-400 to-red-500' },
-                ].map(({ label, value, icon: Icon, color, bg }) => (
+                ].map(({ label, value, icon: Icon, color: _color, bg }) => (
                   <div key={label} className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700">
                     <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${bg} flex items-center justify-center mb-2`}>
                       <Icon className="w-4 h-4 text-white" />
@@ -1527,7 +1261,7 @@ function Profile({ initialTab = 'personal' }) {
                 <SectionLabel>Learning & Study</SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <CompactFeatureCard icon={<Trophy className="w-5 h-5 text-yellow-500" />} iconBg="#FEF3C7" title="Achievements & Badges" description="Track your milestones" onClick={() => navigate('/achievements')} badge="New" />
-                  <CompactFeatureCard icon={<BarChart2 className="w-5 h-5 text-blue-500" />} iconBg="#DBEAFE" title="Study Analytics" description="Performance insights" onClick={() => navigate('/dashboard/analysis')} />
+                  <CompactFeatureCard icon={<BarChart2 className="w-5 h-5 text-blue-500" />} iconBg="#DBEAFE" title="Study Analytics" description="Performance insights" onClick={() => navigate('/analysis')} />
                   <CompactFeatureCard icon={<Brain className="w-5 h-5 text-purple-500" />} iconBg="#EDE9FE" title="AI Study Planner" description="Personalized schedules" onClick={() => navigate('/dashboard/ai-planner')} />
                   <CompactFeatureCard icon={<Target className="w-5 h-5 text-red-500" />} iconBg="#FEE2E2" title="Weak Area Analysis" description="Focus on weak topics" onClick={() => navigate('/dashboard/insights')} />
                 </div>
@@ -1549,7 +1283,7 @@ function Profile({ initialTab = 'personal' }) {
                 </SectionLabel>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <CompactFeatureCard icon={<Rocket className="w-5 h-5 text-orange-500" />} iconBg="#FFEDD5" title="Priority Support" description="Faster responses" badge="Pro" comingSoon={!user?.hasProPass} />
-                  <CompactFeatureCard icon={<LineChart className="w-5 h-5 text-emerald-500" />} iconBg="#D1FAE5" title="Advanced Analytics" description="Deep performance data" badge="Pro" onClick={() => navigate('/analysis')} comingSoon={!user?.hasProPass} />
+                  <CompactFeatureCard icon={<LineChart className="w-5 h-5 text-emerald-500" />} iconBg="#D1FAE5" title="Advanced Analytics" description="Deep performance data" badge="Pro" onClick={() => navigate('/analysis')} />
                   <CompactFeatureCard icon={<Download className="w-5 h-5 text-violet-500" />} iconBg="#EDE9FE" title="Offline Access" description="Download tests" badge="Pro" comingSoon />
                   <CompactFeatureCard icon={<PieChartIcon className="w-5 h-5 text-rose-500" />} iconBg="#FFE4E6" title="Custom Test Builder" description="Create your own tests" badge="Pro" comingSoon />
                 </div>
@@ -1911,7 +1645,7 @@ function Profile({ initialTab = 'personal' }) {
           {/* Settings Tab Content */}
           {activeTab === 'settings' && (
             <div className="space-y-6" style={{ animation: 'fadeIn 0.35s ease both' }}>
-              <SettingsContent user={user} refreshUser={refreshUser} logout={logout} proPass={proPass} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} navigate={navigate} settingsTab={settingsTab} setSettingsTab={setSettingsTab} />
+              <SettingsContent user={user} refreshUser={refreshUser} logout={logout} proPass={proPass} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} navigate={navigate} settingsTab={settingsTab} setSettingsTab={handleSettingsTabChange} />
             </div>
           )}
         </div>

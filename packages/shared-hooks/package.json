@@ -3,6 +3,22 @@
   "version": "1.0.0",
   "description": "Shared React hooks for Trstprep apps",
   "main": "index.js",
+  "types": "types/index.d.ts",
   "type": "module",
-  "files": ["*.js"]
+  "files": ["*.js", "*.jsx", "src/EmptyState.jsx", "types/"],
+  "exports": {
+    ".": "./index.js",
+    "./EmptyState": "./src/EmptyState.jsx",
+    "./ThemeContext": "./ThemeContext.jsx",
+    "./ThemeContext.jsx": "./ThemeContext.jsx"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "socket.io-client": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "socket.io-client": {
+      "optional": true
+    }
+  }
 }

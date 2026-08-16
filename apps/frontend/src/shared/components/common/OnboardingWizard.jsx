@@ -2,29 +2,13 @@ import { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { X, ChevronRight, ChevronLeft, Check, Target, GraduationCap, BookOpen, Zap } from 'lucide-react'
+import { X, ChevronRight, ChevronLeft, Check, Target, GraduationCap, BookOpen } from 'lucide-react';
 import { useAuth } from '../../providers/AuthContext'
 import { examAPI } from '../../lib/dataService'
+import { hasCompletedOnboarding } from '../../lib/onboardingUtils'
 
 const STORAGE_KEY = 'trstprep_onboarding'
 const ONBOARDING_VERSION = 1
-
-export function hasCompletedOnboarding() {
-  try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-    return data && data.version === ONBOARDING_VERSION && data.completed === true
-  } catch {
-    return false
-  }
-}
-
-export function getOnboardingPrefs() {
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')
-  } catch {
-    return null
-  }
-}
 
 export default function OnboardingWizard() {
   const { user, updateProfile } = useAuth()
@@ -133,7 +117,7 @@ export default function OnboardingWizard() {
     try {
       const examName = prefs.selectedExam?.name || prefs.selectedCategory?.name || ''
       if (examName) {
-        updateProfile({ education: `Preparing for ${examName}` })
+        await updateProfile({ education: `Preparing for ${examName}` })
       }
     } catch { /* non-critical */ }
 

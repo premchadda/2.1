@@ -304,7 +304,8 @@ export async function unenrollFromStudyMaterial(dbHelpers, userId, materialId) {
 export async function getUserSeriesEnrollments(dbHelpers, userId) {
   return dbHelpers.find('enrollments', {
     userId,
-    isActive: true
+    isActive: true,
+    type: 'series',
   });
 }
 
@@ -317,7 +318,8 @@ export async function getUserSeriesEnrollments(dbHelpers, userId) {
 export async function getUserExamEnrollments(dbHelpers, userId) {
   return dbHelpers.find('enrollments', {
     userId,
-    isActive: true
+    isActive: true,
+    type: 'exam',
   });
 }
 
@@ -330,7 +332,8 @@ export async function getUserExamEnrollments(dbHelpers, userId) {
 export async function getUserStudyMaterialEnrollments(dbHelpers, userId) {
   return dbHelpers.find('enrollments', {
     userId,
-    isActive: true
+    isActive: true,
+    type: 'study_material',
   });
 }
 

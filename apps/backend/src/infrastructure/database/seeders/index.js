@@ -14,6 +14,7 @@
 import dotenv from 'dotenv';
 import pg from 'pg';
 import { runMigrations } from '../migrationRunner.js';
+import { dbHelpers } from '../postgres-helpers.js';
 
 import SubjectsSeeder    from './subjects.seeder.js';
 import TestsSeeder       from './tests.seeder.js';
@@ -41,7 +42,7 @@ export async function runSeeders(pool, { logger = console, runMigrationsFirst = 
   }
   if (runMigrationsFirst) {
     logger.log?.('[seed] Running migrations first to ensure schema is up to date...');
-    await runMigrations(pool);
+    await runMigrations(pool, { afterMigrations: () => dbHelpers.clearColumnExistsCache() });
   }
 
   const summary = [];

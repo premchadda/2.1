@@ -1,0 +1,324 @@
+{
+  "audit_metadata": {
+    "project": "Trstprep Admin Panel",
+    "audit_date": "2026-07-07",
+    "auditor": "Senior Security Engineer (AI)",
+    "scope": "Full frontend admin panel security audit",
+    "files_reviewed": 68,
+    "total_findings": 24,
+    "severity_breakdown": {
+      "critical": 4,
+      "high": 8,
+      "medium": 9,
+      "low": 3
+    }
+  },
+  "findings": [
+    {
+      "id": "CRIT-01",
+      "severity": "critical",
+      "category": "Credential Exposure",
+      "file": "src/shared/lib/dataService.js",
+      "line": 70,
+      "function": "module-level constant",
+      "root_cause": "VITE_ADMIN_API_KEY is read from import.meta.env and included in request headers. Vite environment variables prefixed with VITE_ are embedded in the client bundle and visible in browser DevTools/network tab.",
+      "impact": "Any user opening the admin panel can extract the Admin API Key from the browser bundle or network requests. This key could grant unauthorized admin-level API access if the backend relies solely on this header for authorization.",
+      "recommended_fix": "Remove VITE_ADMIN_API_KEY entirely. Admin authentication should rely exclusively on httpOnly cookie-based session tokens. If a secondary key is needed, it must never be in client-side code."
+    },
+    {
+      "id": "CRIT-02",
+      "severity": "critical",
+      "category": "Broken Authentication Flow",
+      "file": "src/shared/components/AdminLayout.jsx",
+      "line": 142,
+      "function": "handleLogout",
+      "root_cause": "AdminLayout.handleLogout() calls fetch('/auth/logout') directly and dispatches a raw 'unauthorized' event instead of calling AuthContext.logout(). This bypasses the centralized logout flow that clears CSRF tokens, sessionStorage metadata, and user state.",
+      "impact": "After logout from the sidebar/profile dropdown, CSRF tokens remain in memory, sessionStorage metadata persists, and the React user state may not properly reset. An attacker with XSS could leverage the lingering CSRF token.",
+      "recommended_fix": "Replace handleLogout() body with: const { logout } = useAuth(); then await logout(). Remove the duplicated fetch/sessionStorage logic entirely."
+    },
+    {
+      "id": "CRIT-03",
+      "severity": "critical",
+      "category": "Privilege Escalation",
+      "file": "src/features/admin/users-enrollments/UsersManager.jsx",
+      "line": 380,
+      "function": "Bulk Actions - Make Admin",
+      "root_cause": "The bulk actions toolbar includes a 'Make Admin' button that grants admin role to all selected users with a single click and no confirmation dialog. The role change is sent immediately via updateUserRole().",
+      "impact": "A compromised admin session or accidental clicks could elevate multiple regular users to admin role instantly, granting them full platform management access. There is no audit log entry triggered from the frontend for this critical action.",
+      "recommended_fix": "Add a two-step confirmation dialog (using confirmOnce) before any bulk role change. Log the action client-side for audit trail. Consider requiring super_admin role for admin-role grants."
+    },
+    {
+      "id": "CRIT-04",
+      "severity": "critical",
+      "category": "Missing Inactivity Timeout",
+      "file": "src/shared/providers/AuthContext.jsx",
+      "line": 33,
+      "function": "SESSION_CONFIG.inactivityTimeout",
+      "root_cause": "SESSION_CONFIG defines inactivityTimeout as 30 minutes, but no code anywhere in the application monitors user activity or enforces this timeout. The expiryAt timestamp in sessionStorage is set at login and never checked against actual user activity.",
+      "impact": "Admin sessions remain valid indefinitely after login as long as the cookie hasn't expired. An unattended admin workstation with an open browser tab maintains full admin access forever.",
+      "recommended_fix": "Implement a useInactivityTimer hook that: (1) tracks mouse/keyboard events, (2) checks against inactivityTimeout on each event, (3) calls logout() when timeout is exceeded, (4) refreshes the expiry timestamp on activity."
+    },
+    {
+      "id": "HIGH-01",
+      "severity": "high",
+      "category": "CSRF Token Lifecycle",
+      "file": "src/shared/providers/AuthContext.jsx",
+      "line": 27,
+      "function": "CSRF token import/export",
+      "root_cause": "CSRF tokens are imported from @trstprep/shared-config using getCsrfToken/setCsrfToken/clearCsrfToken. The token is stored in-memory (closure variable). However, if the page is refreshed, the in-memory token is lost and the first mutation request after refresh may fail or be unprotected.",
+      "impact": "CSRF protection may be intermittently unavailable after page refresh, leaving mutation endpoints (POST/PUT/DELETE) vulnerable to cross-site request forgery attacks.",
+      "recommended_fix": "Ensure the backend refreshes the CSRF token on every authenticated response. The frontend should re-read the CSRF token from response headers after each successful request. Consider sending the CSRF token as a cookie that the backend also validates."
+    },
+    {
+      "id": "HIGH-02",
+      "severity": "high",
+      "category": "Insufficient Route-Level Authorization",
+      "file": "src/shared/components/ProtectedRoute.jsx",
+      "line": 46,
+      "function": "Permission mapping logic",
+      "root_cause": "The ProtectedRoute maps URL segments to coarse resource names (users, tests, content). Many admin routes fall into the 'content' bucket by default. Routes like /admin/backups, /admin/settings, /admin/system-health, /admin/navigation, /admin/audit-trail all map to 'content' permission.",
+      "impact": "A user with 'content:view' permission can access sensitive admin sections like backups, system health, and audit trails without explicit authorization. This violates the principle of least privilege.",
+      "recommended_fix": "Extend the resource mapping to include explicit entries for: 'settings', 'system', 'audit_logs', 'backups'. Add requireAnyPermission props to sensitive routes like /admin/backups, /admin/system-health, /admin/audit-trail."
+    },
+    {
+      "id": "HIGH-03",
+      "severity": "high",
+      "category": "Missing CSP Headers",
+      "file": "nginx.conf",
+      "line": 13,
+      "function": "Security headers",
+      "root_cause": "nginx.conf includes X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, and Referrer-Policy, but does not include Content-Security-Policy or Strict-Transport-Security headers.",
+      "impact": "Without CSP, the admin panel is vulnerable to injected scripts (XSS via stored content, browser extensions, or compromised CDN). Without HSTS, the admin panel can be downgraded to HTTP by MITM attacks.",
+      "recommended_fix": "Add: add_header Content-Security-Policy \"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' wss:;\" always; add_header Strict-Transport-Security \"max-age=31536000; includeSubDomains\" always;"
+    },
+    {
+      "id": "HIGH-04",
+      "severity": "high",
+      "category": "Docker Container Runs as Root",
+      "file": "Dockerfile",
+      "line": 13,
+      "function": "nginx:alpine stage",
+      "root_cause": "The nginx:alpine base image runs the nginx worker process as root by default. No USER directive is added to drop privileges.",
+      "impact": "If an attacker exploits a vulnerability in nginx or a misconfigured location block, they gain root-level access inside the container, potentially allowing container escape or filesystem access.",
+      "recommended_fix": "Add before CMD: RUN addgroup -g 1001 -S app && adduser -u 1001 -S app -G app && chown -R app:app /usr/share/nginx/html /etc/nginx/conf.d && USER app. Also update nginx.conf to listen on non-privileged port (8080)."
+    },
+    {
+      "id": "HIGH-05",
+      "severity": "high",
+      "category": "Sensitive Data Exposure in Admin Settings",
+      "file": "src/features/admin/system-settings/AdminSettings.jsx",
+      "line": 87,
+      "function": "Payment settings state",
+      "root_cause": "AdminSettings loads Stripe secret keys, Razorpay key secrets, and PayPal client secrets into React component state. While they are masked visually (••••), the actual values are in the JavaScript state and can be accessed via React DevTools or by intercepting the PUT /admin/settings request.",
+      "impact": "Payment gateway secrets could be extracted from the browser's JavaScript heap, DevTools, or network tab when the settings form is saved. This exposes payment processing infrastructure to compromise.",
+      "recommended_fix": "Backend should never return actual secret values in GET responses - return only masked placeholders. Secrets should only be set/updated via PUT, never returned. Remove show/hide toggle for secret fields entirely."
+    },
+    {
+      "id": "HIGH-06",
+      "severity": "high",
+      "category": "No Client-Side Rate Limiting on Login",
+      "file": "src/features/admin/auth/Login.jsx",
+      "line": 20,
+      "function": "handleSubmit",
+      "root_cause": "The login form has no client-side rate limiting, CAPTCHA, or account lockout mechanism. Failed attempts are not tracked on the frontend.",
+      "impact": "Automated brute-force attacks can submit unlimited login attempts rapidly. While the backend may have rate limiting, the lack of client-side protection increases server load and makes attacks easier to execute.",
+      "recommended_fix": "Add client-side rate limiting (max 5 attempts per minute with exponential backoff). Implement CAPTCHA after 3 failed attempts. Show remaining attempts counter. Add progressive delays between attempts."
+    },
+    {
+      "id": "HIGH-07",
+      "severity": "high",
+      "category": "WebSocket Authentication Gap",
+      "file": "src/shared/hooks/useWebSocket.js",
+      "line": 26,
+      "function": "io() connection",
+      "root_cause": "The WebSocket connection is established with withCredentials: true but there is no explicit verification that the socket connection was properly authenticated. The socket connects on mount if `enabled` (user exists) is true, but there is no auth handshake validation.",
+      "impact": "If a user's session expires while the WebSocket is connected, the socket may continue receiving real-time events (notifications, admin stats updates, live test attempts) without an active session.",
+      "recommended_fix": "Add a socket middleware on the server that validates the session cookie on each connection. On the client, listen for 'unauthorized' or 'session_expired' socket events and disconnect + redirect to login."
+    },
+    {
+      "id": "HIGH-08",
+      "severity": "high",
+      "category": "Insecure Proxy Configuration",
+      "file": "vite.config.js",
+      "line": 56,
+      "function": "proxy configuration",
+      "root_cause": "All Vite proxy configurations (/api, /socket.io, /assets, /uploads) have secure: false, which disables SSL certificate verification for proxied requests.",
+      "impact": "In development, this allows MITM attacks on the proxy connection. If the Vite dev server is accidentally exposed to a network, the insecure proxy could be exploited to intercept or modify admin API traffic.",
+      "recommended_fix": "In production builds this is irrelevant (proxy is only for dev). For dev, set secure: true and configure proper SSL certificates. Add a comment warning that these proxy settings must never be used in production."
+    },
+    {
+      "id": "MED-01",
+      "severity": "medium",
+      "category": "Missing Audit Log for Frontend Actions",
+      "file": "src/features/admin/users-enrollments/UsersManager.jsx",
+      "line": 136,
+      "function": "updateUserRole",
+      "root_cause": "User role changes, Pro Pass grants/revokes, and account deactivations are sent via API but no frontend-side audit log or confirmation of audit trail creation is verified.",
+      "impact": "If the backend fails to create audit log entries for these critical actions, there will be no record of privilege changes. The admin has no way to verify their actions were audited.",
+      "recommended_fix": "After successful API calls for role changes and Pro Pass operations, verify the response includes an audit_log_id or similar confirmation. Show the audit reference to the admin."
+    },
+    {
+      "id": "MED-02",
+      "severity": "medium",
+      "category": "Backup Filename Injection",
+      "file": "src/features/admin/system-settings/BackupsManager.jsx",
+      "line": 64,
+      "function": "handleDownloadBackup",
+      "root_cause": "The backup filename (backup.fileName) from the server response is used directly in link.setAttribute('download', fileName) without sanitization.",
+      "impact": "If the server returns a malicious filename (e.g., '../../etc/passwd' or a filename with path traversal), it could potentially be used for social engineering or, in edge cases, filesystem manipulation on download.",
+      "recommended_fix": "Sanitize the filename: const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '');"
+    },
+    {
+      "id": "MED-03",
+      "severity": "medium",
+      "category": "Incomplete Session Cleanup on Logout",
+      "file": "src/shared/components/AdminLayout.jsx",
+      "line": 154,
+      "function": "handleLogout finally block",
+      "root_cause": "handleLogout removes 'trstprep_session' and 'trstprep_user' from sessionStorage, but the AuthContext uses 'trstprep_session_meta' as the key. This leaves stale metadata in sessionStorage.",
+      "impact": "Session metadata persists after logout, potentially leaking activity timestamps and expiry information to the next user of the workstation.",
+      "recommended_fix": "Consolidate to a single sessionStorage key 'trstprep_session_meta' and ensure all logout paths remove it. Better yet, use AuthContext.logout() which handles this correctly."
+    },
+    {
+      "id": "MED-04",
+      "severity": "medium",
+      "category": "Bulk Import No Client-Side File Validation",
+      "file": "src/features/admin/assessments-quizzes/components/BulkImportModal.jsx",
+      "line": 43,
+      "function": "File input onChange",
+      "root_cause": "The BulkImportModal states 'Max file size: 5MB' in the UI text but performs no client-side file size validation before uploading. The FullTestImportModal accepts files up to 150MB.",
+      "impact": "Excessively large files can be uploaded, consuming server resources, causing timeouts, and potentially enabling denial-of-service through resource exhaustion.",
+      "recommended_fix": "Add client-side validation: if (file.size > MAX_SIZE) { toast.error('File exceeds maximum size'); return; } before setting the file state."
+    },
+    {
+      "id": "MED-05",
+      "severity": "medium",
+      "category": "Exposed Server Port in API Resolution",
+      "file": "src/shared/lib/apiBase.js",
+      "line": 31,
+      "function": "API_BASE_URL resolver",
+      "root_cause": "The API_BASE_URL resolver falls back to constructing a URL with the backend port (5001) from environment variables or window.location. This could expose the backend port to client-side code.",
+      "impact": "An attacker can determine the backend port and potentially access the backend directly, bypassing the Vite dev server proxy and its protections.",
+      "recommended_fix": "In production, always use the VITE_API_URL environment variable. Remove the dynamic port resolution fallback for production builds."
+    },
+    {
+      "id": "MED-06",
+      "severity": "medium",
+      "category": "DOMPurify Configuration Allows class Attribute",
+      "file": "src/shared/lib/sanitizeHtml.js",
+      "line": 10,
+      "function": "DOMPURIFY_CONFIG.ALLOWED_ATTR",
+      "root_cause": "The DOMPurify configuration allows the 'class' attribute in sanitized HTML. While class attributes are generally safe, they could be used for CSS-based data exfiltration or UI redressing if combined with external stylesheets.",
+      "impact": "Low direct impact, but combined with other vulnerabilities, class-based CSS injection could leak data or alter admin UI appearance.",
+      "recommended_fix": "Review if 'class' is truly needed in sanitized content. If used for rich text formatting in questions/content, consider converting to inline styles or a safe subset."
+    },
+    {
+      "id": "MED-07",
+      "severity": "medium",
+      "category": "No HSTS or Secure Cookie Flags Verified",
+      "file": "nginx.conf",
+      "line": 1,
+      "function": "server block",
+      "root_cause": "nginx.conf listens on port 80 (HTTP) without any redirect to HTTPS. There are no cookie security flags configured at the nginx level (though the backend should set them).",
+      "impact": "Admin panel can be accessed over plain HTTP, making session cookies vulnerable to interception. Even if the backend sets Secure flag, the initial connection is unencrypted.",
+      "recommended_fix": "Add an HTTP-to-HTTPS redirect server block. Ensure the backend sets: Secure; HttpOnly; SameSite=Strict on all session cookies."
+    },
+    {
+      "id": "MED-08",
+      "severity": "medium",
+      "category": "Role Permissions Manager Missing Super Admin Check",
+      "file": "src/features/admin/users-enrollments/RolePermissionsManager.jsx",
+      "line": 93,
+      "function": "handleSave",
+      "root_cause": "Any admin can create, edit, or delete roles and their permissions. There is no check that the current user is a super_admin before allowing role modifications.",
+      "impact": "A regular admin could create a new role with admin:write or roles:delete permissions, then assign it to themselves, effectively escalating to super_admin.",
+      "recommended_fix": "Add role permission checks: if (user.role !== 'super_admin') { toast.error('Only super admins can manage roles'); return; } before create/update/delete operations."
+    },
+    {
+      "id": "MED-09",
+      "severity": "medium",
+      "category": "Error Messages Leak Internal State",
+      "file": "src/shared/lib/dataService.js",
+      "line": 130,
+      "function": "response interceptor error handling",
+      "root_cause": "The 401 error handler dispatches an 'unauthorized' event but also includes the full error data in the rejected promise. The error.message and error.response.data are propagated to calling components.",
+      "impact": "Detailed error messages from the backend (stack traces, database errors, internal paths) could be logged to the console or displayed to users, aiding attackers in reconnaissance.",
+      "recommended_fix": "In production, sanitize error messages before rejecting promises. Remove console.error calls for API errors or gate them behind import.meta.env.DEV."
+    },
+    {
+      "id": "LOW-01",
+      "severity": "low",
+      "category": "Missing robots.txt for Admin Panel",
+      "file": "index.html",
+      "line": 8,
+      "function": "meta robots tag",
+      "root_cause": "The index.html includes <meta name='robots' content='noindex, nofollow'> which is good, but there is no robots.txt file to block crawlers at the path level.",
+      "impact": "Search engines may still attempt to crawl the admin panel. While the meta tag prevents indexing, a robots.txt provides an additional defense layer.",
+      "recommended_fix": "Add a robots.txt file to the public directory with: User-agent: * Disallow: /"
+    },
+    {
+      "id": "LOW-02",
+      "severity": "low",
+      "category": "Console Logging in Production",
+      "file": "src/shared/lib/dataService.js",
+      "line": 180,
+      "function": "fetchFromAPI error handler",
+      "root_cause": "console.error calls exist in the fetchFromAPI function and DataService retry logic. While vite.config.js has esbuildOptions.dropConsole for production, some console.error calls may survive if dropConsole only targets console.log.",
+      "impact": "Sensitive error information (API endpoints, request payloads, stack traces) may be logged to the browser console in production.",
+      "recommended_fix": "Use the logger utility (logger.error) instead of console.error throughout the codebase. The logger utility already gates non-error logs behind DEV mode."
+    },
+    {
+      "id": "LOW-03",
+      "severity": "low",
+      "category": "Missing Subresource Integrity",
+      "file": "index.html",
+      "line": 13,
+      "function": "Script loading",
+      "root_cause": "The module script tag does not include integrity or crossorigin attributes. While Vite's bundling provides some protection, external dependencies loaded at runtime are not integrity-verified.",
+      "impact": "If the hosting infrastructure is compromised, modified JavaScript could be served to admin users without detection.",
+      "recommended_fix": "For production builds, configure Vite's build.rollupOptions.output to generate SRI hashes, or use a build plugin that adds integrity attributes to output HTML."
+    }
+  ],
+  "positive_findings": [
+    "httpOnly cookie-based authentication properly implemented, eliminating localStorage token theft (XSS)",
+    "CSRF token mechanism exists with per-request validation on mutations (POST/PUT/DELETE/PATCH)",
+    "DOMPurify-based HTML sanitization with explicit allowlist configuration",
+    "Role-based access control with admin/super_admin distinction in ProtectedRoute",
+    "Zod validation schemas for all admin forms (questions, tests, categories, etc.)",
+    "Backend session management with refresh token rotation",
+    "WebSocket connection uses credentials: true for authenticated socket connections",
+    "Production build drops console statements via esbuild",
+    "Sentry integration for production error monitoring (lazy-loaded)",
+    "Environment validation on startup for required variables",
+    "Proper error type hierarchy (DataError, NetworkError, ValidationError, AuthenticationError)",
+    "Confirm dialogs for destructive actions (delete, role changes)",
+    "Audit trail manager with export capability",
+    "Session management UI for admin to view/revoke active sessions"
+  ],
+  "summary": {
+    "overall_risk_rating": "HIGH",
+    "immediate_actions_required": [
+      "Remove VITE_ADMIN_API_KEY from client bundle (CRIT-01)",
+      "Fix AdminLayout logout to use AuthContext.logout() (CRIT-02)",
+      "Add confirmation dialog to bulk admin role assignment (CRIT-03)",
+      "Implement frontend inactivity timeout enforcement (CRIT-04)",
+      "Add Content-Security-Policy and HSTS headers to nginx (HIGH-03)",
+      "Fix Dockerfile to run as non-root user (HIGH-04)",
+      "Prevent frontend from receiving payment secrets (HIGH-05)"
+    ],
+    "architecture_strengths": [
+      "Centralized API client with interceptors for auth/CSRF",
+      "Lazy-loaded route components for performance",
+      "Comprehensive Zod validation schemas",
+      "Proper RBAC structure with permissions matrix",
+      "Audit trail infrastructure exists"
+    ],
+    "architecture_weaknesses": [
+      "Dual logout paths creating inconsistent state cleanup",
+      "Coarse-grained permission mapping in ProtectedRoute",
+      "No frontend-side activity/inactivity monitoring",
+      "Secret values returned from backend in GET responses",
+      "Missing CSP and HSTS headers"
+    ]
+  }
+}

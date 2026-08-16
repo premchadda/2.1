@@ -22,8 +22,9 @@ const cacheControl = (req, res, next) => {
   if (noCacheEndpoints.some((prefix) => path.startsWith(prefix))) {
     res.set('Cache-Control', 'no-store');
   }
-  // Rarely-changing public data — cache for 5 minutes
-  else if (staticEndpoints.includes(path)) {
+  // Rarely-changing public data — cache for 5 minutes. Match the endpoint or
+  // any of its sub-paths (e.g. /api/test-series/123, not just the exact path).
+  else if (staticEndpoints.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
     res.set('Cache-Control', 'public, max-age=300');
   }
 

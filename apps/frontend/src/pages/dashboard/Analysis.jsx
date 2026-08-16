@@ -223,7 +223,7 @@ function Analysis() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analysis...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading analysis...</p>
         </div>
       </div>
     )
@@ -232,27 +232,27 @@ function Analysis() {
   // Locked state for free users
   if (!hasAccess && user?.role !== 'admin') {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100 text-center p-8 space-y-6">
-          <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-bounce">
-            <LockIcon className="w-10 h-10 text-indigo-600" />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 text-center p-8 space-y-6">
+          <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-bounce">
+            <LockIcon className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Premium Feature</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Premium Feature</h2>
+          <p className="text-gray-600 dark:text-gray-300">
             Performance Analytics and detailed insights are available for <b>Test Series</b> and <b>Pro Pass</b> members.
           </p>
-          <div className="bg-indigo-50 rounded-xl p-4 text-left">
-            <p className="text-sm font-semibold text-indigo-900 mb-2">What you'll get:</p>
+          <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-left">
+            <p className="text-sm font-semibold text-indigo-900 dark:text-indigo-200 mb-2">What you'll get:</p>
             <ul className="space-y-2">
-              <li className="flex items-center gap-2 text-xs text-indigo-700">
+              <li className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
                 <CheckCircle className="w-3.5 h-3.5" />
                 Subject-wise accuracy breakdown
               </li>
-              <li className="flex items-center gap-2 text-xs text-indigo-700">
+              <li className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
                 <CheckCircle className="w-3.5 h-3.5" />
                 Progress tracking over time
               </li>
-              <li className="flex items-center gap-2 text-xs text-indigo-700">
+              <li className="flex items-center gap-2 text-xs text-indigo-700 dark:text-indigo-300">
                 <CheckCircle className="w-3.5 h-3.5" />
                 Strength & Weakness identification
               </li>
@@ -264,7 +264,7 @@ function Analysis() {
           >
             Upgrade Now
           </Link>
-          <Link to="/test-series" className="block text-sm text-gray-400 hover:text-gray-600">
+          <Link to="/test-series" className="block text-sm text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
             Continue with free tests
           </Link>
         </div>
@@ -280,9 +280,9 @@ function Analysis() {
   ]
 
   return (
-    <div className="min-h-screen bg-gray-50 page-transition fade-in">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 page-transition fade-in">
       {/* Breadcrumb */}
-      <div className="bg-white border-b border-gray-100">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Breadcrumb
             items={[
@@ -335,7 +335,7 @@ function Analysis() {
         </div>
       </AnimatedHero>
 
-      <div className="max-w-7xl mx-auto px-4 pb-6 min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 pb-6 min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Your Progress Section */}
 
 
@@ -415,50 +415,50 @@ function Analysis() {
 
         {/* Quick Stats */}
         <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Target className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <Target className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{analytics.totalTests}</p>
-                <p className="text-xs text-gray-500">Tests Attempted</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.totalTests}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Tests Attempted</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <CheckCircle className="w-5 h-5 text-green-600" />
+              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{analytics.avgAccuracy}%</p>
-                <p className="text-xs text-gray-500">Avg Accuracy</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.avgAccuracy}%</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Avg Accuracy</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Award className="w-5 h-5 text-purple-600" />
+              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <Award className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">#{analytics.rank}</p>
-                <p className="text-xs text-gray-500">All India Rank</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">#{analytics.rank}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">All India Rank</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-amber-600" />
+              <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-gray-900">{analytics.percentile}%</p>
-                <p className="text-xs text-gray-500">Percentile</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.percentile}%</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Percentile</p>
               </div>
             </div>
           </div>
@@ -470,13 +470,13 @@ function Analysis() {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4 text-indigo-600" />
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                  <TrendingUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                 </div>
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white">Score Trend</h2>
               </div>
               {scoreTrend.length > 1 && (
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'}`}>
+                <span className={`text-xs font-bold px-2 py-1 rounded-full ${scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20' : 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20'}`}>
                   {scoreTrend[scoreTrend.length - 1] >= scoreTrend[0] ? '↗' : '↘'} {Math.abs(scoreTrend[scoreTrend.length - 1] - scoreTrend[0])} pts
                 </span>
               )}
@@ -484,9 +484,9 @@ function Analysis() {
             {scoreTrend.length > 0 ? (
               <ScoreSparkline data={scoreTrend} />
             ) : (
-              <p className="text-xs text-gray-400 py-8 text-center">No tests attempted yet</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500 py-8 text-center">No tests attempted yet</p>
             )}
-            <div className="flex justify-between text-[10px] text-gray-400 mt-2">
+            <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-2">
               <span>Oldest</span>
               <span>Recent Tests →</span>
             </div>
@@ -495,8 +495,8 @@ function Analysis() {
           {/* Consistency Tracker (7-day heatmap) */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Flame className="w-4 h-4 text-orange-600" />
+              <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                <Flame className="w-4 h-4 text-orange-600 dark:text-orange-400" />
               </div>
               <h2 className="text-sm font-bold text-gray-900 dark:text-white">Consistency</h2>
             </div>
@@ -506,19 +506,19 @@ function Analysis() {
                   <div
                     className={`w-full aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${day.count > 0
                       ? 'bg-gradient-to-br from-orange-400 to-rose-500 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-300'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-300 dark:text-gray-500'
                       }`}
                     title={`${day.date.toLocaleDateString('en-IN', { weekday: 'long' })} — ${day.count} test${day.count !== 1 ? 's' : ''}`}
                   >
                     {day.count > 0 ? day.count : ''}
                   </div>
-                  <span className="text-[9px] font-bold text-gray-400">{day.label}</span>
+                  <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500">{day.label}</span>
                 </div>
               ))}
             </div>
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">This Week</span>
-              <span className="text-sm font-black text-orange-600">
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">This Week</span>
+              <span className="text-sm font-black text-orange-600 dark:text-orange-400">
                 {consistencyData.reduce((acc, d) => acc + d.count, 0)} tests
               </span>
             </div>
@@ -530,18 +530,18 @@ function Analysis() {
           {/* Time Analysis — avg time per subject */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-cyan-100 dark:bg-cyan-900/30 flex items-center justify-center">
                 <Clock className="w-4 h-4 text-cyan-600" />
               </div>
               <h2 className="text-sm font-bold text-gray-900 dark:text-white">Time Analysis</h2>
-              <span className="text-[10px] text-gray-400 font-medium">Avg seconds per question</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">Avg seconds per question</span>
             </div>
             {timeAnalysis.length > 0 ? (
               <div className="space-y-3">
                 {timeAnalysis.map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-gray-700 w-28 truncate flex-shrink-0">{item.subject}</span>
-                    <div className="flex-1 h-6 bg-gray-100 rounded-lg overflow-hidden relative">
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 w-28 truncate flex-shrink-0">{item.subject}</span>
+                    <div className="flex-1 h-6 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden relative">
                       <div
                         className={`h-full rounded-lg flex items-center justify-end pr-2 transition-all duration-500 ${item.avgTimeSec > 75 ? 'bg-red-400' : item.avgTimeSec > 50 ? 'bg-amber-400' : 'bg-emerald-400'}`}
                         style={{ width: `${Math.min(100, (item.avgTimeSec / 120) * 100)}%` }}
@@ -549,17 +549,17 @@ function Analysis() {
                         <span className="text-[9px] font-bold text-white">{item.avgTimeSec}s</span>
                       </div>
                     </div>
-                    <span className="text-[10px] text-gray-400 w-12 text-right">{item.attempted} Qs</span>
+                    <span className="text-[10px] text-gray-400 dark:text-gray-500 w-12 text-right">{item.attempted} Qs</span>
                   </div>
                 ))}
-                <div className="pt-3 border-t border-gray-100 flex items-center gap-4 text-[10px] text-gray-400">
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center gap-4 text-[10px] text-gray-400 dark:text-gray-500">
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" /> Fast (&lt;50s)</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" /> Moderate (50-75s)</span>
                   <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" /> Slow (&gt;75s)</span>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-400">
+              <div className="text-center py-8 text-gray-400 dark:text-gray-500">
                 <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Complete tests to see time analysis</p>
               </div>
@@ -570,29 +570,29 @@ function Analysis() {
           <FeatureGate sectionKey="analysis:difficulty" variant="card" minHeight="240px">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Gauge className="w-4 h-4 text-purple-600" />
+              <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                <Gauge className="w-4 h-4 text-purple-600 dark:text-purple-400" />
               </div>
               <h2 className="text-sm font-bold text-gray-900 dark:text-white">Difficulty Breakdown</h2>
             </div>
             <div className="grid grid-cols-3 gap-3 mb-4">
               {[
-                { label: 'Easy', count: difficultyBreakdown.easy, acc: difficultyBreakdown.easyAcc, color: 'emerald', bg: 'bg-emerald-50', text: 'text-emerald-600', bar: 'bg-emerald-500' },
-                { label: 'Medium', count: difficultyBreakdown.medium, acc: difficultyBreakdown.mediumAcc, color: 'amber', bg: 'bg-amber-50', text: 'text-amber-600', bar: 'bg-amber-500' },
-                { label: 'Hard', count: difficultyBreakdown.hard, acc: difficultyBreakdown.hardAcc, color: 'rose', bg: 'bg-rose-50', text: 'text-rose-600', bar: 'bg-rose-500' },
+                { label: 'Easy', count: difficultyBreakdown.easy, acc: difficultyBreakdown.easyAcc, color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/20', text: 'text-emerald-600 dark:text-emerald-400', bar: 'bg-emerald-500' },
+                { label: 'Medium', count: difficultyBreakdown.medium, acc: difficultyBreakdown.mediumAcc, color: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-600 dark:text-amber-400', bar: 'bg-amber-500' },
+                { label: 'Hard', count: difficultyBreakdown.hard, acc: difficultyBreakdown.hardAcc, color: 'rose', bg: 'bg-rose-50 dark:bg-rose-900/20', text: 'text-rose-600 dark:text-rose-400', bar: 'bg-rose-500' },
               ].map((level) => (
                 <div key={level.label} className={`${level.bg} rounded-xl p-4 text-center`}>
                   <p className={`text-2xl font-black ${level.text}`}>{level.count}</p>
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">{level.label}</p>
-                  <div className="mt-2 h-1 bg-white/50 rounded-full overflow-hidden">
+                  <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-0.5">{level.label}</p>
+                  <div className="mt-2 h-1 bg-white/50 dark:bg-gray-800/50 rounded-full overflow-hidden">
                     <div className={`h-full ${level.bar} rounded-full`} style={{ width: `${level.acc}%` }} />
                   </div>
                   <p className={`text-[9px] font-bold ${level.text} mt-1`}>{level.acc}% acc</p>
                 </div>
               ))}
             </div>
-            <div className="pt-3 border-t border-gray-100">
-              <p className="text-[10px] text-gray-500">
+            <div className="pt-3 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-[10px] text-gray-500 dark:text-gray-400">
                 {difficultyBreakdown.hardAcc < 40
                   ? '⚠ Struggling with hard questions — focus on advanced concepts.'
                   : difficultyBreakdown.mediumAcc < 50
@@ -634,7 +634,7 @@ function Analysis() {
                 ) : (
                   <div className="text-center py-6">
                     <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm text-gray-400 italic">No weak areas identified yet. Keep it up!</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">No weak areas identified yet. Keep it up!</p>
                   </div>
                 )}
               </div>
@@ -660,7 +660,7 @@ function Analysis() {
                       <p className="text-xs text-gray-500 dark:text-gray-400">Consistent score above 85%. Maintaining speed is key.</p>
                       <Link
                         to="/test-series"
-                        className="text-[10px] text-indigo-600 font-bold hover:underline mt-1 inline-flex items-center gap-1"
+                        className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline mt-1 inline-flex items-center gap-1"
                       >
                         Take Advance Test <ChevronRight className="w-3 h-3" />
                       </Link>
@@ -669,7 +669,7 @@ function Analysis() {
                 ) : (
                   <div className="text-center py-6">
                     <ClipboardCheck className="w-8 h-8 text-indigo-500 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm text-gray-400 italic">Analyze more tests to identify your strengths.</p>
+                    <p className="text-sm text-gray-400 dark:text-gray-500 italic">Analyze more tests to identify your strengths.</p>
                   </div>
                 )}
               </div>
@@ -716,7 +716,7 @@ function Analysis() {
             </div>
             <Link
               to="/test-series"
-              className="relative z-10 mt-6 block w-full py-3 bg-white text-indigo-600 text-center font-bold rounded-xl hover:bg-purple-50 transition shadow-lg"
+              className="relative z-10 mt-6 block w-full py-3 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 text-center font-bold rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/20 transition shadow-lg"
             >
               Take Action Now
             </Link>
@@ -724,15 +724,15 @@ function Analysis() {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
-          <div className="flex border-b border-gray-100">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+          <div className="flex border-b border-gray-100 dark:border-gray-700">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition ${activeTab === tab.id
                   ? 'text-brand-start border-b-2 border-brand-start'
-                  : 'text-gray-500 hover:text-gray-700'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
                   }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -747,22 +747,22 @@ function Analysis() {
               <div className="space-y-6">
                 {/* Accuracy Breakdown */}
                 <div>
-                  <h3 className="font-bold text-gray-900 mb-4">Answer Distribution</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">Answer Distribution</h3>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-green-50 rounded-xl">
-                      <CheckCircle className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-green-600">{analytics.correct}</p>
-                      <p className="text-xs text-gray-500">Correct</p>
+                    <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
+                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">{analytics.correct}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Correct</p>
                     </div>
-                    <div className="text-center p-4 bg-red-50 rounded-xl">
-                      <XCircle className="w-8 h-8 text-red-600 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-red-600">{analytics.wrong}</p>
-                      <p className="text-xs text-gray-500">Wrong</p>
+                    <div className="text-center p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
+                      <XCircle className="w-8 h-8 text-red-600 dark:text-red-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">{analytics.wrong}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Wrong</p>
                     </div>
-                    <div className="text-center p-4 bg-gray-100 rounded-xl">
-                      <AlertCircle className="w-8 h-8 text-gray-500 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-gray-600">{analytics.skipped}</p>
-                      <p className="text-xs text-gray-500">Skipped</p>
+                    <div className="text-center p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                      <AlertCircle className="w-8 h-8 text-gray-500 dark:text-gray-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">{analytics.skipped}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Skipped</p>
                     </div>
                   </div>
                 </div>
@@ -770,7 +770,7 @@ function Analysis() {
                 {/* Recent Tests */}
                 <div>
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-900">Recent Tests</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Recent Tests</h3>
                     <Link to="/attempted-tests" className="text-brand-start text-sm font-medium hover:underline">
                       View All
                     </Link>
@@ -778,19 +778,19 @@ function Analysis() {
                   <div className="space-y-3">
                     {(analytics.recentTests || []).length > 0 ? (
                       analytics.recentTests.map(test => (
-                        <div key={test.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <div key={test.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-900 rounded-xl">
                           <div>
-                            <p className="font-medium text-gray-900">{test.title}</p>
-                            <p className="text-xs text-gray-500">{test.date}</p>
+                            <p className="font-medium text-gray-900 dark:text-white">{test.title}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{test.date}</p>
                           </div>
                           <div className="text-right">
                             <p className="font-bold text-brand-start">{test.score}%</p>
-                            <p className="text-xs text-gray-500">{test.accuracy || Math.round((test.score / 100) * 100)}% accuracy</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{test.accuracy || Math.round((test.score / 100) * 100)}% accuracy</p>
                           </div>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                         <p>No recent tests yet</p>
                         <Link to="/test-series" className="text-brand-start text-sm font-medium hover:underline">
                           Start your first test →
@@ -806,15 +806,15 @@ function Analysis() {
             {activeTab === 'subjects' && (
               <div className="space-y-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-gray-900">Subject-wise Performance</h3>
-                  <span className="text-xs text-gray-500">Based on recently attempted tests</span>
+                  <h3 className="font-bold text-gray-900 dark:text-white">Subject-wise Performance</h3>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Based on recently attempted tests</span>
                 </div>
 
                 {/* Weak/Strong Chapters Summary Group */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   {/* Strongest Areas */}
-                  <div className="bg-green-50 rounded-2xl p-5 border border-green-100">
-                    <div className="flex items-center gap-2 mb-4 text-green-700">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-5 border border-green-100 dark:border-green-800">
+                    <div className="flex items-center gap-2 mb-4 text-green-700 dark:text-green-300">
                       <Zap className="w-5 h-5" />
                       <h4 className="font-bold">Strongest Chapters</h4>
                     </div>
@@ -822,23 +822,23 @@ function Analysis() {
                       {(analytics.strongSubjects || []).length > 0 ? (
                         analytics.strongSubjects.slice(0, 3).map((sub, i) => (
                           <div key={i} className="flex justify-between items-center text-sm">
-                            <span className="text-gray-700 font-medium">{sub.name || sub}</span>
-                            <span className="text-green-600 font-bold">{sub.accuracy || 85}%</span>
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{sub.name || sub}</span>
+                            <span className="text-green-600 dark:text-green-400 font-bold">{sub.accuracy || 85}%</span>
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-green-600/70 italic">Keep practicing to identify your strong areas.</p>
+                        <p className="text-xs text-green-600/70 dark:text-green-400/70 italic">Keep practicing to identify your strong areas.</p>
                       )}
                     </div>
-                    <div className="mt-4 pt-4 border-t border-green-200">
-                      <p className="text-[10px] text-green-700 font-bold uppercase tracking-wider mb-1">Recommended Action</p>
-                      <p className="text-xs text-green-800">Review these once a week to maintain speed. Focus on advanced level problems.</p>
+                    <div className="mt-4 pt-4 border-t border-green-200 dark:border-green-800">
+                      <p className="text-[10px] text-green-700 dark:text-green-300 font-bold uppercase tracking-wider mb-1">Recommended Action</p>
+                      <p className="text-xs text-green-800 dark:text-green-200">Review these once a week to maintain speed. Focus on advanced level problems.</p>
                     </div>
                   </div>
 
                   {/* Weakest Areas */}
-                  <div className="bg-red-50 rounded-2xl p-5 border border-red-100">
-                    <div className="flex items-center gap-2 mb-4 text-red-700">
+                  <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-5 border border-red-100 dark:border-red-800/60">
+                    <div className="flex items-center gap-2 mb-4 text-red-700 dark:text-red-300">
                       <AlertCircle className="w-5 h-5" />
                       <h4 className="font-bold">Needs Improvement</h4>
                     </div>
@@ -846,17 +846,17 @@ function Analysis() {
                       {(analytics.weakSubjects || []).length > 0 ? (
                         analytics.weakSubjects.slice(0, 3).map((sub, i) => (
                           <div key={i} className="flex justify-between items-center text-sm">
-                            <span className="text-gray-700 font-medium">{sub.name || sub}</span>
-                            <span className="text-red-600 font-bold">{sub.accuracy || 45}%</span>
+                            <span className="text-gray-700 dark:text-gray-300 font-medium">{sub.name || sub}</span>
+                            <span className="text-red-600 dark:text-red-400 font-bold">{sub.accuracy || 45}%</span>
                           </div>
                         ))
                       ) : (
-                        <p className="text-xs text-red-600/70 italic">No major weak areas detected yet. Essential sections covered.</p>
+                        <p className="text-xs text-red-600/70 dark:text-red-400/70 italic">No major weak areas detected yet. Essential sections covered.</p>
                       )}
                     </div>
-                    <div className="mt-4 pt-4 border-t border-red-200">
-                      <p className="text-[10px] text-red-700 font-bold uppercase tracking-wider mb-1">Impact Action</p>
-                      <p className="text-xs text-red-800">Watch subject videos and take chapter-wise quizzes to build basics.</p>
+                    <div className="mt-4 pt-4 border-t border-red-200 dark:border-red-800">
+                      <p className="text-[10px] text-red-700 dark:text-red-300 font-bold uppercase tracking-wider mb-1">Impact Action</p>
+                      <p className="text-xs text-red-800 dark:text-red-200">Watch subject videos and take chapter-wise quizzes to build basics.</p>
                     </div>
                   </div>
                 </div>
@@ -864,25 +864,25 @@ function Analysis() {
                 <div className="space-y-4">
                   {(analytics.subjectWise || []).length > 0 ? (
                     analytics.subjectWise.map((subject, i) => (
-                      <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-brand-start/20 transition-all">
+                      <div key={i} className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700 hover:border-brand-start/20 transition-all">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <span className="text-2xl">{subject.icon || '📚'}</span>
                             <div>
-                              <p className="font-bold text-gray-900">{subject.name}</p>
-                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight">{subject.attempted} Qs attempted</p>
+                              <p className="font-bold text-gray-900 dark:text-white">{subject.name}</p>
+                              <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight">{subject.attempted} Qs attempted</p>
                             </div>
                           </div>
                           <div className="text-right">
-                            <p className={`text-lg font-black ${subject.accuracy >= 80 ? 'text-green-600' :
-                              subject.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'
+                            <p className={`text-lg font-black ${subject.accuracy >= 80 ? 'text-green-600 dark:text-green-400' :
+                              subject.accuracy >= 60 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
                               }`}>
                               {subject.accuracy}%
                             </p>
-                            <p className="text-[9px] text-gray-400 font-bold">Accuracy</p>
+                            <p className="text-[9px] text-gray-400 dark:text-gray-500 font-bold">Accuracy</p>
                           </div>
                         </div>
-                        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${subject.accuracy >= 80 ? 'bg-green-500' :
                               subject.accuracy >= 60 ? 'bg-yellow-500' : 'bg-red-500'
@@ -893,10 +893,10 @@ function Analysis() {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+                    <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
                       <div className="text-4xl mb-3">📈</div>
-                      <h4 className="font-bold text-gray-900">No Detailed Analysis</h4>
-                      <p className="text-sm text-gray-500 mt-1 max-w-xs mx-auto">Complete at least one full test to unlock subject-wise metrics and growth plans.</p>
+                      <h4 className="font-bold text-gray-900 dark:text-white">No Detailed Analysis</h4>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs mx-auto">Complete at least one full test to unlock subject-wise metrics and growth plans.</p>
                       <Link to="/test-series" className="mt-4 inline-block text-brand-start font-bold text-sm hover:underline">Start Practice →</Link>
                     </div>
                   )}
@@ -911,37 +911,37 @@ function Analysis() {
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <Layers className="w-5 h-5 text-brand-start" />
-                    <h3 className="font-bold text-gray-900">Attempt Pattern by Subject</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Attempt Pattern by Subject</h3>
                   </div>
                   {attemptPattern.length > 0 ? (
                     <div className="space-y-4">
                       {attemptPattern.map((subject, i) => (
-                        <div key={i} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                        <div key={i} className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 border border-gray-100 dark:border-gray-700">
                           <div className="flex items-center justify-between mb-3">
-                            <span className="font-bold text-sm text-gray-900">{subject.subject}</span>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{subject.total} questions</span>
+                            <span className="font-bold text-sm text-gray-900 dark:text-white">{subject.subject}</span>
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">{subject.total} questions</span>
                           </div>
-                          <div className="flex h-3 rounded-lg overflow-hidden bg-gray-200">
+                          <div className="flex h-3 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
                             {subject.total > 0 && (
                               <>
                                 <div className="bg-emerald-500" style={{ width: `${(subject.correct / subject.total) * 100}%` }} title={`${subject.correct} correct`} />
                                 <div className="bg-red-400" style={{ width: `${(subject.wrong / subject.total) * 100}%` }} title={`${subject.wrong} wrong`} />
-                                <div className="bg-gray-300" style={{ width: `${(subject.skipped / subject.total) * 100}%` }} title={`${subject.skipped} skipped`} />
+                                <div className="bg-gray-300 dark:bg-gray-600" style={{ width: `${(subject.skipped / subject.total) * 100}%` }} title={`${subject.skipped} skipped`} />
                               </>
                             )}
                           </div>
                           <div className="flex items-center gap-4 mt-2 text-[10px] font-bold">
-                            <span className="flex items-center gap-1 text-emerald-600"><span className="w-2 h-2 rounded-full bg-emerald-500" /> {subject.correct} Correct</span>
+                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><span className="w-2 h-2 rounded-full bg-emerald-500" /> {subject.correct} Correct</span>
                             <span className="flex items-center gap-1 text-red-500"><span className="w-2 h-2 rounded-full bg-red-400" /> {subject.wrong} Wrong</span>
-                            <span className="flex items-center gap-1 text-gray-400"><span className="w-2 h-2 rounded-full bg-gray-300" /> {subject.skipped} Skipped</span>
+                            <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500"><span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" /> {subject.skipped} Skipped</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
-                      <Layers className="w-10 h-10 text-gray-200 mx-auto mb-3" />
-                      <p className="text-sm text-gray-500">Complete tests to unlock attempt pattern analysis</p>
+                    <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+                      <Layers className="w-10 h-10 text-gray-200 dark:text-gray-600 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Complete tests to unlock attempt pattern analysis</p>
                       <Link to="/test-series" className="mt-3 inline-block text-brand-start font-bold text-sm hover:underline">Start Practice →</Link>
                     </div>
                   )}
@@ -951,7 +951,7 @@ function Analysis() {
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <Trophy className="w-5 h-5 text-amber-500" />
-                    <h3 className="font-bold text-gray-900">Comparison with Topper</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Comparison with Topper</h3>
                   </div>
                   <div className="bg-gradient-to-br from-slate-900 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/3" />
@@ -989,18 +989,18 @@ function Analysis() {
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <Wind className="w-5 h-5 text-cyan-500" />
-                    <h3 className="font-bold text-gray-900">Speed vs Accuracy Matrix</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Speed vs Accuracy Matrix</h3>
                   </div>
-                  <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <div className="relative h-48 bg-gray-50 rounded-xl overflow-hidden">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+                    <div className="relative h-48 bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden">
                       {/* Quadrant lines */}
-                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200" />
-                      <div className="absolute top-1/2 left-0 right-0 h-px bg-gray-200" />
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-700" />
+                      <div className="absolute top-1/2 left-0 right-0 h-px bg-gray-200 dark:bg-gray-700" />
                       {/* Quadrant labels */}
-                      <span className="absolute top-2 left-2 text-[9px] font-bold text-gray-400 uppercase">Fast & Accurate</span>
-                      <span className="absolute top-2 right-2 text-[9px] font-bold text-gray-400 uppercase">Slow & Accurate</span>
-                      <span className="absolute bottom-2 left-2 text-[9px] font-bold text-gray-400 uppercase">Fast & Low Acc</span>
-                      <span className="absolute bottom-2 right-2 text-[9px] font-bold text-gray-400 uppercase">Needs Improvement</span>
+                      <span className="absolute top-2 left-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Fast & Accurate</span>
+                      <span className="absolute top-2 right-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Slow & Accurate</span>
+                      <span className="absolute bottom-2 left-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Fast & Low Acc</span>
+                      <span className="absolute bottom-2 right-2 text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Needs Improvement</span>
                       {/* Plot subjects as dots */}
                       {timeAnalysis.map((item, i) => {
                         const speedX = Math.min(95, Math.max(5, 100 - (item.avgTimeSec / 120) * 100))
@@ -1012,14 +1012,14 @@ function Analysis() {
                             style={{ left: `${speedX}%`, top: `${accY}%`, transform: 'translate(-50%, -50%)' }}
                             title={`${item.subject}: ${item.avgTimeSec}s, ${analytics?.subjectWise?.[i]?.accuracy || 0}% acc`}
                           >
-                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-700 bg-white px-1.5 py-0.5 rounded shadow-sm opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+                            <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-bold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded shadow-sm opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
                               {item.subject}
                             </span>
                           </div>
                         )
                       })}
                     </div>
-                    <div className="flex items-center justify-between mt-3 text-[10px] text-gray-400">
+                    <div className="flex items-center justify-between mt-3 text-[10px] text-gray-400 dark:text-gray-500">
                       <span>← Faster</span>
                       <span>Slower →</span>
                     </div>
@@ -1030,17 +1030,17 @@ function Analysis() {
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <Brain className="w-5 h-5 text-brand-start" />
-                    <h3 className="font-bold text-gray-900">Smart Recommendations</h3>
+                    <h3 className="font-bold text-gray-900 dark:text-white">Smart Recommendations</h3>
                   </div>
                   <div className="space-y-3">
                     {generateRecommendations({ analytics, timeAnalysis, difficultyBreakdown, topperComparison }).map((rec, i) => (
-                      <div key={i} className={`flex items-start gap-3 p-4 rounded-xl border ${rec.severity === 'high' ? 'bg-red-50 border-red-100' : rec.severity === 'medium' ? 'bg-amber-50 border-amber-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${rec.severity === 'high' ? 'bg-red-100' : rec.severity === 'medium' ? 'bg-amber-100' : 'bg-emerald-100'}`}>
-                          <rec.icon className={`w-4 h-4 ${rec.severity === 'high' ? 'text-red-600' : rec.severity === 'medium' ? 'text-amber-600' : 'text-emerald-600'}`} />
+                      <div key={i} className={`flex items-start gap-3 p-4 rounded-xl border ${rec.severity === 'high' ? 'bg-red-50 dark:bg-red-900/20 border-red-100 dark:border-red-800/60' : rec.severity === 'medium' ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${rec.severity === 'high' ? 'bg-red-100 dark:bg-red-900/30' : rec.severity === 'medium' ? 'bg-amber-100 dark:bg-amber-900/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                          <rec.icon className={`w-4 h-4 ${rec.severity === 'high' ? 'text-red-600 dark:text-red-400' : rec.severity === 'medium' ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`} />
                         </div>
                         <div className="flex-1">
-                          <p className="font-bold text-sm text-gray-900">{rec.title}</p>
-                          <p className="text-xs text-gray-600 mt-0.5">{rec.message}</p>
+                          <p className="font-bold text-sm text-gray-900 dark:text-white">{rec.title}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">{rec.message}</p>
                           {rec.action && (
                             <Link to={rec.action} className="text-[10px] font-bold text-brand-start hover:underline mt-1.5 inline-flex items-center gap-1">
                               {rec.actionLabel} <ChevronRight className="w-3 h-3" />
@@ -1064,7 +1064,7 @@ function Analysis() {
                   </p>
                   <Link
                     to="/test-series"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white text-brand-start font-semibold rounded-lg hover:bg-purple-50 transition"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-brand-start font-semibold rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition"
                   >
                     Take More Tests
                     <ChevronRight className="w-4 h-4" />
@@ -1072,20 +1072,20 @@ function Analysis() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-gray-900 mb-4">Areas for Improvement</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">Areas for Improvement</h3>
                   <div className="space-y-3">
                     {(analytics.weakSubjects || []).length > 0 ? (
                       analytics.weakSubjects.map((subject, i) => (
-                        <div key={i} className="flex items-center gap-3 p-4 bg-red-50 rounded-xl">
+                        <div key={i} className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-xl">
                           <AlertCircle className="w-5 h-5 text-red-500" />
-                          <span className="text-gray-700">{subject}</span>
+                          <span className="text-gray-700 dark:text-gray-300">{subject}</span>
                           <Link to={`/study/${subject.toLowerCase().replace(' ', '-')}`} className="ml-auto text-brand-start text-sm font-medium hover:underline">
                             Practice →
                           </Link>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-4 text-gray-500">
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                         <p>Complete more tests to identify areas for improvement</p>
                       </div>
                     )}
@@ -1093,17 +1093,17 @@ function Analysis() {
                 </div>
 
                 <div>
-                  <h3 className="font-bold text-gray-900 mb-4">Your Strengths</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white mb-4">Your Strengths</h3>
                   <div className="space-y-3">
                     {(analytics.strongSubjects || []).length > 0 ? (
                       analytics.strongSubjects.map((subject, i) => (
-                        <div key={i} className="flex items-center gap-3 p-4 bg-green-50 rounded-xl">
+                        <div key={i} className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl">
                           <CheckCircle className="w-5 h-5 text-green-500" />
-                          <span className="text-gray-700">{subject}</span>
+                          <span className="text-gray-700 dark:text-gray-300">{subject}</span>
                         </div>
                       ))
                     ) : (
-                      <div className="text-center py-4 text-gray-500">
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                         <p>Complete more tests to identify your strengths</p>
                       </div>
                     )}
@@ -1120,7 +1120,7 @@ function Analysis() {
 
 function ScoreSparkline({ data }) {
   if (!data || data.length === 0) {
-    return <div className="h-24 flex items-center justify-center text-xs text-gray-400">No data</div>
+    return <div className="h-24 flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">No data</div>
   }
   const max = Math.max(...data, 100)
   const min = Math.min(...data, 0)

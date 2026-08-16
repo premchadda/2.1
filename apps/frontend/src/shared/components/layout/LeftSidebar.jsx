@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, BookOpen, Radio, FileText, Target, HelpCircle, ClipboardCheck, GraduationCap, Library, Video, BarChart2, Crown, LayoutDashboard, Shield, MessageCircle, Users, Trophy } from 'lucide-react'
+import { Home, BookOpen, Radio, FileText, Target, HelpCircle, ClipboardCheck, GraduationCap, Library, Video, BarChart2, Crown, LayoutDashboard, Shield, Users, Trophy, Bookmark } from 'lucide-react';
 import { useAuth } from '../../providers/AuthContext'
 import { Logo } from '../index'
 
@@ -14,11 +14,10 @@ function LeftSidebar() {
 
   const navItemClass = (path) => {
     const active = isActive(path)
-    return `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-      active 
-        ? 'bg-gradient-to-r from-brand-start/10 to-brand-end/10 text-brand-start font-semibold' 
+    return `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${active
+        ? 'bg-gradient-to-r from-brand-start/10 to-brand-end/10 text-brand-start font-semibold'
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-    }`
+      }`
   }
 
   const iconClass = (path, colorClass) => {
@@ -26,11 +25,11 @@ function LeftSidebar() {
     return `w-5 h-5 transition-colors ${active ? 'text-brand-start' : colorClass}`
   }
 
-    return (
-     <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-[260px] bg-white border-r border-gray-200 z-30">
+  return (
+    <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-[260px] bg-white border-r border-gray-200 z-30 animate-fade-in">
       {/* Header - Same height as top navbar (h-14) */}
       <div className="px-4 h-14 border-b border-gray-100 flex items-center flex-shrink-0">
-        <Logo 
+        <Logo
           containerSize="w-8 h-8"
           iconSize="w-5 h-5"
           textSize="text-xl"
@@ -39,7 +38,7 @@ function LeftSidebar() {
 
       {/* Menu Content (Scrollable) */}
       <div className="flex-1 overflow-y-auto py-4 pl-3 space-y-1">
-        
+
         {/* Main Navigation */}
         <div className="mb-2">
           <Link to={user ? '/dashboard' : '/'} className={navItemClass(user ? '/dashboard' : '/')}>
@@ -62,7 +61,7 @@ function LeftSidebar() {
               <BookOpen className={iconClass('/test-series', 'text-blue-500')} />
               <span className="text-sm">Test Series</span>
             </Link>
-            
+
             <Link to="/live-tests" className={navItemClass('/live-tests')}>
               <Radio className={iconClass('/live-tests', 'text-red-500')} />
               <span className="text-sm">Live Tests</span>
@@ -71,22 +70,22 @@ function LeftSidebar() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
             </Link>
-            
+
             <Link to="/pyps" className={navItemClass('/pyps')}>
               <FileText className={iconClass('/pyps', 'text-green-500')} />
               <span className="text-sm">PYQ Papers</span>
             </Link>
-            
+
             <Link to="/practice" className={navItemClass('/practice')}>
               <Target className={iconClass('/practice', 'text-purple-500')} />
               <span className="text-sm">Practice</span>
             </Link>
-            
+
             <Link to="/quizzes" className={navItemClass('/quizzes')}>
               <HelpCircle className={iconClass('/quizzes', 'text-yellow-500')} />
               <span className="text-sm">Quizzes</span>
             </Link>
-            
+
             <Link to="/attempted-tests" className={navItemClass('/attempted-tests')}>
               <ClipboardCheck className={iconClass('/attempted-tests', 'text-sky-500')} />
               <span className="text-sm">Attempted Tests</span>
@@ -104,27 +103,32 @@ function LeftSidebar() {
               <GraduationCap className={iconClass('/exams', 'text-indigo-500')} />
               <span className="text-sm">All Exams</span>
             </Link>
-            
+
             <Link to="/study" className={navItemClass('/study')}>
               <Library className={iconClass('/study', 'text-teal-500')} />
               <span className="text-sm">Study Materials</span>
             </Link>
-            
+
             <Link to="/videos" className={navItemClass('/videos')}>
               <Video className={iconClass('/videos', 'text-pink-500')} />
               <span className="text-sm">Videos</span>
             </Link>
-            
+
+            <Link to="/bookmarks" className={navItemClass('/bookmarks')}>
+              <Bookmark className={iconClass('/bookmarks', 'text-amber-500')} />
+              <span className="text-sm">Saved Questions</span>
+            </Link>
+
             <Link to="/analysis" className={navItemClass('/analysis')}>
               <BarChart2 className={iconClass('/analysis', 'text-orange-500')} />
               <span className="text-sm">Analysis</span>
             </Link>
-            
+
             <Link to="/leaderboard" className={navItemClass('/leaderboard')}>
               <Trophy className={iconClass('/leaderboard', 'text-yellow-500')} />
               <span className="text-sm">Leaderboard</span>
             </Link>
-            
+
             <Link to="/community" className={navItemClass('/community')}>
               <Users className={iconClass('/community', 'text-violet-500')} />
               <span className="text-sm">Community</span>

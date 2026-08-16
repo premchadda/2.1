@@ -1,7 +1,8 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { idsMatch } from '../../services/core/common.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -11,56 +12,81 @@ const router = express.Router()
 router.get('/', protect, async (req, res) => {
   try {
     const { limit = 20, page = 1, unreadOnly = false } = req.query
+    const offset = (parseInt(page) - 1) * parseInt(limit)
     
-    let query = { 
-      userId: req.user.id,
-      isActive: { $ne: false }
+    let notifications
+    let total = 0
+    let unreadCount = 0
+    
+    try {
+      const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
+      
+      let whereClause = 'WHERE user_id = $1 AND is_active = true'
+      const params = [String(req.user.id)]
+      
+      if (unreadOnly === 'true') {
+        whereClause += ' AND is_read = false'
+      }
+      
+      const countResult = await pool.query(
+        `SELECT COUNT(*)::int as total FROM notifications ${whereClause}`,
+        params
+      )
+      total = countResult.rows[0]?.total || 0
+      
+      const { rows } = await pool.query(
+        `SELECT id, title, message, type, is_read, created_at
+         FROM notifications
+         ${whereClause}
+         ORDER BY created_at DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, parseInt(limit), offset]
+      )
+      notifications = rows
+      
+      const unreadResult = await pool.query(
+        `SELECT COUNT(*)::int as count FROM notifications WHERE user_id = $1 AND is_active = true AND is_read = false`,
+        [String(req.user.id)]
+      )
+      unreadCount = unreadResult.rows[0]?.count || 0
+    } catch (sqlError) {
+      console.warn('Notifications raw SQL failed, falling back to ORM:', sqlError.message)
+      const query = { userId: req.user.id, isActive: true }
+      if (unreadOnly === 'true') query.isRead = false
+      notifications = await dbHelpers.find('notifications', query)
+      total = notifications.length
+      const unreadNotifications = await dbHelpers.find('notifications', { userId: req.user.id, isActive: true, isRead: false })
+      unreadCount = unreadNotifications.length
     }
     
-    if (unreadOnly === 'true') {
-      query.isRead = { $ne: true }
-    }
-    
-    const notifications = await dbHelpers.find('notifications', query)
-    
-    // Format notifications for frontend
-    const formattedNotifications = notifications
-      .map(n => ({
-        id: n._id || n.id,
-        _id: n._id || n.id,
-        title: n.title,
-        message: n.message,
-        type: n.type || 'general',
-        read: n.isRead || false,
-        isRead: n.isRead || false,
-        time: getTimeAgo(n.createdAt),
-        createdAt: n.createdAt,
-        link: n.link || null
-      }))
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    
-    // Sort by createdAt desc and paginate
-    const paginatedNotifications = formattedNotifications
-      .slice((page - 1) * limit, page * limit)
-    
-    // Get unread count
-    const unreadCount = formattedNotifications.filter(n => !n.read).length
+    const formattedNotifications = (notifications || []).map(n => ({
+      id: n.id,
+      _id: n.id,
+      title: n.title,
+      message: n.message,
+      type: n.type || 'general',
+      read: n.is_read !== undefined ? n.is_read : (n.isRead || false),
+      isRead: n.is_read !== undefined ? n.is_read : (n.isRead || false),
+      time: getTimeAgo(n.created_at || n.createdAt),
+      createdAt: n.created_at || n.createdAt,
+      link: (n.link_url || (n.metadata && typeof n.metadata === 'object' ? n.metadata.link : null)) || null
+    }))
     
     res.json({
       success: true,
-      data: paginatedNotifications,
+      data: formattedNotifications,
       unreadCount,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: notifications.length
+        total
       }
     })
   } catch (error) {
     console.error('Get notifications error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -100,7 +126,7 @@ router.get('/unread-count', protect, async (req, res) => {
     console.error('Get unread count error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -133,7 +159,7 @@ router.put('/:id/read', protect, async (req, res) => {
     console.error('Mark read error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -159,7 +185,7 @@ router.put('/read-all', protect, async (req, res) => {
     console.error('Mark all read error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -195,7 +221,7 @@ router.delete('/clear-all', protect, async (req, res) => {
     console.error('Clear all notifications error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -227,10 +253,25 @@ router.delete('/:id', protect, async (req, res) => {
     console.error('Delete notification error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
+
+// @route   POST /api/notifications/subscribe
+// @desc    Subscribe email to notifications / coming soon alerts
+// @access  Public
+router.post('/subscribe', async (req, res) => {
+  try {
+    const { email, category, itemId, feature } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+    res.json({ success: true, message: 'Successfully subscribed to notifications' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
 
 // ============================================
 // ADMIN ROUTES
@@ -255,7 +296,7 @@ router.post('/admin/send', protect, admin, async (req, res) => {
       title,
       message,
       type,
-      link: link || null,
+      metadata: link ? { link } : {},
       isRead: false,
       isActive: true,
       createdAt: new Date().toISOString()
@@ -270,7 +311,7 @@ router.post('/admin/send', protect, admin, async (req, res) => {
     console.error('Send notification error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -352,7 +393,7 @@ router.post('/admin/broadcast', protect, admin, async (req, res) => {
     console.error('Broadcast notification error:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

@@ -1,4 +1,5 @@
 import Redis from 'ioredis'
+import logger from '../logger/logger.js'
 
 const DEFAULT_REDIS_PORT = 6379
 
@@ -45,19 +46,28 @@ const resolveRedisConfig = () => {
 }
 
 const buildClient = (connection) => {
+  // Detect TLS requirement:
+  // - `rediss://` URL scheme → TLS
+  // - REDIS_TLS=true env var → TLS (for host-based config)
+  const needsTls = (typeof connection === 'string' && connection.startsWith('rediss://'))
+    || process.env.REDIS_TLS === 'true'
+  const tlsOptions = needsTls ? { tls: { rejectUnauthorized: process.env.REDIS_TLS_REJECT_UNAUTHORIZED !== 'false' } } : {}
+
   if (typeof connection === 'string') {
     return new Redis(connection, {
       lazyConnect: true,
-      maxRetriesPerRequest: null,
-      enableReadyCheck: true
+      maxRetriesPerRequest: 3,
+      enableReadyCheck: true,
+      ...tlsOptions,
     })
   }
 
   return new Redis({
     ...connection,
     lazyConnect: true,
-    maxRetriesPerRequest: null,
-    enableReadyCheck: true
+    maxRetriesPerRequest: 3,
+    enableReadyCheck: true,
+    ...tlsOptions,
   })
 }
 
@@ -87,7 +97,7 @@ export const initRedis = async () => {
         message: 'Redis connection error',
         lastError: error.message
       }
-      console.error('[Redis] Connection error:', error.message)
+      logger.error('[Redis] Connection error:', error.message)
     })
 
     redisClient.on('ready', () => {
@@ -97,7 +107,7 @@ export const initRedis = async () => {
         message: 'Redis connected',
         lastError: null
       }
-      console.log('[Redis] Connected and ready')
+      logger.info('[Redis] Connected and ready')
     })
 
     redisClient.on('end', () => {
@@ -106,7 +116,7 @@ export const initRedis = async () => {
         connected: false,
         message: 'Redis connection closed'
       }
-      console.warn('[Redis] Connection closed')
+      logger.warn('[Redis] Connection closed')
     })
 
     await redisClient.connect()
@@ -127,10 +137,17 @@ export const initRedis = async () => {
       message: 'Redis unavailable. Using in-memory cache.',
       lastError: error.message
     }
-    console.warn('[Redis] Initialization failed:', error.message)
+    logger.warn('[Redis] Initialization failed:', error.message)
 
     if (redisClient) {
-      redisClient.disconnect()
+      // M13: remove listeners before disconnecting so failed-connection retries
+      // do not accumulate orphaned 'error'/'end' handlers on the old client.
+      try {
+        redisClient.removeAllListeners()
+      } catch { /* ignore */ }
+      try {
+        redisClient.disconnect()
+      } catch { /* ignore */ }
       redisClient = null
     }
     return null
@@ -152,9 +169,14 @@ export const closeRedis = async () => {
   }
 
   try {
-    await redisClient.quit()
+    // Race quit() against a 5-second timeout — if Redis is unresponsive,
+    // the QUIT command could hang indefinitely, blocking gracefulShutdown.
+    await Promise.race([
+      redisClient.quit(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Redis quit timeout')), 5000)),
+    ])
   } catch (error) {
-    console.warn('[Redis] Graceful quit failed, forcing disconnect:', error.message)
+    logger.warn('[Redis] Graceful quit failed, forcing disconnect:', error.message)
     redisClient.disconnect()
   } finally {
     redisClient = null

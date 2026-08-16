@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { AnimatedHero, Card, Button, Badge, ScrollReveal } from '../../shared/components'
 import { api } from '../../shared/lib/dataService'
-import { Calendar, ChevronLeft, ChevronRight, Brain, Clock, CheckCircle, Target, ArrowLeft, Sparkles, BookOpen, Zap, BarChart3, Loader2 } from 'lucide-react'
+import { streamChat, isStreamingSupported } from '../../shared/lib/aiStreaming'
+import { getCachedResponse, setCachedResponse } from '../../shared/lib/aiCache'
+import { routeTask, inferComplexity, TASK_TYPES } from '../../shared/lib/aiRouter';
+import { Calendar, ChevronLeft, ChevronRight, Brain, Clock, CheckCircle, Target, ArrowLeft, Sparkles, BookOpen, Zap, BarChart3, Loader2, Send, MessageSquare, X } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -18,8 +21,10 @@ const typeConfig = {
 
 function AIStudyPlanner() {
   const { user } = useAuth()
-  const queryClient = useQueryClient()
+  const _queryClient = useQueryClient()
   const today = new Date()
+  // Use local date components to avoid UTC midnight mismatch in non-UTC timezones
+  const localKey = () => `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const d = new Date(today)
     d.setDate(d.getDate() - d.getDay())
@@ -27,6 +32,140 @@ function AIStudyPlanner() {
     return d
   })
   const [generatedPlan, setGeneratedPlan] = useState(null)
+  const [chatOpen, setChatOpen] = useState(false)
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [conversationId, setConversationId] = useState(null)
+  const chatEndRef = useRef(null)
+  const abortRef = useRef(null)
+  const pendingRef = useRef(false)
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages])
+
+  // Abort any in-flight AI stream when the component unmounts (was leaking
+  // fetch/SSE readers + calling setChatMessages on dead components + wasting
+  // OpenRouter tokens).
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) {
+        abortRef.current.abort?.()
+        abortRef.current = null
+      }
+      if (pendingRef.current) {
+        pendingRef.current = false
+      }
+    }
+  }, [])
+
+  const sendChatMessage = useCallback(() => {
+    const text = chatInput.trim()
+    if (!text || pendingRef.current || isStreaming) return
+
+    pendingRef.current = true
+    const userMsg = { role: 'user', content: text }
+    setChatMessages((prev) => [...prev, userMsg])
+    setChatInput('')
+
+    const cacheKey = `chat:${user?.id}:${text}`
+    const cached = getCachedResponse(cacheKey)
+    if (cached) {
+      setChatMessages((prev) => [...prev, { role: 'assistant', content: cached }])
+      pendingRef.current = false
+      return
+    }
+
+    const route = routeTask(TASK_TYPES.CHAT, inferComplexity(text))
+    const allMessages = [...chatMessages, userMsg].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }))
+
+    // Non-streaming path with AbortController guard
+    if (!isStreamingSupported()) {
+      const abortCtrl = new AbortController()
+      pendingRef.current = true
+      abortRef.current = abortCtrl
+      api.post('/api/ai/mentor/chat', { messages: allMessages, conversationId, ...route }, { signal: abortCtrl.signal })
+        .then((res) => {
+          pendingRef.current = false
+          abortRef.current = null
+          const reply = res.data?.data?.content || res.data?.data || 'No response'
+          const serverConvId = res.data?.data?.conversationId || res.data?.conversationId
+          if (serverConvId) setConversationId(serverConvId)
+          setChatMessages((prev) => [...prev, { role: 'assistant', content: reply }])
+          setCachedResponse(cacheKey, reply)
+        })
+        .catch((err) => {
+          pendingRef.current = false
+          if (abortRef.current !== abortCtrl) {
+            // Request was aborted (unmount or new request); ignore
+            return
+          }
+          abortRef.current = null
+          toast.error(err.message || 'Failed to get response')
+        })
+        .finally(() => {
+          if (abortRef.current === abortCtrl) {
+            abortRef.current = null
+          }
+          setIsStreaming(false)
+          pendingRef.current = false
+        })
+      return
+    }
+
+    setIsStreaming(true)
+    let assistantText = ''
+    setChatMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+
+    abortRef.current = streamChat(allMessages, ({ text: chunk, done, raw, error }) => {
+      if (error) {
+        pendingRef.current = false
+        toast.error(error)
+        // Remove the empty placeholder assistant message and show error
+        setChatMessages((prev) => {
+          const updated = prev.filter(m => m.role !== 'assistant' || prev[prev.length - 1].content !== '')
+          if (prev[prev.length - 1]?.role === 'assistant' && prev[prev.length - 1]?.content === '') {
+            updated.pop()
+          }
+          return updated
+        })
+        setIsStreaming(false)
+        abortRef.current = null
+        return
+      }
+      if (raw?.conversationId) setConversationId(raw.conversationId)
+      if (chunk) assistantText += chunk
+      if (done) {
+        pendingRef.current = false
+        setChatMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: assistantText }
+          return updated
+        })
+        if (assistantText) {
+          setCachedResponse(cacheKey, assistantText)
+        }
+        setIsStreaming(false)
+        abortRef.current = null
+      } else {
+        pendingRef.current = false
+        setChatMessages((prev) => {
+          const updated = [...prev]
+          updated[updated.length - 1] = { role: 'assistant', content: assistantText }
+          return updated
+        })
+      }
+    }, conversationId)
+  }, [chatInput, isStreaming, chatMessages, user, conversationId])
+
+  const cancelStream = () => {
+    abortRef.current?.abort()
+    setIsStreaming(false)
+  }
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(currentWeekStart)
@@ -89,7 +228,8 @@ function AIStudyPlanner() {
     queryKey: ['intelligence-streak'],
     queryFn: async () => {
       const res = await api.get('/api/intelligence/streak')
-      return res.data?.data || { current: 0, longest: 0 }
+      const data = res.data?.data || {}
+      return { current: data.currentStreak ?? 0, longest: data.bestStreak ?? 0 }
     },
     staleTime: 1000 * 60 * 5,
   })
@@ -345,6 +485,71 @@ function AIStudyPlanner() {
             ))}
           </div>
         </ScrollReveal>
+
+        {/* Floating Chat Toggle */}
+        <button
+          onClick={() => setChatOpen((v) => !v)}
+          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-gradient-to-br from-brand-start to-brand-end text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+          title="AI Mentor Chat"
+        >
+          {chatOpen ? <X className="w-6 h-6" /> : <MessageSquare className="w-6 h-6" />}
+        </button>
+
+        {/* Streaming Chat Panel */}
+        {chatOpen && (
+          <div className="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-3rem)] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden" style={{ height: '480px' }}>
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2 bg-gradient-to-r from-brand-start/10 to-brand-end/10">
+              <Brain className="w-5 h-5 text-brand-start" />
+              <span className="font-semibold text-gray-900 dark:text-white text-sm">AI Mentor</span>
+              {isStreamingSupported() && (
+                <Badge variant="success" size="xs">streaming</Badge>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {chatMessages.length === 0 && (
+                <div className="text-center text-gray-400 dark:text-gray-500 text-sm mt-12">
+                  <Brain className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                  <p>Ask anything about your prep</p>
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-brand-start text-white rounded-br-none'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-none'
+                  }`}>
+                    {msg.content || (isStreaming && i === chatMessages.length - 1 ? (
+                      <span className="inline-flex gap-1"><span className="animate-bounce">.</span><span className="animate-bounce" style={{animationDelay:'0.1s'}}>.</span><span className="animate-bounce" style={{animationDelay:'0.2s'}}>.</span></span>
+                    ) : '')}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendChatMessage()}
+                placeholder="Ask a question..."
+                className="flex-1 px-3 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-start/50"
+                disabled={isStreaming}
+              />
+              {isStreaming ? (
+                <button onClick={cancelStream} className="p-2 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <button onClick={sendChatMessage} className="p-2 rounded-xl bg-brand-start text-white hover:bg-brand-start/80 transition-colors disabled:opacity-50" disabled={!chatInput.trim()}>
+                  <Send className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -397,7 +602,7 @@ function buildDefaultSchedule(recommendations, weakTopics, weekStart) {
   return buildWeeklyPlan(recommendations, weakTopics, weekStart)
 }
 
-function computeWeeklyStats(schedule, weekStart, streakData) {
+function computeWeeklyStats(schedule, weekStart, _streakData) {
   let sessions = 0
   let hours = 0
 

@@ -1,5 +1,4 @@
-import React from 'react';
-import { Edit, Trash2, Eye, EyeOff, MoreVertical, ChevronUp, ChevronDown } from 'lucide-react';
+import { Edit, Trash2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 
 /**
  * Reusable Admin Table Component

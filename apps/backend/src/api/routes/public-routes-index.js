@@ -15,6 +15,7 @@ import publicStatsRoutes from './public-stats.js';
 import testimonialsPublicRoutes from './testimonials-public.js';
 import practiceQuestionsPublicRoutes from './practice-questions-public.js';
 import settingsPublicRoutes from './settings.js';
+import contactRoutes from './contact.js';
 
 /**
  * Mount all extracted public routes on the Express app.
@@ -34,4 +35,6 @@ export function mountExtractedRoutes(app) {
   app.use('/api/testimonials', testimonialsPublicRoutes);
   app.use('/api/practice-questions', practiceQuestionsPublicRoutes);
   app.use('/api/settings', settingsPublicRoutes);
+  app.use('/api/site-settings', settingsPublicRoutes);
+  app.use('/api/contact', contactRoutes);
 }

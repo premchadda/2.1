@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -152,7 +153,7 @@ router.get('/dashboard', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -217,7 +218,7 @@ router.get('/users', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -272,7 +273,7 @@ router.get('/tests', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -341,7 +342,7 @@ router.get('/revenue', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -392,7 +393,7 @@ router.get('/content', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -429,7 +430,7 @@ router.get('/export', protect, admin, async (req, res) => {
       type
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

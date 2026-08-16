@@ -98,13 +98,23 @@ const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
   return safeParseInt(match?.id ?? match?._id ?? null);
 };
 
-const resolveCorrectOption = (value) => {
+const resolveCorrectOption = (value, options = []) => {
   if (value === undefined || value === null || value === "") return 0;
   const str = String(value).trim().toUpperCase();
-  const letterMap = { A: 0, B: 1, C: 2, D: 3 };
+  const letterMap = { A: 0, B: 1, C: 2, D: 3, OPTION1: 0, OPTION2: 1, OPTION3: 2, OPTION4: 3 };
   if (letterMap[str] !== undefined) return letterMap[str];
   const num = Number(value);
-  return Number.isFinite(num) ? num : 0;
+  if (Number.isFinite(num)) {
+    if (num >= 1 && num <= options.length && options.length > 0) {
+      return num - 1;
+    }
+    return Math.max(0, num);
+  }
+  if (options.length > 0) {
+    const idx = options.findIndex(o => String(o).trim().toLowerCase() === String(value).trim().toLowerCase());
+    if (idx !== -1) return idx;
+  }
+  return 0;
 };
 
 /**
@@ -113,7 +123,7 @@ const resolveCorrectOption = (value) => {
  */
 export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
   const questionText = row.questionText || row.question_text || row.question || "";
-  if (!questionText.trim()) return null;
+  if (!questionText || !String(questionText).trim()) return null;
 
   const questionTextHi = row.questionTextHi || row.question_text_hi || "";
   const sectionName = getBulkField(row, ["sectionName", "section_name", "section"]);
@@ -133,22 +143,42 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
     chapterId !== null ? { chapterId } : subjectId !== null ? { subjectId } : {},
   );
 
-  const options = [
-    row.optionA || row.option_a || row.option1 || "",
-    row.optionB || row.option_b || row.option2 || "",
-    row.optionC || row.option_c || row.option3 || "",
-    row.optionD || row.option_d || row.option4 || "",
-  ].filter(Boolean);
+  let options = [];
+  if (Array.isArray(row.options)) {
+    options = row.options.map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        return opt.text || opt.optionText || opt.option || opt.content || opt.value || '';
+      }
+      return String(opt ?? '').trim();
+    }).filter(Boolean);
+  } else {
+    options = [
+      row.optionA || row.option_a || row.option1 || row.option_1 || "",
+      row.optionB || row.option_b || row.option2 || row.option_2 || "",
+      row.optionC || row.option_c || row.option3 || row.option_3 || "",
+      row.optionD || row.option_d || row.option4 || row.option_4 || "",
+    ].map(o => String(o ?? '').trim()).filter(Boolean);
+  }
 
-  const optionsHi = [
-    row.optionAHi || row.option_a_hi || "",
-    row.optionBHi || row.option_b_hi || "",
-    row.optionCHi || row.option_c_hi || "",
-    row.optionDHi || row.option_d_hi || "",
-  ].filter(Boolean);
+  let optionsHi = [];
+  if (Array.isArray(row.optionsHi || row.options_hi)) {
+    optionsHi = (row.optionsHi || row.options_hi).map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        return opt.text || opt.optionText || opt.option || opt.content || opt.value || '';
+      }
+      return String(opt ?? '').trim();
+    }).filter(Boolean);
+  } else {
+    optionsHi = [
+      row.optionAHi || row.option_a_hi || "",
+      row.optionBHi || row.option_b_hi || "",
+      row.optionCHi || row.option_c_hi || "",
+      row.optionDHi || row.option_d_hi || "",
+    ].map(o => String(o ?? '').trim()).filter(Boolean);
+  }
 
-  const rawCorrect = row.correctOption || row.correct_option || row.correctAnswer || row.correct_answer || 0;
-  const correctOption = resolveCorrectOption(rawCorrect);
+  const rawCorrect = row.correctOption ?? row.correct_option ?? row.correctAnswer ?? row.correct_answer ?? row.answer ?? 0;
+  const correctOption = resolveCorrectOption(rawCorrect, options);
 
   const marks = Number(row.marks || row.positive_marking) || config.marks || 1;
   const negMarks =
@@ -190,6 +220,16 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
     section: String(sectionName || "").trim(),
     questionNumber: Number(row.q_order || row.questionNumber || row.question_number) || undefined,
     question_number: Number(row.q_order || row.questionNumber || row.question_number) || undefined,
+    isPractice:
+      parseBulkBoolean(row.isPractice || row.is_practice) ||
+      row.category === "practice" ||
+      config.category === "practice" ||
+      Boolean(config.isPractice),
+    is_practice:
+      parseBulkBoolean(row.isPractice || row.is_practice) ||
+      row.category === "practice" ||
+      config.category === "practice" ||
+      Boolean(config.isPractice),
     status: "active",
     isActive: true,
   };

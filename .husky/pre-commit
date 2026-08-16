@@ -1,0 +1,15 @@
+# A02 Cryptographic Failures — Block .env files from ever being committed again.
+# This guard prevents accidental secret leaks regardless of .gitignore state.
+STAGED_ENV=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.env$|\.env\.local$|\.env\.production$|\.env\.staging$' || true)
+if [ -n "$STAGED_ENV" ]; then
+  echo ""
+  echo "🚨 SECURITY: Blocked commit — the following .env file(s) contain secrets:"
+  echo "$STAGED_ENV"
+  echo ""
+  echo "   Remove them:  git reset HEAD <file>"
+  echo "   See:          docs/SECURITY.md"
+  echo ""
+  exit 1
+fi
+
+npx lint-staged

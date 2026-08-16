@@ -1,6 +1,7 @@
 import express from 'express'
-import { protect, admin } from '../../middleware/auth.middleware.js'
+import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
 
 const router = express.Router()
 
@@ -16,7 +17,7 @@ router.use(admin)
  * Response shape expected by AuditTrailManager.jsx:
  *   { success, data: [...logs], pagination: { page, limit, total, totalPages } }
  */
-router.get('/', async (req, res) => {
+router.get('/', responseCache('admin-audit-logs', 15), async (req, res) => {
   try {
     const {
       page = 1,
@@ -154,7 +155,7 @@ router.get('/', async (req, res) => {
  * Response shape expected by AuditTrailManager.jsx:
  *   { success, data: { actions: [...], tables: [...], summary: {...} } }
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', responseCache('admin-audit-stats', 60), async (req, res) => {
   try {
     const { range = '30d' } = req.query
     const days = Math.min(365, Math.max(1, parseInt(range.replace('d', ''))))
@@ -293,7 +294,7 @@ router.get('/:id', async (req, res) => {
  * Purge old audit logs.
  * Query params: older_than (days, default 365), limit (max rows, default 10000)
  */
-router.delete('/', async (req, res) => {
+router.delete('/', superAdmin, async (req, res) => {
   const { older_than = 365, limit = 10000 } = req.query
   const days = Math.max(30, parseInt(older_than))   // safety: never delete < 30 days
   const maxRows = Math.min(50000, parseInt(limit))

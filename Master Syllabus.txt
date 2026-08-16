@@ -1,0 +1,4322 @@
+SSC + Railway Master Syllabus
+
+├── Mathematics
+│
+├── Reasoning
+│
+├── English Language & Comprehension
+│
+├── Computer Knowledge
+│
+└── General Awareness
+    │
+    ├── General Awareness (GA)
+    │   ├── History
+    │   ├── Geography
+    │   ├── Indian Polity
+    │   └── Economics
+    │
+    ├── General Science (GS)
+    │   ├── Physics
+    │   ├── Chemistry
+    │   └── Biology
+    │
+    └── General Knowledge (GK)
+        ├── Static GK
+        └── Current Affairs
+
+
+Mathematics
+│
+├── Arithmetic Mathematics
+│   │
+│   ├── Number System
+│   │   ├── Natural Numbers
+│   │   ├── Whole Numbers
+│   │   ├── Integers
+│   │   ├── Rational & Irrational Numbers
+│   │   ├── Prime Numbers
+│   │   ├── Factors & Multiples
+│   │   ├── Divisibility Rules
+│   │   ├── HCF & LCM
+│   │   ├── Remainder
+│   │   └── Simplification
+│   │
+│   ├── Percentage
+│   │   ├── Basic Percentage
+│   │   ├── Increase & Decrease
+│   │   ├── Successive Percentage
+│   │   └── Application Based Problems
+│   │
+│   ├── Ratio & Proportion
+│   │   ├── Ratio
+│   │   ├── Proportion
+│   │   ├── Direct Proportion
+│   │   ├── Inverse Proportion
+│   │   └── Partnership
+│   │
+│   ├── Average
+│   │
+│   ├── Profit & Loss
+│   │   ├── Cost Price
+│   │   ├── Selling Price
+│   │   ├── Marked Price
+│   │   └── Discount
+│   │
+│   ├── Simple Interest
+│   │
+│   ├── Compound Interest
+│   │
+│   ├── Time & Work
+│   │   ├── Work Efficiency
+│   │   ├── Pipes & Cisterns
+│   │   └── Wages
+│   │
+│   ├── Time, Speed & Distance
+│   │   ├── Relative Speed
+│   │   ├── Trains
+│   │   ├── Boats & Streams
+│   │   └── Race Problems
+│   │
+│   ├── Mixture & Alligation
+│   │
+│   └── Age Problems
+│
+├── Advanced Mathematics
+│   │
+│   ├── Algebra
+│   │   ├── Algebraic Expressions
+│   │   ├── Identities
+│   │   ├── Linear Equations
+│   │   ├── Quadratic Equations
+│   │   ├── Polynomials
+│   │   └── Surds & Indices
+│   │
+│   ├── Geometry
+│   │   ├── Lines & Angles
+│   │   ├── Triangles
+│   │   ├── Congruency
+│   │   ├── Similarity
+│   │   ├── Quadrilaterals
+│   │   ├── Circles
+│   │   └── Polygons
+│   │
+│   ├── Mensuration
+│   │   ├── 2D Mensuration
+│   │   │   ├── Square
+│   │   │   ├── Rectangle
+│   │   │   ├── Triangle
+│   │   │   └── Circle
+│   │   │
+│   │   └── 3D Mensuration
+│   │       ├── Cube
+│   │       ├── Cuboid
+│   │       ├── Cylinder
+│   │       ├── Cone
+│   │       └── Sphere
+│   │
+│   ├── Trigonometry
+│   │   ├── Trigonometric Ratios
+│   │   ├── Standard Values
+│   │   ├── Identities
+│   │   └── Heights & Distances
+│   │
+│   └── Coordinate Geometry
+│       ├── Cartesian Plane
+│       ├── Distance Formula
+│       ├── Section Formula
+│       └── Area of Triangle
+│
+├── Statistics
+│   ├── Data Collection
+│   ├── Mean
+│   ├── Median
+│   ├── Mode
+│   └── Frequency Distribution
+│
+└── Data Interpretation
+    ├── Table DI
+    ├── Bar Graph
+    ├── Line Graph
+    ├── Pie Chart
+    └── Caselet DI
+
+
+Reasoning
+│
+├── Verbal Reasoning
+│   │
+│   ├── Analogy
+│   │   ├── Word Analogy
+│   │   ├── Number Analogy
+│   │   ├── Alphabet Analogy
+│   │   ├── Figure Analogy
+│   │   └── Meaning Based Analogy
+│   │
+│   ├── Classification
+│   │   ├── Word Classification
+│   │   ├── Number Classification
+│   │   ├── Alphabet Classification
+│   │   └── Figure Classification
+│   │
+│   ├── Series
+│   │   ├── Number Series
+│   │   │   ├── Missing Number Series
+│   │   │   ├── Wrong Number Series
+│   │   │   └── Pattern Based Series
+│   │   ├── Alphabet Series
+│   │   ├── Alphanumeric Series
+│   │   └── Figure Series
+│   │
+│   ├── Coding-Decoding
+│   │   ├── Letter Coding
+│   │   ├── Number Coding
+│   │   ├── Symbol Coding
+│   │   ├── Substitution Coding
+│   │   ├── Matrix Coding
+│   │   └── New Pattern Coding
+│   │
+│   ├── Blood Relations
+│   │   ├── Family Tree
+│   │   ├── Coded Relations
+│   │   └── Generation Based Problems
+│   │
+│   ├── Direction Sense
+│   │   ├── Basic Directions
+│   │   ├── Distance Based Problems
+│   │   ├── Direction & Relation
+│   │   └── Shadow Problems
+│   │
+│   ├── Ranking & Order
+│   │   ├── Position Ranking
+│   │   ├── Height Based Ranking
+│   │   └── Age Based Ranking
+│   │
+│   ├── Alphabet Test
+│   │   ├── Alphabet Position
+│   │   ├── Word Formation
+│   │   └── Letter Arrangement
+│   │
+│   └── Venn Diagram
+│       ├── Classification Venn
+│       ├── Relationship Based Venn
+│       └── Logical Venn
+│
+├── Logical Reasoning
+│   │
+│   ├── Syllogism
+│   │   ├── Statement & Conclusion
+│   │   ├── Venn Diagram Method
+│   │   └── Possibility Cases
+│   │
+│   ├── Statement Based Reasoning
+│   │   ├── Statement & Assumption
+│   │   ├── Statement & Argument
+│   │   ├── Statement & Course of Action
+│   │   └── Statement & Inference
+│   │
+│   ├── Decision Making
+│   │   ├── Situation Based Problems
+│   │   └── Judgement Based Problems
+│   │
+│   └── Cause & Effect
+│
+├── Analytical Reasoning
+│   │
+│   ├── Seating Arrangement
+│   │   ├── Linear Arrangement
+│   │   ├── Circular Arrangement
+│   │   ├── Double Row Arrangement
+│   │   └── Complex Arrangement
+│   │
+│   ├── Puzzle
+│   │   ├── Floor Puzzle
+│   │   ├── Box Puzzle
+│   │   ├── Scheduling Puzzle
+│   │   ├── Distribution Puzzle
+│   │   └── Matching Puzzle
+│   │
+│   ├── Data Sufficiency
+│   │
+│   └── Input Output
+│
+├── Non-Verbal Reasoning
+│   │
+│   ├── Figure Based Problems
+│   │   ├── Figure Classification
+│   │   ├── Figure Analogy
+│   │   └── Figure Series
+│   │
+│   ├── Mirror Image
+│   │
+│   ├── Water Image
+│   │
+│   ├── Paper Folding
+│   │
+│   ├── Paper Cutting
+│   │
+│   ├── Embedded Figures
+│   │
+│   ├── Figure Completion
+│   │
+│   ├── Counting Figures
+│   │   ├── Counting Triangles
+│   │   ├── Counting Squares
+│   │   └── Counting Shapes
+│   │
+│   └── Cube & Dice
+│       ├── Cube Formation
+│       ├── Dice Problems
+│       └── Painted Cube
+│
+└── Mathematical Reasoning
+    │
+    ├── Missing Number
+    ├── Mathematical Operations
+    ├── Arithmetic Reasoning
+    └── Number Puzzle
+
+
+English Language & Comprehension
+│
+├── Grammar
+│   │
+│   ├── Parts of Speech
+│   │   ├── Noun
+│   │   │   ├── Types of Noun
+│   │   │   ├── Countable & Uncountable Noun
+│   │   │   ├── Singular & Plural
+│   │   │   └── Possessive Noun
+│   │   │
+│   │   ├── Pronoun
+│   │   │   ├── Types of Pronoun
+│   │   │   ├── Personal Pronoun
+│   │   │   ├── Relative Pronoun
+│   │   │   └── Reflexive Pronoun
+│   │   │
+│   │   ├── Verb
+│   │   │   ├── Main Verb
+│   │   │   ├── Helping Verb
+│   │   │   ├── Transitive & Intransitive Verb
+│   │   │   └── Verb Forms
+│   │   │
+│   │   ├── Adjective
+│   │   │   ├── Types of Adjective
+│   │   │   ├── Degree of Comparison
+│   │   │   └── Correct Usage
+│   │   │
+│   │   ├── Adverb
+│   │   │
+│   │   ├── Preposition
+│   │   │   ├── Time Preposition
+│   │   │   ├── Place Preposition
+│   │   │   └── Usage Rules
+│   │   │
+│   │   ├── Conjunction
+│   │   │
+│   │   └── Interjection
+│   │
+│   ├── Tenses
+│   │   ├── Present Tense
+│   │   │   ├── Simple Present
+│   │   │   ├── Present Continuous
+│   │   │   ├── Present Perfect
+│   │   │   └── Present Perfect Continuous
+│   │   │
+│   │   ├── Past Tense
+│   │   │   ├── Simple Past
+│   │   │   ├── Past Continuous
+│   │   │   ├── Past Perfect
+│   │   │   └── Past Perfect Continuous
+│   │   │
+│   │   └── Future Tense
+│   │       ├── Simple Future
+│   │       ├── Future Continuous
+│   │       ├── Future Perfect
+│   │       └── Future Perfect Continuous
+│   │
+│   ├── Subject Verb Agreement
+│   │   ├── Basic Rules
+│   │   ├── Singular Subject Rules
+│   │   ├── Plural Subject Rules
+│   │   └── Exception Rules
+│   │
+│   ├── Articles
+│   │   ├── A
+│   │   ├── An
+│   │   ├── The
+│   │   └── Zero Article
+│   │
+│   ├── Active & Passive Voice
+│   │   ├── Active Voice Rules
+│   │   ├── Passive Voice Rules
+│   │   ├── Tense Conversion
+│   │   └── Imperative Sentences
+│   │
+│   ├── Direct & Indirect Speech
+│   │   ├── Reporting Verb
+│   │   ├── Assertive Sentences
+│   │   ├── Interrogative Sentences
+│   │   ├── Imperative Sentences
+│   │   └── Exclamatory Sentences
+│   │
+│   ├── Sentence Structure
+│   │   ├── Sentence Types
+│   │   ├── Simple Sentence
+│   │   ├── Compound Sentence
+│   │   └── Complex Sentence
+│   │
+│   └── Error Detection
+│       ├── Grammar Errors
+│       ├── Tense Errors
+│       ├── Agreement Errors
+│       ├── Article Errors
+│       └── Preposition Errors
+│
+├── Vocabulary
+│   │
+│   ├── Synonyms
+│   │
+│   ├── Antonyms
+│   │
+│   ├── One Word Substitution
+│   │
+│   ├── Idioms & Phrases
+│   │
+│   ├── Homonyms
+│   │
+│   ├── Homophones
+│   │
+│   ├── Spelling
+│   │   ├── Correct Spelling
+│   │   └── Incorrect Spelling
+│   │
+│   └── Word Formation
+│
+├── Reading Comprehension
+│   │
+│   ├── Passage Based Questions
+│   │   ├── Main Idea
+│   │   ├── Theme
+│   │   ├── Inference
+│   │   ├── Vocabulary Based Questions
+│   │   └── Fact Based Questions
+│   │
+│   └── Cloze Test
+│       ├── Grammar Based Cloze
+│       ├── Vocabulary Based Cloze
+│       └── Context Based Cloze
+│
+├── Verbal Ability
+│   │
+│   ├── Fill in the Blanks
+│   │   ├── Single Blank
+│   │   └── Double Blank
+│   │
+│   ├── Sentence Improvement
+│   │
+│   ├── Sentence Rearrangement
+│   │   ├── Para Jumbles
+│   │   └── Sentence Ordering
+│   │
+│   ├── Active Sentence Formation
+│   │
+│   └── Phrase Replacement
+│
+└── Writing & Usage
+    │
+    ├── Punctuation
+    │   ├── Comma
+    │   ├── Full Stop
+    │   ├── Apostrophe
+    │   └── Colon/Semicolon
+    │
+    ├── Capitalization Rules
+    │
+    └── Common Usage Rules
+
+
+Computer Knowledge
+│
+├── Computer Fundamentals
+│   │
+│   ├── Introduction to Computers
+│   │   ├── Definition of Computer
+│   │   ├── Characteristics of Computer
+│   │   ├── History of Computers
+│   │   ├── Generations of Computers
+│   │   ├── Types of Computers
+│   │   │   ├── Super Computer
+│   │   │   ├── Mainframe Computer
+│   │   │   ├── Mini Computer
+│   │   │   ├── Micro Computer
+│   │   │   └── Personal Computer
+│   │   └── Applications of Computers
+│   │
+│   ├── Computer Organization
+│   │   ├── Input Process Output Cycle
+│   │   ├── Central Processing Unit (CPU)
+│   │   │   ├── Arithmetic Logic Unit (ALU)
+│   │   │   ├── Control Unit (CU)
+│   │   │   └── Registers
+│   │   ├── Memory Unit
+│   │   └── Storage Unit
+│   │
+│   ├── Data Representation
+│   │   ├── Data & Information
+│   │   ├── Binary Number System
+│   │   ├── Decimal Number System
+│   │   ├── Octal Number System
+│   │   ├── Hexadecimal Number System
+│   │   ├── ASCII
+│   │   └── Unicode
+│   │
+│   └── Computer Generations & Classification
+│
+├── Computer Hardware
+│   │
+│   ├── Input Devices
+│   │   ├── Keyboard
+│   │   ├── Mouse
+│   │   ├── Scanner
+│   │   ├── Barcode Reader
+│   │   ├── OCR
+│   │   ├── OMR
+│   │   └── MICR
+│   │
+│   ├── Output Devices
+│   │   ├── Monitor
+│   │   ├── Printer
+│   │   │   ├── Impact Printer
+│   │   │   └── Non-Impact Printer
+│   │   ├── Plotter
+│   │   └── Speaker
+│   │
+│   ├── Processing Devices
+│   │   ├── CPU
+│   │   ├── Motherboard
+│   │   ├── Processor
+│   │   ├── GPU
+│   │   └── Chipset
+│   │
+│   ├── Memory
+│   │   ├── Primary Memory
+│   │   │   ├── RAM
+│   │   │   ├── ROM
+│   │   │   ├── PROM
+│   │   │   ├── EPROM
+│   │   │   └── EEPROM
+│   │   │
+│   │   └── Secondary Memory
+│   │       ├── Hard Disk
+│   │       ├── SSD
+│   │       ├── CD/DVD
+│   │       ├── Pen Drive
+│   │       └── Memory Card
+│   │
+│   └── Computer Ports
+│       ├── USB Port
+│       ├── HDMI Port
+│       ├── VGA Port
+│       └── Ethernet Port
+│
+├── Software
+│   │
+│   ├── System Software
+│   │   ├── Operating System
+│   │   ├── Device Drivers
+│   │   └── Utility Programs
+│   │
+│   ├── Application Software
+│   │   ├── Word Processor
+│   │   ├── Spreadsheet Software
+│   │   ├── Presentation Software
+│   │   └── Database Software
+│   │
+│   └── Programming Software
+│       ├── Compiler
+│       ├── Interpreter
+│       └── Assembler
+│
+├── Operating System
+│   │
+│   ├── OS Fundamentals
+│   │   ├── Functions of OS
+│   │   ├── Types of OS
+│   │   ├── Single User OS
+│   │   ├── Multi User OS
+│   │   ├── Real Time OS
+│   │   └── Mobile OS
+│   │
+│   ├── Windows
+│   │   ├── Windows Versions
+│   │   ├── File Management
+│   │   ├── Control Panel
+│   │   └── Shortcuts
+│   │
+│   └── Linux Basics
+│
+├── Microsoft Office
+│   │
+│   ├── MS Word
+│   │   ├── Document Creation
+│   │   ├── Formatting
+│   │   ├── Tables
+│   │   ├── Mail Merge
+│   │   └── Page Setup
+│   │
+│   ├── MS Excel
+│   │   ├── Workbook & Worksheet
+│   │   ├── Cell References
+│   │   ├── Formulas
+│   │   ├── Functions
+│   │   ├── Charts
+│   │   └── Data Sorting & Filtering
+│   │
+│   └── MS PowerPoint
+│       ├── Slides
+│       ├── Themes
+│       ├── Animations
+│       ├── Transitions
+│       └── Presentation Tools
+│
+├── Internet & Networking
+│   │
+│   ├── Internet Basics
+│   │   ├── WWW
+│   │   ├── Website
+│   │   ├── Web Browser
+│   │   ├── Search Engine
+│   │   └── URL
+│   │
+│   ├── Networking
+│   │   ├── LAN
+│   │   ├── MAN
+│   │   ├── WAN
+│   │   ├── PAN
+│   │   ├── Network Topology
+│   │   └── Protocols
+│   │
+│   ├── Internet Services
+│   │   ├── Email
+│   │   ├── Cloud Computing
+│   │   ├── E-Commerce
+│   │   └── Digital Payments
+│   │
+│   └── Communication Technology
+│
+├── Database Management
+│   │
+│   ├── Database Concepts
+│   │   ├── Data
+│   │   ├── Database
+│   │   ├── DBMS
+│   │   └── RDBMS
+│   │
+│   ├── SQL Basics
+│   │   ├── Tables
+│   │   ├── Queries
+│   │   ├── Records
+│   │   └── Fields
+│   │
+│   └── Database Models
+│
+├── Cyber Security
+│   │
+│   ├── Computer Viruses
+│   │   ├── Virus
+│   │   ├── Worm
+│   │   ├── Trojan
+│   │   └── Ransomware
+│   │
+│   ├── Security Measures
+│   │   ├── Antivirus
+│   │   ├── Firewall
+│   │   ├── Encryption
+│   │   └── Authentication
+│   │
+│   └── Cyber Crimes
+│       ├── Phishing
+│       ├── Hacking
+│       └── Identity Theft
+│
+└── Programming Basics
+    │
+    ├── Programming Languages
+    │   ├── Machine Language
+    │   ├── Assembly Language
+    │   └── High Level Language
+    │
+    ├── Programming Concepts
+    │   ├── Algorithm
+    │   ├── Flowchart
+    │   ├── Variables
+    │   └── Data Types
+    │
+    └── Common Languages
+        ├── C Basics
+        ├── C++ Basics
+        ├── Java Basics
+        └── Python Basics
+
+
+GENERAL AWARENESS (GA)
+│
+├── HISTORY
+│
+│   ├── Ancient Indian History
+│   │
+│   │   ├── Prehistoric India
+│   │   │   ├── Sources of Ancient History
+│   │   │   │   ├── Archaeological Sources
+│   │   │   │   ├── Literary Sources
+│   │   │   │   └── Foreign Accounts
+│   │   │   │
+│   │   │   ├── Stone Age
+│   │   │   │   ├── Paleolithic Age
+│   │   │   │   │   ├── Tools
+│   │   │   │   │   ├── Lifestyle
+│   │   │   │   │   └── Sites
+│   │   │   │   ├── Mesolithic Age
+│   │   │   │   ├── Neolithic Age
+│   │   │   │   └── Chalcolithic Age
+│   │   │
+│   │   ├── Indus Valley Civilization
+│   │   │   ├── Discovery & Excavation
+│   │   │   ├── Chronology
+│   │   │   ├── Important Sites
+│   │   │   │   ├── Harappa
+│   │   │   │   ├── Mohenjo-Daro
+│   │   │   │   ├── Lothal
+│   │   │   │   ├── Dholavira
+│   │   │   │   ├── Kalibangan
+│   │   │   │   └── Rakhigarhi
+│   │   │   ├── Town Planning
+│   │   │   │   ├── Drainage System
+│   │   │   │   ├── Roads
+│   │   │   │   └── Buildings
+│   │   │   ├── Economic Life
+│   │   │   │   ├── Agriculture
+│   │   │   │   ├── Trade
+│   │   │   │   └── Crafts
+│   │   │   ├── Social Life
+│   │   │   ├── Religious Beliefs
+│   │   │   ├── Art & Culture
+│   │   │   └── Decline Theories
+│   │   │
+│   │   ├── Vedic Period
+│   │   │   ├── Early Vedic Age
+│   │   │   ├── Later Vedic Age
+│   │   │   ├── Vedic Literature
+│   │   │   │   ├── Vedas
+│   │   │   │   ├── Brahmanas
+│   │   │   │   ├── Aranyakas
+│   │   │   │   └── Upanishads
+│   │   │   ├── Society
+│   │   │   ├── Economy
+│   │   │   ├── Political System
+│   │   │   └── Religion
+│   │   │
+│   │   ├── Mahajanapadas
+│   │   │   ├── Sixteen Mahajanapadas
+│   │   │   ├── Rise of Magadha
+│   │   │   ├── Haryanka Dynasty
+│   │   │   ├── Shishunaga Dynasty
+│   │   │   └── Nanda Dynasty
+│   │   │
+│   │   ├── Buddhism & Jainism
+│   │   │   ├── Buddhism
+│   │   │   │   ├── Life of Buddha
+│   │   │   │   ├── Four Noble Truths
+│   │   │   │   ├── Eightfold Path
+│   │   │   │   ├── Buddhist Councils
+│   │   │   │   ├── Buddhist Literature
+│   │   │   │   └── Buddhist Schools
+│   │   │   ├── Jainism
+│   │   │   │   ├── Life of Mahavira
+│   │   │   │   ├── Jain Philosophy
+│   │   │   │   ├── Jain Councils
+│   │   │   │   └── Jain Literature
+│   │   │
+│   │   ├── Mauryan Empire
+│   │   │   ├── Chandragupta Maurya
+│   │   │   ├── Bindusara
+│   │   │   ├── Ashoka
+│   │   │   │   ├── Kalinga War
+│   │   │   │   ├── Dhamma Policy
+│   │   │   │   └── Edicts
+│   │   │   ├── Administration
+│   │   │   ├── Economy
+│   │   │   ├── Art & Architecture
+│   │   │   └── Decline
+│   │   │
+│   │   ├── Post Mauryan Period
+│   │   │   ├── Indo-Greeks
+│   │   │   ├── Shakas
+│   │   │   ├── Kushanas
+│   │   │   └── Satavahanas
+│   │   │
+│   │   ├── Gupta Empire
+│   │   │   ├── Gupta Rulers
+│   │   │   ├── Administration
+│   │   │   ├── Science & Technology
+│   │   │   ├── Literature
+│   │   │   ├── Art & Architecture
+│   │   │   └── Golden Age
+│   │   │
+│   │   └── South Indian Kingdoms
+│   │       ├── Cholas
+│   │       ├── Cheras
+│   │       ├── Pandyas
+│   │       ├── Pallavas
+│   │       └── Vijayanagara Empire
+│   │
+│   ├── Medieval Indian History
+│   │
+│   │   ├── Delhi Sultanate
+│   │   │   ├── Slave Dynasty
+│   │   │   ├── Khilji Dynasty
+│   │   │   ├── Tughlaq Dynasty
+│   │   │   ├── Sayyid Dynasty
+│   │   │   └── Lodi Dynasty
+│   │   │
+│   │   ├── Mughal Empire
+│   │   │   ├── Babur
+│   │   │   ├── Humayun
+│   │   │   ├── Akbar
+│   │   │   ├── Jahangir
+│   │   │   ├── Shah Jahan
+│   │   │   ├── Aurangzeb
+│   │   │   └── Mughal Administration
+│   │   │
+│   │   ├── Bhakti Movement
+│   │   │   ├── Alvars & Nayanars
+│   │   │   ├── Kabir
+│   │   │   ├── Guru Nanak
+│   │   │   ├── Chaitanya Mahaprabhu
+│   │   │   └── Mirabai
+│   │   │
+│   │   ├── Sufi Movement
+│   │   │   ├── Chishti Order
+│   │   │   ├── Suhrawardi Order
+│   │   │   └── Important Sufi Saints
+│   │   │
+│   │   └── Maratha Empire
+│   │       ├── Shivaji
+│   │       ├── Administration
+│   │       └── Expansion
+│   │
+│   └── Modern Indian History
+│       │
+│       ├── European Expansion
+│       │   ├── Portuguese
+│       │   ├── Dutch
+│       │   ├── British
+│       │   └── French
+│       │
+│       ├── British Administration
+│       │   ├── Regulating Act
+│       │   ├── Charter Acts
+│       │   ├── Governor Generals
+│       │   └── Viceroys
+│       │
+│       ├── Revolt of 1857
+│       │   ├── Causes
+│       │   ├── Leaders
+│       │   ├── Centres
+│       │   └── Effects
+│       │
+│       ├── Indian National Movement
+│       │   ├── Formation of INC
+│       │   ├── Moderates
+│       │   ├── Extremists
+│       │   ├── Swadeshi Movement
+│       │   ├── Gandhian Era
+│       │   │   ├── Champaran Movement
+│       │   │   ├── Non Cooperation Movement
+│       │   │   ├── Civil Disobedience Movement
+│       │   │   └── Quit India Movement
+│       │   ├── Revolutionary Movement
+│       │   └── Independence & Partition
+│       │
+│       └── Post Independence India
+│           ├── Integration of States
+│           ├── Five Year Plans
+│           ├── Wars
+│           └── Major Political Events
+
+GENERAL AWARENESS (GA)
+│
+└── Geography
+    │
+    ├── Physical Geography
+    │   │
+    │   ├── Earth and Universe
+    │   │   ├── Origin of Earth
+    │   │   ├── Solar System
+    │   │   │   ├── Sun
+    │   │   │   ├── Planets
+    │   │   │   ├── Satellites
+    │   │   │   └── Asteroids & Comets
+    │   │   ├── Shape and Size of Earth
+    │   │   ├── Rotation of Earth
+    │   │   │   ├── Day and Night
+    │   │   │   └── Time Zones
+    │   │   ├── Revolution of Earth
+    │   │   │   ├── Seasons
+    │   │   │   └── Solstices & Equinoxes
+    │   │   └── Latitude & Longitude
+    │   │       ├── Equator
+    │   │       ├── Tropic of Cancer
+    │   │       ├── Tropic of Capricorn
+    │   │       ├── Prime Meridian
+    │   │       └── International Date Line
+    │   │
+    │   ├── Interior of Earth
+    │   │   ├── Crust
+    │   │   ├── Mantle
+    │   │   ├── Core
+    │   │   ├── Rocks
+    │   │   │   ├── Igneous Rocks
+    │   │   │   ├── Sedimentary Rocks
+    │   │   │   └── Metamorphic Rocks
+    │   │   └── Rock Cycle
+    │   │
+    │   ├── Geomorphology
+    │   │   ├── Mountains
+    │   │   │   ├── Fold Mountains
+    │   │   │   ├── Block Mountains
+    │   │   │   ├── Volcanic Mountains
+    │   │   │   └── Residual Mountains
+    │   │   ├── Plateaus
+    │   │   ├── Plains
+    │   │   ├── Valleys
+    │   │   ├── Islands
+    │   │   └── Deserts
+    │   │
+    │   ├── Plate Tectonics
+    │   │   ├── Continental Drift Theory
+    │   │   ├── Plate Boundaries
+    │   │   │   ├── Convergent Boundary
+    │   │   │   ├── Divergent Boundary
+    │   │   │   └── Transform Boundary
+    │   │   ├── Earthquakes
+    │   │   └── Volcanoes
+    │   │       ├── Types of Volcanoes
+    │   │       └── Volcanic Landforms
+    │   │
+    │   ├── Climatology
+    │   │   ├── Atmosphere
+    │   │   │   ├── Troposphere
+    │   │   │   ├── Stratosphere
+    │   │   │   ├── Mesosphere
+    │   │   │   ├── Thermosphere
+    │   │   │   └── Exosphere
+    │   │   ├── Temperature
+    │   │   ├── Pressure Belts
+    │   │   ├── Winds
+    │   │   │   ├── Trade Winds
+    │   │   │   ├── Westerlies
+    │   │   │   └── Polar Winds
+    │   │   ├── Monsoon
+    │   │   ├── Cyclones
+    │   │   ├── Anticyclones
+    │   │   └── Rainfall
+    │   │       ├── Convectional Rainfall
+    │   │       ├── Orographic Rainfall
+    │   │       └── Cyclonic Rainfall
+    │   │
+    │   ├── Oceanography
+    │   │   ├── Oceans
+    │   │   │   ├── Pacific Ocean
+    │   │   │   ├── Atlantic Ocean
+    │   │   │   ├── Indian Ocean
+    │   │   │   ├── Arctic Ocean
+    │   │   │   └── Southern Ocean
+    │   │   ├── Ocean Currents
+    │   │   ├── Tides
+    │   │   ├── Waves
+    │   │   └── Coral Reefs
+    │   │
+    │   └── Biosphere
+    │       ├── Ecosystem
+    │       ├── Biomes
+    │       ├── Forests
+    │       └── Biodiversity
+    │
+    ├── Indian Geography
+    │   │
+    │   ├── Location & Extent of India
+    │   │   ├── Latitudinal Extent
+    │   │   ├── Longitudinal Extent
+    │   │   ├── Standard Meridian
+    │   │   └── Neighbouring Countries
+    │   │
+    │   ├── Physiographic Divisions
+    │   │   │
+    │   │   ├── Himalayan Mountains
+    │   │   │   ├── Trans Himalaya
+    │   │   │   ├── Greater Himalaya
+    │   │   │   ├── Lesser Himalaya
+    │   │   │   └── Shiwalik Range
+    │   │   │
+    │   │   ├── Northern Plains
+    │   │   │   ├── Indus Plain
+    │   │   │   ├── Ganga Plain
+    │   │   │   └── Brahmaputra Plain
+    │   │   │
+    │   │   ├── Peninsular Plateau
+    │   │   │   ├── Central Highlands
+    │   │   │   └── Deccan Plateau
+    │   │   │
+    │   │   ├── Indian Desert
+    │   │   │   └── Thar Desert
+    │   │   │
+    │   │   ├── Coastal Plains
+    │   │   │   ├── Western Coastal Plains
+    │   │   │   └── Eastern Coastal Plains
+    │   │   │
+    │   │   └── Islands
+    │   │       ├── Andaman & Nicobar Islands
+    │   │       └── Lakshadweep Islands
+    │   │
+    │   ├── Drainage System
+    │   │   │
+    │   │   ├── Himalayan Rivers
+    │   │   │   ├── Indus River System
+    │   │   │   ├── Ganga River System
+    │   │   │   └── Brahmaputra River System
+    │   │   │
+    │   │   ├── Peninsular Rivers
+    │   │   │   ├── Godavari
+    │   │   │   ├── Krishna
+    │   │   │   ├── Kaveri
+    │   │   │   ├── Narmada
+    │   │   │   └── Tapi
+    │   │   │
+    │   │   └── Lakes
+    │   │       ├── Freshwater Lakes
+    │   │       ├── Saltwater Lakes
+    │   │       └── Artificial Lakes
+    │   │
+    │   ├── Climate of India
+    │   │   ├── Indian Monsoon
+    │   │   ├── Seasons
+    │   │   ├── Rainfall Distribution
+    │   │   └── Climatic Regions
+    │   │
+    │   ├── Soil of India
+    │   │   ├── Alluvial Soil
+    │   │   ├── Black Soil
+    │   │   ├── Red Soil
+    │   │   ├── Laterite Soil
+    │   │   ├── Desert Soil
+    │   │   └── Mountain Soil
+    │   │
+    │   ├── Agriculture
+    │   │   ├── Types of Farming
+    │   │   ├── Major Crops
+    │   │   │   ├── Rice
+    │   │   │   ├── Wheat
+    │   │   │   ├── Cotton
+    │   │   │   ├── Sugarcane
+    │   │   │   ├── Tea
+    │   │   │   └── Coffee
+    │   │   ├── Green Revolution
+    │   │   ├── White Revolution
+    │   │   └── Blue Revolution
+    │   │
+    │   ├── Mineral Resources
+    │   │   ├── Coal
+    │   │   ├── Iron Ore
+    │   │   ├── Petroleum
+    │   │   ├── Natural Gas
+    │   │   └── Bauxite
+    │   │
+    │   ├── Industries
+    │   │   ├── Iron & Steel Industry
+    │   │   ├── Cotton Textile Industry
+    │   │   ├── Jute Industry
+    │   │   ├── Sugar Industry
+    │   │   └── IT Industry
+    │   │
+    │   ├── Transport
+    │   │   ├── Railways
+    │   │   ├── Roadways
+    │   │   ├── Airways
+    │   │   └── Waterways
+    │   │
+    │   └── Population Geography
+    │       ├── Census
+    │       ├── Population Growth
+    │       ├── Density
+    │       ├── Migration
+    │       └── Urbanization
+    │
+    └── World Geography
+        ├── Continents
+        │   ├── Asia
+        │   ├── Europe
+        │   ├── Africa
+        │   ├── North America
+        │   ├── South America
+        │   ├── Australia
+        │   └── Antarctica
+        │
+        ├── Countries & Capitals
+        ├── Major Rivers of World
+        ├── Major Mountains of World
+        ├── Deserts of World
+        ├── Important Straits
+        ├── Important Seas
+        ├── Grasslands
+        └── Natural Resources
+
+GENERAL AWARENESS (GA)
+│
+└── Indian Polity
+    │
+    ├── Historical Background of Indian Constitution
+    │   │
+    │   ├── Regulating Act 1773
+    │   ├── Pitt's India Act 1784
+    │   ├── Charter Acts
+    │   │   ├── Charter Act 1813
+    │   │   ├── Charter Act 1833
+    │   │   └── Charter Act 1853
+    │   │
+    │   ├── Government of India Acts
+    │   │   ├── Government of India Act 1858
+    │   │   ├── Indian Councils Act 1861
+    │   │   ├── Indian Councils Act 1892
+    │   │   ├── Indian Councils Act 1909
+    │   │   ├── Government of India Act 1919
+    │   │   └── Government of India Act 1935
+    │   │
+    │   └── Indian Independence Act 1947
+    │
+    ├── Making of Indian Constitution
+    │   │
+    │   ├── Constituent Assembly
+    │   │   ├── Formation
+    │   │   ├── Members
+    │   │   ├── Committees
+    │   │   └── Objectives Resolution
+    │   │
+    │   ├── Drafting Committee
+    │   │   └── Chairman: Dr. B.R. Ambedkar
+    │   │
+    │   ├── Sources of Constitution
+    │   │   ├── British Constitution
+    │   │   ├── US Constitution
+    │   │   ├── Irish Constitution
+    │   │   ├── Canadian Constitution
+    │   │   ├── Australian Constitution
+    │   │   └── Government of India Act 1935
+    │   │
+    │   └── Adoption of Constitution
+    │       ├── Adopted Date
+    │       ├── Implemented Date
+    │       └── Original Constitution Features
+    │
+    ├── Features of Indian Constitution
+    │   │
+    │   ├── Written Constitution
+    │   ├── Lengthiest Constitution
+    │   ├── Federal System with Unitary Bias
+    │   ├── Parliamentary Government
+    │   ├── Independent Judiciary
+    │   ├── Single Citizenship
+    │   ├── Universal Adult Franchise
+    │   └── Rule of Law
+    │
+    ├── Preamble
+    │   │
+    │   ├── Meaning of Preamble
+    │   ├── Objectives
+    │   ├── Keywords
+    │   │   ├── Sovereign
+    │   │   ├── Socialist
+    │   │   ├── Secular
+    │   │   ├── Democratic
+    │   │   └── Republic
+    │   │
+    │   └── Constitutional Amendments Related to Preamble
+    │
+    ├── Parts of Constitution
+    │   │
+    │   ├── Part I
+    │   │   └── Union and Territory
+    │   │
+    │   ├── Part II
+    │   │   └── Citizenship
+    │   │
+    │   ├── Part III
+    │   │   └── Fundamental Rights
+    │   │
+    │   ├── Part IV
+    │   │   └── Directive Principles of State Policy
+    │   │
+    │   ├── Part IVA
+    │   │   └── Fundamental Duties
+    │   │
+    │   ├── Part V
+    │   │   └── Union Government
+    │   │
+    │   ├── Part VI
+    │   │   └── State Government
+    │   │
+    │   ├── Part IX
+    │   │   └── Panchayats
+    │   │
+    │   ├── Part IXA
+    │   │   └── Municipalities
+    │   │
+    │   └── Part XVIII
+    │       └── Emergency Provisions
+    │
+    ├── Fundamental Rights
+    │   │
+    │   ├── Right to Equality
+    │   │   ├── Article 14
+    │   │   ├── Article 15
+    │   │   ├── Article 16
+    │   │   ├── Article 17
+    │   │   └── Article 18
+    │   │
+    │   ├── Right to Freedom
+    │   │   ├── Article 19
+    │   │   ├── Article 20
+    │   │   ├── Article 21
+    │   │   └── Article 22
+    │   │
+    │   ├── Right Against Exploitation
+    │   │
+    │   ├── Right to Freedom of Religion
+    │   │
+    │   ├── Cultural and Educational Rights
+    │   │
+    │   └── Right to Constitutional Remedies
+    │
+    ├── Directive Principles of State Policy
+    │   │
+    │   ├── Meaning
+    │   ├── Features
+    │   ├── Classification
+    │   │   ├── Socialist Principles
+    │   │   ├── Gandhian Principles
+    │   │   └── Liberal Principles
+    │   │
+    │   └── Difference Between FR and DPSP
+    │
+    ├── Fundamental Duties
+    │   │
+    │   ├── Origin
+    │   ├── Article 51A
+    │   ├── List of Duties
+    │   └── Importance
+    │
+    ├── Union Government
+    │   │
+    │   ├── President of India
+    │   │   ├── Election
+    │   │   ├── Qualifications
+    │   │   ├── Powers
+    │   │   │   ├── Executive Powers
+    │   │   │   ├── Legislative Powers
+    │   │   │   ├── Financial Powers
+    │   │   │   ├── Judicial Powers
+    │   │   │   └── Emergency Powers
+    │   │   └── Removal Process
+    │   │
+    │   ├── Vice President
+    │   │   ├── Election
+    │   │   ├── Powers
+    │   │   └── Role as Rajya Sabha Chairman
+    │   │
+    │   ├── Prime Minister
+    │   │   ├── Appointment
+    │   │   ├── Powers
+    │   │   ├── Council of Ministers
+    │   │   └── Cabinet System
+    │   │
+    │   ├── Parliament
+    │   │   ├── Lok Sabha
+    │   │   │   ├── Composition
+    │   │   │   ├── Qualifications
+    │   │   │   ├── Tenure
+    │   │   │   └── Powers
+    │   │   │
+    │   │   ├── Rajya Sabha
+    │   │   │   ├── Composition
+    │   │   │   ├── Election
+    │   │   │   ├── Tenure
+    │   │   │   └── Powers
+    │   │   │
+    │   │   ├── Parliamentary Sessions
+    │   │   ├── Bills
+    │   │   │   ├── Ordinary Bill
+    │   │   │   ├── Money Bill
+    │   │   │   ├── Finance Bill
+    │   │   │   └── Constitutional Amendment Bill
+    │   │   └── Parliamentary Committees
+    │   │
+    │   └── Supreme Court
+    │       ├── Composition
+    │       ├── Appointment of Judges
+    │       ├── Jurisdiction
+    │       │   ├── Original Jurisdiction
+    │       │   ├── Appellate Jurisdiction
+    │       │   └── Advisory Jurisdiction
+    │       ├── Judicial Review
+    │       └── Public Interest Litigation
+    │
+    ├── State Government
+    │   │
+    │   ├── Governor
+    │   │   ├── Appointment
+    │   │   ├── Powers
+    │   │   └── Role
+    │   │
+    │   ├── Chief Minister
+    │   │   ├── Appointment
+    │   │   ├── Powers
+    │   │   └── Council of Ministers
+    │   │
+    │   ├── State Legislature
+    │   │   ├── Legislative Assembly
+    │   │   ├── Legislative Council
+    │   │   └── State Bills
+    │   │
+    │   └── High Court
+    │       ├── Composition
+    │       ├── Powers
+    │       └── Jurisdiction
+    │
+    ├── Local Government
+    │   │
+    │   ├── Panchayati Raj
+    │   │   ├── 73rd Constitutional Amendment
+    │   │   ├── Gram Panchayat
+    │   │   ├── Panchayat Samiti
+    │   │   └── Zila Parishad
+    │   │
+    │   └── Municipal Government
+    │       ├── 74th Constitutional Amendment
+    │       ├── Nagar Panchayat
+    │       ├── Municipal Council
+    │       └── Municipal Corporation
+    │
+    ├── Constitutional Bodies
+    │   │
+    │   ├── Election Commission
+    │   ├── Union Public Service Commission
+    │   ├── Finance Commission
+    │   ├── Comptroller and Auditor General
+    │   ├── Attorney General
+    │   └── National Commission for Scheduled Castes
+    │
+    ├── Non-Constitutional Bodies
+    │   │
+    │   ├── NITI Aayog
+    │   ├── National Human Rights Commission
+    │   ├── Central Information Commission
+    │   └── Lokpal
+    │
+    ├── Emergency Provisions
+    │   │
+    │   ├── National Emergency
+    │   │   └── Article 352
+    │   │
+    │   ├── President's Rule
+    │   │   └── Article 356
+    │   │
+    │   └── Financial Emergency
+    │       └── Article 360
+    │
+    ├── Elections
+    │   │
+    │   ├── Election System
+    │   ├── Electoral Reforms
+    │   ├── Political Parties
+    │   ├── Anti Defection Law
+    │   └── Election Commission Functions
+    │
+    └── Important Constitutional Amendments
+        ├── 1st Amendment
+        ├── 42nd Amendment
+        ├── 44th Amendment
+        ├── 52nd Amendment
+        ├── 61st Amendment
+        ├── 73rd Amendment
+        ├── 74th Amendment
+        └── 101st Amendment (GST)
+
+GENERAL AWARENESS (GA)
+│
+└── Economics
+    │
+    ├── Basic Concepts of Economics
+    │   │
+    │   ├── Introduction to Economics
+    │   │   ├── Meaning of Economics
+    │   │   ├── Nature of Economics
+    │   │   ├── Scope of Economics
+    │   │   └── Importance of Economics
+    │   │
+    │   ├── Branches of Economics
+    │   │   ├── Micro Economics
+    │   │   │   ├── Individual Consumer Behaviour
+    │   │   │   ├── Demand
+    │   │   │   ├── Supply
+    │   │   │   └── Price Determination
+    │   │   │
+    │   │   └── Macro Economics
+    │   │       ├── National Income
+    │   │       ├── Inflation
+    │   │       ├── Unemployment
+    │   │       └── Economic Growth
+    │   │
+    │   ├── Economic Terms
+    │   │   ├── Goods
+    │   │   ├── Services
+    │   │   ├── Utility
+    │   │   ├── Wealth
+    │   │   ├── Income
+    │   │   ├── Consumption
+    │   │   ├── Saving
+    │   │   └── Investment
+    │   │
+    │   └── Economic Systems
+    │       ├── Capitalism
+    │       ├── Socialism
+    │       ├── Mixed Economy
+    │       └── Indian Economic System
+    │
+    ├── Demand and Supply
+    │   │
+    │   ├── Demand
+    │   │   ├── Meaning of Demand
+    │   │   ├── Types of Demand
+    │   │   ├── Demand Curve
+    │   │   ├── Law of Demand
+    │   │   └── Factors Affecting Demand
+    │   │
+    │   ├── Supply
+    │   │   ├── Meaning of Supply
+    │   │   ├── Supply Curve
+    │   │   ├── Law of Supply
+    │   │   └── Factors Affecting Supply
+    │   │
+    │   └── Market Equilibrium
+    │       ├── Price Determination
+    │       └── Market Mechanism
+    │
+    ├── National Income
+    │   │
+    │   ├── Concepts of National Income
+    │   │   ├── GDP
+    │   │   ├── GNP
+    │   │   ├── NNP
+    │   │   ├── NDP
+    │   │   └── Personal Income
+    │   │
+    │   ├── Measurement Methods
+    │   │   ├── Income Method
+    │   │   ├── Production Method
+    │   │   └── Expenditure Method
+    │   │
+    │   ├── GDP Related Concepts
+    │   │   ├── Nominal GDP
+    │   │   ├── Real GDP
+    │   │   ├── GDP Growth Rate
+    │   │   └── Per Capita Income
+    │   │
+    │   └── National Income Agencies
+    │       └── National Statistical Office (NSO)
+    │
+    ├── Inflation
+    │   │
+    │   ├── Meaning of Inflation
+    │   ├── Types of Inflation
+    │   │   ├── Demand Pull Inflation
+    │   │   ├── Cost Push Inflation
+    │   │   └── Structural Inflation
+    │   │
+    │   ├── Measurement of Inflation
+    │   │   ├── Consumer Price Index (CPI)
+    │   │   ├── Wholesale Price Index (WPI)
+    │   │   └── GDP Deflator
+    │   │
+    │   ├── Effects of Inflation
+    │   └── Inflation Control Measures
+    │
+    ├── Money and Banking
+    │   │
+    │   ├── Money
+    │   │   ├── Meaning of Money
+    │   │   ├── Functions of Money
+    │   │   ├── Types of Money
+    │   │   └── Evolution of Money
+    │   │
+    │   ├── Banking System
+    │   │   ├── Commercial Banks
+    │   │   ├── Cooperative Banks
+    │   │   ├── Regional Rural Banks
+    │   │   └── Payment Banks
+    │   │
+    │   ├── Reserve Bank of India (RBI)
+    │   │   ├── Establishment
+    │   │   ├── Functions
+    │   │   ├── Monetary Authority
+    │   │   ├── Currency Issue
+    │   │   └── Banking Regulation
+    │   │
+    │   ├── Monetary Policy
+    │   │   ├── Repo Rate
+    │   │   ├── Reverse Repo Rate
+    │   │   ├── CRR
+    │   │   ├── SLR
+    │   │   └── Bank Rate
+    │   │
+    │   └── Financial Inclusion
+    │       ├── Jan Dhan Yojana
+    │       ├── Digital Banking
+    │       └── Financial Literacy
+    │
+    ├── Indian Economy
+    │   │
+    │   ├── Features of Indian Economy
+    │   │   ├── Developing Economy
+    │   │   ├── Mixed Economy
+    │   │   ├── Agriculture Based Economy
+    │   │   └── Service Sector Growth
+    │   │
+    │   ├── Economic Planning
+    │   │   ├── Planning Commission
+    │   │   ├── NITI Aayog
+    │   │   ├── Five Year Plans
+    │   │   │   ├── First Five Year Plan
+    │   │   │   ├── Second Five Year Plan
+    │   │   │   ├── Green Revolution Period
+    │   │   │   └── Plan Achievements
+    │   │   └── Planning Objectives
+    │   │
+    │   ├── Agriculture Economy
+    │   │   ├── Role of Agriculture
+    │   │   ├── Land Reforms
+    │   │   ├── Agricultural Credit
+    │   │   ├── MSP
+    │   │   ├── Agricultural Schemes
+    │   │   └── Food Security
+    │   │
+    │   ├── Industry Sector
+    │   │   ├── Industrial Policy
+    │   │   ├── Public Sector
+    │   │   ├── Private Sector
+    │   │   ├── MSME Sector
+    │   │   └── Industrial Growth
+    │   │
+    │   └── Service Sector
+    │       ├── Banking Services
+    │       ├── IT Sector
+    │       ├── Tourism
+    │       └── Transport Services
+    │
+    ├── Public Finance
+    │   │
+    │   ├── Government Budget
+    │   │   ├── Meaning of Budget
+    │   │   ├── Types of Budget
+    │   │   ├── Revenue Budget
+    │   │   └── Capital Budget
+    │   │
+    │   ├── Government Revenue
+    │   │   ├── Tax Revenue
+    │   │   ├── Non Tax Revenue
+    │   │   └── Capital Receipts
+    │   │
+    │   ├── Taxation
+    │   │   ├── Direct Tax
+    │   │   │   ├── Income Tax
+    │   │   │   └── Corporate Tax
+    │   │   │
+    │   │   └── Indirect Tax
+    │   │       ├── GST
+    │   │       └── Customs Duty
+    │   │
+    │   ├── Public Expenditure
+    │   └── Fiscal Deficit
+    │
+    ├── Employment and Poverty
+    │   │
+    │   ├── Unemployment
+    │   │   ├── Types of Unemployment
+    │   │   │   ├── Seasonal
+    │   │   │   ├── Disguised
+    │   │   │   ├── Structural
+    │   │   │   └── Cyclical
+    │   │   └── Employment Schemes
+    │   │
+    │   ├── Poverty
+    │   │   ├── Meaning of Poverty
+    │   │   ├── Poverty Line
+    │   │   ├── Causes of Poverty
+    │   │   └── Poverty Removal Programs
+    │   │
+    │   └── Human Development
+    │       ├── HDI
+    │       ├── Literacy
+    │       └── Health Indicators
+    │
+    ├── International Economics
+    │   │
+    │   ├── Foreign Trade
+    │   │   ├── Imports
+    │   │   ├── Exports
+    │   │   └── Balance of Trade
+    │   │
+    │   ├── International Organizations
+    │   │   ├── IMF
+    │   │   ├── World Bank
+    │   │   ├── WTO
+    │   │   └── Asian Development Bank
+    │   │
+    │   └── Exchange Rate
+    │       ├── Currency Exchange
+    │       ├── Appreciation
+    │       └── Depreciation
+    │
+    └── Important Government Schemes
+        ├── Poverty Alleviation Schemes
+        ├── Employment Schemes
+        ├── Agriculture Schemes
+        ├── Banking Schemes
+        ├── Social Security Schemes
+        └── Digital Economy Schemes
+├── General Science (GS)
+│   │
+     Physics
+        
+├── Unit 1: Units, Measurements & Physical Quantities
+│
+├── Chapter 1: Physical Quantities
+│   ├── Topic: Fundamental Quantities
+│   │   ├── Length
+│   │   ├── Mass
+│   │   ├── Time
+│   │   ├── Temperature
+│   │   ├── Electric Current
+│   │   ├── Amount of Substance
+│   │   └── Luminous Intensity
+│   │
+│   ├── Topic: Derived Quantities
+│   │   ├── Area
+│   │   ├── Volume
+│   │   ├── Velocity
+│   │   ├── Acceleration
+│   │   ├── Force
+│   │   ├── Pressure
+│   │   └── Energy
+│   │
+│   └── Topic: Units
+│       ├── SI Units
+│       ├── CGS Units
+│       └── Conversion of Units
+│
+├── Chapter 2: Measurement
+│   ├── Topic: Measuring Instruments
+│   │   ├── Meter Scale
+│   │   ├── Vernier Calipers
+│   │   ├── Screw Gauge
+│   │   ├── Thermometer
+│   │   └── Barometer
+│   │
+│   ├── Topic: Errors
+│   │   ├── Systematic Error
+│   │   ├── Random Error
+│   │   └── Accuracy & Precision
+│
+│
+├── Unit 2: Mechanics
+│
+├── Chapter 3: Motion
+│   ├── Topic: Basics of Motion
+│   │   ├── Rest and Motion
+│   │   ├── Distance
+│   │   ├── Displacement
+│   │   └── Reference Point
+│   │
+│   ├── Topic: Speed & Velocity
+│   │   ├── Average Speed
+│   │   ├── Uniform Speed
+│   │   ├── Variable Speed
+│   │   └── Average Velocity
+│   │
+│   └── Topic: Acceleration
+│       ├── Positive Acceleration
+│       ├── Negative Acceleration
+│       └── Uniform Acceleration
+│
+├── Chapter 4: Force & Laws of Motion
+│   ├── Topic: Force
+│   │   ├── Types of Force
+│   │   ├── Contact Force
+│   │   └── Non Contact Force
+│   │
+│   ├── Topic: Newton's Laws
+│   │   ├── First Law of Motion
+│   │   ├── Second Law of Motion
+│   │   └── Third Law of Motion
+│   │
+│   └── Topic: Momentum
+│       ├── Conservation of Momentum
+│       └── Impulse
+│
+├── Chapter 5: Work, Energy & Power
+│   ├── Topic: Work
+│   │   ├── Definition of Work
+│   │   ├── Positive Work
+│   │   ├── Negative Work
+│   │   └── Zero Work
+│   │
+│   ├── Topic: Energy
+│   │   ├── Kinetic Energy
+│   │   ├── Potential Energy
+│   │   └── Mechanical Energy
+│   │
+│   └── Topic: Power
+│       ├── Units of Power
+│       └── Horse Power
+│
+├── Chapter 6: Gravitation
+│   ├── Topic: Gravity
+│   │   ├── Gravitational Force
+│   │   ├── Acceleration Due to Gravity
+│   │   └── Variation of Gravity
+│   │
+│   ├── Topic: Mass & Weight
+│   │   ├── Difference Between Mass and Weight
+│   │   ├── Weight on Earth
+│   │   └── Weight on Moon
+│   │
+│   └── Topic: Pressure
+│       ├── Atmospheric Pressure
+│       ├── Pascal Law
+│       └── Applications
+│
+│
+├── Unit 3: Properties of Matter
+│
+├── Chapter 7: Matter
+│   ├── Topic: States of Matter
+│   │   ├── Solid
+│   │   ├── Liquid
+│   │   └── Gas
+│   │
+│   ├── Topic: Density
+│   │   ├── Relative Density
+│   │   └── Measurement of Density
+│   │
+│   └── Topic: Elasticity
+│       ├── Elastic Limit
+│       ├── Stress
+│       └── Strain
+│
+├── Chapter 8: Surface Tension & Viscosity
+│   ├── Topic: Surface Tension
+│   │   ├── Capillary Action
+│   │   └── Applications
+│   │
+│   └── Topic: Viscosity
+│       ├── Fluid Resistance
+│       └── Applications
+│
+│
+├── Unit 4: Heat & Thermodynamics
+│
+├── Chapter 9: Heat
+│   ├── Topic: Temperature
+│   │   ├── Celsius Scale
+│   │   ├── Fahrenheit Scale
+│   │   └── Kelvin Scale
+│   │
+│   ├── Topic: Heat Transfer
+│   │   ├── Conduction
+│   │   ├── Convection
+│   │   └── Radiation
+│   │
+│   └── Topic: Thermal Expansion
+│       ├── Solid Expansion
+│       ├── Liquid Expansion
+│       └── Gas Expansion
+│
+├── Chapter 10: Thermodynamics
+│   ├── Topic: Laws of Thermodynamics
+│   ├── Topic: Heat Engine
+│   └── Topic: Refrigerator
+│
+│
+├── Unit 5: Light & Optics
+│
+├── Chapter 11: Reflection of Light
+│   ├── Topic: Laws of Reflection
+│   ├── Topic: Plane Mirror
+│   ├── Topic: Spherical Mirror
+│   └── Topic: Image Formation
+│
+├── Chapter 12: Refraction of Light
+│   ├── Topic: Laws of Refraction
+│   ├── Topic: Refractive Index
+│   ├── Topic: Lens
+│   └── Topic: Optical Instruments
+│
+├── Chapter 13: Human Eye
+│   ├── Topic: Structure of Eye
+│   ├── Topic: Vision Defects
+│   │   ├── Myopia
+│   │   ├── Hypermetropia
+│   │   └── Presbyopia
+│   └── Topic: Eye Care
+│
+│
+├── Unit 6: Sound
+│
+├── Chapter 14: Sound Waves
+│   ├── Topic: Production of Sound
+│   ├── Topic: Propagation of Sound
+│   ├── Topic: Frequency
+│   ├── Topic: Amplitude
+│   └── Topic: Wavelength
+│
+├── Chapter 15: Applications of Sound
+│   ├── Topic: Echo
+│   ├── Topic: Ultrasound
+│   ├── Topic: SONAR
+│   └── Topic: Noise Pollution
+│
+│
+├── Unit 7: Electricity & Magnetism
+│
+├── Chapter 16: Electricity
+│   ├── Topic: Electric Current
+│   ├── Topic: Potential Difference
+│   ├── Topic: Resistance
+│   ├── Topic: Ohm's Law
+│   └── Topic: Electric Power
+│
+├── Chapter 17: Electrical Circuits
+│   ├── Topic: Series Circuit
+│   ├── Topic: Parallel Circuit
+│   ├── Topic: Fuse
+│   └── Topic: MCB
+│
+├── Chapter 18: Magnetism
+│   ├── Topic: Magnetic Field
+│   ├── Topic: Magnetic Materials
+│   ├── Topic: Electromagnet
+│   └── Topic: Earth Magnetism
+│
+│
+└── Unit 8: Modern Physics
+    │
+    ├── Chapter 19: Atomic Physics
+    │   ├── Topic: Structure of Atom
+    │   ├── Topic: Electron
+    │   ├── Topic: Proton
+    │   └── Topic: Neutron
+    │
+    ├── Chapter 20: Nuclear Physics
+    │   ├── Topic: Radioactivity
+    │   ├── Topic: Nuclear Fission
+    │   ├── Topic: Nuclear Fusion
+    │   └── Topic: Nuclear Energy
+    │
+    └── Chapter 21: Semiconductor
+        ├── Topic: Semiconductor Materials
+        ├── Topic: Diode
+        ├── Topic: Transistor
+        └── Topic: Applications
+
+
+General Science (GS)
+
+└── Chemistry (रसायन विज्ञान)
+
+    ├── Unit 1: Basic Concepts of Chemistry
+    │
+    │   ├── Chapter 1: Introduction to Chemistry
+    │   │
+    │   │   ├── Topic: Nature of Chemistry
+    │   │   │   ├── Definition of Chemistry
+    │   │   │   ├── Branches of Chemistry
+    │   │   │   ├── Applications of Chemistry
+    │   │   │   └── Chemistry in Daily Life
+    │   │   │
+    │   │   ├── Topic: Matter
+    │   │   │   ├── Definition of Matter
+    │   │   │   ├── Classification of Matter
+    │   │   │   ├── Physical Properties
+    │   │   │   └── Chemical Properties
+    │   │   │
+    │   │   └── Topic: States of Matter
+    │   │       ├── Solid State
+    │   │       ├── Liquid State
+    │   │       ├── Gaseous State
+    │   │       └── Plasma State
+    │   │
+    │   ├── Chapter 2: Measurement in Chemistry
+    │   │
+    │   │   ├── Topic: Physical Quantities
+    │   │   │   ├── Mass
+    │   │   │   ├── Volume
+    │   │   │   ├── Density
+    │   │   │   └── Temperature
+    │   │   │
+    │   │   ├── Topic: Units
+    │   │   │   ├── SI Units
+    │   │   │   ├── Mole Concept
+    │   │   │   └── Molar Mass
+    │   │   │
+    │   │   └── Topic: Chemical Calculations
+    │   │       ├── Formula Calculation
+    │   │       ├── Atomic Mass Calculation
+    │   │       └── Molecular Mass Calculation
+    │
+    │
+    ├── Unit 2: Atomic Structure
+    │
+    │   ├── Chapter 3: Structure of Atom
+    │   │
+    │   │   ├── Topic: Discovery of Atom
+    │   │   │   ├── Dalton Atomic Theory
+    │   │   │   ├── Thomson Model
+    │   │   │   ├── Rutherford Model
+    │   │   │   └── Bohr Model
+    │   │   │
+    │   │   ├── Topic: Subatomic Particles
+    │   │   │   ├── Electron
+    │   │   │   ├── Proton
+    │   │   │   ├── Neutron
+    │   │   │   └── Nucleus
+    │   │   │
+    │   │   └── Topic: Atomic Properties
+    │   │       ├── Atomic Number
+    │   │       ├── Mass Number
+    │   │       ├── Isotopes
+    │   │       └── Isobars
+    │
+    │
+    ├── Unit 3: Periodic Classification of Elements
+    │
+    │   ├── Chapter 4: Periodic Table
+    │   │
+    │   │   ├── Topic: Development of Periodic Table
+    │   │   │   ├── Dobereiner Triads
+    │   │   │   ├── Newlands Law of Octaves
+    │   │   │   ├── Mendeleev Periodic Table
+    │   │   │   └── Modern Periodic Table
+    │   │   │
+    │   │   ├── Topic: Classification of Elements
+    │   │   │   ├── Metals
+    │   │   │   ├── Non Metals
+    │   │   │   ├── Metalloids
+    │   │   │   └── Noble Gases
+    │   │   │
+    │   │   └── Topic: Periodic Properties
+    │   │       ├── Atomic Radius
+    │   │       ├── Valency
+    │   │       ├── Ionization Energy
+    │   │       └── Electronegativity
+    │
+    │
+    ├── Unit 4: Chemical Bonding
+    │
+    │   ├── Chapter 5: Chemical Bonds
+    │   │
+    │   │   ├── Topic: Types of Chemical Bonds
+    │   │   │   ├── Ionic Bond
+    │   │   │   ├── Covalent Bond
+    │   │   │   └── Metallic Bond
+    │   │   │
+    │   │   ├── Topic: Chemical Formula
+    │   │   │   ├── Writing Chemical Formula
+    │   │   │   ├── Valency Concept
+    │   │   │   └── Molecular Formula
+    │   │   │
+    │   │   └── Topic: Properties of Compounds
+    │   │       ├── Melting Point
+    │   │       ├── Boiling Point
+    │   │       └── Solubility
+    │
+    │
+    ├── Unit 5: Chemical Reactions
+    │
+    │   ├── Chapter 6: Types of Chemical Reactions
+    │   │
+    │   │   ├── Topic: Chemical Equation
+    │   │   │   ├── Reactants
+    │   │   │   ├── Products
+    │   │   │   └── Balancing Chemical Equation
+    │   │   │
+    │   │   ├── Topic: Types of Reactions
+    │   │   │   ├── Combination Reaction
+    │   │   │   ├── Decomposition Reaction
+    │   │   │   ├── Displacement Reaction
+    │   │   │   └── Double Displacement Reaction
+    │   │   │
+    │   │   └── Topic: Redox Reaction
+    │   │       ├── Oxidation
+    │   │       ├── Reduction
+    │   │       └── Oxidizing & Reducing Agents
+    │
+    │
+    ├── Unit 6: Acids, Bases and Salts
+    │
+    │   ├── Chapter 7: Acids
+    │   │   ├── Topic: Properties of Acids
+    │   │   │   ├── Taste
+    │   │   │   ├── Indicators
+    │   │   │   └── Reactions
+    │   │
+    │   ├── Chapter 8: Bases
+    │   │   ├── Topic: Properties of Bases
+    │   │   │   ├── Alkalinity
+    │   │   │   ├── Indicators
+    │   │   │   └── Uses
+    │   │
+    │   └── Chapter 9: Salts
+    │       ├── Topic: Types of Salts
+    │       │   ├── Common Salt
+    │       │   ├── Baking Soda
+    │       │   ├── Washing Soda
+    │       │   └── Bleaching Powder
+    │       │
+    │       └── Topic: pH Scale
+    │           ├── Acidic Nature
+    │           ├── Basic Nature
+    │           └── Neutral Nature
+    │
+    │
+    ├── Unit 7: Metals and Non-Metals
+    │
+    │   ├── Chapter 10: Metals
+    │   │   ├── Topic: Properties of Metals
+    │   │   │   ├── Malleability
+    │   │   │   ├── Ductility
+    │   │   │   └── Conductivity
+    │   │   │
+    │   │   └── Topic: Extraction of Metals
+    │   │       ├── Minerals
+    │   │       ├── Ores
+    │   │       └── Metallurgy
+    │   │
+    │   ├── Chapter 11: Non Metals
+    │   │   ├── Topic: Properties
+    │   │   ├── Topic: Uses
+    │   │   └── Topic: Important Non Metals
+    │   │       ├── Carbon
+    │   │       ├── Sulphur
+    │   │       └── Oxygen
+    │
+    │
+    ├── Unit 8: Organic Chemistry
+    │
+    │   ├── Chapter 12: Carbon Compounds
+    │   │
+    │   │   ├── Topic: Carbon Properties
+    │   │   │   ├── Tetravalency
+    │   │   │   └── Catenation
+    │   │   │
+    │   │   ├── Topic: Hydrocarbons
+    │   │   │   ├── Alkane
+    │   │   │   ├── Alkene
+    │   │   │   └── Alkyne
+    │   │   │
+    │   │   └── Topic: Organic Compounds
+    │   │       ├── Alcohol
+    │   │       ├── Aldehyde
+    │   │       └── Ketone
+    │
+    │
+    ├── Unit 9: Chemistry in Everyday Life
+    │
+    │   ├── Chapter 13: Daily Use Chemicals
+    │   │
+    │   │   ├── Topic: Medicines
+    │   │   │   ├── Antibiotics
+    │   │   │   ├── Antiseptics
+    │   │   │   └── Analgesics
+    │   │   │
+    │   │   ├── Topic: Polymers
+    │   │   │   ├── Plastics
+    │   │   │   ├── Rubber
+    │   │   │   └── Fibres
+    │   │   │
+    │   │   └── Topic: Fertilizers
+    │   │       ├── Nitrogen Fertilizers
+    │   │       ├── Phosphatic Fertilizers
+    │   │       └── Potassic Fertilizers
+    │
+    │
+    └── Unit 10: Environmental Chemistry
+        │
+        ├── Chapter 14: Pollution
+        │
+        │   ├── Topic: Air Pollution
+        │   │   ├── Causes
+        │   │   ├── Pollutants
+        │   │   └── Control Measures
+        │   │
+        │   ├── Topic: Water Pollution
+        │   │   ├── Sources
+        │   │   ├── Effects
+        │   │   └── Treatment
+        │   │
+        │   └── Topic: Green Chemistry
+        │       ├── Sustainable Chemistry
+        │       └── Environmental Protection
+
+General Science (GS)
+
+└── Biology (जीव विज्ञान)
+
+    ├── Unit 1: Introduction to Biology
+    │
+    │   ├── Chapter 1: Basics of Biology
+    │   │
+    │   │   ├── Topic: Introduction to Life Science
+    │   │   │   ├── Definition of Biology
+    │   │   │   ├── Branches of Biology
+    │   │   │   │   ├── Botany
+    │   │   │   │   ├── Zoology
+    │   │   │   │   ├── Microbiology
+    │   │   │   │   ├── Genetics
+    │   │   │   │   └── Ecology
+    │   │   │   └── Scope of Biology
+    │   │   │
+    │   │   ├── Topic: Classification of Living Organisms
+    │   │   │   ├── Need of Classification
+    │   │   │   ├── Taxonomy
+    │   │   │   ├── Five Kingdom Classification
+    │   │   │   └── Modern Classification
+    │   │   │
+    │   │   └── Topic: Characteristics of Living Organisms
+    │   │       ├── Growth
+    │   │       ├── Respiration
+    │   │       ├── Reproduction
+    │   │       ├── Nutrition
+    │   │       └── Response to Stimulus
+    │
+    │
+    ├── Unit 2: Cell Biology
+    │
+    │   ├── Chapter 2: Cell Structure
+    │   │
+    │   │   ├── Topic: Discovery of Cell
+    │   │   │   ├── Robert Hooke
+    │   │   │   ├── Cell Theory
+    │   │   │   └── Modern Cell Theory
+    │   │   │
+    │   │   ├── Topic: Types of Cells
+    │   │   │   ├── Prokaryotic Cell
+    │   │   │   ├── Eukaryotic Cell
+    │   │   │   ├── Plant Cell
+    │   │   │   └── Animal Cell
+    │   │   │
+    │   │   └── Topic: Cell Organelles
+    │   │       ├── Cell Membrane
+    │   │       ├── Cytoplasm
+    │   │       ├── Nucleus
+    │   │       ├── Mitochondria
+    │   │       ├── Ribosome
+    │   │       ├── Endoplasmic Reticulum
+    │   │       ├── Golgi Apparatus
+    │   │       └── Lysosome
+    │   │
+    │   ├── Chapter 3: Cell Division
+    │   │
+    │   │   ├── Topic: Types of Cell Division
+    │   │   │   ├── Amitosis
+    │   │   │   ├── Mitosis
+    │   │   │   └── Meiosis
+    │   │   │
+    │   │   └── Topic: Importance of Cell Division
+    │   │       ├── Growth
+    │   │       ├── Repair
+    │   │       └── Reproduction
+    │
+    │
+    ├── Unit 3: Human Body System
+    │
+    │   ├── Chapter 4: Digestive System
+    │   │
+    │   │   ├── Topic: Organs of Digestive System
+    │   │   │   ├── Mouth
+    │   │   │   ├── Oesophagus
+    │   │   │   ├── Stomach
+    │   │   │   ├── Small Intestine
+    │   │   │   └── Large Intestine
+    │   │   │
+    │   │   ├── Topic: Digestive Juices
+    │   │   │   ├── Saliva
+    │   │   │   ├── Gastric Juice
+    │   │   │   ├── Bile Juice
+    │   │   │   └── Pancreatic Juice
+    │   │   │
+    │   │   └── Topic: Nutrition
+    │   │       ├── Carbohydrates
+    │   │       ├── Proteins
+    │   │       ├── Fats
+    │   │       ├── Vitamins
+    │   │       └── Minerals
+    │   │
+    │   ├── Chapter 5: Respiratory System
+    │   │
+    │   │   ├── Topic: Respiratory Organs
+    │   │   │   ├── Nose
+    │   │   │   ├── Trachea
+    │   │   │   ├── Bronchi
+    │   │   │   └── Lungs
+    │   │   │
+    │   │   ├── Topic: Respiration Process
+    │   │   │   ├── Breathing
+    │   │   │   ├── Gas Exchange
+    │   │   │   └── Cellular Respiration
+    │
+    │   ├── Chapter 6: Circulatory System
+    │   │
+    │   │   ├── Topic: Blood
+    │   │   │   ├── RBC
+    │   │   │   ├── WBC
+    │   │   │   ├── Platelets
+    │   │   │   └── Plasma
+    │   │   │
+    │   │   ├── Topic: Heart
+    │   │   │   ├── Structure of Heart
+    │   │   │   ├── Chambers of Heart
+    │   │   │   ├── Heartbeat
+    │   │   │   └── Blood Circulation
+    │   │   │
+    │   │   └── Topic: Blood Vessels
+    │   │       ├── Arteries
+    │   │       ├── Veins
+    │   │       └── Capillaries
+    │   │
+    │   ├── Chapter 7: Nervous System
+    │   │
+    │   │   ├── Topic: Brain
+    │   │   │   ├── Cerebrum
+    │   │   │   ├── Cerebellum
+    │   │   │   └── Medulla
+    │   │   │
+    │   │   ├── Topic: Nervous System Parts
+    │   │   │   ├── Central Nervous System
+    │   │   │   ├── Peripheral Nervous System
+    │   │   │   └── Autonomic Nervous System
+    │   │   │
+    │   │   └── Topic: Neuron
+    │   │       ├── Structure of Neuron
+    │   │       └── Nerve Impulse
+    │   │
+    │   ├── Chapter 8: Excretory System
+    │   │
+    │   │   ├── Topic: Kidney
+    │   │   │   ├── Structure
+    │   │   │   ├── Nephron
+    │   │   │   └── Urine Formation
+    │   │   │
+    │   │   └── Topic: Excretion
+    │   │       ├── Removal of Waste
+    │   │       └── Osmoregulation
+    │   │
+    │   └── Chapter 9: Reproductive System
+    │       │
+    │       ├── Topic: Male Reproductive System
+    │       │   ├── Testis
+    │       │   ├── Sperm Formation
+    │       │   └── Hormones
+    │       │
+    │       ├── Topic: Female Reproductive System
+    │       │   ├── Ovary
+    │       │   ├── Uterus
+    │       │   └── Menstrual Cycle
+    │       │
+    │       └── Topic: Human Reproduction
+    │           ├── Fertilization
+    │           ├── Embryo Development
+    │           └── Birth Process
+    │
+    │
+    ├── Unit 4: Plant Biology
+    │
+    │   ├── Chapter 10: Plant Structure
+    │   │
+    │   │   ├── Topic: Plant Parts
+    │   │   │   ├── Root
+    │   │   │   ├── Stem
+    │   │   │   ├── Leaf
+    │   │   │   └── Flower
+    │   │   │
+    │   │   └── Topic: Plant Tissues
+    │   │       ├── Meristematic Tissue
+    │   │       └── Permanent Tissue
+    │   │
+    │   ├── Chapter 11: Plant Physiology
+    │   │
+    │   │   ├── Topic: Photosynthesis
+    │   │   │   ├── Chlorophyll
+    │   │   │   ├── Carbon Dioxide
+    │   │   │   └── Oxygen Release
+    │   │   │
+    │   │   ├── Topic: Transportation in Plants
+    │   │   │   ├── Xylem
+    │   │   │   └── Phloem
+    │   │   │
+    │   │   └── Topic: Plant Hormones
+    │   │       ├── Auxin
+    │   │       ├── Gibberellin
+    │   │       └── Cytokinin
+    │
+    │
+    ├── Unit 5: Genetics and Evolution
+    │
+    │   ├── Chapter 12: Genetics
+    │   │
+    │   │   ├── Topic: Heredity
+    │   │   │   ├── Mendel Experiments
+    │   │   │   ├── Dominant Traits
+    │   │   │   └── Recessive Traits
+    │   │   │
+    │   │   ├── Topic: DNA and RNA
+    │   │   │   ├── DNA Structure
+    │   │   │   ├── RNA
+    │   │   │   └── Genetic Code
+    │   │   │
+    │   │   └── Topic: Chromosomes
+    │   │       ├── Structure
+    │   │       └── Role in Inheritance
+    │   │
+    │   └── Chapter 13: Evolution
+    │       ├── Topic: Origin of Life
+    │       ├── Topic: Darwin Theory
+    │       └── Topic: Natural Selection
+    │
+    │
+    ├── Unit 6: Health and Diseases
+    │
+    │   ├── Chapter 14: Human Health
+    │   │
+    │   │   ├── Topic: Diseases
+    │   │   │   ├── Communicable Diseases
+    │   │   │   ├── Non-Communicable Diseases
+    │   │   │   └── Deficiency Diseases
+    │   │   │
+    │   │   ├── Topic: Microorganisms
+    │   │   │   ├── Bacteria
+    │   │   │   ├── Virus
+    │   │   │   ├── Fungi
+    │   │   │   └── Protozoa
+    │   │   │
+    │   │   └── Topic: Immunity
+    │   │       ├── Immune System
+    │   │       ├── Vaccination
+    │   │       └── Antibodies
+    │
+    │
+    └── Unit 7: Ecology and Environment
+        │
+        ├── Chapter 15: Ecology
+        │
+        │   ├── Topic: Ecosystem
+        │   │   ├── Biotic Components
+        │   │   ├── Abiotic Components
+        │   │   └── Food Chain
+        │   │
+        │   ├── Topic: Biodiversity
+        │   │   ├── Flora
+        │   │   ├── Fauna
+        │   │   └── Conservation
+        │   │
+        │   └── Topic: Environmental Issues
+        │       ├── Pollution
+        │       ├── Global Warming
+        │       ├── Climate Change
+        │       └── Ozone Layer
+
+General Science (GS)
+
+└── Biology (जीव विज्ञान)
+
+    ├── Unit 1: Introduction to Biology
+    │
+    │   ├── Chapter 1: Basics of Biology
+    │   │
+    │   │   ├── Topic: Introduction to Life Science
+    │   │   │   ├── Definition of Biology
+    │   │   │   ├── Branches of Biology
+    │   │   │   │   ├── Botany
+    │   │   │   │   ├── Zoology
+    │   │   │   │   ├── Microbiology
+    │   │   │   │   ├── Genetics
+    │   │   │   │   └── Ecology
+    │   │   │   └── Scope of Biology
+    │   │   │
+    │   │   ├── Topic: Classification of Living Organisms
+    │   │   │   ├── Need of Classification
+    │   │   │   ├── Taxonomy
+    │   │   │   ├── Five Kingdom Classification
+    │   │   │   └── Modern Classification
+    │   │   │
+    │   │   └── Topic: Characteristics of Living Organisms
+    │   │       ├── Growth
+    │   │       ├── Respiration
+    │   │       ├── Reproduction
+    │   │       ├── Nutrition
+    │   │       └── Response to Stimulus
+    │
+    │
+    ├── Unit 2: Cell Biology
+    │
+    │   ├── Chapter 2: Cell Structure
+    │   │
+    │   │   ├── Topic: Discovery of Cell
+    │   │   │   ├── Robert Hooke
+    │   │   │   ├── Cell Theory
+    │   │   │   └── Modern Cell Theory
+    │   │   │
+    │   │   ├── Topic: Types of Cells
+    │   │   │   ├── Prokaryotic Cell
+    │   │   │   ├── Eukaryotic Cell
+    │   │   │   ├── Plant Cell
+    │   │   │   └── Animal Cell
+    │   │   │
+    │   │   └── Topic: Cell Organelles
+    │   │       ├── Cell Membrane
+    │   │       ├── Cytoplasm
+    │   │       ├── Nucleus
+    │   │       ├── Mitochondria
+    │   │       ├── Ribosome
+    │   │       ├── Endoplasmic Reticulum
+    │   │       ├── Golgi Apparatus
+    │   │       └── Lysosome
+    │   │
+    │   ├── Chapter 3: Cell Division
+    │   │
+    │   │   ├── Topic: Types of Cell Division
+    │   │   │   ├── Amitosis
+    │   │   │   ├── Mitosis
+    │   │   │   └── Meiosis
+    │   │   │
+    │   │   └── Topic: Importance of Cell Division
+    │   │       ├── Growth
+    │   │       ├── Repair
+    │   │       └── Reproduction
+    │
+    │
+    ├── Unit 3: Human Body System
+    │
+    │   ├── Chapter 4: Digestive System
+    │   │
+    │   │   ├── Topic: Organs of Digestive System
+    │   │   │   ├── Mouth
+    │   │   │   ├── Oesophagus
+    │   │   │   ├── Stomach
+    │   │   │   ├── Small Intestine
+    │   │   │   └── Large Intestine
+    │   │   │
+    │   │   ├── Topic: Digestive Juices
+    │   │   │   ├── Saliva
+    │   │   │   ├── Gastric Juice
+    │   │   │   ├── Bile Juice
+    │   │   │   └── Pancreatic Juice
+    │   │   │
+    │   │   └── Topic: Nutrition
+    │   │       ├── Carbohydrates
+    │   │       ├── Proteins
+    │   │       ├── Fats
+    │   │       ├── Vitamins
+    │   │       └── Minerals
+    │   │
+    │   ├── Chapter 5: Respiratory System
+    │   │
+    │   │   ├── Topic: Respiratory Organs
+    │   │   │   ├── Nose
+    │   │   │   ├── Trachea
+    │   │   │   ├── Bronchi
+    │   │   │   └── Lungs
+    │   │   │
+    │   │   ├── Topic: Respiration Process
+    │   │   │   ├── Breathing
+    │   │   │   ├── Gas Exchange
+    │   │   │   └── Cellular Respiration
+    │
+    │   ├── Chapter 6: Circulatory System
+    │   │
+    │   │   ├── Topic: Blood
+    │   │   │   ├── RBC
+    │   │   │   ├── WBC
+    │   │   │   ├── Platelets
+    │   │   │   └── Plasma
+    │   │   │
+    │   │   ├── Topic: Heart
+    │   │   │   ├── Structure of Heart
+    │   │   │   ├── Chambers of Heart
+    │   │   │   ├── Heartbeat
+    │   │   │   └── Blood Circulation
+    │   │   │
+    │   │   └── Topic: Blood Vessels
+    │   │       ├── Arteries
+    │   │       ├── Veins
+    │   │       └── Capillaries
+    │   │
+    │   ├── Chapter 7: Nervous System
+    │   │
+    │   │   ├── Topic: Brain
+    │   │   │   ├── Cerebrum
+    │   │   │   ├── Cerebellum
+    │   │   │   └── Medulla
+    │   │   │
+    │   │   ├── Topic: Nervous System Parts
+    │   │   │   ├── Central Nervous System
+    │   │   │   ├── Peripheral Nervous System
+    │   │   │   └── Autonomic Nervous System
+    │   │   │
+    │   │   └── Topic: Neuron
+    │   │       ├── Structure of Neuron
+    │   │       └── Nerve Impulse
+    │   │
+    │   ├── Chapter 8: Excretory System
+    │   │
+    │   │   ├── Topic: Kidney
+    │   │   │   ├── Structure
+    │   │   │   ├── Nephron
+    │   │   │   └── Urine Formation
+    │   │   │
+    │   │   └── Topic: Excretion
+    │   │       ├── Removal of Waste
+    │   │       └── Osmoregulation
+    │   │
+    │   └── Chapter 9: Reproductive System
+    │       │
+    │       ├── Topic: Male Reproductive System
+    │       │   ├── Testis
+    │       │   ├── Sperm Formation
+    │       │   └── Hormones
+    │       │
+    │       ├── Topic: Female Reproductive System
+    │       │   ├── Ovary
+    │       │   ├── Uterus
+    │       │   └── Menstrual Cycle
+    │       │
+    │       └── Topic: Human Reproduction
+    │           ├── Fertilization
+    │           ├── Embryo Development
+    │           └── Birth Process
+    │
+    │
+    ├── Unit 4: Plant Biology
+    │
+    │   ├── Chapter 10: Plant Structure
+    │   │
+    │   │   ├── Topic: Plant Parts
+    │   │   │   ├── Root
+    │   │   │   ├── Stem
+    │   │   │   ├── Leaf
+    │   │   │   └── Flower
+    │   │   │
+    │   │   └── Topic: Plant Tissues
+    │   │       ├── Meristematic Tissue
+    │   │       └── Permanent Tissue
+    │   │
+    │   ├── Chapter 11: Plant Physiology
+    │   │
+    │   │   ├── Topic: Photosynthesis
+    │   │   │   ├── Chlorophyll
+    │   │   │   ├── Carbon Dioxide
+    │   │   │   └── Oxygen Release
+    │   │   │
+    │   │   ├── Topic: Transportation in Plants
+    │   │   │   ├── Xylem
+    │   │   │   └── Phloem
+    │   │   │
+    │   │   └── Topic: Plant Hormones
+    │   │       ├── Auxin
+    │   │       ├── Gibberellin
+    │   │       └── Cytokinin
+    │
+    │
+    ├── Unit 5: Genetics and Evolution
+    │
+    │   ├── Chapter 12: Genetics
+    │   │
+    │   │   ├── Topic: Heredity
+    │   │   │   ├── Mendel Experiments
+    │   │   │   ├── Dominant Traits
+    │   │   │   └── Recessive Traits
+    │   │   │
+    │   │   ├── Topic: DNA and RNA
+    │   │   │   ├── DNA Structure
+    │   │   │   ├── RNA
+    │   │   │   └── Genetic Code
+    │   │   │
+    │   │   └── Topic: Chromosomes
+    │   │       ├── Structure
+    │   │       └── Role in Inheritance
+    │   │
+    │   └── Chapter 13: Evolution
+    │       ├── Topic: Origin of Life
+    │       ├── Topic: Darwin Theory
+    │       └── Topic: Natural Selection
+    │
+    │
+    ├── Unit 6: Health and Diseases
+    │
+    │   ├── Chapter 14: Human Health
+    │   │
+    │   │   ├── Topic: Diseases
+    │   │   │   ├── Communicable Diseases
+    │   │   │   ├── Non-Communicable Diseases
+    │   │   │   └── Deficiency Diseases
+    │   │   │
+    │   │   ├── Topic: Microorganisms
+    │   │   │   ├── Bacteria
+    │   │   │   ├── Virus
+    │   │   │   ├── Fungi
+    │   │   │   └── Protozoa
+    │   │   │
+    │   │   └── Topic: Immunity
+    │   │       ├── Immune System
+    │   │       ├── Vaccination
+    │   │       └── Antibodies
+    │
+    │
+    └── Unit 7: Ecology and Environment
+        │
+        ├── Chapter 15: Ecology
+        │
+        │   ├── Topic: Ecosystem
+        │   │   ├── Biotic Components
+        │   │   ├── Abiotic Components
+        │   │   └── Food Chain
+        │   │
+        │   ├── Topic: Biodiversity
+        │   │   ├── Flora
+        │   │   ├── Fauna
+        │   │   └── Conservation
+        │   │
+        │   └── Topic: Environmental Issues
+        │       ├── Pollution
+        │       ├── Global Warming
+        │       ├── Climate Change
+        │       └── Ozone Layer
+
+General Knowledge (GK)
+
+└── Static GK (स्थिर सामान्य ज्ञान)
+
+    ├── Unit 1: National Information (राष्ट्रीय जानकारी)
+    │
+    │   ├── Chapter 1: National Symbols of India
+    │   │
+    │   │   ├── Topic: National Symbols
+    │   │   │   ├── National Flag
+    │   │   │   ├── National Emblem
+    │   │   │   ├── National Anthem
+    │   │   │   ├── National Song
+    │   │   │   ├── National Animal
+    │   │   │   ├── National Bird
+    │   │   │   ├── National Flower
+    │   │   │   ├── National Tree
+    │   │   │   └── National Fruit
+    │   │   │
+    │   │   └── Topic: National Identity
+    │   │       ├── National Calendar
+    │   │       ├── National River
+    │   │       └── National Heritage Symbols
+    │
+    │   ├── Chapter 2: States and Union Territories
+    │   │
+    │   │   ├── Topic: Indian States
+    │   │   │   ├── States and Capitals
+    │   │   │   ├── Formation of States
+    │   │   │   ├── Largest State by Area
+    │   │   │   ├── Largest State by Population
+    │   │   │   └── Smallest States
+    │   │   │
+    │   │   ├── Topic: Union Territories
+    │   │   │   ├── UTs and Capitals
+    │   │   │   └── Administrative Features
+    │   │   │
+    │   │   └── Topic: State Symbols
+    │   │       ├── State Animals
+    │   │       ├── State Birds
+    │   │       └── State Flowers
+    │
+    │
+    ├── Unit 2: Important Places and Monuments
+    │
+    │   ├── Chapter 3: Historical Monuments
+    │   │
+    │   │   ├── Topic: Ancient Monuments
+    │   │   │   ├── Ajanta Caves
+    │   │   │   ├── Ellora Caves
+    │   │   │   ├── Sanchi Stupa
+    │   │   │   └── Nalanda University
+    │   │   │
+    │   │   ├── Topic: Medieval Monuments
+    │   │   │   ├── Red Fort
+    │   │   │   ├── Qutub Minar
+    │   │   │   ├── Taj Mahal
+    │   │   │   └── Fatehpur Sikri
+    │   │   │
+    │   │   └── Topic: Modern Monuments
+    │   │       ├── India Gate
+    │   │       ├── Parliament House
+    │   │       └── Statue of Unity
+    │   │
+    │   ├── Chapter 4: UNESCO World Heritage Sites
+    │   │
+    │   │   ├── Topic: Cultural Sites
+    │   │   ├── Topic: Natural Sites
+    │   │   └── Topic: Mixed Heritage Sites
+    │
+    │
+    ├── Unit 3: Awards and Honours
+    │
+    │   ├── Chapter 5: National Awards
+    │   │
+    │   │   ├── Topic: Civilian Awards
+    │   │   │   ├── Bharat Ratna
+    │   │   │   ├── Padma Vibhushan
+    │   │   │   ├── Padma Bhushan
+    │   │   │   └── Padma Shri
+    │   │   │
+    │   │   ├── Topic: Gallantry Awards
+    │   │   │   ├── Param Vir Chakra
+    │   │   │   ├── Maha Vir Chakra
+    │   │   │   └── Vir Chakra
+    │   │   │
+    │   │   └── Topic: Literary Awards
+    │   │       ├── Jnanpith Award
+    │   │       └── Sahitya Akademi Award
+    │   │
+    │   ├── Chapter 6: International Awards
+    │   │
+    │   │   ├── Topic: Nobel Prize
+    │   │   │   ├── Physics
+    │   │   │   ├── Chemistry
+    │   │   │   ├── Medicine
+    │   │   │   ├── Literature
+    │   │   │   ├── Peace
+    │   │   │   └── Economics
+    │   │   │
+    │   │   └── Topic: Other International Awards
+    │   │       ├── Booker Prize
+    │   │       └── Ramon Magsaysay Award
+    │
+    │
+    ├── Unit 4: Books and Authors
+    │
+    │   ├── Chapter 7: Famous Books
+    │   │
+    │   │   ├── Topic: Indian Literature
+    │   │   │   ├── Ancient Texts
+    │   │   │   ├── Religious Books
+    │   │   │   └── Modern Literature
+    │   │   │
+    │   │   └── Topic: World Literature
+    │   │       ├── Famous Novels
+    │   │       ├── Autobiographies
+    │   │       └── Historical Books
+    │   │
+    │   └── Chapter 8: Famous Authors
+    │       ├── Topic: Indian Authors
+    │       ├── Topic: International Authors
+    │       └── Topic: Writers and Works
+    │
+    │
+    ├── Unit 5: Sports GK
+    │
+    │   ├── Chapter 9: Sports and Games
+    │   │
+    │   │   ├── Topic: Indian Sports
+    │   │   │   ├── Cricket
+    │   │   │   ├── Hockey
+    │   │   │   ├── Wrestling
+    │   │   │   └── Athletics
+    │   │   │
+    │   │   ├── Topic: International Sports
+    │   │   │   ├── Football
+    │   │   │   ├── Tennis
+    │   │   │   ├── Olympics
+    │   │   │   └── Asian Games
+    │   │   │
+    │   │   └── Topic: Sports Terminology
+    │   │       ├── Cricket Terms
+    │   │       ├── Football Terms
+    │   │       └── Tennis Terms
+    │   │
+    │   ├── Chapter 10: Sports Events
+    │   │   ├── Topic: Olympic Games
+    │   │   ├── Topic: World Cups
+    │   │   └── Topic: Major Championships
+    │
+    │
+    ├── Unit 6: Important Days and Dates
+    │
+    │   ├── Chapter 11: National Days
+    │   │   ├── Topic: Republic Day
+    │   │   ├── Topic: Independence Day
+    │   │   └── Topic: Gandhi Jayanti
+    │   │
+    │   └── Chapter 12: International Days
+    │       ├── Topic: Environment Days
+    │       ├── Topic: Health Days
+    │       ├── Topic: Education Days
+    │       └── Topic: Human Rights Days
+    │
+    │
+    ├── Unit 7: Organizations and Headquarters
+    │
+    │   ├── Chapter 13: International Organizations
+    │   │
+    │   │   ├── Topic: United Nations
+    │   │   │   ├── UN Headquarters
+    │   │   │   ├── UN Organs
+    │   │   │   └── UN Agencies
+    │   │   │
+    │   │   ├── Topic: Financial Organizations
+    │   │   │   ├── IMF
+    │   │   │   ├── World Bank
+    │   │   │   └── WTO
+    │   │   │
+    │   │   └── Topic: Other Organizations
+    │   │       ├── WHO
+    │   │       ├── UNESCO
+    │   │       └── NATO
+    │   │
+    │   └── Chapter 14: Indian Organizations
+    │       ├── Topic: Government Organizations
+    │       ├── Topic: Research Organizations
+    │       └── Topic: Defence Organizations
+    │
+    │
+    ├── Unit 8: First in India and World
+    │
+    │   ├── Chapter 15: First in India
+    │   │
+    │   │   ├── Topic: First Persons
+    │   │   │   ├── First President
+    │   │   │   ├── First Prime Minister
+    │   │   │   ├── First Woman President
+    │   │   │   └── First Woman IAS Officer
+    │   │   │
+    │   │   ├── Topic: First Achievements
+    │   │   │   ├── First Satellite
+    │   │   │   ├── First Nuclear Test
+    │   │   │   └── First Metro
+    │   │
+    │   └── Chapter 16: First in World
+    │       ├── Topic: First Persons
+    │       ├── Topic: First Inventions
+    │       └── Topic: First Discoveries
+    │
+    │
+    ├── Unit 9: Miscellaneous Static GK
+    │
+    │   ├── Chapter 17: Superlatives
+    │   │   ├── Largest
+    │   │   ├── Smallest
+    │   │   ├── Longest
+    │   │   └── Highest
+    │   │
+    │   ├── Chapter 18: Important Facts
+    │   │   ├── Dams
+    │   │   ├── Rivers
+    │   │   ├── Lakes
+    │   │   ├── Airports
+    │   │   └── Ports
+    │   │
+    │   └── Chapter 19: Cultural GK
+    │       ├── Festivals
+    │       ├── Dance Forms
+    │       ├── Music Forms
+    │       └── Languages
+    General Knowledge (GK)
+
+└── Static GK (स्थिर सामान्य ज्ञान)
+
+    ├── Unit 10: Indian Culture (भारतीय संस्कृति)
+    │
+    │   ├── Chapter 20: Art and Architecture
+    │   │
+    │   │   ├── Topic: Indian Architecture
+    │   │   │   ├── Temple Architecture
+    │   │   │   │   ├── Nagara Style
+    │   │   │   │   ├── Dravidian Style
+    │   │   │   │   └── Vesara Style
+    │   │   │   ├── Indo-Islamic Architecture
+    │   │   │   └── Colonial Architecture
+    │   │   │
+    │   │   └── Topic: Painting Styles
+    │   │       ├── Madhubani Painting
+    │   │       ├── Warli Painting
+    │   │       ├── Pattachitra
+    │   │       ├── Kalamkari
+    │   │       └── Miniature Painting
+    │   │
+    │   ├── Chapter 21: Dance Forms
+    │   │
+    │   │   ├── Topic: Classical Dances
+    │   │   │   ├── Bharatanatyam
+    │   │   │   ├── Kathak
+    │   │   │   ├── Kathakali
+    │   │   │   ├── Kuchipudi
+    │   │   │   ├── Odissi
+    │   │   │   ├── Manipuri
+    │   │   │   ├── Mohiniyattam
+    │   │   │   └── Sattriya
+    │   │   │
+    │   │   └── Topic: Folk Dances
+    │   │       ├── Bhangra
+    │   │       ├── Garba
+    │   │       ├── Ghoomar
+    │   │       ├── Lavani
+    │   │       ├── Bihu
+    │   │       └── Yakshagana
+    │   │
+    │   ├── Chapter 22: Music
+    │   │
+    │   │   ├── Topic: Indian Classical Music
+    │   │   │   ├── Hindustani Music
+    │   │   │   ├── Carnatic Music
+    │   │   │   └── Ragas and Talas
+    │   │   │
+    │   │   ├── Topic: Musical Instruments
+    │   │   │   ├── Sitar
+    │   │   │   ├── Tabla
+    │   │   │   ├── Veena
+    │   │   │   ├── Flute
+    │   │   │   └── Shehnai
+    │   │   │
+    │   │   └── Topic: Music Awards
+    │   │       ├── Bharat Ratna Musicians
+    │   │       └── National Music Awards
+    │
+    │
+    ├── Unit 11: Indian Languages and Literature
+    │
+    │   ├── Chapter 23: Indian Languages
+    │   │
+    │   │   ├── Topic: Classical Languages
+    │   │   │   ├── Tamil
+    │   │   │   ├── Sanskrit
+    │   │   │   ├── Telugu
+    │   │   │   ├── Kannada
+    │   │   │   ├── Malayalam
+    │   │   │   └── Odia
+    │   │   │
+    │   │   ├── Topic: Scheduled Languages
+    │   │   │   ├── Eighth Schedule Languages
+    │   │   │   └── Regional Languages
+    │   │
+    │   │   └── Topic: Scripts
+    │   │       ├── Devanagari
+    │   │       ├── Bengali Script
+    │   │       ├── Tamil Script
+    │   │       └── Urdu Script
+    │   │
+    │   ├── Chapter 24: Literature
+    │   │
+    │   │   ├── Topic: Ancient Literature
+    │   │   │   ├── Vedas
+    │   │   │   ├── Upanishads
+    │   │   │   ├── Ramayana
+    │   │   │   └── Mahabharata
+    │   │   │
+    │   │   ├── Topic: Medieval Literature
+    │   │   │   ├── Bhakti Literature
+    │   │   │   └── Sufi Literature
+    │   │   │
+    │   │   └── Topic: Modern Literature
+    │   │       ├── Indian Writers
+    │   │       └── Literary Movements
+    │
+    │
+    ├── Unit 12: Important Institutions and Research Centres
+    │
+    │   ├── Chapter 25: Scientific Institutions
+    │   │
+    │   │   ├── Topic: Space Research
+    │   │   │   ├── ISRO
+    │   │   │   ├── Space Centres
+    │   │   │   └── Satellites
+    │   │   │
+    │   │   ├── Topic: Defence Research
+    │   │   │   ├── DRDO
+    │   │   │   ├── Defence Labs
+    │   │   │   └── Missile Programmes
+    │   │   │
+    │   │   └── Topic: Medical Research
+    │   │       ├── ICMR
+    │   │       └── Medical Institutes
+    │   │
+    │   └── Chapter 26: Educational Institutions
+    │       ├── IITs
+    │       ├── IIMs
+    │       ├── Central Universities
+    │       └── Research Universities
+    │
+    │
+    ├── Unit 13: Defence and Security GK
+    │
+    │   ├── Chapter 27: Indian Armed Forces
+    │   │
+    │   │   ├── Topic: Indian Army
+    │   │   │   ├── Commands
+    │   │   │   ├── Ranks
+    │   │   │   └── Regiments
+    │   │   │
+    │   │   ├── Topic: Indian Navy
+    │   │   │   ├── Commands
+    │   │   │   ├── Ships
+    │   │   │   └── Naval Bases
+    │   │   │
+    │   │   └── Topic: Indian Air Force
+    │   │       ├── Commands
+    │   │       ├── Aircraft
+    │   │       └── Air Bases
+    │   │
+    │   ├── Chapter 28: Defence Exercises
+    │   │   ├── Topic: Army Exercises
+    │   │   ├── Topic: Naval Exercises
+    │   │   └── Topic: Air Exercises
+    │   │
+    │   └── Chapter 29: Security Forces
+    │       ├── BSF
+    │       ├── CRPF
+    │       ├── CISF
+    │       ├── ITBP
+    │       └── SSB
+    │
+    │
+    ├── Unit 14: Science and Technology Static GK
+    │
+    │   ├── Chapter 30: Discoveries and Inventions
+    │   │
+    │   │   ├── Topic: Scientific Discoveries
+    │   │   │   ├── Laws
+    │   │   │   ├── Theories
+    │   │   │   └── Scientists
+    │   │   │
+    │   │   └── Topic: Important Inventions
+    │   │       ├── Telephone
+    │   │       ├── Radio
+    │   │       ├── Computer
+    │   │       └── Internet
+    │   │
+    │   ├── Chapter 31: Famous Scientists
+    │   │   ├── Indian Scientists
+    │   │   │   ├── C.V. Raman
+    │   │   │   ├── Homi Bhabha
+    │   │   │   └── Vikram Sarabhai
+    │   │   │
+    │   │   └── World Scientists
+    │   │       ├── Newton
+    │   │       ├── Einstein
+    │   │       └── Darwin
+    │
+    │
+    ├── Unit 15: Geography Based Static GK
+    │
+    │   ├── Chapter 32: Rivers and Lakes
+    │   │
+    │   │   ├── Topic: Indian Rivers
+    │   │   │   ├── Himalayan Rivers
+    │   │   │   ├── Peninsular Rivers
+    │   │   │   └── River Projects
+    │   │   │
+    │   │   └── Topic: Important Lakes
+    │   │       ├── Freshwater Lakes
+    │   │       ├── Saltwater Lakes
+    │   │       └── Largest Lakes
+    │   │
+    │   ├── Chapter 33: Mountains and Peaks
+    │   │   ├── Topic: Himalayan Range
+    │   │   ├── Topic: Mountain Passes
+    │   │   └── Topic: Highest Peaks
+    │   │
+    │   └── Chapter 34: Dams and Projects
+    │       ├── Major Dams
+    │       ├── Multipurpose Projects
+    │       └── River Valley Projects
+    │
+    │
+    └── Unit 16: Important Organizations and Headquarters (Extended)
+        │
+        ├── Chapter 35: Banking and Financial Organizations
+        │   ├── RBI
+        │   ├── SEBI
+        │   ├── NABARD
+        │   └── Asian Development Bank
+        │
+        ├── Chapter 36: International Bodies
+        │   ├── UN
+        │   ├── WHO
+        │   ├── UNESCO
+        │   ├── UNICEF
+        │   ├── FAO
+        │   └── ILO
+        │
+        └── Chapter 37: Important Headquarters and Headquarters Cities
+            ├── Organization Name
+            ├── Headquarters Location
+            └── Establishment Year
+
+General Knowledge (GK)
+
+└── Static GK (स्थिर सामान्य ज्ञान)
+
+    ├── Unit 17: Indian Economy Static GK
+    │
+    │   ├── Chapter 38: Economic Institutions
+    │   │
+    │   │   ├── Topic: Banking Institutions
+    │   │   │   ├── Reserve Bank of India (RBI)
+    │   │   │   ├── State Bank of India (SBI)
+    │   │   │   ├── Nationalized Banks
+    │   │   │   └── Cooperative Banks
+    │   │   │
+    │   │   ├── Topic: Financial Institutions
+    │   │   │   ├── NABARD
+    │   │   │   ├── SIDBI
+    │   │   │   ├── EXIM Bank
+    │   │   │   └── NHB
+    │   │   │
+    │   │   └── Topic: Regulatory Bodies
+    │   │       ├── RBI
+    │   │       ├── SEBI
+    │   │       ├── IRDAI
+    │   │       └── PFRDA
+    │   │
+    │   ├── Chapter 39: Important Economic Terms
+    │   │
+    │   │   ├── Topic: Banking Terms
+    │   │   │   ├── Repo Rate
+    │   │   │   ├── Reverse Repo Rate
+    │   │   │   ├── CRR
+    │   │   │   └── SLR
+    │   │   │
+    │   │   ├── Topic: Market Terms
+    │   │   │   ├── Inflation
+    │   │   │   ├── Deflation
+    │   │   │   ├── GDP
+    │   │   │   └── GNP
+    │   │   │
+    │   │   └── Topic: Financial Markets
+    │   │       ├── Stock Market
+    │   │       ├── Bond Market
+    │   │       └── Money Market
+    │
+    │
+    ├── Unit 18: Indian Agriculture Static GK
+    │
+    │   ├── Chapter 40: Crops of India
+    │   │
+    │   │   ├── Topic: Food Crops
+    │   │   │   ├── Rice
+    │   │   │   ├── Wheat
+    │   │   │   ├── Maize
+    │   │   │   └── Pulses
+    │   │   │
+    │   │   ├── Topic: Cash Crops
+    │   │   │   ├── Cotton
+    │   │   │   ├── Sugarcane
+    │   │   │   ├── Tobacco
+    │   │   │   └── Jute
+    │   │   │
+    │   │   └── Topic: Plantation Crops
+    │   │       ├── Tea
+    │   │       ├── Coffee
+    │   │       └── Rubber
+    │   │
+    │   ├── Chapter 41: Agricultural Revolutions
+    │   │
+    │   │   ├── Topic: Green Revolution
+    │   │   ├── Topic: White Revolution
+    │   │   ├── Topic: Blue Revolution
+    │   │   ├── Topic: Yellow Revolution
+    │   │   └── Topic: Golden Revolution
+    │   │
+    │   └── Chapter 42: Agricultural Organizations
+    │       ├── ICAR
+    │       ├── NABARD
+    │       ├── FCI
+    │       └── APEDA
+    │
+    │
+    ├── Unit 19: Transport and Communication GK
+    │
+    │   ├── Chapter 43: Indian Transport System
+    │   │
+    │   │   ├── Topic: Rail Transport
+    │   │   │   ├── First Railway in India
+    │   │   │   ├── Railway Zones
+    │   │   │   ├── Railway Headquarters
+    │   │   │   └── Metro Rail Systems
+    │   │   │
+    │   │   ├── Topic: Road Transport
+    │   │   │   ├── National Highways
+    │   │   │   ├── Expressways
+    │   │   │   └── Road Organizations
+    │   │   │
+    │   │   └── Topic: Water Transport
+    │   │       ├── Major Ports
+    │   │       ├── Inland Waterways
+    │   │       └── Shipping Organizations
+    │   │
+    │   ├── Chapter 44: Communication Systems
+    │   │
+    │   │   ├── Topic: Postal System
+    │   │   │   ├── India Post
+    │   │   │   ├── Postal Services
+    │   │   │   └── PIN Code System
+    │   │   │
+    │   │   ├── Topic: Telecommunication
+    │   │   │   ├── Telephone
+    │   │   │   ├── Mobile Communication
+    │   │   │   └── Internet Services
+    │   │   │
+    │   │   └── Topic: Broadcasting
+    │   │       ├── All India Radio
+    │   │       ├── Doordarshan
+    │   │       └── Digital Media
+    │
+    │
+    ├── Unit 20: World Geography Static GK
+    │
+    │   ├── Chapter 45: Continents and Oceans
+    │   │
+    │   │   ├── Topic: Continents
+    │   │   │   ├── Asia
+    │   │   │   ├── Africa
+    │   │   │   ├── Europe
+    │   │   │   ├── North America
+    │   │   │   ├── South America
+    │   │   │   ├── Australia
+    │   │   │   └── Antarctica
+    │   │   │
+    │   │   └── Topic: Oceans
+    │   │       ├── Pacific Ocean
+    │   │       ├── Atlantic Ocean
+    │   │       ├── Indian Ocean
+    │   │       └── Arctic Ocean
+    │   │
+    │   ├── Chapter 46: World Countries
+    │   │
+    │   │   ├── Topic: Capitals
+    │   │   ├── Topic: Currencies
+    │   │   ├── Topic: National Symbols
+    │   │   └── Topic: Important Facts
+    │   │
+    │   └── Chapter 47: World Superlatives
+    │       ├── Largest Country
+    │       ├── Smallest Country
+    │       ├── Highest Mountain
+    │       ├── Longest River
+    │       └── Largest Desert
+    │
+    │
+    ├── Unit 21: Environment Static GK
+    │
+    │   ├── Chapter 48: Environmental Organizations
+    │   │
+    │   │   ├── Topic: International Organizations
+    │   │   │   ├── UNEP
+    │   │   │   ├── WWF
+    │   │   │   └── IUCN
+    │   │   │
+    │   │   └── Topic: Indian Organizations
+    │   │       ├── MoEFCC
+    │   │       └── CPCB
+    │   │
+    │   ├── Chapter 49: Environmental Concepts
+    │   │
+    │   │   ├── Topic: Conservation
+    │   │   │   ├── National Parks
+    │   │   │   ├── Wildlife Sanctuaries
+    │   │   │   └── Biosphere Reserves
+    │   │   │
+    │   │   ├── Topic: Climate
+    │   │   │   ├── Greenhouse Effect
+    │   │   │   ├── Global Warming
+    │   │   │   └── Climate Change
+    │   │   │
+    │   │   └── Topic: Pollution
+    │   │       ├── Air Pollution
+    │   │       ├── Water Pollution
+    │   │       ├── Soil Pollution
+    │   │       └── Noise Pollution
+    │
+    │
+    ├── Unit 22: Computer Static GK
+    │
+    │   ├── Chapter 50: Computer History
+    │   │
+    │   │   ├── Topic: Generations of Computers
+    │   │   ├── Topic: Computer Scientists
+    │   │   └── Topic: Important Inventions
+    │   │
+    │   ├── Chapter 51: Computer Terminology
+    │   │
+    │   │   ├── Topic: Hardware Terms
+    │   │   ├── Topic: Software Terms
+    │   │   ├── Topic: Internet Terms
+    │   │   └── Topic: Networking Terms
+    │
+    │
+    └── Unit 23: Important Days, Weeks and Years
+        │
+        ├── Chapter 52: National Days
+        │   ├── Republic Day
+        │   ├── Independence Day
+        │   └── Constitution Day
+        │
+        ├── Chapter 53: International Days
+        │   ├── World Environment Day
+        │   ├── World Health Day
+        │   ├── International Women's Day
+        │   └── Human Rights Day
+        │
+        └── Chapter 54: Important Years
+            ├── Historical Years
+            ├── Scientific Years
+            └── International Years
+            General Knowledge (GK)
+
+└── Static GK (स्थिर सामान्य ज्ञान)
+
+    ├── Unit 24: Indian Polity Static GK
+    │
+    │   ├── Chapter 55: Constitution Related Facts
+    │   │
+    │   │   ├── Topic: Constitutional Features
+    │   │   │   ├── Constitution Adoption Date
+    │   │   │   ├── Constitution Enforcement Date
+    │   │   │   ├── Constituent Assembly
+    │   │   │   └── Drafting Committee
+    │   │   │
+    │   │   ├── Topic: Important Articles
+    │   │   │   ├── Fundamental Rights Articles
+    │   │   │   ├── Directive Principles Articles
+    │   │   │   ├── Emergency Articles
+    │   │   │   └── Election Articles
+    │   │   │
+    │   │   └── Topic: Constitutional Schedules
+    │   │       ├── First Schedule
+    │   │       ├── Seventh Schedule
+    │   │       ├── Eighth Schedule
+    │   │       └── Twelfth Schedule
+    │   │
+    │   ├── Chapter 56: Government Structure
+    │   │
+    │   │   ├── Topic: Central Government
+    │   │   │   ├── President
+    │   │   │   ├── Vice President
+    │   │   │   ├── Prime Minister
+    │   │   │   └── Parliament
+    │   │   │
+    │   │   ├── Topic: State Government
+    │   │   │   ├── Governor
+    │   │   │   ├── Chief Minister
+    │   │   │   └── State Legislature
+    │   │   │
+    │   │   └── Topic: Local Government
+    │   │       ├── Panchayati Raj
+    │   │       ├── Municipalities
+    │   │       └── Urban Bodies
+    │
+    │
+    ├── Unit 25: Ancient India Static GK
+    │
+    │   ├── Chapter 57: Ancient Civilizations
+    │   │
+    │   │   ├── Topic: Indus Valley Civilization
+    │   │   │   ├── Harappa
+    │   │   │   ├── Mohenjo-Daro
+    │   │   │   ├── Lothal
+    │   │   │   ├── Dholavira
+    │   │   │   └── Town Planning
+    │   │   │
+    │   │   └── Topic: Vedic Civilization
+    │   │       ├── Early Vedic Period
+    │   │       ├── Later Vedic Period
+    │   │       └── Vedic Literature
+    │   │
+    │   ├── Chapter 58: Ancient Kingdoms
+    │   │
+    │   │   ├── Topic: Mauryan Empire
+    │   │   │   ├── Chandragupta Maurya
+    │   │   │   ├── Ashoka
+    │   │   │   ├── Administration
+    │   │   │   └── Edicts
+    │   │   │
+    │   │   ├── Topic: Gupta Empire
+    │   │   │   ├── Chandragupta I
+    │   │   │   ├── Samudragupta
+    │   │   │   ├── Chandragupta II
+    │   │   │   └── Golden Age
+    │   │   │
+    │   │   └── Topic: South Indian Kingdoms
+    │   │       ├── Chola Dynasty
+    │   │       ├── Chera Dynasty
+    │   │       └── Pandya Dynasty
+    │
+    │
+    ├── Unit 26: Medieval India Static GK
+    │
+    │   ├── Chapter 59: Delhi Sultanate
+    │   │
+    │   │   ├── Topic: Dynasties
+    │   │   │   ├── Slave Dynasty
+    │   │   │   ├── Khilji Dynasty
+    │   │   │   ├── Tughlaq Dynasty
+    │   │   │   └── Lodi Dynasty
+    │   │   │
+    │   │   └── Topic: Administration
+    │   │       ├── Revenue System
+    │   │       ├── Military System
+    │   │       └── Architecture
+    │   │
+    │   ├── Chapter 60: Mughal Empire
+    │   │
+    │   │   ├── Topic: Mughal Rulers
+    │   │   │   ├── Babur
+    │   │   │   ├── Humayun
+    │   │   │   ├── Akbar
+    │   │   │   ├── Jahangir
+    │   │   │   ├── Shah Jahan
+    │   │   │   └── Aurangzeb
+    │   │   │
+    │   │   └── Topic: Mughal Culture
+    │   │       ├── Art
+    │   │       ├── Architecture
+    │   │       └── Literature
+    │
+    │
+    ├── Unit 27: Modern India Static GK
+    │
+    │   ├── Chapter 61: Freedom Movement
+    │   │
+    │   │   ├── Topic: Revolt of 1857
+    │   │   │   ├── Causes
+    │   │   │   ├── Leaders
+    │   │   │   └── Results
+    │   │   │
+    │   │   ├── Topic: Indian National Congress
+    │   │   │   ├── Formation
+    │   │   │   ├── Sessions
+    │   │   │   └── Leaders
+    │   │   │
+    │   │   └── Topic: Important Movements
+    │   │       ├── Non-Cooperation Movement
+    │   │       ├── Civil Disobedience Movement
+    │   │       └── Quit India Movement
+    │   │
+    │   ├── Chapter 62: Important Acts and Policies
+    │   │   ├── Regulating Act
+    │   │   ├── Government of India Act 1935
+    │   │   ├── Indian Independence Act
+    │   │   └── Charter Acts
+    │
+    │
+    ├── Unit 28: World History Static GK
+    │
+    │   ├── Chapter 63: Major World Events
+    │   │
+    │   │   ├── Topic: Revolutions
+    │   │   │   ├── French Revolution
+    │   │   │   ├── Russian Revolution
+    │   │   │   └── Industrial Revolution
+    │   │   │
+    │   │   ├── Topic: World Wars
+    │   │   │   ├── First World War
+    │   │   │   ├── Second World War
+    │   │   │   └── Effects
+    │   │   │
+    │   │   └── Topic: International Developments
+    │   │       ├── Cold War
+    │   │       ├── UN Formation
+    │   │       └── Global Organizations
+    │
+    │
+    ├── Unit 29: Famous Personalities
+    │
+    │   ├── Chapter 64: Indian Personalities
+    │   │
+    │   │   ├── Topic: Freedom Fighters
+    │   │   │   ├── Mahatma Gandhi
+    │   │   │   ├── Subhash Chandra Bose
+    │   │   │   ├── Bhagat Singh
+    │   │   │   └── Sardar Patel
+    │   │   │
+    │   │   ├── Topic: Scientists
+    │   │   │   ├── A.P.J. Abdul Kalam
+    │   │   │   ├── C.V. Raman
+    │   │   │   └── Homi Bhabha
+    │   │   │
+    │   │   └── Topic: Social Reformers
+    │   │       ├── Raja Ram Mohan Roy
+    │   │       ├── Swami Vivekananda
+    │   │       └── Jyotiba Phule
+    │   │
+    │   └── Chapter 65: World Personalities
+    │       ├── Scientists
+    │       ├── Leaders
+    │       ├── Writers
+    │       └── Explorers
+    │
+    │
+    ├── Unit 30: Books, Newspapers and Journals
+    │
+    │   ├── Chapter 66: Historical Publications
+    │   │   ├── Newspapers During Freedom Movement
+    │   │   ├── Famous Journals
+    │   │   └── Editors
+    │   │
+    │   └── Chapter 67: Famous Publications
+    │       ├── Newspapers
+    │       ├── Magazines
+    │       └── Research Journals
+    │
+    │
+    └── Unit 31: Miscellaneous Competitive GK
+        │
+        ├── Chapter 68: Important Abbreviations
+        │   ├── Government Abbreviations
+        │   ├── International Abbreviations
+        │   └── Science & Technology Abbreviations
+        │
+        ├── Chapter 69: Nicknames
+        │   ├── Cities Nicknames
+        │   ├── Countries Nicknames
+        │   └── Famous Persons Nicknames
+        │
+        └── Chapter 70: Records and Firsts
+            ├── World Records
+            ├── India Records
+            ├── First Achievements
+            └── Important Milestones
+
+General Knowledge (GK)
+
+└── Current Affairs (समसामयिक घटनाएँ)
+
+    ├── Unit 1: National Current Affairs (राष्ट्रीय घटनाएँ)
+    │
+    │   ├── Chapter 1: Government Policies and Schemes
+    │   │
+    │   │   ├── Topic: Central Government Schemes
+    │   │   │   ├── Scheme Name
+    │   │   │   ├── Launch Year
+    │   │   │   ├── Implementing Ministry
+    │   │   │   ├── Objectives
+    │   │   │   └── Target Beneficiaries
+    │   │   │
+    │   │   ├── Topic: Social Welfare Schemes
+    │   │   │   ├── Health Schemes
+    │   │   │   ├── Education Schemes
+    │   │   │   ├── Women & Child Schemes
+    │   │   │   └── Rural Development Schemes
+    │   │   │
+    │   │   └── Topic: State Government Schemes
+    │   │       ├── State Specific Schemes
+    │   │       ├── Important Initiatives
+    │   │       └── Beneficiary Groups
+    │   │
+    │   ├── Chapter 2: National Events and Developments
+    │   │
+    │   │   ├── Topic: Government Decisions
+    │   │   │   ├── New Policies
+    │   │   │   ├── Cabinet Decisions
+    │   │   │   └── Administrative Reforms
+    │   │   │
+    │   │   ├── Topic: Important National Issues
+    │   │   │   ├── Social Issues
+    │   │   │   ├── Economic Issues
+    │   │   │   └── Environmental Issues
+    │   │   │
+    │   │   └── Topic: Important Events
+    │   │       ├── National Celebrations
+    │   │       ├── Conferences
+    │   │       └── Campaigns
+    │
+    │
+    ├── Unit 2: International Current Affairs (अंतरराष्ट्रीय घटनाएँ)
+    │
+    │   ├── Chapter 3: International Organizations
+    │   │
+    │   │   ├── Topic: United Nations
+    │   │   │   ├── UN Activities
+    │   │   │   ├── UN Reports
+    │   │   │   └── UN Resolutions
+    │   │   │
+    │   │   ├── Topic: Financial Organizations
+    │   │   │   ├── IMF Updates
+    │   │   │   ├── World Bank Reports
+    │   │   │   └── WTO Developments
+    │   │   │
+    │   │   └── Topic: Regional Organizations
+    │   │       ├── SAARC
+    │   │       ├── ASEAN
+    │   │       ├── BRICS
+    │   │       └── G20
+    │   │
+    │   ├── Chapter 4: International Relations
+    │   │
+    │   │   ├── Topic: India Foreign Relations
+    │   │   │   ├── Bilateral Relations
+    │   │   │   ├── Strategic Partnerships
+    │   │   │   └── Diplomatic Agreements
+    │   │   │
+    │   │   ├── Topic: International Summits
+    │   │   │   ├── G20 Summit
+    │   │   │   ├── COP Summit
+    │   │   │   └── BRICS Summit
+    │   │   │
+    │   │   └── Topic: Global Conflicts
+    │   │       ├── Wars
+    │   │       ├── Peace Agreements
+    │   │       └── Global Security Issues
+    │
+    │
+    ├── Unit 3: Indian Economy Current Affairs
+    │
+    │   ├── Chapter 5: Budget and Economic Survey
+    │   │
+    │   │   ├── Topic: Union Budget
+    │   │   │   ├── Budget Highlights
+    │   │   │   ├── Tax Changes
+    │   │   │   ├── Government Expenditure
+    │   │   │   └── Sector Allocation
+    │   │   │
+    │   │   └── Topic: Economic Survey
+    │   │       ├── Growth Estimates
+    │   │       ├── Economic Indicators
+    │   │       └── Sector Performance
+    │   │
+    │   ├── Chapter 6: Banking and Finance Updates
+    │   │
+    │   │   ├── Topic: Reserve Bank of India
+    │   │   │   ├── Monetary Policy
+    │   │   │   ├── Repo Rate Changes
+    │   │   │   └── Banking Regulations
+    │   │   │
+    │   │   ├── Topic: Financial Markets
+    │   │   │   ├── Stock Market Updates
+    │   │   │   ├── SEBI Regulations
+    │   │   │   └── Digital Payments
+    │   │   │
+    │   │   └── Topic: Economic Indicators
+    │   │       ├── GDP
+    │   │       ├── Inflation
+    │   │       ├── Employment Data
+    │   │       └── Trade Data
+    │
+    │
+    ├── Unit 4: Science and Technology Current Affairs
+    │
+    │   ├── Chapter 7: Space Technology
+    │   │
+    │   │   ├── Topic: Indian Space Missions
+    │   │   │   ├── ISRO Missions
+    │   │   │   ├── Satellites
+    │   │   │   ├── Launch Vehicles
+    │   │   │   └── Space Centres
+    │   │   │
+    │   │   └── Topic: International Space Missions
+    │   │       ├── NASA Missions
+    │   │       ├── ESA Missions
+    │   │       └── Private Space Companies
+    │   │
+    │   ├── Chapter 8: Emerging Technologies
+    │   │
+    │   │   ├── Topic: Digital Technology
+    │   │   │   ├── Artificial Intelligence
+    │   │   │   ├── Machine Learning
+    │   │   │   ├── Blockchain
+    │   │   │   └── Quantum Computing
+    │   │   │
+    │   │   ├── Topic: Biotechnology
+    │   │   │   ├── Vaccines
+    │   │   │   ├── Genetic Research
+    │   │   │   └── Medical Technology
+    │   │   │
+    │   │   └── Topic: Defence Technology
+    │   │       ├── Missiles
+    │   │       ├── Drones
+    │   │       └── Defence Systems
+    │
+    │
+    ├── Unit 5: Defence Current Affairs
+    │
+    │   ├── Chapter 9: Defence Developments
+    │   │
+    │   │   ├── Topic: Indian Defence Forces
+    │   │   │   ├── Army Updates
+    │   │   │   ├── Navy Updates
+    │   │   │   └── Air Force Updates
+    │   │   │
+    │   │   ├── Topic: Military Exercises
+    │   │   │   ├── Bilateral Exercises
+    │   │   │   ├── Multilateral Exercises
+    │   │   │   └── Locations
+    │   │   │
+    │   │   └── Topic: Defence Acquisition
+    │   │       ├── New Equipment
+    │   │       ├── Defence Deals
+    │   │       └── Indigenous Production
+    │
+    │
+    ├── Unit 6: Sports Current Affairs
+    │
+    │   ├── Chapter 10: National Sports Updates
+    │   │
+    │   │   ├── Topic: Indian Players
+    │   │   │   ├── Achievements
+    │   │   │   ├── Records
+    │   │   │   └── Rankings
+    │   │   │
+    │   │   └── Topic: Domestic Events
+    │   │       ├── Tournaments
+    │   │       ├── Winners
+    │   │       └── Venues
+    │   │
+    │   ├── Chapter 11: International Sports Events
+    │   │
+    │   │   ├── Topic: Major Championships
+    │   │   │   ├── Olympics
+    │   │   │   ├── Asian Games
+    │   │   │   ├── Commonwealth Games
+    │   │   │   └── World Championships
+    │   │   │
+    │   │   └── Topic: Sports Awards
+    │   │       ├── Winners
+    │   │       ├── Records
+    │   │       └── Rankings
+    General Knowledge (GK)
+
+└── Current Affairs (समसामयिक घटनाएँ)
+
+    ├── Unit 7: Awards and Honours Current Affairs
+    │
+    │   ├── Chapter 12: National Awards
+    │   │
+    │   │   ├── Topic: Civilian Awards
+    │   │   │   ├── Bharat Ratna
+    │   │   │   ├── Padma Awards
+    │   │   │   ├── Padma Vibhushan
+    │   │   │   ├── Padma Bhushan
+    │   │   │   └── Padma Shri
+    │   │   │
+    │   │   ├── Topic: Gallantry Awards
+    │   │   │   ├── Param Vir Chakra
+    │   │   │   ├── Ashoka Chakra
+    │   │   │   ├── Kirti Chakra
+    │   │   │   └── Shaurya Chakra
+    │   │   │
+    │   │   └── Topic: Sports Awards
+    │   │       ├── Major Dhyan Chand Khel Ratna Award
+    │   │       ├── Arjuna Award
+    │   │       └── Dronacharya Award
+    │   │
+    │   ├── Chapter 13: International Awards
+    │   │
+    │   │   ├── Topic: Nobel Prize
+    │   │   │   ├── Physics
+    │   │   │   ├── Chemistry
+    │   │   │   ├── Medicine
+    │   │   │   ├── Literature
+    │   │   │   ├── Peace
+    │   │   │   └── Economics
+    │   │   │
+    │   │   ├── Topic: Global Awards
+    │   │   │   ├── Booker Prize
+    │   │   │   ├── Pulitzer Prize
+    │   │   │   └── Ramon Magsaysay Award
+    │   │   │
+    │   │   └── Topic: Award Details
+    │   │       ├── Winner
+    │   │       ├── Field
+    │   │       ├── Country
+    │   │       └── Organization
+    │
+    │
+    ├── Unit 8: Important Appointments
+    │
+    │   ├── Chapter 14: Government Appointments
+    │   │
+    │   │   ├── Topic: Constitutional Posts
+    │   │   │   ├── President
+    │   │   │   ├── Governor
+    │   │   │   ├── Chief Election Commissioner
+    │   │   │   └── CAG
+    │   │   │
+    │   │   ├── Topic: Administrative Appointments
+    │   │   │   ├── Cabinet Secretary
+    │   │   │   ├── Chief Secretary
+    │   │   │   └── Government Officers
+    │   │
+    │   ├── Chapter 15: International Appointments
+    │   │
+    │   │   ├── Topic: International Organizations
+    │   │   │   ├── UN Officials
+    │   │   │   ├── IMF Officials
+    │   │   │   ├── World Bank Officials
+    │   │   │   └── WHO Officials
+    │   │   │
+    │   │   └── Topic: Diplomatic Appointments
+    │   │       ├── Ambassadors
+    │   │       ├── High Commissioners
+    │   │       └── Representatives
+    │
+    │
+    ├── Unit 9: Reports, Rankings and Indexes
+    │
+    │   ├── Chapter 16: International Reports
+    │   │
+    │   │   ├── Topic: Economic Reports
+    │   │   │   ├── World Economic Outlook
+    │   │   │   ├── Human Development Report
+    │   │   │   └── Global Economic Reports
+    │   │   │
+    │   │   ├── Topic: Social Reports
+    │   │   │   ├── Human Development Index
+    │   │   │   ├── Happiness Index
+    │   │   │   └── Gender Index
+    │   │   │
+    │   │   └── Topic: Environmental Reports
+    │   │       ├── Climate Reports
+    │   │       ├── Pollution Index
+    │   │       └── Biodiversity Reports
+    │   │
+    │   ├── Chapter 17: Indian Reports
+    │   │
+    │   │   ├── Topic: Government Reports
+    │   │   │   ├── Economic Survey
+    │   │   │   ├── NITI Aayog Reports
+    │   │   │   └── Census Reports
+    │   │   │
+    │   │   └── Topic: Rankings
+    │   │       ├── State Rankings
+    │   │       ├── Education Rankings
+    │   │       └── Health Rankings
+    │
+    │
+    ├── Unit 10: Important Summits and Conferences
+    │
+    │   ├── Chapter 18: Global Summits
+    │   │
+    │   │   ├── Topic: Economic Summits
+    │   │   │   ├── G20 Summit
+    │   │   │   ├── G7 Summit
+    │   │   │   └── BRICS Summit
+    │   │   │
+    │   │   ├── Topic: Environmental Summits
+    │   │   │   ├── COP Conference
+    │   │   │   ├── Climate Summit
+    │   │   │   └── Earth Summit
+    │   │   │
+    │   │   └── Topic: Other Conferences
+    │   │       ├── SCO Summit
+    │   │       ├── ASEAN Summit
+    │   │       └── QUAD Summit
+    │   │
+    │   └── Chapter 19: Indian Conferences
+    │       ├── Host City
+    │       ├── Theme
+    │       ├── Participants
+    │       └── Outcomes
+    │
+    │
+    ├── Unit 11: Environment and Ecology Current Affairs
+    │
+    │   ├── Chapter 20: Climate Change
+    │   │
+    │   │   ├── Topic: Climate Events
+    │   │   │   ├── Heat Waves
+    │   │   │   ├── Floods
+    │   │   │   ├── Cyclones
+    │   │   │   └── Droughts
+    │   │   │
+    │   │   └── Topic: Climate Agreements
+    │   │       ├── Paris Agreement
+    │   │       ├── Kyoto Protocol
+    │   │       └── Net Zero Targets
+    │   │
+    │   ├── Chapter 21: Wildlife and Conservation
+    │   │
+    │   │   ├── Topic: Protected Areas
+    │   │   │   ├── National Parks
+    │   │   │   ├── Wildlife Sanctuaries
+    │   │   │   └── Biosphere Reserves
+    │   │   │
+    │   │   └── Topic: Species Conservation
+    │   │       ├── Endangered Species
+    │   │       ├── Conservation Projects
+    │   │       └── Wildlife Reports
+    │
+    │
+    ├── Unit 12: Places in News
+    │
+    │   ├── Chapter 22: National Places
+    │   │
+    │   │   ├── Topic: Important Locations
+    │   │   │   ├── New Projects
+    │   │   │   ├── Heritage Sites
+    │   │   │   └── Development Projects
+    │   │   │
+    │   │   └── Topic: Disaster Locations
+    │   │       ├── Flood Affected Areas
+    │   │       ├── Earthquake Areas
+    │   │       └── Cyclone Areas
+    │   │
+    │   └── Chapter 23: International Places
+    │       ├── Conflict Areas
+    │       ├── Important Cities
+    │       ├── Strategic Locations
+    │       └── International Events
+    │
+    │
+    ├── Unit 13: Books and Authors Current Affairs
+    │
+    │   ├── Chapter 24: New Book Releases
+    │   │
+    │   │   ├── Topic: Indian Authors
+    │   │   │   ├── Book Name
+    │   │   │   ├── Author
+    │   │   │   └── Subject
+    │   │   │
+    │   │   └── Topic: International Authors
+    │   │       ├── Fiction
+    │   │       ├── Non-Fiction
+    │   │       └── Biographies
+    │   │
+    │   └── Chapter 25: Literary Events
+    │       ├── Book Fairs
+    │       ├── Literary Festivals
+    │       └── Literary Awards
+    │
+    │
+    └── Unit 14: Obituaries and Important Persons
+        │
+        ├── Chapter 26: National Personalities
+        │
+        │   ├── Topic: Political Leaders
+        │   ├── Topic: Scientists
+        │   ├── Topic: Artists
+        │   ├── Topic: Sports Persons
+        │   └── Topic: Social Workers
+        │
+        └── Chapter 27: International Personalities
+            ├── World Leaders
+            ├── Scientists
+            ├── Writers
+            ├── Nobel Laureates
+            └── Global Icons
+
+        General Knowledge (GK)
+
+└── Current Affairs (समसामयिक घटनाएँ)
+
+    ├── Unit 15: Railway Specific Current Affairs (रेलवे संबंधित समसामयिक घटनाएँ)
+    │
+    │   ├── Chapter 28: Indian Railways Developments
+    │   │
+    │   │   ├── Topic: Railway Infrastructure
+    │   │   │   ├── New Railway Lines
+    │   │   │   ├── Gauge Conversion Projects
+    │   │   │   ├── Railway Electrification
+    │   │   │   ├── Station Redevelopment
+    │   │   │   └── Freight Corridors
+    │   │   │
+    │   │   ├── Topic: Railway Schemes and Missions
+    │   │   │   ├── Amrit Bharat Station Scheme
+    │   │   │   ├── Dedicated Freight Corridor
+    │   │   │   ├── Mission Raftaar
+    │   │   │   ├── Mission 100% Electrification
+    │   │   │   └── Railway Modernization Projects
+    │   │   │
+    │   │   └── Topic: Railway Technology
+    │   │       ├── Vande Bharat Express
+    │   │       ├── High Speed Rail
+    │   │       ├── Automatic Train Protection System
+    │   │       └── Digital Railway Systems
+    │   │
+    │   ├── Chapter 29: Railway Administration Updates
+    │   │
+    │   │   ├── Topic: Railway Zones
+    │   │   │   ├── New Zones
+    │   │   │   ├── Zone Headquarters
+    │   │   │   └── Divisions
+    │   │   │
+    │   │   ├── Topic: Railway Boards
+    │   │   │   ├── Chairman Railway Board
+    │   │   │   ├── Railway Board Decisions
+    │   │   │   └── Policy Changes
+    │   │   │
+    │   │   └── Topic: Railway Awards
+    │   │       ├── Best Station Awards
+    │   │       ├── Safety Awards
+    │   │       └── Employee Awards
+    │
+    │
+    ├── Unit 16: Government Digital Initiatives
+    │
+    │   ├── Chapter 30: Digital India Initiatives
+    │   │
+    │   │   ├── Topic: Digital Services
+    │   │   │   ├── DigiLocker
+    │   │   │   ├── UMANG
+    │   │   │   ├── e-Governance Services
+    │   │   │   └── Digital Certificates
+    │   │   │
+    │   │   ├── Topic: Digital Payments
+    │   │   │   ├── UPI
+    │   │   │   ├── BHIM App
+    │   │   │   ├── Digital Banking
+    │   │   │   └── Financial Inclusion
+    │   │   │
+    │   │   └── Topic: Technology Missions
+    │   │       ├── India AI Mission
+    │   │       ├── Semiconductor Mission
+    │   │       └── Cyber Security Initiatives
+    │   │
+    │   ├── Chapter 31: Government Portals
+    │   │
+    │   │   ├── Topic: Citizen Portals
+    │   │   │   ├── MyGov
+    │   │   │   ├── National Portal of India
+    │   │   │   └── Service Portals
+    │   │   │
+    │   │   ├── Topic: Employment Portals
+    │   │   │   ├── National Career Service
+    │   │   │   ├── Skill Development Portals
+    │   │   │   └── Job Platforms
+    │   │   │
+    │   │   └── Topic: Education Portals
+    │   │       ├── SWAYAM
+    │   │       ├── DIKSHA
+    │   │       └── Digital Learning Platforms
+    │
+    │
+    ├── Unit 17: Science and Space Missions Detailed
+    │
+    │   ├── Chapter 32: ISRO Current Affairs
+    │   │
+    │   │   ├── Topic: Satellite Missions
+    │   │   │   ├── Communication Satellites
+    │   │   │   ├── Navigation Satellites
+    │   │   │   ├── Earth Observation Satellites
+    │   │   │   └── Scientific Satellites
+    │   │   │
+    │   │   ├── Topic: Launch Vehicles
+    │   │   │   ├── PSLV
+    │   │   │   ├── GSLV
+    │   │   │   ├── LVM3
+    │   │   │   └── Future Launch Systems
+    │   │   │
+    │   │   └── Topic: Space Missions
+    │   │       ├── Lunar Missions
+    │   │       ├── Solar Missions
+    │   │       ├── Mars Missions
+    │   │       └── Human Space Missions
+    │   │
+    │   ├── Chapter 33: Global Space Agencies
+    │   │
+    │   │   ├── Topic: Agencies
+    │   │   │   ├── NASA
+    │   │   │   ├── ESA
+    │   │   │   ├── Roscosmos
+    │   │   │   ├── CNSA
+    │   │   │   └── JAXA
+    │   │   │
+    │   │   └── Topic: Space Discoveries
+    │   │       ├── Satellites
+    │   │       ├── Telescopes
+    │   │       └── Space Research
+    │
+    │
+    ├── Unit 18: Defence Current Affairs Detailed
+    │
+    │   ├── Chapter 34: Military Exercises
+    │   │
+    │   │   ├── Topic: Army Exercises
+    │   │   │   ├── India-Other Country Exercises
+    │   │   │   ├── Multilateral Exercises
+    │   │   │   └── Locations
+    │   │   │
+    │   │   ├── Topic: Naval Exercises
+    │   │   │   ├── Maritime Exercises
+    │   │   │   ├── Joint Naval Drills
+    │   │   │   └── Ocean Regions
+    │   │   │
+    │   │   └── Topic: Air Force Exercises
+    │   │       ├── Fighter Exercises
+    │   │       ├── Air Defence Exercises
+    │   │       └── Strategic Exercises
+    │   │
+    │   ├── Chapter 35: Defence Equipment
+    │   │
+    │   │   ├── Topic: Missiles
+    │   │   │   ├── Ballistic Missiles
+    │   │   │   ├── Cruise Missiles
+    │   │   │   └── Defence Missiles
+    │   │   │
+    │   │   ├── Topic: Aircraft
+    │   │   │   ├── Fighter Aircraft
+    │   │   │   ├── Transport Aircraft
+    │   │   │   └── Helicopters
+    │   │   │
+    │   │   └── Topic: Naval Equipment
+    │   │       ├── Aircraft Carriers
+    │   │       ├── Submarines
+    │   │       └── Destroyers
+    │
+    │
+    ├── Unit 19: Sports Current Affairs Detailed
+    │
+    │   ├── Chapter 36: Major Sports Events
+    │   │
+    │   │   ├── Topic: Cricket
+    │   │   │   ├── ICC Tournaments
+    │   │   │   ├── Domestic Tournaments
+    │   │   │   ├── Records
+    │   │   │   └── Rankings
+    │   │   │
+    │   │   ├── Topic: Football
+    │   │   │   ├── FIFA Events
+    │   │   │   ├── League Championships
+    │   │   │   └── Rankings
+    │   │   │
+    │   │   ├── Topic: Olympic Sports
+    │   │   │   ├── Athletics
+    │   │   │   ├── Wrestling
+    │   │   │   ├── Shooting
+    │   │   │   └── Boxing
+    │   │   │
+    │   │   └── Topic: Other Sports
+    │   │       ├── Tennis
+    │   │       ├── Badminton
+    │   │       ├── Hockey
+    │   │       └── Chess
+    │   │
+    │   └── Chapter 37: Sports Personalities
+    │       ├── Player Achievements
+    │       ├── Records
+    │       ├── Awards
+    │       └── Retirements
+    General Knowledge (GK)
+
+└── Current Affairs (समसामयिक घटनाएँ)
+
+    ├── Unit 20: International Organizations Current Affairs
+    │
+    │   ├── Chapter 38: United Nations System
+    │   │
+    │   │   ├── Topic: UN General Updates
+    │   │   │   ├── UN Resolutions
+    │   │   │   ├── UN Meetings
+    │   │   │   ├── Member Countries
+    │   │   │   └── Peacekeeping Missions
+    │   │   │
+    │   │   ├── Topic: UN Agencies Updates
+    │   │   │   ├── WHO
+    │   │   │   ├── UNESCO
+    │   │   │   ├── UNICEF
+    │   │   │   ├── FAO
+    │   │   │   └── ILO
+    │   │   │
+    │   │   └── Topic: UN Reports
+    │   │       ├── Human Development Report
+    │   │       ├── World Health Report
+    │   │       └── Climate Reports
+    │   │
+    │   ├── Chapter 39: Global Economic Organizations
+    │   │
+    │   │   ├── Topic: IMF
+    │   │   │   ├── Economic Forecasts
+    │   │   │   ├── Country Reports
+    │   │   │   └── Financial Assistance
+    │   │   │
+    │   │   ├── Topic: World Bank
+    │   │   │   ├── Development Projects
+    │   │   │   ├── Country Rankings
+    │   │   │   └── Loan Programs
+    │   │   │
+    │   │   └── Topic: WTO
+    │   │       ├── Trade Agreements
+    │   │       ├── Ministerial Meetings
+    │   │       └── Global Trade Issues
+    │
+    │
+    ├── Unit 21: Banking and Insurance Current Affairs
+    │
+    │   ├── Chapter 40: Reserve Bank of India Updates
+    │   │
+    │   │   ├── Topic: Monetary Policy
+    │   │   │   ├── Repo Rate
+    │   │   │   ├── Reverse Repo Rate
+    │   │   │   ├── CRR
+    │   │   │   └── SLR
+    │   │   │
+    │   │   ├── Topic: Banking Regulations
+    │   │   │   ├── Digital Banking Rules
+    │   │   │   ├── Payment Systems
+    │   │   │   └── Banking Guidelines
+    │   │   │
+    │   │   └── Topic: RBI Reports
+    │   │       ├── Financial Stability Report
+    │   │       ├── Annual Report
+    │   │       └── Monetary Policy Report
+    │   │
+    │   ├── Chapter 41: Banking Sector Developments
+    │   │
+    │   │   ├── Topic: Banking Schemes
+    │   │   │   ├── Financial Inclusion
+    │   │   │   ├── Jan Dhan Yojana Updates
+    │   │   │   └── Digital Banking
+    │   │   │
+    │   │   ├── Topic: Bank Mergers and Acquisitions
+    │   │   │   ├── Public Sector Banks
+    │   │   │   ├── Private Banks
+    │   │   │   └── Foreign Banks
+    │   │
+    │   └── Chapter 42: Insurance Sector Updates
+    │       ├── IRDAI Regulations
+    │       ├── Insurance Schemes
+    │       ├── Life Insurance
+    │       └── General Insurance
+    │
+    │
+    ├── Unit 22: Government Committees and Commissions
+    │
+    │   ├── Chapter 43: National Committees
+    │   │
+    │   │   ├── Topic: Government Committees
+    │   │   │   ├── Committee Name
+    │   │   │   ├── Chairman
+    │   │   │   ├── Purpose
+    │   │   │   └── Recommendations
+    │   │   │
+    │   │   └── Topic: Expert Groups
+    │   │       ├── Economic Committees
+    │   │       ├── Social Committees
+    │   │       └── Administrative Committees
+    │   │
+    │   ├── Chapter 44: Parliamentary Committees
+    │   │
+    │   │   ├── Topic: Standing Committees
+    │   │   ├── Topic: Financial Committees
+    │   │   └── Topic: Department Related Committees
+    │   │
+    │   └── Chapter 45: International Panels
+    │       ├── UN Committees
+    │       ├── Global Task Forces
+    │       └── Expert Panels
+    │
+    │
+    ├── Unit 23: Important Laws and Acts Current Affairs
+    │
+    │   ├── Chapter 46: New Acts and Amendments
+    │   │
+    │   │   ├── Topic: Constitutional Amendments
+    │   │   │   ├── Amendment Number
+    │   │   │   ├── Main Provisions
+    │   │   │   └── Impact
+    │   │   │
+    │   │   ├── Topic: Economic Laws
+    │   │   │   ├── Tax Laws
+    │   │   │   ├── Banking Laws
+    │   │   │   └── Business Laws
+    │   │   │
+    │   │   └── Topic: Social Laws
+    │   │       ├── Education Laws
+    │   │       ├── Labour Laws
+    │   │       └── Welfare Laws
+    │   │
+    │   ├── Chapter 47: Important Supreme Court Judgements
+    │   │
+    │   │   ├── Topic: Constitutional Cases
+    │   │   ├── Topic: Fundamental Rights Cases
+    │   │   └── Topic: Social Issues Cases
+    │
+    │
+    ├── Unit 24: Appointments and Resignations Detailed
+    │
+    │   ├── Chapter 48: Indian Appointments
+    │   │
+    │   │   ├── Topic: Constitutional Authorities
+    │   │   │   ├── Election Commission
+    │   │   │   ├── Supreme Court
+    │   │   │   ├── High Courts
+    │   │   │   └── CAG
+    │   │   │
+    │   │   ├── Topic: Defence Appointments
+    │   │   │   ├── Army Chief
+    │   │   │   ├── Navy Chief
+    │   │   │   └── Air Force Chief
+    │   │   │
+    │   │   └── Topic: Institutional Heads
+    │   │       ├── RBI Governor
+    │   │       ├── SEBI Chairman
+    │   │       └── ISRO Chairman
+    │   │
+    │   ├── Chapter 49: International Appointments
+    │   │
+    │   │   ├── Topic: Global Leaders
+    │   │   ├── Topic: Organization Heads
+    │   │   └── Topic: Ambassadors
+    │
+    │
+    ├── Unit 25: Important Persons in News
+    │
+    │   ├── Chapter 50: National Personalities
+    │   │
+    │   │   ├── Topic: Politics
+    │   │   ├── Topic: Science
+    │   │   ├── Topic: Sports
+    │   │   ├── Topic: Entertainment
+    │   │   └── Topic: Social Service
+    │   │
+    │   └── Chapter 51: International Personalities
+    │       ├── World Leaders
+    │       ├── Scientists
+    │       ├── Nobel Winners
+    │       └── Global Achievers
+    │
+    │
+    └── Unit 26: Monthly Current Affairs Database Structure
+        │
+        ├── Chapter 52: Monthly Compilation
+        │
+        │   ├── Topic: January Current Affairs
+        │   ├── Topic: February Current Affairs
+        │   ├── Topic: March Current Affairs
+        │   ├── Topic: April Current Affairs
+        │   ├── Topic: May Current Affairs
+        │   ├── Topic: June Current Affairs
+        │   ├── Topic: July Current Affairs
+        │   ├── Topic: August Current Affairs
+        │   ├── Topic: September Current Affairs
+        │   ├── Topic: October Current Affairs
+        │   ├── Topic: November Current Affairs
+        │   └── Topic: December Current Affairs
+        │
+        └── Chapter 53: Exam Oriented Revision
+            ├── One Liner Current Affairs
+            ├── MCQ Based Revision
+            ├── Previous Year Questions
+            ├── Important Facts
+            └── Expected Questions

@@ -1,4 +1,3 @@
-import React from 'react'
 
 const SuccessMessage = ({ message, onClose, className = '' }) => {
   return (

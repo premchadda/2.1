@@ -84,7 +84,8 @@ const rankingService = {
             COUNT(*) OVER () as total_users
           FROM user_scores
         )
-        SELECT * FROM ranked_users WHERE user_id = $1
+        SELECT user_id, total_score, total_tests, avg_percentage, rank, total_users
+        FROM ranked_users WHERE user_id = $1
       `, [userId])
 
       return result.rows[0] || null
@@ -119,7 +120,7 @@ const rankingService = {
           RANK() OVER (ORDER BY SUM(uts.correct_answers) DESC) as rank
         FROM users u
         JOIN user_topic_stats uts ON uts.user_id = u.id
-        JOIN topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
+        JOIN subject_topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
         WHERE t.subject_id = $1
           AND uts.total_attempts > 0
         GROUP BY u.id, u.name, u.avatar_url

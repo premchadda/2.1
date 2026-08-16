@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
+import { toast } from 'react-hot-toast'
+import { useAuth } from '../../shared/providers/AuthContext'
 import './CurrentAffairsDetail.css'
 
 const CurrentAffairsDetail = () => {
   const { caId } = useParams()
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
 
   const [article, setArticle] = useState(null)
   const [quiz, setQuiz] = useState(null)
@@ -17,11 +21,13 @@ const CurrentAffairsDetail = () => {
   const [showQuiz, setShowQuiz] = useState(false)
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchArticle = async () => {
       try {
-        const response = await api.get(`/api/current-affairs/${caId}`)
+        const response = await api.get(`/api/current-affairs/${caId}`, { signal: controller.signal })
         setArticle(response.data?.data || null)
       } catch (error) {
+        if (api.isCancel(error)) return
         console.error('Error fetching article:', error)
       } finally {
         setLoading(false)
@@ -29,9 +35,15 @@ const CurrentAffairsDetail = () => {
     }
 
     fetchArticle()
+    return () => controller.abort()
   }, [caId])
 
   const fetchQuiz = async () => {
+    if (!isAuthenticated) {
+      toast('Please login to take the quiz', { icon: '🔒' })
+      navigate('/login')
+      return
+    }
     try {
       const response = await api.get(`/api/current-affairs/${caId}/quiz`)
       setQuiz(response.data?.data || null)
@@ -62,7 +74,7 @@ const CurrentAffairsDetail = () => {
       }
     } catch (error) {
       console.error('Error submitting quiz:', error)
-      alert(error.response?.status === 401 ? 'Please login to submit the quiz.' : 'Error submitting quiz')
+      toast.error(error.response?.status === 401 ? 'Please login to submit the quiz.' : 'Error submitting quiz')
     }
   }
 
@@ -84,6 +96,14 @@ const CurrentAffairsDetail = () => {
 
   return (
     <div className="ca-detail-container">
+      <Helmet>
+        <title>{article?.title || 'Current Affairs'} | Trstprep</title>
+        <meta name="description" content={article?.summary || 'Read the latest current affairs on Trstprep.'} />
+        <meta property="og:title" content={`${article?.title || 'Current Affairs'} | Trstprep`} />
+        <meta property="og:description" content={article?.summary || 'Read the latest current affairs on Trstprep.'} />
+        <meta property="og:type" content="article" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       {/* Header */}
       <div className="ca-detail-header">
         <button className="ca-detail-back" onClick={() => navigate('/current-affairs')}>

@@ -1,611 +1,70 @@
 
-> trstprep-frontend@2.0.0 test
+> trstprep-frontend@2.1.0 test
 > vitest run
 
 
 [7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mE:/Tech/Testprep/Trstprep V2.1/apps/frontend[39m
 
 [31mWebSocket server error: Port 24678 is already in use[39m
-[90mstdout[2m | src\shared\lib\dataService.js:46:9[22m[39m
-🔗 API URL: 
-
-[90mstdout[2m | src\shared\lib\dataService.js:46:9[22m[39m
-🔗 API URL: 
-
- [32m✓[39m tests/App.test.jsx [2m ([22m[2m1 test[22m[2m)[22m[90m 134[2mms[22m[39m
+ [32m✓[39m tests/App.test.jsx [2m ([22m[2m1 test[22m[2m)[22m[90m 58[2mms[22m[39m
 [90mstderr[2m | tests/App.test.jsx[2m > [22m[2mApp[2m > [22m[2mrenders without throwing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\node_modules\@react-oauth\google\dist\index.js:46:32)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\@react-oauth\\google\\dist\\index.js:46:32)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
+DOMException [NotSupportedError]: Failed to load script "https://accounts.google.com/gsi/client". JavaScript file loading is disabled.
+    at HTMLScriptElement.#loadScript (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/html-script-element/HTMLScriptElement.js:549:31)
+    at HTMLScriptElement.[connectedToDocument] (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/html-script-element/HTMLScriptElement.js:315:33)
+    at HTMLScriptElement.[connectedToNode] (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/node/Node.js:794:53)
+    at HTMLBodyElement.[appendChild] (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/node/Node.js:413:45)
+    at HTMLBodyElement.[appendChild] (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:1028:62)
+    at HTMLBodyElement.appendChild (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/node/Node.js:306:48)
+    at E:\Tech\Testprep\Trstprep V2.1\node_modules\[4m@react-oauth\google[24m\dist\index.js:37:23
+    at commitHookEffectListMount (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:23189:26)
+    at commitPassiveMountOnFiber (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:24970:11)
+    at commitPassiveMountEffects_complete (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:24930:9)
 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
 
- [32m✓[39m src/__tests__/App.smoke.test.jsx [2m ([22m[2m15 tests[22m[2m)[22m[90m 265[2mms[22m[39m
+[90mstderr[2m | Fetch.onError (file:\E:\Tech\Testprep\Trstprep%20V2.1\node_modules\happy-dom\lib\fetch\Fetch.js:539:41)[22m[39m
+AggregateError: 
+[90m    at internalConnectMultiple (node:net:1134:18)[39m
+[90m    at afterConnectMultiple (node:net:1715:7)[39m {
+  code: [32m'ECONNREFUSED'[39m,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:3000
+    [90m    at createConnectionError (node:net:1678:14)[39m
+    [90m    at afterConnectMultiple (node:net:1708:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'::1'[39m,
+      port: [33m3000[39m
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:3000
+    [90m    at createConnectionError (node:net:1678:14)[39m
+    [90m    at afterConnectMultiple (node:net:1708:16)[39m {
+      errno: [33m-4078[39m,
+      code: [32m'ECONNREFUSED'[39m,
+      syscall: [32m'connect'[39m,
+      address: [32m'127.0.0.1'[39m,
+      port: [33m3000[39m
+    }
+  ]
+}
+
+ [32m✓[39m src/__tests__/App.smoke.test.jsx [2m ([22m[2m15 tests[22m[2m)[22m[90m 100[2mms[22m[39m
 [90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders / (home) without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
 ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
 ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
 
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /login without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /signup without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /about without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /contact without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /exams without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /test-series without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /faq without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /terms without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /privacy without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /search without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /blog without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /leaderboard without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
-}
-
-[90mstderr[2m | src/__tests__/App.smoke.test.jsx[2m > [22m[2mApp route smoke tests[2m > [22m[2mrenders /dashboard (protected) without crashing[22m[39m
-The above error occurred in the <Layout> component:
-
-    at Layout (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\layout\Layout.jsx:12:75)
-    at RenderedRoute (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:539:7)
-    at Routes (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1273:7)
-    at Suspense
-    at MaintenanceMode (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\MaintenanceMode.jsx:7:28)
-    at ErrorBoundary (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\shared\components\common\ErrorBoundary.jsx:9:5)
-    at GoogleOAuthProvider (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\__tests__\App.smoke.test.jsx:3:27)
-    at App (E:\Tech\Testprep\Trstprep V2.1\apps\frontend\src\App.jsx:115:57)
-    at Router (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1207:17)
-    at MemoryRouter (E:\Tech\Testprep\Trstprep V2.1\node_modules\react-router\dist\umd\react-router.development.js:1101:7)
-
-React will try to recreate this component tree from scratch using the error boundary you provided, ErrorBoundary.
-ErrorBoundary caught an error: Error: useAuth must be used within an AuthProvider
-    at useAuth [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\providers\AuthContext.jsx:371:11[90m)[39m
-    at Layout [90m(E:\Tech\Testprep\Trstprep V2.1\apps\frontend\[39msrc\shared\components\layout\Layout.jsx:15:20[90m)[39m
-    at renderWithHooks (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:15486:18)
-    at mountIndeterminateComponent (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:20103:13)
-    at beginWork (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:21626:16)
-    at HTMLUnknownElement.callCallback (E:\Tech\Testprep\Trstprep V2.1\node_modules\[4mreact-dom[24m\cjs\react-dom.development.js:4164:14)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:152:34)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/event/EventTarget.js:92:18)
-    at HTMLUnknownElement.dispatchEvent (file:///E:/Tech/Testprep/Trstprep%20V2.1/node_modules/[4mhappy-dom[24m/lib/nodes/element/Element.js:807:35) {
-  componentStack: [32m'\n'[39m +
-    [32m'    at Layout (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\layout\\Layout.jsx:12:75)\n'[39m +
-    [32m'    at RenderedRoute (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:539:7)\n'[39m +
-    [32m'    at Routes (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1273:7)\n'[39m +
-    [32m'    at Suspense\n'[39m +
-    [32m'    at MaintenanceMode (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\MaintenanceMode.jsx:7:28)\n'[39m +
-    [32m'    at ErrorBoundary (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\shared\\components\\common\\ErrorBoundary.jsx:9:5)\n'[39m +
-    [32m'    at GoogleOAuthProvider (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\__tests__\\App.smoke.test.jsx:3:27)\n'[39m +
-    [32m'    at App (E:\\Tech\\Testprep\\Trstprep V2.1\\apps\\frontend\\src\\App.jsx:115:57)\n'[39m +
-    [32m'    at Router (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1207:17)\n'[39m +
-    [32m'    at MemoryRouter (E:\\Tech\\Testprep\\Trstprep V2.1\\node_modules\\react-router\\dist\\umd\\react-router.development.js:1101:7)'[39m
+[90mstderr[2m | Fetch.onError (file:\E:\Tech\Testprep\Trstprep%20V2.1\node_modules\happy-dom\lib\fetch\Fetch.js:539:41)[22m[39m
+Error: socket hang up
+[90m    at Socket.socketCloseListener (node:_http_client:548:27)[39m
+[90m    at Socket.emit (node:events:520:35)[39m
+[90m    at TCP.<anonymous> (node:net:346:12)[39m {
+  code: [32m'ECONNRESET'[39m
 }
 
 
 [2m Test Files [22m [1m[32m2 passed[39m[22m[90m (2)[39m
 [2m      Tests [22m [1m[32m16 passed[39m[22m[90m (16)[39m
-[2m   Start at [22m 22:08:11
-[2m   Duration [22m 9.08s[2m (transform 1.23s, setup 4.85s, collect 6.28s, tests 399ms, environment 2.72s, prepare 2.52s)[22m
+[2m   Start at [22m 22:15:05
+[2m   Duration [22m 4.43s[2m (transform 679ms, setup 1.68s, collect 3.49s, tests 158ms, environment 2.06s, prepare 666ms)[22m
 

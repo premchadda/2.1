@@ -2,6 +2,72 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Calculator as CalcIcon, X } from 'lucide-react'
 
 /**
+ * Safe arithmetic expression evaluator using the shunting-yard algorithm.
+ * Replaces `Function()` (eval-equivalent) so CSP can drop 'unsafe-eval'.
+ * Supports: +, -, *, /, %, (, ), and decimals.
+ * @param {string} expr - The sanitized expression string.
+ * @returns {number} The result.
+ */
+function safeEvaluate(expr) {
+  const tokens = expr.match(/(\d+\.?\d*|[+\-*/%()])/g)
+  if (!tokens) throw new Error('No tokens')
+
+  const output = []
+  const operators = []
+  const precedence = { '+': 1, '-': 1, '*': 2, '/': 2, '%': 2 }
+
+  for (const token of tokens) {
+    if (/^\d/.test(token)) {
+      output.push(parseFloat(token))
+    } else if (token === '(') {
+      operators.push(token)
+    } else if (token === ')') {
+      while (operators.length > 0 && operators[operators.length - 1] !== '(') {
+        output.push(operators.pop())
+      }
+      if (operators[operators.length - 1] === '(') operators.pop()
+    } else if (precedence[token] !== undefined) {
+      while (
+        operators.length > 0 &&
+        operators[operators.length - 1] !== '(' &&
+        precedence[operators[operators.length - 1]] >= precedence[token]
+      ) {
+        output.push(operators.pop())
+      }
+      operators.push(token)
+    }
+  }
+
+  while (operators.length > 0) {
+    const op = operators.pop()
+    if (op === '(' || op === ')') throw new Error('Mismatched parentheses')
+    output.push(op)
+  }
+
+  const stack = []
+  for (const item of output) {
+    if (typeof item === 'number') {
+      stack.push(item)
+    } else {
+      const b = stack.pop()
+      const a = stack.pop()
+      if (a === undefined || b === undefined) throw new Error('Invalid expression')
+      switch (item) {
+        case '+': stack.push(a + b); break
+        case '-': stack.push(a - b); break
+        case '*': stack.push(a * b); break
+        case '/': stack.push(b === 0 ? NaN : a / b); break
+        case '%': stack.push(a % b); break
+        default: throw new Error(`Unknown operator: ${item}`)
+      }
+    }
+  }
+
+  if (stack.length !== 1) throw new Error('Invalid expression')
+  return stack[0]
+}
+
+/**
  * Lightweight on-screen calculator for the test interface.
  * Supports +, -, *, /, %, decimals, clear, backspace.
  * Opens via a floating button and closes on Escape or the X button.
@@ -9,7 +75,7 @@ import { Calculator as CalcIcon, X } from 'lucide-react'
 export default function Calculator({ isOpen, onToggle }) {
   const [display, setDisplay] = useState('0')
   const [expr, setExpr] = useState('')
-  const inputRef = useRef(null)
+  const _inputRef = useRef(null)
 
   const clear = useCallback(() => {
     setDisplay('0')
@@ -34,8 +100,10 @@ export default function Calculator({ isOpen, onToggle }) {
       if (!expr) return
       const sanitized = expr.replace(/[^0-9+\-*/%.() ]/g, '')
       if (!sanitized) return
-      // eslint-disable-next-line no-new-func
-      const result = Function('"use strict";return (' + sanitized + ')')()
+      // SECURITY: Replaced `Function(...)` (eval-equivalent, requires CSP
+      // 'unsafe-eval') with a safe shunting-yard expression parser. This
+      // allows the CSP to drop 'unsafe-eval' (done in Phase 1.1/1.3).
+      const result = safeEvaluate(sanitized)
       if (result === undefined || result === null || isNaN(result)) return
       const rounded = Math.round(result * 10000) / 10000
       setDisplay(String(rounded))

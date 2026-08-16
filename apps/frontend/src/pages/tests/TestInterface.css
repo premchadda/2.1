@@ -171,7 +171,27 @@
 }
 
 .test-question-btn.answered {
+  background: #064e3b;
   border-color: #10b981;
+  color: #6ee7b7;
+}
+
+.test-question-btn.visited {
+  background: #451a03;
+  border-color: #f97316;
+  color: #fdba74;
+}
+
+.test-question-btn.marked-review {
+  background: #3b0764;
+  border-color: #a855f7;
+  color: #d8b4fe;
+}
+
+.test-question-btn.not-visited {
+  background: #0f172a;
+  border-color: #334155;
+  color: #64748b;
 }
 
 .test-question-mark {
@@ -187,6 +207,41 @@
   align-items: center;
   justify-content: center;
   font-size: 8px;
+}
+
+.test-question-flag {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #a855f7;
+  color: white;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+}
+
+.test-nav-center {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.test-mark-review-btn.active-mark {
+  background: linear-gradient(135deg, #9333ea, #7c3aed);
+  color: white;
+}
+
+.test-clear-btn {
+  background: #991b1b;
+}
+
+.test-clear-btn:hover:not(:disabled) {
+  background: #b91c1c;
+  color: #f1f5f9;
 }
 
 .test-progress {

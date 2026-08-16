@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'react-hot-toast'
 import { adminAPI } from '../../../../shared/lib/dataService'
+import sanitizeHtml from '../../../../shared/lib/sanitizeHtml'
 
 // Custom Checkbox Component supporting Checked, Partial, and Unchecked states
 const CustomCheckbox = ({ state, onChange }) => {
@@ -169,7 +170,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     }
   }
 
-  // Step 2: Bulk Import Selected (Sequentially on the frontend to avoid timeouts)
+  // Step 2: Bulk Import Selected (High-Speed Chunked Concurrent Worker Pool)
   const handleImportSelected = async () => {
     if (selectedIndices.length === 0) {
       toast.error('Please select at least one test to import')
@@ -179,55 +180,90 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     setStep(4)
 
     const total = selectedIndices.length
-    console.log(`[Import Modal] Starting bulk import of ${total} tests... Selected indices:`, selectedIndices)
-    setImportProgress({ current: 0, total, currentTitle: 'Preparing...' })
+    setImportProgress({ current: 0, total, currentTitle: 'Initializing parallel batch import engine...' })
 
     const accumulatedResults = {
       imported: [],
       failed: []
     }
 
-    for (let i = 0; i < total; i++) {
-      const idx = selectedIndices[i]
-      const testObj = tests.find(t => t.index === idx)
-      const testTitle = testObj ? testObj.title : `Test #${idx}`
+    // Chunk selected indices into batches of 5 for optimal DB batching & network efficiency
+    const BATCH_SIZE = 5
+    const chunks = []
+    for (let i = 0; i < selectedIndices.length; i += BATCH_SIZE) {
+      chunks.push(selectedIndices.slice(i, i + BATCH_SIZE))
+    }
 
-      console.log(`[Import Modal] [${i + 1}/${total}] Sending import request for: "${testTitle}" (Index: ${idx})`)
-      setImportProgress({
-        current: i + 1,
-        total,
-        currentTitle: testTitle
-      })
+    let completedCount = 0
+    let nextChunkPointer = 0
+    // Run 3 concurrent worker pipelines
+    const CONCURRENCY = Math.min(3, chunks.length)
 
-      const payload = {
-        indices: [idx],
-        strict,
-        storageMode
+    const executeWithRetry = async (payload, maxRetries = 2) => {
+      let lastError = null
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await adminAPI.importSelectedTests(payload)
+          return res.data?.data || {}
+        } catch (err) {
+          lastError = err
+          if (attempt < maxRetries) {
+            await new Promise(r => setTimeout(r, 600 * (attempt + 1)))
+          }
+        }
       }
-      console.log('[Import Modal] Request payload:', payload)
+      throw lastError
+    }
 
-      try {
-        const res = await adminAPI.importSelectedTests(payload)
-        console.log(`[Import Modal] [${i + 1}/${total}] Response:`, res.data)
-        const resData = res.data.data
-        if (resData.imported && resData.imported.length > 0) {
-          accumulatedResults.imported.push(...resData.imported)
+    const worker = async (workerId) => {
+      while (true) {
+        const chunkIndex = nextChunkPointer++
+        if (chunkIndex >= chunks.length) break
+
+        const chunkIndices = chunks[chunkIndex]
+        const firstIdx = chunkIndices[0]
+        const testObj = tests.find(t => t.index === firstIdx)
+        const chunkLabel = testObj ? testObj.title : `Tests (${chunkIndices.length})`
+
+        const payload = {
+          indices: chunkIndices,
+          strict,
+          storageMode
         }
-        if (resData.failed && resData.failed.length > 0) {
-          accumulatedResults.failed.push(...resData.failed)
+
+        try {
+          const resData = await executeWithRetry(payload)
+          if (resData.imported && resData.imported.length > 0) {
+            accumulatedResults.imported.push(...resData.imported)
+          }
+          if (resData.failed && resData.failed.length > 0) {
+            accumulatedResults.failed.push(...resData.failed)
+          }
+        } catch (error) {
+          console.error(`[Import Modal Worker ${workerId}] Batch failed:`, error)
+          const errorMsg = error.response?.data?.message || error.message || 'Import request failed'
+          chunkIndices.forEach(idx => {
+            const tObj = tests.find(t => t.index === idx)
+            accumulatedResults.failed.push({
+              index: idx,
+              testTitle: tObj ? tObj.title : `Test #${idx}`,
+              error: errorMsg
+            })
+          })
+        } finally {
+          completedCount += chunkIndices.length
+          setImportProgress({
+            current: Math.min(completedCount, total),
+            total,
+            currentTitle: chunkLabel
+          })
         }
-      } catch (error) {
-        console.error(`[Import Modal] [${i + 1}/${total}] Error importing "${testTitle}":`, error)
-        const errorMsg = error.response?.data?.message || error.message || 'Connection error'
-        accumulatedResults.failed.push({
-          index: idx,
-          testTitle,
-          error: errorMsg
-        })
       }
     }
 
-    console.log('[Import Modal] All imports completed. Final results:', accumulatedResults)
+    const workers = Array.from({ length: CONCURRENCY }, (_, i) => worker(i + 1))
+    await Promise.all(workers)
+
     setImportResult(accumulatedResults)
     setImporting(false)
 
@@ -340,12 +376,14 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     setExpandedNodes(next)
   }
 
-  const filteredTests = tests.filter(t => 
-    t.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    (t.pyqYear && String(t.pyqYear).includes(searchQuery)) ||
-    t.categoryId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.subcategory?.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredTests = tests.filter(t => {
+    const q = (searchQuery || '').toLowerCase()
+    const title = (t.title ?? '').toLowerCase()
+    const categoryId = (t.categoryId ?? '').toLowerCase()
+    const subcategory = (t.subcategory ?? '').toLowerCase()
+    const pyqYear = t.pyqYear ? String(t.pyqYear) : ''
+    return title.includes(q) || categoryId.includes(q) || subcategory.includes(q) || pyqYear.includes(q)
+  })
 
   const hierarchyTree = buildHierarchy(filteredTests)
 
@@ -401,7 +439,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     
     // Icon and badge styling based on nodeType
     let icon = isExpanded ? <FolderOpen className="w-4 h-4 text-indigo-500 shrink-0" /> : <Folder className="w-4 h-4 text-indigo-500 shrink-0" />
-    let badgeColor = 'bg-gray-100 text-gray-800 dark:bg-gray-850 dark:text-gray-300'
+    let badgeColor = 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
     let typeLabel = 'Folder'
 
     switch (node.nodeType) {
@@ -430,11 +468,20 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     return (
       <div key={node.key} className="space-y-1">
         <div 
+          role="button"
+          tabIndex={0}
+          aria-expanded={isExpanded}
           onClick={() => toggleNode(node.key)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              toggleNode(node.key)
+            }
+          }}
           style={{ paddingLeft: `${depth * 16}px` }}
           className="flex items-center gap-2 py-1.5 px-3 hover:bg-gray-100/70 dark:hover:bg-gray-800/20 rounded-lg cursor-pointer select-none font-semibold text-gray-800 dark:text-gray-200 text-xs"
         >
-          <span className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-750 rounded transition-colors">
+          <span className="p-0.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors">
             {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
           </span>
           <CustomCheckbox 
@@ -504,7 +551,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Negative Marking</span>
-              <span className="font-semibold text-red-655 dark:text-red-400">-{test.negativeMarking || 0}</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">-{test.negativeMarking || 0}</span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Passing Marks</span>
@@ -519,25 +566,25 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
               <span className="text-gray-400 block mb-1">Show Calculator</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showCalculator ? 'bg-green-50 text-green-705 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showCalculator ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.showCalculator ? 'YES' : 'NO'}
               </span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Show Timer</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showTimer !== false ? 'bg-green-50 text-green-705 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.showTimer !== false ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.showTimer !== false ? 'YES' : 'NO'}
               </span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Allow Bookmarks</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.allowBookmark !== false ? 'bg-green-50 text-green-705 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.allowBookmark !== false ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.allowBookmark !== false ? 'YES' : 'NO'}
               </span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Shuffle Questions</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.shuffleQuestions ? 'bg-green-50 text-green-705 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.shuffleQuestions ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.shuffleQuestions ? 'YES' : 'NO'}
               </span>
             </div>
@@ -550,13 +597,13 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             <div>
               <span className="text-gray-400 block mb-1">Proctoring Enabled</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.proctoringEnabled ? 'bg-red-55 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-805'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.proctoringEnabled ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.proctoringEnabled ? 'YES' : 'NO'}
               </span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Camera Monitoring</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.cameraMonitoring ? 'bg-red-55 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.cameraMonitoring ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.cameraMonitoring ? 'YES' : 'NO'}
               </span>
             </div>
@@ -566,7 +613,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Copy/Paste Disabled</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.copyPasteDisabled ? 'bg-red-55 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-808'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.copyPasteDisabled ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.copyPasteDisabled ? 'YES' : 'NO'}
               </span>
             </div>
@@ -583,13 +630,13 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Leaderboard Enabled</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.leaderboardEnabled !== false ? 'bg-green-55 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.leaderboardEnabled !== false ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.leaderboardEnabled !== false ? 'YES' : 'NO'}
               </span>
             </div>
             <div>
               <span className="text-gray-400 block mb-1">Certificate Enabled</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.certificateEnabled ? 'bg-green-55 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-850'}`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold inline-block ${test.certificateEnabled ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800'}`}>
                 {test.certificateEnabled ? 'YES' : 'NO'}
               </span>
             </div>
@@ -600,7 +647,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4">
           <h4 className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">Section Configurations</h4>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-250 dark:divide-gray-800 text-xs text-left">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-xs text-left">
               <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-500 font-bold uppercase">
                 <tr>
                   <th className="px-4 py-2">Section Name</th>
@@ -656,7 +703,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               </p>
             </div>
           </div>
-          <button type="button" onClick={handleClose} disabled={importing} className="p-2 hover:bg-gray-250 dark:hover:bg-gray-700 rounded-lg transition-colors">
+          <button type="button" onClick={handleClose} disabled={importing} className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
@@ -669,7 +716,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               onClick={() => setActivePreviewTab('details')}
               className={`pb-2 pt-1 text-xs font-bold border-b-2 transition-all focus:outline-none ${
                 activePreviewTab === 'details'
-                  ? 'border-indigo-600 text-indigo-650 dark:text-indigo-400 dark:border-indigo-400'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
@@ -680,7 +727,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               onClick={() => setActivePreviewTab('questions')}
               className={`pb-2 pt-1 text-xs font-bold border-b-2 transition-all focus:outline-none ${
                 activePreviewTab === 'questions'
-                  ? 'border-indigo-600 text-indigo-650 dark:text-indigo-400 dark:border-indigo-400'
+                  ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
@@ -711,7 +758,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     {file ? (
                       <div>
                         <p className="text-base text-gray-800 dark:text-gray-200 font-semibold truncate max-w-md mx-auto">{file.name}</p>
-                        <p className="text-xs text-gray-505 mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
+                        <p className="text-xs text-gray-500 mt-1">{(file.size / (1024 * 1024)).toFixed(2)} MB</p>
                       </div>
                     ) : (
                       <>
@@ -724,7 +771,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               </div>
 
               {/* Strict mode toggle */}
-              <div className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 rounded-xl">
+              <div className="flex items-start gap-3 p-4 bg-amber-50/50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 rounded-xl">
                 <Shield className="w-5 h-5 text-amber-600 dark:text-amber-500 mt-0.5 shrink-0" />
                 <div className="flex-1">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -736,7 +783,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     />
                     <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">Strict taxonomy matching</span>
                   </label>
-                  <p className="text-xs text-amber-700/80 dark:text-amber-350 mt-1 leading-relaxed">
+                  <p className="text-xs text-amber-700/80 dark:text-amber-300 mt-1 leading-relaxed">
                     If checked, the importer will fail if any referenced exam, stage, test series, or subject does not already exist in the database. When unchecked, missing items are auto-created.
                   </p>
                 </div>
@@ -779,7 +826,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
 
               {/* Expected structure hint */}
               <details className="bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-800 rounded-xl">
-                <summary className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer select-none hover:bg-gray-100/50 dark:hover:bg-gray-850 transition-colors rounded-xl">
+                <summary className="px-4 py-3 text-xs font-semibold text-gray-600 dark:text-gray-400 cursor-pointer select-none hover:bg-gray-100/50 dark:hover:bg-gray-800 transition-colors rounded-xl">
                   Expected JSON format details
                 </summary>
                 <div className="px-4 pb-4 pt-2 border-t border-gray-100 dark:border-gray-800">
@@ -824,7 +871,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                       placeholder="Search by title, subcategory..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 pr-4 py-2 w-full border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-850 text-xs text-gray-900 dark:text-white placeholder-gray-450 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="pl-9 pr-4 py-2 w-full border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
                   <div className="text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2.5 py-1.5 rounded-lg shrink-0">
@@ -856,7 +903,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     {schemaValidation.missingFields?.test?.length > 0 ? (
                       <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50 rounded-xl space-y-2.5">
                         <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-4.5 h-4.5 text-red-650 dark:text-red-500 shrink-0" />
+                          <AlertTriangle className="w-4.5 h-4.5 text-red-600 dark:text-red-500 shrink-0" />
                           <h4 className="text-xs font-bold text-red-800 dark:text-red-300">Missing Core Fields</h4>
                         </div>
                         <p className="text-[11px] text-red-700 dark:text-red-400 leading-relaxed">
@@ -864,14 +911,14 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                           {schemaValidation.missingFields.test.map((f, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-350 text-[10px] font-semibold rounded">{f}</span>
+                            <span key={i} className="px-2 py-0.5 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 text-[10px] font-semibold rounded">{f}</span>
                           ))}
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3 bg-green-50 dark:bg-green-955/10 border border-green-200 dark:border-green-900/30 rounded-xl flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-green-650 dark:text-green-500 shrink-0" />
-                        <p className="text-[11px] font-semibold text-green-800 dark:text-green-350">
+                      <div className="p-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-xl flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />
+                        <p className="text-[11px] font-semibold text-green-800 dark:text-green-300">
                           All core test fields are present.
                         </p>
                       </div>
@@ -884,19 +931,19 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           <Info className="w-4.5 h-4.5 text-blue-600 dark:text-blue-500 shrink-0" />
                           <h4 className="text-xs font-bold text-blue-800 dark:text-blue-300">Extra Fields Ignored</h4>
                         </div>
-                        <p className="text-[11px] text-blue-750 dark:text-blue-400 leading-relaxed">
+                        <p className="text-[11px] text-blue-700 dark:text-blue-400 leading-relaxed">
                           These fields are in the JSON but not in the database. They will be ignored:
                         </p>
                         <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
                           {schemaValidation.extraFields.test.map((f, i) => (
-                            <span key={i} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-355 text-[9px] font-medium rounded">{f}</span>
+                            <span key={i} className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 text-[9px] font-medium rounded">{f}</span>
                           ))}
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3 bg-blue-50 dark:bg-blue-955/10 border border-blue-200 dark:border-blue-900/30 rounded-xl flex items-center gap-2">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl flex items-center gap-2">
                         <Info className="w-4 h-4 text-blue-600 dark:text-blue-500 shrink-0" />
-                        <p className="text-[11px] font-semibold text-blue-800 dark:text-blue-355">
+                        <p className="text-[11px] font-semibold text-blue-800 dark:text-blue-300">
                           No extra fields detected in the JSON structure.
                         </p>
                       </div>
@@ -909,8 +956,8 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 )}
 
                 {/* Settings Block */}
-                <div className="bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-850 rounded-xl p-4 space-y-3 mt-auto">
-                  <h4 className="text-[10px] font-bold text-gray-450 dark:text-gray-500 uppercase tracking-wider">Import Settings</h4>
+                <div className="bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-800 rounded-xl p-4 space-y-3 mt-auto">
+                  <h4 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Import Settings</h4>
                   <div className="flex items-start gap-2">
                     <input
                       type="checkbox"
@@ -923,7 +970,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                       Enable Strict Taxonomy matching
                     </label>
                   </div>
-                  <p className="text-[10px] text-gray-550 leading-relaxed">
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
                     If checked, the import will fail if any referenced exam, stage, test series, or subject does not already exist in the database.
                   </p>
                 </div>
@@ -937,7 +984,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               {loadingPreview ? (
                 <div className="flex-1 flex flex-col items-center justify-center gap-2">
                   <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin" />
-                  <p className="text-sm text-gray-505 dark:text-gray-400 font-medium">Loading test structure...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Loading test structure...</p>
                 </div>
               ) : previewTest ? (
                 activePreviewTab === 'details' ? (
@@ -947,8 +994,8 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                   // TAB 2: Sections & Questions
                   <div className="flex-1 flex flex-col md:flex-row overflow-visible md:overflow-hidden min-h-0">
                     {/* Left sidebar - Sections */}
-                    <div className="w-full md:w-56 bg-white dark:bg-gray-905 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto shrink-0">
-                      <h4 className="text-xs font-bold text-gray-450 dark:text-gray-505 uppercase tracking-wider mb-2 hidden md:block">Sections</h4>
+                    <div className="w-full md:w-56 bg-white dark:bg-gray-900 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-y-auto shrink-0">
+                      <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 hidden md:block">Sections</h4>
                       {(previewTest.sections || []).map((sec, sIdx) => (
                         <button
                           key={sIdx}
@@ -956,13 +1003,13 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           onClick={() => setActivePreviewSectionIndex(sIdx)}
                           className={`w-auto md:w-full px-3 py-2.5 text-left text-xs font-semibold rounded-xl flex items-center justify-between gap-3 shrink-0 md:shrink transition-all ${
                             activePreviewSectionIndex === sIdx
-                              ? 'bg-indigo-650 text-white shadow-md shadow-indigo-250 dark:shadow-none'
+                              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 dark:shadow-none'
                               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                           }`}
                         >
                           <span className="truncate pr-2">{sec.name || `Section ${sIdx + 1}`}</span>
                           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                            activePreviewSectionIndex === sIdx ? 'bg-indigo-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-505 dark:text-gray-400'
+                            activePreviewSectionIndex === sIdx ? 'bg-indigo-700 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
                           }`}>
                             {(sec.questions || []).length}
                           </span>
@@ -997,7 +1044,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                           : (typeof q.correct_option_id === 'number' ? q.correct_option_id : -1);
 
                         return (
-                          <div key={q.id || qIdx} className="bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-805 rounded-xl p-5 shadow-sm space-y-4 font-sans">
+                          <div key={q.id || qIdx} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5 shadow-sm space-y-4 font-sans">
                             <div className="flex justify-between items-start gap-4">
                               <span className="px-2.5 py-0.5 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-400 text-xs font-bold rounded-full shrink-0">
                                 Q {qIdx + 1}
@@ -1011,8 +1058,8 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
 
                             {/* Question Text */}
                             <div className="space-y-2">
-                              {qTextEn && <div dangerouslySetInnerHTML={{ __html: qTextEn }} className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-relaxed" />}
-                              {qTextHi && <div dangerouslySetInnerHTML={{ __html: qTextHi }} className="text-sm text-gray-650 dark:text-gray-300 font-medium leading-relaxed border-t border-dashed border-gray-105 dark:border-gray-800 pt-2" />}
+                              {qTextEn && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(qTextEn) }} className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-relaxed" />}
+                              {qTextHi && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(qTextHi) }} className="text-sm text-gray-600 dark:text-gray-300 font-medium leading-relaxed border-t border-dashed border-gray-200 dark:border-gray-800 pt-2" />}
                             </div>
 
                             {/* Options */}
@@ -1024,20 +1071,20 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                                     key={optIdx} 
                                     className={`p-3 rounded-lg border text-xs font-medium flex items-center justify-between gap-3 ${
                                       isCorrect 
-                                        ? 'bg-green-50 dark:bg-green-950/20 border-green-500 text-green-905 dark:text-green-300' 
-                                        : 'bg-gray-50 dark:bg-gray-850 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300'
+                                        ? 'bg-green-50 dark:bg-green-950/20 border-green-500 text-green-900 dark:text-green-300' 
+                                        : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300'
                                     }`}
                                   >
                                     <div>
                                       <span className="font-bold mr-2">{String.fromCharCode(65 + optIdx)}.</span>
-                                      <div dangerouslySetInnerHTML={{ __html: opt }} className="inline-block" />
+                                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(opt) }} className="inline-block" />
                                       {qOptionsHi[optIdx] && (
-                                        <div className="text-[11px] text-gray-400 dark:text-gray-505 mt-1 border-t border-dashed border-gray-100 dark:border-gray-800/60 pt-1">
-                                          <div dangerouslySetInnerHTML={{ __html: qOptionsHi[optIdx] }} />
+                                        <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-1 border-t border-dashed border-gray-100 dark:border-gray-800/60 pt-1">
+                                          <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(qOptionsHi[optIdx]) }} />
                                         </div>
                                       )}
                                     </div>
-                                    {isCorrect && <Check className="w-4 h-4 text-green-600 dark:text-green-555 shrink-0" />}
+                                    {isCorrect && <Check className="w-4 h-4 text-green-600 dark:text-green-500 shrink-0" />}
                                   </div>
                                 )
                               })}
@@ -1045,10 +1092,10 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
 
                             {/* Explanation */}
                             {(qExpEn || qExpHi) && (
-                              <div className="mt-4 p-3.5 bg-gray-55 dark:bg-gray-850 border border-gray-200 dark:border-gray-800 rounded-lg text-xs leading-relaxed">
+                              <div className="mt-4 p-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-800 rounded-lg text-xs leading-relaxed">
                                 <span className="font-bold text-gray-800 dark:text-gray-200 block mb-1">Explanation:</span>
-                                {qExpEn && <div dangerouslySetInnerHTML={{ __html: qExpEn }} className="text-gray-600 dark:text-gray-400" />}
-                                {qExpHi && <div dangerouslySetInnerHTML={{ __html: qExpHi }} className="text-gray-550 dark:text-gray-500 mt-2 border-t border-dashed border-gray-200 dark:border-gray-855 pt-2" />}
+                                {qExpEn && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(qExpEn) }} className="text-gray-600 dark:text-gray-400" />}
+                                {qExpHi && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(qExpHi) }} className="text-gray-500 mt-2 border-t border-dashed border-gray-200 dark:border-gray-800 pt-2" />}
                               </div>
                             )}
                           </div>
@@ -1058,7 +1105,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                   </div>
                 )
               ) : (
-                <div className="flex-1 flex items-center justify-center text-gray-450">
+                <div className="flex-1 flex items-center justify-center text-gray-400">
                   No preview available.
                 </div>
               )}
@@ -1094,19 +1141,41 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 </div>
               ) : importResult ? (
                 <div className="space-y-6">
-                  <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/10 border border-green-200 dark:border-green-900/30 rounded-xl">
-                    <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-550 shrink-0" />
-                    <div>
-                      <h3 className="text-base font-bold text-green-900 dark:text-green-350">Import Completed Successfully</h3>
-                      <p className="text-xs text-green-700 dark:text-green-400/90 mt-0.5">
-                        Processed {importResult.imported?.length + importResult.failed?.length} tests.
-                      </p>
+                  {importResult.failed?.length === 0 ? (
+                    <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/10 border border-green-200 dark:border-green-900/30 rounded-xl">
+                      <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-500 shrink-0" />
+                      <div>
+                        <h3 className="text-base font-bold text-green-900 dark:text-green-300">Import Completed Successfully</h3>
+                        <p className="text-xs text-green-700 dark:text-green-400/90 mt-0.5">
+                          Processed {importResult.imported?.length + importResult.failed?.length} tests.
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : importResult.imported?.length === 0 ? (
+                    <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/10 border border-red-200 dark:border-red-900/30 rounded-xl">
+                      <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-500 shrink-0" />
+                      <div>
+                        <h3 className="text-base font-bold text-red-900 dark:text-red-300">Import Failed — No Tests Imported</h3>
+                        <p className="text-xs text-red-700 dark:text-red-400/90 mt-0.5">
+                          All {importResult.failed?.length} selected test(s) failed. See errors below.
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
+                      <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-500 shrink-0" />
+                      <div>
+                        <h3 className="text-base font-bold text-amber-900 dark:text-amber-300">Import Partially Completed</h3>
+                        <p className="text-xs text-amber-700 dark:text-amber-400/90 mt-0.5">
+                          {importResult.imported?.length} test(s) imported, {importResult.failed?.length} test(s) failed.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {/* Success list */}
-                    <div className="border border-gray-200 dark:border-gray-850 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+                    <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
                       <div className="px-4 py-2.5 bg-green-50/50 dark:bg-green-950/20 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
                         <span className="text-xs font-bold text-green-800 dark:text-green-400">Succeeded ({importResult.imported?.length || 0})</span>
                       </div>
@@ -1128,9 +1197,9 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                     </div>
 
                     {/* Failure list */}
-                    <div className="border border-gray-200 dark:border-gray-850 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+                    <div className="border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
                       <div className="px-4 py-2.5 bg-red-50/50 dark:bg-red-950/20 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
-                        <span className="text-xs font-bold text-red-800 dark:text-red-450">Failed ({importResult.failed?.length || 0})</span>
+                        <span className="text-xs font-bold text-red-800 dark:text-red-400">Failed ({importResult.failed?.length || 0})</span>
                       </div>
                       <div className="p-4 max-h-48 overflow-y-auto space-y-2.5">
                         {importResult.failed?.length === 0 ? (
@@ -1162,7 +1231,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-650 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-semibold transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to List
@@ -1184,7 +1253,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 type="button"
                 onClick={handleUploadAndValidate}
                 disabled={!file || uploading}
-                className="flex items-center gap-2 px-5 py-2 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold shadow-md shadow-indigo-150 dark:shadow-none transition-all"
+                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold shadow-md shadow-indigo-100 dark:shadow-none transition-all"
               >
                 {uploading ? (
                   <>
@@ -1205,7 +1274,7 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
                 type="button"
                 onClick={handleImportSelected}
                 disabled={selectedIndices.length === 0 || importing}
-                className="flex items-center gap-2 px-5 py-2 bg-indigo-650 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold shadow-md shadow-indigo-150 dark:shadow-none transition-all"
+                className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-semibold shadow-md shadow-indigo-100 dark:shadow-none transition-all"
               >
                 <CheckCircle className="w-4 h-4" />
                 Import Selected ({selectedIndices.length}){storageMode === 'json-file' ? ' → JSON' : ''}

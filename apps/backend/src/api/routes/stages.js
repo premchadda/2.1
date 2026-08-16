@@ -2,6 +2,7 @@ import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import Stage from '../../data/models/Stage.js'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 // FIX BUG-018: Use JSON arrays instead of PostgreSQL array format
 const parseExamIds = (value) => {
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
     const stages = await Stage.findActive()
     res.json({ success: true, data: stages })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -39,7 +40,7 @@ router.get('/with-categories', async (req, res) => {
     const stages = await Stage.getStagesWithCategories()
     res.json({ success: true, data: stages })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -51,7 +52,7 @@ router.get('/with-test-counts', async (req, res) => {
     const stages = await Stage.getStagesWithTestCounts()
     res.json({ success: true, data: stages })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -66,7 +67,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ success: true, data: stage })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -81,7 +82,7 @@ router.get('/slug/:slug', async (req, res) => {
     }
     res.json({ success: true, data: stage })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -98,7 +99,7 @@ router.get('/:id/categories', async (req, res) => {
     const categories = all.filter((cat) => Stage.categoryLinkedToStage(cat, stage))
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -134,7 +135,7 @@ router.get('/:id/categories/tree', async (req, res) => {
     const tree = buildTree(categories)
     res.json({ success: true, data: tree })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -155,7 +156,7 @@ router.get('/:id/tests', async (req, res) => {
 
     res.json({ success: true, count: agg.linkedTests.length, data: agg.linkedTests })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -231,7 +232,7 @@ router.get('/:id/details', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -331,7 +332,7 @@ router.post('/initialize', protect, admin, async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to initialize stages:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -371,7 +372,7 @@ router.post('/', protect, admin, async (req, res) => {
     
     res.status(201).json({ success: true, data: stage })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -443,7 +444,7 @@ router.put('/:id', protect, admin, async (req, res) => {
     
     res.json({ success: true, data: stage })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -513,7 +514,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
     await Stage.softDelete(req.params.id, req.user.id)
     res.json({ success: true, message: 'Stage deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -541,7 +542,7 @@ router.put('/:id/reorder', protect, admin, async (req, res) => {
     
     res.json({ success: true, message: 'Stage order updated' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -593,7 +594,7 @@ router.post('/sync-exam-ids', protect, admin, async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to sync exam stage_ids:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -699,7 +700,7 @@ router.post('/update-exam-ids', protect, admin, async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to update exam IDs:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -810,7 +811,7 @@ router.post('/sync-all', protect, admin, async (req, res) => {
     })
   } catch (error) {
     console.error('Failed to sync all:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

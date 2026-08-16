@@ -13,6 +13,7 @@
 import { useState, useEffect } from 'react'
 import ComingSoon from './ComingSoon'
 import { isPageComingSoon, getComingSoonConfig } from '../../config/comingSoonConfig'
+import { useAuth } from '../../providers/AuthContext'
 
 export default function PageComingSoon({ pageKey, children, fallback }) {
   const [showComingSoon, setShowComingSoon] = useState(false)
@@ -58,15 +59,10 @@ export default function PageComingSoon({ pageKey, children, fallback }) {
     }
   }, [pageKey])
 
-  // Check if user is admin (admins can see all pages)
-  const userStr = localStorage.getItem('trstprep_user')
-  let isAdmin = false
-  try {
-    const user = userStr ? JSON.parse(userStr) : null
-    isAdmin = user?.role === 'admin'
-  } catch (e) {
-    // ignore
-  }
+  // Check if user is admin via AuthContext (replaces dead localStorage check
+  // that read `trstprep_user` — a key the modern auth flow never writes).
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'admin'
 
   // Admin override: Check if admin wants to see real content
   const adminOverride = localStorage.getItem(`override_${pageKey}`)
@@ -95,19 +91,4 @@ export default function PageComingSoon({ pageKey, children, fallback }) {
     />
   )
 }
-
-/**
- * HOC to wrap a component with Coming Soon functionality
- * 
- * Usage:
- * export default withComingSoon(MyComponent, 'liveTests')
- */
-export function withComingSoon(Component, pageKey) {
-  return function WrappedComponent(props) {
-    return (
-      <PageComingSoon pageKey={pageKey}>
-        <Component {...props} />
-      </PageComingSoon>
-    )
-  }
-}
+

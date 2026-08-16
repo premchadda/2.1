@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { Bell, Trash2, Check, CheckCheck, Filter, Clock, BookOpen, Trophy, Gift, AlertCircle, AlertTriangle } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
 import {
@@ -18,14 +19,16 @@ export default function Notifications() {
   const [filter, setFilter] = useState('all') // all, unread, read
 
   useEffect(() => {
+    const controller = new AbortController()
     if (user) {
-      fetchNotifications()
+      fetchNotifications(controller.signal)
     } else {
       setLoading(false)
     }
-  }, [user])
+    return () => controller.abort()
+  }, [filter, user])
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (signal) => {
     try {
       setLoading(true)
       setError(null)
@@ -36,22 +39,17 @@ export default function Notifications() {
       }
       
       const response = await getNotifications(params)
-      setNotifications(response.data || [])
+      if (signal?.aborted) return
+      setNotifications(response.data?.data || [])
     } catch (err) {
+      if (signal?.aborted) return
       console.error('Failed to fetch notifications:', err)
       setError('Failed to load notifications. Please try again.')
       setNotifications([])
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
-
-  // Refetch when filter changes
-  useEffect(() => {
-    if (user && filter !== 'read') {
-      fetchNotifications()
-    }
-  }, [filter, user])
 
   const markAsRead = async (id) => {
     try {
@@ -61,6 +59,7 @@ export default function Notifications() {
       )
     } catch (err) {
       console.error('Failed to mark as read:', err)
+      toast.error('Failed to update notification')
     }
   }
 
@@ -70,6 +69,7 @@ export default function Notifications() {
       setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })))
     } catch (err) {
       console.error('Failed to mark all as read:', err)
+      toast.error('Failed to mark all as read')
     }
   }
 
@@ -79,6 +79,7 @@ export default function Notifications() {
       setNotifications(prev => prev.filter(n => n._id !== id && n.id !== id))
     } catch (err) {
       console.error('Failed to delete notification:', err)
+      toast.error('Failed to delete notification')
     }
   }
 
@@ -89,6 +90,7 @@ export default function Notifications() {
         setNotifications([])
       } catch (err) {
         console.error('Failed to clear notifications:', err)
+        toast.error('Failed to clear notifications')
       }
     }
   }

@@ -1,6 +1,7 @@
 import express from 'express'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import { findEntityByIdentifier } from '../../shared/utils/identifier-utils.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -63,7 +64,7 @@ router.get('/', async (req, res) => {
     console.error('Error fetching exam seasons:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -105,7 +106,7 @@ router.get('/:id', async (req, res) => {
     console.error('Error fetching exam season:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -147,7 +148,7 @@ router.get('/slug/:slug', async (req, res) => {
     console.error('Error fetching exam season by slug:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -181,7 +182,7 @@ router.get('/exam/:examId', async (req, res) => {
     console.error('Error fetching exam seasons:', error)
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

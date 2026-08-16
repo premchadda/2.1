@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Lock, CheckCircle, AlertCircle } from 'lucide-react'
 import api from '../../shared/lib/api'
@@ -6,13 +6,31 @@ import api from '../../shared/lib/api'
 export default function ResetPassword() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const token = searchParams.get('token') || ''
+  const [token, setToken] = useState(searchParams.get('token') || '')
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const navigateTimerRef = useRef(null)
+  const submittingRef = useRef(false)
+
+  useEffect(() => {
+    // R1 FIX: read token once, then strip it from the URL so it doesn't
+    // linger in history, referrer headers, or analytics logs.
+    const currentToken = searchParams.get('token')
+    if (currentToken) {
+      setToken(currentToken)
+      navigate(window.location.pathname, { replace: true })
+    }
+  }, [searchParams, navigate])
+
+  useEffect(() => {
+    return () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    }
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -33,15 +51,21 @@ export default function ResetPassword() {
       return
     }
 
+    if (submittingRef.current) return
+    submittingRef.current = true
+
     try {
       setLoading(true)
       await api.post('/api/auth/reset-password', { token, newPassword: password })
       setSuccess(true)
-      setTimeout(() => navigate('/login'), 2000)
+      setPassword('')
+      setConfirmPassword('')
+      navigateTimerRef.current = setTimeout(() => navigate('/login'), 2000)
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reset password.')
     } finally {
       setLoading(false)
+      submittingRef.current = false
     }
   }
 

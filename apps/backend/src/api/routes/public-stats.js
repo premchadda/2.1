@@ -1,10 +1,12 @@
 import express from 'express';
 import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
+import { responseCache } from '../../middleware/responseCache.middleware.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
 // @route   GET /api/public-stats
-router.get('/', async (req, res) => {
+router.get('/', responseCache("public-stats", 120), async (req, res) => {
   try {
     const userCount = await dbHelpers.count('users');
     const testSeriesCount = await dbHelpers.count('testSeries');
@@ -63,7 +65,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Get public stats error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

@@ -13,6 +13,7 @@ const __dirname = dirname(__filename)
 const MAX_FILE_SIZE_IMAGE = 10 * 1024 * 1024  // 10MB for images
 const MAX_FILE_SIZE_PDF = 50 * 1024 * 1024    // 50MB for PDFs
 const MAX_FILE_SIZE_VIDEO = 100 * 1024 * 1024 // 100MB for videos (reduced from 500MB)
+const DEFAULT_MAX_SIZE = 10 * 1024 * 1024 // 10MB default for non-video routes
 
 // Allowed file extensions (additional validation beyond MIME type)
 const ALLOWED_EXTENSIONS = {
@@ -30,26 +31,28 @@ const FILE_SIGNATURES = {
   'application/pdf': [0x25, 0x50, 0x44, 0x46], // %PDF
 }
 
-// Create upload directories function
-function ensureUploadDirs() {
+let resolvedDirs = null;
+
+// Create upload directories function asynchronously and lazily
+async function ensureUploadDirs() {
+  if (resolvedDirs) return resolvedDirs;
+
   const uploadsDir = path.join(__dirname, '../../uploads')
   const videosDir = path.join(uploadsDir, 'videos')
   const pdfsDir = path.join(uploadsDir, 'pdfs')
   const imagesDir = path.join(uploadsDir, 'images')
   const docsDir = path.join(uploadsDir, 'docs')
   
-  const dirs = [uploadsDir, videosDir, pdfsDir, imagesDir, docsDir]
-  dirs.forEach(dir => {
+  const dirsList = [uploadsDir, videosDir, pdfsDir, imagesDir, docsDir]
+  for (const dir of dirsList) {
     if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
+      await fs.promises.mkdir(dir, { recursive: true })
     }
-  })
+  }
   
-  return { uploadsDir, videosDir, pdfsDir, imagesDir, docsDir }
+  resolvedDirs = { uploadsDir, videosDir, pdfsDir, imagesDir, docsDir }
+  return resolvedDirs
 }
-
-// Ensure directories exist
-const dirs = ensureUploadDirs()
 
 // Generate secure random filename using UUID
 const generateSecureFilename = (originalExt) => {
@@ -94,21 +97,26 @@ const getMaxFileSize = (mimetype) => {
 
 // Storage configuration
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    let uploadPath = dirs.uploadsDir
-    
-    // Determine destination based on file type
-    if (file.mimetype.startsWith('video/')) {
-      uploadPath = dirs.videosDir
-    } else if (file.mimetype === 'application/pdf') {
-      uploadPath = dirs.pdfsDir
-    } else if (file.mimetype.startsWith('image/')) {
-      uploadPath = dirs.imagesDir
-    } else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) {
-      uploadPath = dirs.docsDir
+  destination: async (req, file, cb) => {
+    try {
+      const dirs = await ensureUploadDirs()
+      let uploadPath = dirs.uploadsDir
+      
+      // Determine destination based on file type
+      if (file.mimetype.startsWith('video/')) {
+        uploadPath = dirs.videosDir
+      } else if (file.mimetype === 'application/pdf') {
+        uploadPath = dirs.pdfsDir
+      } else if (file.mimetype.startsWith('image/')) {
+        uploadPath = dirs.imagesDir
+      } else if (['application/json', 'text/csv'].includes(file.mimetype) || file.mimetype.includes('spreadsheet')) {
+        uploadPath = dirs.docsDir
+      }
+      
+      cb(null, uploadPath)
+    } catch (err) {
+      cb(err)
     }
-    
-    cb(null, uploadPath)
   },
   filename: (req, file, cb) => {
     // ===== SECURITY: Use UUID-based filenames (Issue #5) =====
@@ -180,7 +188,7 @@ export const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: MAX_FILE_SIZE_VIDEO, // Max limit (individual routes can set lower)
+    fileSize: DEFAULT_MAX_SIZE, // 10MB default; video routes override to MAX_FILE_SIZE_VIDEO
     files: 5, // Limit number of files per request
   }
 })
@@ -196,8 +204,17 @@ export const memoryUpload = multer({
 })
 
 // Create upload middleware with specific file size limit
+// fileType can be a MIME type (e.g. 'application/pdf') or a category (e.g. 'image', 'video')
 export const createUploadMiddleware = (fileType) => {
-  const maxSize = getMaxFileSize(fileType + '/')
+  // If already a full MIME type, use it directly; otherwise append '/' for category matching
+  const mimeLookup = {
+    image: 'image/jpeg',
+    pdf: 'application/pdf',
+    video: 'video/mp4',
+    document: 'application/json',
+  }
+  const mimeType = mimeLookup[fileType] || (fileType.includes('/') ? fileType : fileType + '/')
+  const maxSize = getMaxFileSize(mimeType)
   return multer({
     storage,
     fileFilter,
@@ -210,7 +227,8 @@ export const createUploadMiddleware = (fileType) => {
 
 // Helper to get file URL
 export const getFileUrl = (filename, type) => {
-  const baseUrl = process.env.BASE_URL || 'http://localhost:5001'
+  const isHttps = process.env.ENFORCE_HTTPS === 'true'
+  const baseUrl = process.env.BASE_URL || `${isHttps ? 'https' : 'http'}://localhost:5001`
   return `${baseUrl}/uploads/${type}/${filename}`
 }
 

@@ -17,8 +17,7 @@ async function checkUser() {
 
     const user = result.rows[0]
     console.log('User found:', { id: user.id, email: user.email, role: user.role, isActive: user.is_active })
-    // Password hash is stored in password_hash column
-    console.log('Password hash:', user.password_hash)
+    // M43: never log password_hash — use it only for verification below
 
     // Test password - use env var if set, otherwise the default seed-generated one will vary
     const testPassword = process.env.ADMIN_DEFAULT_PASSWORD || 'NOTE: If not set, admin password was randomly generated during seed. Check seed logs.'

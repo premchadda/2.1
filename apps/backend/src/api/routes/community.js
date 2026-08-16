@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin, optionalAuth } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -51,7 +52,7 @@ router.get('/groups', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -68,7 +69,7 @@ router.get('/groups/:id', async (req, res) => {
 
     res.json({ success: true, data: group })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -109,7 +110,7 @@ router.post('/groups', protect, async (req, res) => {
       message: 'Community group created successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -148,7 +149,7 @@ router.put('/groups/:id', protect, async (req, res) => {
       message: 'Group updated successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -166,7 +167,7 @@ router.delete('/groups/:id', protect, admin, async (req, res) => {
     
     res.json({ success: true, message: 'Group deleted successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -198,7 +199,7 @@ router.post('/groups/:id/join', protect, async (req, res) => {
 
     res.json({ success: true, message: 'Joined group successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -238,7 +239,7 @@ router.post('/groups/:id/leave', protect, async (req, res) => {
 
     res.json({ success: true, message: 'Left group successfully' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -296,7 +297,7 @@ router.get('/groups/:id/posts', optionalAuth, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -343,7 +344,7 @@ router.post('/groups/:id/posts', protect, async (req, res) => {
       message: 'Post created successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -361,7 +362,7 @@ router.get('/posts/:postId/comments', async (req, res) => {
     
     res.json({ success: true, data: comments })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -395,7 +396,7 @@ router.post('/posts/:postId/comments', protect, async (req, res) => {
 
     res.status(201).json({ success: true, data: comment })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -449,7 +450,7 @@ router.post('/posts/:postId/vote', protect, async (req, res) => {
       message: 'Vote recorded' 
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Users, RefreshCw, Loader, Monitor, Smartphone, Tablet,
   Globe, Clock, Shield, Search, Trash2, LogOut, AlertTriangle,
   ChevronDown, ChevronUp, Wifi, AlertCircle
 } from 'lucide-react'
 import { adminAPI } from '../../../shared/lib/dataService'
+import { useAdminSessions, useAdminSessionStats } from '../../../shared/hooks/useAdminQueries'
 import { useWebSocket } from '../../../shared/hooks/useWebSocket'
 import { toast } from 'react-hot-toast'
+import { useConfirm } from '../../../shared/components/common/ConfirmModal'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const timeAgo = (dateStr) => {
@@ -31,12 +34,12 @@ const DeviceIcon = ({ type }) => {
 
 const DeviceBadge = ({ type }) => {
   const colors = {
-    Mobile:  'bg-blue-100 text-blue-700',
-    mobile:  'bg-blue-100 text-blue-700',
-    Tablet:  'bg-purple-100 text-purple-700',
-    tablet:  'bg-purple-100 text-purple-700',
-    Desktop: 'bg-gray-100 text-gray-700',
-    desktop: 'bg-gray-100 text-gray-700',
+    Mobile:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    mobile:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    Tablet:  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    tablet:  'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+    Desktop: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    desktop: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
   }
   return (
     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[type] || colors.Desktop}`}>
@@ -47,123 +50,88 @@ const DeviceBadge = ({ type }) => {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ActiveSessionsManager() {
-  const [sessions, setSessions]   = useState([])
-  const [stats, setStats]         = useState(null)
-  const [loading, setLoading]     = useState(true)
-  const [statsLoading, setStatsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [revoking, setRevoking]   = useState(null)
+  const [revokingSession, setRevokingSession] = useState(null)
+  const [revokingUser, setRevokingUser]   = useState(null)
   const [expanded, setExpanded]   = useState(null)
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const { confirm, ConfirmDialog } = useConfirm()
+  const queryClient = useQueryClient()
 
   // V2.1: WebSocket real-time integration
   const { isConnected: wsConnected, on, emit } = useWebSocket(true)
 
   // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchTerm), 400)
+    const t = setTimeout(() => setDebouncedSearch(searchTerm), 300)
     return () => clearTimeout(t)
   }, [searchTerm])
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true)
-    try {
-      const params = {}
-      if (debouncedSearch) params.search = debouncedSearch
-      const res = await adminAPI.apiClient.get('/admin/sessions', { params })
-      setSessions(res.data?.data?.sessions || res.data?.data || [])
-    } catch (err) {
-      console.error('Sessions fetch:', err)
-      toast.error('Failed to load sessions')
-    } finally {
-      setLoading(false)
-    }
-  }, [debouncedSearch])
+  const {
+    data: sessions = [],
+    isLoading: loading,
+    error: sessionsError,
+    refetch: refetchSessions
+  } = useAdminSessions(debouncedSearch)
 
-  const fetchStats = useCallback(async () => {
-    setStatsLoading(true)
-    try {
-      const res = await adminAPI.apiClient.get('/admin/sessions/stats')
-      setStats(res.data?.data)
-    } catch (err) {
-      console.error('Stats fetch:', err)
-    } finally {
-      setStatsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchSessions(); fetchStats() }, [fetchSessions, fetchStats])
+  const {
+    data: stats,
+    isLoading: statsLoading,
+    refetch: refetchStats
+  } = useAdminSessionStats()
 
   // V2.1: WebSocket subscription and event listeners for real-time updates
   useEffect(() => {
     if (wsConnected) {
-      emit('admin:sessions:subscribe', (response) => {
-        if (response?.success) {
-          console.log('Subscribed to sessions updates')
-        }
-      })
+      emit('admin:sessions:subscribe', () => {})
     }
 
     const unsubscribeCreated = on('session:created', (data) => {
-      setSessions(prev => {
-        if (prev.some(s => s.id === data.sessionId || s.session_id === data.sessionId)) return prev
-        return [data, ...prev]
-      })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions', 'stats'] })
       toast.success(`New session: ${data.userName || data.userId}`)
-      fetchStats()
-    })
-
-    const unsubscribeUpdated = on('session:updated', (data) => {
-      setSessions(prev => prev.map(s =>
-        (s.id === data.sessionId || s.session_id === data.sessionId)
-          ? { ...s, lastActive: data.lastActive, last_active: data.lastActive, ...data }
-          : s
-      ))
     })
 
     const unsubscribeRevoked = on('session:revoked', (data) => {
-      setSessions(prev => prev.filter(s =>
-        s.id !== data.sessionId && s.session_id !== data.sessionId
-      ))
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions', 'stats'] })
       toast.info(`Session revoked for user ${data.userId}`)
-      fetchStats()
     })
 
     return () => {
       unsubscribeCreated()
-      unsubscribeUpdated()
       unsubscribeRevoked()
       emit('admin:sessions:unsubscribe')
     }
-  }, [wsConnected, emit, on, fetchStats])
+  }, [wsConnected, emit, on, queryClient])
 
   const handleRevoke = async (sessionId) => {
-    if (!window.confirm('Revoke this session? The user will be logged out immediately.')) return
-    setRevoking(sessionId)
+    const confirmed = await confirm({ title: 'Confirm', message: 'Revoke this session? The user will be logged out immediately.' })
+    if (!confirmed) return
+    setRevokingSession(sessionId)
     try {
       await adminAPI.apiClient.delete(`/admin/sessions/${sessionId}`)
       toast.success('Session revoked')
-      setSessions(prev => prev.filter(s => s.id !== sessionId && s.session_id !== sessionId))
-      fetchStats()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions'] })
     } catch {
       toast.error('Failed to revoke session')
     } finally {
-      setRevoking(null)
+      setRevokingSession(null)
     }
   }
 
   const handleRevokeAll = async (userId, userName) => {
-    if (!window.confirm(`Revoke ALL sessions for ${userName || 'this user'}? They will be fully logged out.`)) return
-    setRevoking(userId)
+    const confirmed = await confirm({ title: 'Confirm', message: `Revoke ALL sessions for ${userName || 'this user'}? They will be fully logged out.` })
+    if (!confirmed) return
+    setRevokingUser(userId)
     try {
       await adminAPI.apiClient.delete(`/admin/users/${userId}/sessions`)
       toast.success(`All sessions for ${userName || 'user'} revoked`)
-      setSessions(prev => prev.filter(s => s.userId !== userId && s.user_id !== userId))
-      fetchStats()
+      queryClient.invalidateQueries({ queryKey: ['admin', 'sessions'] })
     } catch {
       toast.error('Failed to revoke sessions')
     } finally {
-      setRevoking(null)
+      setRevokingUser(null)
     }
   }
 
@@ -187,9 +155,9 @@ export default function ActiveSessionsManager() {
           </p>
         </div>
         <button
-          onClick={() => { fetchSessions(); fetchStats() }}
+          onClick={() => { refetchSessions(); refetchStats() }}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors disabled:opacity-50"
+          className="flex items-center gap-2 px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -267,8 +235,8 @@ export default function ActiveSessionsManager() {
               const browser  = (di.browser && di.browser.toLowerCase() !== 'unknown' ? di.browser : null) || (session.browser && session.browser.toLowerCase() !== 'unknown' ? session.browser : null) || 'Unknown Browser'
               const os       = (di.os && di.os.toLowerCase() !== 'unknown' ? di.os : null) || (session.os && session.os.toLowerCase() !== 'unknown' ? session.os : null) || 'Unknown OS'
               const devType  = di.type    || session.device_type || 'Desktop'
-              const isExp    = expanded === (session.id || session.session_id)
-              const sessionId = session.id || session.session_id
+              const sessionId = session.sessionId || session.session_id || session.id
+              const isExp    = expanded === sessionId
               const userId    = session.userId || session.user_id
               const userName  = session.userName || session.user_name || 'Unknown User'
               const userEmail = session.userEmail || session.user_email || ''
@@ -330,21 +298,21 @@ export default function ActiveSessionsManager() {
                       </button>
                       <button
                         onClick={() => handleRevoke(sessionId)}
-                        disabled={revoking === sessionId}
+                        disabled={revokingSession === sessionId}
                         className="p-1.5 rounded-lg text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors disabled:opacity-40"
                         title="Revoke this session"
                       >
-                        {revoking === sessionId
+                        {revokingSession === sessionId
                           ? <Loader className="w-4 h-4 animate-spin" />
                           : <Trash2 className="w-4 h-4" />}
                       </button>
                       <button
                         onClick={() => handleRevokeAll(userId, userName)}
-                        disabled={revoking === userId}
+                        disabled={revokingUser === userId}
                         className="p-1.5 rounded-lg text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 hover:text-orange-600 transition-colors disabled:opacity-40"
                         title="Revoke ALL sessions for this user"
                       >
-                        {revoking === userId
+                        {revokingUser === userId
                           ? <Loader className="w-4 h-4 animate-spin" />
                           : <LogOut className="w-4 h-4" />}
                       </button>
@@ -406,6 +374,7 @@ export default function ActiveSessionsManager() {
           <span className="text-sm font-medium">Real-time updates unavailable</span>
         </div>
       )}
+      {ConfirmDialog}
     </div>
   )
 }

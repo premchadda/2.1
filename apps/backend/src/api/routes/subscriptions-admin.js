@@ -12,7 +12,7 @@ router.use(admin)
 router.get('/admin/plans', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM subscription_plans ORDER BY sort_order`
+      `SELECT id, plan_id, name, price, original_price, period, features, button_text, button_class, popular, savings, is_active, sort_order, created_at, updated_at, is_deleted, deleted_at, deleted_by FROM subscription_plans ORDER BY sort_order`
     )
     res.json({ plans: result.rows })
   } catch (error) {
@@ -73,7 +73,7 @@ router.delete('/admin/plans/:planId', async (req, res) => {
 router.get('/admin/features', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT * FROM subscription_features ORDER BY plan_type, feature_key`
+      `SELECT id, plan_type, feature_key, feature_name, is_enabled, limit_value, created_at, updated_at FROM subscription_features ORDER BY plan_type, feature_key`
     )
     
     // Group by plan_type
@@ -186,7 +186,15 @@ router.get('/admin/subscriptions', async (req, res) => {
     )
     
     const result = await pool.query(
-      `SELECT s.*, u.name, u.email 
+      `SELECT s.*,
+              CASE s.plan_type
+                WHEN 'pro_monthly' THEN 'Pro Monthly'
+                WHEN 'pro_yearly' THEN 'Pro Yearly'
+                WHEN 'pro_lifetime' THEN 'Pro Lifetime'
+                WHEN 'trial' THEN 'Trial'
+                ELSE 'Free'
+              END AS plan_name,
+              u.name, u.email 
        FROM subscriptions s
        JOIN users u ON u.id = s.user_id
        WHERE s.status = $1

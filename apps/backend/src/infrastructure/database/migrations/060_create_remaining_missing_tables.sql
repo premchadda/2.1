@@ -169,6 +169,10 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 
 -- ============================================================
 -- app_settings (for Coming Soon config and site-wide settings)
+-- Migration 046 created this as a singleton-row table without
+-- a `key` column.  Add `key`, `value`, `description` if missing
+-- so both the 046 singleton pattern and the 060 key/value
+-- pattern can coexist until 068 consolidates them.
 -- ============================================================
 CREATE TABLE IF NOT EXISTS app_settings (
     id SERIAL PRIMARY KEY,
@@ -179,6 +183,18 @@ CREATE TABLE IF NOT EXISTS app_settings (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'app_settings' AND column_name = 'key'
+  ) THEN
+    ALTER TABLE app_settings ADD COLUMN key VARCHAR(255) UNIQUE;
+    ALTER TABLE app_settings ADD COLUMN value JSONB;
+    ALTER TABLE app_settings ADD COLUMN description TEXT;
+  END IF;
+END $$;
 
 -- ============================================================
 -- ai_api_usage (referenced by vectorSearch.service.js and AI modules)
@@ -215,18 +231,41 @@ CREATE TABLE IF NOT EXISTS navigation_menu (
 
 -- ============================================================
 -- Insert default settings for Coming Soon features
+-- (only if key/value columns exist)
 -- ============================================================
-INSERT INTO app_settings (key, value, description) VALUES
-('coming_soon_features', '{"features":[],"globalMessage":null}', 'Coming soon feature toggles')
-ON CONFLICT (key) DO NOTHING;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'app_settings' AND column_name = 'key'
+  ) THEN
+    INSERT INTO app_settings (key, value, description)
+    VALUES ('coming_soon_features', '{"features":[],"globalMessage":null}', 'Coming soon feature toggles')
+    ON CONFLICT (key) DO NOTHING;
+  END IF;
+END $$;
 
 -- Add indexes for frequently queried columns
 CREATE INDEX IF NOT EXISTS idx_exam_seasons_exam_id ON exam_seasons(exam_id);
 CREATE INDEX IF NOT EXISTS idx_exam_seasons_active ON exam_seasons(is_active);
 CREATE INDEX IF NOT EXISTS idx_coupons_code ON coupons(code);
 CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons(is_active) WHERE is_active = true;
-CREATE INDEX IF NOT EXISTS idx_discussions_author ON discussions(author_id);
-CREATE INDEX IF NOT EXISTS idx_discussions_category ON discussions(category);
+
+-- Guard index creates for tables where the 046 schema differs from 060's
+-- (column names: discussions uses user_id, study_groups uses owner_id, etc.)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'discussions' AND column_name = 'author_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_discussions_author ON discussions(author_id);
+  ELSIF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'discussions' AND column_name = 'user_id') THEN
+    CREATE INDEX IF NOT EXISTS idx_discussions_author ON discussions(user_id);
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'discussions' AND column_name = 'category') THEN
+    CREATE INDEX IF NOT EXISTS idx_discussions_category ON discussions(category);
+  END IF;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_study_groups_exam ON study_groups(exam_id);
 CREATE INDEX IF NOT EXISTS idx_study_group_members_group ON study_group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_study_group_messages_group ON study_group_messages(group_id);

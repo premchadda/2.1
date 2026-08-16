@@ -1,6 +1,34 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Settings, ExternalLink, Shield, Lock, Info, AlertTriangle } from 'lucide-react'
+import { X, Play, Pause, Volume2, VolumeX, Maximize, Minimize, SkipBack, SkipForward, Settings, ExternalLink, Shield, Lock, Info, AlertTriangle, EyeOff } from 'lucide-react'
 import api from '../../lib/api'
+import { useAuth } from '../../providers/AuthContext'
+import videoTelemetry from '../../lib/telemetry/videoTelemetry'
+
+// Dynamic Floating Anti-Piracy Watermark
+function DynamicWatermark({ user }) {
+  const [pos, setPos] = useState({ top: '20%', left: '25%' })
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const top = Math.floor(Math.random() * 65 + 10) + '%'
+      const left = Math.floor(Math.random() * 65 + 10) + '%'
+      setPos({ top, left })
+    }, 7000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const label = user?.email || user?.name || (user?.id ? `UID: ${user.id}` : 'Trstprep Secured')
+
+  return (
+    <div
+      className="pointer-events-none select-none absolute z-30 transform -rotate-12 transition-all duration-1000 ease-in-out font-mono font-bold text-[10px] sm:text-xs text-white/20 tracking-wider flex flex-col items-center drop-shadow-sm"
+      style={{ top: pos.top, left: pos.left }}
+    >
+      <span>{label}</span>
+      <span className="text-[8px] opacity-70">AES-256 Protected</span>
+    </div>
+  )
+}
 
 // Detect if a URL is an embeddable hosted video (YouTube, Vimeo, Google Drive)
 function getEmbedInfo(url) {
@@ -39,7 +67,7 @@ function getEmbedInfo(url) {
 }
 
 // FortSpy encrypted video player using canvas + MJPEG stream
-function FortSpyPlayer({ videoData, isPlaying, onPlayPause, onError }) {
+function FortSpyPlayer({ videoData, isPlaying, _onPlayPause, onError }) {
   const canvasRef = useRef(null)
   const streamRef = useRef(null)
   const [streamUrl, setStreamUrl] = useState(null)
@@ -103,7 +131,7 @@ function FortSpyPlayer({ videoData, isPlaying, onPlayPause, onError }) {
     }
 
     // MJPEG stream - update image source on each frame
-    const updateFrame = () => {
+    const _updateFrame = () => {
       if (streamUrl) {
         img.src = streamUrl + '&t=' + Date.now()
       }
@@ -187,7 +215,8 @@ function FortSpyPlayer({ videoData, isPlaying, onPlayPause, onError }) {
   )
 }
 
-export default function VideoPlayer({ isOpen, onClose, videoData }) {
+export default function VideoPlayer({ isOpen, onClose, videoData, inline = false }) {
+  const { user } = useAuth()
   const videoRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -199,12 +228,99 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [showSecurityInfo, setShowSecurityInfo] = useState(false)
+  const [savedProgress, setSavedProgress] = useState({ lastTimestamp: 0, totalTimeSpent: 0 })
+  const [showResumeBanner, setShowResumeBanner] = useState(false)
   const containerRef = useRef(null)
   const controlsTimeout = useRef(null)
+  const viewRecordedRef = useRef(false)
+  const watchTimeSecondsRef = useRef(0)
+
+  // Anti-inspection & keyboard protection guard
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (
+        (e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p')) ||
+        (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) ||
+        e.key === 'F12'
+      ) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen])
 
   const isEncrypted = videoData?.isEncrypted || videoData?.fortspy || false
   const encryptionType = videoData?.encryptionType || 'AES-256-CTR'
   const hasFortSpy = !!videoData?.fortspyId
+  const videoId = videoData?.publicId || videoData?.id || videoData?._id
+
+  // Initialize video telemetry session
+  useEffect(() => {
+    if (isOpen && videoId) {
+      videoTelemetry.startSession({
+        videoId,
+        duration,
+        initialOffset: savedProgress.lastTimestamp || 0,
+        videoTitle: videoData?.title || '',
+        userId: user?.id || null,
+      })
+    }
+    return () => {
+      videoTelemetry.endSession()
+    }
+  }, [isOpen, videoId])
+
+  // Load progress and prompt resume on open
+  useEffect(() => {
+    if (!isOpen || !videoId) return
+
+    viewRecordedRef.current = false
+    watchTimeSecondsRef.current = 0
+
+    // Load from localStorage
+    const localKey = `video_progress_${videoId}`
+    let localData = null
+    try {
+      const raw = localStorage.getItem(localKey)
+      if (raw) localData = JSON.parse(raw)
+    } catch {
+      // localStorage may throw in Safari private mode / disabled storage
+    }
+
+    if (localData && localData.lastTimestamp > 3) {
+      setSavedProgress(localData)
+      setShowResumeBanner(true)
+    }
+
+    // Fetch from backend
+    api.get(`/api/videos/${videoId}/progress`)
+      .then(res => {
+        if (res.data?.success && res.data?.data) {
+          const apiData = res.data.data
+          if (apiData.lastTimestamp > 3) {
+            setSavedProgress(prev => ({
+              lastTimestamp: Math.max(prev.lastTimestamp || 0, apiData.lastTimestamp || 0),
+              totalTimeSpent: (prev.totalTimeSpent || 0) + (apiData.totalTimeSpent || 0)
+            }))
+            setShowResumeBanner(true)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [isOpen, videoId])
+
+  // Record view after 2 seconds of playback
+  useEffect(() => {
+    if (!isPlaying || !videoId) return
+
+    if (!viewRecordedRef.current) {
+      viewRecordedRef.current = true
+      api.post(`/api/videos/${videoId}/view`).catch(() => {})
+    }
+  }, [isPlaying, videoId])
 
   useEffect(() => {
     if (!isOpen) {
@@ -217,9 +333,15 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
     const video = videoRef.current
     if (!video) return
 
-    const handleTimeUpdate = () => setCurrentTime(video.currentTime)
+    const handleTimeUpdate = () => {
+      setCurrentTime(video.currentTime)
+      videoTelemetry.trackTimeUpdate(video.currentTime, video.duration)
+    }
     const handleDurationChange = () => setDuration(video.duration)
-    const handleEnded = () => setIsPlaying(false)
+    const handleEnded = () => {
+      setIsPlaying(false)
+      videoTelemetry.trackComplete()
+    }
 
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('durationchange', handleDurationChange)
@@ -238,8 +360,10 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
 
     if (isPlaying) {
       video.pause()
+      videoTelemetry.trackPause(video.currentTime)
     } else {
       video.play()
+      videoTelemetry.trackPlay(video.currentTime)
     }
     setIsPlaying(!isPlaying)
   }, [isPlaying])
@@ -250,70 +374,24 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
 
     const rect = e.currentTarget.getBoundingClientRect()
     const pos = (e.clientX - rect.left) / rect.width
-    video.currentTime = pos * duration
+    const target = pos * duration
+    videoTelemetry.trackSeek(video.currentTime, target)
+    video.currentTime = target
   }, [duration])
-
-  const handleVolumeChange = useCallback((e) => {
-    const newVolume = parseFloat(e.target.value)
-    setVolume(newVolume)
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume
-    }
-    setIsMuted(newVolume === 0)
-  }, [])
-
-  const toggleMute = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-
-    if (isMuted) {
-      video.volume = volume || 0.5
-      setVolume(volume || 0.5)
-      setIsMuted(false)
-    } else {
-      video.volume = 0
-      setIsMuted(true)
-    }
-  }, [isMuted, volume])
-
-  const toggleFullscreen = useCallback(async () => {
-    const container = containerRef.current
-    if (!container) return
-
-    try {
-      if (!isFullscreen) {
-        if (container.requestFullscreen) {
-          await container.requestFullscreen()
-        } else if (container.webkitRequestFullscreen) {
-          await container.webkitRequestFullscreen()
-        } else if (container.mozRequestFullScreen) {
-          await container.mozRequestFullScreen()
-        }
-        setIsFullscreen(true)
-      } else {
-        if (document.exitFullscreen) {
-          await document.exitFullscreen()
-        } else if (document.webkitExitFullscreen) {
-          await document.webkitExitFullscreen()
-        } else if (document.mozCancelFullScreen) {
-          await document.mozCancelFullScreen()
-        }
-        setIsFullscreen(false)
-      }
-    } catch (error) {
-      console.error('Fullscreen error:', error)
-    }
-  }, [isFullscreen])
 
   const skip = useCallback((seconds) => {
     const video = videoRef.current
     if (!video) return
-    video.currentTime = Math.max(0, Math.min(duration, video.currentTime + seconds))
+    const from = video.currentTime
+    const target = Math.max(0, Math.min(duration, from + seconds))
+    videoTelemetry.trackSeek(from, target)
+    video.currentTime = target
   }, [duration])
 
   const changePlaybackRate = useCallback((rate) => {
     const video = videoRef.current
     if (!video) return
+    videoTelemetry.trackRateChange(rate, video.currentTime)
     video.playbackRate = rate
     setPlaybackRate(rate)
     setShowSettings(false)
@@ -340,13 +418,27 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
 
   if (!isOpen) return null
 
-  const embedInfo = getEmbedInfo(videoData?.url || '')
+  // When inline, render inside the parent container (no fullscreen overlay)
+  const overlayClass = inline
+    ? 'relative w-full'
+    : '{overlayClass}'
+  const overlayCenterClass = inline
+    ? 'relative w-full flex items-center justify-center'
+    : '{overlayCenterClass}'
+  const innerBoxClass = inline
+    ? 'relative w-full bg-black overflow-hidden rounded-xl'
+    : '{innerBoxClass}'
+
+  const embedInfo = getEmbedInfo(videoData?.url || videoData?.videoUrl || '')
 
   // ── Embedded player (YouTube / Vimeo / Google Drive) ─────────────────
   if (embedInfo && !hasFortSpy) {
     return (
-      <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-14 px-4 pb-4 overflow-y-auto">
-        <div className="relative w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl">
+      <div className={overlayClass}>
+        <div
+          className={innerBoxClass}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           {/* Title bar */}
           <div className="flex items-center justify-between px-4 py-2 bg-black/90">
             <div className="min-w-0 flex-1 mr-3">
@@ -356,21 +448,22 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {isEncrypted && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
-                  <Shield className="w-3 h-3 text-emerald-400" />
-                  <span className="text-emerald-400 text-xs font-medium">FortSpy</span>
-                </div>
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full">
+                <Shield className="w-3 h-3 text-indigo-400" />
+                <span className="text-indigo-400 text-[11px] font-medium capitalize">{embedInfo.type} Stream</span>
+              </div>
+              {/* Only show direct external link if not flagged as premium/protected */}
+              {!videoData?.isPaid && !isEncrypted && (
+                <a
+                  href={videoData.url || videoData.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                  title="Open in new tab"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
               )}
-              <a
-                href={videoData.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-                title="Open in new tab"
-              >
-                <ExternalLink className="w-4 h-4" />
-              </a>
               <button
                 onClick={onClose}
                 className="p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
@@ -381,6 +474,9 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
           </div>
           {/* 16:9 iframe container — no gaps */}
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            {/* Dynamic Anti-Piracy Watermark over iframe */}
+            <DynamicWatermark user={user} />
+
             <iframe
               src={embedInfo.embedUrl}
               className="absolute inset-0 w-full h-full border-0"
@@ -397,15 +493,19 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
   // ── FortSpy encrypted video player ──────────────────────────────────
   if (hasFortSpy) {
     return (
-      <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-14 px-4 pb-4 overflow-y-auto">
+      <div className={overlayClass}>
         <div
           ref={containerRef}
-          className="relative w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl"
+          className={innerBoxClass}
           onMouseMove={handleMouseMove}
           onMouseLeave={() => isPlaying && setShowControls(false)}
+          onContextMenu={(e) => e.preventDefault()}
         >
           {/* 16:9 aspect-ratio container */}
           <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+            {/* Dynamic Anti-Piracy Watermark */}
+            <DynamicWatermark user={user} />
+
             {/* FortSpy Canvas Player */}
             <FortSpyPlayer
               videoData={videoData}
@@ -562,9 +662,9 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
   }
 
   // ── No URL at all ─────────────────────────────────────────────
-  if (!videoData?.url) {
+  if (!videoData?.url && !videoData?.videoUrl) {
     return (
-      <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+      <div className={overlayCenterClass}>
         <div className="bg-gray-900 rounded-xl p-8 text-center max-w-sm w-full shadow-2xl">
           <div className="text-6xl mb-4">🎬</div>
           <p className="text-white text-lg font-bold mb-2">{videoData?.title || 'Video'}</p>
@@ -579,19 +679,53 @@ export default function VideoPlayer({ isOpen, onClose, videoData }) {
 
   // ── Native HTML5 video (direct file URL) ──────────────────────────────────
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-start justify-center pt-14 px-4 pb-4 overflow-y-auto">
+    <div className={overlayClass}>
       <div
         ref={containerRef}
-        className="relative w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl"
+        className={innerBoxClass}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => isPlaying && setShowControls(false)}
+        onContextMenu={(e) => e.preventDefault()}
       >
         {/* 16:9 aspect-ratio video wrapper — no gaps */}
         <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+          {/* Dynamic Anti-Piracy Watermark */}
+          <DynamicWatermark user={user} />
+
+          {/* Resume Prompt Banner Overlay */}
+          {showResumeBanner && savedProgress.lastTimestamp > 0 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white backdrop-blur-md px-4 py-2.5 rounded-2xl border border-indigo-500/40 shadow-2xl flex flex-wrap items-center gap-3 text-xs">
+              <span className="font-semibold text-gray-200">
+                Continue watching from <strong className="text-indigo-400">{formatTime(savedProgress.lastTimestamp)}</strong>?
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (videoRef.current) videoRef.current.currentTime = savedProgress.lastTimestamp
+                    setShowResumeBanner(false)
+                    if (!isPlaying) togglePlay()
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1 rounded-xl transition-all shadow-sm cursor-pointer"
+                >
+                  Resume ({formatTime(savedProgress.lastTimestamp)})
+                </button>
+                <button
+                  onClick={() => {
+                    if (videoRef.current) videoRef.current.currentTime = 0
+                    setShowResumeBanner(false)
+                  }}
+                  className="bg-white/10 hover:bg-white/20 text-gray-300 font-bold px-2.5 py-1 rounded-xl transition-all cursor-pointer"
+                >
+                  Start Over
+                </button>
+              </div>
+            </div>
+          )}
+
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-contain bg-black"
-            src={videoData?.url || ''}
+            src={videoData?.url || videoData?.videoUrl || ''}
             onClick={togglePlay}
           />
 

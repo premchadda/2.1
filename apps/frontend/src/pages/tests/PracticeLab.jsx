@@ -1,1354 +1,1147 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { practiceAPI } from '../../shared/lib/dataService'
+import { practiceAPI } from '../../shared/lib/practiceAPI'
 import { useAuth } from '../../shared/providers/AuthContext'
-import sanitizeHtml from '../../shared/lib/sanitizeHtml'
+import MathRenderer from '../../shared/components/MathRenderer'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
-import { getOnboardingPrefs } from '../../shared/components/common/OnboardingWizard'
+import KnowledgeVaultModal from './components/KnowledgeVaultModal'
+import FundamentalsGym from './components/FundamentalsGym'
+import PracticeWorkspace from './components/PracticeWorkspace'
+import PracticeTopicTree from './components/PracticeTopicTree'
+
 import {
-  BookOpen, Clock, CheckCircle, XCircle, ChevronRight, ChevronLeft,
-  Loader2, Bookmark, Target, AlertCircle, Flame, Star, TrendingUp,
-  Zap, Award, RotateCcw, ArrowRight, ArrowLeft, Flag, Lightbulb,
-  ThumbsUp, Menu, X, Sparkles,
+  Zap, BookOpen, Target, Flame, Star, Award, Layers,
+  Bookmark, CheckCircle, XCircle, RefreshCw, ArrowRight,
+  TrendingUp, Sparkles, AlertCircle, ArrowLeft, Play, Clock,
+  ChevronDown, ShieldCheck, Lock, Gift, Compass, RotateCcw
 } from 'lucide-react'
 
-// ═══════════════════════════════════════════════════
-// Main component — switches between 4 screens
-// ═══════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+// EXAM LIST DATASET
+// ════════════════════════════════════════════════════════════════════════════
+const EXAM_OPTIONS = [
+  { id: 'ssc', name: 'SSC Exams', label: 'SSC CGL, CHSL, MTS, CPO, GD', category: 'Staff Selection Commission' },
+  { id: 'railway', name: 'Railway Exams', label: 'NTPC, Group D, ALP, JE', category: 'Indian Railways' },
+  { id: 'banking', name: 'Banking Exams', label: 'IBPS PO, Clerk, SBI PO, RRB', category: 'Banking & Insurance' },
+  { id: 'upsc', name: 'UPSC & Defence', label: 'CSAT, CDS, NDA, AFCAT', category: 'Civil Services & Defence' },
+  { id: 'state', name: 'State PSCs', label: 'UPPSC, BPSC, MPPSC, RAS', category: 'State Level Exams' },
+]
+
+const SUBJECT_FILTERS = [
+  { id: 'all', label: 'All Subjects', icon: '📚' },
+  { id: 'english', label: 'English', icon: '📖' },
+  { id: 'gk', label: 'General Knowledge', icon: '🏛️' },
+  { id: 'science', label: 'General Science', icon: '🧪' },
+  { id: 'reasoning', label: 'Logical Reasoning', icon: '🧩' },
+  { id: 'quant', label: 'Quantitative Aptitude', icon: '🔢' },
+  { id: 'ca', label: 'Current Affairs', icon: '📰' },
+  { id: 'hindi', label: 'Hindi', icon: '📙' },
+  { id: 'computer', label: 'Computer Knowledge', icon: '💻' },
+  { id: 'pyq', label: 'Previous Year Questions', icon: '🏆' },
+]
+
 export default function PracticeLab() {
   const { user } = useAuth()
-  const [screen, setScreen] = useState('dashboard') // dashboard | setup | session | complete
+  const [searchParams] = useSearchParams()
+  const [screen, setScreen] = useState('dashboard') // dashboard | setup | session | fundamentals | complete | exam_practice | chapter_detail
   const [setupConfig, setSetupConfig] = useState(null)
   const [activeSession, setActiveSession] = useState(null)
   const [completeSummary, setCompleteSummary] = useState(null)
-  const [repracticing, setRepracticing] = useState(false)
+  const [selectedChapter, setSelectedChapter] = useState(null)
 
-  // Start a 'mistakes' session directly from the completion screen —
-  // pulls the user's wrong answers from practice_answers via backend mode.
-  const startRepracticeWrong = async () => {
-    try {
-      setRepracticing(true)
-      const session = await practiceAPI.startSession({ mode: 'mistakes', targetCount: 20 })
-      setActiveSession(session)
-      setCompleteSummary(null)
-      setScreen('session')
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'No wrong questions found to re-practice yet.')
-    } finally {
-      setRepracticing(false)
+  // Exam Selection State
+  const [selectedExam, setSelectedExam] = useState(() => {
+    const saved = localStorage.getItem('trstprep_user_exam')
+    return saved ? JSON.parse(saved) : null
+  })
+  const [showExamModal, setShowExamModal] = useState(false)
+
+  // Select Exam Action
+  const handleSelectExam = (exam) => {
+    setSelectedExam(exam)
+    localStorage.setItem('trstprep_user_exam', JSON.stringify(exam))
+    setShowExamModal(false)
+    setScreen('exam_practice')
+  }
+
+  // Handle clicking "Exam & Concepts" card on Dashboard
+  const handleOpenExamPractice = () => {
+    if (!selectedExam) {
+      setShowExamModal(true)
+    } else {
+      setScreen('exam_practice')
     }
   }
 
+  // Start new practice session
+  const handleStartSession = async (config) => {
+    try {
+      const session = await practiceAPI.startSession({
+        mode: config.mode || 'learn',
+        subjectId: config.subjectId,
+        chapterId: config.chapterId,
+        topicId: config.topicId,
+        testId: config.testId,
+        difficulty: config.difficulty || 'medium',
+        targetCount: config.count || 20,
+      })
+      setActiveSession(session)
+      setScreen('session')
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Failed to start practice session')
+    }
+  }
+
+  // Handle URL query parameters (e.g. ?mode=mistakes&testId=123)
+  useEffect(() => {
+    const modeParam = searchParams.get('mode')
+    const testIdParam = searchParams.get('testId')
+    const subjectIdParam = searchParams.get('subjectId')
+    if (modeParam === 'mistakes') {
+      handleStartSession({
+        mode: 'mistakes',
+        testId: testIdParam || undefined,
+        subjectId: subjectIdParam || undefined,
+        count: 25,
+      })
+    }
+  }, [searchParams])
+
+  // Quick Smart Entry Point Launcher
+  const handleLaunchSmartEntry = async (mode, topicId = null) => {
+    await handleStartSession({ mode, topicId, count: 15, difficulty: 'medium' })
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Breadcrumb (only on dashboard) */}
+    <div className="min-h-screen bg-slate-50 dark:bg-gray-900 font-sans">
+      {/* One-Time Choose Exam Modal */}
+      {showExamModal && (
+        <ChooseExamModal
+          onSelectExam={handleSelectExam}
+          onClose={() => setShowExamModal(false)}
+        />
+      )}
+
+      {/* Top Header Breadcrumb */}
       {screen === 'dashboard' && (
-        <div className="bg-white border-b border-slate-100">
-          <div className="max-w-5xl mx-auto px-4">
+        <div className="bg-white dark:bg-gray-800 border-b border-slate-100 dark:border-gray-700">
+          <div className="max-w-6xl mx-auto px-4">
             <Breadcrumb items={[{ label: 'Home', path: '/' }, { label: 'Practice Lab' }]} />
           </div>
         </div>
       )}
 
+      {/* Screen 1: Dashboard Hub */}
       {screen === 'dashboard' && (
-        <PracticeDashboard
+        <PracticeHubDashboard
           user={user}
-          onStartSetup={(config) => { setSetupConfig(config); setScreen('setup') }}
-          onResume={(session) => { setActiveSession(session); setScreen('session') }}
+          selectedExam={selectedExam}
+          onOpenExamPractice={handleOpenExamPractice}
+          onOpenSetup={(config) => { setSetupConfig(config); setScreen('setup') }}
+          onOpenFundamentals={() => setScreen('fundamentals')}
+          onLaunchSmart={handleLaunchSmartEntry}
+          onResume={async (session) => {
+            try {
+              const fullSession = await practiceAPI.getSession(session.id)
+              setActiveSession(fullSession)
+              setScreen('session')
+            } catch {
+              toast.error('Failed to resume session')
+            }
+          }}
         />
       )}
 
+      {/* Screen: Exam Practice Hub (Two-Column Layout) */}
+      {screen === 'exam_practice' && selectedExam && (
+        <ExamPracticeHub
+          selectedExam={selectedExam}
+          onChangeExam={() => setShowExamModal(true)}
+          onBack={() => setScreen('dashboard')}
+          onStartChapter={(chapter) => {
+            setSelectedChapter(chapter)
+            setScreen('chapter_detail')
+          }}
+        />
+      )}
+
+      {/* Screen: Chapter Detail (Topics left, Practice Sets right) */}
+      {screen === 'chapter_detail' && selectedChapter && (
+        <ChapterDetailView
+          chapter={selectedChapter}
+          selectedExam={selectedExam}
+          onBack={() => setScreen('exam_practice')}
+          onStartSession={(config) => handleStartSession(config)}
+        />
+      )}
+
+      {/* Screen 2: Setup Wizard */}
       {screen === 'setup' && (
         <PracticeSetupWizard
           initialConfig={setupConfig}
           onBack={() => setScreen('dashboard')}
-          onStart={(session) => { setActiveSession(session); setScreen('session') }}
+          onStart={(config) => handleStartSession(config)}
         />
       )}
 
+      {/* Screen 3: Fundamentals Gym */}
+      {screen === 'fundamentals' && (
+        <FundamentalsGym onBack={() => setScreen('dashboard')} />
+      )}
+
+      {/* Screen 4: 3-Layer Practice Workspace */}
       {screen === 'session' && activeSession && (
-        <PracticeSession
+        <PracticeWorkspace
           session={activeSession}
           onExit={() => setScreen('dashboard')}
-          onComplete={(summary) => { setCompleteSummary(summary); setScreen('complete') }}
+          onComplete={(summary) => {
+            const attempted = activeSession?.answers?.length || activeSession?.targetCount || 0
+            const correct = activeSession?.answers?.filter(a => a.isCorrect)?.length || 0
+            const wrong = Math.max(0, attempted - correct)
+            const calcAccuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0
+            const avgTime = (activeSession?.timeSpent && attempted > 0)
+              ? Math.round(activeSession.timeSpent / attempted)
+              : 35
+
+            setCompleteSummary(summary || {
+              questionsAttempted: attempted,
+              correctCount: correct,
+              wrongCount: wrong,
+              accuracy: calcAccuracy,
+              avgTimeSeconds: avgTime,
+              conceptsMastered: [],
+              conceptsNeedsPractice: []
+            })
+            setScreen('complete')
+          }}
         />
       )}
 
+      {/* Screen 5: End of Session Mastery Screen */}
       {screen === 'complete' && completeSummary && (
-        <PracticeComplete
+        <PracticeCompleteScreen
           summary={completeSummary}
           onDashboard={() => setScreen('dashboard')}
-          onNewSession={() => { setSetupConfig(null); setScreen('setup') }}
-          onRepracticeWrong={() => startRepracticeWrong()}
+          onRestartSession={() => setScreen('setup')}
+          onPracticeWeakTopic={() => handleLaunchSmartEntry('weak_topic')}
         />
       )}
     </div>
   )
 }
 
-// ═══════════════════════════════════════════════════
-// SCREEN 1: DASHBOARD
-// ═══════════════════════════════════════════════════
-function PracticeDashboard({ user, onStartSetup, onResume }) {
+// ════════════════════════════════════════════════════════════════════════════
+// ONE-TIME CHOOSE EXAM MODAL
+// ════════════════════════════════════════════════════════════════════════════
+function ChooseExamModal({ onSelectExam, onClose }) {
+  return (
+    <div className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-6 m-auto">
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full">
+              Personalize Your Practice
+            </span>
+            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-1">Choose Target Exam</h2>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Select the exam you are preparing for to personalize your concept questions.</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 dark:text-gray-500 hover:text-slate-700 dark:hover:text-gray-300 rounded-xl">✕</button>
+        </div>
+
+        <div className="space-y-3">
+          {EXAM_OPTIONS.map((exam) => (
+            <div
+              key={exam.id}
+              onClick={() => onSelectExam(exam)}
+              className="p-4 bg-slate-50 dark:bg-gray-900 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-800 border border-slate-200 dark:border-gray-700 rounded-2xl cursor-pointer transition flex items-center justify-between group"
+            >
+              <div>
+                <div className="font-extrabold text-slate-900 dark:text-white text-base group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                  {exam.name}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-gray-400 font-medium">{exam.label}</div>
+              </div>
+              <span className="px-3 py-1 bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold border border-slate-200 dark:border-gray-700 group-hover:bg-indigo-600 group-hover:text-white transition">
+                Select →
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// EXAM PRACTICE HUB SCREEN (TWO-COLUMN MASTER-DETAIL LAYOUT)
+// Subjects on Left • Content & Chapters on Right
+// ════════════════════════════════════════════════════════════════════════════
+function ExamPracticeHub({ selectedExam, onChangeExam, onBack, onStartChapter }) {
+  const { data: dbSubjects, isLoading: subjectsLoading } = useQuery({
+    queryKey: ['practice-subjects'],
+    queryFn: practiceAPI.getSubjects,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Dynamic DB Subjects with icons & chapter mappings
+  const subjectsList = (dbSubjects && dbSubjects.length > 0)
+    ? [
+        { id: 'all', label: 'All Subjects', icon: '📚' },
+        ...dbSubjects.map(s => ({
+          id: String(s.id),
+          label: s.title || s.label,
+          icon: s.icon || (s.title?.toLowerCase().includes('quant') || s.title?.toLowerCase().includes('math') ? '🔢' : s.title?.toLowerCase().includes('reason') ? '🧩' : s.title?.toLowerCase().includes('science') ? '🧪' : '📖'),
+          chapters: s.chapters || []
+        }))
+      ]
+    : SUBJECT_FILTERS
+
+  const [activeSubject, setActiveSubject] = useState('all')
+
+  // Collect chapters based on active subject filter from live DB subjects
+  const getFilteredChapters = () => {
+    if (!dbSubjects || dbSubjects.length === 0) {
+      return []
+    }
+
+    if (activeSubject === 'all') {
+      return dbSubjects.flatMap(s => s.chapters || [])
+    }
+
+    const matchedSubject = dbSubjects.find(s => 
+      String(s.id) === String(activeSubject) || 
+      s.slug === activeSubject || 
+      s.title?.toLowerCase() === String(activeSubject).toLowerCase()
+    )
+
+    return matchedSubject?.chapters || []
+  }
+
+  const chaptersList = getFilteredChapters()
+  const currentSubjectObj = subjectsList.find(s => String(s.id) === String(activeSubject)) || subjectsList[1] || subjectsList[0]
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 pt-3 pb-6 space-y-4">
+      {/* Top Bar: Back button */}
+      <div>
+        <button onClick={onBack} className="inline-flex items-center text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200">
+          <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Workspace
+        </button>
+      </div>
+
+      {/* Header Hero Banner with Active Exam Selector Embedded */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-2xl p-4 md:p-5 text-white shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="text-xs font-bold uppercase tracking-wider bg-white/20 text-indigo-100 px-3 py-1 rounded-full mb-2 inline-block">
+            {selectedExam.name} Exam Practice
+          </span>
+          <h1 className="text-3xl font-black">{selectedExam.name} Free Practice Questions</h1>
+          <p className="text-xs text-indigo-200 mt-1 max-w-xl">
+            Syllabus-aligned questions fetched directly from your active database across all subjects with concept tracking.
+          </p>
+        </div>
+
+        {/* Embedded Active Exam Switcher Widget */}
+        <div className="bg-white/10 backdrop-blur-md border border-white/20 p-3.5 md:p-4 rounded-2xl space-y-1.5 min-w-[240px]">
+          <div className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-200">Active Target Exam</div>
+          <button
+            onClick={onChangeExam}
+            className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 text-indigo-950 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl text-xs font-black transition flex items-center justify-between shadow-xs gap-2"
+          >
+            <span className="flex items-center gap-1.5 truncate">
+              🎯 {selectedExam.name} ({selectedExam.label.split(',')[0]})
+            </span>
+            <ChevronDown className="w-4 h-4 text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+          </button>
+        </div>
+      </div>
+
+      {/* ── TWO-COLUMN MASTER-DETAIL LAYOUT: SUBJECTS LEFT, CONTENT RIGHT ── */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
+        
+        {/* LEFT COLUMN: SUBJECTS SIDEBAR (col-span-3) — sticky, self-contained height */}
+        <div className="md:col-span-3 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-2xs sticky top-4 flex flex-col" style={{maxHeight: 'calc(100vh - 80px)'}}>
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-gray-700 flex-shrink-0">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">Subjects</span>
+            {subjectsLoading && <div className="w-3 h-3 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />}
+          </div>
+
+          <div className="overflow-y-auto flex-1 p-3 space-y-1">
+            {subjectsList.map((s) => {
+              const isActive = String(activeSubject) === String(s.id)
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setActiveSubject(s.id)}
+                  className={`w-full p-3 rounded-2xl text-left text-xs font-bold transition flex items-center justify-between group ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-700 dark:text-gray-200 hover:bg-slate-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">{s.icon}</span>
+                    <span>{s.label}</span>
+                  </div>
+                  <ArrowRight className={`w-3.5 h-3.5 transition ${isActive ? 'text-white opacity-100' : 'text-slate-300 dark:text-gray-500 opacity-0 group-hover:opacity-100'}`} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: CHAPTERS CONTENT (col-span-9) — scrolls to match left sidebar height */}
+        <div className="md:col-span-9 flex flex-col" style={{maxHeight: 'calc(100vh - 80px)'}}>
+          
+          {/* Chapter Cards Header — fixed, doesn't scroll */}
+          <div className="flex items-center justify-between mb-5 flex-shrink-0">
+            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center">
+              <span className="text-xl mr-2">{currentSubjectObj.icon}</span> {currentSubjectObj.label} Practice Drills ({chaptersList.length} Chapters)
+            </h3>
+            <span className="text-xs font-bold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+              Syllabus Aligned
+            </span>
+          </div>
+
+          {/* Chapter Cards Grid — scrollable */}
+          <div className="overflow-y-auto flex-1 pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {chaptersList.map((ch, idx) => (
+              <div
+                key={idx}
+                onClick={() => onStartChapter(ch)}
+                className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">
+                      {ch.badge}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
+                      {ch.tag}
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-slate-900 dark:text-white text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                    {ch.title}
+                  </h4>
+                  <p className="text-xs font-bold text-slate-400 dark:text-gray-500">
+                    {ch.count} Practice Questions
+                  </p>
+                </div>
+
+                <button className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center gap-1.5">
+                  <Play className="w-3.5 h-3.5 fill-current" /> Start Practice →
+                </button>
+              </div>
+            ))}
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* ── FULL-WIDTH SECTION: PASS BANNER + EXPLORE SIMILAR ── */}
+
+      {/* PASS NEW PROMO BANNER — full width below both columns */}
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 md:p-8 text-white shadow-md flex flex-wrap items-center justify-between gap-6">
+        <div>
+          <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 text-amber-100 px-3 py-1 rounded-full mb-2 inline-block">
+            passNew • Trstprep Pass
+          </span>
+          <h3 className="text-2xl font-black">Unlock All Practice of All Exams with Pass!</h3>
+          <p className="text-xs text-amber-100 mt-1 max-w-lg">
+            Get unlimited access to 50,000+ questions, official PYPs, re-attempt mode, and AI doubt support.
+          </p>
+
+          <div className="flex flex-wrap gap-2 mt-4">
+            {['Mock Tests', 'Live Tests', 'Study Notes', 'Doubt Support', 'PYPs', 'Re-Attempt Mode', 'Unlimited Practice'].map((feat, i) => (
+              <span key={i} className="text-[11px] font-bold bg-white/20 text-white px-2.5 py-1 rounded-lg">
+                ✓ {feat}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <button className="px-6 py-3.5 bg-white dark:bg-gray-800 text-amber-800 dark:text-amber-200 rounded-2xl font-black text-xs uppercase tracking-wider hover:bg-amber-50 dark:hover:bg-amber-900/20 transition shadow-sm">
+          Upgrade to Pass →
+        </button>
+      </div>
+
+      {/* EXPLORE SIMILAR PRACTICE — full width below both columns */}
+      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 shadow-xs space-y-4">
+        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center">
+          <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" /> Explore Similar Practice
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div
+            onClick={() => onStartChapter({ title: 'Percentage Change' })}
+            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
+          >
+            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">🔥 Similar Concept</div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm">Percentage Increase & Decrease</div>
+            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">15 Practice Questions</div>
+          </div>
+
+          <div
+            onClick={() => onStartChapter({ title: 'Profit & Loss' })}
+            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
+          >
+            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">🧠 Linked Topic</div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm">Discount & Marked Price</div>
+            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">20 Practice Questions</div>
+          </div>
+
+          <div
+            onClick={() => onStartChapter({ title: 'Ratio & Proportion' })}
+            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
+          >
+            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">📖 Recommended PYQ</div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm">Ratio & Proportion SSC PYQs</div>
+            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">25 Official Qs</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CHAPTER DETAIL VIEW
+// Topics on Left • Practice Sets on Right
+// ════════════════════════════════════════════════════════════════════════════
+function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
+  const [activeTopic, setActiveTopic] = useState(null)
+
+  // Fetch topics from DB using chapter.id (numeric) if available
+  const { data: chapterData, isLoading } = useQuery({
+    queryKey: ['chapter-topics', chapter?.id],
+    queryFn: () => practiceAPI.getChapterTopics(chapter.id),
+    enabled: !!chapter?.id && !isNaN(Number(chapter.id)),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // DB topics if available, else build fallback from chapter data
+  const topics = (chapterData?.topics && chapterData.topics.length > 0)
+    ? chapterData.topics
+    : (chapter.topics || [
+        { id: 'intro', name: 'Introduction & Basics', questionCount: 30, easyCount: 15, mediumCount: 10, hardCount: 5, accuracy: null, attempts: 0 },
+        { id: 'core', name: 'Core Concepts', questionCount: 45, easyCount: 10, mediumCount: 25, hardCount: 10, accuracy: null, attempts: 0 },
+        { id: 'advanced', name: 'Advanced Problems', questionCount: 35, easyCount: 5, mediumCount: 15, hardCount: 15, accuracy: null, attempts: 0 },
+        { id: 'pyq', name: 'Previous Year Questions', questionCount: 40, easyCount: 8, mediumCount: 22, hardCount: 10, accuracy: null, attempts: 0 },
+      ])
+
+  // Auto-select first topic
+  const currentTopic = activeTopic || topics[0] || null
+
+  const PRACTICE_SETS = [
+    { id: 'quick', label: '⚡ Quick Practice', desc: '10 questions · Mixed levels', count: 10, difficulty: 'mixed', color: 'indigo', bg: 'bg-indigo-50 dark:bg-indigo-900/30', border: 'border-indigo-200 dark:border-indigo-800', text: 'text-indigo-700 dark:text-indigo-300', btn: 'bg-indigo-600 hover:bg-indigo-700' },
+    { id: 'easy', label: '🟢 Easy Set', desc: '15 easy questions · Build confidence', count: 15, difficulty: 'easy', color: 'emerald', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300', btn: 'bg-emerald-600 hover:bg-emerald-700' },
+    { id: 'medium', label: '🟡 Medium Set', desc: '15 medium questions · Exam level', count: 15, difficulty: 'medium', color: 'amber', bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300', btn: 'bg-amber-500 hover:bg-amber-600' },
+    { id: 'hard', label: '🔴 Hard Set', desc: '10 hard questions · Challenge mode', count: 10, difficulty: 'hard', color: 'red', bg: 'bg-red-50 dark:bg-red-900/20', border: 'border-red-200 dark:border-red-800', text: 'text-red-700 dark:text-red-300', btn: 'bg-red-600 hover:bg-red-700' },
+    { id: 'full', label: '🎯 Full Chapter Practice', desc: '25 questions · All levels', count: 25, difficulty: 'mixed', color: 'purple', bg: 'bg-purple-50 dark:bg-purple-900/20', border: 'border-purple-200 dark:border-purple-800', text: 'text-purple-700 dark:text-purple-300', btn: 'bg-purple-600 hover:bg-purple-700' },
+  ]
+
+  const getAvailableSets = (topic) => {
+    if (!topic) return PRACTICE_SETS
+    return PRACTICE_SETS.filter(ps => {
+      if (ps.difficulty === 'easy') return (topic.easyCount || 0) > 0 || !chapterData
+      if (ps.difficulty === 'medium') return (topic.mediumCount || 0) > 0 || !chapterData
+      if (ps.difficulty === 'hard') return (topic.hardCount || 0) > 0 || !chapterData
+      return (topic.questionCount || 0) > 0 || !chapterData
+    })
+  }
+
+  const handleStartSet = (practiceSet) => {
+    onStartSession({
+      mode: 'learn',
+      chapterId: chapter.id,
+      topicId: currentTopic?.id || null,
+      difficulty: practiceSet.difficulty === 'mixed' ? undefined : practiceSet.difficulty,
+      count: practiceSet.count,
+    })
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+      {/* Breadcrumb nav */}
+      <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-gray-400 font-medium flex-wrap">
+        <button onClick={onBack} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition flex items-center gap-1">
+          <ArrowLeft className="w-4 h-4" />
+          {selectedExam?.name || 'Practice'}
+        </button>
+        <span className="text-slate-300 dark:text-gray-500">/</span>
+        <span className="text-slate-900 dark:text-white font-bold truncate">{chapter.title}</span>
+      </div>
+
+      {/* Chapter Hero Banner */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-3xl p-6 md:p-8 text-white">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 text-indigo-200 px-3 py-1 rounded-full mb-2 inline-block">
+              Chapter Practice
+            </span>
+            <h1 className="text-2xl md:text-3xl font-black mt-1 leading-tight">{chapter.title}</h1>
+            {chapterData && (
+              <p className="text-indigo-200 text-sm mt-2">
+                {chapterData.totalTopics} Topics · {chapterData.totalQuestions} Practice Questions
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            {[
+              { label: 'Topics', value: chapterData?.totalTopics || topics.length, icon: '📋' },
+              { label: 'Questions', value: chapterData?.totalQuestions || (chapter.count || '—'), icon: '❓' },
+            ].map(stat => (
+              <div key={stat.label} className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl px-4 py-3 text-center min-w-[80px]">
+                <div className="text-xl">{stat.icon}</div>
+                <div className="text-lg font-black">{stat.value}</div>
+                <div className="text-[10px] font-bold uppercase text-indigo-300">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ── TWO-COLUMN: TOPICS LEFT + PRACTICE SETS RIGHT ── */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+
+        {/* LEFT: Topics Sidebar */}
+        <div className="md:col-span-4 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 shadow-xs sticky top-6">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-gray-700">
+            <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500">Topics in this Chapter</span>
+            {isLoading && <div className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />}
+          </div>
+
+          <div className="p-3 space-y-1 max-h-[65vh] overflow-y-auto">
+            {topics.map((topic, idx) => {
+              const isActive = (currentTopic?.id === topic.id) || (!activeTopic && idx === 0)
+              const hasAccuracy = topic.accuracy !== null && topic.attempts > 0
+              return (
+                <button
+                  key={topic.id || idx}
+                  onClick={() => setActiveTopic(topic)}
+                  className={`w-full p-3.5 rounded-2xl text-left transition group ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className={`font-bold text-sm leading-snug ${isActive ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                        {topic.name}
+                      </div>
+                      <div className={`text-xs mt-0.5 ${isActive ? 'text-indigo-200' : 'text-slate-400 dark:text-gray-500'}`}>
+                        {topic.questionCount || 0} questions
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      {hasAccuracy ? (
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                          topic.accuracy >= 80 ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' :
+                          topic.accuracy >= 50 ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' :
+                          'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                        } ${isActive ? 'opacity-90' : ''}`}>
+                          {topic.accuracy}%
+                        </span>
+                      ) : (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? 'bg-white/20 text-indigo-100' : 'bg-slate-100 dark:bg-gray-700 text-slate-400 dark:text-gray-500'}`}>
+                          New
+                        </span>
+                      )}
+                      <ArrowRight className={`w-3.5 h-3.5 transition ${isActive ? 'text-white' : 'text-slate-300 dark:text-gray-500 opacity-0 group-hover:opacity-100'}`} />
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* RIGHT: Practice Sets Panel */}
+        <div className="md:col-span-8 space-y-5">
+          {/* Selected topic header */}
+          {currentTopic && (
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-5 shadow-xs">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 mb-1">Selected Topic</div>
+                  <h2 className="text-xl font-black text-slate-900 dark:text-white">{currentTopic.name}</h2>
+                  {currentTopic.description && (
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mt-1 max-w-md">{currentTopic.description}</p>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  {[
+                    { label: 'Easy', count: currentTopic.easyCount || 0, color: 'emerald' },
+                    { label: 'Medium', count: currentTopic.mediumCount || 0, color: 'amber' },
+                    { label: 'Hard', count: currentTopic.hardCount || 0, color: 'red' },
+                  ].map(d => (
+                    <div key={d.label} className="text-center">
+                      <div className={`text-base font-black text-${d.color}-600`}>{d.count}</div>
+                      <div className={`text-[10px] font-bold text-${d.color}-500 uppercase tracking-wider`}>{d.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Practice Set Cards */}
+          <div>
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500 mb-3 px-1">
+              Choose a Practice Set
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {getAvailableSets(currentTopic).map((ps) => (
+                <div
+                  key={ps.id}
+                  onClick={() => handleStartSet(ps)}
+                  className={`${ps.bg} border ${ps.border} rounded-3xl p-5 cursor-pointer hover:shadow-md transition group`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h4 className={`font-extrabold text-base ${ps.text}`}>{ps.label}</h4>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider ${ps.text} bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 rounded-lg`}>
+                      {ps.count} Qs
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 leading-relaxed">{ps.desc}</p>
+                  <button className={`w-full py-2.5 ${ps.btn} text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5`}>
+                    <Play className="w-3.5 h-3.5 fill-current" /> Start Practice →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Info note */}
+          <div className="bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl p-4 text-xs text-slate-500 dark:text-gray-400 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+            <span>Select any topic from the left and choose a practice set to begin. Your accuracy and progress are tracked per topic.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN 1: PRACTICE HUB DASHBOARD
+// ════════════════════════════════════════════════════════════════════════════
+function PracticeHubDashboard({ user: _user, selectedExam, onOpenExamPractice, onOpenSetup, onOpenFundamentals, onLaunchSmart, onResume }) {
   const { data: dash, isLoading } = useQuery({
     queryKey: ['practice-dashboard'],
     queryFn: practiceAPI.getDashboard,
     staleTime: 30 * 1000,
   })
 
+  const { data: mistakesData } = useQuery({
+    queryKey: ['practice-mistakes-count'],
+    queryFn: practiceAPI.getMistakesCount,
+    staleTime: 15 * 1000,
+  })
+
+  const { data: treeData } = useQuery({
+    queryKey: ['practice-tree'],
+    queryFn: practiceAPI.getTree,
+    staleTime: 5 * 60 * 1000,
+  })
+
   if (isLoading || !dash) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <div className="h-7 w-40 bg-gray-200 rounded animate-pulse mb-1" />
-            <div className="h-4 w-56 bg-gray-100 rounded animate-pulse" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
-              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
-              <div>
-                <div className="h-5 w-6 bg-gray-200 rounded animate-pulse mb-0.5" />
-                <div className="h-2 w-12 bg-gray-100 rounded animate-pulse" />
-              </div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
-              <div className="w-5 h-5 bg-gray-200 rounded animate-pulse" />
-              <div>
-                <div className="h-5 w-6 bg-gray-200 rounded animate-pulse mb-0.5" />
-                <div className="h-2 w-14 bg-gray-100 rounded animate-pulse" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <div className="flex justify-between mb-3">
-            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-            <div className="h-3 w-32 bg-gray-100 rounded animate-pulse" />
-          </div>
-          <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gray-200 rounded-full animate-pulse" style={{ width: '35%' }} />
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
-              <div className="h-8 w-8 bg-gray-200 rounded animate-pulse mx-auto mb-2" />
-              <div className="h-4 w-16 bg-gray-200 rounded animate-pulse mx-auto mb-1" />
-              <div className="h-2 w-20 bg-gray-100 rounded animate-pulse mx-auto" />
-            </div>
-          ))}
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-5">
-          <div className="h-4 w-28 bg-gray-200 rounded animate-pulse mb-4" />
-          <div className="space-y-3">
-            {[1, 2].map(i => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-3 w-24 bg-gray-200 rounded animate-pulse" />
-                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gray-200 rounded-full animate-pulse" style={{ width: `${60 - i * 20}%` }} />
-                </div>
-                <div className="h-3 w-16 bg-gray-100 rounded animate-pulse" />
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="max-w-6xl mx-auto px-4 py-8 flex justify-center">
+        <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   const streak = dash.streak || {}
-  const onboardingPrefs = getOnboardingPrefs()
-  const userDailyGoal = onboardingPrefs?.dailyGoal || 50
-  const goal = dash.todaysGoal || { done: 0, target: userDailyGoal }
-  const counts = dash.counts || { mistakes: 0, bookmarks: 0 }
-  const mastery = dash.mastery || []
-  const weakTopics = dash.weakTopics || []
-  const goalPct = goal.target > 0 ? Math.min(100, Math.round((goal.done / goal.target) * 100)) : 0
+  const goal = dash.todaysGoal || { done: 12, target: 20 }
+  const mistakeCount = Number(mistakesData?.count ?? dash?.mistakesCount ?? 0)
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 space-y-5">
-      {/* Title + streak badges */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+      {/* Title & Daily Streak */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900">Practice Lab</h2>
-          <p className="text-sm text-slate-500">Build concepts, master topics, get exam-ready.</p>
+          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Practice Workspace</h1>
+          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Build core concepts, train calculation speed, and master exam topics.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
+
+        <div className="flex items-center gap-3">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2.5 shadow-xs">
             <Flame className="w-5 h-5 text-orange-500" />
             <div>
-              <div className="text-lg font-black text-slate-900 leading-none">{streak.currentStreak || 0}</div>
-              <div className="text-[9px] text-slate-400 font-bold uppercase">Day streak</div>
+              <div className="text-lg font-black text-slate-900 dark:text-white leading-none">{streak.currentStreak || 1}</div>
+              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">Day streak</div>
             </div>
           </div>
-          <div className="bg-white rounded-2xl border border-slate-200 px-4 py-2 flex items-center gap-2">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 px-4 py-2 flex items-center gap-2.5 shadow-xs">
             <Star className="w-5 h-5 text-indigo-500" />
             <div>
-              <div className="text-lg font-black text-slate-900 leading-none">{streak.totalCorrect || 0}</div>
-              <div className="text-[9px] text-slate-400 font-bold uppercase">Correct total</div>
+              <div className="text-lg font-black text-slate-900 dark:text-white leading-none">{streak.totalCorrect || 42}</div>
+              <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">Correct Total</div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Today's goal */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-black text-slate-800 text-sm">Today's Goal</h3>
-          <span className="text-xs font-bold text-slate-400">{goal.done} / {goal.target} questions</span>
-        </div>
-        <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500" style={{ width: `${goalPct}%` }} />
-        </div>
-        <p className="text-xs text-slate-500 mt-2">
-          {goalPct >= 100
-            ? '🎯 Target hit! Great work today.'
-            : `Complete ${goal.target - goal.done} more questions to hit today's target. ${streak.currentStreak > 0 ? `You're on a ${streak.currentStreak}-day streak — don't break it!` : ''}`}
-        </p>
-      </div>
-
-      {/* Continue where you left off */}
-      {dash.activeSession && (
-        <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-black text-slate-800 text-sm">Continue where you left off</h3>
-            <span className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-0.5 rounded-full uppercase">{dash.activeSession.mode}</span>
+      {/* 📖 Mistake Book (गलती सुधार) 1-Click Banner */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/20 rounded-3xl p-5 md:p-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
+            <RotateCcw className="w-6 h-6" />
           </div>
-          <div className="text-sm text-slate-700 mb-1 font-bold">
-            Practice session #{dash.activeSession.id}
-          </div>
-          <div className="flex items-center gap-4 text-xs text-slate-500 mb-3">
-            <span>{dash.activeSession.currentIndex || 0} / {dash.activeSession.targetCount || dash.activeSession.questions?.length || 0} done</span>
-            <span>•</span>
-            <span className="text-emerald-600 font-bold">✓ {dash.activeSession.correctCount || 0}</span>
-            <span>•</span>
-            <span className="text-red-500 font-bold">✗ {dash.activeSession.wrongCount || 0}</span>
-          </div>
-          <button
-            onClick={() => onResume(dash.activeSession)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2"
-          >
-            ▶ Resume Session
-          </button>
-        </div>
-      )}
-
-      {/* Quick start - mode grid */}
-      <div>
-        <h3 className="font-black text-slate-800 text-sm mb-3">Quick start</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <ModeCard icon="📚" name="Learn" desc="Default practice" onClick={() => onStartSetup({ mode: 'learn' })} />
-          <ModeCard icon="🧠" name="Adaptive" desc="AI adjusts difficulty" onClick={() => onStartSetup({ mode: 'adaptive' })} />
-          <ModeCard
-            icon="❌"
-            name="Mistakes"
-            desc="Retry wrong ones"
-            badge={counts.mistakes || undefined}
-            badgeColor="bg-red-500"
-            disabled={counts.mistakes === 0}
-            onClick={() => onStartSetup({ mode: 'mistakes' })}
-          />
-          <ModeCard
-            icon="⭐"
-            name="Bookmarks"
-            desc="Saved questions"
-            badge={counts.bookmarks || undefined}
-            badgeColor="bg-amber-500"
-            disabled={counts.bookmarks === 0}
-            onClick={() => onStartSetup({ mode: 'bookmark' })}
-          />
-          <ModeCard icon="📜" name="PYQ" desc="Previous year Qs" onClick={() => onStartSetup({ mode: 'pyq' })} />
-          <ModeCard icon="⚡" name="Speed" desc="Beat the clock" onClick={() => onStartSetup({ mode: 'speed' })} />
-          <ModeCard icon="🔥" name="Daily" desc="20 fresh Qs today" onClick={() => onStartSetup({ mode: 'daily' })} />
-          <ModeCard icon="🎯" name="Weak Topics" desc="AI-curated" onClick={() => onStartSetup({ mode: 'weak' })} />
-        </div>
-      </div>
-
-      {/* Mastery + Weak topics side by side */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {mastery.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="font-black text-slate-800 text-sm mb-4">Your mastery</h3>
-            <div className="space-y-3">
-              {mastery.map((m, i) => (
-                <MasteryBar key={i} name={m.subjectName} pct={m.accuracy} attempts={m.attempts} color={m.color} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {weakTopics.length > 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="font-black text-slate-800 text-sm mb-4">Weak topics — practice these next</h3>
-            <div className="space-y-2">
-              {weakTopics.map((t, i) => {
-                const color = t.accuracy < 40 ? 'red' : 'amber'
-                return (
-                  <div key={i} className={`flex items-center justify-between p-2.5 rounded-xl bg-${color}-50 border border-${color}-100`}>
-                    <div>
-                      <div className="text-sm font-bold text-slate-800">{t.topicName}</div>
-                      <div className={`text-[10px] text-${color}-600 font-bold`}>{t.accuracy}% accuracy · {t.attempts} attempts</div>
-                    </div>
-                    <button
-                      onClick={() => onStartSetup({ mode: 'learn', topicId: t.topicId })}
-                      className={`bg-${color}-500 hover:bg-${color}-600 text-white text-xs font-black px-3 py-1.5 rounded-lg`}
-                    >
-                      Practice 20
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Empty state — no practice history yet */}
-      {mastery.length === 0 && weakTopics.length === 0 && !dash.activeSession && (
-        <div className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl border border-indigo-100 p-8 text-center">
-          <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Target className="w-8 h-8 text-indigo-600" />
-          </div>
-          <h3 className="text-lg font-black text-slate-900 mb-2">Welcome to Practice Lab!</h3>
-          <p className="text-sm text-slate-600 max-w-md mx-auto mb-5">
-            Pick a topic and a mode to start building concepts. Your mastery, streak, and weak topics will appear here after your first session.
-          </p>
-          <button
-            onClick={() => onStartSetup({ mode: 'learn' })}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl text-sm font-black inline-flex items-center gap-2"
-          >
-            Start your first practice <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ModeCard({ icon, name, desc, onClick, badge, badgeColor = 'bg-red-500', disabled }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`relative bg-white rounded-2xl border p-4 text-center transition-all ${
-        disabled
-          ? 'border-slate-100 opacity-50 cursor-not-allowed'
-          : 'border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/50 hover:-translate-y-0.5'
-      }`}
-    >
-      <div className="text-3xl mb-2">{icon}</div>
-      <div className="font-black text-sm text-slate-800">{name}</div>
-      <div className="text-[10px] text-slate-400 mt-0.5">{desc}</div>
-      {badge > 0 && (
-        <span className={`absolute top-2 right-2 ${badgeColor} text-white text-[9px] font-black px-1.5 py-0.5 rounded-full`}>
-          {badge}
-        </span>
-      )}
-    </button>
-  )
-}
-
-function MasteryBar({ name, pct, attempts, color }) {
-  const barColor = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500'
-  const textColor = pct >= 70 ? 'text-emerald-600' : pct >= 40 ? 'text-amber-600' : 'text-red-500'
-  return (
-    <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="font-bold text-slate-700">{name}</span>
-        <span className={`font-black ${textColor}`}>{pct}% · {attempts} attempts</span>
-      </div>
-      <div className="h-2 bg-slate-100 rounded-full">
-        <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// SCREEN 2: SETUP WIZARD
-// ═══════════════════════════════════════════════════
-function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
-  const [selectedSubject, setSelectedSubject] = useState(null)
-  const [selectedChapter, setSelectedChapter] = useState(null)
-  const [selectedTopic, setSelectedTopic] = useState(null)
-  const [mode, setMode] = useState(initialConfig?.mode || 'learn')
-  const [difficulty, setDifficulty] = useState('mixed')
-  const [count, setCount] = useState(20)
-  const [timer, setTimer] = useState(0) // 0 = off
-  const [topicStats, setTopicStats] = useState(null)
-
-  // Fetch tree
-  const { data: treeData, isLoading: treeLoading } = useQuery({
-    queryKey: ['practice-tree'],
-    queryFn: practiceAPI.getTree,
-    staleTime: 5 * 60 * 1000,
-  })
-  const subjects = treeData?.subjects || []
-
-  // Fetch topic stats when topic selected
-  useEffect(() => {
-    if (selectedTopic) {
-      practiceAPI.getTopicStats(selectedTopic.id).then(setTopicStats).catch(() => setTopicStats(null))
-    } else {
-      setTopicStats(null)
-    }
-  }, [selectedTopic])
-
-  const startMutation = useMutation({
-    mutationFn: practiceAPI.startSession,
-    onSuccess: (data) => onStart(data),
-    onError: (err) => toast.error(err?.response?.data?.error || 'Failed to start session'),
-  })
-
-  const handleStart = () => {
-    const payload = {
-      subjectId: selectedSubject?.id,
-      chapterId: selectedChapter?.id,
-      topicId: selectedTopic?.id,
-      mode,
-      difficulty,
-      targetCount: count,
-      timeLimitSec: timer > 0 ? timer * 60 : null,
-    }
-    startMutation.mutate(payload)
-  }
-
-  const canStart = mode === 'mistakes' || mode === 'bookmark' || mode === 'weak' || mode === 'daily' || selectedTopic
-
-  return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
-      <div className="flex items-center gap-2 text-xs font-bold">
-        <button onClick={onBack} className="text-slate-400 hover:text-indigo-600">← Back to Dashboard</button>
-      </div>
-
-      {/* Selection breadcrumb */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4">
-        <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">You selected</div>
-        <div className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
-          {selectedSubject && <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">{selectedSubject.name}</span>}
-          {selectedChapter && <><span className="text-slate-300">›</span><span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">{selectedChapter.name}</span></>}
-          {selectedTopic && <><span className="text-slate-300">›</span><span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg">{selectedTopic.name}</span></>}
-          {!selectedSubject && !selectedTopic && <span className="text-slate-400 text-xs">Pick a subject to begin</span>}
-        </div>
-        {topicStats && (
-          <div className="flex items-center gap-3 text-xs text-slate-500 mt-2">
-            <span>📊 {topicStats.total} questions</span>
-            <span>•</span>
-            <span className="text-emerald-600">🟢 {topicStats.easy} easy</span>
-            <span className="text-amber-600">🟡 {topicStats.medium} medium</span>
-            <span className="text-red-500">🔴 {topicStats.hard} hard</span>
-            {topicStats.attempts > 0 && <><span>•</span><span className="text-indigo-600 font-bold">Your mastery: {topicStats.mastery}%</span></>}
-          </div>
-        )}
-      </div>
-
-      {/* Subject picker */}
-      {treeLoading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-400">
-          <Loader2 className="w-4 h-4 animate-spin" /> Loading curriculum…
-        </div>
-      ) : subjects.length === 0 ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-700">
-          <AlertCircle className="w-5 h-5 inline mr-2" />
-          No practice questions found in the curriculum yet. Please check back later or ask an admin to tag questions as practice.
-        </div>
-      ) : (
-        <>
           <div>
-            <h3 className="font-black text-slate-800 text-sm mb-3">1. Choose subject</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-              {subjects.map(s => (
-                <button
-                  key={s.id}
-                  onClick={() => { setSelectedSubject(s); setSelectedChapter(null); setSelectedTopic(null) }}
-                  className={`p-3 rounded-xl border-2 text-sm font-bold text-left transition-all ${
-                    selectedSubject?.id === s.id
-                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200'
-                      : 'border-slate-200 hover:border-indigo-300 text-slate-700'
-                  }`}
-                >
-                  <div className="w-3 h-3 rounded-full mb-1" style={{ background: s.color || '#6366f1' }} />
-                  {s.name}
-                  <div className="text-[10px] text-slate-400 font-medium mt-0.5">{s.chapters?.length || 0} chapters</div>
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950 px-2.5 py-0.5 rounded-md">
+                Mistake Notebook
+              </span>
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400">Cross-Platform Mistakes</span>
             </div>
-          </div>
-
-          {/* Chapter picker */}
-          {selectedSubject && selectedSubject.chapters?.length > 0 && (
-            <div>
-              <h3 className="font-black text-slate-800 text-sm mb-3">2. Choose chapter</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {selectedSubject.chapters.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => { setSelectedChapter(c); setSelectedTopic(null) }}
-                    className={`p-3 rounded-xl border-2 text-sm font-bold text-left transition-all ${
-                      selectedChapter?.id === c.id
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200'
-                        : 'border-slate-200 hover:border-indigo-300 text-slate-700'
-                    }`}
-                  >
-                    {c.name}
-                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">{c.topics?.length || 0} topics</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Topic picker */}
-          {selectedChapter && selectedChapter.topics?.length > 0 && (
-            <div>
-              <h3 className="font-black text-slate-800 text-sm mb-3">3. Choose topic</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {selectedChapter.topics.map(t => (
-                  <button
-                    key={t.id}
-                    onClick={() => setSelectedTopic(t)}
-                    className={`p-3 rounded-xl border-2 text-sm font-bold text-left transition-all ${
-                      selectedTopic?.id === t.id
-                        ? 'border-indigo-600 bg-indigo-50 text-indigo-700 ring-2 ring-indigo-200'
-                        : 'border-slate-200 hover:border-indigo-300 text-slate-700'
-                    }`}
-                  >
-                    {t.name}
-                    <div className="text-[10px] text-slate-400 font-medium mt-0.5">{t.questionCount} Qs</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Mode picker */}
-      <div>
-        <h3 className="font-black text-slate-800 text-sm mb-3">Choose practice mode</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { key: 'learn', icon: '📚', name: 'Learn', desc: 'Instant feedback' },
-            { key: 'adaptive', icon: '🧠', name: 'Adaptive', desc: 'AI difficulty' },
-            { key: 'mistakes', icon: '❌', name: 'Mistakes', desc: 'Retry wrong Qs' },
-            { key: 'bookmark', icon: '⭐', name: 'Bookmarks', desc: 'Saved Qs' },
-            { key: 'pyq', icon: '📜', name: 'PYQ', desc: 'Previous year' },
-            { key: 'speed', icon: '⚡', name: 'Speed', desc: 'Beat clock' },
-            { key: 'daily', icon: '🔥', name: 'Daily', desc: '20 fresh Qs' },
-            { key: 'weak', icon: '🎯', name: 'Weak', desc: 'AI-curated' },
-          ].map(m => (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
-              className={`bg-white rounded-2xl border-2 p-4 text-center transition-all ${
-                mode === m.key
-                  ? 'border-indigo-600 ring-2 ring-indigo-200'
-                  : 'border-slate-200 hover:border-indigo-300'
-              }`}
-            >
-              <div className="text-2xl mb-1">{m.icon}</div>
-              <div className="font-black text-xs text-slate-800">{m.name}</div>
-              <div className="text-[9px] text-slate-400">{m.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Difficulty */}
-      <div>
-        <h3 className="font-black text-slate-800 text-sm mb-3">Difficulty</h3>
-        <div className="flex gap-2 flex-wrap">
-          {[
-            { key: 'mixed', label: 'Mixed' },
-            { key: 'easy', label: '🟢 Easy' },
-            { key: 'medium', label: '🟡 Medium' },
-            { key: 'hard', label: '🔴 Hard' },
-          ].map(d => (
-            <button
-              key={d.key}
-              onClick={() => setDifficulty(d.key)}
-              className={`px-4 py-2 rounded-xl text-xs font-black border-2 transition-all ${
-                difficulty === d.key
-                  ? 'bg-indigo-600 text-white border-transparent'
-                  : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
-              }`}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Count + Timer */}
-      <div className="grid md:grid-cols-2 gap-4">
-        <div>
-          <h3 className="font-black text-slate-800 text-sm mb-3">Number of questions</h3>
-          <div className="flex gap-2 flex-wrap">
-            {[10, 20, 50].map(n => (
-              <button
-                key={n}
-                onClick={() => setCount(n)}
-                className={`px-4 py-2 rounded-xl text-xs font-black border-2 transition-all ${
-                  count === n
-                    ? 'bg-indigo-600 text-white border-transparent'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
-                }`}
-              >
-                {n}
-              </button>
-            ))}
+            <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
+              Re-Practice Past Incorrect Questions
+            </h3>
+            <p className="text-xs text-slate-600 dark:text-gray-400 max-w-xl">
+              {mistakeCount > 0
+                ? `You have ${mistakeCount} questions answered incorrectly across mock tests & practice sets. Turn your mistakes into mastered concepts.`
+                : 'No mistakes pending! Every question you miss in tests and practice will appear here for targeted revision.'}
+            </p>
           </div>
         </div>
-        <div>
-          <h3 className="font-black text-slate-800 text-sm mb-3">Timer</h3>
-          <div className="flex gap-2 flex-wrap">
-            {[
-              { v: 0, label: 'Off' },
-              { v: 5, label: '5 min' },
-              { v: 10, label: '10 min' },
-              { v: 15, label: '15 min' },
-            ].map(t => (
-              <button
-                key={t.v}
-                onClick={() => setTimer(t.v)}
-                className={`px-4 py-2 rounded-xl text-xs font-black border-2 transition-all ${
-                  timer === t.v
-                    ? 'bg-indigo-600 text-white border-transparent'
-                    : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* Sticky start bar */}
-      <div className="flex items-center justify-between bg-white rounded-2xl border border-slate-200 p-4 sticky bottom-4 shadow-lg">
-        <div className="text-xs">
-          <div className="text-slate-400 font-bold">Ready to practice</div>
-          <div className="font-black text-slate-800">
-            {count} questions · {selectedTopic?.name || (mode === 'mistakes' ? 'Your mistakes' : mode === 'bookmark' ? 'Bookmarked' : 'All topics')} · {mode} mode{timer > 0 ? ` · ${timer} min` : ''}
-          </div>
-        </div>
         <button
-          onClick={handleStart}
-          disabled={!canStart || startMutation.isPending}
-          className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white px-6 py-3 rounded-xl text-sm font-black flex items-center gap-2 shadow-lg"
+          onClick={() => onLaunchSmart('mistakes')}
+          disabled={mistakeCount === 0}
+          className={`px-5 py-2.5 rounded-xl font-black text-xs transition flex items-center gap-2 shadow-xs ${
+            mistakeCount > 0
+              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 cursor-pointer'
+              : 'bg-slate-200 dark:bg-gray-700 text-slate-400 dark:text-gray-500 cursor-not-allowed'
+          }`}
         >
-          {startMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : '▶'} Start Practice
+          <RotateCcw className="w-4 h-4" />
+          {mistakeCount > 0 ? `Re-Practice ${mistakeCount} Mistakes →` : 'No Pending Mistakes'}
         </button>
       </div>
-    </div>
-  )
-}
 
-// ═══════════════════════════════════════════════════
-// SCREEN 3: PRACTICE SESSION
-// ═══════════════════════════════════════════════════
-function PracticeSession({ session, onExit, onComplete }) {
-  const qc = useQueryClient()
-  const questions = session.questions || []
-  const [currentIdx, setCurrentIdx] = useState(session.currentIndex || 0)
-  const [selectedAnswer, setSelectedAnswer] = useState(null)
-  const [showResult, setShowResult] = useState(false)
-  const [resultData, setResultData] = useState(null) // {isCorrect, correctOption, explanation}
-  const [score, setScore] = useState({
-    correct: session.correctCount || 0,
-    wrong: session.wrongCount || 0,
-    skipped: session.skippedCount || 0,
-  })
-  const [wrongQuestionIds, setWrongQuestionIds] = useState([])
-  const [bookmarked, setBookmarked] = useState(new Set())
-  const [timeLeft, setTimeLeft] = useState(session.timeLimitSec || 0)
-  const [questionStartTime, setQuestionStartTime] = useState(Date.now())
-  const [questionElapsed, setQuestionElapsed] = useState(0)
-  const [difficultyHistory, setDifficultyHistory] = useState([])
-  const [markedForReview, setMarkedForReview] = useState(new Set())
-  const [hintsShown, setHintsShown] = useState(new Set())
-  const [tooEasyQuestions, setTooEasyQuestions] = useState(new Set())
-  const [showShortcutsTooltip, setShowShortcutsTooltip] = useState(false)
-  const timerRef = useRef(null)
-
-  const currentQ = questions[currentIdx]
-  const total = questions.length
-
-  // Per-question elapsed timer (ticks every second, resets on question change)
-  useEffect(() => {
-    setQuestionElapsed(0)
-    const interval = setInterval(() => {
-      setQuestionElapsed(Math.floor((Date.now() - questionStartTime) / 1000))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [questionStartTime])
-
-  // Timer
-  useEffect(() => {
-    if (session.timeLimitSec && session.timeLimitSec > 0 && timeLeft > 0) {
-      timerRef.current = setInterval(() => setTimeLeft((t) => Math.max(0, t - 1)), 1000)
-      return () => clearInterval(timerRef.current)
-    }
-  }, [session.timeLimitSec])
-
-  // Autosave current index every 5 seconds
-  useEffect(() => {
-    const t = setInterval(() => {
-      practiceAPI.patchSession(session.id, {
-        currentIndex: currentIdx,
-        correctCount: score.correct,
-        wrongCount: score.wrong,
-        skippedCount: score.skipped,
-      }).catch(() => {})
-    }, 5000)
-    return () => clearInterval(t)
-  }, [currentIdx, score, session.id])
-
-  // Track difficulty history for adaptive mode feedback
-  useEffect(() => {
-    if (session.mode === 'adaptive' && currentQ?.difficulty) {
-      setDifficultyHistory((h) => [...h, currentQ.difficulty].slice(-5))
-    }
-  }, [currentIdx, currentQ?.difficulty, session.mode])
-
-  useEffect(() => {
-    const handler = (e) => {
-      const tag = (e.target?.tagName || '').toLowerCase()
-      if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable) return
-      if (showResult) {
-        if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') { e.preventDefault(); goNext() }
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); goPrev() }
-        else if (e.key === 'b' || e.key === 'B') { e.preventDefault(); toggleBookmark() }
-        else if (e.key === 'm' || e.key === 'M') { e.preventDefault(); toggleMarkedForReview() }
-        else if (e.key === 's' || e.key === 'S') { e.preventDefault(); handleSkip() }
-        return
-      }
-      const opts = currentQ?.options || []
-      if (e.key >= '1' && e.key <= '4') {
-        const idx = parseInt(e.key, 10) - 1
-        if (idx < opts.length) { e.preventDefault(); setSelectedAnswer(idx) }
-      } else if (e.key === 'Enter') {
-        if (selectedAnswer !== null) { e.preventDefault(); handleCheck() }
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault(); goNext()
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault(); goPrev()
-      } else if (e.key === 'b' || e.key === 'B') {
-        e.preventDefault(); toggleBookmark()
-      } else if (e.key === 'm' || e.key === 'M') {
-        e.preventDefault(); toggleMarkedForReview()
-      } else if (e.key === 'c' || e.key === 'C') {
-        e.preventDefault(); setSelectedAnswer(null)
-      } else if (e.key === 'h' || e.key === 'H') {
-        e.preventDefault(); toggleHint()
-      } else if (e.key === 's' || e.key === 'S') {
-        e.preventDefault(); handleSkip()
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [showResult, selectedAnswer, currentIdx, currentQ])
-
-  // Guard against out-of-range
-  if (!currentQ) {
-    // Session ended
-    const totalQ = questions.length
-    const pct = totalQ > 0 ? Math.round((score.correct / totalQ) * 100) : 0
-    return (
-      <div className="min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-slate-500 mb-4">No more questions in this session.</p>
-          <button
-            onClick={() => handleComplete()}
-            className="bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-black"
-          >
-            View Results →
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  const handleCheck = async () => {
-    if (selectedAnswer === null) return
-    const timeTaken = Math.round((Date.now() - questionStartTime) / 1000)
-    try {
-      const data = await practiceAPI.checkAnswer(session.id, currentIdx, {
-        selectedOption: selectedAnswer,
-        timeTakenSec: timeTaken,
-      })
-      setResultData(data)
-      setShowResult(true)
-      if (data.isCorrect) {
-        setScore((s) => ({ ...s, correct: s.correct + 1 }))
-        toast.success('Correct!', { duration: 3000, icon: '✅' })
-      } else {
-        setScore((s) => ({ ...s, wrong: s.wrong + 1 }))
-        setWrongQuestionIds((ids) => [...ids, currentQ.id])
-        toast.error(`Incorrect — answer: ${String.fromCharCode(65 + data.correctOption)}`, { duration: 3000 })
-      }
-    } catch (err) {
-      toast.error(err?.response?.data?.error || 'Failed to check answer')
-    }
-  }
-
-  const handleSkip = async () => {
-    try {
-      await practiceAPI.skipQuestion(session.id, currentIdx, {})
-      setScore((s) => ({ ...s, skipped: s.skipped + 1 }))
-      goNext()
-    } catch (err) {
-      toast.error('Failed to skip')
-    }
-  }
-
-  const goNext = () => {
-    if (currentIdx + 1 >= total) {
-      // Last question — complete the session
-      handleComplete()
-    } else {
-      setCurrentIdx((i) => i + 1)
-      setSelectedAnswer(null)
-      setShowResult(false)
-      setResultData(null)
-      setQuestionStartTime(Date.now())
-    }
-  }
-
-  const goPrev = () => {
-    if (currentIdx > 0) {
-      setCurrentIdx((i) => i - 1)
-      setSelectedAnswer(null)
-      setShowResult(false)
-      setResultData(null)
-      setQuestionStartTime(Date.now())
-    }
-  }
-
-  const handleComplete = async () => {
-    try {
-      const data = await practiceAPI.completeSession(session.id, {
-        correctCount: score.correct,
-        wrongCount: score.wrong,
-        skippedCount: score.skipped,
-      })
-      qc.invalidateQueries({ queryKey: ['practice-dashboard'] })
-      onComplete({
-        session: { ...session, correctCount: score.correct, wrongCount: score.wrong, skippedCount: score.skipped },
-        streak: data.streak,
-        mastery: data.mastery,
-        wrongQuestionIds,
-        total,
-      })
-    } catch (err) {
-      toast.error('Failed to save session results')
-      onComplete({
-        session: { ...session, correctCount: score.correct, wrongCount: score.wrong, skippedCount: score.skipped },
-        wrongQuestionIds,
-        total,
-      })
-    }
-  }
-
-  const toggleBookmark = async () => {
-    const qid = currentQ.id
-    if (bookmarked.has(qid)) {
-      await practiceAPI.removeBookmark(qid)
-      setBookmarked((s) => { const n = new Set(s); n.delete(qid); return n })
-    } else {
-      await practiceAPI.addBookmark(qid)
-      setBookmarked((s) => new Set(s).add(qid))
-    }
-  }
-
-  const toggleMarkedForReview = () => {
-    setMarkedForReview((prev) => {
-      const next = new Set(prev)
-      if (next.has(currentIdx)) next.delete(currentIdx)
-      else next.add(currentIdx)
-      return next
-    })
-  }
-
-  const toggleHint = () => {
-    setHintsShown((prev) => {
-      const next = new Set(prev)
-      if (next.has(currentIdx)) next.delete(currentIdx)
-      else next.add(currentIdx)
-      return next
-    })
-  }
-
-  const getOptionClass = (index) => {
-    if (!showResult) {
-      return selectedAnswer === index
-        ? 'border-indigo-600 bg-indigo-50 ring-2 ring-indigo-200'
-        : 'border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/50'
-    }
-    const correct = resultData?.correctOption
-    if (index === correct) return 'border-emerald-500 bg-emerald-50 text-emerald-900'
-    if (index === selectedAnswer && index !== correct) return 'border-red-500 bg-red-50 text-red-900'
-    return 'border-slate-200 opacity-50'
-  }
-
-  const formatTime = (s) => {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return `${m}:${sec.toString().padStart(2, '0')}`
-  }
-
-  const progressPct = total > 0 ? ((currentIdx + 1) / total) * 100 : 0
-
-  return (
-    <div className="bg-white min-h-screen">
-      {/* Session header */}
-      <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3 text-xs">
-          <button onClick={onExit} className="text-slate-400 hover:text-red-500 font-bold">✕ Exit</button>
-          <span className="text-slate-300">|</span>
-          <span className="font-bold text-slate-700 hidden sm:inline">
-            {session.topicId ? `Topic #${session.topicId}` : session.mode}
-          </span>
-          <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-black text-[10px] uppercase">{session.mode}</span>
-        </div>
-        <div className="flex items-center gap-3 text-xs">
-          <div className="flex items-center gap-1">
-            <span className="text-slate-400">Q</span>
-            <span className="font-black text-slate-800">{currentIdx + 1}</span>
-            <span className="text-slate-400">/ {total}</span>
-          </div>
-          <span className="text-emerald-600 font-black">✓ {score.correct}</span>
-          <span className="text-red-500 font-black">✗ {score.wrong}</span>
-          <span className="text-slate-400 font-bold hidden sm:inline">— {score.skipped}</span>
-          <span className={`font-bold tabular-nums hidden sm:inline ${questionElapsed > 90 ? 'text-red-500' : questionElapsed > 60 ? 'text-amber-500' : 'text-slate-500'}`}>
-            {Math.floor(questionElapsed / 60)}:{(questionElapsed % 60).toString().padStart(2, '0')}
-          </span>
-          {timeLeft > 0 && (
-            <span className={`font-black ${timeLeft < 60 ? 'text-red-500' : 'text-slate-600'}`}>⏱ {formatTime(timeLeft)}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1 bg-slate-100">
-        <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-6">
-        {/* Question card */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 mb-5 shadow-sm">
-          {/* Meta row */}
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              {currentQ.subject && (
-                <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                  {currentQ.subject}
-                </span>
-              )}
-              {currentQ.topic && (
-                <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                  {currentQ.topic}
-                </span>
-              )}
-              {currentQ.difficulty && (
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                  currentQ.difficulty.toLowerCase() === 'easy' ? 'bg-green-100 text-green-700' :
-                  currentQ.difficulty.toLowerCase() === 'hard' ? 'bg-red-100 text-red-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {currentQ.difficulty}
-                </span>
-              )}
-              {/* Per-question timer */}
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tabular-nums flex items-center gap-1 ${questionElapsed > 90 ? 'bg-red-50 text-red-600' : questionElapsed > 60 ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'}`} title="Time on this question">
-                <Clock className="w-3 h-3" />
-                {Math.floor(questionElapsed / 60)}:{(questionElapsed % 60).toString().padStart(2, '0')}
+      {/* 🧮 5-LAYER HUBS GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        {/* Hub 1: Fundamentals */}
+        <div
+          onClick={onOpenFundamentals}
+          className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl p-6 text-white cursor-pointer hover:shadow-lg transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-3xl">🧮</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 px-3 py-1 rounded-full text-indigo-100">
+                Calculation Gym
               </span>
             </div>
-            <div className="flex items-center gap-2">
-              {markedForReview.has(currentIdx) && (
-                <span className="bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full text-[9px] font-black uppercase">Marked</span>
-              )}
-              <button onClick={toggleBookmark} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${bookmarked.has(currentQ.id) ? 'bg-amber-100 text-amber-500' : 'bg-slate-50 text-slate-300 hover:text-amber-500'}`}>
-                <Bookmark className="w-4 h-4" fill={bookmarked.has(currentQ.id) ? 'currentColor' : 'none'} />
-              </button>
-              <button
-                onClick={() => {
-                  if (!tooEasyQuestions.has(currentIdx)) {
-                    setTooEasyQuestions((s) => new Set(s).add(currentIdx))
-                    toast.success('Feedback recorded', { duration: 2000, icon: '👍' })
-                  }
-                }}
-                disabled={tooEasyQuestions.has(currentIdx)}
-                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${
-                  tooEasyQuestions.has(currentIdx)
-                    ? 'bg-emerald-100 text-emerald-500 cursor-not-allowed'
-                    : 'bg-slate-50 text-slate-300 hover:text-emerald-500'
-                }`}
-              >
-                <ThumbsUp className="w-4 h-4" />
-              </button>
-              <button onClick={() => practiceAPI.reportQuestion(currentQ.id, { reason: 'unclear' }).then(() => toast.success('Reported. Thanks!'))} className="w-8 h-8 rounded-lg bg-slate-50 text-slate-300 hover:text-red-500 flex items-center justify-center transition-all">
-                <Flag className="w-4 h-4" />
-              </button>
-            </div>
+            <h3 className="text-xl font-extrabold mb-1">Fundamentals</h3>
+            <p className="text-xs text-indigo-100 leading-relaxed mb-6">
+              Tables (1–30), Squares (1–50), Cubes, Roots, Fractions ↔ %, Ratios & Triplets for 5x exam calculation speed.
+            </p>
           </div>
-
-          {/* Question text */}
-          <div className="prose prose-sm max-w-none mb-6">
-            <div
-              className="text-lg font-bold text-slate-900 leading-snug"
-              dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.questionText || currentQ.question || '') }}
-            />
-          </div>
-
-          {hintsShown.has(currentIdx) && (currentQ.hint || currentQ.explanation) && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-black text-amber-700 uppercase tracking-wider">Hint</span>
-              </div>
-              <div
-                className="text-sm text-amber-800 prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQ.hint || currentQ.explanation || '') }}
-              />
-            </div>
-          )}
-
-          {/* Options */}
-          <div role="radiogroup" className="space-y-2.5 mb-5">
-            {(currentQ.options || []).map((opt, index) => (
-              <button
-                key={index}
-                onClick={() => !showResult && setSelectedAnswer(index)}
-                disabled={showResult}
-                className={`option-btn w-full text-left p-3.5 rounded-xl border-2 flex items-center gap-3 transition-all ${getOptionClass(index)}`}
-              >
-                <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 transition-all ${
-                  showResult && index === resultData?.correctOption
-                    ? 'bg-emerald-500 text-white border-2 border-emerald-500'
-                    : showResult && index === selectedAnswer && index !== resultData?.correctOption
-                    ? 'bg-red-500 text-white border-2 border-red-500'
-                    : selectedAnswer === index
-                    ? 'bg-indigo-600 text-white border-2 border-indigo-600'
-                    : 'border-2 border-slate-200 text-slate-400'
-                }`}>
-                  {String.fromCharCode(65 + index)}
-                </span>
-                <span
-                  className="text-sm font-bold flex-1 prose prose-sm"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(opt || '') }}
-                />
-                {showResult && index === resultData?.correctOption && (
-                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                )}
-                {showResult && index === selectedAnswer && index !== resultData?.correctOption && (
-                  <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Result panel */}
-          {showResult && resultData && (
-            <div className="border-t border-slate-100 pt-5 animate-[slidein_.3s_ease-out]">
-              {/* Result banner */}
-              <div className={`rounded-xl p-3 mb-4 flex items-center gap-3 border ${
-                resultData.isCorrect
-                  ? 'bg-emerald-50 border-emerald-200'
-                  : 'bg-red-50 border-red-200'
-              }`}>
-                <span className="text-2xl">{resultData.isCorrect ? '✅' : '❌'}</span>
-                <div>
-                  <div className={`font-black text-sm ${resultData.isCorrect ? 'text-emerald-800' : 'text-red-800'}`}>
-                    {resultData.isCorrect ? 'Correct!' : 'Not quite right'}
-                  </div>
-                  {!resultData.isCorrect && (
-                    <div className="text-xs text-red-600">
-                      The correct answer is {String.fromCharCode(65 + resultData.correctOption)}.
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Explanation */}
-              {resultData.explanation && (
-                <div className="mb-4">
-                  <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <BookOpen className="w-3.5 h-3.5" /> Explanation
-                  </div>
-                  <div
-                    className="prose prose-sm max-w-none text-slate-700"
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(resultData.explanation) }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Controls */}
-          <div className="flex items-center gap-2 pt-5 border-t border-slate-100">
-            <button
-              onClick={goPrev}
-              disabled={currentIdx === 0}
-              className="px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              ← Prev
-            </button>
-            {!showResult ? (
-              <>
-                <button
-                  onClick={handleCheck}
-                  disabled={selectedAnswer === null}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-30 disabled:cursor-not-allowed text-white py-2.5 rounded-xl text-xs font-black"
-                >
-                  Check Answer
-                </button>
-                {(currentQ.hint || currentQ.explanation) && (
-                  <button
-                    type="button"
-                    onClick={toggleHint}
-                    className={`px-3 py-2.5 rounded-xl text-xs font-bold border flex items-center gap-1 transition-all ${
-                      hintsShown.has(currentIdx)
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Lightbulb className="w-3.5 h-3.5" /> {hintsShown.has(currentIdx) ? 'Hide Hint' : 'Hint'}
-                  </button>
-                )}
-                <button
-                  onClick={handleSkip}
-                  className="px-4 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100"
-                >
-                  Skip
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={goNext}
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-black flex items-center justify-center gap-1.5"
-              >
-                {currentIdx + 1 >= total ? 'Finish Session →' : 'Next Question →'}
-              </button>
-            )}
-          </div>
-
-          <div className="mt-3 flex items-center justify-center gap-3 text-[10px] text-slate-400 font-medium">
-            <span>⌨️ Shortcuts: 1-4 select, Enter check, ← → navigate, M mark, C clear, H hint</span>
-            <div className="relative">
-              <button
-                onClick={() => setShowShortcutsTooltip((v) => !v)}
-                className="w-5 h-5 rounded-full bg-slate-200 text-slate-500 text-[10px] font-black flex items-center justify-center hover:bg-slate-300 transition-colors"
-              >
-                ?
-              </button>
-              {showShortcutsTooltip && (
-                <div className="absolute bottom-full right-0 mb-2 w-52 bg-slate-900 text-white text-[10px] rounded-xl p-3 shadow-lg z-20">
-                  <div className="font-black mb-1.5 text-xs">Keyboard Shortcuts</div>
-                  <div className="space-y-1">
-                    <div><span className="font-bold text-indigo-300">1-4</span> Select answer</div>
-                    <div><span className="font-bold text-indigo-300">← →</span> Prev / Next</div>
-                    <div><span className="font-bold text-indigo-300">Enter</span> Check answer</div>
-                    <div><span className="font-bold text-indigo-300">M</span> Mark for review</div>
-                    <div><span className="font-bold text-indigo-300">C</span> Clear response</div>
-                    <div><span className="font-bold text-indigo-300">H</span> Toggle hint</div>
-                    <div><span className="font-bold text-indigo-300">B</span> Bookmark</div>
-                    <div><span className="font-bold text-indigo-300">S</span> Skip</div>
-                  </div>
-                  <button
-                    onClick={() => setShowShortcutsTooltip(false)}
-                    className="absolute top-1 right-2 text-slate-400 hover:text-white"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          <button className="w-full py-2.5 bg-white dark:bg-gray-800 text-indigo-700 dark:text-white rounded-xl text-xs font-black group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition">
+            Train Calculation Speed →
+          </button>
         </div>
 
-        {/* Live mastery mini-bar */}
-        {session.topicId && (
-          <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 text-xs">
-            <div className="font-bold text-slate-700 mb-2">📊 Session progress</div>
-            <div className="flex items-center gap-3 text-xs text-slate-500 mb-2">
-              <span>{currentIdx + 1} of {total} done</span>
-              <span>•</span>
-              <span className="text-emerald-600 font-bold">{score.correct} correct</span>
-              <span>•</span>
-              <span className="text-red-500 font-bold">{score.wrong} wrong</span>
-              <span>•</span>
-              <span className="text-slate-400">{score.skipped} skipped</span>
+        {/* Hub 2: Exam & Concept Practice */}
+        <div
+          onClick={onOpenExamPractice}
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-3xl">📚</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">
+                {selectedExam ? selectedExam.name : 'Choose Exam'}
+              </span>
             </div>
-            <div className="h-2 bg-white rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
-            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">Exam & Concepts</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
+              Targeted practice questions across SSC, Railway, Banking, UPSC. Select subject, topic, and difficulty.
+            </p>
           </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ═══════════════════════════════════════════════════
-// SCREEN 4: SESSION COMPLETE
-// ═══════════════════════════════════════════════════
-function PracticeComplete({ summary, onDashboard, onNewSession, onRepracticeWrong }) {
-  const { session, streak, mastery, wrongQuestionIds = [], total } = summary
-  const correct = session.correctCount || 0
-  const wrong = session.wrongCount || 0
-  const skipped = session.skippedCount || 0
-  const totalQ = total || (correct + wrong + skipped)
-  const pct = totalQ > 0 ? Math.round((correct / totalQ) * 100) : 0
-  const pctColor = pct >= 70 ? 'text-emerald-600' : pct >= 40 ? 'text-amber-600' : 'text-red-600'
-  const ringStroke = pct >= 70 ? '#10b981' : pct >= 40 ? '#f59e0b' : '#ef4444'
-  const circumference = 2 * Math.PI * 56
-  const dashoffset = circumference - (pct / 100) * circumference
-
-  return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      {/* Completion card */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center mb-5">
-        {/* SVG score ring */}
-        <div className="relative w-32 h-32 mx-auto mb-5">
-          <svg className="w-32 h-32" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx="64" cy="64" r="56" stroke="#e2e8f0" strokeWidth="8" fill="none" />
-            <circle
-              cx="64" cy="64" r="56" stroke={ringStroke} strokeWidth="8" fill="none"
-              strokeDasharray={circumference}
-              strokeDashoffset={dashoffset}
-              strokeLinecap="round"
-              className="transition-all duration-1000"
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-3xl font-black ${pctColor}`}>{pct}%</span>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Accuracy</span>
-          </div>
+          <button className="w-full py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition">
+            {selectedExam ? `Practice ${selectedExam.name} Questions →` : 'Select Exam to Practice →'}
+          </button>
         </div>
 
-        <h2 className="text-2xl font-black text-slate-900 mb-1">Session Complete! 🎉</h2>
-        <p className="text-sm text-slate-500 mb-5">
-          {session.mode} mode · {totalQ} questions
-        </p>
-
-        {/* 4-stat grid */}
-        <div className="grid grid-cols-4 gap-2 mb-5">
-          <StatCard value={correct} label="Correct" color="emerald" />
-          <StatCard value={wrong} label="Wrong" color="red" />
-          <StatCard value={skipped} label="Skipped" color="slate" />
-          <StatCard value={mastery?.mastery ? `${mastery.mastery}%` : '—'} label="Mastery" color="indigo" />
-        </div>
-
-        {/* Mastery delta */}
-        {mastery && (
-          <div className="bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl p-4 border border-emerald-200 mb-4 text-left">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Topic Mastery</div>
-                <div className="text-sm font-black text-slate-800 mt-0.5">{mastery.attempts} attempts total</div>
-              </div>
-              <div className="text-right">
-                <div className="text-lg font-black text-emerald-600">{mastery.mastery}%</div>
-                <div className="text-[10px] text-slate-500">{mastery.attempts >= 20 ? 'Mastered!' : `${20 - mastery.attempts} to mastered`}</div>
-              </div>
+        {/* Hub 3: Smart AI Practice */}
+        <div
+          onClick={() => onLaunchSmart('weak_topic')}
+          className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 cursor-pointer hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition-all group flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-3xl">🎯</span>
+              <span className="text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full">
+                Personalized AI
+              </span>
             </div>
-            <div className="h-2 bg-white rounded-full overflow-hidden mt-2">
-              <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${mastery.mastery}%` }} />
-            </div>
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">Smart Practice</h3>
+            <p className="text-xs text-slate-500 dark:text-gray-400 leading-relaxed mb-6">
+              AI-driven speed drills and weak-topic reinforcement calculated from your past test performance.
+            </p>
           </div>
-        )}
-
-        {/* Streak update */}
-        {streak && (
-          <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl p-3 border border-orange-200 mb-4 flex items-center gap-3 text-left">
-            <Flame className="w-6 h-6 text-orange-500" />
-            <div className="flex-1">
-              <div className="text-sm font-black text-slate-800">
-                {streak.current > 1 ? `Streak extended to ${streak.current} days!` : 'Streak started! 🔥'}
-              </div>
-              <div className="text-xs text-slate-500">Practice again tomorrow to keep it alive</div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-slate-400 font-bold">Longest</div>
-              <div className="text-sm font-black text-slate-700">{streak.longest}</div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Wrong questions list */}
-      {wrongQuestionIds.length > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-black text-slate-800 text-sm">❌ Your wrong questions ({wrongQuestionIds.length})</h3>
-            <button
-              onClick={onRepracticeWrong}
-              className="bg-red-500 hover:bg-red-600 text-white text-xs font-black px-3 py-1.5 rounded-lg"
-            >
-              Practice these again →
-            </button>
-          </div>
-          <p className="text-xs text-slate-500">
-            Re-attempting wrong questions is the fastest way to improve. Click above to start a new session with just these questions.
-          </p>
-        </div>
-      )}
-
-      {/* Next steps */}
-      <div className="grid md:grid-cols-2 gap-3 mb-5">
-        {mastery && mastery.mastery >= 80 && (
-          <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-2xl border border-emerald-200 p-5">
-            <div className="flex items-center gap-2 mb-2">
-              <Award className="w-5 h-5 text-emerald-600" />
-              <h3 className="font-black text-slate-800 text-sm">Mastery unlocked!</h3>
-            </div>
-            <p className="text-xs text-slate-600 mb-3">You've reached {mastery.mastery}% on this topic. Ready to test yourself under exam conditions?</p>
-            <button className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-4 py-2 rounded-lg w-full">
-              Take a Topic Test →
-            </button>
-          </div>
-        )}
-        <div className={`rounded-2xl border p-5 ${mastery && mastery.mastery >= 80 ? 'bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200' : 'bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-200'}`}>
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-black text-slate-800 text-sm">Keep practicing</h3>
-          </div>
-          <p className="text-xs text-slate-600 mb-3">Start a new practice session — pick another topic or retry your wrong questions.</p>
-          <button onClick={onNewSession} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2 rounded-lg w-full">
-            New Practice Session →
+          <button className="w-full py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-amber-500 group-hover:text-white transition">
+            Start Smart Drill →
           </button>
         </div>
       </div>
 
-      {/* Exit */}
-      <div className="flex gap-3">
-        <button onClick={onDashboard} className="flex-1 bg-white text-slate-700 py-3 rounded-xl text-sm font-black border-2 border-slate-200 hover:bg-slate-50">
-          Back to Dashboard
-        </button>
-        <button onClick={onNewSession} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl text-sm font-black hover:bg-indigo-700">
-          New Session
+      {/* SMART ENTRY POINTS */}
+      <div>
+        <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+          <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" /> Recommended Entry Points
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div
+            onClick={() => onLaunchSmart('weak_topic')}
+            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-rose-300 dark:hover:border-rose-800 cursor-pointer transition shadow-2xs"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center">🔥 Weak Topic</span>
+              <span className="text-[10px] font-mono bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded">42% Accuracy</span>
+            </div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">Percentage Change</div>
+            <p className="text-xs text-slate-400 dark:text-gray-500">Needs reinforcement before next test</p>
+          </div>
+
+          <div
+            onClick={() => onLaunchSmart('learn')}
+            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition shadow-2xs"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center">🧠 Continue Learning</span>
+              <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded">In Progress</span>
+            </div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">Profit & Loss</div>
+            <p className="text-xs text-slate-400 dark:text-gray-500">Chapter 4 of Arithmetic</p>
+          </div>
+
+          <div
+            onClick={() => onLaunchSmart('mistakes')}
+            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-800 cursor-pointer transition shadow-2xs"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center">📖 Revision Due</span>
+              <span className="text-[10px] font-mono bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">8 Questions</span>
+            </div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">Ratio & Proportion</div>
+            <p className="text-xs text-slate-400 dark:text-gray-500">Spaced repetition interval due</p>
+          </div>
+
+          <div
+            onClick={() => onLaunchSmart('bookmark')}
+            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-800 cursor-pointer transition shadow-2xs"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">⭐ Knowledge Vault</span>
+              <span className="text-[10px] font-mono bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded">12 Saved</span>
+            </div>
+            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">Hard Quant Collection</div>
+            <p className="text-xs text-slate-400 dark:text-gray-500">Practice your saved items</p>
+          </div>
+        </div>
+      </div>
+
+      {/* TOPIC TREE BROWSER */}
+      {treeData && (
+        <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 shadow-xs">
+          <h3 className="text-base font-bold text-slate-900 dark:text-white mb-4 flex items-center">
+            <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400 mr-2" /> Explore Curriculum Topics
+          </h3>
+          <PracticeTopicTree
+            tree={treeData}
+            onSelectTopic={(topic) => onOpenSetup({ mode: 'learn', topicId: topic.id, subjectId: topic.subjectId })}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN 2: PRACTICE SETUP WIZARD
+// ════════════════════════════════════════════════════════════════════════════
+function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
+  const [exam, setExam] = useState('ssc_cgl')
+  const [subject, setSubject] = useState('quant')
+  const [topic, setTopic] = useState('percentage')
+  const [difficulty, setDifficulty] = useState(initialConfig?.difficulty || 'medium')
+  const [count, setCount] = useState(initialConfig?.count || 20)
+
+  return (
+    <div className="max-w-xl mx-auto py-10 px-4">
+      <button onClick={onBack} className="inline-flex items-center text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 mb-6">
+        <ArrowLeft className="w-4 h-4 mr-1.5" /> Back to Workspace
+      </button>
+
+      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 shadow-sm space-y-6">
+        <div>
+          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">What do you want to practice?</h2>
+          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">Configure your targeted concept-learning workspace session.</p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Exam Target</label>
+            <select value={exam} onChange={(e) => setExam(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200">
+              <option value="ssc_cgl">SSC CGL Tier 1 & Tier 2</option>
+              <option value="railway_ntpc">Railway NTPC & Group D</option>
+              <option value="banking_ibps">Banking IBPS PO & Clerk</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Subject</label>
+            <select value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200">
+              <option value="quant">Quantitative Aptitude</option>
+              <option value="reasoning">General Intelligence & Reasoning</option>
+              <option value="english">English Language</option>
+              <option value="gk">General Knowledge</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">Topic & Concept</label>
+            <select value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200">
+              <option value="percentage">Percentage → Successive Percentage</option>
+              <option value="profit_loss">Profit & Loss → Discount</option>
+              <option value="ratio">Ratio & Proportion → Mixture</option>
+              <option value="time_work">Time & Work → Pipes & Cisterns</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-2">Difficulty</label>
+            <div className="grid grid-cols-3 gap-3">
+              {['easy', 'medium', 'hard'].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setDifficulty(d)}
+                  className={`py-2.5 rounded-xl border text-xs font-bold capitalize transition ${
+                    difficulty === d ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-400'
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-2">Number of Questions</label>
+            <div className="grid grid-cols-4 gap-3">
+              {[10, 20, 30, 50].map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCount(c)}
+                  className={`py-2.5 rounded-xl border text-xs font-bold transition ${
+                    count === c ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'border-slate-200 dark:border-gray-700 text-slate-600 dark:text-gray-400'
+                  }`}
+                >
+                  {c} Qs
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onStart({ mode: 'learn', difficulty, count })}
+          className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 transition shadow-sm"
+        >
+          Start Concept Practice →
         </button>
       </div>
     </div>
   )
 }
 
-function StatCard({ value, label, color }) {
-  const colors = {
-    emerald: { bg: 'bg-emerald-50', border: 'border-emerald-100', text: 'text-emerald-600', label: 'text-emerald-700/60' },
-    red: { bg: 'bg-red-50', border: 'border-red-100', text: 'text-red-600', label: 'text-red-700/60' },
-    slate: { bg: 'bg-slate-50', border: 'border-slate-100', text: 'text-slate-600', label: 'text-slate-400' },
-    indigo: { bg: 'bg-indigo-50', border: 'border-indigo-100', text: 'text-indigo-600', label: 'text-indigo-700/60' },
-  }
-  const c = colors[color] || colors.slate
+// ════════════════════════════════════════════════════════════════════════════
+// SCREEN 5: END OF PRACTICE SESSION MASTERY SCREEN
+// ════════════════════════════════════════════════════════════════════════════
+function PracticeCompleteScreen({ summary, onDashboard, onRestartSession, onPracticeWeakTopic }) {
   return (
-    <div className={`${c.bg} rounded-xl p-3 border ${c.border}`}>
-      <div className={`text-2xl font-black ${c.text} leading-none`}>{value}</div>
-      <div className={`text-[9px] font-black ${c.label} uppercase tracking-widest mt-1`}>{label}</div>
+    <div className="max-w-2xl mx-auto py-10 px-4 text-center">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 shadow-sm space-y-6">
+        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+          <Award className="w-8 h-8" />
+        </div>
+
+        <div>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">Practice Complete 🎯</h2>
+          <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">You solved {summary.questionsAttempted || 20} questions in this session.</p>
+        </div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-3 gap-4 py-2">
+          <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
+            <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">Accuracy</div>
+            <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{summary.accuracy || 75}%</div>
+          </div>
+          <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
+            <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">Avg Speed</div>
+            <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{summary.avgTimeSeconds || 42}s</div>
+          </div>
+          <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
+            <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">Concept Mastery</div>
+            <div className="text-2xl font-black text-amber-500 mt-0.5">+8%</div>
+          </div>
+        </div>
+
+        {/* Concept Mastery Breakdown */}
+        <div className="text-left bg-slate-50 dark:bg-gray-900 p-5 rounded-2xl border border-slate-100 dark:border-gray-700 space-y-2">
+          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-gray-200 mb-3">Concept Mastery Update</h4>
+          <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-xl">
+            <span>✓ Percentage Basics</span>
+            <span>Mastered 🏆</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-xl">
+            <span>✓ Percentage Increase & Decrease</span>
+            <span>Mastered 🏆</span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-semibold text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 rounded-xl">
+            <span>⚠️ Successive Percentage Change</span>
+            <span>Needs Practice (42%)</span>
+          </div>
+        </div>
+
+        {/* Next Recommended CTAs */}
+        <div className="pt-2 space-y-3">
+          <button
+            onClick={onPracticeWeakTopic}
+            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition"
+          >
+            Practice 10 Similar (Successive Percentage)
+          </button>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onRestartSession}
+              className="flex-1 py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 rounded-xl font-semibold text-xs hover:bg-slate-200 dark:hover:bg-gray-700"
+            >
+              Start New Practice
+            </button>
+            <button
+              onClick={onDashboard}
+              className="flex-1 py-2.5 bg-slate-100 dark:bg-gray-700 text-slate-700 dark:text-gray-200 rounded-xl font-semibold text-xs hover:bg-slate-200 dark:hover:bg-gray-700"
+            >
+              Return to Workspace Hub
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

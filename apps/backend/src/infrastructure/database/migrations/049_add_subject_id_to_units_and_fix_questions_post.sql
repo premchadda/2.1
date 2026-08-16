@@ -6,7 +6,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'units' AND column_name = 'subject_id') THEN
     ALTER TABLE units ADD COLUMN subject_id INTEGER REFERENCES subjects(id) ON DELETE CASCADE;
-    CREATE INDEX idx_units_subject_id ON units(subject_id);
+    CREATE INDEX IF NOT EXISTS idx_units_subject_id ON units(subject_id);
   END IF;
 END $$;
 
@@ -32,7 +32,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topics' AND column_name = 'subject_id') THEN
     ALTER TABLE topics ADD COLUMN subject_id INTEGER REFERENCES subjects(id) ON DELETE SET NULL;
-    CREATE INDEX idx_topics_subject_id ON topics(subject_id);
+    CREATE INDEX IF NOT EXISTS idx_topics_subject_id ON topics(subject_id);
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'topics' AND column_name = 'importance') THEN
@@ -110,11 +110,11 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'exam_category_id') THEN
     ALTER TABLE test_series ADD COLUMN exam_category_id INTEGER REFERENCES exam_categories(id) ON DELETE SET NULL;
-    CREATE INDEX idx_test_series_exam_category_id ON test_series(exam_category_id);
+    CREATE INDEX IF NOT EXISTS idx_test_series_exam_category_id ON test_series(exam_category_id);
   END IF;
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'test_series' AND column_name = 'exam_id_fk') THEN
     ALTER TABLE test_series ADD COLUMN exam_id_fk INTEGER REFERENCES exams(id) ON DELETE SET NULL;
-    CREATE INDEX idx_test_series_exam_id_fk ON test_series(exam_id_fk);
+    CREATE INDEX IF NOT EXISTS idx_test_series_exam_id_fk ON test_series(exam_id_fk);
   END IF;
 END $$;
 
@@ -153,7 +153,7 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exam_info' AND column_name = 'series_id_int') THEN
     ALTER TABLE exam_info ADD COLUMN series_id_int INTEGER REFERENCES test_series(id) ON DELETE SET NULL;
-    CREATE INDEX idx_exam_info_series_id_int ON exam_info(series_id_int);
+    CREATE INDEX IF NOT EXISTS idx_exam_info_series_id_int ON exam_info(series_id_int);
   END IF;
 END $$;
 

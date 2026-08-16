@@ -76,6 +76,88 @@ export async function parseExcelData(buffer, filename) {
 }
 
 /**
+ * Parse CSV buffer into raw row objects (for bulk upload).
+ * Returns array of objects keyed by header names.
+ */
+export function parseCSVBuffer(buffer) {
+  const content = buffer.toString("utf-8")
+  const lines = content.split(/\r?\n/).filter((l) => l.trim())
+  if (lines.length < 2) return []
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""))
+  return lines.slice(1).map((line) => {
+    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""))
+    const row = {}
+    headers.forEach((h, i) => { row[h] = values[i] || "" })
+    return row
+  })
+}
+
+/**
+ * Parse JSON buffer into raw data (for bulk upload).
+ * Strips UTF-8 BOM if present.
+ */
+export function parseJSONBuffer(buffer) {
+  try {
+    let str = buffer.toString("utf-8");
+    if (str.charCodeAt(0) === 0xFEFF) {
+      str = str.slice(1);
+    }
+    return JSON.parse(str.trim());
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Extract question array from arbitrary parsed JSON structures
+ */
+export function extractQuestionsFromParsedJSON(data) {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data.questions)) return data.questions;
+  if (Array.isArray(data.sections)) {
+    const rows = [];
+    for (const sec of data.sections) {
+      const secName = sec.name || sec.title || sec.subject || "";
+      for (const q of sec.questions || []) {
+        rows.push({
+          ...q,
+          section: q.section || secName,
+          section_name: q.section_name || secName,
+        });
+      }
+    }
+    return rows;
+  }
+  if (Array.isArray(data.tests) && data.tests[0]) {
+    return extractQuestionsFromParsedJSON(data.tests[0]);
+  }
+  if (Array.isArray(data.data)) return extractQuestionsFromParsedJSON(data.data);
+  if (Array.isArray(data.items)) return extractQuestionsFromParsedJSON(data.items);
+
+  for (const key of Object.keys(data)) {
+    if (Array.isArray(data[key]) && data[key].length > 0) {
+      const sample = data[key][0];
+      if (sample && typeof sample === "object" && (sample.question || sample.questionText || sample.question_text || sample.options)) {
+        return data[key];
+      }
+    }
+  }
+  return [];
+}
+
+/**
+ * Parse spreadsheet buffer (XLSX/XLS) into raw row objects (for bulk upload).
+ * Returns array of objects keyed by header names.
+ */
+export async function parseSpreadsheetBuffer(buffer) {
+  const XLSX = await import('xlsx')
+  const workbook = XLSX.read(buffer, { type: "buffer" })
+  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  return XLSX.utils.sheet_to_json(sheet, { defval: "" })
+}
+
+/**
  * Parse CSV string into question objects.
  */
 export function parseCSVData(csvString) {

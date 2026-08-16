@@ -1,6 +1,7 @@
 import express from 'express';
 import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
 import { optionalAuth } from '../../middleware/auth.middleware.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -17,13 +18,21 @@ router.get('/', optionalAuth, async (req, res) => {
 
     const leaderboards = await dbHelpers.find('leaderboards', query);
 
-    // If no leaderboards found, generate from results
+    // If no leaderboards found, generate from results or completed attempts
     if (!leaderboards || leaderboards.length === 0) {
-      const resultsQuery = { isCompleted: true };
+      const resultsQuery = {};
       if (seriesId) resultsQuery.seriesId = seriesId;
       if (testId) resultsQuery.testId = testId;
 
-      const results = await dbHelpers.find('results', resultsQuery);
+      let results = await dbHelpers.find('results', resultsQuery);
+
+      if (!results || results.length === 0) {
+        // Fallback to attempts table for real-time completed attempts
+        const attemptsQuery = { status: 'completed' };
+        if (seriesId) attemptsQuery.seriesId = seriesId;
+        if (testId) attemptsQuery.testId = testId;
+        results = await dbHelpers.find('attempts', attemptsQuery);
+      }
 
       if (!results || results.length === 0) {
         return res.json({ success: true, data: [], count: 0, source: 'empty' });
@@ -146,7 +155,7 @@ router.get('/:id', async (req, res) => {
     });
   } catch (error) {
     console.error('Get leaderboard error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

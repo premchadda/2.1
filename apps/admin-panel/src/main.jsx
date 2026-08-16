@@ -5,16 +5,24 @@ import { Toaster } from 'react-hot-toast'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './shared/providers/AuthContext.jsx'
 import { ThemeProvider } from './shared/context/ThemeContext.jsx'
+import { setSharedApiClient } from '@trstprep/shared-hooks'
+import { adminAPI } from './shared/lib/dataService.js'
 import App from './App.jsx'
 import './styles/tokens.css'
 import './styles/index.css'
 import { setQueryClient } from './shared/lib/queryClientRegistry.js'
 
+// Register the admin API client INSTANCE globally for shared hooks.
+// NOTE: pass the axios instance (adminAPI.apiClient), not the adminAPI wrapper
+// object — the wrapper has no .get/.post, which would force shared hooks into a
+// cookie-less cross-origin fetch to localhost:5001 and cause spurious 401/logout.
+setSharedApiClient(adminAPI.apiClient)
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
-      cacheTime: 1000 * 60 * 30,
+      gcTime: 1000 * 60 * 30,
       retry: 1,
       refetchOnWindowFocus: true,
     },
@@ -78,3 +86,6 @@ function Main() {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<Main />)
+
+export default Main
+

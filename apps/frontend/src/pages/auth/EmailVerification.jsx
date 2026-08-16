@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Mail, CheckCircle, XCircle, RefreshCw, ArrowRight } from 'lucide-react'
 import api from '../../shared/lib/api'
+import { isCancel } from '../../shared/lib/dataService'
 
 export default function EmailVerification() {
   const [searchParams] = useSearchParams()
@@ -10,13 +11,24 @@ export default function EmailVerification() {
   const [message, setMessage] = useState('')
   const [email, setEmail] = useState('')
   const [resendTimer, setResendTimer] = useState(0)
+  const navigateTimerRef = useRef(null)
+  const doneRef = useRef(false)
   const token = searchParams.get('token')
   const mode = searchParams.get('mode')
   const presetEmail = searchParams.get('email')
 
   useEffect(() => {
+    return () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    if (doneRef.current) return () => controller.abort()
     if (token) {
-      verifyEmail(token)
+      doneRef.current = true
+      verifyEmail(token, controller.signal)
     } else if (mode === 'pending' || presetEmail) {
       setStatus('pending')
       if (presetEmail) {
@@ -27,6 +39,7 @@ export default function EmailVerification() {
       setStatus('error')
       setMessage('Invalid verification link. Please request a new one.')
     }
+    return () => controller.abort()
   }, [token, mode, presetEmail])
 
   useEffect(() => {
@@ -38,15 +51,16 @@ export default function EmailVerification() {
     }
   }, [status, resendTimer])
 
-  const verifyEmail = async (verificationToken) => {
+  const verifyEmail = async (verificationToken, signal) => {
     try {
       setStatus('verifying')
-      const response = await api.get(`/api/auth/verify-email?token=${verificationToken}`)
-      
+      const response = await api.get(`/api/auth/verify-email/${encodeURIComponent(verificationToken)}`, { signal })
+      if (signal?.aborted) return
+
       if (response.data.success) {
         setStatus('success')
         setMessage('Your email has been verified successfully!')
-        setTimeout(() => {
+        navigateTimerRef.current = setTimeout(() => {
           navigate('/login')
         }, 3000)
       } else {
@@ -54,6 +68,7 @@ export default function EmailVerification() {
         setMessage(response.data.message || 'Verification failed. Please try again.')
       }
     } catch (error) {
+      if (isCancel(error) || signal?.aborted) return
       setStatus('error')
       setMessage(error.response?.data?.message || 'Verification failed. The link may have expired.')
     }

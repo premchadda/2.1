@@ -27,7 +27,8 @@ fs.writeFileSync(logFile, '');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  // M42: use default TLS verification. If Supabase self-signed cert causes
+  // issues, supply the CA via ssl: { rejectUnauthorized: true, ca: fs.readFileSync(...) }.
 });
 
 function escapeCSV(val) {

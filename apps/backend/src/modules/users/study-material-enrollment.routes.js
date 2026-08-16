@@ -5,6 +5,7 @@ import { idsMatch } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, mapLookupId } from '../../shared/utils/public-id-response.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -67,7 +68,7 @@ router.post('/enroll-study-material/:materialId', protect, async (req, res) => {
     console.error('[Enroll Study Material] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -147,7 +148,7 @@ router.delete('/unenroll-study-material/:materialId', protect, async (req, res) 
     console.error('[Unenroll Study Material] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -171,7 +172,7 @@ router.get('/enrolled-study-materials', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })

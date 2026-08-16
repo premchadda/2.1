@@ -106,7 +106,7 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_indexes
                     WHERE tablename = v_table
                       AND indexname = v_index_name) THEN
-      EXECUTE format('CREATE INDEX %I ON %I USING GIN (%I)', v_index_name, v_table, v_column);
+      EXECUTE format('CREATE INDEX IF NOT EXISTS %I ON %I USING GIN (%I)', v_index_name, v_table, v_column);
       RAISE NOTICE 'Created GIN index % on %.%', v_index_name, v_table, v_column;
     END IF;
   END LOOP;

@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import { Plus, Edit, Trash2, X, Save, Tag } from 'lucide-react'
 import { apiClient } from '../../../shared/lib/dataService.js'
 import { toast } from 'react-hot-toast'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import { resolveLucideIcon } from '../../../shared/lib/iconResolver'
+
+const TagIcon = ({ name, className }) => {
+  const Icon = resolveLucideIcon(name)
+  return <Icon className={className} />
+}
 
 export default function TagConfigsManager() {
   const [tagConfigs, setTagConfigs] = useState([]);
@@ -9,7 +16,6 @@ export default function TagConfigsManager() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
-    id: '',
     label: '',
     description: '',
     icon: '',
@@ -22,12 +28,12 @@ export default function TagConfigsManager() {
 
   const colorOptions = [
     { value: 'blue', label: 'Blue', class: 'bg-blue-500' },
-    { value: 'green', label: 'Green', class: 'bg-green-500' },
-    { value: 'red', label: 'Red', class: 'bg-red-500' },
+    { value: 'green', label: 'Green', class: 'bg-green-50 dark:bg-green-900/80' },
+    { value: 'red', label: 'Red', class: 'bg-red-50 dark:bg-red-900/80' },
     { value: 'yellow', label: 'Yellow', class: 'bg-yellow-500' },
     { value: 'purple', label: 'Purple', class: 'bg-purple-500' },
-    { value: 'indigo', label: 'Indigo', class: 'bg-indigo-500' },
-    { value: 'pink', label: 'Pink', class: 'bg-pink-500' },
+    { value: 'indigo', label: 'Indigo', class: 'bg-indigo-50 dark:bg-indigo-900/80' },
+    { value: 'pink', label: 'Pink', class: 'bg-pink-50 dark:bg-pink-900/80' },
     { value: 'orange', label: 'Orange', class: 'bg-orange-500' }
   ];
 
@@ -74,7 +80,6 @@ export default function TagConfigsManager() {
 
   const handleEdit = (item) => {
     setFormData({
-      id: item.id || item._id,
       label: item.label,
       description: item.description || '',
       icon: item.icon || '',
@@ -89,7 +94,13 @@ export default function TagConfigsManager() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this tag configuration?')) return;
+    const confirmed = await confirmOnce({
+      title: 'Delete Tag Configuration',
+      message: 'Are you sure you want to delete this tag configuration?',
+      confirmText: 'Delete',
+      confirmStyle: 'danger'
+    })
+    if (!confirmed) return;
 
     try {
       const response = await apiClient.delete(`/admin/tag-configs/${id}`);
@@ -105,7 +116,6 @@ export default function TagConfigsManager() {
 
   const resetForm = () => {
     setFormData({
-      id: '',
       label: '',
       description: '',
       icon: '',
@@ -122,12 +132,12 @@ export default function TagConfigsManager() {
   const getColorClass = (color) => {
     const colorMap = {
       blue: 'bg-blue-500 text-white',
-      green: 'bg-green-500 text-white',
-      red: 'bg-red-500 text-white',
+      green: 'bg-green-50 dark:bg-green-900/80 text-white',
+      red: 'bg-red-50 dark:bg-red-900/80 text-white',
       yellow: 'bg-yellow-500 text-white',
       purple: 'bg-purple-500 text-white',
-      indigo: 'bg-indigo-500 text-white',
-      pink: 'bg-pink-500 text-white',
+      indigo: 'bg-indigo-50 dark:bg-indigo-900/80 text-white',
+      pink: 'bg-pink-50 dark:bg-pink-900/80 text-white',
       orange: 'bg-orange-500 text-white'
     };
     return colorMap[color] || colorMap.blue;
@@ -142,12 +152,12 @@ export default function TagConfigsManager() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-3 sm:p-4 md:p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Tag Configuration Manager</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tag Configuration Manager</h1>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">
             Manage tag-based filtering and quick access categories (Live Tests, PYPs, Quizzes, etc.)
           </p>
         </div>
@@ -165,14 +175,14 @@ export default function TagConfigsManager() {
         {tagConfigs.map((tag) => (
           <div
             key={tag._id || tag.id}
-            className={`bg-white rounded-lg shadow-sm border-2 p-4 transition-all ${
-              tag.isActive ? 'border-gray-200 hover:border-indigo-300' : 'border-gray-300 opacity-60'
+            className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-2 p-4 transition-all ${
+              tag.isActive ? 'border-gray-200 dark:border-gray-700 hover:border-indigo-300' : 'border-gray-300 dark:border-gray-600 opacity-60'
             }`}
           >
             <div className="flex items-start justify-between mb-3">
               <div className={`flex items-center justify-center w-12 h-12 rounded-lg ${getColorClass(tag.color)}`}>
                 {tag.icon ? (
-                  <i data-lucide={tag.icon} className="w-6 h-6"></i>
+                  <TagIcon name={tag.icon} className="w-6 h-6" />
                 ) : (
                   <Tag className="w-6 h-6" />
                 )}
@@ -180,14 +190,14 @@ export default function TagConfigsManager() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handleEdit(tag)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                  className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 rounded-lg transition"
                   title="Edit"
                 >
                   <Edit className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => handleDelete(tag._id || tag.id)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                  className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:bg-red-900/20 rounded-lg transition"
                   title="Delete"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -195,28 +205,28 @@ export default function TagConfigsManager() {
               </div>
             </div>
             
-            <h3 className="font-bold text-lg text-gray-900 mb-1">{tag.label}</h3>
-            <p className="text-sm text-gray-600 mb-3">{tag.description || 'No description'}</p>
+            <h3 className="font-bold text-lg text-gray-900 dark:text-white mb-1">{tag.label}</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{tag.description || 'No description'}</p>
             
             <div className="space-y-2 text-xs">
               <div className="flex items-center justify-between py-1 border-t border-gray-100">
-                <span className="text-gray-500">ID:</span>
-                <span className="font-mono text-gray-900">{tag.id}</span>
+                <span className="text-gray-500 dark:text-gray-400">ID:</span>
+                <span className="font-mono text-gray-900 dark:text-white">{tag.id}</span>
               </div>
               <div className="flex items-center justify-between py-1 border-t border-gray-100">
-                <span className="text-gray-500">Route:</span>
-                <span className="font-mono text-gray-900">{tag.route || 'N/A'}</span>
+                <span className="text-gray-500 dark:text-gray-400">Route:</span>
+                <span className="font-mono text-gray-900 dark:text-white">{tag.route || 'N/A'}</span>
               </div>
               {tag.filterKey && (
                 <div className="flex items-center justify-between py-1 border-t border-gray-100">
-                  <span className="text-gray-500">Filter:</span>
-                  <span className="font-mono text-gray-900">{tag.filterKey}: {tag.filterValue}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Filter:</span>
+                  <span className="font-mono text-gray-900 dark:text-white">{tag.filterKey}: {tag.filterValue}</span>
                 </div>
               )}
               <div className="flex items-center justify-between py-1 border-t border-gray-100">
-                <span className="text-gray-500">Status:</span>
+                <span className="text-gray-500 dark:text-gray-400">Status:</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  tag.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                  tag.isActive ? 'bg-green-100 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}>
                   {tag.isActive ? 'Active' : 'Inactive'}
                 </span>
@@ -226,12 +236,12 @@ export default function TagConfigsManager() {
         ))}
 
         {tagConfigs.length === 0 && (
-          <div className="col-span-full text-center py-12 bg-white rounded-lg border border-gray-200">
-            <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">No tag configurations found</p>
+          <div className="col-span-full text-center py-12 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <Tag className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No tag configurations found</p>
             <button
               onClick={() => setShowForm(true)}
-              className="text-indigo-600 hover:text-indigo-700 font-medium"
+              className="text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 font-medium"
             >
               Create your first tag config
             </button>
@@ -242,12 +252,12 @@ export default function TagConfigsManager() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 sticky top-0 bg-white">
-              <h2 className="text-xl font-bold text-gray-900">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {editingId ? 'Edit' : 'Add'} Tag Configuration
               </h2>
-              <button onClick={resetForm} className="text-gray-400 hover:text-gray-600">
+              <button onClick={resetForm} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400">
                 <X className="w-6 h-6" />
               </button>
             </div>
@@ -256,40 +266,27 @@ export default function TagConfigsManager() {
               {/* Basic Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tag ID * <span className="text-xs text-gray-500">(unique identifier)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.id}
-                    onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="e.g., live-tests, pyp"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Label *
                   </label>
                   <input
                     type="text"
                     value={formData.label}
                     onChange={(e) => setFormData({ ...formData, label: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="e.g., Live Tests"
                     required
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Description
                   </label>
                   <textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Brief description of this tag category"
                   />
                 </div>
@@ -297,23 +294,23 @@ export default function TagConfigsManager() {
 
               {/* Appearance */}
               <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">Appearance</h3>
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-3">Appearance</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Icon (Lucide)
                     </label>
                     <input
                       type="text"
                       value={formData.icon}
                       onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., radio, book-open"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Visit: lucide.dev/icons</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Visit: lucide.dev/icons</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Color
                     </label>
                     <div className="grid grid-cols-4 gap-2">
@@ -335,41 +332,41 @@ export default function TagConfigsManager() {
 
               {/* Routing & Filtering */}
               <div className="border-t pt-4">
-                <h3 className="text-md font-semibold text-gray-900 mb-3">Routing & Filtering</h3>
+                <h3 className="text-md font-semibold text-gray-900 dark:text-white mb-3">Routing & Filtering</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Route
                     </label>
                     <input
                       type="text"
                       value={formData.route}
                       onChange={(e) => setFormData({ ...formData, route: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="/tag/live-tests"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Filter Key
                     </label>
                     <input
                       type="text"
                       value={formData.filterKey}
                       onChange={(e) => setFormData({ ...formData, filterKey: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., tag, category"
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Filter Value
                     </label>
                     <input
                       type="text"
                       value={formData.filterValue}
                       onChange={(e) => setFormData({ ...formData, filterValue: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       placeholder="e.g., live-test, mock"
                     />
                   </div>
@@ -383,9 +380,9 @@ export default function TagConfigsManager() {
                   id="isActive"
                   checked={formData.isActive}
                   onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                  className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500"
                 />
-                <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
+                <label htmlFor="isActive" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Active (visible to users)
                 </label>
               </div>
@@ -395,7 +392,7 @@ export default function TagConfigsManager() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition"
+                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition"
                 >
                   Cancel
                 </button>

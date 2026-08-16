@@ -142,6 +142,14 @@ const normalizeRevenueResponse = (res) => {
   };
 };
 
+// AbortController cancels are expected (StrictMode remount, range switches).
+const isAbortError = (reason) =>
+  !reason ||
+  reason.code === "ERR_CANCELED" ||
+  reason.name === "CanceledError" ||
+  reason.name === "AbortError" ||
+  reason.__CANCEL__ === true;
+
 export default function AdminAnalytics() {
   const [analytics, setAnalytics] = useState(null);
   const [stats, setStats] = useState(null);
@@ -152,13 +160,8 @@ export default function AdminAnalytics() {
   const [timeRange, setTimeRange] = useState("7d");
   const [errors, setErrors] = useState({});
   const [lastFetched, setLastFetched] = useState(null);
-  const { isAdmin } = useAuth();
-
-  useEffect(() => {
-    const controller = new AbortController();
-    if (isAdmin()) fetchAllData(controller.signal);
-    return () => controller.abort();
-  }, [timeRange]);
+  const { user } = useAuth();
+  const isUserAdmin = user?.role === "admin";
 
   const fetchAllData = useCallback(async (signal) => {
     try {
@@ -172,8 +175,16 @@ export default function AdminAnalytics() {
         apiClient.get("/admin/realtime/test-activity", { signal }),
         apiClient
           .get("/admin/realtime/revenue", { signal })
-          .catch(() => ({ status: "rejected", reason: "Endpoint not found" })),
+          .catch((err) => {
+            if (isAbortError(err) || signal?.aborted) throw err;
+            return { data: null };
+          }),
       ]);
+
+      // If this fetch was aborted (StrictMode remount / range change), exit quietly.
+      if (signal?.aborted || results.every((r) => r.status === "rejected" && isAbortError(r.reason))) {
+        return;
+      }
 
       const [
         analyticsRes,
@@ -194,7 +205,7 @@ export default function AdminAnalytics() {
         } else {
           newErrors.analytics = "Invalid analytics response format";
         }
-      } else {
+      } else if (!isAbortError(analyticsRes.reason)) {
         newErrors.analytics =
           analyticsRes.reason?.message || "Failed to load analytics";
       }
@@ -207,7 +218,7 @@ export default function AdminAnalytics() {
         } else {
           newErrors.stats = "Invalid stats response format";
         }
-      } else {
+      } else if (!isAbortError(statsRes.reason)) {
         newErrors.stats = statsRes.reason?.message || "Failed to load stats";
       }
 
@@ -219,7 +230,7 @@ export default function AdminAnalytics() {
         } else {
           newErrors.activeUsers = "Invalid active users response format";
         }
-      } else {
+      } else if (!isAbortError(activeUsersRes.reason)) {
         newErrors.activeUsers =
           activeUsersRes.reason?.message || "Failed to load active users";
       }
@@ -232,7 +243,7 @@ export default function AdminAnalytics() {
         } else {
           newErrors.testActivity = "Invalid test activity response format";
         }
-      } else {
+      } else if (!isAbortError(testActivityRes.reason)) {
         newErrors.testActivity =
           testActivityRes.reason?.message || "Failed to load test activity";
       }
@@ -243,14 +254,14 @@ export default function AdminAnalytics() {
           setRevenue(normalized);
           hasAnyData = true;
         }
-      } else {
+      } else if (!isAbortError(revenueRes.reason)) {
         setRevenue(null);
       }
 
+      if (signal?.aborted) return;
+
       setErrors(newErrors);
       setLastFetched(new Date());
-
-      if (signal?.aborted) return;
 
       if (Object.keys(newErrors).length > 0) {
         const errorCount = Object.keys(newErrors).length;
@@ -266,15 +277,30 @@ export default function AdminAnalytics() {
         });
       }
     } catch (err) {
+      if (isAbortError(err) || signal?.aborted) return;
       console.error("Analytics fetch error:", err);
       toast.error("Failed to fetch analytics data");
     } finally {
-      setLoading(false);
+      // Avoid flipping loading off for an aborted stale request (race with remount).
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, [timeRange]);
 
+  useEffect(() => {
+    const controller = new AbortController();
+    if (isUserAdmin) {
+      fetchAllData(controller.signal);
+    } else {
+      setLoading(false);
+    }
+    return () => controller.abort();
+  }, [timeRange, fetchAllData, isUserAdmin]);
+
   const refreshData = useCallback(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
   }, [fetchAllData]);
 
   const exportAnalyticsCSV = () => {
@@ -335,7 +361,7 @@ export default function AdminAnalytics() {
 
   if (!hasAnyData && Object.keys(errors).length > 0) {
     return (
-      <div className="p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 mb-6">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />

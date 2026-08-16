@@ -1,256 +1,374 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo, memo } from 'react'
 import { Link } from 'react-router-dom'
-import { 
-  Radio, Crown, Lock, Clock, FileText, Users, 
-  ChevronRight, Play, Calendar, Construction
-} from 'lucide-react'
+import {
+  Radio,
+  Crown,
+  Clock,
+  Users,
+  Construction,
+  Zap,
+  CheckCircle2,
+  Trophy,
+  Loader2,
+  Bell,
+  Calendar,
+} from 'lucide-react';
 import { checkFeatureAccess } from '../../utils/pass-helpers'
-import { getQuestionsByTestId } from '../../lib/dataService'
+import {
+  checkIsLive,
+  checkIsUpcoming,
+  checkIsComingSoon,
+  checkIsLiveExpired,
+  checkIsQuiz,
+  checkIsSolutionExpired,
+  getTestId as getTestIdShared,
+  formatDateRange as formatDateRangeShared,
+  getTestStartDate,
+  getTestEndDate,
+  getTimeUntil,
+} from '../../utils/testClassification'
 
-// Badge configuration for test cards
+// Badge configuration for test & quiz cards
 const badgeConfig = {
   'LIVE TEST': { bg: 'bg-red-500', color: 'text-white', icon: Radio },
+  'LIVE QUIZ': { bg: 'bg-gradient-to-r from-violet-600 to-indigo-600', color: 'text-white', icon: Zap },
+  'SPEED QUIZ': { bg: 'bg-gradient-to-r from-amber-500 to-orange-500', color: 'text-white', icon: Zap },
+  'QUIZ': { bg: 'bg-violet-600', color: 'text-white', icon: Zap },
+  'SCHEDULED QUIZ': { bg: 'bg-violet-500', color: 'text-white', icon: Clock },
   'FREE': { bg: 'bg-green-500', color: 'text-white', icon: null },
   'MUST ATTEMPT': { bg: 'bg-gradient-to-r from-indigo-500 to-blue-500', color: 'text-white', icon: null },
   'PRO': { bg: 'bg-gradient-to-r from-amber-400 to-orange-400', color: 'text-white', icon: Crown },
   'SCHEDULED': { bg: 'bg-blue-500', color: 'text-white', icon: Clock },
   'NEW': { bg: 'bg-purple-500', color: 'text-white', icon: null },
-  'COMING SOON': { bg: 'bg-amber-100', color: 'text-amber-700', icon: Clock },
-  'UPDATING': { bg: 'bg-amber-100', color: 'text-amber-700', icon: Clock },
+  'COMING SOON': { bg: 'bg-amber-100 dark:bg-amber-950/60', color: 'text-amber-700 dark:text-amber-400', icon: Clock },
+  'UPDATING': { bg: 'bg-amber-100 dark:bg-amber-950/60', color: 'text-amber-700 dark:text-amber-400', icon: Clock },
+  'EXPIRED': { bg: 'bg-gray-400 dark:bg-slate-700', color: 'text-white', icon: Clock },
 }
 
-// CTA button configuration
+// CTA button configuration conforming to TRSTPrep Live CTA standard
 const ctaConfig = {
-  register: { label: 'Register', bg: 'bg-green-500', hover: 'hover:bg-green-600', color: 'text-white', border: '' },
-  start: { label: 'Start Now', bg: 'bg-sky-500', hover: 'hover:bg-sky-600', color: 'text-white', border: '' },
-  unlock: { label: '🔒 Unlock', bg: 'bg-white', hover: 'hover:bg-gray-50', color: 'text-blue-500', border: 'border-2 border-blue-500' },
-  join: { label: '🔴 Join Now', bg: 'bg-red-500', hover: 'hover:bg-red-600', color: 'text-white', border: '' },
+  coming_soon: { label: 'Coming Soon', bg: 'bg-gray-200 dark:bg-slate-800', hover: 'hover:bg-gray-200', color: 'text-gray-500 dark:text-slate-400', border: 'border border-gray-300 dark:border-slate-700' },
+  unlock: { label: '🔒 Unlock', bg: 'bg-white dark:bg-slate-800', hover: 'hover:bg-gray-50 dark:hover:bg-slate-700', color: 'text-blue-500 dark:text-blue-400', border: 'border-2 border-blue-500 dark:border-blue-400' },
+  expired: { label: 'Expired', bg: 'bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-400', hover: 'hover:bg-gray-200', color: 'text-gray-500 dark:text-slate-400', border: 'border border-gray-300 dark:border-slate-700' },
   result: { label: 'Result', bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600', color: 'text-white', border: '' },
-  reattempt: { label: 'Reattempt', bg: 'bg-white', hover: 'hover:bg-gray-50', color: 'text-sky-600', border: 'border border-sky-200' },
-  coming_soon: { label: 'Coming Soon', bg: 'bg-gray-200', hover: 'hover:bg-gray-200', color: 'text-gray-500', border: 'border border-gray-300' },
-}
-
-// Language flag emoji mapping
-const getLanguageFlag = (lang) => {
-  const flags = {
-    'english': '🇺🇸',
-    'hindi': '🇮🇳',
-    'marathi': '🇮🇳',
-    'tamil': '🇮🇳',
-    'telugu': '🇮🇳',
-    'bengali': '🇮🇳',
-    'gujarati': '🇮🇳',
-    'kannada': '🇮🇳',
-    'malayalam': '🇮🇳',
-    'punjabi': '🇮🇳',
-    'urdu': '🇵🇰',
-    'spanish': '🇪🇸',
-    'french': '🇫🇷',
-    'german': '🇩🇪',
-    'default': '🌐'
-  }
-  return flags[lang?.toLowerCase()] || flags.default
-}
-
-// Format scheduled date range
-const formatDateRange = (startDate, endDate) => {
-  if (!startDate) return null
-  const start = new Date(startDate)
-  const end = endDate ? new Date(endDate) : null
-  
-  const formatSingle = (date) => {
-    const day = date.getDate()
-    const month = date.toLocaleDateString('en-US', { month: 'short' })
-    const hours = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
-    return `${day} ${month}, ${hours}`
-  }
-  
-  if (end) {
-    return `${formatSingle(start)} – ${formatSingle(end)}`
-  }
-  return formatSingle(start)
-}
-
-// Check if test should still be "Coming Soon" based on auto-release date
-const isStillComingSoon = (test) => {
-  const isComingSoon = test.isComingSoon || test.is_coming_soon
-  if (!isComingSoon) return false
-  const releaseDate = test.comingSoonDate || test.coming_soon_date
-  if (!releaseDate) return true // No auto-release date, stays as Coming Soon
-  return new Date(releaseDate) > new Date() // Still coming soon if date hasn't passed
+  attempt_now: { label: '🎯 Attempt Now', bg: 'bg-red-500', hover: 'hover:bg-red-600', color: 'text-white', border: '' },
+  attempt_quiz: { label: '🎯 Attempt Now', bg: 'bg-gradient-to-r from-violet-600 to-indigo-600', hover: 'hover:from-violet-500 hover:to-indigo-500', color: 'text-white', border: '' },
+  join_now: { label: '🔔 Join Now', bg: 'bg-red-500', hover: 'hover:bg-red-600', color: 'text-white', border: '' },
+  join_quiz: { label: '🔔 Join Now', bg: 'bg-gradient-to-r from-violet-600 to-indigo-600', hover: 'hover:from-violet-500 hover:to-indigo-500', color: 'text-white', border: '' },
+  register: { label: '🔔 Register', bg: 'bg-green-500', hover: 'hover:bg-green-600', color: 'text-white', border: '' },
+  registered: { label: '✓ Registered', bg: 'bg-emerald-50 dark:bg-emerald-950/60', hover: '', color: 'text-emerald-700 dark:text-emerald-300', border: 'border border-emerald-300 dark:border-emerald-700' },
+  start: { label: 'Start Now', bg: 'bg-sky-500', hover: 'hover:bg-sky-600', color: 'text-white', border: '' },
+  reattempt: { label: 'Reattempt', bg: 'bg-white dark:bg-slate-800', hover: 'hover:bg-gray-50 dark:hover:bg-slate-700', color: 'text-sky-600 dark:text-sky-400', border: 'border border-sky-200 dark:border-sky-700' },
 }
 
 // Determine test status and badges
-const getTestBadges = (test) => {
+const getTestBadges = (test, isLiveParam, isUpcomingParam, isFreeParam, isQuizItem) => {
   const badges = []
-  const isLive = test.tags?.includes('Live') || test.type === 'live' || test.isLive
-  const isUpcoming = test.scheduledAt && new Date(test.scheduledAt) > new Date()
-  const isFree = test.type === 'Free' || !test.isPro
-  
-  if (isLive) badges.push('LIVE TEST')
-  if (isUpcoming && !isLive) badges.push('SCHEDULED')
+  const isExpired = checkIsLiveExpired(test)
+  const isLive = (isLiveParam ?? checkIsLive(test)) && !isExpired
+  const isUpcoming = isUpcomingParam ?? checkIsUpcoming(test)
+  const isFree = isFreeParam ?? (test.type === 'Free' || !test.isPro)
+
+  if (isQuizItem) {
+    if (isLive) badges.push('LIVE QUIZ')
+    else if (isUpcoming && !isExpired) badges.push('SCHEDULED QUIZ')
+    else if (isExpired) badges.push('EXPIRED')
+    else badges.push('QUIZ')
+  } else {
+    if (isLive) badges.push('LIVE TEST')
+    if (isExpired) badges.push('EXPIRED')
+    if (isUpcoming && !isLive && !isExpired) badges.push('SCHEDULED')
+  }
+
   if (isFree) badges.push('FREE')
   if (test.isMustAttempt || test.tags?.includes('Must Attempt')) badges.push('MUST ATTEMPT')
   if (test.isNew || test.tags?.includes('New')) badges.push('NEW')
-  if (isStillComingSoon(test)) badges.push('COMING SOON')
-  if (!isFree && !isLive) badges.push('PRO')
-  
+  if (checkIsComingSoon(test)) badges.push('COMING SOON')
+  if (!isFree && !isLive && !isQuizItem) badges.push('PRO')
+
   return badges
 }
 
 // Determine CTA type
-const getTestCtaType = (test, hasAccess, isLive, isUpcoming) => {
-  if (isStillComingSoon(test)) return 'coming_soon'
+const getTestCtaType = (test, hasAccess, isLive, isUpcoming, isQuizItem) => {
+  if (checkIsComingSoon(test)) return 'coming_soon'
   if (!hasAccess) return 'unlock'
-  if (isLive) return 'join'
+
+  // Check if live test has expired
+  if (checkIsLiveExpired(test)) return 'expired'
+
+  if (isLive) return isQuizItem ? 'join_quiz' : 'join'
   if (isUpcoming) return 'register'
   return 'start'
 }
 
 // Get border color based on test status
-const getCardBorderClass = (isLive, isUpcoming, isFree, isLocked, isHovered) => {
-  if (isLive) return isHovered ? 'border-2 border-red-400' : 'border-2 border-red-300'
-  if (isUpcoming) return isHovered ? 'border-2 border-blue-400' : 'border-2 border-blue-300'
-  if (isFree) return isHovered ? 'border-2 border-green-400' : 'border-2 border-green-300'
-  if (isLocked) return isHovered ? 'border-2 border-amber-400' : 'border-2 border-amber-300'
-  return isHovered ? 'border-2 border-indigo-400' : 'border-2 border-gray-300'
+const getCardBorderClass = (isLive, isUpcoming, isFree, isLocked, isHovered, isQuizItem) => {
+  if (isLive) {
+    if (isQuizItem) {
+      return isHovered 
+        ? 'border-2 border-violet-500 dark:border-violet-400 shadow-lg shadow-violet-500/10' 
+        : 'border-2 border-violet-300/80 dark:border-violet-600/70 shadow-sm'
+    }
+    return isHovered 
+      ? 'border-2 border-red-500 dark:border-red-400 shadow-lg shadow-red-500/10' 
+      : 'border-2 border-red-300/80 dark:border-red-600/70 shadow-sm'
+  }
+  if (isUpcoming) {
+    return isHovered 
+      ? 'border-2 border-blue-400 dark:border-blue-500 shadow-md' 
+      : 'border-2 border-blue-200/90 dark:border-blue-800/70 shadow-sm'
+  }
+  if (isFree) {
+    return isHovered 
+      ? 'border-2 border-green-400 dark:border-green-500 shadow-md' 
+      : 'border-2 border-green-200/90 dark:border-green-800/70 shadow-sm'
+  }
+  if (isLocked) {
+    return isHovered 
+      ? 'border-2 border-amber-400 dark:border-amber-500 shadow-md' 
+      : 'border-2 border-amber-200/90 dark:border-amber-800/70 shadow-sm'
+  }
+  return isHovered 
+    ? 'border-2 border-indigo-400 dark:border-indigo-500 shadow-md' 
+    : 'border border-gray-200 dark:border-slate-800 shadow-sm'
 }
 
 /**
  * Unified TestCard Component
  * 
- * Used across: TestDetails, TagPage, Dashboard, Admin Panel, Landing Page
+ * Used across: LiveTests, TestDetails, TagPage, Dashboard, Admin Panel, Landing Page
  * 
  * @param {Object} test - Test data object
  * @param {string} seriesId - Series ID for navigation
  * @param {Object} user - Current user object
  * @param {boolean} showSeriesTitle - Show series title tag
+ * @param {boolean} isLiveArena - If true, points to /live-tests routes
+ * @param {Function} onRegister - Optional callback for live registration
+ * @param {boolean} isRegistered - Whether user is registered for upcoming test
+ * @param {boolean} isRegistering - Loading state for registration
+ * @param {boolean} showLeaderboardAndReview - Show leaderboard and solutions actions in footer
  * @param {string} variant - 'default' | 'compact' | 'detailed'
  */
-function TestCard({ test, seriesId, user, showSeriesTitle = false, variant = 'default' }) {
+function TestCard({
+  test,
+  seriesId,
+  user,
+  showSeriesTitle = false,
+  isLiveArena = false,
+  onRegister = null,
+  isRegistered = false,
+  isRegistering = false,
+  showLeaderboardAndReview = false,
+  variant: _variant = 'default',
+}) {
   const [isHovered, setIsHovered] = useState(false)
-  const [actualQuestions, setActualQuestions] = useState(null)
-  const [questionsLoading, setQuestionsLoading] = useState(true)
-  
+
+  // Determine if item is a Quiz or Full Test
+  const isQuizItem = checkIsQuiz(test) || test.itemType === 'quiz' || test.item_type === 'quiz' || test.type === 'Quiz' || test.type === 'quiz'
+
   // Test status
-  const isLive = test.tags?.includes('Live') || test.type === 'live' || test.isLive
-  const isUpcoming = test.scheduledAt && new Date(test.scheduledAt) > new Date()
-  const isFree = test.type === 'Free' || !test.isPro
-  
+  const isLive = checkIsLive(test)
+  const isUpcoming = checkIsUpcoming(test)
+  const isFree = test.type === 'Free' || test.type === 'quiz' || !test.isPro
+
   // Use pass system helpers to check access based on test type
   const isChapter = test.type === 'Chapter' || test.subCategory?.includes('Chapter');
-  const isSectional = test.tags?.some(tag => tag.toLowerCase().includes('sectional')) || test.subCategory?.includes('Sectional');
+  const isSectional = test.tags?.some(tag => String(tag).toLowerCase().includes('sectional')) || test.subCategory?.includes('Sectional');
   const isPYQ = test.type === 'PYQ' || test.tags?.includes('PYQ') || test.subCategory?.includes('PYQ');
-  
+
   const featureKey = isLive ? 'live_tests' : 
                     isSectional ? 'sectional_tests' :
                     isChapter ? 'chapter_tests' : 
                     isPYQ ? 'pyq_papers' : 'mock_tests';
-                    
+
   const passAccess = checkFeatureAccess(featureKey, user?.passType || 'free');
   const hasAccess = isFree || !!passAccess;
   const isLocked = !hasAccess;
-  
-  // Fetch actual question count from database
-  useEffect(() => {
-    let cancelled = false
-    const fetchQuestions = async () => {
-      setQuestionsLoading(true)
-      try {
-        const testDbId = test._id || test.id
-        if (testDbId) {
-          const questions = await getQuestionsByTestId(testDbId)
-          if (!cancelled) {
-            const qCount = Array.isArray(questions) ? questions.length : 0
-            setActualQuestions(qCount)
-          }
-        } else {
-          if (!cancelled) setActualQuestions(0)
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.warn('Failed to fetch questions for test card:', test.title, err)
-          setActualQuestions(0)
-        }
-      } finally {
-        if (!cancelled) setQuestionsLoading(false)
-      }
-    }
-    fetchQuestions()
-    return () => { cancelled = true }
-  }, [test._id, test.id, test.title])
 
-  // Determine if test has no questions
-  const noQuestions = actualQuestions !== null && actualQuestions === 0
-  const displayQuestions = questionsLoading ? null : (actualQuestions !== null ? actualQuestions : (test.totalQuestions || test.questions || 0))
-  
+  // Question count comes directly from the test object
+  const totalQs = test.totalQuestions ?? test.total_questions ?? (Array.isArray(test.questions) ? test.questions.length : (typeof test.questions === 'number' ? test.questions : 0))
+  const displayQuestions = Number(totalQs) || 0
+  const noQuestions = displayQuestions === 0
+
   // Add UPDATING badge if no questions
-  const badges = getTestBadges(test, isLive, isUpcoming, isFree)
-  if (noQuestions && !isStillComingSoon(test)) {
+  const badges = getTestBadges(test, isLive, isUpcoming, isFree, isQuizItem)
+  if (noQuestions && !checkIsComingSoon(test)) {
     badges.push('UPDATING')
   }
-  
-  // Get CTA config
-  const ctaType = noQuestions ? 'coming_soon' : getTestCtaType(test, hasAccess, isLive, isUpcoming)
-  const cta = ctaConfig[ctaType]
-  
+
+  // Check if live expired
+  const isExpired = checkIsLiveExpired(test)
+
   // Languages
-  const languages = test.languages || test.language || ['English']
-  const languageList = Array.isArray(languages) ? languages : [languages]
-  const extraLangCount = test.extraLanguagesCount || (languageList.length > 3 ? languageList.length - 3 : 0)
+  const languagesRaw = test.languages || test.language || test.langs
+  const parsedLangs = Array.isArray(languagesRaw) 
+    ? languagesRaw.filter(Boolean) 
+    : typeof languagesRaw === 'string' && languagesRaw.trim()
+      ? languagesRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : []
+  const languageList = parsedLangs.length > 0 ? parsedLangs : ['English', 'Hindi']
+  const extraLangCount = test.extraLanguagesCount || (languageList.length > 2 ? languageList.length - 2 : 0)
   const displayLanguages = languageList.slice(0, 2)
   const langText = extraLangCount > 0 
     ? `${displayLanguages.join(', ')} +${extraLangCount}`
     : languageList.join(', ')
-  
+
   // Date range
-  const dateRange = formatDateRange(test.scheduledAt || test.dateStart, test.dateEnd || test.scheduledEnd)
-  
-  // Test metadata
-  const marks = test.totalMarks || test.marks || 200
-  const duration = test.duration || 60
+  const isLiveTest = isLiveArena || checkIsLive(test) || isUpcoming || test.type === 'live-tests' || test.type === 'live' || test.test_category_id === 20 || test.testCategoryId === 20 || (Array.isArray(test.tags) && test.tags.some(t => String(t).toLowerCase() === 'live' || String(t).toLowerCase() === 'live-tests'))
+  const startTimeVal = getTestStartDate(test)
+  const endTimeVal = getTestEndDate(test)
+  const dateRange = isLiveTest ? formatDateRangeShared(startTimeVal, endTimeVal, test.duration) : null
+
+  // Real Test metadata (no hardcoded fallback numbers)
+  const totalMarksVal = test.totalMarks ?? test.total_marks ?? test.marks ?? (displayQuestions > 0 ? displayQuestions : null)
+  const marks = totalMarksVal !== null && totalMarksVal !== undefined ? Number(totalMarksVal) : null
+  const durationVal = test.duration ?? test.durationMinutes ?? test.duration_minutes ?? null
+  const duration = durationVal !== null && durationVal !== undefined ? Number(durationVal) : null
   const bannerUrl = test.bannerUrl || test.bannerImageUrl || test.banner_image_url || null
-  
-  // Build URL - prefer slug for cleaner URLs, fallback to id
-  const testIdentifier = test.slug || test._id || test.id
-  const seriesIdentifier = seriesId // seriesId should already be slug from parent
-  const testUrl = seriesIdentifier 
-    ? `/test/${seriesIdentifier}/${testIdentifier}`
-    : `/test/${test.seriesSlug || test.seriesId}/${testIdentifier}`
+
+  // Target test UUID / ID (prefer public_id / UUID over slug for Testbook URL standard)
+  const targetTestId = getTestIdShared(test)
+  const seriesSlug = seriesId || test.seriesSlug || test.series_slug || (isLiveArena ? 'live-tests' : 'ssc-cgl-2026')
+
+  // Attempt number calculation
+  const attemptNo = useMemo(() => {
+    const count = test.userAttemptCount ?? test.attemptsCount ?? (Array.isArray(test.attempts) ? test.attempts.length : 0);
+    return Number(count) + 1;
+  }, [test]);
+
+  const instructionsUrl = isLiveArena 
+    ? `/live-tests/${targetTestId}`
+    : `/${seriesSlug}/tests/${targetTestId}/instructions?attemptNo=${attemptNo}`
+  const testUrl = isLiveArena
+    ? `/live-tests/${targetTestId}`
+    : `/${seriesSlug}/tests/${targetTestId}?attemptNo=${attemptNo}`
+  const resultUrl = isLiveArena
+    ? `/live-test-results/${targetTestId}`
+    : `/${seriesSlug}/tests/${targetTestId}/result`
+  const leaderboardUrl = `/live-tests/${targetTestId}/leaderboard`
+  const reviewUrl = `/live-tests/${targetTestId}/review`
 
   // Check if test was attempted
   const isAttempted = useMemo(() => {
+    if (test.isAttempted || test.hasAttempted || test.attempted) return true;
     if (!user?.attemptedTestIds || !Array.isArray(user.attemptedTestIds)) return false;
-    
-    // Check against multiple possible ID formats for robustness
+
     const targetIds = [
       String(test._id || ''),
       String(test.id || ''),
       String(test.slug || ''),
       String(test.public_id || ''),
-      String(testIdentifier || '')
+      String(targetTestId || '')
     ].filter(Boolean).map(id => id.toLowerCase());
 
     return user.attemptedTestIds.some(id => 
       targetIds.includes(String(id).toLowerCase())
     );
-  }, [user?.attemptedTestIds, test._id, test.id, test.slug, test.public_id, testIdentifier]);
+  }, [user?.attemptedTestIds, test._id, test.id, test.slug, test.public_id, targetTestId, test.isAttempted, test.hasAttempted, test.attempted]);
+
+  // Check if user is registered for this live session
+  const isUserRegistered = Boolean(
+    isRegistered ||
+    test.isRegistered ||
+    test.userIsRegistered ||
+    (user?.registeredTestIds && Array.isArray(user.registeredTestIds) && user.registeredTestIds.includes(String(targetTestId)))
+  )
+
+  // Deterministic Priority CTA Resolution:
+  // Coming Soon → Locked → Expired → Attempted/Completed → Live (Not Reg: Join Now / Reg: Attempt Now) → Upcoming (Not Reg: Register / Reg: Registered) → Start Now
+  const resolvedCta = useMemo(() => {
+    // 1. Coming Soon (or no questions on non-live tests)
+    if (checkIsComingSoon(test) || (noQuestions && !isLiveTest)) {
+      return { type: 'coming_soon', label: 'Coming Soon', isDisabled: true, tooltip: 'Test questions are under preparation' }
+    }
+
+    // 2. Locked (PRO Pass required)
+    if (isLocked) {
+      return { type: 'unlock', label: '🔒 Unlock', isLink: true, to: '/pass' }
+    }
+
+    // 3. Expired / Contest Ended
+    if (isExpired) {
+      if (isAttempted) {
+        return { type: 'result', label: 'Result', isLink: true, isResult: true }
+      }
+      return { type: 'expired', label: 'Expired', isDisabled: true, tooltip: 'This live contest has ended' }
+    }
+
+    // 4. Completed / Attempted
+    if (isAttempted) {
+      return { type: 'result', label: 'Result', isLink: true, isResult: true }
+    }
+
+    // 5. Live Now (Active Contest Window)
+    if (isLive || (isLiveTest && !isUpcoming && !isExpired)) {
+      if (isUserRegistered) {
+        return {
+          type: isQuizItem ? 'attempt_quiz' : 'attempt_now',
+          label: '🎯 Attempt Now',
+          isLink: true,
+          to: instructionsUrl,
+        }
+      } else {
+        return {
+          type: isQuizItem ? 'join_quiz' : 'join_now',
+          label: '🔔 Join Now',
+          isRegisterAction: true,
+        }
+      }
+    }
+
+    // 6. Upcoming (Scheduled Session)
+    if (isUpcoming) {
+      if (isUserRegistered) {
+        return {
+          type: 'registered',
+          label: '✓ Registered',
+          isStatusPill: true,
+        }
+      } else {
+        return {
+          type: 'register',
+          label: '🔔 Register',
+          isRegisterAction: true,
+        }
+      }
+    }
+
+    // 7. Regular Mock Test Fallback
+    return {
+      type: 'start',
+      label: 'Start Now',
+      isLink: true,
+      to: instructionsUrl,
+    }
+  }, [test, noQuestions, isLiveTest, isLocked, isExpired, isAttempted, isLive, isUpcoming, isUserRegistered, isQuizItem, instructionsUrl])
 
   // Border class based on status
-  const borderClass = getCardBorderClass(isLive, isUpcoming, isFree, isLocked, isHovered)
-  // Instructions URL - always go to instructions page first
-  const instructionsUrl = `${testUrl}/instructions`
+  const borderClass = getCardBorderClass(isLive, isUpcoming, isFree, isLocked, isHovered, isQuizItem)
+
+  // Participant count (show on quiz cards and live tests, at least 1 or real count)
+  const realCount = Number(test.participants ?? test.participantsCount ?? 0)
+  const participantCount = realCount > 0 ? realCount : (isQuizItem || isLive || isUpcoming ? 1 : 0)
+
+  // Background surface class based on type
+  const bgSurfaceClass = isQuizItem
+    ? 'bg-gradient-to-br from-violet-50/30 via-white to-white dark:from-violet-950/20 dark:via-slate-900 dark:to-slate-900'
+    : isLive
+    ? 'bg-gradient-to-br from-rose-50/30 via-white to-white dark:from-rose-950/20 dark:via-slate-900 dark:to-slate-900'
+    : 'bg-white dark:bg-slate-900'
 
   return (
     <div 
-      className={`bg-white rounded-xl transition-all duration-200 overflow-hidden ${
-        isHovered ? 'shadow-lg' : 'shadow-sm'
+      className={`rounded-2xl transition-all duration-200 overflow-hidden ${bgSurfaceClass} ${
+        isHovered ? 'shadow-md scale-[1.003]' : 'shadow-xs'
       } ${borderClass} ${isLocked ? 'opacity-85' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {bannerUrl && (
-        <div className="h-28 md:h-32 w-full overflow-hidden bg-gray-100 border-b border-gray-100">
+        <div className="h-24 md:h-28 w-full overflow-hidden bg-gray-100 dark:bg-slate-800 border-b border-gray-100 dark:border-slate-800">
           <img
             src={bannerUrl}
             alt={test.title || 'Test banner'}
@@ -261,146 +379,246 @@ function TestCard({ test, seriesId, user, showSeriesTitle = false, variant = 'de
       )}
 
       {/* Main Content */}
-      <div className="px-3.5 py-2.5">
-        {/* Badges and Series Title Row */}
-        {(badges.length > 0 || (showSeriesTitle && test.seriesTitle)) && (
-          <div className="flex flex-wrap items-center gap-2 mb-2">
+      <div className="p-3 sm:p-3.5">
+        {/* Badges and Category Row */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             {badges.map((badge) => {
-              const config = badgeConfig[badge] || { bg: 'bg-gray-200', color: 'text-gray-700', icon: null }
+              const config = badgeConfig[badge] || { bg: 'bg-gray-200 dark:bg-slate-800', color: 'text-gray-700 dark:text-slate-300', icon: null }
               const IconComponent = config.icon
               return (
                 <span 
                   key={badge}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide whitespace-nowrap ${config.bg} ${config.color}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black tracking-wider uppercase whitespace-nowrap shadow-2xs ${config.bg} ${config.color}`}
                 >
-                  {IconComponent && <IconComponent className="w-3 h-3" />}
+                  {IconComponent && <IconComponent className={`w-3 h-3 ${badge.includes('LIVE') ? 'animate-pulse' : ''}`} />}
                   {badge}
                 </span>
               )
             })}
-            
-            {/* Series Title */}
-            {showSeriesTitle && test.seriesTitle && (
-              <span className="text-xs text-gray-500 font-medium truncate flex-1 min-w-[120px]">
-                {test.seriesTitle}
+
+            {test.category && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100/90 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                {test.category}
               </span>
             )}
           </div>
-        )}
 
-        {/* Title + CTA Row */}
-        <div className="flex justify-between items-start gap-2.5">
-          <h3 className="text-sm md:text-base font-bold text-gray-900 leading-snug line-clamp-2 flex-1">
-            {test.title}
-          </h3>
-          
-          {isAttempted ? (
-            <div className="flex gap-1 items-end">
-              <Link
-                to={`/test-result/${seriesIdentifier || test.seriesSlug || test.seriesId}/${testIdentifier}`}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-150 ${
-                  isHovered ? 'brightness-95' : 'brightness-100'
-                } ${ctaConfig.result.bg} ${ctaConfig.result.hover} ${ctaConfig.result.color} ${ctaConfig.result.border}`}
-              >
-                {ctaConfig.result.label}
-              </Link>
-              <Link
-                to={hasAccess ? instructionsUrl : '/pass'}
-                className={`flex-shrink-0 px-2 py-1 rounded text-[10px] md:text-xs font-semibold whitespace-nowrap transition-all duration-150 ${ctaConfig.reattempt.bg} ${ctaConfig.reattempt.hover} ${ctaConfig.reattempt.color} ${ctaConfig.reattempt.border}`}
-              >
-                {ctaConfig.reattempt.label}
-              </Link>
-            </div>
-          ) : ctaType === 'coming_soon' ? (
-            <button
-              disabled
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold whitespace-nowrap opacity-70 cursor-not-allowed ${cta.bg} ${cta.color} ${cta.border}`}
-            >
-              {cta.label}
-            </button>
-          ) : (
-            <Link
-              to={hasAccess ? instructionsUrl : '/pass'}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold whitespace-nowrap transition-all duration-150 ${
-                isHovered ? 'brightness-95' : 'brightness-100'
-              } ${cta.bg} ${cta.hover} ${cta.color} ${cta.border}`}
-            >
-              {cta.label}
-            </Link>
+          {/* Real Participants Count */}
+          {participantCount > 0 && (
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/60 px-2 py-0.5 rounded-md flex items-center gap-1 shrink-0 border border-slate-200/50 dark:border-slate-700/50">
+              <Users className="w-3 h-3 text-slate-400" />
+              <span>{participantCount.toLocaleString()} joined</span>
+            </span>
+          )}
+
+          {/* Series Title */}
+          {showSeriesTitle && test.seriesTitle && (
+            <span className="text-xs text-gray-500 dark:text-slate-400 font-medium truncate flex-1 min-w-[100px]">
+              {test.seriesTitle}
+            </span>
           )}
         </div>
 
-        {/* Meta Info Row */}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-gray-500">
-          <span className="flex items-center gap-1">
-            <span className="text-sm">❓</span>
-            {questionsLoading ? (
-              <span className="inline-block w-8 h-3 bg-gray-200 rounded animate-pulse" />
-            ) : displayQuestions !== null ? (
-              <>
-                {displayQuestions} Qs
-                {noQuestions && (
-                  <span className="ml-1 inline-flex items-center gap-0.5 text-amber-600">
-                    <Construction className="w-3 h-3" />
-                    <span className="text-[10px]">Updating</span>
+        {/* Rows 2 & 3: Left (Title + Description + Meta) | Right (Merged CTA Button) */}
+        <div className="flex items-center justify-between gap-3">
+          {/* Left Column: Title, Description, and Meta Info Row */}
+          <div className="flex-1 min-w-0 space-y-2">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-gray-900 dark:text-white leading-snug line-clamp-2">
+                {test.title}
+              </h3>
+              {test.description && (
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-1">
+                  {test.description}
+                </p>
+              )}
+            </div>
+
+            {/* Meta Info Row with subtle background container effect */}
+            <div className="inline-flex flex-wrap items-center gap-x-2.5 gap-y-1 px-2.5 py-1.5 bg-slate-50/90 dark:bg-slate-800/60 rounded-xl border border-slate-100/90 dark:border-slate-800 text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 font-medium">
+              <span className="flex items-center gap-1">
+                <span className="text-xs">❓</span>
+                <>
+                  {displayQuestions} Qs
+                  {noQuestions && (
+                    <span className="ml-1 inline-flex items-center gap-0.5 text-amber-600">
+                      <Construction className="w-3 h-3" />
+                      <span className="text-[9px]">Updating</span>
+                    </span>
+                  )}
+                </>
+              </span>
+              {marks !== null && marks !== undefined && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs">📄</span>
+                    {marks} Marks
                   </span>
+                </>
+              )}
+              {duration !== null && duration !== undefined && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs">🕒</span>
+                    {duration} Mins
+                  </span>
+                </>
+              )}
+
+              {/* Countdown for Upcoming items */}
+              {isUpcoming && startTimeVal && (
+                <>
+                  <span className="text-slate-300 dark:text-slate-700">|</span>
+                  <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold">
+                    <Clock className="w-3 h-3" />
+                    <span>Starts in {getTimeUntil(startTimeVal)}</span>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Merged CTA Action (Vertically Centered across Row 2 & 3) */}
+          <div className="shrink-0 self-center pl-1">
+            {resolvedCta.isResult ? (
+              <div className="flex flex-col sm:flex-row gap-1.5 items-center">
+                <Link
+                  to={resultUrl}
+                  className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-150 shadow-xs flex items-center justify-center ${
+                    isHovered ? 'brightness-95' : 'brightness-100'
+                  } ${ctaConfig.result.bg} ${ctaConfig.result.hover} ${ctaConfig.result.color} ${ctaConfig.result.border}`}
+                >
+                  {ctaConfig.result.label}
+                </Link>
+                {!isExpired && !isLive && !isLiveArena && !test.isLive && !test.is_live && test.type !== 'live-tests' && (
+                  <Link
+                    to={hasAccess ? instructionsUrl : '/pass'}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-150 ${ctaConfig.reattempt.bg} ${ctaConfig.reattempt.hover} ${ctaConfig.reattempt.color} ${ctaConfig.reattempt.border}`}
+                  >
+                    {ctaConfig.reattempt.label}
+                  </Link>
                 )}
-              </>
+              </div>
+            ) : resolvedCta.isRegisterAction ? (
+              <button
+                onClick={() => onRegister ? onRegister(test) : null}
+                disabled={isRegistering}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-150 flex items-center justify-center gap-1.5 shadow-xs active:scale-95 ${
+                  ctaConfig[resolvedCta.type]?.bg || 'bg-green-500'
+                } ${ctaConfig[resolvedCta.type]?.hover || 'hover:bg-green-600'} ${
+                  ctaConfig[resolvedCta.type]?.color || 'text-white'
+                } ${ctaConfig[resolvedCta.type]?.border || ''}`}
+              >
+                {isRegistering ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>...</span>
+                  </>
+                ) : (
+                  <span>{resolvedCta.label}</span>
+                )}
+              </button>
+            ) : resolvedCta.isStatusPill ? (
+              <div
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap flex items-center justify-center gap-1.5 ${
+                  ctaConfig.registered.bg
+                } ${ctaConfig.registered.color} ${ctaConfig.registered.border}`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                <span>{resolvedCta.label}</span>
+              </div>
+            ) : resolvedCta.isDisabled ? (
+              <button
+                disabled
+                title={resolvedCta.tooltip || resolvedCta.label}
+                className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap opacity-70 cursor-not-allowed ${
+                  ctaConfig[resolvedCta.type]?.bg || 'bg-gray-200 dark:bg-slate-800'
+                } ${ctaConfig[resolvedCta.type]?.color || 'text-gray-500 dark:text-slate-400'} ${
+                  ctaConfig[resolvedCta.type]?.border || 'border border-gray-300 dark:border-slate-700'
+                }`}
+              >
+                {resolvedCta.label}
+              </button>
             ) : (
-              `${test.totalQuestions || test.questions || 0} Qs`
+              <Link
+                to={resolvedCta.to || (hasAccess ? instructionsUrl : '/pass')}
+                className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-150 shadow-xs flex items-center justify-center active:scale-95 ${
+                  isHovered ? 'brightness-95' : 'brightness-100'
+                } ${ctaConfig[resolvedCta.type]?.bg || 'bg-sky-500'} ${
+                  ctaConfig[resolvedCta.type]?.hover || 'hover:bg-sky-600'
+                } ${ctaConfig[resolvedCta.type]?.color || 'text-white'} ${
+                  ctaConfig[resolvedCta.type]?.border || ''
+                }`}
+              >
+                {resolvedCta.label}
+              </Link>
             )}
-          </span>
-          <span className="text-gray-300">|</span>
-          <span className="flex items-center gap-1">
-            <span className="text-sm">📄</span>
-            {marks} Marks
-          </span>
-          <span className="text-gray-300">|</span>
-          <span className="flex items-center gap-1">
-            <span className="text-sm">🕒</span>
-            {duration} Mins
-          </span>
+          </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="bg-gray-50/80 border-t border-gray-100 px-3.5 py-2">
-        <div className="flex flex-wrap justify-between items-center gap-2 text-xs text-gray-500">
+      <div className="bg-slate-50/70 dark:bg-slate-850/80 border-t border-slate-100 dark:border-slate-800/80 px-3 sm:px-3.5 py-2">
+        <div className="flex flex-wrap justify-between items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
           {/* Left: Languages + Syllabus */}
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="flex items-center gap-1">
-              <span className="text-sm">🌐</span>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1 font-medium">
+              <span className="text-xs">🌐</span>
               {langText}
             </span>
             {test.syllabusUrl && (
               <Link 
                 to={`${testUrl}#syllabus`}
-                className={`text-blue-500 font-medium transition-all ${isHovered ? 'underline' : ''}`}
+                className={`text-indigo-500 font-medium transition-all ${isHovered ? 'underline' : ''}`}
               >
                 Syllabus
               </Link>
             )}
           </div>
-          
-          {/* Right: Date Range */}
-          {dateRange && (
-            <span className="flex items-center gap-1 text-gray-600">
-              <span className="text-sm">📅</span>
-              {dateRange}
-            </span>
-          )}
-          
-          {/* Right: Participants (for live tests) */}
-          {test.participants && (
-            <span className="flex items-center gap-1 text-gray-600">
-              <Users className="w-3 h-3" />
-              {(test.participants / 1000).toFixed(1)}k joined
-            </span>
-          )}
+
+          {/* Right: Available Date Range or Leaderboard / Review Links */}
+          <div className="flex items-center gap-1.5 flex-wrap ml-auto">
+            {showLeaderboardAndReview || isExpired ? (
+              <div className="flex items-center gap-1.5">
+                <Link
+                  to={leaderboardUrl}
+                  className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 font-bold text-[10px] flex items-center gap-1 border border-amber-200 dark:border-amber-800 transition-colors"
+                >
+                  <Trophy className="w-3 h-3 text-amber-500" />
+                  <span>Leaderboard</span>
+                </Link>
+                {checkIsSolutionExpired(test) ? (
+                  <span
+                    title="The 7-day post-live solution window has expired"
+                    className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-850 text-slate-400 dark:text-slate-500 font-bold text-[10px] flex items-center gap-1 border border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                  >
+                    <CheckCircle2 className="w-3 h-3 text-slate-400 dark:text-slate-500" />
+                    <span>Solutions Expired</span>
+                  </span>
+                ) : (
+                  <Link
+                    to={reviewUrl}
+                    className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[10px] flex items-center gap-1 transition-colors"
+                  >
+                    <CheckCircle2 className="w-3 h-3 text-slate-500" />
+                    <span>Solutions</span>
+                  </Link>
+                )}
+              </div>
+            ) : dateRange ? (
+              <span className="flex items-center gap-1 font-medium text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] border border-amber-200/70 dark:border-amber-800/50">
+                <Calendar className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                <span>{dateRange}</span>
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-export default TestCard
+export default memo(TestCard)

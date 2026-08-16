@@ -51,11 +51,15 @@ function BottomNav() {
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 pointer-events-none"
+      aria-label="Mobile navigation"
+      className="fixed bottom-0 left-0 right-0 z-[10000] pointer-events-none block md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
     >
-      <div className="pointer-events-auto relative flex items-center justify-around px-1.5 py-1 mx-2 dark:bg-gray-900 rounded-full shadow-lg border border-gray-200/60 dark:border-gray-700/60 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md">
-        {navItems.map(({ icon: Icon, label, path, hasLiveDot, isAdmin }, index) => {
+      <div
+        className="pointer-events-auto relative flex items-center justify-around px-1.5 py-1 mx-2 dark:bg-gray-900 rounded-full shadow-lg border border-gray-200/60 dark:border-gray-700/60 bg-white dark:bg-gray-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {navItems.map(({ icon: Icon, label, path, hasLiveDot, _isAdmin }, index) => {
           const active = isActive(path)
           const color = navColors[index % navColors.length]
           return (

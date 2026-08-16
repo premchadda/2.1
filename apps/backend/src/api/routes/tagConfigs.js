@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -11,22 +12,30 @@ router.get('/', async (req, res) => {
     const tagConfigs = await dbHelpers.find('tagConfigs', { isActive: true })
     res.json({ success: true, data: tagConfigs })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-// Get single tag config by slug/tag
+// Get single tag config by slug/tag or numeric ID
 router.get('/:tag', async (req, res) => {
   try {
     const { tag } = req.params
-    const tagConfig = await dbHelpers.findOne('tagConfigs', { id: tag, isActive: true })
+    const isNumeric = /^\d+$/.test(tag)
+    const query = isNumeric 
+      ? { id: parseInt(tag, 10), isActive: true } 
+      : { slug: tag, isActive: true }
+    
+    let tagConfig = await dbHelpers.findOne('tagConfigs', query)
+    if (!tagConfig && !isNumeric) {
+      tagConfig = await dbHelpers.findOne('tagConfigs', { title: tag, isActive: true })
+    }
     
     if (!tagConfig) {
       return res.status(404).json({ success: false, message: 'Tag config not found' })
     }
     res.json({ success: true, data: tagConfig })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -66,7 +75,7 @@ router.get('/admin/list', protect, admin, async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -114,7 +123,7 @@ router.post('/', protect, admin, async (req, res) => {
       message: 'Tag config created successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -164,7 +173,7 @@ router.put('/:id', protect, admin, async (req, res) => {
       message: 'Tag config updated successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -190,7 +199,7 @@ router.delete('/:id', protect, admin, async (req, res) => {
       message: 'Tag config moved to trash'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

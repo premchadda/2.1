@@ -5,6 +5,7 @@
  */
 import { PublishCommand, SNSClient } from '@aws-sdk/client-sns'
 import { createRequire } from 'module';
+import logger from '../infrastructure/logger/logger.js';
 const require = createRequire(import.meta.url);
 
 const DISABLED_PROVIDERS = new Set(['none', 'disabled', 'off'])
@@ -27,7 +28,7 @@ class SmsService {
           )
           this.fromNumber = process.env.TWILIO_PHONE_NUMBER
         } catch (e) {
-          console.warn('Twilio setup failed:', e.message);
+          logger.warn('Twilio setup failed:', e.message);
         }
         break
       case 'aws':
@@ -36,15 +37,15 @@ class SmsService {
             region: process.env.AWS_REGION || 'us-east-1'
           })
         } catch (e) {
-          console.warn('AWS SNS setup failed:', e.message);
+          logger.warn('AWS SNS setup failed:', e.message);
         }
         break
       default:
         if (isDisabledProvider(this.provider)) {
-          console.log('[SMS] Delivery disabled (SMS_PROVIDER=none).')
+          logger.info('[SMS] Delivery disabled (SMS_PROVIDER=none).')
           return
         }
-        console.warn(`SMS provider '${this.provider}' is not supported`)
+        logger.warn(`SMS provider '${this.provider}' is not supported`)
     }
   }
 
@@ -113,7 +114,7 @@ class SmsService {
           }
       }
     } catch (error) {
-      console.error('Error sending SMS:', error)
+      logger.error('Error sending SMS:', error)
       return { success: false, error: error.message }
     }
   }
@@ -165,13 +166,18 @@ class SmsService {
   }
 
   /**
-   * Send bulk SMS
+   * Send bulk SMS — with a 100ms delay between sends to avoid hitting
+   * provider rate limits. For very large lists, consider a queue.
    */
   async sendBulk(phoneNumbers, message) {
     const results = []
     for (const phoneNumber of phoneNumbers) {
       const result = await this.send(phoneNumber, message)
       results.push({ phoneNumber, ...result })
+      // Small delay between sends to avoid provider rate limiting
+      if (phoneNumbers.indexOf(phoneNumber) < phoneNumbers.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
     }
     return results
   }
@@ -193,9 +199,10 @@ class SmsService {
       return { success: false, error: `Template '${templateKey}' not found` }
     }
 
-    // Replace variables
+    // Replace variables — use replaceAll (or regex with g flag) to handle
+    // templates where the same variable appears multiple times.
     Object.entries(variables).forEach(([key, value]) => {
-      message = message.replace(`{{${key}}}`, value)
+      message = message.replaceAll(`{{${key}}}`, value)
     })
 
     return this.send(phoneNumber, message)

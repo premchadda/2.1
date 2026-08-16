@@ -2,6 +2,7 @@ import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import { idsMatch } from '../../services/core/common.js'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -11,8 +12,22 @@ const router = express.Router()
 router.get('/', async (req, res) => {
   try {
     const { category, search, limit = 20, offset = 0 } = req.query
+    const isAuth = req.user?.id
     
     let groups = await dbHelpers.find('studyGroups', { isActive: true })
+    
+    if (!isAuth) {
+      groups = groups.filter(g => !g.isPrivate)
+    } else {
+      const userMemberships = await dbHelpers.find('studyGroupMembers', {
+        userId: req.user.id,
+        isActive: { $ne: false }
+      })
+      const privateGroupIds = new Set(
+        userMemberships.map(m => m.groupId?.toString())
+      )
+      groups = groups.filter(g => !g.isPrivate || privateGroupIds.has((g._id || g.id)?.toString()))
+    }
     
     // Filter by category
     if (category && category !== 'all') {
@@ -52,7 +67,7 @@ router.get('/', async (req, res) => {
       count: groupsWithCounts.length
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -94,7 +109,7 @@ router.get('/:id', async (req, res, next) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -133,7 +148,7 @@ router.post('/', protect, async (req, res) => {
     
     res.status(201).json({ success: true, data: group })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -166,7 +181,7 @@ router.put('/:id', protect, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -191,7 +206,7 @@ router.delete('/:id', protect, async (req, res) => {
     
     res.json({ success: true, message: 'Study group deleted' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -244,7 +259,7 @@ router.post('/:id/join', protect, async (req, res) => {
     
     res.status(201).json({ success: true, data: member })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -296,7 +311,7 @@ router.post('/:id/leave', protect, async (req, res) => {
     
     res.json({ success: true, message: 'Left the group' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -337,7 +352,7 @@ router.put('/:id/member/:memberId/role', protect, async (req, res) => {
     
     res.json({ success: true, data: updated })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -363,7 +378,7 @@ router.get('/my', protect, async (req, res) => {
       data: groups.filter(Boolean)
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -384,8 +399,191 @@ router.get('/categories', async (req, res) => {
     
     res.json({ success: true, data: categories })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
+// ===== GROUP MESSAGES =====
+// @route   GET /api/study-groups/:id/messages
+// @desc    Get messages in a study group
+// @access  Public / Private
+router.get('/:id/messages', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const messages = await dbHelpers.find('studyGroupMessages', { groupId: id });
+    const sorted = (messages || [])
+      .sort((a, b) => new Date(a.createdAt || a.created_at || 0) - new Date(b.createdAt || b.created_at || 0))
+      .slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
+    const messagesWithUser = await Promise.all(sorted.map(async (msg) => {
+      const user = await dbHelpers.findById('users', msg.userId || msg.user_id);
+      return {
+        ...msg,
+        userName: user?.name || 'Student',
+      };
+    }));
+
+    res.json({ success: true, data: messagesWithUser, count: messagesWithUser.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/study-groups/:id/messages
+// @desc    Send a message in a study group
+// @access  Private
+router.post('/:id/messages', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content, messageType = 'text' } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Message content is required' });
+    }
+
+    const newMsg = await dbHelpers.insertOne('studyGroupMessages', {
+      groupId: id,
+      userId: req.user.id,
+      content: content.trim(),
+      messageType,
+      createdAt: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...newMsg,
+        userName: req.user.name || 'You',
+        userId: req.user.id
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// ===== GROUP POSTS =====
+// @route   GET /api/study-groups/:id/posts
+// @desc    Get discussion posts for a study group
+router.get('/:id/posts', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const posts = await dbHelpers.find('communityPosts', { groupId: id, isActive: true });
+    const sorted = (posts || []).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    const postsWithUser = await Promise.all(sorted.map(async (post) => {
+      const user = await dbHelpers.findById('users', post.userId || post.user_id);
+      return {
+        ...post,
+        userName: user?.name || 'Student',
+        author: user?.name || 'Student'
+      };
+    }));
+
+    res.json({ success: true, data: postsWithUser, count: postsWithUser.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/study-groups/:id/posts
+// @desc    Create a discussion post in a study group
+router.post('/:id/posts', protect, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, content, postType = 'discussion', tags = [] } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Post content is required' });
+    }
+
+    const newPost = await dbHelpers.insertOne('communityPosts', {
+      title: title || '',
+      content: content.trim(),
+      groupId: id,
+      userId: req.user.id,
+      postType: postType || 'discussion',
+      isActive: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...newPost,
+        userName: req.user.name || 'You',
+        author: req.user.name || 'You'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   GET /api/study-groups/:id/posts/:postId
+// @desc    Get single post with comments
+router.get('/:id/posts/:postId', async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await dbHelpers.findById('communityPosts', postId);
+    if (!post) {
+      return res.status(404).json({ success: false, message: 'Post not found' });
+    }
+
+    const comments = await dbHelpers.find('communityComments', { postId, isActive: true });
+    const commentsWithUser = await Promise.all((comments || []).map(async (c) => {
+      const user = await dbHelpers.findById('users', c.userId || c.user_id);
+      return {
+        ...c,
+        userName: user?.name || 'Student'
+      };
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        ...post,
+        comments: commentsWithUser
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
+// @route   POST /api/study-groups/:id/posts/:postId/comments
+// @desc    Add a comment to a group post
+router.post('/:id/posts/:postId/comments', protect, async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { content } = req.body;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ success: false, message: 'Comment content is required' });
+    }
+
+    const comment = await dbHelpers.insertOne('communityComments', {
+      postId,
+      userId: req.user.id,
+      content: content.trim(),
+      isActive: true,
+      createdAt: new Date().toISOString()
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...comment,
+        userName: req.user.name || 'You'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+  }
+});
+
 export default router
+

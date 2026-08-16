@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js'
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import logger from '../../infrastructure/logger/logger.js'
 
 const router = express.Router()
 
@@ -50,11 +51,10 @@ router.get('/permissions', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Get permissions error:', error)
+    logger.error('Get permissions error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch permissions',
-      details: error.message
+      error: 'Internal server error'
     })
   }
 })
@@ -102,14 +102,41 @@ router.get('/roles', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Get roles error:', error)
+    logger.error('Get roles error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch roles',
-      details: error.message
+      error: 'Internal server error'
     })
   }
 })
+
+async function resolvePermissionIds(client, permissions) {
+  if (!Array.isArray(permissions) || permissions.length === 0) return [];
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  
+  const rawValues = permissions.map(p => {
+    if (typeof p === 'string') return p.trim();
+    if (p && typeof p === 'object') return (p.id || p.name || `${p.resource}:${p.action}`).trim();
+    return String(p);
+  }).filter(Boolean);
+
+  const directUuids = rawValues.filter(v => uuidRegex.test(v));
+  const nameKeys = rawValues.filter(v => !uuidRegex.test(v));
+
+  const resolved = new Set(directUuids);
+
+  if (nameKeys.length > 0) {
+    const lookup = await client.query(
+      `SELECT id, name, resource, action FROM permissions 
+       WHERE name = ANY($1) 
+          OR (resource || ':' || action) = ANY($1)`,
+      [nameKeys]
+    );
+    lookup.rows.forEach(r => resolved.add(r.id));
+  }
+
+  return Array.from(resolved);
+}
 
 /**
  * POST /admin/roles
@@ -164,17 +191,20 @@ router.post('/roles', protect, superAdmin, async (req, res) => {
     const roleId = roleResult.rows[0].id
     
     // Assign permissions to role
-    const permissionValues = permissions.map((permId, index) => 
-      `($1, $${index + 2})`
-    ).join(', ')
-    
-    const permissionParams = [roleId, ...permissions]
-    
-    await client.query(
-      `INSERT INTO role_permissions (role_id, permission_id)
-       VALUES ${permissionValues}`,
-      permissionParams
-    )
+    const resolvedPermIds = await resolvePermissionIds(client, permissions)
+    if (resolvedPermIds.length > 0) {
+      const permissionValues = resolvedPermIds.map((_, index) => 
+        `($1, $${index + 2})`
+      ).join(', ')
+      
+      const permissionParams = [roleId, ...resolvedPermIds]
+      
+      await client.query(
+        `INSERT INTO role_permissions (role_id, permission_id)
+         VALUES ${permissionValues}`,
+        permissionParams
+      )
+    }
     
     await client.query('COMMIT')
     
@@ -185,7 +215,7 @@ router.post('/roles', protect, superAdmin, async (req, res) => {
     })
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('Create role error:', error)
+    logger.error('Create role error:', error)
     
     if (error.code === '23505') { // Unique violation
       return res.status(409).json({
@@ -196,8 +226,7 @@ router.post('/roles', protect, superAdmin, async (req, res) => {
     
     res.status(500).json({
       success: false,
-      error: 'Failed to create role',
-      details: error.message
+      error: 'Internal server error'
     })
   } finally {
     client.release()
@@ -270,12 +299,13 @@ router.put('/roles/:id', protect, superAdmin, async (req, res) => {
       )
       
       // Insert new permissions
-      if (permissions.length > 0) {
-        const permissionValues = permissions.map((permId, index) => 
+      const resolvedPermIds = await resolvePermissionIds(client, permissions)
+      if (resolvedPermIds.length > 0) {
+        const permissionValues = resolvedPermIds.map((_, index) => 
           `($1, $${index + 2})`
         ).join(', ')
         
-        const permissionParams = [id, ...permissions]
+        const permissionParams = [id, ...resolvedPermIds]
         
         await client.query(
           `INSERT INTO role_permissions (role_id, permission_id)
@@ -285,15 +315,17 @@ router.put('/roles/:id', protect, superAdmin, async (req, res) => {
       }
     }
     
+    const { rows: updatedRows } = await client.query('SELECT * FROM roles WHERE id = $1', [id])
     await client.query('COMMIT')
-    
+
     res.json({
       success: true,
-      message: 'Role updated successfully'
+      message: 'Role updated successfully',
+      data: updatedRows[0] || null
     })
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('Update role error:', error)
+    logger.error('Update role error:', error)
     
     if (error.code === '23505') {
       return res.status(409).json({
@@ -304,8 +336,7 @@ router.put('/roles/:id', protect, superAdmin, async (req, res) => {
     
     res.status(500).json({
       success: false,
-      error: 'Failed to update role',
-      details: error.message
+      error: 'Internal server error'
     })
   } finally {
     client.release()
@@ -376,11 +407,10 @@ router.delete('/roles/:id', protect, superAdmin, async (req, res) => {
     })
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('Delete role error:', error)
+    logger.error('Delete role error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to delete role',
-      details: error.message
+      error: 'Internal server error'
     })
   } finally {
     client.release()
@@ -434,11 +464,10 @@ router.get('/roles/:id/users', async (req, res) => {
       }
     })
   } catch (error) {
-    console.error('Get role users error:', error)
+    logger.error('Get role users error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch role users',
-      details: error.message
+      error: 'Internal server error'
     })
   }
 })
@@ -499,11 +528,10 @@ router.post('/roles/:id/assign', protect, superAdmin, async (req, res) => {
     })
   } catch (error) {
     await client.query('ROLLBACK')
-    console.error('Assign role error:', error)
+    logger.error('Assign role error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to assign role',
-      details: error.message
+      error: 'Internal server error'
     })
   } finally {
     client.release()
@@ -526,16 +554,13 @@ router.delete('/roles/:id/unassign', protect, superAdmin, async (req, res) => {
   }
   
   try {
-    const values = user_ids.map((userId, index) => 
-      `$${index + 1}`
-    ).join(', ')
-    
+    const placeholders = user_ids.map((_, index) => `$${index + 2}`).join(', ')
     const params = [id, ...user_ids]
     
     await pool.query(
       `DELETE FROM user_roles 
        WHERE role_id = $1 
-       AND user_id IN (${values.slice(values.indexOf(',') + 1)})`,
+       AND user_id IN (${placeholders})`,
       params
     )
     
@@ -544,11 +569,10 @@ router.delete('/roles/:id/unassign', protect, superAdmin, async (req, res) => {
       message: `Role removed from ${user_ids.length} user(s)`
     })
   } catch (error) {
-    console.error('Unassign role error:', error)
+    logger.error('Unassign role error:', error)
     res.status(500).json({
       success: false,
-      error: 'Failed to unassign role',
-      details: error.message
+      error: 'Internal server error'
     })
   }
 })

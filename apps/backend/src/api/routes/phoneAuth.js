@@ -5,18 +5,63 @@ import crypto from 'crypto'
 import SmsService from '../../services/SmsService.js'
 import jwt from 'jsonwebtoken'
 import EmailService from '../../services/EmailService.js'
+import { lockoutMiddleware } from '../../middleware/lockout.middleware.js'
+import { authRateLimiter } from '../../middleware/auth.middleware.js'
+import { captureSession } from '../../services/SessionCaptureService.js'
+import { getRedisClient } from '../../infrastructure/cache/redisClient.js'
+import logger from '../../infrastructure/logger/logger.js'
 
 const router = express.Router()
 
-// OTP storage (use Redis in production)
-const otpStore = global.redis || new Map()
+// ============================================================
+// FIX 2.7: OTP Store — Require Redis in Production
+//
+// Resolution is lazy: getRedisClient() is called per-request so the store
+// picks up a Redis connection that becomes available after startup. The
+// previous implementation checked `global.redis` which was never assigned
+// anywhere, so in production the store was always null and every phone-auth
+// request returned 503 even when Redis was healthy.
+//
+// In production without Redis, requests return 503.
+// In development, a size-limited in-memory Map is allowed with warnings.
+// ============================================================
+const MAX_DEV_OTP_STORE_SIZE = 1000;
+const devOtpStore = new Map();
+let redisWarned = false;
+
+// Returns the active store backend or null.
+// shape: { type: 'redis', client } | { type: 'memory', map } | null
+function resolveOtpStore() {
+  const redis = getRedisClient()
+  if (redis && redis.status === 'ready') {
+    return { type: 'redis', client: redis }
+  }
+  if (process.env.NODE_ENV === 'production') {
+    if (!redisWarned) {
+      redisWarned = true
+      logger.error('[OTP Store] Redis is REQUIRED for phone auth in production but is not ready.')
+    }
+    return null
+  }
+  if (!redisWarned) {
+    redisWarned = true
+    logger.warn('[SECURITY WARNING] Phone auth using in-memory OTP store (development only). NOT safe for production.')
+  }
+  return { type: 'memory', map: devOtpStore }
+}
 
 /**
  * POST /api/auth/phone/send-otp
  * Send OTP to phone number via SMS
  */
-router.post('/send-otp', async (req, res) => {
+router.post('/send-otp', authRateLimiter, async (req, res) => {
   try {
+    // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
+    const store = resolveOtpStore()
+    if (!store) {
+      return res.status(503).json({ success: false, error: 'Phone authentication is temporarily unavailable' })
+    }
+
     const { phoneNumber } = req.body
 
     // Validate phone number (10 digits for India)
@@ -35,7 +80,7 @@ router.post('/send-otp', async (req, res) => {
     }
 
     // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString()
+    const otp = crypto.randomInt(100000, 1000000).toString()
     
     // Store OTP with 10 minute expiry
     const otpKey = `otp:${phoneNumber}`
@@ -68,12 +113,11 @@ router.post('/send-otp', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'OTP sent to your registered mobile number',
-      // For testing only
-      ...(process.env.NODE_ENV === 'development' && { otp, messageId: result.messageId })
+      message: 'OTP sent to your registered mobile number'
     })
+    // Never log OTPs, even in development — security best practice.
   } catch (error) {
-    console.error('Error sending OTP:', error)
+    logger.error({ err: error, phoneNumber: req.body?.phoneNumber }, 'Error sending OTP')
     res.status(500).json({ success: false, error: 'Failed to send OTP' })
   }
 })
@@ -82,8 +126,14 @@ router.post('/send-otp', async (req, res) => {
  * POST /api/auth/phone/verify-otp
  * Verify OTP and create/login user
  */
-router.post('/verify-otp', async (req, res) => {
+router.post('/verify-otp', lockoutMiddleware, async (req, res) => {
   try {
+    // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
+    const store = resolveOtpStore()
+    if (!store) {
+      return res.status(503).json({ success: false, error: 'Phone authentication is temporarily unavailable' })
+    }
+
     const { phoneNumber, otp, name, email } = req.body
 
     if (!phoneNumber || !otp) {
@@ -106,8 +156,10 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ success: false, error: 'OTP expired' })
     }
 
-    // Verify OTP
-    if (otpData.otp !== otp) {
+    // Verify OTP (timing-safe comparison to prevent timing attacks)
+    const otpBuf = Buffer.from(otpData.otp, 'utf8')
+    const inputBuf = Buffer.from(String(otp), 'utf8')
+    if (otpBuf.length !== inputBuf.length || !crypto.timingSafeEqual(otpBuf, inputBuf)) {
       otpData.attempts++
       if (otpData.attempts >= 3) {
         await deleteFromStore(otpKey)
@@ -144,10 +196,23 @@ router.post('/verify-otp', async (req, res) => {
       )
     }
 
-    // Generate JWT token
+    // Capture session for per-device revocation (was missing — phone-authed
+    // users couldn't be logged out). Falls back gracefully if session capture fails.
+    let sessionId = null
+    try {
+      sessionId = await captureSession(req, userId, 'phone')
+    } catch (sessErr) {
+      logger.error('[Phone Auth] Session capture failed (non-fatal):', sessErr.message)
+    }
+
+    // Generate JWT token — embed sessionId so protect middleware can validate it.
+    // Use a dedicated phone-auth secret (JWT_2FA_SECRET) to keep session,
+    // password reset, and phone-auth token namespaces isolated. Falls back to
+    // JWT_SECRET for backward compat during the migration window.
+    const phoneSecret = process.env.JWT_2FA_SECRET || process.env.JWT_SECRET
     const token = jwt.sign(
-      { id: userId, phone: phoneNumber, type: 'phone' },
-      process.env.JWT_SECRET,
+      { id: userId, phone: phoneNumber, type: 'phone', sessionId },
+      phoneSecret,
       { expiresIn: '30d' }
     )
 
@@ -202,7 +267,13 @@ router.post('/link-phone', auth, async (req, res) => {
     }
 
     const otpData = JSON.parse(otpDataStr)
-    if (otpData.otp !== otp || otpData.expiresAt < Date.now()) {
+    if (otpData.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, error: 'OTP expired' })
+    }
+    // Timing-safe OTP comparison
+    const linkOtpBuf = Buffer.from(otpData.otp, 'utf8')
+    const linkInputBuf = Buffer.from(String(otp), 'utf8')
+    if (linkOtpBuf.length !== linkInputBuf.length || !crypto.timingSafeEqual(linkOtpBuf, linkInputBuf)) {
       return res.status(400).json({ success: false, error: 'Invalid or expired OTP' })
     }
 
@@ -233,36 +304,52 @@ router.post('/link-phone', auth, async (req, res) => {
 })
 
 // ========== Helper Functions ==========
+// Resolved per-call so a Redis connection that becomes available after
+// startup is used, and a dead global.redis reference is never consulted.
 
 async function getFromStore(key) {
-  if (global.redis) {
-    return await global.redis.get(key)
-  } else {
-    return otpStore.get(key)
+  const store = resolveOtpStore()
+  if (!store) return null
+  if (store.type === 'redis') {
+    return await store.client.get(key)
   }
+  return store.map.get(key)
 }
 
 async function setInStore(key, value, ttl = 600) {
-  if (global.redis) {
+  const store = resolveOtpStore()
+  if (!store) return
+  if (store.type === 'redis') {
     if (ttl) {
-      await global.redis.setex(key, ttl, value)
+      await store.client.setex(key, ttl, value)
     } else {
-      await global.redis.set(key, value)
+      await store.client.set(key, value)
     }
-  } else {
-    otpStore.set(key, value)
-    // Auto-expire in non-Redis mode (not ideal, for dev only)
-    if (ttl) {
-      setTimeout(() => otpStore.delete(key), ttl * 1000)
-    }
+    return
+  }
+  // In-memory dev fallback
+  const map = store.map
+  // FIX 2.7: Enforce size limit on dev-mode Map to prevent memory leaks
+  if (map.size >= MAX_DEV_OTP_STORE_SIZE) {
+    const firstKey = map.keys().next().value
+    map.delete(firstKey)
+    logger.warn(`[OTP Store] Dev map exceeded ${MAX_DEV_OTP_STORE_SIZE} entries, evicted oldest.`)
+  }
+  map.set(key, value)
+  // Auto-expire in non-Redis mode (dev only)
+  if (ttl) {
+    const timer = setTimeout(() => map.delete(key), ttl * 1000)
+    timer.unref?.()
   }
 }
 
 async function deleteFromStore(key) {
-  if (global.redis) {
-    await global.redis.del(key)
+  const store = resolveOtpStore()
+  if (!store) return
+  if (store.type === 'redis') {
+    await store.client.del(key)
   } else {
-    otpStore.delete(key)
+    store.map.delete(key)
   }
 }
 

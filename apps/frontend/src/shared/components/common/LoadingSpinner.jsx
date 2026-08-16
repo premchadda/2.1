@@ -1,4 +1,3 @@
-import React from 'react'
 
 const LoadingSpinner = ({ size = 'md', variant = 'spin', className = '', label }) => {
   const sizeClasses = {

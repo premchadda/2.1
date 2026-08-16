@@ -1,31 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { Plus, Edit, Trash2, X, Save, FolderPlus, ChevronDown, ChevronRight, Layers, FileText, AlertCircle, CheckCircle, Search, Copy, ExternalLink, Link, FolderOpen, ClipboardList, Terminal, Clock, Database, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Save, FolderPlus, ChevronDown, ChevronRight, Layers, FileText, AlertCircle, CheckCircle, Search, ExternalLink, Link, FolderOpen, ClipboardList, Terminal, Clock, Database, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react'
 import { adminAPI, apiClient } from '../../../shared/lib/dataService.js'
 import { useStages } from '../../../shared/hooks/useStages'
-
-// Toast notification component
-const Toast = ({ message, type = 'success', onClose }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 4000)
-    return () => clearTimeout(timer)
-  }, [onClose])
-
-  return (
-    <div className={`fixed top-4 right-4 z-[100] flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg transition-all animate-slide-in ${
-      type === 'success' ? 'bg-green-500 text-white' : 
-      type === 'error' ? 'bg-red-500 text-white' : 
-      'bg-blue-500 text-white'
-    }`}>
-      {type === 'success' ? <CheckCircle className="w-5 h-5" /> : 
-       type === 'error' ? <AlertCircle className="w-5 h-5" /> : 
-       <AlertCircle className="w-5 h-5" />}
-      <span className="text-sm font-medium">{message}</span>
-      <button onClick={onClose} className="ml-2 hover:opacity-80">
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  )
-}
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import { toast as hotToast } from 'react-hot-toast'
+import { coerceArray } from '../../../shared/utils/questionHelpers'
 
 // Tabs configuration
 const TABS = [
@@ -48,24 +27,7 @@ const isSameEntityId = (a, b) => {
   return !Number.isNaN(na) && !Number.isNaN(nb) && na === nb
 }
 
-const normalizeIdList = (value) => {
-  if (Array.isArray(value)) return value.map(String)
-  if (value == null || value === '') return []
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return []
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      return trimmed.slice(1, -1).split(',').map(v => v.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
-    }
-    try {
-      const parsed = JSON.parse(trimmed)
-      if (Array.isArray(parsed)) return parsed.map(String)
-    } catch {
-      // Fall through to single-value handling.
-    }
-  }
-  return [String(value)]
-}
+const normalizeIdList = (value) => coerceArray(value).map(String)
 
 const hasMatchingId = (value, targetIds) => {
   const normalized = normalizeIdList(value)
@@ -144,24 +106,24 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
 
   return (
     <div className="relative" ref={dropdownRef}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">
-        Link to Test Series <span className="text-xs text-gray-500">(Select all that apply)</span>
+      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        Link to Test Series <span className="text-xs text-gray-500 dark:text-gray-400">(Select all that apply)</span>
       </label>
       
       {/* Dropdown Trigger Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-left bg-white flex items-center justify-between"
+        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-left bg-white dark:bg-gray-800 dark:bg-gray-700 flex items-center justify-between"
       >
         <div className="flex-1 flex flex-wrap gap-1">
           {selectedNames.length === 0 ? (
-            <span className="text-gray-400 text-sm">Select test series...</span>
+            <span className="text-gray-400 dark:text-gray-500 text-sm">Select test series...</span>
           ) : (
             selectedNames.map((name, index) => (
               <span 
                 key={index}
-                className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 text-purple-700 text-xs font-medium rounded-full border border-purple-200"
+                className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/20 text-purple-700 text-xs font-medium rounded-full border border-purple-200 dark:border-purple-800/50"
               >
                 {name}
                 <button
@@ -178,23 +140,23 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
             ))
           )}
         </div>
-        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-hidden">
           {/* Search Input */}
           {(testSeries || []).length > 5 && (
-            <div className="p-2 border-b border-gray-100">
+            <div className="p-2 border-b border-gray-100 dark:border-gray-700">
               <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type="text"
                   placeholder="Search series..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 dark:border-gray-700 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   autoFocus
                 />
               </div>
@@ -204,9 +166,9 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
           {/* Options List */}
           <div className="overflow-y-auto max-h-48">
             {(testSeries || []).length === 0 ? (
-              <div className="p-3 text-sm text-gray-500 text-center">No test series found.</div>
+              <div className="p-3 text-sm text-gray-500 dark:text-gray-400 text-center">No test series found.</div>
             ) : filteredSeries.length === 0 ? (
-              <div className="p-3 text-sm text-gray-500 text-center">No matching series found.</div>
+              <div className="p-3 text-sm text-gray-500 dark:text-gray-400 text-center">No matching series found.</div>
             ) : (
               filteredSeries.map(series => {
                 const seriesId = series._id || series.id
@@ -215,20 +177,20 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
                   <label
                     key={seriesId}
                     className={`flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'
+                      isSelected ? 'bg-purple-50 dark:bg-purple-900/20' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                      className="w-4 h-4 text-purple-600 border-gray-300 dark:border-gray-600 rounded focus:ring-purple-500"
                       checked={isSelected}
                       onChange={() => toggleSeries(seriesId)}
                     />
-                    <span className="flex-1 text-sm text-gray-900 font-medium">
+                    <span className="flex-1 text-sm text-gray-900 dark:text-white dark:text-gray-100 font-medium">
                       {series.title || series.name}
                     </span>
                     {series.isPro && (
-                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded">PRO</span>
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 rounded">PRO</span>
                     )}
                   </label>
                 )
@@ -238,8 +200,8 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
 
           {/* Footer with count */}
           {safeSelectedIds.length > 0 && (
-            <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex items-center justify-between">
-              <span className="text-xs text-gray-500">
+            <div className="px-3 py-2 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 dark:bg-gray-700 flex items-center justify-between">
+              <span className="text-xs text-gray-500 dark:text-gray-400">
                 {safeSelectedIds.length} selected
               </span>
               <button
@@ -254,7 +216,7 @@ function TestSeriesMultiSelect({ testSeries = [], selectedIds = [], onChange, is
         </div>
       )}
 
-      <p className="mt-1 text-xs text-gray-500">
+      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
         Link this category to one or more test series for better organization
       </p>
     </div>
@@ -277,8 +239,7 @@ export default function CategoriesManager() {
   const [hoveredCategory, setHoveredCategory] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   
-  // Toast state
-  const [toast, setToast] = useState(null)
+  // Toast via react-hot-toast
 
   // Activity log state
   const [activityLogs, setActivityLogs] = useState([])
@@ -312,7 +273,6 @@ export default function CategoriesManager() {
   const [showMergeModal, setShowMergeModal] = useState(false)
   const [importData, setImportData] = useState('')
   const [mergeTargetId, setMergeTargetId] = useState(null)
-  const [permissionLevels, setPermissionLevels] = useState({})
 
   const [reorderLoading, setReorderLoading] = useState(new Set())
 
@@ -420,12 +380,25 @@ export default function CategoriesManager() {
       return
     }
     
-    if (!confirm(`Merge ${selectedCategories.size - 1} categories into target? All children will be moved to target category.`)) return
+    const confirmed = await confirmOnce({
+      title: 'Merge Categories',
+      message: `Merge ${selectedCategories.size - 1} categories into target? All children will be moved to target category.`,
+      confirmText: 'Merge',
+      confirmStyle: 'primary'
+    })
+    if (!confirmed) return
     
     try {
       const sourceIds = Array.from(selectedCategories).filter(id => !isSameEntityId(id, mergeTargetId))
       
       for (const sourceId of sourceIds) {
+        // Skip merging a category into its own descendant
+        const descendantIds = getDescendantIdSet(sourceId, categories)
+        if (mergeTargetId && descendantIds.has(String(mergeTargetId))) {
+          showToast(`Cannot merge category ${sourceId} into its own descendant`, 'error')
+          continue
+        }
+
         // Move all children from source to target
         const sourceChildren = categories.filter(c => isSameEntityId(c.parentId, sourceId))
         for (const child of sourceChildren) {
@@ -446,30 +419,10 @@ export default function CategoriesManager() {
     }
   }
 
-  // ==========================================
-  // PERMISSION LEVELS
-  // ==========================================
-  const PERMISSION_LEVELS = {
-    ADMIN: 'Full Access',
-    EDITOR: 'Edit Existing',
-    CONTRIBUTOR: 'Create Only',
-    VIEWER: 'View Only'
-  }
-
-  const setPermission = (categoryId, level) => {
-    setPermissionLevels(prev => ({
-      ...prev,
-      [categoryId]: level
-    }))
-    showToast(`Permission level set to ${level}`)
-  }
-
   const showToast = useCallback((message, type = 'success') => {
-    setToast({ message, type })
-  }, [])
-
-  const hideToast = useCallback(() => {
-    setToast(null)
+    if (type === 'error') hotToast.error(message)
+    else if (type === 'info') hotToast(message)
+    else hotToast.success(message)
   }, [])
 
   // FIX BUG-022: Prevent activity log re-render loops with dedup and batched updates
@@ -661,7 +614,7 @@ export default function CategoriesManager() {
     
     const payload = {
       ...formData,
-      parentId: parentCategory?._id || null,
+      parentId: parentCategory?._id || parentCategory?.id || null,
       level: parentCategory ? (parentCategory.level || 0) + 1 : 0,
       displayOrder: Number(formData.displayOrder)
     }
@@ -744,7 +697,13 @@ export default function CategoriesManager() {
     const descendantIds = getDescendantIdSet(id, categories)
     const totalCount = descendantIds.size
     
-    if (!confirm(`Are you sure you want to delete this category? This will also delete ${totalCount - 1} child categories. All ${totalCount} categories will be moved to trash.`)) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Category & Children',
+      message: `Are you sure you want to delete this category? This will also delete ${totalCount - 1} child categories. All ${totalCount} categories will be moved to trash.`,
+      confirmText: 'Delete All',
+      confirmStyle: 'danger'
+    })
+    if (!confirmed) return
 
     try {
       const deletedCategory = categories.find(c => isSameEntityId(c._id, id))
@@ -924,22 +883,22 @@ export default function CategoriesManager() {
       )?.label : null
 
     return (
-      <div className="border-b border-gray-100 last:border-b-0">
+      <div className="border-b border-gray-100 dark:border-gray-700 last:border-b-0">
         {/* Category Row */}
         <div 
-          className="flex items-center justify-between py-3 px-3 hover:bg-gray-50 transition-colors"
+          className="flex items-center justify-between py-3 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
           style={{ paddingLeft: `${paddingLeft}px` }}
         >
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {hasChildren ? (
               <button 
                 onClick={() => toggleExpand(category._id)}
-                className="p-1 hover:bg-gray-200 rounded flex-shrink-0"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded flex-shrink-0"
               >
                 {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                  <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                  <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 )}
               </button>
             ) : (
@@ -950,16 +909,16 @@ export default function CategoriesManager() {
             
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-gray-900 text-sm md:text-base">{category.name}</span>
+                <span className="font-medium text-gray-900 dark:text-white text-sm md:text-base">{category.name}</span>
                 <span className={`px-1.5 py-0.5 text-[10px] font-semibold rounded ${
-                  category.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  category.isActive !== false ? 'bg-green-100 dark:bg-green-900/30 text-green-700' : 'bg-red-100 dark:bg-red-900/30 text-red-700'
                 }`}>
                   {category.isActive !== false ? 'Active' : 'Inactive'}
                 </span>
                 
                 {/* Exam Category Badge */}
                 {examCategoryLabel && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 text-amber-700">
+                  <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-amber-100 dark:bg-amber-900/30 text-amber-700">
                     {examCategoryLabel}
                   </span>
                 )}
@@ -973,7 +932,7 @@ export default function CategoriesManager() {
                   <span className="cursor-help" title="Test Series">
                     📚
                   </span>
-                  <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 text-purple-700 rounded-full">
+                  <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-full">
                     {counts.seriesCount}
                   </span>
                   
@@ -1006,7 +965,7 @@ export default function CategoriesManager() {
                 <span className="cursor-help" title={`Tests: ${counts.testsCount}`}>
                   📝
                 </span>
-                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-700 rounded-full">
+                <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 rounded-full">
                   {counts.testsCount}
                 </span>
 
@@ -1017,7 +976,7 @@ export default function CategoriesManager() {
                       const stage = stages.find((s) => isSameEntityId(s._id ?? s.id, stageId))
                       if (!stage) return null; // FIX: Don't render hardcoded unknown stages
                       return (
-                        <span key={stageId} className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
+                        <span key={stageId} className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700">
                           {stage.name}
                         </span>
                       )
@@ -1025,13 +984,13 @@ export default function CategoriesManager() {
                   </div>
                 )}
                 {hasChildren && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
                     ({category.children.length} sub)
                   </span>
                 )}
               </div>
               {category.description && (
-                <p className="text-xs text-gray-500 truncate">{category.description}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{category.description}</p>
               )}
             </div>
           </div>
@@ -1041,7 +1000,7 @@ export default function CategoriesManager() {
               type="button"
               onClick={() => handleReorderCategory(category, 'up')}
               disabled={sidx <= 0}
-              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
               title="Move up among siblings"
             >
               <ArrowUp className="w-4 h-4" />
@@ -1050,28 +1009,28 @@ export default function CategoriesManager() {
               type="button"
               onClick={() => handleReorderCategory(category, 'down')}
               disabled={sidx < 0 || sidx >= sibs.length - 1}
-              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors disabled:opacity-30 disabled:pointer-events-none"
               title="Move down among siblings"
             >
               <ArrowDown className="w-4 h-4" />
             </button>
             <button 
               onClick={() => openAddChild(category)}
-              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
               title="Add Child Category"
             >
               <FolderPlus className="w-4 h-4" />
             </button>
             <button 
               onClick={() => handleEdit(category)} 
-              className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded transition-colors"
               title="Edit"
             >
               <Edit className="w-4 h-4" />
             </button>
             <button 
               onClick={() => handleDelete(category._id)} 
-              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
               title="Move to trash"
             >
               <Trash2 className="w-4 h-4" />
@@ -1081,7 +1040,7 @@ export default function CategoriesManager() {
 
         {/* Children */}
         {hasChildren && isExpanded && (
-          <div className="bg-gray-50/50">
+          <div className="bg-gray-50/50 dark:bg-gray-900/50">
             {category.children.map(child => (
               <CategoryItem key={child._id} category={child} depth={depth + 1} />
             ))}
@@ -1307,15 +1266,9 @@ export default function CategoriesManager() {
 
   return (
     <div className="p-4 md:p-6">
-      {/* Toast Notification */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Test Categories</h1>
-          <p className="text-sm md:text-base text-gray-600 mt-1">Manage hierarchical test categories</p>
-        </div>
+      {/* Header Action Bar */}
+      <div className="flex items-center justify-end gap-4 mb-6">
         {activeTab === 'tree' && (
           <button
             onClick={handleAddRootCategory}
@@ -1328,7 +1281,7 @@ export default function CategoriesManager() {
       </div>
 
       {/* Tabs Navigation */}
-      <div className="mb-4 border-b border-gray-200">
+      <div className="mb-4 border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-8" aria-label="Tabs">
           {TABS.map(tab => (
             <button
@@ -1336,22 +1289,22 @@ export default function CategoriesManager() {
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
               {tab.id === 'series-category-relations' && (
                 <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                  activeTab === tab.id ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'
+                  activeTab === tab.id ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-gray-800 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {seriesCategoryRelationsData.length}
                 </span>
               )}
               {tab.id === 'series-subcategory-relations' && (
                 <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                  activeTab === tab.id ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-500'
+                  activeTab === tab.id ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'bg-gray-100 dark:bg-gray-800 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
                 }`}>
                   {seriesSubcategoryRelationsData.length}
                 </span>
@@ -1367,18 +1320,18 @@ export default function CategoriesManager() {
           {/* Search Bar */}
           <div className="mb-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
                 placeholder="Search categories by name, slug, or description..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white dark:bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1388,7 +1341,7 @@ export default function CategoriesManager() {
 
           {/* Orphan Warning Banner */}
           {orphanStats.orphaned > 0 && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5">
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg flex items-start gap-2.5">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div className="text-sm text-amber-700">
                 <div className="font-semibold mb-1">Orphan Summary ({orphanStats.total} total categories)</div>
@@ -1400,7 +1353,7 @@ export default function CategoriesManager() {
           {/* Form Modal */}
           {showForm && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
-              <div className="bg-white rounded-lg w-full max-w-lg max-h-[95vh] overflow-y-auto">
+              <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg max-h-[95vh] overflow-y-auto">
                 <div className="p-4 md:p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -1413,14 +1366,14 @@ export default function CategoriesManager() {
                         </p>
                       )}
                     </div>
-                    <button onClick={resetForm} className="p-2 hover:bg-gray-100 rounded">
+                    <button onClick={resetForm} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                       <X className="w-5 h-5" />
                     </button>
                   </div>
 
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Name <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -1435,13 +1388,13 @@ export default function CategoriesManager() {
                           setFormData({ ...formData, name: newName, slug: newSlug })
                         }}
                         placeholder="e.g., Year Based"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                         autoFocus
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Slug
                       </label>
                       <input
@@ -1456,7 +1409,7 @@ export default function CategoriesManager() {
                         }}
                         placeholder="e.g., year-based"
                         className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 ${
-                          slugError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300'
+                          slugError ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600'
                         }`}
                       />
                       {slugError && (
@@ -1469,7 +1422,7 @@ export default function CategoriesManager() {
 
                     {/* Parent Category Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Parent Category
                       </label>
                       <select
@@ -1480,7 +1433,7 @@ export default function CategoriesManager() {
                             categories.find((c) => isSameEntityId(c._id ?? c.id, selectedId)) || null
                           setParentCategory(selected)
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       >
                         <option value="">-- Root Category --</option>
                         {parentSelectRows.map(({ node, depth }) => {
@@ -1505,22 +1458,22 @@ export default function CategoriesManager() {
                     />
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Stages <span className="text-xs text-gray-500">(Select all that apply)</span>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Stages <span className="text-xs text-gray-500 dark:text-gray-400">(Select all that apply)</span>
                       </label>
                       {stagesLoading ? (
-                        <div className="text-sm text-gray-500 py-2">Loading stages...</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 py-2">Loading stages...</div>
                       ) : stages.length === 0 ? (
-                        <div className="text-sm text-gray-500 py-2">No stages found.</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400 py-2">No stages found.</div>
                       ) : (
-                        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg max-h-40 overflow-y-auto">
+                        <div className="flex flex-wrap gap-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg max-h-40 overflow-y-auto">
                           {stages.map(stage => (
                             <label 
                               key={stage._id || stage.id} 
                               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border cursor-pointer transition-colors text-sm
                                 ${formData.stageIds.some((sid) => isSameEntityId(sid, stage._id ?? stage.id))
-                                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700' 
-                                  : 'bg-white border-gray-200 text-gray-700 hover:border-indigo-200'
+                                  ? 'bg-indigo-50 border-indigo-200 dark:border-indigo-800/50 text-indigo-700' 
+                                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-indigo-200'
                                 }`}
                             >
                               <input
@@ -1550,22 +1503,22 @@ export default function CategoriesManager() {
 
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
                         <input
                           type="number"
                           value={formData.displayOrder}
                           onChange={(e) => setFormData({ ...formData, displayOrder: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Icon (Emoji)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Icon (Emoji)</label>
                         <input
                           type="text"
                           value={formData.icon}
                           onChange={(e) => setFormData({ ...formData, icon: e.target.value })}
                           placeholder="📂"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                       <div className="flex items-end">
@@ -1576,24 +1529,24 @@ export default function CategoriesManager() {
                             onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                             className="w-4 h-4 text-indigo-600 rounded"
                           />
-                          <span className="text-sm font-medium text-gray-700">Active</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active</span>
                         </label>
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                       <textarea
                         value={formData.description}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         rows={2}
                         placeholder="Optional description..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
 
                     <div className="flex gap-3 pt-4 border-t">
-                      <button type="button" onClick={resetForm} className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium">
+                      <button type="button" onClick={resetForm} className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-sm font-medium">
                         Cancel
                       </button>
                       <button
@@ -1612,7 +1565,7 @@ export default function CategoriesManager() {
           )}
 
           {/* Categories Tree */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
             {(() => {
               const categoryTree = buildTree(categories)
               const filteredTree = filterCategories(categoryTree, searchQuery)
@@ -1622,14 +1575,14 @@ export default function CategoriesManager() {
                   <div className="text-4xl mb-3">📂</div>
                   {searchQuery ? (
                     <>
-                      <p className="text-gray-500 mb-4">No categories matching "{searchQuery}"</p>
-                      <button onClick={() => setSearchQuery('')} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm">
+                      <p className="text-gray-500 dark:text-gray-400 mb-4">No categories matching "{searchQuery}"</p>
+                      <button onClick={() => setSearchQuery('')} className="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 text-sm">
                         Clear Search
                       </button>
                     </>
                   ) : (
                     <>
-                      <p className="text-gray-500 mb-4">No categories found. Create your first one!</p>
+                      <p className="text-gray-500 dark:text-gray-400 mb-4">No categories found. Create your first one!</p>
                       <button onClick={handleAddRootCategory} className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
                         <Plus className="w-4 h-4" />
                         Add Category
@@ -1639,13 +1592,13 @@ export default function CategoriesManager() {
                 </div>
               ) : (
                 <div>
-                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                    <div className="flex items-center justify-between text-xs font-medium text-gray-500 uppercase">
+                  <div className="bg-gray-50 dark:bg-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                       <span>Category Structure</span>
                       <span>{categories.length} total</span>
                     </div>
                   </div>
-                  <div className="divide-y divide-gray-100">
+                  <div className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredTree.map(category => (
                       <CategoryItem key={category._id} category={category} depth={0} />
                     ))}
@@ -1655,7 +1608,7 @@ export default function CategoriesManager() {
             })()}
           </div>
 
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>💡 Tip:</strong> Click the <FolderPlus className="w-4 h-4 inline mx-1" /> icon on any category to add a child under it.
             </p>
@@ -1665,31 +1618,31 @@ export default function CategoriesManager() {
 
       {/* Test Category Relations Tab */}
       {activeTab === 'series-category-relations' && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900">Test Category Relations</h3>
-            <p className="text-sm text-gray-500">Shows which test series and tests are linked to root test categories</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Test Category Relations</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Shows which test series and tests are linked to root test categories</p>
           </div>
           {seriesCategoryRelationsData.length === 0 ? (
             <div className="text-center py-12 px-4">
               <div className="text-4xl mb-3">📚</div>
-              <p className="text-gray-500">No test category relations found</p>
-              <p className="text-sm text-gray-400 mt-1">Root categories with test series links will appear here</p>
+              <p className="text-gray-500 dark:text-gray-400">No test category relations found</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Root categories with test series links will appear here</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {seriesCategoryRelationsData.map(({ category, series, tests: testsList, seriesCount, testsCount }) => (
                 <div key={category._id} className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">{category.icon || '📂'}</span>
                     <div>
-                      <h4 className="font-bold text-gray-900">{category.name}</h4>
-                      <span className="text-xs text-gray-500">{category.slug}</span>
+                      <h4 className="font-bold text-gray-900 dark:text-white">{category.name}</h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{category.slug}</span>
                     </div>
-                    <span className="ml-auto px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
+                    <span className="ml-auto px-2 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-full">
                       {seriesCount} series
                     </span>
-                    <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                    <span className="px-2 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 rounded-full">
                       {testsCount} tests
                     </span>
                   </div>
@@ -1699,7 +1652,7 @@ export default function CategoriesManager() {
                       {category.stageIds.map(stageId => {
                         const stage = stages.find(s => String(s._id || s.id) === String(stageId))
                         return stage ? (
-                          <span key={stageId} className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                          <span key={stageId} className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 border border-indigo-200 dark:border-indigo-800/50">
                             {stage.icon || '🔖'} {stage.name}
                           </span>
                         ) : null
@@ -1715,11 +1668,11 @@ export default function CategoriesManager() {
                       </h5>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {series.map(s => (
-                          <div key={s._id || s.id} className="p-2 bg-purple-50 rounded-lg">
-                            <div className="text-sm font-medium text-gray-900">{s.title || s.name}</div>
-                            <div className="text-xs text-gray-500">{s.description ? s.description.slice(0, 60) + '...' : 'No description'}</div>
+                          <div key={s._id || s.id} className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{s.title || s.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{s.description ? s.description.slice(0, 60) + '...' : 'No description'}</div>
                             {s.isPro && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded">PRO</span>
+                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 rounded">PRO</span>
                             )}
                           </div>
                         ))}
@@ -1733,13 +1686,13 @@ export default function CategoriesManager() {
                       </h5>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {testsList.map(t => (
-                          <div key={t._id || t.id} className="p-2 bg-blue-50 rounded-lg">
-                            <div className="text-sm font-medium text-gray-900">{t.title}</div>
-                            <div className="text-xs text-gray-500">
+                          <div key={t._id || t.id} className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{t.title}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {t.duration ? `${t.duration} min` : ''} • {t.totalQuestions ? `${t.totalQuestions} Qs` : ''}
                             </div>
                             {t.isPro && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded">PRO</span>
+                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 rounded">PRO</span>
                             )}
                           </div>
                         ))}
@@ -1755,36 +1708,36 @@ export default function CategoriesManager() {
 
       {/* Child Category Relations Tab */}
       {activeTab === 'series-subcategory-relations' && (
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900">Child Category Relations</h3>
-            <p className="text-sm text-gray-500">Shows which test series and tests are linked to child test categories</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">Child Category Relations</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Shows which test series and tests are linked to child test categories</p>
           </div>
           {seriesSubcategoryRelationsData.length === 0 ? (
             <div className="text-center py-12 px-4">
               <div className="text-4xl mb-3">📚</div>
-              <p className="text-gray-500">No child category relations found</p>
-              <p className="text-sm text-gray-400 mt-1">Child categories with test series links will appear here</p>
+              <p className="text-gray-500 dark:text-gray-400">No child category relations found</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Child categories with test series links will appear here</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-gray-100 dark:divide-gray-700">
               {seriesSubcategoryRelationsData.map(({ category, parentCategory, series, tests: testsList, seriesCount, testsCount }) => (
                 <div key={category._id} className="p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-2xl">{category.icon || '📁'}</span>
                     <div>
-                      <h4 className="font-bold text-gray-900">{category.name}</h4>
-                      <span className="text-xs text-gray-500">{category.slug}</span>
+                      <h4 className="font-bold text-gray-900 dark:text-white">{category.name}</h4>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{category.slug}</span>
                       {parentCategory && (
                         <div className="text-xs text-indigo-600 mt-0.5">
                           Parent: {parentCategory.name}
                         </div>
                       )}
                     </div>
-                    <span className="ml-auto px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-700 rounded-full">
+                    <span className="ml-auto px-2 py-1 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-700 rounded-full">
                       {seriesCount} series
                     </span>
-                    <span className="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                    <span className="px-2 py-1 text-xs font-semibold bg-blue-100 dark:bg-blue-900/30 text-blue-700 rounded-full">
                       {testsCount} tests
                     </span>
                   </div>
@@ -1794,7 +1747,7 @@ export default function CategoriesManager() {
                       {category.stageIds.map(stageId => {
                         const stage = stages.find(s => String(s._id || s.id) === String(stageId))
                         return stage ? (
-                          <span key={stageId} className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                          <span key={stageId} className="px-2 py-0.5 text-xs font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 border border-indigo-200 dark:border-indigo-800/50">
                             {stage.icon || '🔖'} {stage.name}
                           </span>
                         ) : null
@@ -1810,11 +1763,11 @@ export default function CategoriesManager() {
                       </h5>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {series.map(s => (
-                          <div key={s._id || s.id} className="p-2 bg-purple-50 rounded-lg">
-                            <div className="text-sm font-medium text-gray-900">{s.title || s.name}</div>
-                            <div className="text-xs text-gray-500">{s.description ? s.description.slice(0, 60) + '...' : 'No description'}</div>
+                          <div key={s._id || s.id} className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{s.title || s.name}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">{s.description ? s.description.slice(0, 60) + '...' : 'No description'}</div>
                             {s.isPro && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded">PRO</span>
+                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 rounded">PRO</span>
                             )}
                           </div>
                         ))}
@@ -1828,13 +1781,13 @@ export default function CategoriesManager() {
                       </h5>
                       <div className="space-y-2 max-h-64 overflow-y-auto">
                         {testsList.map(t => (
-                          <div key={t._id || t.id} className="p-2 bg-blue-50 rounded-lg">
-                            <div className="text-sm font-medium text-gray-900">{t.title}</div>
-                            <div className="text-xs text-gray-500">
+                          <div key={t._id || t.id} className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{t.title}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {t.duration ? `${t.duration} min` : ''} • {t.totalQuestions ? `${t.totalQuestions} Qs` : ''}
                             </div>
                             {t.isPro && (
-                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded">PRO</span>
+                              <span className="inline-block mt-1 px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 rounded">PRO</span>
                             )}
                           </div>
                         ))}
@@ -1850,9 +1803,12 @@ export default function CategoriesManager() {
 
       {/* Activity Log Panel */}
       <div className="mt-6">
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setShowActivityLog(!showActivityLog)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm w-full justify-between"
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowActivityLog(!showActivityLog) }}
+          className="flex items-center gap-2 px-4 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm w-full justify-between cursor-pointer select-none"
         >
           <div className="flex items-center gap-2">
             <Terminal className="w-4 h-4" />
@@ -1865,24 +1821,32 @@ export default function CategoriesManager() {
           </div>
           <div className="flex items-center gap-3">
             {activityLogs.length > 0 && (
-              <button
+              <span
+                role="button"
+                tabIndex={0}
                 onClick={(e) => {
                   e.stopPropagation()
                   setActivityLogs([])
                 }}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    setActivityLogs([])
+                  }
+                }}
+                className="text-xs text-gray-400 dark:text-gray-500 hover:text-white transition-colors cursor-pointer"
               >
                 Clear
-              </button>
+              </span>
             )}
             {showActivityLog ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </div>
-        </button>
+        </div>
 
         {showActivityLog && (
           <div className="mt-2 bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
             {activityLogs.length === 0 ? (
-              <div className="p-6 text-center text-gray-500 text-sm">
+              <div className="p-6 text-center text-gray-500 dark:text-gray-400 text-sm">
                 No activity yet. Perform an action to see logs here.
               </div>
             ) : (
@@ -1910,7 +1874,7 @@ export default function CategoriesManager() {
                             log.type === 'create' ? 'bg-green-900/50 text-green-400' :
                             log.type === 'update' ? 'bg-blue-900/50 text-blue-400' :
                             log.type === 'delete' ? 'bg-red-900/50 text-red-400' :
-                            'bg-gray-700 text-gray-400'
+                            'bg-gray-700 text-gray-400 dark:text-gray-500'
                           }`}>
                             {log.type}
                           </span>
@@ -1920,7 +1884,7 @@ export default function CategoriesManager() {
                         </div>
                         
                         {/* Timestamp */}
-                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-500 dark:text-gray-400">
                           <Clock className="w-3 h-3" />
                           {new Date(log.timestamp).toLocaleTimeString()}
                         </div>
@@ -1931,7 +1895,7 @@ export default function CategoriesManager() {
                             {/* Payload */}
                             {log.payload && (
                               <div>
-                                <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mb-1">
                                   <Database className="w-3 h-3" />
                                   Payload
                                 </div>
@@ -1944,7 +1908,7 @@ export default function CategoriesManager() {
                             {/* Response */}
                             {log.response && (
                               <div>
-                                <div className="flex items-center gap-1 text-xs text-gray-400 mb-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mb-1">
                                   <CheckCircle className="w-3 h-3" />
                                   Response
                                 </div>
@@ -1981,9 +1945,9 @@ export default function CategoriesManager() {
                       {/* Expand Icon */}
                       <div className="flex-shrink-0">
                         {expandedLog === log.id ? (
-                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-gray-500" />
+                          <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                         )}
                       </div>
                     </button>

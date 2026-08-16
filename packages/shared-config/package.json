@@ -1,9 +1,14 @@
 {
   "name": "@trstprep/shared-config",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Shared asset configuration utilities for Trstprep apps",
   "main": "src/index.js",
   "types": "src/index.d.ts",
   "type": "module",
-  "files": ["src/"]
+  "files": [
+    "src/"
+  ],
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  }
 }

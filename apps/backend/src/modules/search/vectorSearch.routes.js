@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import vectorSearchService from './vectorSearch.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -18,7 +19,7 @@ router.post('/semantic', async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -31,7 +32,7 @@ router.get('/similar/:questionId', protect, async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -48,7 +49,7 @@ router.post('/by-description', protect, async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -57,7 +58,7 @@ router.post('/index/:questionId', protect, admin, async (req, res) => {
     const result = await vectorSearchService.indexQuestion(req.params.questionId)
     res.json({ success: true, data: result })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -74,7 +75,7 @@ router.post('/index/batch', protect, admin, async (req, res) => {
     const results = await vectorSearchService.indexBatch(questionIds)
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -84,7 +85,7 @@ router.post('/index/all-unindexed', protect, admin, async (req, res) => {
     const results = await vectorSearchService.indexAllUnindexed(parseInt(limit) || 100)
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -94,7 +95,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     const hasPgvector = await vectorSearchService.checkPgvector()
     res.json({ success: true, data: { ...stats, hasPgvector } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

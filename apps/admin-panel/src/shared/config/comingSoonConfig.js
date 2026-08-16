@@ -1,32 +1,37 @@
 /**
  * Coming Soon / Maintenance Mode Configuration
- * 
- * This file manages which pages show "Coming Soon" and which show real content.
- * Admin can toggle these from the admin panel or directly in this config.
- * 
- * USAGE:
- * 1. Set page to "comingSoon: true" to show Coming Soon page
- * 2. Set page to "comingSoon: false" to show real content
- * 3. Set "maintenanceMode: true" to show maintenance page for entire site
- * 4. Configure each Coming Soon page with custom title/message/estimated time
+ *
+ * The persisted source of truth is the backend `coming_soon_config`
+ * app_settings row, served by GET/PUT /admin/coming-soon-config
+ * (apps/backend/src/api/routes/admin-extras.js). The static object below is
+ * ONLY the first-render default, used before the first fetch resolves.
+ *
+ * - `loadComingSoonConfig()` fetches the real config; on failure it surfaces
+ *   the error (rejects + exposes it via `getComingSoonLoadError()`).
+ * - `isSiteInMaintenance()` / `isPageComingSoon()` / `getAllPagesStatus()`
+ *   return the FETCHED values once loaded.
+ * - `updatePageComingSoonStatus()` / `updateMaintenanceMode()` persist via the
+ *   API — they never mutate memory alone, and they throw on failure so callers
+ *   can surface the error.
  */
 
-// ===== SITE-WIDE SETTINGS =====
+import { adminAPI } from '../lib/api/adminAPI.js'
+
+// ===== SITE-WIDE SETTINGS (first-render defaults only) =====
 export const SITE_CONFIG = {
   // Global maintenance mode - shows maintenance page for ALL routes
   maintenanceMode: false,
   maintenanceMessage: "We're performing scheduled maintenance to improve your experience.",
   maintenanceEndTime: null, // ISO date string or null
-  
+
   // Allow admin access during maintenance
   allowAdminAccess: true,
-  
+
   // Estimated downtime
   estimatedDowntime: "30 minutes"
 }
 
-// ===== PAGE-SPECIFIC SETTINGS =====
-// Set comingSoon: true to show Coming Soon page, false to show real content
+// ===== PAGE-SPECIFIC SETTINGS (first-render defaults only) =====
 export const COMING_SOON_PAGES = {
   // ===== PUBLIC PAGES =====
   home: {
@@ -34,7 +39,7 @@ export const COMING_SOON_PAGES = {
     title: null,
     message: null
   },
-  
+
   // ===== TEST PAGES =====
   liveTests: {
     comingSoon: false,
@@ -43,7 +48,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming in 2 weeks",
     icon: "Radio"
   },
-  
+
   practiceQuestions: {
     comingSoon: false,
     title: "Practice Questions",
@@ -51,7 +56,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Available soon",
     icon: "Target"
   },
-  
+
   // ===== STUDY PAGES =====
   videos: {
     comingSoon: false,
@@ -60,7 +65,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming in 1 month",
     icon: "Video"
   },
-  
+
   currentAffairs: {
     comingSoon: false,
     title: "Current Affairs",
@@ -68,7 +73,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Available daily at 8 AM",
     icon: "Newspaper"
   },
-  
+
   // ===== COMMUNITY PAGES =====
   doubtForum: {
     comingSoon: false,
@@ -77,7 +82,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming in 3 weeks",
     icon: "MessageCircle"
   },
-  
+
   studyGroups: {
     comingSoon: false,
     title: "Study Groups",
@@ -85,7 +90,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming in 1 month",
     icon: "Users"
   },
-  
+
   // ===== DASHBOARD FEATURES =====
   achievements: {
     comingSoon: false,
@@ -94,7 +99,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Available now",
     icon: "Award"
   },
-  
+
   referAndEarn: {
     comingSoon: false,
     title: "Refer & Earn",
@@ -102,7 +107,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming soon",
     icon: "Gift"
   },
-  
+
   // ===== ADMIN PAGES (can be toggled from admin config) =====
   adminAnalytics: {
     comingSoon: false,
@@ -111,7 +116,7 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Available in admin panel",
     icon: "BarChart"
   },
-  
+
   curriculumBuilder: {
     comingSoon: false,
     title: "Curriculum Builder",
@@ -119,6 +124,64 @@ export const COMING_SOON_PAGES = {
     estimatedTime: "Coming soon",
     icon: "BookOpen"
   }
+}
+
+// ===== RUNTIME STATE (populated from the backend) =====
+let runtimeConfig = null
+let loadError = null
+let loadPromise = null
+
+function normalizePages(pages) {
+  if (!Array.isArray(pages)) return {}
+  const byKey = {}
+  for (const page of pages) {
+    if (page && typeof page === 'object' && page.key) byKey[page.key] = page
+  }
+  return byKey
+}
+
+function getSiteConfig() {
+  if (!runtimeConfig?.siteConfig) return SITE_CONFIG
+  return { ...SITE_CONFIG, ...runtimeConfig.siteConfig }
+}
+
+function getPageConfig(pageKey) {
+  const pageConfig = runtimeConfig?.pages?.[pageKey]
+  if (!pageConfig) return COMING_SOON_PAGES[pageKey]
+  return { ...COMING_SOON_PAGES[pageKey], ...pageConfig }
+}
+
+/**
+ * Fetch the persisted coming-soon / maintenance config from the backend.
+ * Idempotent: concurrent callers share one in-flight request.
+ * On failure the error is stored (getComingSoonLoadError) and rethrown —
+ * callers must surface it, not silently fall back to the static file.
+ * @returns {Promise<{siteConfig: Object, pages: Object}>}
+ */
+export function loadComingSoonConfig() {
+  if (loadPromise) return loadPromise
+  loadPromise = (async () => {
+    try {
+      const response = await adminAPI.getComingSoonConfig()
+      const data = response?.data?.data || {}
+      const siteConfig = data.siteConfig && typeof data.siteConfig === 'object' ? data.siteConfig : {}
+      const pages = normalizePages(data.pages)
+      runtimeConfig = { siteConfig, pages }
+      loadError = null
+      return runtimeConfig
+    } catch (error) {
+      loadError = error
+      throw error
+    } finally {
+      loadPromise = null
+    }
+  })()
+  return loadPromise
+}
+
+/** @returns {Error|null} the last config-load error (null when none) */
+export function getComingSoonLoadError() {
+  return loadError
 }
 
 // ===== HELPER FUNCTIONS =====
@@ -129,13 +192,13 @@ export const COMING_SOON_PAGES = {
  * @returns {boolean} Whether to show Coming Soon
  */
 export function isPageComingSoon(pageKey) {
-  // Check global maintenance mode first
-  if (SITE_CONFIG.maintenanceMode) {
+  // Check global maintenance mode first (fetched value once loaded)
+  if (getSiteConfig().maintenanceMode) {
     return true
   }
-  
+
   // Check page-specific setting
-  const pageConfig = COMING_SOON_PAGES[pageKey]
+  const pageConfig = getPageConfig(pageKey)
   return pageConfig?.comingSoon || false
 }
 
@@ -145,12 +208,14 @@ export function isPageComingSoon(pageKey) {
  * @returns {boolean} Whether site is in maintenance
  */
 export function isSiteInMaintenance(userRole = 'user') {
+  const config = getSiteConfig()
+
   // Admins can bypass maintenance if configured
-  if (SITE_CONFIG.allowAdminAccess && userRole === 'admin') {
+  if (config.allowAdminAccess && userRole === 'admin') {
     return false
   }
-  
-  return SITE_CONFIG.maintenanceMode
+
+  return config.maintenanceMode
 }
 
 /**
@@ -169,10 +234,10 @@ export function getComingSoonConfig(pageKey) {
     backLink: '/',
     backText: 'Go Back'
   }
-  
-  const pageConfig = COMING_SOON_PAGES[pageKey]
+
+  const pageConfig = getPageConfig(pageKey)
   if (!pageConfig) return defaultConfig
-  
+
   return {
     ...defaultConfig,
     title: pageConfig.title || defaultConfig.title,
@@ -183,61 +248,86 @@ export function getComingSoonConfig(pageKey) {
 }
 
 /**
- * Get maintenance mode configuration
+ * Get maintenance mode configuration (fetched value once loaded)
  * @returns {Object} Maintenance configuration
  */
 export function getMaintenanceConfig() {
+  const config = getSiteConfig()
   return {
-    message: SITE_CONFIG.maintenanceMessage,
-    endTime: SITE_CONFIG.maintenanceEndTime,
-    estimatedDowntime: SITE_CONFIG.estimatedDowntime,
-    allowAdminAccess: SITE_CONFIG.allowAdminAccess
+    message: config.maintenanceMessage,
+    endTime: config.maintenanceEndTime,
+    estimatedDowntime: config.estimatedDowntime,
+    allowAdminAccess: config.allowAdminAccess
   }
 }
 
 /**
- * Update page Coming Soon status (for admin panel)
+ * Update page Coming Soon status — PERSISTS via PUT /admin/coming-soon-config.
+ * On success the runtime state is refreshed; on failure the error propagates.
  * @param {string} pageKey - The page identifier
  * @param {boolean} comingSoon - Whether to show Coming Soon
  * @param {Object} config - Additional configuration
  */
-export function updatePageComingSoonStatus(pageKey, comingSoon, config = {}) {
-  if (COMING_SOON_PAGES[pageKey]) {
-    COMING_SOON_PAGES[pageKey] = {
-      ...COMING_SOON_PAGES[pageKey],
-      comingSoon,
-      ...config
-    }
-  }
+export async function updatePageComingSoonStatus(pageKey, comingSoon, config = {}) {
+  const currentSiteConfig = getSiteConfig()
+  const currentPages = runtimeConfig?.pages
+    ? Object.values(runtimeConfig.pages)
+    : Object.entries(COMING_SOON_PAGES).map(([key, cfg]) => ({ key, ...cfg }))
+
+  const pageList = currentPages.map((page) =>
+    page.key === pageKey ? { ...page, comingSoon, ...config } : page
+  )
+
+  const response = await adminAPI.updateComingSoonConfig({ siteConfig: currentSiteConfig, pages: pageList })
+
+  runtimeConfig = { siteConfig: currentSiteConfig, pages: normalizePages(pageList) }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('comingSoonConfigChanged'))
+  return response.data
 }
 
 /**
- * Update site maintenance mode (for admin panel)
+ * Update site maintenance mode — PERSISTS via PUT /admin/coming-soon-config.
+ * On success the runtime state is refreshed; on failure the error propagates.
  * @param {boolean} enabled - Whether to enable maintenance mode
  * @param {Object} config - Maintenance configuration
  */
-export function updateMaintenanceMode(enabled, config = {}) {
-  SITE_CONFIG.maintenanceMode = enabled
-  if (config.message) SITE_CONFIG.maintenanceMessage = config.message
-  if (config.endTime) SITE_CONFIG.maintenanceEndTime = config.endTime
-  if (config.estimatedDowntime) SITE_CONFIG.estimatedDowntime = config.estimatedDowntime
+export async function updateMaintenanceMode(enabled, config = {}) {
+  const currentSiteConfig = getSiteConfig()
+  const nextSiteConfig = {
+    ...currentSiteConfig,
+    maintenanceMode: enabled,
+    ...(config.message ? { maintenanceMessage: config.message } : {}),
+    ...(config.endTime ? { maintenanceEndTime: config.endTime } : {}),
+    ...(config.estimatedDowntime ? { estimatedDowntime: config.estimatedDowntime } : {})
+  }
+
+  const currentPages = runtimeConfig?.pages
+    ? Object.values(runtimeConfig.pages)
+    : Object.entries(COMING_SOON_PAGES).map(([key, cfg]) => ({ key, ...cfg }))
+
+  const response = await adminAPI.updateComingSoonConfig({ siteConfig: nextSiteConfig, pages: currentPages })
+
+  runtimeConfig = { siteConfig: nextSiteConfig, pages: normalizePages(currentPages) }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event('comingSoonConfigChanged'))
+  return response.data
 }
 
 /**
- * Get all pages with their Coming Soon status (for admin panel)
+ * Get all pages with their Coming Soon status (fetched values once loaded)
  * @returns {Array} Array of page configurations
  */
 export function getAllPagesStatus() {
-  return Object.entries(COMING_SOON_PAGES).map(([key, config]) => ({
-    key,
-    ...config
-  }))
+  const base = Object.entries(COMING_SOON_PAGES).map(([key, config]) => ({ key, ...config }))
+  if (!runtimeConfig) return base
+  return base.map((page) => ({ ...page, ...(runtimeConfig.pages[page.key] || {}) }))
 }
 
 // Export default
 export default {
   SITE_CONFIG,
   COMING_SOON_PAGES,
+  loadComingSoonConfig,
+  getComingSoonLoadError,
   isPageComingSoon,
   isSiteInMaintenance,
   getComingSoonConfig,

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Search, XCircle, ArrowRight } from 'lucide-react';
 
 /**

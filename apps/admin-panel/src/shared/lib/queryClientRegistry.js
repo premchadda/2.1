@@ -3,7 +3,6 @@
  * Allows queryClient to be accessed from non-React contexts (like WebSocket listeners)
  */
 
-import { QueryClient } from '@tanstack/react-query'
 import { logger } from '@trstprep/shared-config'
 
 let queryClient = null

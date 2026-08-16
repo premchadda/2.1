@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react'
 import { apiClient } from '../lib/dataService'
-import { 
-  RefreshCw, CheckCircle, XCircle, MinusCircle, 
-  Clock, Brain, Sparkles, ArrowRight, Lock, TrendingUp
-} from 'lucide-react'
+import {
+  RefreshCw,
+  XCircle,
+  MinusCircle,
+  Clock,
+  Brain,
+  Sparkles,
+  ArrowRight,
+  Lock,
+  TrendingUp,
+} from 'lucide-react';
 import { Link } from 'react-router-dom'
 
 export function ReattemptOptions({ testId, attemptId, isProUser }) {
@@ -106,7 +113,7 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
           Reattempt Options
         </h3>
         {!isProUser && (
-          <Link to="/pro-pass" className="text-xs text-purple-600 font-medium">
+          <Link to="/pass" className="text-xs text-purple-600 font-medium">
             Upgrade for all features
           </Link>
         )}
@@ -246,7 +253,7 @@ export function WeakTopicsList({ testId, isProUser }) {
         ))}
       </div>
       {!isProUser && (
-        <Link to="/pro-pass" className="block text-center text-xs text-purple-600 mt-3">
+        <Link to="/pass" className="block text-center text-xs text-purple-600 mt-3">
           Upgrade to see detailed analysis
         </Link>
       )}

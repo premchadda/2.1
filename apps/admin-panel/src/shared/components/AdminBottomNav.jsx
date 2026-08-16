@@ -2,11 +2,11 @@ import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, FileText, FileQuestion, Users, Menu } from 'lucide-react'
 
 const navColors = [
-  { bg: 'from-blue-500 to-indigo-600', text: '#6366f1', light: 'bg-indigo-50 dark:bg-indigo-900/30', glow: 'rgba(99, 102, 241, 0.3)' },
-  { bg: 'from-emerald-500 to-teal-600', text: '#10b981', light: 'bg-emerald-50 dark:bg-emerald-900/30', glow: 'rgba(16, 185, 129, 0.3)' },
-  { bg: 'from-red-500 to-rose-600', text: '#ef4444', light: 'bg-red-50 dark:bg-red-900/30', glow: 'rgba(239, 68, 68, 0.3)' },
-  { bg: 'from-amber-500 to-orange-600', text: '#f59e0b', light: 'bg-amber-50 dark:bg-amber-900/30', glow: 'rgba(245, 158, 11, 0.3)' },
-  { bg: 'from-violet-500 to-purple-600', text: '#8b5cf6', light: 'bg-violet-50 dark:bg-violet-900/30', glow: 'rgba(139, 92, 246, 0.3)' },
+  { gradient: 'bg-gradient-to-br from-blue-500 to-indigo-600', barGradient: 'bg-gradient-to-r from-blue-500 to-indigo-600', text: '#6366f1', glow: 'rgba(99, 102, 241, 0.3)' },
+  { gradient: 'bg-gradient-to-br from-emerald-500 to-teal-600', barGradient: 'bg-gradient-to-r from-emerald-500 to-teal-600', text: '#10b981', glow: 'rgba(16, 185, 129, 0.3)' },
+  { gradient: 'bg-gradient-to-br from-red-500 to-rose-600', barGradient: 'bg-gradient-to-r from-red-500 to-rose-600', text: '#ef4444', glow: 'rgba(239, 68, 68, 0.3)' },
+  { gradient: 'bg-gradient-to-br from-amber-500 to-orange-600', barGradient: 'bg-gradient-to-r from-amber-500 to-orange-600', text: '#f59e0b', glow: 'rgba(245, 158, 11, 0.3)' },
+  { gradient: 'bg-gradient-to-br from-violet-500 to-purple-600', barGradient: 'bg-gradient-to-r from-violet-500 to-purple-600', text: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.3)' },
 ]
 
 function AdminBottomNav({ onMenuClick }) {
@@ -67,7 +67,7 @@ function AdminBottomNav({ onMenuClick }) {
 
               <div className="relative flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 ease-out">
                 {active && (
-                  <span className={`absolute inset-0 rounded-xl bg-gradient-to-br ${color.bg} opacity-15 dark:opacity-25`} />
+                  <span className={`absolute inset-0 rounded-xl ${color.gradient} opacity-15 dark:opacity-25`} />
                 )}
 
                 <Icon
@@ -95,7 +95,7 @@ function AdminBottomNav({ onMenuClick }) {
               </span>
 
               {active && (
-                <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full bg-gradient-to-r ${color.bg}`} />
+                <span className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full ${color.barGradient}`} />
               )}
             </Link>
           )

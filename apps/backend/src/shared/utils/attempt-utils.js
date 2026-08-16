@@ -22,14 +22,11 @@ export const isCompletedAttempt = (attempt) => {
  * @param {object} options 
  * @returns {Promise<Array>}
  */
-export const getUserAttempts = async (userId, dbHelpers, { completedOnly = false } = {}) => {
-  const userAttempts = await dbHelpers.find('attempts', { userId })
-  
+export const getUserAttempts = async (userId, dbHelpers, { completedOnly = false, columns = null } = {}) => {
   if (completedOnly) {
-    return userAttempts.filter(isCompletedAttempt)
+    return dbHelpers.find('attempts', { userId, isCompleted: true }, null, null, columns)
   }
-  
-  return userAttempts
+  return dbHelpers.find('attempts', { userId }, null, null, columns)
 }
 
 /**

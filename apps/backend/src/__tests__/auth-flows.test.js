@@ -5,7 +5,7 @@
  */
 
 import jwt from 'jsonwebtoken'
-import bcrypt from 'bcryptjs'
+import bcrypt from 'bcrypt'
 
 const mockReq = (body = {}, headers = {}) => ({
   body,

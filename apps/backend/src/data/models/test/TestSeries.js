@@ -153,14 +153,38 @@ class TestSeries {
    */
   static async getWithCounts(query = {}) {
     const seriesList = await this.find(query)
-    const tests = await dbHelpers.find('tests', { isActive: true })
+    if (seriesList.length === 0) return []
+
+    // PERF FIX (H11): previously this loaded the ENTIRE tests table into memory
+    // and ran a nested `.filter()` per series (O(series * tests)). Now we fetch
+    // only the tests belonging to the series in this result set ($in), then
+    // bucket them into a map for O(1) lookup — reducing to O(series + tests).
+    const seriesIds = []
+    for (const s of seriesList) {
+      if (s.id !== undefined && s.id !== null) seriesIds.push(String(s.id))
+      if (s._id !== undefined && s._id !== null) seriesIds.push(String(s._id))
+    }
+
+    const tests = await dbHelpers.find('tests', {
+      isActive: true,
+      seriesId: { $in: seriesIds },
+    })
+
+    const testsBySeries = new Map()
+    for (const t of tests) {
+      const key = String(t.seriesId)
+      if (!testsBySeries.has(key)) testsBySeries.set(key, [])
+      testsBySeries.get(key).push(t)
+    }
 
     return seriesList.map(s => {
-      const seriesTests = tests.filter(t => 
-        String(t.seriesId) === String(s.id) || 
-        String(t.seriesId) === String(s._id)
-      )
-      
+      const idKey = String(s.id)
+      const altKey = String(s._id)
+      const seriesTests = [
+        ...(testsBySeries.get(idKey) || []),
+        ...(altKey !== idKey ? (testsBySeries.get(altKey) || []) : []),
+      ]
+
       const testTypesMap = {}
       seriesTests.forEach(t => {
         const type = t.subCategory || t.category || t.type || 'Other'

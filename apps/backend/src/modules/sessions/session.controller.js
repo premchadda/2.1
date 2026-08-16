@@ -13,6 +13,14 @@ import {
   getUserSessions,
   updateSessionActivity
 } from '../../services/SessionCaptureService.js'
+import { logAuditEvent, AUDIT_ACTIONS } from '../../middleware/audit.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+
+const getClientIp = (req) => {
+  const f = req.headers['x-forwarded-for']
+  if (f) return f.split(',')[0].trim()
+  return req.socket?.remoteAddress || req.ip || 'unknown'
+}
 
 // ─── User-Agent Parser ────────────────────────────────────────────────────────
 // No external deps – inline detection for browser, OS, and device type
@@ -97,6 +105,9 @@ const ensureUserSessionsTable = async () => {
         city        VARCHAR(100),
         region      VARCHAR(100),
         session_type VARCHAR(50) DEFAULT 'web',
+        refresh_token_hash      VARCHAR(64),
+        prev_refresh_token_hash VARCHAR(64),
+        rotated_at  TIMESTAMP,
         created_at  TIMESTAMP    DEFAULT NOW(),
         expires_at  TIMESTAMP,
         last_active TIMESTAMP    DEFAULT NOW(),
@@ -151,6 +162,10 @@ const ensureUserSessionsTable = async () => {
       ['city',         'VARCHAR(100)'],
       ['region',       'VARCHAR(100)'],
       ['session_type', "VARCHAR(50) DEFAULT 'web'"],
+      ['refresh_token_hash',      'VARCHAR(64)'],
+      ['prev_refresh_token_hash', 'VARCHAR(64)'],
+      ['rotated_at',   'TIMESTAMP'],
+      ['last_activity', 'TIMESTAMP'],
     ]
     for (const [col, def] of addCols) {
       try {
@@ -206,7 +221,7 @@ const sessionController = {
       }))
       res.json({ success: true, data: mapped })
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -227,9 +242,22 @@ const sessionController = {
       }
       // Delegate to SessionCaptureService (handles WebSocket events)
       await invalidateSession(sessionId, userId)
+      logAuditEvent({
+        action: 'session_revoked',
+        resource: 'auth',
+        entityType: 'session',
+        entityId: sessionId,
+        adminId: userId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || 'unknown',
+        status: 'success',
+        requestMethod: req.method,
+        requestPath: req.originalUrl,
+        details: { targetUserId: check.rows[0].user_id, by: req.user.role },
+      })
       res.json({ success: true, message: 'Session revoked' })
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -245,9 +273,21 @@ const sessionController = {
            AND ($2::text IS NULL OR session_id != $2)`,
         [userId, currentSessionId]
       )
+      logAuditEvent({
+        action: 'session_revoked_all',
+        resource: 'auth',
+        entityType: 'session',
+        adminId: userId,
+        ipAddress: getClientIp(req),
+        userAgent: req.headers['user-agent'] || 'unknown',
+        status: 'success',
+        requestMethod: req.method,
+        requestPath: req.originalUrl,
+        details: { revoked: result.rowCount, keptCurrent: Boolean(currentSessionId) },
+      })
       res.json({ success: true, message: `Revoked ${result.rowCount} session(s)` })
     } catch (error) {
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -261,7 +301,7 @@ const sessionController = {
         const params = []
         let where = `s.is_active = true`
         if (userId) { 
-          params.push(String(userId))
+          params.push(parseInt(userId))
           where += ` AND s.user_id = $${params.length}` 
         }
         if (search) {
@@ -297,7 +337,7 @@ const sessionController = {
           u.email          AS "userEmail",
           u.role           AS "userRole"
         FROM user_sessions s
-        LEFT JOIN users u ON s.user_id = CAST(u.id AS TEXT)
+        LEFT JOIN users u ON s.user_id = u.id
         WHERE ${where}
         ORDER BY s.last_active DESC NULLS LAST
         LIMIT ${limitN}::int OFFSET ${offsetN}::int
@@ -305,7 +345,7 @@ const sessionController = {
 
       const countResult = await pool.query(
         `SELECT COUNT(*) FROM user_sessions s
-         LEFT JOIN users u ON s.user_id = CAST(u.id AS TEXT)
+        LEFT JOIN users u ON s.user_id = u.id
          WHERE ${where}`,
         baseParams
       )
@@ -321,7 +361,7 @@ const sessionController = {
       })
     } catch (error) {
       console.error('[Sessions] getAllSessions error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -342,7 +382,7 @@ const sessionController = {
       res.json({ success: true, data: result.rows[0] })
     } catch (error) {
       console.error('[Sessions] getSessionStats error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -355,7 +395,7 @@ const sessionController = {
       res.json({ success: true, message: 'Session revoked' })
     } catch (error) {
       console.error('[Sessions] revokeAnySession error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -366,7 +406,7 @@ const sessionController = {
       // Get all active sessions for this user
       const sessions = await pool.query(
         `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true`,
-        [String(userId)]
+        [parseInt(userId)]
       )
       // Invalidate each (triggers WebSocket events per session)
       let revoked = 0
@@ -377,7 +417,7 @@ const sessionController = {
       res.json({ success: true, message: `Revoked ${revoked} session(s)` })
     } catch (error) {
       console.error('[Sessions] revokeUserSessions error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -385,7 +425,7 @@ const sessionController = {
   getUserSessionsById: async (req, res) => {
     try {
       const { userId } = req.params
-      const sessions = await getUserSessions(String(userId))
+      const sessions = await getUserSessions(parseInt(userId))
       const mapped = sessions.map(s => ({
         id: s.session_id || s.id,
         browser: s.browser,
@@ -402,7 +442,7 @@ const sessionController = {
       res.json({ success: true, data: mapped })
     } catch (error) {
       console.error('[Sessions] getUserSessionsById error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   },
 
@@ -410,8 +450,9 @@ const sessionController = {
   updateSessionLimit: async (req, res) => {
     try {
       const { userId } = req.params
-      const { sessionLimit } = req.body
-      const limit = sessionLimit ? parseInt(sessionLimit) : null
+      const { sessionLimit, session_limit } = req.body
+      const rawLimit = sessionLimit !== undefined ? sessionLimit : session_limit
+      const limit = rawLimit !== undefined && rawLimit !== null && rawLimit !== '' ? parseInt(rawLimit) : null
 
       await pool.query(
         `UPDATE users SET session_limit = $1 WHERE id = $2`,
@@ -420,7 +461,7 @@ const sessionController = {
       res.json({ success: true, message: 'Session limit updated', data: { sessionLimit: limit } })
     } catch (error) {
       console.error('[Sessions] updateSessionLimit error:', error)
-      res.status(500).json({ success: false, message: error.message })
+      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
     }
   }
 }
@@ -437,7 +478,7 @@ export const createSession = async (userId, deviceInfo, ipAddress, userAgent = '
         `SELECT session_id FROM user_sessions 
          WHERE user_id = $1 AND is_active = true 
          ORDER BY created_at DESC`,
-        [String(userId)]
+        [parseInt(userId)]
       )
       
       // If adding this new session exceeds the limit, revoke the oldest ones
@@ -458,7 +499,7 @@ export const createSession = async (userId, deviceInfo, ipAddress, userAgent = '
       socket: { remoteAddress: ipAddress },
       ip: ipAddress
     }
-    const sessionId = await captureSession(fakeReq, String(userId), 'web')
+    const sessionId = await captureSession(fakeReq, parseInt(userId), 'web')
 
     console.log(`[Sessions] Created session ${sessionId} for user ${userId}`)
     return sessionId

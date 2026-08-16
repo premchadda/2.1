@@ -30,7 +30,7 @@ const topicAnalyticsService = {
           (SELECT AVG(uts.accuracy) FROM user_topic_stats uts WHERE (uts.topic_id = t.id OR (uts.topic_id IS NULL AND LOWER(uts.topic) = LOWER(t.name))) AND uts.total_attempts > 0) as avg_accuracy,
           (SELECT AVG(uts.total_time_spent_seconds / NULLIF(uts.total_attempts, 0))
            FROM user_topic_stats uts WHERE (uts.topic_id = t.id OR (uts.topic_id IS NULL AND LOWER(uts.topic) = LOWER(t.name))) AND uts.total_attempts > 0) as avg_time_per_question
-        FROM topics t
+        FROM subject_topics t
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE t.id = $1
       `, [topicId])
@@ -113,7 +113,7 @@ const topicAnalyticsService = {
           COUNT(DISTINCT CASE WHEN uts.accuracy < 40 THEN uts.user_id END) as struggling_users
         FROM user_topic_stats uts
         WHERE uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) IN (
-          SELECT LOWER(name) FROM topics WHERE id = $1
+          SELECT LOWER(name) FROM subject_topics WHERE id = $1
         ))
       `, [topicId])
 
@@ -144,7 +144,7 @@ const topicAnalyticsService = {
           COUNT(*) as count,
           AVG(uts.accuracy) as avg_accuracy
         FROM questions q
-        LEFT JOIN user_topic_stats uts ON (uts.topic_id = q.topic_id OR (uts.topic_id IS NULL AND LOWER(uts.topic) = LOWER((SELECT name FROM topics WHERE id = q.topic_id))))
+        LEFT JOIN user_topic_stats uts ON (uts.topic_id = q.topic_id OR (uts.topic_id IS NULL AND LOWER(uts.topic) = LOWER((SELECT name FROM subject_topics WHERE id = q.topic_id))))
         WHERE q.topic_id = $1 AND q.is_active = true
         GROUP BY q.difficulty
         ORDER BY
@@ -219,7 +219,7 @@ const topicAnalyticsService = {
           (SELECT COUNT(*) FROM questions q WHERE q.topic_id = t.id AND q.is_active = true) as total_questions,
           (SELECT COUNT(DISTINCT uts.user_id) FROM user_topic_stats uts WHERE uts.topic_id = t.id) as unique_users,
           (SELECT AVG(uts.accuracy) FROM user_topic_stats uts WHERE uts.topic_id = t.id AND uts.total_attempts > 0) as avg_accuracy
-        FROM topics t
+        FROM subject_topics t
         WHERE t.id = ANY($1)
         ORDER BY avg_accuracy ASC
       `, [topicIds])

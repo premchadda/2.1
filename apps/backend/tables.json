@@ -1,50 +1,5 @@
 [
   {
-    "table_name": "pg_user_mapping"
-  },
-  {
-    "table_name": "pg_statio_user_sequences"
-  },
-  {
-    "table_name": "pg_user"
-  },
-  {
-    "table_name": "pg_stat_xact_user_tables"
-  },
-  {
-    "table_name": "pg_stat_user_tables"
-  },
-  {
-    "table_name": "pg_statio_user_tables"
-  },
-  {
-    "table_name": "pg_stat_user_indexes"
-  },
-  {
-    "table_name": "pg_statio_user_indexes"
-  },
-  {
-    "table_name": "pg_stat_user_functions"
-  },
-  {
-    "table_name": "pg_stat_xact_user_functions"
-  },
-  {
-    "table_name": "pg_user_mappings"
-  },
-  {
-    "table_name": "user_defined_types"
-  },
-  {
-    "table_name": "_pg_user_mappings"
-  },
-  {
-    "table_name": "user_mapping_options"
-  },
-  {
-    "table_name": "user_mappings"
-  },
-  {
     "table_name": "users"
   },
   {
@@ -55,8 +10,5 @@
   },
   {
     "table_name": "user_recommendations"
-  },
-  {
-    "table_name": "users"
   }
 ]

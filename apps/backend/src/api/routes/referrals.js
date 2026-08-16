@@ -1,6 +1,7 @@
 import express from 'express'
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -43,7 +44,7 @@ router.get('/config', async (req, res) => {
       data: { rewards, ...(config || {}) },
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -83,7 +84,7 @@ router.get('/', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -136,7 +137,7 @@ router.post('/', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })
@@ -168,7 +169,7 @@ router.put('/:id/complete', protect, admin, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message
+      message: sanitizeErrorMessage(error)
     })
   }
 })

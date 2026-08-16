@@ -1,0 +1,39 @@
+# ==============================================================================
+# docker-compose.dev.yml — DEVELOPMENT OVERRIDE for docker-compose.yml
+#
+# USAGE:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# The BASE docker-compose.yml is now production-safe (built images, no source
+# bind mounts, production commands). This file restores development ergonomics
+# by re-adding the host source bind mounts and the dev commands that the base
+# file no longer ships. Values are copied verbatim from the original base file.
+#
+# Production remains the default: a bare `docker compose up` uses the base
+# file only and runs production images/commands.
+# ==============================================================================
+
+services:
+  backend-1:
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  backend-2:
+    volumes:
+      - ./apps/backend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  frontend:
+    volumes:
+      - ./apps/frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  admin-panel:
+    volumes:
+      - ./apps/admin-panel:/app
+      - /app/node_modules
+    command: npm run dev

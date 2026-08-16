@@ -12,8 +12,7 @@ export {
   getInitials,
   getBannerUrl,
   getAssetUrl,
-  getPlaceholderImage,
-} from '../../../shared/config/assets-config.js'
+} from '../../shared/config/assets-config.js'
 
 import {
   THUMBNAIL_SIZES,
@@ -28,8 +27,7 @@ import {
   getInitials,
   getBannerUrl,
   getAssetUrl,
-  getPlaceholderImage,
-} from '../../../shared/config/assets-config.js'
+} from '../../shared/config/assets-config.js'
 
 export default {
   THUMBNAIL_SIZES,
@@ -44,5 +42,4 @@ export default {
   getInitials,
   getBannerUrl,
   getAssetUrl,
-  getPlaceholderImage,
 }

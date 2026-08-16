@@ -1,17 +1,17 @@
 import { useEffect, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Trophy, Medal, ArrowLeft, Loader2, Users } from 'lucide-react'
+import { Trophy, Medal, ArrowLeft, Loader2 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../shared/lib/dataService'
+import { getSocket } from '../../shared/lib/websocket'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { useLiveTestMonitor } from '../../shared/hooks'
 
 export default function LiveTestLeaderboard() {
   const { liveTestId } = useParams()
-  const { user, socket, on, emit } = useAuth()
+  const { user } = useAuth()
   const queryClient = useQueryClient()
 
-  // Use the live test monitor hook for real-time participant count
   const { participants, isLive } = useLiveTestMonitor(liveTestId)
 
   const { data: leaderboard = [], isLoading } = useQuery({
@@ -24,20 +24,20 @@ export default function LiveTestLeaderboard() {
   })
 
   useEffect(() => {
-    if (!socket) return
+    const socket = getSocket()
+    if (!socket?.connected) return
 
-    emit('live-tests:join', { testId: liveTestId })
-    const cleanup = on('leaderboard:updated', (payload) => {
+    const handleLeaderboardUpdate = (payload) => {
       if (String(payload?.testId) === String(liveTestId)) {
         queryClient.invalidateQueries({ queryKey: ['live-test-leaderboard', liveTestId] })
       }
-    })
-
-    return () => {
-      cleanup()
-      emit('live-tests:leave', { testId: liveTestId })
     }
-  }, [socket, liveTestId, emit, on, queryClient])
+
+    socket.on('leaderboard:updated', handleLeaderboardUpdate)
+    return () => {
+      socket.off('leaderboard:updated', handleLeaderboardUpdate)
+    }
+  }, [liveTestId, queryClient])
 
   const userEntry = useMemo(() => {
     if (!user) return null

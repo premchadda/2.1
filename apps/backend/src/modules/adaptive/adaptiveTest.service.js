@@ -9,6 +9,7 @@
  */
 
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import adaptiveDifficultyService from '../ai/adaptiveDifficulty.js'
 
 const adaptiveTestService = {
   /**
@@ -59,9 +60,8 @@ const adaptiveTestService = {
     const client = await pool.connect()
 
     try {
-      // Get session
       const sessionResult = await client.query(
-        `SELECT * FROM attempts WHERE id = $1 AND user_id = $2`,
+        `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE id = $1 AND user_id = $2`,
         [sessionId, userId]
       )
 
@@ -71,22 +71,47 @@ const adaptiveTestService = {
 
       const session = sessionResult.rows[0]
       const metadata = session.metadata || {}
-
-      // Get already answered questions
       const answeredIds = metadata.questionHistory || []
 
-      // Get questions at current difficulty
-      const questions = await client.query(`
+      let targetDifficulty = metadata.currentDifficulty || 'medium'
+      
+      if (metadata.topicId) {
+        try {
+          const userDifficulty = await adaptiveDifficultyService.getDifficulty(userId, metadata.topicId)
+          targetDifficulty = userDifficulty.level
+        } catch (_err) {
+          void _err;
+        }
+      }
+
+      const difficultyOrder = ['easy', 'medium', 'hard', 'very_hard']
+      const currentIdx = difficultyOrder.indexOf(targetDifficulty)
+      const fallbackDifficulties = difficultyOrder.slice(Math.max(0, currentIdx), currentIdx + 2)
+
+      let questions = await client.query(`
         SELECT q.id, q.question_text, q.options, q.marks, q.negative_marks,
-               q.difficulty, q.question_type, t.name as topic_name
+               q.difficulty, q.question_type, q.topic_id, t.name as topic_name
         FROM questions q
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         WHERE q.is_active = true
-          AND q.difficulty = $1
+          AND q.difficulty = ANY($1)
           AND NOT (q.id = ANY($2))
         ORDER BY RANDOM()
         LIMIT 1
-      `, [metadata.currentDifficulty || 'medium', answeredIds])
+      `, [fallbackDifficulties, answeredIds])
+
+      if (questions.rows.length === 0) {
+        questions = await client.query(`
+          SELECT q.id, q.question_text, q.options, q.marks, q.negative_marks,
+                 q.difficulty, q.question_type, q.topic_id, t.name as topic_name
+          FROM questions q
+          LEFT JOIN subject_topics t ON t.id = q.topic_id
+          WHERE q.is_active = true
+            AND NOT (q.id = ANY($1))
+          ORDER BY RANDOM()
+          LIMIT 1
+        `, [answeredIds])
+      }
 
       if (questions.rows.length === 0) {
         return null
@@ -94,7 +119,7 @@ const adaptiveTestService = {
 
       return {
         ...questions.rows[0],
-        currentDifficulty: metadata.currentDifficulty,
+        currentDifficulty: targetDifficulty,
         questionsAnswered: metadata.questionsAnswered || 0,
         totalQuestions: metadata.totalQuestions || 30,
       }
@@ -111,9 +136,10 @@ const adaptiveTestService = {
     const client = await pool.connect()
 
     try {
+      await client.query('BEGIN')
       // Get session
       const sessionResult = await client.query(
-        `SELECT * FROM attempts WHERE id = $1 AND user_id = $2`,
+        `SELECT id, user_id, test_id, series_id, status, score, total_marks, time_taken, is_completed, is_reattempt, is_active, started_at, submitted_at, completed_at, last_activity, last_question_id, marked_for_review, question_results, solutions, section_scores, section_times, section_timers, percentile, rank, attempted, incorrect, skipped, created_at, updated_at FROM attempts WHERE id = $1 AND user_id = $2`,
         [sessionId, userId]
       )
 
@@ -126,7 +152,7 @@ const adaptiveTestService = {
 
       // Get correct answer
       const question = await client.query(
-        `SELECT * FROM questions WHERE id = $1`,
+        `SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE id = $1`,
         [questionId]
       )
 
@@ -152,25 +178,26 @@ const adaptiveTestService = {
         metadata.score = (metadata.score || 0) - negativeMarks
       }
 
-      // Adjust difficulty
-      const recentAnswers = metadata.questionHistory.slice(-5)
-      const recentCorrect = metadata.correctCount || 0
-      const recentWrong = metadata.wrongCount || 0
-
       let newDifficulty = metadata.currentDifficulty
       if (isCorrect && metadata.correctCount > metadata.wrongCount) {
-        // Promote difficulty
         if (metadata.currentDifficulty === 'easy') newDifficulty = 'medium'
         else if (metadata.currentDifficulty === 'medium') newDifficulty = 'hard'
         else if (metadata.currentDifficulty === 'hard') newDifficulty = 'very_hard'
       } else if (!isCorrect && metadata.wrongCount > metadata.correctCount) {
-        // Demote difficulty
         if (metadata.currentDifficulty === 'very_hard') newDifficulty = 'hard'
         else if (metadata.currentDifficulty === 'hard') newDifficulty = 'medium'
         else if (metadata.currentDifficulty === 'medium') newDifficulty = 'easy'
       }
 
       metadata.currentDifficulty = newDifficulty
+
+      if (metadata.topicId) {
+        try {
+          await adaptiveDifficultyService.updatePerformance(userId, metadata.topicId, isCorrect, timeSpent)
+        } catch (_err) {
+          void _err;
+        }
+      }
 
       // Update session
       await client.query(
@@ -190,6 +217,8 @@ const adaptiveTestService = {
         ]
       )
 
+      await client.query('COMMIT')
+
       return {
         isCorrect,
         correctOption,
@@ -199,6 +228,9 @@ const adaptiveTestService = {
         questionsAnswered: metadata.questionsAnswered,
         totalQuestions: metadata.totalQuestions,
       }
+    } catch (err) {
+      await client.query('ROLLBACK')
+      throw err
     } finally {
       client.release()
     }

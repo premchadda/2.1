@@ -58,7 +58,7 @@ ALTER TABLE current_affairs ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE tablename = 'current_affairs' AND indexname = 'idx_current_affairs_slug') THEN
-    CREATE UNIQUE INDEX idx_current_affairs_slug
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_current_affairs_slug
       ON current_affairs(slug) WHERE slug IS NOT NULL;
   END IF;
 END $$;
@@ -112,7 +112,7 @@ BEGIN
      WHERE tablename = 'question_tag_map'
        AND indexname = 'idx_question_tag_map_unique'
   ) THEN
-    CREATE UNIQUE INDEX idx_question_tag_map_unique
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_question_tag_map_unique
       ON question_tag_map(question_id, tag_id);
   END IF;
 END $$;

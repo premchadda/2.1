@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Search, X, ChevronDown, ChevronUp, Filter, SlidersHorizontal } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Search, X, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 
 /**
  * CompactFilterBar - A space-efficient filter component

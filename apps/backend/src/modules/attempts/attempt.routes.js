@@ -1,8 +1,10 @@
 import express from 'express'
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
+import { pool, dbHelpers, withTransaction } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
+import { getIO } from '../../infrastructure/websocket/websocketManager.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, getPublicResponseId, mapLookupId } from '../../shared/utils/public-id-response.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js'
 
 const router = express.Router()
 
@@ -24,8 +26,21 @@ const EVENT_TYPES = {
   SUBMIT: 'submit',
   TAB_SWITCH: 'tab_switch',
   WINDOW_BLUR: 'window_blur',
+  WINDOW_FOCUS: 'window_focus',
   REFRESH: 'refresh',
-  INACTIVITY: 'inactivity'
+  INACTIVITY: 'inactivity',
+  VISIBILITY_HIDDEN: 'visibility_hidden',
+  VISIBILITY_VISIBLE: 'visibility_visible',
+  FULLSCREEN_ENTER: 'fullscreen_enter',
+  FULLSCREEN_EXIT: 'fullscreen_exit',
+  COPY: 'copy',
+  CUT: 'cut',
+  PASTE: 'paste',
+  CONTEXT_MENU: 'context_menu',
+  ONLINE: 'online',
+  OFFLINE: 'offline',
+  STOP: 'stop',
+  DEVTOOLS_OPEN: 'devtools_open'
 }
 
 // Helper to log attempt event
@@ -46,11 +61,29 @@ async function logAttemptEvent(attemptId, eventType, questionId = null, eventDat
 const findAttemptByIdentifier = (attemptId) =>
   findEntityByIdentifier(dbHelpers, 'attempts', attemptId)
 
-const findTestRecordByIdentifier = (testId) =>
-  findEntityByIdentifier(dbHelpers, 'tests', testId, { slugFields: ['slug'] })
-
-const findSeriesByIdentifier = (seriesId) =>
-  findEntityByIdentifier(dbHelpers, 'testSeries', seriesId, { slugFields: ['slug'] })
+// Server-side timer guard (anti-tamper): the client must not be able to
+// increase the remaining test time. The attempt row stores the test duration
+// (in minutes, copied from tests.duration at start), so the client value is
+// clamped to [0, duration * 60]; a value that would increase remaining time
+// over the previously stored value is rejected (non-monotonic guard).
+// Returns undefined when the client sent no value (field skipped on update),
+// the sanitized value, or null when the client value must be rejected.
+const sanitizeRemainingTime = (clientValue, attempt) => {
+  if (clientValue === undefined || clientValue === null) return undefined
+  const parsed = Number(clientValue)
+  if (!Number.isFinite(parsed)) return null
+  const durationSeconds = (Number(attempt.duration) || 60) * 60
+  const clamped = Math.min(Math.max(parsed, 0), durationSeconds)
+  const stored = attempt.remainingTimeSeconds
+  if (
+    stored !== null && stored !== undefined &&
+    Number.isFinite(Number(stored)) &&
+    clamped > Number(stored)
+  ) {
+    return null
+  }
+  return clamped
+}
 
 const findQuestionByIdentifier = (questionId) =>
   findEntityByIdentifier(dbHelpers, 'questions', questionId)
@@ -122,80 +155,19 @@ const normalizeQuestionTimers = async (questionTimers) => {
 // @route   POST /api/attempt/start
 // @desc    Start a new test attempt
 // @access  Private
-router.post('/start', protect, async (req, res) => {
-  try {
-    const { testId } = req.body
-    const seriesId = req.body.testSeriesId || req.body.test_series_id || req.body.seriesId || req.body.series_id
-    const userId = req.user.id
-
-    if (!testId) {
-      return res.status(400).json({ success: false, message: 'Test ID is required' })
-    }
-
-    const test = await findTestRecordByIdentifier(testId)
-    if (!test) {
-      return res.status(404).json({ success: false, message: 'Test not found' })
-    }
-
-    const internalTestId = getInternalId(test)
-    const series = seriesId ? await findSeriesByIdentifier(seriesId) : null
-    const internalSeriesId = getInternalId(series) ?? test.seriesId ?? test.series_id
-
-    // Check for existing in-progress or paused attempt
-    const existingAttempts = await dbHelpers.find('attempts', {
-      userId,
-      testId: internalTestId
-    })
-
-    const activeAttempt = existingAttempts.find(a => 
-      a.status === ATTEMPT_STATUS.IN_PROGRESS || a.status === ATTEMPT_STATUS.PAUSED
-    )
-
-    if (activeAttempt) {
-      // Return existing attempt
-      return res.json({
-        success: true,
-        data: {
-          attemptId: getPublicResponseId(dbHelpers, 'attempts', activeAttempt, activeAttempt.id),
-          status: activeAttempt.status,
-          remainingTime: activeAttempt.remainingTimeSeconds || activeAttempt.duration * 60,
-          lastQuestionIndex: activeAttempt.lastQuestionIndex || 0
-        },
-        message: 'Resuming existing attempt'
-      })
-    }
-
-    // Create new attempt
-    const duration = test.duration || 60
-    const attempt = await dbHelpers.insertOne('attempts', {
-      userId,
-      testId: internalTestId,
-      seriesId: internalSeriesId,
-      status: ATTEMPT_STATUS.IN_PROGRESS,
-      startTime: new Date().toISOString(),
-      remainingTimeSeconds: duration * 60,
-      totalTimeSpent: 0,
-      isCompleted: false,
-      totalQuestions: test.questions || 0,
-      lastActivityAt: new Date().toISOString()
-    })
-
-    // Log event
-    await logAttemptEvent(attempt.id, EVENT_TYPES.START)
-
-    res.json({
-      success: true,
-      data: {
-        attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt.id),
-        status: ATTEMPT_STATUS.IN_PROGRESS,
-        remainingTime: attempt.remainingTimeSeconds,
-        totalTime: duration * 60
-      }
-    })
-  } catch (error) {
-    console.error('[Attempt Start] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
-  }
+// @removed Deprecated — superseded by POST /api/tests/:testId/start in test.routes.js.
+//          That canonical handler enforces attempt limits, Pro gating, and publishes
+//          the `test_started` event. The old handler below used a find-then-insert
+//          pattern with no DB uniqueness guard, so two concurrent POSTs could create
+//          two active attempts for the same test. Clients must use the canonical path.
+//          Kept as an explicit 410 to surface the deprecation in logs rather than a
+//          silent 404 that looks like a routing bug.
+router.post('/start', protect, (req, res) => {
+  res.status(410).json({
+    success: false,
+    code: 'ENDPOINT_DEPRECATED',
+    message: 'POST /api/attempt/start is deprecated. Use POST /api/tests/:testId/start instead.'
+  })
 })
 
 // @route   POST /api/attempt/pause
@@ -222,27 +194,47 @@ router.post('/pause', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
 
+    // Validate client-provided remaining time (anti-tamper): reject values
+    // that would increase the remaining time or exceed the test duration.
+    const safeRemainingTime = sanitizeRemainingTime(remainingTime, attempt)
+    if (safeRemainingTime === null) {
+      return res.status(400).json({ success: false, message: 'Invalid remaining time value' })
+    }
+
     // Update attempt with paused state
     const updated = await dbHelpers.updateById('attempts', internalAttemptId, {
       status: ATTEMPT_STATUS.PAUSED,
       pausedAt: new Date().toISOString(),
-      remainingTimeSeconds: remainingTime,
+      remainingTimeSeconds: safeRemainingTime,
       lastActivityAt: new Date().toISOString()
     })
 
     // Save question attempts with current timers
     const normalizedQuestionTimers = await normalizeQuestionTimers(questionTimers)
 
+    // PERF: batch all per-question inserts into a single multi-row statement
+    // instead of N individual INSERTs (fixes N+1 in the pause path).
     if (normalizedQuestionTimers.length > 0) {
-      for (const qt of normalizedQuestionTimers) {
-        await dbHelpers.insertOne('questionAttempts', {
-          attemptId: internalAttemptId,
-          questionId: qt.questionId,
-          timeSpentSeconds: qt.timeSpent || 0,
-          visitsCount: qt.visits || 1,
-          lastViewedAt: new Date().toISOString()
-        }, true) // upsert
-      }
+      await withTransaction(async (client) => {
+        const values = []
+        const params = []
+        let i = 1
+        for (const qt of normalizedQuestionTimers) {
+          values.push(`($${i++}, $${i++}, $${i++}, $${i++}, NOW())`)
+          params.push(
+            internalAttemptId,
+            qt.questionId,
+            qt.timeSpent || 0,
+            qt.visits || 1
+          )
+        }
+        await client.query(
+          `INSERT INTO question_attempts (attempt_id, question_id, time_spent_seconds, visits_count, last_viewed_at)
+           VALUES ${values.join(', ')}
+           ON CONFLICT (attempt_id, question_id) DO NOTHING`,
+          params
+        )
+      })
     }
 
     // Log pause event
@@ -258,7 +250,7 @@ router.post('/pause', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('[Attempt Pause] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -337,7 +329,7 @@ router.post('/resume', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('[Attempt Resume] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -372,6 +364,13 @@ router.post('/save-progress', protect, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' })
     }
 
+    // Validate client-provided remaining time (anti-tamper): reject values
+    // that would increase the remaining time or exceed the test duration.
+    const safeRemainingTime = sanitizeRemainingTime(remainingTime, attempt)
+    if (safeRemainingTime === null) {
+      return res.status(400).json({ success: false, message: 'Invalid remaining time value' })
+    }
+
     // Calculate total time spent
     const previousTimeSpent = attempt.totalTimeSpent || 0
     const timeSinceLastActivity = attempt.lastActivityAt ?
@@ -383,46 +382,63 @@ router.post('/save-progress', protect, async (req, res) => {
 
     const updateData = {
       answers: JSON.stringify(normalizedAnswers),
-      remainingTimeSeconds: remainingTime,
+      remainingTimeSeconds: safeRemainingTime,
       totalTimeSpent: previousTimeSpent + timeSinceLastActivity,
       markedForReview: JSON.stringify(markedForReview || []),
       lastActivityAt: new Date().toISOString()
     }
 
-    const updated = await dbHelpers.updateById('attempts', internalAttemptId, updateData)
+    const updated = await dbHelpers.withTransaction(async (client) => {
+      const updated = await dbHelpers.updateById('attempts', internalAttemptId, updateData, client)
 
-    // Save question-level time tracking
-    if (normalizedQuestionTimers.length > 0) {
-      for (const qt of normalizedQuestionTimers) {
-        const existing = await dbHelpers.find('questionAttempts', { 
-          attemptId: internalAttemptId,
-          questionId: qt.questionId 
-        })
+      // Save question-level time tracking
+      if (normalizedQuestionTimers.length > 0) {
+        // PERF: fetch all existing rows once (was an N+1 find loop), then
+        // apply increments in JS and write everything in a single upsert.
+        const existingRes = await client.query(
+          'SELECT id, question_id, time_spent_seconds, visits_count FROM question_attempts WHERE attempt_id = $1',
+          [internalAttemptId]
+        )
+        const existingMap = new Map(
+          existingRes.rows.map((r) => [r.question_id, r])
+        )
 
-        if (existing.length > 0) {
-          // Update existing
-          const qa = existing[0]
-          await dbHelpers.updateById('questionAttempts', qa.id, {
-            selectedOption: qt.selectedOption,
-            isMarkedForReview: qt.isMarked || false,
-            timeSpentSeconds: (qa.timeSpentSeconds || 0) + (qt.timeSpentDelta || 0),
-            visitsCount: (qa.visitsCount || 0) + (qt.newVisit ? 1 : 0),
-            lastViewedAt: new Date().toISOString()
-          })
-        } else {
-          // Insert new
-          await dbHelpers.insertOne('questionAttempts', {
-            attemptId: internalAttemptId,
-            questionId: qt.questionId,
-            selectedOption: qt.selectedOption,
-            isMarkedForReview: qt.isMarked || false,
-            timeSpentSeconds: qt.timeSpent || 0,
-            visitsCount: 1,
-            lastViewedAt: new Date().toISOString()
-          })
+        const values = []
+        const params = []
+        let i = 1
+        for (const qt of normalizedQuestionTimers) {
+          const ex = existingMap.get(qt.questionId)
+          const timeSpent = ex
+            ? (ex.timeSpentSeconds || 0) + (qt.timeSpentDelta || 0)
+            : (qt.timeSpent || 0)
+          const visits = ex
+            ? (ex.visitsCount || 0) + (qt.newVisit ? 1 : 0)
+            : 1
+          values.push(`($${i++}, $${i++}, $${i++}, $${i++}, $${i++}, $${i++}, NOW())`)
+          params.push(
+            internalAttemptId,
+            qt.questionId,
+            qt.selectedOption ?? null,
+            qt.isMarked || false,
+            timeSpent,
+            visits
+          )
         }
+        await client.query(
+          `INSERT INTO question_attempts (attempt_id, question_id, selected_option, is_marked_for_review, time_spent_seconds, visits_count, last_viewed_at)
+           VALUES ${values.join(', ')}
+           ON CONFLICT (attempt_id, question_id) DO UPDATE SET
+             selected_option = EXCLUDED.selected_option,
+             is_marked_for_review = EXCLUDED.is_marked_for_review,
+             time_spent_seconds = EXCLUDED.time_spent_seconds,
+             visits_count = EXCLUDED.visits_count,
+             last_viewed_at = EXCLUDED.last_viewed_at`,
+          params
+        )
       }
-    }
+
+      return updated
+    })
 
     // Log save event (less verbose)
     await logAttemptEvent(internalAttemptId, EVENT_TYPES.SAVE_PROGRESS, currentQuestionIndex, {
@@ -440,7 +456,7 @@ router.post('/save-progress', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('[Attempt Save Progress] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -518,7 +534,7 @@ router.get('/:attemptId/state', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('[Attempt Get State] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -562,7 +578,243 @@ router.post('/:attemptId/event', protect, async (req, res) => {
     res.json({ success: true })
   } catch (error) {
     console.error('[Attempt Event] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+// Helper to calculate object nesting depth (P0 Hardening)
+function getObjectDepth(obj) {
+  if (obj === null || typeof obj !== 'object') return 0
+  let depth = 0
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      depth = Math.max(depth, getObjectDepth(obj[key]))
+    }
+  }
+  return depth + 1
+}
+
+// @route   POST /api/attempt/:attemptId/events
+// @desc    Log a batch of anti-cheat/telemetry events
+// @access  Private
+router.post('/:attemptId/events', protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params
+    const { events } = req.body
+    const userId = req.user.id
+
+    // 1. Request string size validation (max 512KB)
+    const payloadStr = JSON.stringify(req.body)
+    if (payloadStr.length > 512 * 1024) {
+      return res.status(400).json({ success: false, message: 'Payload too large. Maximum size is 512KB.' })
+    }
+
+    // 2. Request nesting depth validation (max 5)
+    if (getObjectDepth(req.body) > 5) {
+      return res.status(400).json({ success: false, message: 'Payload nested too deeply. Maximum JSON depth is 5.' })
+    }
+
+    if (!Array.isArray(events)) {
+      return res.status(400).json({ success: false, message: 'Invalid events payload. Expected array.' })
+    }
+
+    if (events.length > 100) {
+      return res.status(400).json({ success: false, message: 'Payload too large. Maximum 100 events allowed per batch.' })
+    }
+
+    // 3. Event metadata validation
+    for (const e of events) {
+      if (e.metadata && JSON.stringify(e.metadata).length > 4096) {
+        return res.status(400).json({ success: false, message: 'Event metadata size limit exceeded (maximum 4096 bytes).' })
+      }
+    }
+
+    // Verify ownership
+    const attempt = await findAttemptByIdentifier(attemptId)
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found' })
+    }
+
+    const internalAttemptId = getInternalId(attempt)
+
+    if (String(attempt.userId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' })
+    }
+
+    const validEvents = Object.values(EVENT_TYPES)
+    
+    // Batch insert using raw connection transaction
+    const client = await pool.connect()
+    let shouldRevoke = false
+    let revokeReason = null
+    try {
+      await client.query('BEGIN')
+      for (const e of events) {
+        if (!validEvents.includes(e.eventType)) {
+          continue; // skip invalid events dynamically
+        }
+
+        const question = e.questionId ? await findQuestionByIdentifier(e.questionId) : null
+        // IMPORTANT: question_id is an INTEGER FK in attempt_events.
+        // If the lookup returns null (question not found, or the questionId is a
+        // public-ID string like 'qst_xxx' that didn't resolve), we MUST use null —
+        // NOT the raw string — or PostgreSQL will throw an invalid input syntax error.
+        const mappedQuestionId = getInternalId(question) ?? null
+
+        const eventData = {
+          ...(e.metadata || {}),
+          clientTime: e.clientTime,
+          serverOffset: e.serverOffset,
+          severity: e.severity,
+          timeLeft: e.timeLeft,
+          sessionId: req.user?.sessionId || e.sessionId || null,
+          sdkVersion: e.sdkVersion || null,
+          batchUuid: e.batchUuid || null
+        }
+
+        await client.query(
+          `INSERT INTO attempt_events (attempt_id, event_uuid, event_type, question_id, event_data, event_timestamp)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           ON CONFLICT (event_uuid) DO NOTHING`,
+          [
+            internalAttemptId,
+            e.id || null,
+            e.eventType,
+            mappedQuestionId,
+            JSON.stringify(eventData),
+            e.clientTime ? new Date(e.clientTime) : new Date()
+          ]
+        )
+      }
+
+      // Auto-revoke check INSIDE the transaction — atomic with the inserts so
+      // two concurrent batches cannot each slip under the threshold and then
+      // both pass. Window is a 5-minute sliding lookback so a user who tabbed
+      // away 11 times across a 3-hour test is NOT revoked for old activity.
+      // Violation types are restricted to the focus-loss signals that
+      // genuinely indicate a candidate looking away from the test.
+      const VIOLATION_WINDOW_MINUTES = 5
+      const VIOLATION_THRESHOLD = 10
+      const { rows: violationRows } = await client.query(
+        `SELECT COUNT(*)::int AS count
+         FROM attempt_events
+         WHERE attempt_id = $1
+           AND event_type IN ('window_blur', 'visibility_hidden')
+           AND event_timestamp >= NOW() - ($2 * INTERVAL '1 minute')`,
+        [internalAttemptId, VIOLATION_WINDOW_MINUTES]
+      )
+      const recentViolations = Number(violationRows[0]?.count || 0)
+      if (recentViolations > VIOLATION_THRESHOLD) {
+        shouldRevoke = true
+        revokeReason = `Auto-revoked: ${recentViolations} focus-loss violations in the last ${VIOLATION_WINDOW_MINUTES} minutes`
+        await client.query(
+          `UPDATE attempts
+             SET status = 'revoked',
+                 is_completed = true,
+                 submitted_at = NOW(),
+                 flagged = true,
+                 flag_reason = $2,
+                 last_activity_at = NOW()
+           WHERE id = $1 AND status NOT IN ('revoked', 'submitted')`,
+          [internalAttemptId, revokeReason]
+        )
+      }
+
+      await client.query('COMMIT')
+    } catch (dbErr) {
+      await client.query('ROLLBACK')
+      throw dbErr
+    } finally {
+      client.release()
+    }
+
+    // Realtime notification (best-effort, outside tx)
+    if (shouldRevoke) {
+      console.log(`🚫 [Anti-Cheat] Attempt ${internalAttemptId} auto-revoked: ${revokeReason}`)
+      try {
+        const io = getIO()
+        if (io) {
+          io.to('admin:live-tests').emit('live_test:participant_left', {
+            attemptId: internalAttemptId,
+            userId: attempt?.userId ?? null,
+            reason: 'revoked',
+            serverTime: new Date().toISOString()
+          })
+        }
+      } catch (_) { /* realtime is non-fatal */ }
+    } else {
+      // Update last activity only when we did not just revoke (the revoke
+      // UPDATE already touched last_activity_at inside the transaction).
+      await dbHelpers.updateById('attempts', internalAttemptId, {
+        lastActivityAt: new Date().toISOString()
+      })
+    }
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('[Attempt Batch Events] Error:', error)
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+// @route   POST /api/attempt/:attemptId/heartbeat
+// @desc    Log attempt active heartbeat status
+// @access  Private
+router.post('/:attemptId/heartbeat', protect, async (req, res) => {
+  try {
+    const { attemptId } = req.params
+    const userId = req.user.id
+
+    // Verify ownership
+    const attempt = await findAttemptByIdentifier(attemptId)
+    if (!attempt) {
+      return res.status(404).json({ success: false, message: 'Attempt not found' })
+    }
+
+    const internalAttemptId = getInternalId(attempt)
+
+    if (String(attempt.userId) !== String(userId)) {
+      return res.status(403).json({ success: false, message: 'Not authorized' })
+    }
+
+    let attemptStatus = 'active'
+    if (attempt.isCompleted || attempt.is_completed || attempt.status === 'completed') {
+      attemptStatus = 'submitted'
+    } else if (attempt.status === 'expired') {
+      attemptStatus = 'expired'
+    } else if (attempt.status === 'revoked') {
+      attemptStatus = 'revoked'
+    }
+
+    // Update last activity if attempt is still active
+    if (attemptStatus === 'active') {
+      await dbHelpers.updateById('attempts', internalAttemptId, {
+        lastActivityAt: new Date().toISOString()
+      })
+    }
+
+    // Realtime admin presence: notify the live-test monitor room (best-effort)
+    try {
+      const io = getIO()
+      if (io) {
+        io.to('admin:live-tests').emit('live_test:presence', {
+          attemptId: internalAttemptId,
+          userId: attempt.userId,
+          testId: attempt.testId ?? null,
+          status: attemptStatus,
+          serverTime: new Date().toISOString()
+        })
+      }
+    } catch (_) { /* realtime is non-fatal */ }
+
+    res.json({
+      success: true,
+      serverTime: new Date().toISOString(),
+      attemptStatus
+    })
+  } catch (error) {
+    console.error('[Attempt Heartbeat] Error:', error)
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -572,6 +824,7 @@ router.post('/:attemptId/event', protect, async (req, res) => {
 router.get('/:attemptId/analytics', protect, async (req, res) => {
   try {
     const { attemptId } = req.params
+    const userId = req.user.id
 
     // Get attempt details
     const attempt = await findAttemptByIdentifier(attemptId)
@@ -580,6 +833,14 @@ router.get('/:attemptId/analytics', protect, async (req, res) => {
     }
 
     const internalAttemptId = getInternalId(attempt)
+
+    // Ownership check — prevent IDOR: only the attempt owner (or an admin)
+    // may read per-question analytics. Without this, any authenticated user
+    // could enumerate attemptId values and read another user's time-spent /
+    // visits / hardest-questions data.
+    if (String(attempt.userId) !== String(userId) && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized' })
+    }
 
     // Get question attempts
     const questionAttempts = await dbHelpers.find('questionAttempts', { attemptId: internalAttemptId })
@@ -622,7 +883,7 @@ router.get('/:attemptId/analytics', protect, async (req, res) => {
     })
   } catch (error) {
     console.error('[Attempt Analytics] Error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

@@ -1,3 +1,12 @@
+import { clearDashboardCache } from './dashboardCache.js'
+
+export const invalidateDashboardCache = () => {
+  clearDashboardCache()
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
+  }
+}
+
 const normalizeEnrollmentEntry = (entry) => {
   if (entry === null || entry === undefined) {
     return null
@@ -69,9 +78,27 @@ export const getNormalizedEnrolledSeries = (enrolledSeries) => {
     return []
   }
 
-  return parsed
-    .map(normalizeEnrollmentEntry)
-    .filter((entry) => entry !== null && entry !== undefined && String(entry).trim() !== '')
+  const result = []
+  for (const entry of parsed) {
+    if (entry === null || entry === undefined) continue
+    if (typeof entry === 'object') {
+      const keys = [
+        entry.id,
+        entry._id,
+        entry.dbId,
+        entry.public_id,
+        entry.publicId,
+        entry.slug,
+        entry.series_id,
+        entry.seriesId,
+      ].filter((k) => k !== null && k !== undefined && String(k).trim() !== '')
+      keys.forEach((k) => result.push(String(k).trim()))
+    } else {
+      const s = String(entry).trim()
+      if (s) result.push(s)
+    }
+  }
+  return result
 }
 
 export const hasLegacyEnrolledSeriesIds = (enrolledSeries) => {
@@ -79,15 +106,37 @@ export const hasLegacyEnrolledSeriesIds = (enrolledSeries) => {
 }
 
 export const isSeriesEnrolled = (userOrEnrolledSeries, series, extraIdentifiers = []) => {
-  const enrolledSeries = Array.isArray(userOrEnrolledSeries)
+  if (!series) return false
+
+  const rawEnrolled = Array.isArray(userOrEnrolledSeries)
     ? userOrEnrolledSeries
-    : userOrEnrolledSeries?.enrolledSeries
+    : (
+        userOrEnrolledSeries?.enrolledSeries ??
+        userOrEnrolledSeries?.enrolled_series ??
+        userOrEnrolledSeries?.enrolled ??
+        userOrEnrolledSeries?.series ??
+        []
+      )
 
   const enrolledIds = new Set(
-    getNormalizedEnrolledSeries(enrolledSeries).map((entry) => String(entry))
+    getNormalizedEnrolledSeries(rawEnrolled).map((entry) => String(entry).trim())
   )
 
-  return [series?._id, series?.id, series?.slug, ...extraIdentifiers]
+  if (enrolledIds.size === 0) return false
+
+  const candidateIds = [
+    series._id,
+    series.id,
+    series.dbId,
+    series.public_id,
+    series.publicId,
+    series.slug,
+    series.series_id,
+    series.seriesId,
+    ...extraIdentifiers,
+  ]
+
+  return candidateIds
     .filter((entry) => entry !== null && entry !== undefined && String(entry).trim() !== '')
-    .some((entry) => enrolledIds.has(String(entry)))
+    .some((entry) => enrolledIds.has(String(entry).trim()))
 }

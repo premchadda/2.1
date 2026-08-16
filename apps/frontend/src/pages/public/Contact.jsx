@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Helmet } from 'react-helmet-async'
 import { Mail, Phone, MapPin, Send, Loader2 } from 'lucide-react'
 import api from '../../shared/lib/api'
 
@@ -19,12 +20,15 @@ export default function Contact() {
   })
 
   useEffect(() => {
-    fetchContactInfo()
+    const controller = new AbortController()
+    fetchContactInfo(controller.signal)
+    return () => controller.abort()
   }, [])
 
-  const fetchContactInfo = async () => {
+  const fetchContactInfo = async (signal) => {
     try {
-      const response = await api.get('/api/site-settings')
+      const response = await api.get('/api/site-settings', { signal })
+      if (signal?.aborted) return
       if (response.data?.success) {
         const settings = response.data.data
         setContactInfo({
@@ -34,6 +38,7 @@ export default function Contact() {
         })
       }
     } catch (error) {
+      if (error.name === 'AbortError' || signal?.aborted) return
       console.error('Failed to fetch contact info:', error)
     }
   }
@@ -76,6 +81,14 @@ export default function Contact() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
+      <Helmet>
+        <title>Contact Us | Trstprep</title>
+        <meta name="description" content="Get in touch with Trstprep support team. We'd love to hear from you." />
+        <meta property="og:title" content="Contact Us | Trstprep" />
+        <meta property="og:description" content="Get in touch with Trstprep support team." />
+        <meta property="og:type" content="website" />
+        <meta property="og:image" content="/og-image.png" />
+      </Helmet>
       <div className="max-w-6xl mx-auto px-4">
         <h1 className="text-3xl font-bold text-gray-900 text-center mb-2">Contact Us</h1>
         <p className="text-gray-600 text-center mb-12">We'd love to hear from you. Send us a message!</p>
@@ -168,6 +181,11 @@ export default function Contact() {
                   placeholder="How can we help you?"
                 />
               </div>
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm" role="alert">
+                  {error}
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={loading}

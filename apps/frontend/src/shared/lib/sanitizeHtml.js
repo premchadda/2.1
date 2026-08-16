@@ -1,20 +1,16 @@
-import DOMPurify from 'dompurify'
-
 /**
- * Sanitize HTML content to prevent XSS attacks
- * Uses DOMPurify - a battle-tested HTML sanitizer
+ * Sanitize HTML content to prevent XSS attacks.
+ *
+ * CONSOLIDATION FIX (Phase 4.16): This file previously used a looser DOMPurify
+ * config (defaults + FORBID_ATTR: ['style'] only). Now it re-exports the strict
+ * sanitizer from htmlSanitizer.js which:
+ * - Forces target="_blank" rel="noopener noreferrer nofollow" on all links
+ * - Blocks javascript:/vbscript:/file:/data:text/html URLs
+ * - Uses an explicit ALLOWED_TAGS + ALLOWED_ATTR allowlist
+ * - Blocks style attribute (CSS expression injection vector)
+ *
+ * All consumers of `sanitizeHtml` now get the strict behavior automatically.
  */
 
-export function sanitizeHtml(input) {
-  if (input == null) return ''
-  const dirty = String(input)
-  
-  // Use DOMPurify with default strict configuration
-  // This removes XSS vectors: script tags, event handlers, javascript: URLs, etc.
-  return DOMPurify.sanitize(dirty, {
-    // Allow style attributes for inline-styled tables, cells, etc.
-    ADD_ATTR: ['style', 'cellspacing'],
-  })
-}
-
-export default sanitizeHtml
+export { sanitizeHtml } from './htmlSanitizer'
+export { sanitizeHtml as default } from './htmlSanitizer'

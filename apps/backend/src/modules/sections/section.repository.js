@@ -3,7 +3,7 @@ import { pool } from "../../infrastructure/database/postgres-helpers.js";
 
 export class SectionRepository extends BaseRepository {
   constructor() {
-    super("testSections");
+    super("test_sections");
   }
 
   async findByTestId(testId) {

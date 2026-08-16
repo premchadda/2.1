@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 
+// Replaces framer-motion with a lightweight CSS transition so the (large)
+// animation library is no longer pulled into the main frontend bundle.
 function ScrollReveal({
   children,
   direction = 'up',
@@ -34,26 +35,24 @@ function ScrollReveal({
     return () => observer.disconnect()
   }, [once, threshold])
 
-  const directionMap = {
-    up: { y: distance },
-    down: { y: -distance },
-    left: { x: distance },
-    right: { x: -distance },
+  const offsetMap = {
+    up: `translateY(${distance}px)`,
+    down: `translateY(-${distance}px)`,
+    left: `translateX(${distance}px)`,
+    right: `translateX(-${distance}px)`,
   }
 
-  const hidden = { opacity: 0, ...directionMap[direction] }
-  const visible = { opacity: 1, x: 0, y: 0 }
+  const style = {
+    opacity: isVisible ? 1 : 0,
+    transform: isVisible ? 'none' : offsetMap[direction],
+    transition: `opacity ${duration}s ease-out ${delay}s, transform ${duration}s ease-out ${delay}s`,
+    willChange: 'opacity, transform',
+  }
 
   return (
-    <motion.div
-      ref={ref}
-      initial={hidden}
-      animate={isVisible ? visible : hidden}
-      transition={{ duration, delay, ease: 'easeOut' }}
-      className={className}
-    >
+    <div ref={ref} style={style} className={className}>
       {children}
-    </motion.div>
+    </div>
   )
 }
 

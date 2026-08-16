@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, test, expect, vi } from 'vitest'
+import { describe, test, expect } from 'vitest'
 import { settingsSchema, stripSecrets, SECRET_FIELDS } from './settingsSchema.js'
 
 const baseValid = {

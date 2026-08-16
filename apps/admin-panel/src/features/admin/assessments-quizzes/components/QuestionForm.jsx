@@ -1,348 +1,515 @@
 import { useState, useEffect } from 'react'
-import { X } from 'lucide-react'
-import { FormInput, FormSelect, FormTextarea, FormCheckbox, FormGrid } from '../../../../shared/components/common/FormField'
-import { questionSchema, validateForm } from '../../../../shared/lib/validationSchemas'
+import { X, Save, FileText, CheckCircle, Settings, Eye, Sparkles, Copy } from 'lucide-react'
+import { DIFFICULTY_LEVELS } from '../../../../shared/config/difficultyConfig.js'
+import { QUESTION_TYPES, STATUS_OPTIONS } from '../../../../shared/config/questionConstants.js'
+import { QUESTION_CATEGORIES } from '../../../../shared/config/questionCategories.js'
+import { OptionEditor } from './OptionEditor'
+import MathRenderer from '../../../../shared/components/MathRenderer'
 
-const QUESTION_TYPES = [
-  { value: 'mcq', label: 'Multiple Choice' },
-  { value: 'msq', label: 'Multiple Select' },
-  { value: 'numeric', label: 'Numeric Answer' },
-  { value: 'true-false', label: 'True/False' },
-  { value: 'match', label: 'Match the Following' },
-  { value: 'comprehension', label: 'Comprehension' },
-  { value: 'descriptive', label: 'Descriptive' }
-]
-
-const DIFFICULTY_OPTIONS = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'hard', label: 'Hard' }
-]
-
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'active', label: 'Active' },
-  { value: 'archived', label: 'Archived' }
-]
+const getSectionId = (section = {}) => section._id ?? section.id ?? null
+const getSectionName = (section = {}) => section.name || section.title || section.label || ''
+const sectionValueMatches = (section, value) => {
+  if (value === null || value === undefined || value === '') return false
+  return String(getSectionId(section)) === String(value) || getSectionName(section) === String(value)
+}
 
 export default function QuestionForm({
   isOpen,
   onClose,
   onSubmit,
-  saving,
-  editingId,
   formData,
   setFormData,
+  editingId,
   subjects,
   chapters,
   topics,
+  passages,
   sections,
-  tests,
-  tagConfigs,
-  passages
+  saving,
 }) {
-  const [activeTab, setActiveTab] = useState('basic')
+  const [activeTab, setActiveTab] = useState('content')
 
   useEffect(() => {
-    if (isOpen) setActiveTab('basic')
-  }, [isOpen, editingId])
-
-  const onChange = (field, value) => {
-    setFormData({ ...formData, [field]: value })
-  }
+    if (isOpen) setActiveTab('content')
+  }, [isOpen])
 
   if (!isOpen) return null
 
   const tabs = [
-    { id: 'basic', label: 'Basic' },
-    { id: 'options', label: 'Options' },
-    { id: 'meta', label: 'Metadata' },
-    { id: 'advanced', label: 'Advanced' }
+    { id: 'content', label: 'Content', icon: FileText },
+    { id: 'options', label: 'Options', icon: CheckCircle },
+    { id: 'metadata', label: 'Metadata', icon: Settings }
   ]
 
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSubmit(formData)
+  }
+
+  const sectionOptions = sections.filter(section => {
+    if (!formData.testId) return true
+    return String(section.test_id || '') === String(formData.testId) || sectionValueMatches(section, formData.section)
+  })
+  const selectedSection = sectionOptions.find(section => sectionValueMatches(section, formData.section))
+  const selectedSectionValue = selectedSection ? getSectionName(selectedSection) : (formData.section || '')
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-xl">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[96vh] h-[96vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">
-            {editingId ? 'Edit Question' : 'Add Question'}
-          </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+              {editingId ? 'Edit Question' : 'Create New Question'}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+              {editingId ? 'Update question details' : 'Add a new question to the bank'}
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+        <div className="border-b border-gray-200 px-4 sm:px-6">
+          <div className="flex gap-1 overflow-x-auto">
+            {tabs.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap
+                  ${activeTab === tab.id
+                    ? 'border-indigo-600 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                <tab.icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Content */}
-        <form onSubmit={onSubmit} className="flex-1 overflow-y-auto p-6">
-          {activeTab === 'basic' && (
-            <div className="space-y-4">
-              <FormTextarea
-                label="Question Text"
-                required
-                value={formData.questionText}
-                onChange={(e) => onChange('questionText', e.target.value)}
-                rows={4}
-                placeholder="Enter the question..."
-              />
-              <FormGrid cols={2}>
-                <FormSelect
-                  label="Type"
-                  required
-                  value={formData.type}
-                  onChange={(e) => onChange('type', e.target.value)}
-                  options={QUESTION_TYPES}
-                />
-                <FormSelect
-                  label="Difficulty"
-                  required
-                  value={formData.difficulty}
-                  onChange={(e) => onChange('difficulty', e.target.value)}
-                  options={DIFFICULTY_OPTIONS}
-                />
-              </FormGrid>
-              <FormGrid cols={2}>
-                <FormSelect
-                  label="Subject"
-                  value={formData.subject}
-                  onChange={(e) => onChange('subject', e.target.value)}
-                  options={subjects.map(s => ({ value: s._id || s.id, label: s.name }))}
-                  placeholder="Select subject"
-                />
-                <FormSelect
-                  label="Chapter"
-                  value={formData.chapter}
-                  onChange={(e) => onChange('chapter', e.target.value)}
-                  options={chapters.map(c => ({ value: c._id || c.id, label: c.title || c.name }))}
-                  placeholder="Select chapter"
-                  disabled={!formData.subject}
-                />
-              </FormGrid>
-              <FormGrid cols={2}>
-                <FormSelect
-                  label="Topic"
-                  value={formData.topic}
-                  onChange={(e) => onChange('topic', e.target.value)}
-                  options={topics.map(t => ({ value: t._id || t.id, label: t.title || t.name }))}
-                  placeholder="Select topic"
-                  disabled={!formData.chapter}
-                />
-                <FormSelect
-                  label="Section"
-                  value={formData.section}
-                  onChange={(e) => onChange('section', e.target.value)}
-                  options={(sections || []).map(s => {
-                    if (typeof s === 'object' && s !== null) {
-                      const name = s.name || s.title || s.label || '';
-                      return { value: name, label: name };
-                    }
-                    return { value: s, label: s };
-                  })}
-                  placeholder="Select section"
-                />
-              </FormGrid>
-            </div>
-          )}
-
-          {activeTab === 'options' && (
-            <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">
-                Answer Options <span className="text-red-500">*</span>
-              </label>
-              {(formData.options || ['', '', '', '']).map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="correctOption"
-                    checked={formData.correctOption === i}
-                    onChange={() => onChange('correctOption', i)}
-                    className="w-4 h-4 accent-green-600"
+        {/* Form Content */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6">
+            {/* Content Tab */}
+            {activeTab === 'content' && (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Question Text <span className="text-red-500">*</span>
+                    </label>
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-indigo-500" />
+                      Supports LaTeX Math (e.g. $x^2 + y^2 = r^2$)
+                    </span>
+                  </div>
+                  <textarea
+                    required
+                    value={formData.questionText}
+                    onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                    placeholder="Enter your question here (LaTeX $x^2$ supported)..."
                   />
-                  <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <input
-                    type="text"
-                    value={opt}
-                    onChange={(e) => {
-                      const newOpts = [...(formData.options || ['', '', '', ''])]
-                      newOpts[i] = e.target.value
-                      onChange('options', newOpts)
-                    }}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                  />
+                  {formData.questionText && (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-indigo-500" /> Live Math Preview
+                        </span>
+                      </div>
+                      <MathRenderer content={formData.questionText} className="text-sm text-gray-800" />
+                    </div>
+                  )}
                 </div>
-              ))}
-              <p className="text-xs text-gray-500">Select the radio button next to the correct answer</p>
 
-              <FormTextarea
-                label="Explanation"
-                value={formData.explanation}
-                onChange={(e) => onChange('explanation', e.target.value)}
-                rows={3}
-                placeholder="Explain why the correct answer is right..."
-              />
-            </div>
-          )}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Question Text (Hindi)
+                    </label>
+                    {formData.questionText && !formData.questionTextHi && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, questionTextHi: formData.questionText })}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                      >
+                        <Copy className="w-3 h-3" /> Copy English structure
+                      </button>
+                    )}
+                  </div>
+                  <textarea
+                    value={formData.questionTextHi || ''}
+                    onChange={(e) => setFormData({ ...formData, questionTextHi: e.target.value })}
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                    placeholder="प्रश्न हिंदी में दर्ज करें..."
+                  />
+                  {formData.questionTextHi && (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+                        <Eye className="w-3 h-3 text-indigo-500" /> Live Math Preview (Hindi)
+                      </span>
+                      <MathRenderer content={formData.questionTextHi} className="text-sm text-gray-800" />
+                    </div>
+                  )}
+                </div>
 
-          {activeTab === 'meta' && (
-            <div className="space-y-4">
-              <FormGrid cols={3}>
-                <FormInput
-                  label="Marks"
-                  type="number"
-                  value={formData.marks}
-                  onChange={(e) => onChange('marks', parseInt(e.target.value) || 0)}
-                />
-                <FormInput
-                  label="Negative Marks"
-                  type="number"
-                  step="0.25"
-                  value={formData.negativeMarks}
-                  onChange={(e) => onChange('negativeMarks', parseFloat(e.target.value) || 0)}
-                />
-                <FormSelect
-                  label="Status"
-                  value={formData.status}
-                  onChange={(e) => onChange('status', e.target.value)}
-                  options={STATUS_OPTIONS}
-                />
-              </FormGrid>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                <input
-                  type="text"
-                  value={(formData.tags || []).join(', ')}
-                  onChange={(e) => onChange('tags', e.target.value.split(',').map(t => t.trim()).filter(Boolean))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  placeholder="ssc-cgl, tier1, previous-year"
-                />
-                {tagConfigs?.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {tagConfigs.map(tag => {
-                      const tagId = tag.id || tag.filterKey
-                      const isSelected = (formData.tags || []).includes(tagId)
-                      return (
-                        <button
-                          key={tagId}
-                          type="button"
-                          onClick={() => {
-                            const current = formData.tags || []
-                            const next = isSelected
-                              ? current.filter(t => t !== tagId)
-                              : [...current, tagId]
-                            onChange('tags', next)
-                          }}
-                          className={`px-2 py-0.5 text-xs rounded-full font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-indigo-200 text-indigo-800 border border-indigo-300'
-                              : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    {QUESTION_CATEGORIES.map(c => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, category: c.id })}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-all
+                          ${formData.category === c.id
+                            ? `bg-white ${c.id === 'mock-tests' ? 'border-indigo-500 text-indigo-600' : c.id === 'pyp' ? 'border-amber-500 text-amber-600' : 'border-emerald-500 text-emerald-600'}`
+                            : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
                           }`}
-                        >
-                          {tag.icon && <span className="mr-1">{tag.icon}</span>}
-                          {tag.label}
-                        </button>
-                      )
-                    })}
+                      >
+                        <c.icon className="w-4 h-4" />
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Subject <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.subject}
+                      onChange={(e) => setFormData({ ...formData, subject: e.target.value, chapter: '', topic: '' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Select Subject</option>
+                      {subjects.map(s => (
+                        <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Question Type
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        type: e.target.value,
+                        options: e.target.value === 'mcq' || e.target.value === 'msq'
+                          ? ['', '', '', '']
+                          : [],
+                        correctOption: e.target.value === 'msq' ? [] : 0
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {QUESTION_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
+                    <select
+                      value={selectedSectionValue}
+                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Select Section</option>
+                      {selectedSectionValue && !selectedSection && (
+                        <option value={selectedSectionValue}>{selectedSectionValue}</option>
+                      )}
+                      {sectionOptions
+                        .map(s => (
+                          <option key={getSectionId(s)} value={getSectionName(s)}>
+                            {getSectionName(s)}{s.test_title ? ` - ${s.test_title}` : ''}
+                          </option>
+                        ))
+                      }
+                    </select>
+                    {formData.testId && sectionOptions.length === 0 && (
+                      <p className="text-xs text-gray-500 mt-1">No sections linked to this test.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Question Number</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={formData.questionNumber || ''}
+                      onChange={(e) => setFormData({ ...formData, questionNumber: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="Auto-assigned if empty"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Chapter</label>
+                    <select
+                      value={formData.chapter}
+                      onChange={(e) => setFormData({ ...formData, chapter: e.target.value, topic: '' })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      disabled={!formData.subject}
+                    >
+                      <option value="">Select Chapter</option>
+                      {chapters
+                        // FIX BUG-012: Filter chapters by subject_id instead of studyMaterialId
+                        .filter(c => String(c.subjectId || c.subject_id || c.studyMaterialId) === String(formData.subject))
+                        .map(c => (
+                          <option key={c._id || c.id} value={c._id || c.id}>{c.title || c.name}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Topic</label>
+                    <select
+                      value={formData.topic}
+                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      disabled={!formData.chapter}
+                    >
+                      <option value="">Select Topic</option>
+                      {topics
+                        .filter(t => String(t.chapterId) === String(formData.chapter) || String(t.subjectId) === String(formData.subject))
+                        .map(t => (
+                          <option key={t._id || t.id} value={t._id || t.id}>{t.name}</option>
+                        ))
+                      }
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Options Tab */}
+            {activeTab === 'options' && (
+              <div className="space-y-6">
+                <OptionEditor
+                  options={formData.options}
+                  correctOption={formData.correctOption}
+                  onChange={(options) => setFormData({ ...formData, options })}
+                  onCorrectChange={(correctOption) => setFormData({ ...formData, correctOption })}
+                  type={formData.type}
+                />
+
+                {(formData.type === 'mcq' || formData.type === 'msq') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Options (Hindi)
+                    </label>
+                    <div className="space-y-2">
+                      {(formData.optionsHi && formData.optionsHi.length > 0 ? formData.optionsHi : ['', '', '', '']).map((opt, i) => (
+                        <input
+                          key={i}
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const newOptsHi = [...(formData.optionsHi || [])]
+                            newOptsHi[i] = e.target.value
+                            setFormData({ ...formData, optionsHi: newOptsHi })
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                          placeholder={`विकल्प ${['A', 'B', 'C', 'D', 'E', 'F'][i]} (हिंदी)`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Explanation
+                    </label>
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-indigo-500" />
+                      Supports LaTeX Math
+                    </span>
+                  </div>
+                  <textarea
+                    value={formData.explanation}
+                    onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                    placeholder="Explain the solution (LaTeX $x = \frac{-b \pm \sqrt{D}}{2a}$ supported)..."
+                  />
+                  {formData.explanation && (
+                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1 mb-1">
+                        <Eye className="w-3 h-3 text-indigo-500" /> Live Explanation Preview
+                      </span>
+                      <MathRenderer content={formData.explanation} className="text-sm text-gray-800" />
+                    </div>
+                  )}
+                </div>
               </div>
+            )}
 
-              <FormInput
-                label="Image URL"
-                type="url"
-                value={formData.imageUrl || ''}
-                onChange={(e) => onChange('imageUrl', e.target.value)}
-                placeholder="https://example.com/image.png"
-              />
-            </div>
-          )}
+            {/* Metadata Tab */}
+            {activeTab === 'metadata' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Difficulty
+                    </label>
+                    <select
+                      value={formData.difficulty}
+                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {DIFFICULTY_LEVELS.map(d => (
+                        <option key={d.value} value={d.value}>{d.label}</option>
+                      ))}
+                    </select>
+                  </div>
 
-          {activeTab === 'advanced' && (
-            <div className="space-y-4">
-              <FormSelect
-                label="Test"
-                value={formData.testId || ''}
-                onChange={(e) => onChange('testId', e.target.value || null)}
-                options={tests.map(t => ({ value: t._id || t.id, label: t.title || t.name }))}
-                placeholder="Link to test (optional)"
-              />
-              <FormSelect
-                label="Passage"
-                value={formData.passageId || ''}
-                onChange={(e) => onChange('passageId', e.target.value || null)}
-                options={passages.map(p => ({ value: p._id || p.id, label: p.title || 'Untitled' }))}
-                placeholder="Link to passage (optional)"
-              />
-              <FormInput
-                label="Question Number"
-                type="number"
-                value={formData.questionNumber || ''}
-                onChange={(e) => onChange('questionNumber', parseInt(e.target.value) || null)}
-              />
-              <FormInput
-                label="Solution Image URL"
-                type="url"
-                value={formData.solutionImageUrl || ''}
-                onChange={(e) => onChange('solutionImageUrl', e.target.value)}
-                placeholder="https://example.com/solution.png"
-              />
-              <FormCheckbox
-                label="Hindi Version Available"
-                checked={!!formData.questionTextHi}
-                onChange={(e) => {
-                  if (!e.target.checked) onChange('questionTextHi', '')
-                }}
-              />
-              {formData.questionTextHi && (
-                <FormTextarea
-                  label="Hindi Question Text"
-                  value={formData.questionTextHi}
-                  onChange={(e) => onChange('questionTextHi', e.target.value)}
-                  rows={3}
-                />
-              )}
-            </div>
-          )}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Marks (+)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      value={formData.marks}
+                      onChange={(e) => setFormData({ ...formData, marks: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
 
-          {/* Footer */}
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : editingId ? 'Update Question' : 'Create Question'}
-            </button>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Negative Marks (-)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      value={formData.negativeMarks}
+                      onChange={(e) => setFormData({ ...formData, negativeMarks: parseFloat(e.target.value) || 0 })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Status
+                    </label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {STATUS_OPTIONS.map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tags
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.tags?.join(', ') || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
+                      })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="ssc-cgl, tier1, previous-year"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Comma-separated tags</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Image URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.imageUrl || ''}
+                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="https://example.com/question-image.png"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">URL to an image displayed with the question</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Passage
+                    </label>
+                    <select
+                      value={formData.passageId || ''}
+                      onChange={(e) => setFormData({ ...formData, passageId: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">No passage (standalone question)</option>
+                      {passages?.map(p => (
+                        <option key={p._id || p.id} value={p._id || p.id}>{p.title || p.name || `Passage #${p._id || p.id}`}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Link this question to a reading passage</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </form>
+
+        {/* Footer */}
+        <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                {editingId ? 'Update' : 'Create'} Question
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

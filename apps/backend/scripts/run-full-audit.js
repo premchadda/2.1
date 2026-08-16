@@ -197,7 +197,7 @@ async function runComprehensiveAudit() {
     FROM information_schema.columns
     WHERE table_schema = 'public'
     AND (data_type LIKE '%timestamp%')
-    AND column_default LIKE '%\'\''
+    AND column_default LIKE '%'''
   `);
 
   if (timestampCols.rows.length > 0) {

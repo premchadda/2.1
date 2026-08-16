@@ -2,43 +2,56 @@ import { useState, useEffect, useCallback } from 'react'
 import { adminAPI } from '../../../shared/lib/dataService'
 import { toast } from 'react-hot-toast'
 import { Mail, Plus, Edit, Trash2, Save, X, Eye, Send, RefreshCw } from 'lucide-react'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import sanitizeHtml from '../../../shared/lib/sanitizeHtml'
 
 export default function EmailTemplatesManager() {
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState(null)
   const [showPreview, setShowPreview] = useState(null)
-  const [formData, setFormData] = useState({ name: '', subject: '', content: '', variables: [], isActive: true })
+  const [formData, setFormData] = useState({ name: '', type: 'general', subject: '', content: '', variables: [], isActive: true })
   const [testEmail, setTestEmail] = useState('')
 
-  const fetchTemplates = useCallback(async () => {
+  const fetchTemplates = useCallback(async (signal) => {
     try {
       setLoading(true)
-      const res = await adminAPI.apiClient.get('/admin/email-templates')
-      setTemplates(res.data?.data || [])
+      const res = await adminAPI.apiClient.get('/admin/email-templates', { signal })
+      if (!signal.aborted) {
+        const raw = res.data?.data
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.templates) ? raw.templates : [])
+        setTemplates(list)
+      }
     } catch (error) {
+      if (signal.aborted) return
       console.error('Error fetching email templates:', error)
       toast.error('Failed to load email templates')
     } finally {
-      setLoading(false)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchTemplates() }, [fetchTemplates])
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchTemplates(controller.signal)
+    return () => controller.abort()
+  }, [fetchTemplates])
 
   const handleCreate = () => {
     setEditingId('new')
-    setFormData({ name: '', subject: '', content: '', variables: [], isActive: true })
+    setFormData({ name: '', type: 'general', subject: '', content: '', variables: [], isActive: true })
   }
 
   const handleEdit = (template) => {
-    setEditingId(template.id)
+    const templateId = template.id || template._id
+    setEditingId(templateId)
     setFormData({
       name: template.name || '',
+      type: template.type || 'general',
       subject: template.subject || '',
-      content: template.content || '',
+      content: template.content || template.body || template.body_html || '',
       variables: template.variables || [],
-      isActive: template.isActive !== false
+      isActive: template.isActive !== false && template.enabled !== false
     })
   }
 
@@ -49,13 +62,31 @@ export default function EmailTemplatesManager() {
         return
       }
 
+      // Map frontend field names to backend-expected field names.
+      // Backend (admin-email-templates.js) requires: name, type, subject, body.
+      // The active flag is stored as `enabled` (not `isActive`).
+      const payload = {
+        name: formData.name,
+        type: formData.type || 'general',
+        subject: formData.subject,
+        body: formData.content,
+        variables: formData.variables || [],
+        enabled: formData.isActive
+      }
+
       if (editingId === 'new') {
-        const res = await adminAPI.apiClient.post('/admin/email-templates', formData)
-        setTemplates(prev => [...prev, res.data?.data])
+        const res = await adminAPI.apiClient.post('/admin/email-templates', payload)
+        const newItem = res.data?.data?.template || res.data?.data
+        if (newItem) {
+          setTemplates(prev => [...(Array.isArray(prev) ? prev : []), newItem])
+        }
         toast.success('Template created')
       } else {
-        const res = await adminAPI.apiClient.put(`/admin/email-templates/${editingId}`, formData)
-        setTemplates(prev => prev.map(t => t.id === editingId ? res.data?.data : t))
+        const res = await adminAPI.apiClient.put(`/admin/email-templates/${editingId}`, payload)
+        const updatedItem = res.data?.data?.template || res.data?.data
+        if (updatedItem) {
+          setTemplates(prev => (Array.isArray(prev) ? prev : []).map(t => (t.id || t._id) === editingId ? updatedItem : t))
+        }
         toast.success('Template updated')
       }
       setEditingId(null)
@@ -66,28 +97,40 @@ export default function EmailTemplatesManager() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this email template?')) return
+    const confirmed = await confirmOnce({
+      title: 'Delete Template',
+      message: 'Delete this email template?',
+      danger: true
+    })
+    if (!confirmed) return
     try {
       await adminAPI.apiClient.delete(`/admin/email-templates/${id}`)
-      setTemplates(prev => prev.filter(t => t.id !== id))
+      setTemplates(prev => (Array.isArray(prev) ? prev : []).filter(t => (t.id || t._id) !== id))
       toast.success('Template deleted')
     } catch (error) {
       toast.error('Failed to delete template')
     }
   }
 
-  const handleTestSend = async (templateName) => {
+  const handleTestSend = async (template) => {
     if (!testEmail) {
       toast.error('Enter a test email address')
       return
     }
+    const templateId = template?.id || template?._id
+    if (!templateId) {
+      toast.error('Template ID is required to send a test email')
+      return
+    }
     try {
-      await adminAPI.apiClient.post('/admin/email-templates/test', {
-        templateName,
-        recipient: testEmail,
-        variables: { name: 'Test User', score: '85', testName: 'Mock Test', resetLink: '#', examName: 'SSC CGL', date: '2026-05-01' }
+      // Backend route is POST /admin/email-templates/:id/test and expects
+      // { to_email, test_data }. The route is parameterized by template ID,
+      // not template name.
+      await adminAPI.apiClient.post(`/admin/email-templates/${templateId}/test`, {
+        to_email: testEmail,
+        test_data: { name: 'Test User', score: '85', testName: 'Mock Test', resetLink: '#', examName: 'SSC CGL', date: '2026-05-01' }
       })
-      toast.success('Test email logged (integrate with email service for actual sending)')
+      toast.success('Test email sent')
     } catch (error) {
       toast.error('Failed to send test email')
     }
@@ -104,13 +147,18 @@ export default function EmailTemplatesManager() {
     )
   }
 
+  const safeTemplates = Array.isArray(templates) ? templates : []
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Email Templates</h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage transactional and marketing email templates</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <Mail className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            Email Templates
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage system transactional email templates</p>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -131,7 +179,7 @@ export default function EmailTemplatesManager() {
 
       {/* Templates List */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {templates.length === 0 ? (
+        {safeTemplates.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <Mail className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="font-medium">No email templates found</p>
@@ -139,9 +187,11 @@ export default function EmailTemplatesManager() {
           </div>
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {templates.map(template => (
-              <div key={template.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                {editingId === template.id ? (
+            {safeTemplates.map(template => {
+              const templateId = template.id || template._id
+              return (
+              <div key={templateId} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                {editingId === templateId ? (
                   // Edit Mode
                   <div className="space-y-3">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -152,6 +202,20 @@ export default function EmailTemplatesManager() {
                         onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                         className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
                       />
+                      <select
+                        value={formData.type}
+                        onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      >
+                        <option value="general">General</option>
+                        <option value="welcome">Welcome</option>
+                        <option value="verification">Verification</option>
+                        <option value="reset">Password Reset</option>
+                        <option value="notification">Notification</option>
+                        <option value="payment">Payment</option>
+                        <option value="subscription">Subscription</option>
+                        <option value="test">Test</option>
+                      </select>
                       <input
                         type="text"
                         placeholder="Email subject"
@@ -198,22 +262,22 @@ export default function EmailTemplatesManager() {
                           <h3 className="font-medium text-gray-900 dark:text-white">{template.name}</h3>
                           <p className="text-sm text-gray-500">{template.subject}</p>
                         </div>
-                        {!template.isActive && (
+                        {template.isActive === false || template.enabled === false ? (
                           <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 text-xs rounded">Inactive</span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button onClick={() => setShowPreview(template.id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Preview">
+                      <button onClick={() => setShowPreview(templateId)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Preview">
                         <Eye className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleTestSend(template.name)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Test send">
+                      <button onClick={() => handleTestSend(template)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Test send">
                         <Send className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleEdit(template)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" title="Edit">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDelete(template.id)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-red-500 hover:text-red-700" title="Delete">
+                      <button onClick={() => handleDelete(templateId)} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-red-500 hover:text-red-700" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -221,7 +285,7 @@ export default function EmailTemplatesManager() {
                 )}
 
                 {/* Preview Modal */}
-                {showPreview === template.id && (
+                {showPreview === templateId && (
                   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowPreview(null)}>
                     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
                       <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -232,7 +296,7 @@ export default function EmailTemplatesManager() {
                       </div>
                       <div className="p-4 overflow-y-auto max-h-[calc(80vh-120px)]">
                         <p className="text-sm text-gray-500 mb-2">Subject: {template.subject}</p>
-                        <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: template.content }} />
+                        <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: sanitizeHtml(template.content || template.body || template.body_html || '') }} />
                         {template.variables?.length > 0 && (
                           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                             <p className="text-xs text-gray-500 mb-1">Available variables:</p>
@@ -250,7 +314,7 @@ export default function EmailTemplatesManager() {
                   </div>
                 )}
               </div>
-            ))}
+            )})}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import express from 'express'
 import { dbHelpers, pool } from '../../infrastructure/database/postgres-helpers.js'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -84,7 +85,7 @@ router.get('/admin/list', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -162,7 +163,7 @@ router.post('/admin/enroll', async (req, res) => {
       message: `Successfully enrolled user in ${validSeriesIds.length} series`
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -204,7 +205,7 @@ router.delete('/admin/:userId/:seriesId', async (req, res) => {
       message: 'User unenrolled successfully'
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -279,7 +280,7 @@ router.post('/admin/bulk-enroll', async (req, res) => {
       message: `Enrolled ${enrolledCount} users, ${failedCount} failed`
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -324,7 +325,7 @@ router.get('/user/:userId', async (req, res) => {
       }
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -392,7 +393,7 @@ router.get('/admin/stats', async (req, res) => {
       })
     }
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -446,7 +447,7 @@ router.post('/admin/bulk-unenroll', async (req, res) => {
       message: `Unenrolled ${unenrolledCount} users, ${failedCount} failed`
     })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

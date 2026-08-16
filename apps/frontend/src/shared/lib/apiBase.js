@@ -12,33 +12,32 @@
  *   fetch(`${API_BASE_URL}/api/some-endpoint`)
  */
 export const API_BASE_URL = (() => {
-  const url = (() => {
-    // 1. Explicit env var wins - should be set for all environments
-    if (import.meta.env.VITE_API_URL) {
-      return import.meta.env.VITE_API_URL
+  // 1. Explicit env var wins — must be set for production/staging builds.
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+
+  if (typeof window !== 'undefined') {
+    // 2. In development (Vite), use a relative path so the dev server proxy
+    //    (configured in vite.config) routes /api to the backend. This avoids
+    //    guessing host/port, which was fragile (M34).
+    const devPorts = ['3000', '3002']
+    if (devPorts.includes(window.location.port)) {
+      return ''
     }
 
-    if (typeof window !== 'undefined') {
-      // 2. In development (Vite), use relative paths to leverage the proxy.
-      if (window.location.port === '3000') {
-        return '' 
-      }
-
-      // 3. Fallback: use same hostname with backend port from env or default
-      const backendPort = import.meta.env.VITE_BACKEND_PORT || '5001'
-      return `${window.location.protocol}//${window.location.hostname}:${backendPort}`
-    }
-
-    // SSR fallback - strictly env based
-    const ssrHost = process.env.VITE_API_URL || process.env.API_URL
-    if (ssrHost) return ssrHost
-    
-    // Throw error or handle properly if no environment provided and not in browser
-    console.error('API Base URL not defined in environment.')
+    // 3. Production without an explicit VITE_API_URL: same-origin (the API is
+    //    served from the same host via nginx). No port guessing.
     return ''
-  })()
-  
-  return url
+  }
+
+  // SSR / build-time fallback — strictly env based.
+  if (process.env.VITE_API_URL || process.env.API_URL) {
+    return process.env.VITE_API_URL || process.env.API_URL
+  }
+
+  console.error('API Base URL not defined (set VITE_API_URL).')
+  return ''
 })()
 
 /** Convenience: the full API prefix ready for direct concatenation */

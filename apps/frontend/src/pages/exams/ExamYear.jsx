@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Calendar, Clock, Users, FileText, Download, ChevronRight, ArrowLeft, BookOpen } from 'lucide-react'
+import { Calendar, Clock, Users, FileText, Download, ChevronRight, ArrowLeft, BookOpen, AlertTriangle } from 'lucide-react'
 import api from '../../shared/lib/dataService'
 
 export default function ExamYear() {
@@ -9,60 +9,35 @@ export default function ExamYear() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  useEffect(() => {
-    fetchExamYearData()
-  }, [examId, year])
+  const yearNum = parseInt(year, 10)
 
-  const fetchExamYearData = async () => {
+  useEffect(() => {
+    if (isNaN(yearNum)) {
+      setLoading(false)
+      setError('Invalid year parameter')
+      return
+    }
+    const controller = new AbortController()
+    fetchExamYearData(controller.signal)
+    return () => controller.abort()
+  }, [examId, year, yearNum])
+
+  const fetchExamYearData = async (signal) => {
     try {
       setLoading(true)
-      const response = await api.get(`/api/exams/${examId}/year?year=${year}`)
-      if (response.data?.success) {
-        setExamData(response.data.data)
-      } else {
-        setExamData(getSampleExamData())
-      }
-    } catch (error) {
-      console.error('Failed to fetch exam year data:', error)
-      setExamData(getSampleExamData())
+      setError(null)
+      const response = await api.get(`/api/exams/${encodeURIComponent(examId)}/year?year=${year}`, { signal })
+      if (signal?.aborted) return
+      setExamData(response.data?.data || null)
+    } catch (err) {
+      if (signal?.aborted || err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return
+      console.error('Failed to fetch exam year data:', err)
+      setExamData(null)
+      setError('We could not load information for this exam/year. Please try again.')
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
-
-  const getSampleExamData = () => ({
-    examId,
-    year: parseInt(year),
-    notification: 'June 2025',
-    applicationStart: '2025-07-01',
-    applicationEnd: '2025-07-25',
-    tier1ExamDate: '2025-09-15',
-    tier2ExamDate: '2025-12-01',
-    vacancy: 9374,
-    description: `Complete information about ${examId} ${year} examination including important dates, syllabus, and preparation strategy.`,
-    eligibility: 'Bachelor\'s degree in any discipline',
-    ageLimit: '18-32 years',
-    patternChanges: 'No major changes from previous year',
-    syllabusChanges: 'Some topics added to General Awareness section',
-    previousYearPapers: [
-      { id: 1, title: `${year} Shift 1`, date: `${year}-12-01`, questions: 100 },
-      { id: 2, title: `${year} Shift 2`, date: `${year}-12-02`, questions: 100 },
-      { id: 3, title: `${year} Shift 3`, date: `${year}-12-03`, questions: 100 },
-    ],
-    importantTopics: [
-      'Quantitative Aptitude',
-      'English Comprehension',
-      'General Intelligence & Reasoning',
-      'General Awareness'
-    ],
-    preparationStrategy: [
-      'Start with basics and fundamentals',
-      'Practice previous year questions',
-      'Take regular mock tests',
-      'Focus on time management',
-      'Revise regularly'
-    ]
-  })
 
   if (loading) {
     return (
@@ -82,6 +57,30 @@ export default function ExamYear() {
     )
   }
 
+  if (error || !examData) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+        <div className="container mx-auto px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-10 text-center border border-red-100 dark:border-red-900/50 shadow-sm">
+            <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Data Unavailable</h1>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {error || `No information found for this ${examId} ${year} exam.`}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Link to={`/exam/${examId}`} className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-semibold text-sm hover:bg-gray-200 transition">
+                Back to Exam
+              </Link>
+              <button onClick={() => { setLoading(true); fetchExamYearData(new AbortController().signal) }} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 transition">
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="container mx-auto px-4">
@@ -89,7 +88,7 @@ export default function ExamYear() {
         <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-6">
           <Link to="/exams" className="hover:text-brand-start">Exams</Link>
           <ChevronRight className="w-4 h-4" />
-          <Link to={`/exam/${examId}`} className="hover:text-brand-start capitalize">{examId.replace(/-/g, ' ')}</Link>
+          <Link to={`/exam/${examId}`} className="hover:text-brand-start capitalize">{(examId || '').replace(/-/g, ' ')}</Link>
           <ChevronRight className="w-4 h-4" />
           <span className="text-gray-900 dark:text-white font-medium">{year}</span>
         </div>
@@ -109,7 +108,7 @@ export default function ExamYear() {
                  Target Year {year}
               </div>
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-4 capitalize tracking-tight leading-tight">
-                {examId.replace(/-/g, ' ')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-400">{year}</span>
+                {(examId || '').replace(/-/g, ' ')} <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-400">{year}</span>
               </h1>
               <p className="text-white/80 text-lg md:text-xl font-medium max-w-2xl leading-relaxed">
                 Comprehensive guide, latest syllabus updates, and preparation resources for the {year} examination.
@@ -322,7 +321,7 @@ export default function ExamYear() {
               className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-brand-start transition"
             >
               <ArrowLeft className="w-4 h-4" />
-              Back to {examId.replace(/-/g, ' ')}
+              Back to {(examId || '').replace(/-/g, ' ')}
             </Link>
           </div>
         </div>

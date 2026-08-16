@@ -1,6 +1,8 @@
 import express from 'express'
 import { protect } from '../../middleware/auth.middleware.js'
 import smartRevisionService from './smartRevision.service.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -12,7 +14,7 @@ router.post('/generate-plan', protect, async (req, res) => {
     })
     res.json({ success: true, data: result })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -30,16 +32,16 @@ router.post('/add', protect, async (req, res) => {
     )
     res.json({ success: true, data: result })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-router.get('/due', protect, async (req, res) => {
+router.get('/due', protect, responseCache("smart-revision-due", 60), async (req, res) => {
   try {
     const questions = await smartRevisionService.getDueRevisions(req.user.id)
     res.json({ success: true, data: questions })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -57,16 +59,30 @@ router.post('/complete', protect, async (req, res) => {
     )
     res.json({ success: true, data: result })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
-router.get('/stats', protect, async (req, res) => {
+router.get('/wrong-questions', protect, async (req, res) => {
   try {
-    const stats = await smartRevisionService.getRevisionStats(req.user.id)
-    res.json({ success: true, data: stats })
+    const questions = await smartRevisionService.getWrongQuestions(req.user.id)
+    res.json({ success: true, data: questions })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
+  }
+})
+
+router.get('/mistakes/practice-session', protect, async (req, res) => {
+  try {
+    const { testId, subjectId, limit } = req.query
+    const questions = await smartRevisionService.getMistakePracticeQuestions(req.user.id, {
+      testId,
+      subjectId,
+      limit: parseInt(limit, 10) || 25,
+    })
+    res.json({ success: true, data: questions, total: questions.length })
+  } catch (error) {
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

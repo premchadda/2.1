@@ -10,7 +10,7 @@
  * - Clone existing tests
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import Test from '../../data/models/test/Test.js'
 import TestTemplate from '../../data/models/test/TestTemplate.js'
 
@@ -33,8 +33,8 @@ const testBuilderService = {
       duration: data.duration || 60,
       totalMarks: data.totalMarks || data.total_marks || 0,
       totalQuestions: data.totalQuestions || data.total_questions || 0,
-      negativeMarking: data.negativeMarking || data.negative_marking || 0.25,
-      passingMarks: data.passingMarks || data.passing_marks || 0,
+      negativeMarking: data.negativeMarking ?? data.negative_marking ?? 0.25,
+      passingMarks: data.passingMarks ?? data.passing_marks ?? 0,
       difficulty: data.difficulty || 'Medium',
       isPro: data.isPro !== undefined ? data.isPro : true,
       isActive: data.isActive !== undefined ? data.isActive : true,
@@ -55,7 +55,7 @@ const testBuilderService = {
       shuffleOptions: data.shuffleOptions || data.shuffle_options || false,
       allowReview: data.allowReview !== undefined ? data.allowReview : true,
       maxAttempts: data.maxAttempts || data.max_attempts || 0,
-      aiExplanationEnabled: data.aiExplanationEnabled || data.ai_explanation_enabled !== undefined ? data.ai_explanation_enabled : true,
+      aiExplanationEnabled: data.aiExplanationEnabled ?? data.ai_explanation_enabled ?? true,
     }
 
     const test = await Test.create(testData)
@@ -109,6 +109,26 @@ const testBuilderService = {
   },
 
   /**
+   * List tests with optional filters.
+   * @param {object} query - { status, difficulty, seriesId, limit, offset }
+   */
+  async list(query = {}) {
+    const { Test } = await import('../../data/models/test/Test.js').catch(() => ({}))
+    // Fall back to dbHelpers.find if Test model isn't available
+    if (!Test || typeof Test.find !== 'function') {
+      const filter = {}
+      if (query.status) filter.status = query.status
+      if (query.difficulty) filter.difficulty = query.difficulty
+      if (query.seriesId) filter.seriesId = query.seriesId
+      const limit = Math.min(200, Number(query.limit) || 50)
+      const offset = Math.max(0, Number(query.offset) || 0)
+      const results = await dbHelpers.find('tests', filter)
+      return results.slice(offset, offset + limit)
+    }
+    return Test.find(query)
+  },
+
+  /**
    * Get test with all details.
    */
   async getById(id) {
@@ -121,7 +141,7 @@ const testBuilderService = {
     try {
       // Get sections
       const sections = await client.query(
-        `SELECT * FROM test_sections WHERE test_id = $1 ORDER BY display_order`,
+        `SELECT id, name, category_id, description, duration, passing_marks, is_active, display_order, created_at, updated_at FROM test_sections WHERE test_id = $1 ORDER BY display_order`,
         [test.id]
       )
 
@@ -135,6 +155,9 @@ const testBuilderService = {
       let series = null
       if (test.seriesId || test.series_id) {
         const seriesResult = await client.query(
+          // Intentional SELECT * — the full series row is returned to the
+          // client as part of the test payload. Restricting columns here would
+          // silently drop fields the frontend depends on.
           `SELECT * FROM test_series WHERE id = $1`,
           [test.seriesId || test.series_id]
         )

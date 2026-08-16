@@ -1,4 +1,4 @@
-import { BookOpen, Users, Target, Clock, Award, FileText } from 'lucide-react'
+import { BookOpen, Users, Target, FileText } from 'lucide-react';
 
 export default function StaticContent({ exam, yearlyData }) {
   const sections = [

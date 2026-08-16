@@ -22,7 +22,6 @@ import {
   Star,
   BarChart3,
   Trophy,
-  Clock,
   HelpCircle,
   Database,
   Activity,
@@ -33,14 +32,12 @@ import {
   UserCheck,
   CreditCard,
   AlertTriangle,
-  List,
   Hash,
   CheckSquare,
-  History,
   Newspaper,
   Info,
-  Archive
-} from 'lucide-react'
+  Archive,
+} from 'lucide-react';
 
 /**
  * Navigation Categories aligned with Master Specification
@@ -195,18 +192,10 @@ export const adminNavConfig = {
       items: [
         {
           id: 'study-materials-manager',
-          name: 'SM Manager',
+          name: 'Study Materials',
           path: '/admin/study-materials',
           icon: BookOpen,
-          description: 'Manage Subjects, Chapters & Topics',
-          badge: null
-        },
-        {
-          id: 'subjects',
-          name: 'Subjects',
-          path: '/admin/subjects',
-          icon: Layers,
-          description: 'Subject and curriculum management',
+          description: 'Manage Subjects, Chapters, Topics & Curriculum',
           badge: null
         },
         {

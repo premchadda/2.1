@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trstprep Architecture Blueprint & Flow Visualizer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Colors - Dark Theme (Default) */
+      --bg-app: #070913;
+      --bg-panel: #0d1222;
+      --bg-card: rgba(17, 24, 39, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-sec: #9ca3af;
+      --text-muted: #4b5563;
+      
+      --accent-color: #6366f1; /* Indigo */
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      
+      /* Glowing Tiers */
+      --color-frontend: #3b82f6; /* Blue */
+      --color-backend: #8b5cf6;  /* Purple */
+      --color-redis: #ef4444;    /* Red */
+      --color-pool: #f59e0b;     /* Orange */
+      --color-database: #10b981; /* Green */
+      --color-worker: #06b6d4;   /* Cyan */
+      --color-ai: #d946ef;       /* Pink */
+      
+      /* Status LED Colors */
+      --color-healthy: #10b981;
+      --color-loading: #3b82f6;
+      --color-apicall: #8b5cf6;
+      --color-dbquery: #f59e0b;
+      --color-cached: #06b6d4;
+      --color-error: #ef4444;
+      --color-offline: #6b7280;
+      --color-future: #d946ef;
+
+      --radius: 12px;
+      --radius-sm: 6px;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --flow-speed: 2s;
+      --play-state: running;
+    }
+
+    /* Light Theme Styles */
+    body.light-mode {
+      --bg-app: #f8fafc;
+      --bg-panel: #ffffff;
+      --bg-card: rgba(241, 245, 249, 0.9);
+      --border-color: rgba(0, 0, 0, 0.08);
+      --text-main: #0f172a;
+      --text-sec: #475569;
+      --text-muted: #94a3b8;
+      --accent-glow: rgba(99, 102, 241, 0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: var(--bg-app);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* Header Bar */
+    header {
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand h1 {
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--color-frontend), var(--color-backend));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand p {
+      font-size: 11px;
+      color: var(--text-sec);
+      margin-top: 1px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Navigation Tabs */
+    .view-tabs {
+      display: flex;
+      background: rgba(0,0,0,0.15);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 3px;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-sec);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--accent-color);
+      color: #fff;
+    }
+
+    .btn-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-circle:hover {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* Main Content Wrapper */
+    .app-body {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 61px);
+      position: relative;
+    }
+
+    /* Left Sidebar: Controls & Flows */
+    .sidebar {
+      width: 320px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+    }
+
+    .sidebar-section {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    /* Flow Playback Controls */
+    .flow-controller {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .playback-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-control {
+      flex: 1;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.2s;
+    }
+
+    .btn-control:hover:not(:disabled) {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent-color);
+    }
+
+    .btn-control:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .speed-slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 6px;
+    }
+
+    .speed-slider-group label {
+      font-size: 11px;
+      color: var(--text-sec);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .speed-slider {
+      width: 100%;
+      accent-color: var(--accent-color);
+      cursor: pointer;
+    }
+
+    /* Flow List Selector */
+    .flow-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 250px;
+      overflow-y: auto;
+    }
+
+    .flow-item {
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .flow-item:hover {
+      background: rgba(99, 102, 241, 0.05);
+      border-color: var(--accent-color);
+    }
+
+    .flow-item.active {
+      background: var(--accent-glow);
+      border-color: var(--accent-color);
+      font-weight: 700;
+    }
+
+    .badge-flow {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.1);
+      color: var(--text-sec);
+    }
+
+    /* Search & Node Directory */
+    .search-box {
+      width: 100%;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      font-size: 12px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-box:focus {
+      border-color: var(--accent-color);
+      box-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    .node-directory {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .directory-item {
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-sec);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+
+    .directory-item:hover {
+      background: rgba(255,255,255,0.03);
+      color: var(--text-main);
+    }
+
+    /* Canvas Drawing Area */
+    .canvas-pane {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at 50% 50%, rgba(17, 24, 39, 0.4) 0%, rgba(3, 7, 18, 0.9) 100%);
+      overflow: hidden;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .canvas-pane:active {
+      cursor: grabbing;
+    }
+
+    .zoom-container {
+      width: 100%;
+      height: 100%;
+      transform-origin: 0 0;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    /* SVG connections Layer */
+    .svg-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2000px;
+      height: 2000px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .path-link {
+      fill: none;
+      stroke-width: 2px;
+      stroke-dasharray: 8, 8;
+      opacity: 0.15;
+      transition: all 0.3s;
+    }
+
+    .path-active {
+      opacity: 0.95;
+      stroke-width: 3px;
+      animation: dashmove var(--flow-speed) linear infinite;
+      animation-play-state: var(--play-state);
+    }
+
+    .packet-node {
+      fill: var(--accent-color);
+      filter: drop-shadow(0 0 6px var(--accent-color));
+      animation: routePacket 5s infinite linear;
+      animation-play-state: var(--play-state);
+    }
+
+    /* Interactive Graph Nodes */
+    .nodes-layer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2000px;
+      height: 2000px;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .graph-node {
+      position: absolute;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 14px;
+      width: 240px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .graph-node:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 15px 40px rgba(0,0,0,0.7);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .graph-node.selected-node {
+      border-color: var(--theme-color) !important;
+      box-shadow: 0 0 25px var(--theme-color-glow) !important;
+      background: rgba(13, 18, 34, 0.95);
+    }
+
+    .node-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .node-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .node-bullet {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--theme-color);
+      box-shadow: 0 0 8px var(--theme-color);
+    }
+
+    .node-title {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+
+    .node-status-led {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--status-color, var(--color-healthy));
+      box-shadow: 0 0 6px var(--status-color, var(--color-healthy));
+    }
+
+    .node-desc {
+      font-size: 11px;
+      color: var(--text-sec);
+      line-height: 1.4;
+      margin-bottom: 8px;
+    }
+
+    .node-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .node-meta {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-muted);
+      background: rgba(0,0,0,0.3);
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .node-type {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--theme-color);
+      letter-spacing: 0.5px;
+    }
+
+    /* Graph Canvas HUD Overlay */
+    .hud-controls {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .hud-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .hud-btn:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: var(--accent-color);
+    }
+
+    /* Right Panel Inspector */
+    .inspector-panel {
+      width: 440px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border-color);
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      z-index: 50;
+      overflow-y: auto;
+      backdrop-filter: blur(10px);
+    }
+
+    .inspector-header h2 {
+      font-size: 18px;
+      font-weight: 900;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .inspector-header p {
+      font-size: 11px;
+      color: var(--text-sec);
+    }
+
+    .inspector-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .inspector-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .inspector-card-body {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-sec);
+    }
+
+    .file-pill {
+      display: block;
+      color: var(--accent-color);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 6px;
+      text-decoration: none;
+      word-break: break-all;
+      transition: all 0.2s ease;
+    }
+
+    .file-pill:hover {
+      border-color: var(--accent-color);
+      background: rgba(99, 102, 241, 0.1);
+      color: #fff;
+    }
+
+    .warning-indicator {
+      background: rgba(239, 68, 68, 0.08);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    /* Database Schema Fields visualizer */
+    .schema-field-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-top: 8px;
+    }
+
+    .schema-field {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 6px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 4px;
+    }
+
+    .field-name {
+      color: #cbd5e1;
+    }
+
+    .field-type {
+      color: var(--text-muted);
+    }
+
+    /* Directory Tree Layout */
+    .tree-folder {
+      margin-left: 12px;
+      border-left: 1px solid var(--border-color);
+      padding-left: 8px;
+    }
+
+    .tree-item {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 3px 0;
+      color: var(--text-sec);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Sequence diagrams styles */
+    .sequence-diagram {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .sequence-step {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      font-size: 12px;
+      position: relative;
+    }
+
+    .sequence-step::after {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: 7px;
+      bottom: -18px;
+      width: 1px;
+      background: var(--border-color);
+    }
+
+    .sequence-step:last-child::after {
+      display: none;
+    }
+
+    .step-num {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .step-desc {
+      color: var(--text-sec);
+      line-height: 1.4;
+    }
+
+    /* Animations Keyframes */
+    @keyframes dashmove {
+      to {
+        stroke-dashoffset: -40;
+      }
+    }
+
+    @keyframes routePacket {
+      0% {
+        offset-distance: 0%;
+      }
+      100% {
+        offset-distance: 100%;
+      }
+    }
+
+    /* Stats Board Panel styling */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .stat-counter {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-color);
+    }
+
+    .stat-lbl {
+      font-size: 9px;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Dark/Light mode transitions */
+    * {
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header Section -->
+  <header>
+    <div class="brand">
+      <h1>Trstprep Architecture Blueprint</h1>
+      <p>Interactive System Topology, ER Models & Execution Sequences</p>
+    </div>
+    
+    <div class="header-actions">
+      <!-- Tabs Navigation -->
+      <div class="view-tabs">
+        <button class="tab-btn active" onclick="switchView('overview')">System Topology</button>
+        <button class="tab-btn" onclick="switchView('er')">Database ERD</button>
+        <button class="tab-btn" onclick="switchView('flows')">Sequence Flows</button>
+        <button class="tab-btn" onclick="switchView('files')">Directory Tree</button>
+      </div>
+      
+      <!-- Theme Switcher -->
+      <button class="btn-circle" onclick="toggleTheme()" title="Toggle Dark/Light Mode">🎨</button>
+    </div>
+  </header>
+
+  <!-- Main Body Wrapper -->
+  <div class="app-body">
+    
+    <!-- Left Sidebar Control Board -->
+    <div class="sidebar">
+      
+      <!-- Playback Controls -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Animation Controls</div>
+        <div class="flow-controller">
+          <div class="playback-buttons">
+            <button class="btn-control" id="ctrl-play" onclick="setPlayback('play')">⏸ Pause</button>
+            <button class="btn-control" id="ctrl-ff" onclick="setPlayback('fast')">⏩ Fast</button>
+            <button class="btn-control" onclick="resetPlayback()">🔄 Reset</button>
+          </div>
+          <div class="speed-slider-group">
+            <label>
+              <span>Playback Rate</span>
+              <span id="speed-lbl">1.0x</span>
+            </label>
+            <input type="range" class="speed-slider" min="0.25" max="3" step="0.25" value="1" oninput="changeSpeed(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Execution Sequence selector -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Execution Flows</div>
+        <div class="flow-list" id="flow-selector-list">
+          <div class="flow-item active" onclick="selectFlow('none')">
+            <span>Static Topology</span>
+            <span class="badge-flow">System</span>
+          </div>
+          <div class="flow-item" onclick="selectFlow('auth')">
+            <span>1. Session & CSRF Check</span>
+            <span class="badge-flow">Security</span>
+          </div>
+          <div class="flow-item" onclick="selectFlow('submit')">
+            <span>2. Test submission & Evaluation</span>
+            <span class="badge-flow">Test Engine</span>
+          </div>
+          <div class="flow-item" onclick="selectFlow('practice')">
+            <span>3. Spaced Repetition Practice</span>
+            <span class="badge-flow">Practice</span>
+          </div>
+          <div class="flow-item" onclick="selectFlow('admin')">
+            <span>4. Admin Bulk Import & OCR</span>
+            <span class="badge-flow">Admin</span>
+          </div>
+          <div class="flow-item" onclick="selectFlow('ai')">
+            <span>5. AI Doubt Solver & RAG</span>
+            <span class="badge-flow">AI Core</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="sidebar-section" style="padding-bottom: 8px;">
+        <div class="sidebar-title">Search Blueprint</div>
+        <input type="text" class="search-box" id="node-search" placeholder="Search pages, tables, APIs..." oninput="searchNodes(this.value)">
+      </div>
+
+      <!-- Node quick directory -->
+      <div class="node-directory" id="node-dir">
+        <!-- Generated dynamically based on selected tab view -->
+      </div>
+
+    </div>
+
+    <!-- Active Visualization Canvas -->
+    <div class="canvas-pane" id="canvas" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="endDrag()">
+      
+      <div class="zoom-container" id="zoom-group" style="transform: scale(1) translate(0px, 0px);">
+        
+        <!-- Connections SVG Layer -->
+        <svg class="svg-layer" id="connections-svg">
+          <!-- Coordinates bound dynamically -->
+        </svg>
+
+        <!-- Graphic Graph Nodes Layer -->
+        <div class="nodes-layer" id="nodes-container">
+          <!-- Hydrated dynamically -->
+        </div>
+
+      </div>
+
+      <!-- HUD overlay buttons -->
+      <div class="hud-controls">
+        <button class="hud-btn" onclick="adjustZoom(0.1)" title="Zoom In">+</button>
+        <button class="hud-btn" onclick="adjustZoom(-0.1)" title="Zoom Out">-</button>
+        <button class="hud-btn" onclick="resetZoom()" title="Reset Zoom">⛶</button>
+      </div>
+
+    </div>
+
+    <!-- Right Side details inspector -->
+    <div class="details-panel" id="inspector">
+      <div class="inspector-header">
+        <h2 id="ins-title">Select Node</h2>
+        <p id="ins-subtitle">Click on any visual node to inspect dependencies, codebase links, and data variables.</p>
+      </div>
+
+      <div class="inspector-card" id="ins-role-card">
+        <div class="inspector-card-title">Responsibility</div>
+        <div class="inspector-card-body" id="ins-role"></div>
+      </div>
+
+      <div class="inspector-card" id="ins-files-card">
+        <div class="inspector-card-title">Files in Workspace</div>
+        <div class="inspector-card-body" id="ins-files"></div>
+      </div>
+
+      <div class="inspector-card" id="ins-warnings-card" style="display: none;">
+        <div class="inspector-card-title" style="color: var(--color-error);">Audit findings</div>
+        <div class="inspector-card-body" id="ins-warnings"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Visual node mapping data
+    const topologyNodes = {
+      // FRONTEND
+      fe_landing: { id: "fe_landing", type: "frontend", title: "Landing Page", desc: "Public home portal. Directs entries to login, pricing tables, and public stats.", x: 100, y: 150, file: "App.jsx", color: "var(--color-frontend)" },
+      fe_login: { id: "fe_login", type: "frontend", title: "Login & Signup View", desc: "User entry credentials inputs with validation schema check constraints.", x: 100, y: 300, file: "AuthContext.jsx", color: "var(--color-frontend)" },
+      fe_dashboard: { id: "fe_dashboard", type: "frontend", title: "Student Dashboard", desc: "Central workspace interface. Syncs enrollment state, target stats, and streak grids.", x: 100, y: 450, file: "App.jsx", color: "var(--color-frontend)" },
+      fe_practice: { id: "fe_practice", type: "frontend", title: "Practice Lab Page", desc: "Interactive practice engine with instant evaluation feedback, bookmarks, and explanation widgets.", x: 100, y: 600, file: "PracticeLab.jsx", color: "var(--color-frontend)" },
+      fe_test: { id: "fe_test", type: "frontend", title: "Exam Test Interface", desc: "Time-bound exam simulator UI supporting sections limits, timers, and anti-cheat hooks.", x: 100, y: 750, file: "TestInterface.jsx", color: "var(--color-frontend)" },
+      fe_results: { id: "fe_results", type: "frontend", title: "Results & Analytics", desc: "Aggregated performance scorecards, difficulty graphs, and weak topics lists.", x: 100, y: 900, file: "TestResult.jsx", color: "var(--color-frontend)" },
+
+      // MIDDLEWARE & AUTH
+      mid_csrf: { id: "mid_csrf", type: "middleware", title: "CSRF Validator", desc: "Intercepts unsafe methods (POST/PUT) and validates double-submit CSRF headers.", x: 450, y: 200, file: "csrf.middleware.js", color: "var(--color-backend)", status: "apicall" },
+      mid_auth: { id: "mid_auth", type: "middleware", title: "protect / Authentication", desc: "Verifies JWT tokens out of auth headers or cookie values.", x: 450, y: 350, file: "auth.middleware.js", color: "var(--color-backend)" },
+      mid_ratelimit: { id: "mid_ratelimit", type: "middleware", title: "Rate Limiter middleware", desc: "Blocks flooding requests using memory or Redis stores.", x: 450, y: 500, file: "app-port5001.js", color: "var(--color-backend)" },
+
+      // BACKEND ROUTERS & SYSTEMS
+      be_auth: { id: "be_auth", type: "backend", title: "Auth Router / Controller", desc: "Manages registrations, logins, cookie bindings, and token refreshes.", x: 800, y: 200, file: "auth.controller.js", color: "var(--color-backend)" },
+      be_tests: { id: "be_tests", type: "backend", title: "Test Submission Engine", desc: "Authenticates test sessions, maps scores, and writes autosaves.", x: 800, y: 350, file: "test.routes.js", color: "var(--color-backend)", status: "dbquery" },
+      be_practice: { id: "be_practice", type: "backend", title: "Practice Router", desc: "Tracks daily quiz entries, evaluation results, and wrong question maps.", x: 800, y: 500, file: "practice.js", color: "var(--color-backend)" },
+      be_ai: { id: "be_ai", type: "backend", title: "AI Mentor Orchestrator", desc: "Connects LLM prompts, generates study plans, and handles doubts.", x: 800, y: 650, file: "aiMentor.service.js", color: "var(--color-ai)", status: "cached" },
+      be_admin: { id: "be_admin", type: "backend", title: "Admin Management Routes", desc: "Massive routes module executing exam edits, user passes, and bulk imports.", x: 800, y: 800, file: "admin.js", color: "var(--color-backend)" },
+
+      // CACHING & QUEUES
+      sys_redis: { id: "sys_redis", type: "redis", title: "Redis Cache Store", desc: "Validates active JWT states, handles rate limits, and houses queues.", x: 1150, y: 250, file: "redisClient.js", color: "var(--color-redis)" },
+      sys_workers: { id: "sys_workers", type: "workers", title: "BullMQ Job Workers", desc: "Executes heavy background tasks (streak calculations, leaderboard updates).", x: 1150, y: 550, file: "worker/index.js", color: "var(--color-worker)" },
+
+      // DB CONFIGS & POOL
+      sys_pool: { id: "sys_pool", type: "pool", title: "PostgreSQL pg Pool", desc: "Coordinates active client checkouts, idle timeouts, and query runs.", x: 1150, y: 850, file: "postgres-helpers.js", color: "var(--color-pool)" },
+
+      // DATABASE PERSISTENCE
+      db_users: { id: "db_users", type: "database", title: "db: users", desc: "Stores hashed passwords, email ids, user roles, and pro credentials.", x: 1500, y: 150, file: "018-fix-...sql", color: "var(--color-database)" },
+      db_tests: { id: "db_tests", type: "database", title: "db: tests & questions", desc: "Houses exam structures, sections, parameters, and question banks.", x: 1500, y: 300, file: "061_audit-...sql", color: "var(--color-database)" },
+      db_attempts: { id: "db_attempts", type: "database", title: "db: attempts & answers", desc: "Saves active student answers, marks, telemetry event logs, and status.", x: 1500, y: 450, file: "061_audit-...sql", color: "var(--color-database)" },
+      db_stats: { id: "db_stats", type: "database", title: "db: user_topic_stats", desc: "Maintains user performance accuracy metrics mapped per subject topic.", x: 1500, y: 600, file: "018-fix-...sql", color: "var(--color-database)" },
+      db_streaks: { id: "db_streaks", type: "database", title: "db: study_streaks", desc: "Calculates consecutive active days, current streaks, and milestones.", x: 1500, y: 750, file: "018-fix-...sql", color: "var(--color-database)" },
+      db_revision: { id: "db_revision", type: "database", title: "db: revision_queue", desc: "Schedules wrong answers for spaced repetition reviews (1-3-7-14 days).", x: 1500, y: 900, file: "018-fix-...sql", color: "var(--color-database)" }
+    };
+
+    // Connections between nodes
+    const topologyLinks = [
+      { from: "fe_landing", to: "fe_login" },
+      { from: "fe_login", to: "mid_csrf" },
+      { from: "fe_dashboard", to: "mid_csrf" },
+      { from: "fe_practice", to: "mid_csrf" },
+      { from: "fe_test", to: "mid_csrf" },
+      
+      { from: "mid_csrf", to: "mid_auth" },
+      { from: "mid_auth", to: "mid_ratelimit" },
+      
+      { from: "mid_ratelimit", to: "be_auth" },
+      { from: "mid_ratelimit", to: "be_tests" },
+      { from: "mid_ratelimit", to: "be_practice" },
+      { from: "mid_ratelimit", to: "be_ai" },
+      { from: "mid_ratelimit", to: "be_admin" },
+
+      { from: "be_auth", to: "sys_redis" },
+      { from: "be_tests", to: "sys_redis" },
+      { from: "be_tests", to: "sys_workers" },
+      { from: "be_ai", to: "sys_pool" },
+      { from: "be_admin", to: "sys_pool" },
+
+      { from: "sys_redis", to: "sys_pool" },
+      { from: "sys_workers", to: "sys_pool" },
+
+      { from: "sys_pool", to: "db_users" },
+      { from: "sys_pool", to: "db_tests" },
+      { from: "sys_pool", to: "db_attempts" },
+      { from: "sys_pool", to: "db_stats" },
+      { from: "sys_pool", to: "db_streaks" },
+      { from: "sys_pool", to: "db_revision" }
+    ];
+
+    // Database ERD node definitions
+    const erNodes = {
+      tbl_users: { id: "tbl_users", type: "database", title: "users", desc: "User accounts table.", x: 200, y: 150, file: "018-fix-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "public_id", type: "VARCHAR(50) UNIQUE" },
+        { name: "email", type: "VARCHAR(255) UNIQUE" },
+        { name: "password_hash", type: "VARCHAR(255)" },
+        { name: "role", type: "VARCHAR(50) DEFAULT 'student'" },
+        { name: "pro_expiry", type: "TIMESTAMP NULL" }
+      ]},
+      tbl_tests: { id: "tbl_tests", type: "database", title: "tests", desc: "Exam Mock tests template configuration.", x: 600, y: 150, file: "061_audit-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "title", type: "VARCHAR(255)" },
+        { name: "slug", type: "VARCHAR(255) UNIQUE" },
+        { name: "duration", type: "INTEGER (Minutes)" },
+        { name: "total_marks", type: "INTEGER" },
+        { name: "negative_marking", type: "DECIMAL" },
+        { name: "series_id", type: "INTEGER FK -> test_series(id)" }
+      ]},
+      tbl_questions: { id: "tbl_questions", type: "database", title: "questions", desc: "Questions bank repository.", x: 1000, y: 150, file: "061_audit-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "text", type: "TEXT" },
+        { name: "options", type: "JSONB" },
+        { name: "correct_option", type: "INTEGER" },
+        { name: "section_id", type: "INTEGER FK -> test_sections" },
+        { name: "explanation", type: "TEXT" }
+      ]},
+      tbl_attempts: { id: "tbl_attempts", type: "database", title: "attempts", desc: "Log attempts made on tests by students.", x: 600, y: 500, file: "061_audit-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "user_id", type: "INTEGER FK -> users(id)" },
+        { name: "test_id", type: "INTEGER FK -> tests(id)" },
+        { name: "score", type: "DECIMAL" },
+        { name: "status", type: "VARCHAR(50) (completed/started)" },
+        { name: "answers", type: "JSONB" }
+      ]},
+      tbl_topic_stats: { id: "tbl_topic_stats", type: "database", title: "user_topic_stats", desc: "Per-topic performance stats per user.", x: 200, y: 500, file: "018-fix-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "user_id", type: "INTEGER FK -> users(id)" },
+        { name: "topic", type: "VARCHAR(255)" },
+        { name: "subject", type: "VARCHAR(255)" },
+        { name: "correct_answers", type: "INTEGER" },
+        { name: "total_attempts", type: "INTEGER" }
+      ]},
+      tbl_revision: { id: "tbl_revision", type: "database", title: "revision_queue", desc: "Spaced repetition review schedule database.", x: 1000, y: 500, file: "018-fix-...sql", color: "var(--color-database)", schema: [
+        { name: "id", type: "SERIAL PRIMARY KEY" },
+        { name: "user_id", type: "INTEGER FK -> users(id)" },
+        { name: "question_id", type: "INTEGER FK -> questions(id)" },
+        { name: "due_at", type: "TIMESTAMP" },
+        { name: "status", type: "VARCHAR(50) (pending/completed)" }
+      ]}
+    };
+
+    const erLinks = [
+      { from: "tbl_users", to: "tbl_attempts" },
+      { from: "tbl_tests", to: "tbl_attempts" },
+      { from: "tbl_users", to: "tbl_topic_stats" },
+      { from: "tbl_questions", to: "tbl_revision" },
+      { from: "tbl_users", to: "tbl_revision" }
+    ];
+
+    // Sequence flow configurations
+    const flows = {
+      none: [],
+      auth: [
+        { from: "fe_login", to: "mid_csrf" },
+        { from: "mid_csrf", to: "mid_auth" },
+        { from: "mid_auth", to: "be_auth" },
+        { from: "be_auth", to: "sys_redis" },
+        { from: "sys_redis", to: "sys_pool" },
+        { from: "sys_pool", to: "db_users" }
+      ],
+      submit: [
+        { from: "fe_test", to: "mid_csrf" },
+        { from: "mid_csrf", to: "mid_auth" },
+        { from: "mid_auth", to: "be_tests" },
+        { from: "be_tests", to: "sys_redis" },
+        { from: "be_tests", to: "sys_workers" },
+        { from: "sys_workers", to: "sys_pool" },
+        { from: "sys_pool", to: "db_attempts" },
+        { from: "sys_pool", to: "db_stats" }
+      ],
+      practice: [
+        { from: "fe_practice", to: "mid_csrf" },
+        { from: "mid_csrf", to: "mid_auth" },
+        { from: "mid_auth", to: "be_practice" },
+        { from: "be_practice", to: "sys_pool" },
+        { from: "sys_pool", to: "db_revision" }
+      ],
+      admin: [
+        { from: "fe_dashboard", to: "mid_csrf" },
+        { from: "mid_csrf", to: "mid_auth" },
+        { from: "mid_auth", to: "be_admin" },
+        { from: "be_admin", to: "sys_pool" },
+        { from: "sys_pool", to: "db_tests" }
+      ],
+      ai: [
+        { from: "fe_dashboard", to: "mid_csrf" },
+        { from: "mid_csrf", to: "mid_auth" },
+        { from: "mid_auth", to: "be_ai" },
+        { from: "be_ai", to: "sys_pool" },
+        { from: "sys_pool", to: "db_stats" }
+      ]
+    };
+
+    // Flow sequence explanations
+    const flowSequences = {
+      none: [],
+      auth: [
+        { step: 1, desc: "User inputs credentials. React Client validates format and forwards payload to Axios client." },
+        { step: 2, desc: "Axios issues POST /api/auth/login. CSRF Middleware extracts CSRF cookies and double-submits matching hashes." },
+        { step: 3, desc: "Token passes to Authentication middleware. Protect helper checks if headers contain a valid bearer signature." },
+        { step: 4, desc: "Express Auth controller triggers database lookup via connection pool helper." },
+        { step: 5, desc: "Checks user existence, matches bcrypt hashes, generates JWT cookies, and registers active session in Redis cache." }
+      ],
+      submit: [
+        { step: 1, desc: "Student clicks Submit. Clock is stopped. Telemetry events collected from anticheat visiblity hooks." },
+        { step: 2, desc: "Axios sends PUT /api/tests/:id/submit with compiled answers JSON." },
+        { step: 3, desc: "Auth middleware validates student credentials session. Body normalizer formats payloads to snake_case." },
+        { step: 4, desc: "Express submission endpoint writes score card record to database, computing negative marking configurations." },
+        { step: 5, desc: "Triggers background jobs. BullMQ writes task messages to Redis Cache for analytics calculations." },
+        { step: 6, desc: "BullMQ worker reads job, updates user topic accuracies, and processes spaced repetition logs asynchronously." }
+      ],
+      practice: [
+        { step: 1, desc: "Student opens study list. Axios fetches due items from GET /api/intelligence/revision-queue." },
+        { step: 2, desc: "Database scans due timestamps, filters completed status, and loads targets." },
+        { step: 3, desc: "Student submits answer. Scoring evaluates correctness immediately, logging updates to db: wrong_questions." },
+        { step: 4, desc: "If incorrect, schedule day recalculates and logs new due timestamps in revision_queue." }
+      ],
+      admin: [
+        { step: 1, desc: "Admin logs in, accesses dashboard, and uploads test spreadsheets or PDF files." },
+        { step: 2, desc: "Express admin middleware verifies role authorization before routing to admin-tests controllers." },
+        { step: 3, desc: "Multer parses payload stream, uploading media buffers to storage." },
+        { step: 4, desc: "JSON/CSV importer parses question objects, mapping options schemas and correct indices to insert queries." }
+      ],
+      ai: [
+        { step: 1, desc: "Student submits doubt text in chat widget. System sanitizes characters to block prompt injection." },
+        { step: 2, desc: "AI Mentor service reads historical session limits and loads student weak area scores from db." },
+        { step: 3, desc: "Formulates system prompt and forwards history to OpenRouter completions gateway via Fetch." },
+        { step: 4, desc: "On response, logs token usage counts and success metrics into database table: ai_generation_logs." }
+      ]
+    };
+
+    // Zoom/Pan State
+    let zoomLevel = 1;
+    let panX = 0;
+    let panY = 0;
+    let isDragging = false;
+    let startX, startY;
+    let currentView = 'overview';
+    let activeFlow = 'none';
+
+    // Switch view tabs
+    function switchView(viewName) {
+      currentView = viewName;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.tab-btn')).find(btn => btn.innerText.toLowerCase().includes(viewName === 'files' ? 'tree' : viewName));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      resetZoom();
+      renderCanvas();
+      hydrateDirectory();
+    }
+
+    // Render nodes and connectors based on active tab view
+    function renderCanvas() {
+      const svg = document.getElementById('connections-svg');
+      const nodesContainer = document.getElementById('nodes-container');
+      
+      // Clear canvas
+      svg.innerHTML = '';
+      nodesContainer.innerHTML = '';
+
+      const targetNodes = currentView === 'overview' ? topologyNodes : (currentView === 'er' ? erNodes : {});
+      const targetLinks = currentView === 'overview' ? topologyLinks : (currentView === 'er' ? erLinks : []);
+
+      if (currentView === 'files') {
+        renderDirectoryTree();
+        return;
+      }
+      
+      if (currentView === 'flows') {
+        renderFlowSequences();
+        return;
+      }
+
+      // Render Nodes
+      Object.entries(targetNodes).forEach(([id, node]) => {
+        const div = document.createElement('div');
+        div.className = 'graph-node';
+        div.id = `node-${id}`;
+        div.style.left = `${node.x}px`;
+        div.style.top = `${node.y}px`;
+        div.style.setProperty('--theme-color', node.color);
+        div.style.setProperty('--theme-color-glow', node.color + '33');
+        div.style.borderLeft = `4px solid ${node.color}`;
+
+        let schemaContent = '';
+        if (node.schema) {
+          schemaContent = `<div class="schema-field-list">` +
+            node.schema.map(f => `
+              <div class="schema-field">
+                <span class="field-name">${f.name}</span>
+                <span class="field-type">${f.type}</span>
+              </div>
+            `).join('') + `</div>`;
+        }
+
+        div.innerHTML = `
+          <div class="node-header">
+            <div class="node-left">
+              <span class="node-bullet" style="color: ${node.color}"></span>
+              <span class="node-title">${node.title}</span>
+            </div>
+            <span class="node-status-led" style="--status-color: var(--color-${node.status || 'healthy'})"></span>
+          </div>
+          <div class="node-desc">${node.desc}</div>
+          ${schemaContent}
+          <div class="node-footer">
+            <span class="node-meta">${node.file}</span>
+            <span class="node-type" style="color: ${node.color}">${node.type}</span>
+          </div>
+        `;
+
+        div.onclick = (e) => {
+          e.stopPropagation();
+          inspectNode(id, targetNodes);
+        };
+
+        nodesContainer.appendChild(div);
+      });
+
+      // Render Paths
+      targetLinks.forEach(link => {
+        const fromNode = targetNodes[link.from];
+        const toNode = targetNodes[link.to];
+        if (!fromNode || !toNode) return;
+
+        // Calculate offset points
+        const fromX = fromNode.x + 240;
+        const fromY = fromNode.y + 40;
+        const toX = toNode.x;
+        const toY = toNode.y + 40;
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("id", `path-${link.from}-${link.to}`);
+        path.setAttribute("class", "path-link");
+        
+        // Curved line routing
+        const d = `M ${fromX} ${fromY} C ${(fromX+toX)/2} ${fromY}, ${(fromX+toX)/2} ${toY}, ${toX} ${toY}`;
+        path.setAttribute("d", d);
+        path.setAttribute("stroke", fromNode.color);
+        svg.appendChild(path);
+      });
+
+      updateActiveFlowLines();
+    }
+
+    // Visual sequence rendering
+    function renderFlowSequences() {
+      const nodesContainer = document.getElementById('nodes-container');
+      nodesContainer.innerHTML = `
+        <div style="padding: 40px; max-width: 800px; margin: auto;">
+          <h2>Interactive Flow Sequence Logs</h2>
+          <p style="color: var(--text-sec); margin-bottom: 20px;">Use the execution selector inside the sidebar to animate request packets moving across frontend and backend boundaries.</p>
+          <div class="sequence-diagram" id="flow-steps-diagram">
+            <!-- Populated via Javascript -->
+          </div>
+        </div>
+      `;
+      updateFlowStepsUI();
+    }
+
+    function updateFlowStepsUI() {
+      const container = document.getElementById('flow-steps-diagram');
+      if (!container) return;
+
+      const steps = flowSequences[activeFlow] || [];
+      if (steps.length === 0) {
+        container.innerHTML = `<p style="color: var(--text-muted);">Please select a flow in the sidebar list to visual execution logs.</p>`;
+        return;
+      }
+
+      container.innerHTML = steps.map(s => `
+        <div class="sequence-step">
+          <div class="step-num">${s.step}</div>
+          <div class="step-desc">${s.desc}</div>
+        </div>
+      `).join('');
+    }
+
+    // Hydrate the visual directory tree of project workspace
+    function renderDirectoryTree() {
+      const nodesContainer = document.getElementById('nodes-container');
+      nodesContainer.innerHTML = `
+        <div style="padding: 40px; max-width: 700px; margin: auto;">
+          <h2>Trstprep Repository Tree</h2>
+          <p style="color: var(--text-sec); margin-bottom: 20px;">Structured files mapping monorepo boundaries.</p>
+          
+          <div class="tree-item">📁 trstprep-v2.1/</div>
+          <div class="tree-folder">
+            <div class="tree-item">📁 apps/</div>
+            <div class="tree-folder">
+              <div class="tree-item">📁 backend/</div>
+              <div class="tree-folder">
+                <div class="tree-item">📄 app-port5001.js</div>
+                <div class="tree-item">📁 src/</div>
+                <div class="tree-folder">
+                  <div class="tree-item">📁 api/routes/</div>
+                  <div class="tree-folder">
+                    <div class="tree-item">📄 admin.js (182KB Monolith)</div>
+                    <div class="tree-item">📄 test.routes.js</div>
+                  </div>
+                  <div class="tree-item">📁 middleware/</div>
+                  <div class="tree-folder">
+                    <div class="tree-item">📄 csrf.middleware.js</div>
+                    <div class="tree-item">📄 auth.middleware.js</div>
+                  </div>
+                  <div class="tree-item">📁 modules/ai/</div>
+                  <div class="tree-folder">
+                    <div class="tree-item">📄 aiMentor.service.js</div>
+                  </div>
+                </div>
+              </div>
+              <div class="tree-item">📁 frontend/</div>
+              <div class="tree-folder">
+                <div class="tree-item">📄 vite.config.js</div>
+                <div class="tree-item">📁 src/pages/tests/</div>
+                <div class="tree-folder">
+                  <div class="tree-item">📄 TestInterface.jsx</div>
+                  <div class="tree-item">📄 PracticeLab.jsx</div>
+                </div>
+              </div>
+            </div>
+            <div class="tree-item">📁 packages/</div>
+            <div class="tree-folder">
+              <div class="tree-item">📄 shared-config/src/index.js</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Details Inspector Hydration
+    function inspectNode(nodeId, nodesMap) {
+      const node = nodesMap[nodeId];
+      if (!node) return;
+
+      document.getElementById('ins-title').innerText = node.title;
+      document.getElementById('ins-subtitle').innerText = `${node.type.toUpperCase()} module — ${node.file}`;
+      document.getElementById('ins-role').innerText = node.desc;
+
+      const fileContainer = document.getElementById('ins-files');
+      fileContainer.innerHTML = '';
+      
+      const a = document.createElement('a');
+      a.className = 'file-pill';
+      a.href = `file:///e:/Tech/Testprep/Trstprep V2.1/${node.file.includes('sql') ? 'apps/backend/src/infrastructure/database/migrations' : (node.type === 'frontend' ? 'apps/frontend/src/pages/tests' : 'apps/backend/src/middleware')}/${node.file}`;
+      a.target = '_blank';
+      a.innerText = node.file;
+      fileContainer.appendChild(a);
+
+      const warningCard = document.getElementById('ins-warnings-card');
+      const warningText = document.getElementById('ins-warnings');
+
+      // Bind specific audit findings dynamically
+      if (nodeId === 'mid_csrf') {
+        warningCard.style.display = 'block';
+        warningText.innerHTML = `<div class="warning-indicator"><strong>CRITICAL SECURITY BLOCKER:</strong> CSRF check is bypassed if the Authorization header is missing. Cookie auth is exposed to request forgery.</div>`;
+      } else if (nodeId === 'db_stats' || nodeId === 'tbl_topic_stats') {
+        warningCard.style.display = 'block';
+        warningText.innerHTML = `<div class="warning-indicator"><strong>CRITICAL DB BLOCKER:</strong> user_topic_stats lacks a UNIQUE constraint, causing UPSERT collisions and background workers failures.</div>`;
+      } else if (nodeId === 'be_tests') {
+        warningCard.style.display = 'block';
+        warningText.innerHTML = `<div class="warning-indicator"><strong>CRITICAL ROUTE BLOCKER:</strong> Undefined scoreData ReferenceErrors break adaptive test queues during evaluation.</div>`;
+      } else {
+        warningCard.style.display = 'none';
+      }
+
+      // Border highlight selected element
+      document.querySelectorAll('.graph-node').forEach(n => n.classList.remove('selected-node'));
+      const activeEl = document.getElementById(`node-${nodeId}`);
+      if (activeEl) activeEl.classList.add('selected-node');
+    }
+
+    // Playback and Flow Controls
+    function selectFlow(flowName) {
+      activeFlow = flowName;
+      document.querySelectorAll('.flow-item').forEach(item => item.classList.remove('active'));
+      
+      const selectedItem = Array.from(document.querySelectorAll('.flow-item')).find(item => item.innerText.includes(flowName === 'none' ? 'Static' : flowName.toUpperCase()));
+      if (selectedItem) selectedItem.classList.add('active');
+
+      updateActiveFlowLines();
+      updateFlowStepsUI();
+    }
+
+    function updateActiveFlowLines() {
+      // Clear active links
+      document.querySelectorAll('.path-link').forEach(link => link.classList.remove('path-active'));
+
+      const activeLinks = flows[activeFlow] || [];
+      activeLinks.forEach(link => {
+        const pathEl = document.getElementById(`path-${link.from}-${link.to}`);
+        if (pathEl) pathEl.classList.add('path-active');
+      });
+    }
+
+    function setPlayback(mode) {
+      const playBtn = document.getElementById('ctrl-play');
+      if (mode === 'play') {
+        if (document.documentElement.style.getPropertyValue('--play-state') === 'paused') {
+          document.documentElement.style.setProperty('--play-state', 'running');
+          playBtn.innerText = '⏸ Pause';
+        } else {
+          document.documentElement.style.setProperty('--play-state', 'paused');
+          playBtn.innerText = '▶ Play';
+        }
+      }
+    }
+
+    function changeSpeed(val) {
+      document.getElementById('speed-lbl').innerText = `${val}x`;
+      document.documentElement.style.setProperty('--flow-speed', `${2 / val}s`);
+    }
+
+    function resetPlayback() {
+      selectFlow('none');
+      document.documentElement.style.setProperty('--play-state', 'running');
+      document.getElementById('ctrl-play').innerText = '⏸ Pause';
+    }
+
+    // Hydrate Sidebar Directory Nodes list
+    function hydrateDirectory() {
+      const dir = document.getElementById('node-dir');
+      dir.innerHTML = '';
+
+      const nodes = currentView === 'overview' ? topologyNodes : (currentView === 'er' ? erNodes : {});
+      Object.entries(nodes).forEach(([id, node]) => {
+        const div = document.createElement('div');
+        div.className = 'directory-item';
+        div.onclick = () => {
+          inspectNode(id, nodes);
+          // Focus zoom to coordinates
+          focusNode(node.x, node.y);
+        };
+        div.innerHTML = `
+          <span style="width: 8px; height: 8px; border-radius: 50%; background-color: ${node.color}"></span>
+          <span>${node.title}</span>
+        `;
+        dir.appendChild(div);
+      });
+    }
+
+    // Focus viewport on node coordinate
+    function focusNode(x, y) {
+      const canvasWidth = document.getElementById('canvas').clientWidth;
+      const canvasHeight = document.getElementById('canvas').clientHeight;
+      
+      panX = (canvasWidth / 2) - x - 120;
+      panY = (canvasHeight / 2) - y - 40;
+      zoomLevel = 1;
+      updateZoomTransform();
+    }
+
+    // Search bar filter
+    function searchNodes(val) {
+      const query = val.toLowerCase();
+      const nodes = currentView === 'overview' ? topologyNodes : (currentView === 'er' ? erNodes : {});
+      
+      Object.entries(nodes).forEach(([id, node]) => {
+        const el = document.getElementById(`node-${id}`);
+        if (el) {
+          if (node.title.toLowerCase().includes(query) || node.desc.toLowerCase().includes(query)) {
+            el.style.opacity = '1';
+          } else {
+            el.style.opacity = '0.15';
+          }
+        }
+      });
+    }
+
+    // Zoom & Pan Canvas drag handlers
+    function adjustZoom(amount) {
+      zoomLevel = Math.max(0.3, Math.min(3, zoomLevel + amount));
+      updateZoomTransform();
+    }
+
+    // Reset Zoom view offsets
+    function resetZoom() {
+      zoomLevel = 1;
+      panX = 0;
+      panY = 0;
+      updateZoomTransform();
+    }
+
+    function updateZoomTransform() {
+      const group = document.getElementById('zoom-group');
+      group.style.transform = `scale(${zoomLevel}) translate(${panX}px, ${panY}px)`;
+    }
+
+    function startDrag(e) {
+      if (e.target.closest('.graph-node')) return; // Ignore drag on click cards
+      isDragging = true;
+      startX = e.clientX - panX;
+      startY = e.clientY - panY;
+    }
+
+    function drag(e) {
+      if (!isDragging) return;
+      panX = e.clientX - startX;
+      panY = e.clientY - startY;
+      updateZoomTransform();
+    }
+
+    function endDrag() {
+      isDragging = false;
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('light-mode');
+    }
+
+    window.onload = () => {
+      switchView('overview');
+    };
+  </script>
+</body>
+</html>

@@ -134,11 +134,61 @@ class Question {
   }
 
   static async bulkCreate(questions) {
-    const results = []
-    for (const q of questions) {
-      results.push(await this.create(q))
+    // PERF FIX (H13): previously this looped `create()` sequentially, issuing
+    // 2 queries per question (insert + version record) = 2N round-trips. Now we
+    // batch inserts via `insertMany`. Questions are grouped by their column
+    // signature so each batch has a uniform column set (insertMany derives its
+    // columns from the first row), then version records are inserted in a single
+    // batch — reducing 2N queries to O(groups)+1.
+    if (!questions || questions.length === 0) return []
+
+    const now = new Date().toISOString()
+    const normalized = questions.map((data) => ({
+      ...data,
+      createdAt: now,
+      updatedAt: now,
+      isActive: data.isActive !== undefined ? data.isActive : true,
+      questionNumber: data.questionNumber || 1,
+      correctOption: data.correctOption !== undefined ? data.correctOption : 0,
+      marks: data.marks || 1,
+      negativeMarks: data.negativeMarks || 0,
+      difficulty: data.difficulty || 'medium',
+    }))
+
+    const groups = new Map()
+    normalized.forEach((item, idx) => {
+      const signature = Object.keys(item).sort().join('|')
+      if (!groups.has(signature)) groups.set(signature, [])
+      groups.get(signature).push({ item, idx })
+    })
+
+    const inserted = new Array(normalized.length)
+    for (const group of groups.values()) {
+      const rows = await dbHelpers.insertMany('questions', group.map((g) => g.item))
+      group.forEach((g, i) => { inserted[g.idx] = rows[i] })
     }
-    return results
+
+    const versionRecords = []
+    inserted.forEach((q, idx) => {
+      const questionId = q?._id || q?.id
+      if (!questionId) return
+      versionRecords.push({
+        questionId,
+        versionNumber: 1,
+        ...pickVersionFields(normalized[idx]),
+        isCurrent: true,
+        snapshotType: 'admin_edit',
+        changeSummary: 'Initial version',
+        changedBy: normalized[idx].createdBy || null,
+        createdAt: new Date().toISOString(),
+      })
+    })
+
+    if (versionRecords.length > 0) {
+      await dbHelpers.insertMany('questionVersions', versionRecords)
+    }
+
+    return inserted.filter(Boolean)
   }
 
   static async count(query = {}) {

@@ -24,7 +24,7 @@ jest.unstable_mockModule('../infrastructure/cache/redisClient.js', () => ({
 }))
 
 // Import after mocks
-const { protect, optionalAuth, admin } = await import('../middleware/auth.middleware.js')
+const { protect, optionalAuth, admin, clearAuthCaches } = await import('../middleware/auth.middleware.js')
 
 const JWT_SECRET = 'test-secret-key-for-testing-only-1234567890!@#'
 
@@ -53,6 +53,7 @@ function signToken(payload, options = {}) {
 describe('protect middleware', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    clearAuthCaches() // Prevent cross-test cache pollution
     process.env.JWT_SECRET = JWT_SECRET
     mockRedisGet.mockResolvedValue(null)
     mockRedisSet.mockResolvedValue('OK')
@@ -110,7 +111,7 @@ describe('protect middleware', () => {
     await protect(req, res, next)
 
     expect(res.statusCode).toBe(401)
-    expect(res.body.message).toContain('user not found')
+    expect(res.body.message).toContain('no longer exists')
   })
 
   it('returns 403 when user is inactive', async () => {
@@ -151,6 +152,29 @@ describe('protect middleware', () => {
 
     expect(res.statusCode).toBe(401)
     expect(res.body.message).toContain('revoked')
+  })
+
+  it('fails open (allows request) when the session row is missing after a successful DB query', async () => {
+    // FIX H1: a missing user_sessions row after a *successful* query is not a
+    // transient outage — the DB answered, the row simply isn't there (restart
+    // cleanup / backup restore). Returning 503 here made the frontend retry 12
+    // times and leave users stuck; the valid JWT is allowed through instead.
+    const token = signToken({ id: 1, sessionId: 'sess-789' })
+    mockRedisGet.mockResolvedValue(null)
+    mockPoolQuery.mockResolvedValue({ rows: [] })
+    // Set explicitly — jest.clearAllMocks() does not reset implementations,
+    // so without this the previous test's inactive-user mock leaks in.
+    mockFindById.mockResolvedValue({
+      id: 1, isActive: true, isEmailVerified: true, role: 'user', password: 'x',
+    })
+    const req = makeReq({ headers: { authorization: `Bearer ${token}` } })
+    const res = makeRes()
+    const next = jest.fn()
+
+    await protect(req, res, next)
+
+    expect(next).toHaveBeenCalled()
+    expect(res.statusCode).toBe(null)
   })
 
   it('attaches user to req and calls next on valid token', async () => {
@@ -196,6 +220,7 @@ describe('protect middleware', () => {
 describe('optionalAuth middleware', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    clearAuthCaches() // Prevent cross-test cache pollution
     process.env.JWT_SECRET = JWT_SECRET
     mockRedisGet.mockResolvedValue(null)
     mockPoolQuery.mockResolvedValue({ rows: [{ is_active: true }] })

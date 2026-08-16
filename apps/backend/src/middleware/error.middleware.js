@@ -10,6 +10,7 @@ export class AppError extends Error {
     this.statusCode = statusCode
     this.code = code
     this.isOperational = true
+    this.userMessage = message
     Error.captureStackTrace(this, this.constructor)
   }
 }
@@ -54,10 +55,18 @@ export class RateLimitError extends AppError {
 /**
  * Global Error Handler Middleware
  * Catches all errors and returns consistent JSON responses
+ * In production, raw error messages are sanitized to prevent information leaks
  */
 export const errorHandler = (err, req, res, next) => {
-  // Log error for debugging (in development)
-  if (process.env.NODE_ENV === 'development') {
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  if (isProduction) {
+    console.error('Error:', {
+      code: err.code,
+      statusCode: err.statusCode,
+      isOperational: err.isOperational,
+    })
+  } else {
     console.error('Error:', {
       message: err.message,
       stack: err.stack,
@@ -66,19 +75,34 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Handle known operational errors
+  const sanitizeMessage = (e) => {
+    if (!isProduction) return e.userMessage || e.message
+    if (e.userMessage) return e.userMessage
+    const knownErrors = {
+      'ValidationError': 'Invalid input data',
+      'UnauthorizedError': 'Authentication required',
+      'ForbiddenError': 'Access denied',
+      'NotFoundError': 'Resource not found',
+      'ConflictError': 'Resource conflict',
+      'RateLimitError': 'Too many requests, please try again later',
+    }
+    const errorName = e.constructor?.name || e.name
+    if (knownErrors[errorName]) return knownErrors[errorName]
+    if (e.statusCode && e.statusCode < 500) return e.message
+    return 'An unexpected error occurred. Please try again later.'
+  }
+
   if (err.isOperational) {
     return res.status(err.statusCode).json({
       success: false,
       error: {
         code: err.code,
-        message: err.message,
+        message: sanitizeMessage(err),
         ...(err.errors && { errors: err.errors }),
       },
     })
   }
 
-  // Handle JWT errors
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       success: false,
@@ -99,7 +123,6 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Handle validation errors from express-validator or similar
   if (err.name === 'ValidationError' && err.errors) {
     return res.status(400).json({
       success: false,
@@ -114,8 +137,7 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Handle database errors (PostgreSQL)
-  if (err.code === '23505') { // Unique violation
+  if (err.code === '23505') {
     return res.status(409).json({
       success: false,
       error: {
@@ -125,7 +147,7 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  if (err.code === '23503') { // Foreign key violation
+  if (err.code === '23503') {
     return res.status(400).json({
       success: false,
       error: {
@@ -135,7 +157,7 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  if (err.code === '23502') { // Not null violation
+  if (err.code === '23502') {
     return res.status(400).json({
       success: false,
       error: {
@@ -145,7 +167,6 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Handle multer errors (file upload)
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       success: false,
@@ -166,7 +187,6 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Handle CORS errors
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
       success: false,
@@ -177,15 +197,12 @@ export const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Generic error response (hide details in production)
-  const isProduction = process.env.NODE_ENV === 'production'
-  
   return res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: isProduction 
-        ? 'An unexpected error occurred. Please try again later.' 
+      message: isProduction
+        ? 'An unexpected error occurred. Please try again later.'
         : err.message,
     },
   })

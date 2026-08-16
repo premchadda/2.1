@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Plus, Edit2, Trash2, X, Save,
@@ -6,118 +6,31 @@ import {
   Eye, EyeOff, ChevronLeft, ChevronRight,
   Settings, Hash, Clock, ClipboardList, ScrollText, Sparkles,
   Layers, ArrowLeft, FolderOpen, List, Filter, Activity, AlertTriangle,
-  Sun, Moon
+  Sun, Moon, History, RotateCcw
 } from 'lucide-react'
+import sanitizeHtml from '../../../shared/lib/sanitizeHtml'
 import { adminAPI, questionsAPI } from '../../../shared/lib/dataService'
 import { useExamCategories } from '../../../shared/hooks/useExamCategories'
 import { toast } from 'react-hot-toast'
+import { idsEqual, getEntityId, coerceArray, flattenCategories, normalizeKey, buildCategorySelectionRefs } from '../../../shared/utils/questionHelpers'
+import { DIFFICULTY_LEVELS } from '../../../shared/config/difficultyConfig.js'
+import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import EmptyState from '../../../shared/components/ui/EmptyState'
 import UserActivityLog from '../users-enrollments/UserActivityLog'
-
-// Category Tabs Configuration
-const QUESTION_CATEGORIES = [
-  {
-    id: 'mock-tests',
-    label: 'Mock Tests',
-    icon: ClipboardList,
-    description: 'Full-length & sectional mock test questions',
-    gradient: 'from-indigo-500 to-blue-600',
-    lightBg: 'bg-indigo-50',
-    lightText: 'text-indigo-600',
-    borderColor: 'border-indigo-500',
-    ringColor: 'ring-indigo-200'
-  },
-  {
-    id: 'pyp',
-    label: 'Previous Year Papers',
-    icon: ScrollText,
-    description: 'Questions from past exam papers',
-    gradient: 'from-amber-500 to-orange-600',
-    lightBg: 'bg-amber-50',
-    lightText: 'text-amber-600',
-    borderColor: 'border-amber-500',
-    ringColor: 'ring-amber-200'
-  },
-  {
-    id: 'audit',
-    label: 'Audit',
-    icon: AlertTriangle,
-    description: 'Incomplete drafts',
-    gradient: 'from-rose-500 to-red-600',
-    lightBg: 'bg-rose-50',
-    lightText: 'text-rose-600',
-    borderColor: 'border-rose-500',
-    ringColor: 'ring-rose-200'
-  }
-]
-
-// Mapping from question category IDs (tab IDs) to real test category names from DB
-// DB uses: "Mock Tests", "PYPs", "Practice" as category values in tests table
-const QUESTION_CAT_TO_TEST_CAT_MAP = {
-  'mock-tests': 'Mock Tests',
-  pyp: 'PYPs',
-  practice: 'Practice'
-}
-// Reverse map: DB test category value -> question category ID
-const TEST_CAT_TO_QUESTION_CAT = Object.fromEntries(
-  Object.entries(QUESTION_CAT_TO_TEST_CAT_MAP).map(([k, v]) => [v, k])
-)
-
-const QUESTION_CATEGORY_ALIASES = {
-  'mock-tests': ['mock-tests', 'mock', 'mock test', 'mock tests', 'Mock Tests'],
-  pyp: ['pyp', 'pyps', 'previous-year', 'previous year', 'previous year papers', 'Previous Year Papers', 'PYPs'],
-  practice: ['practice', 'quiz', 'practice-quiz', 'practice & quiz', 'Practice']
-}
-
-const normalizeKey = (value) =>
-  String(value ?? '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-const getEntityId = (item) => item?._id ?? item?.id ?? null
-
-const idsEqual = (a, b) => {
-  if (a === null || a === undefined || b === null || b === undefined) return false
-  return String(a) === String(b)
-}
-
-const coerceArray = (value) => {
-  if (Array.isArray(value)) return value
-  if (typeof value === 'string' && value.trim()) {
-    const trimmed = value.trim()
-    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-      return trimmed
-        .slice(1, -1)
-        .split(',')
-        .map((part) => part.trim().replace(/^["']|["']$/g, ''))
-        .filter(Boolean)
-    }
-    try {
-      const parsed = JSON.parse(trimmed)
-      return Array.isArray(parsed) ? parsed : []
-    } catch {
-      return trimmed.split(',').map(part => part.trim()).filter(Boolean)
-    }
-  }
-  if (value !== null && value !== undefined && value !== '') return [value]
-  return []
-}
-
-const flattenCategories = (categories = []) => {
-  const flattened = []
-  const walk = (items, parentId = '') => {
-    items.forEach((item) => {
-      const id = getEntityId(item)
-      flattened.push({ ...item, parentId: item.parentId ?? item.parent_id ?? parentId })
-      if (Array.isArray(item.children) && item.children.length > 0) {
-        walk(item.children, id)
-      }
-    })
-  }
-  walk(Array.isArray(categories) ? categories : [])
-  return flattened
-}
+import { Badge } from './components/Badge'
+import { LoadingSpinner } from './components/LoadingSpinner'
+import { CategoryTabBar } from './components/CategoryTabBar'
+import { BulkImportModal } from './components/BulkImportModal'
+import { StatsCard } from './components/StatsCard'
+import QuestionForm from './components/QuestionForm'
+import MathRenderer from '../../../shared/components/MathRenderer'
+import {
+  QUESTION_CATEGORIES,
+  QUESTION_CAT_TO_TEST_CAT_MAP,
+  TEST_CAT_TO_QUESTION_CAT,
+  QUESTION_CATEGORY_ALIASES
+} from '../../../shared/config/questionCategories.js'
+import { QUESTION_TYPES, STATUS_OPTIONS } from '../../../shared/config/questionConstants.js'
 
 const getTestCategoryValues = (item = {}) => [
   item.testCategoryId,
@@ -129,6 +42,13 @@ const getTestCategoryValues = (item = {}) => [
   item.category_name,
   item.testCategory,
   item.test_category,
+  item.subCategory,
+  item.sub_category,
+  item.year,
+  item.pyq_year,
+  ...(coerceArray(item.category_path_ids)),
+  ...(coerceArray(item.category_path_names)),
+  ...(coerceArray(item.test_category_ids || item.testCategoryIds)),
 ].filter(value => value !== null && value !== undefined && value !== '')
 
 const getSeriesCategoryValues = (series = {}) => [
@@ -157,6 +77,16 @@ const getSectionName = (section = {}) => section.name || section.title || sectio
 const sectionValueMatches = (section, value) => {
   if (value === null || value === undefined || value === '') return false
   return String(getSectionId(section)) === String(value) || getSectionName(section) === String(value)
+}
+
+const isSafeImageUrl = (url) => {
+  if (!url) return false
+  try {
+    const parsed = new URL(url, window.location.origin)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' || parsed.protocol === 'data:'
+  } catch {
+    return false
+  }
 }
 
 const normalizeQuestion = (q) => ({
@@ -288,52 +218,6 @@ const buildTestCategoryRefs = (activeCategory, flatCategories = []) => {
   return refs
 }
 
-const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
-  const refs = new Set()
-  if (!categoryId) return refs
-
-  const seed = flatCategories.find(cat =>
-    [cat.id, cat._id, cat.slug, cat.name, cat.label, cat.categoryId]
-      .filter(Boolean)
-      .some(value => idsEqual(value, categoryId))
-  )
-
-    ;[categoryId, seed?.id, seed?._id, seed?.slug, seed?.name, seed?.label, seed?.categoryId]
-      .filter(Boolean)
-      .forEach(value => {
-        refs.add(String(value))
-        refs.add(normalizeKey(value))
-      })
-
-  if (!seed) return refs
-
-  const childrenByParent = new Map()
-  flatCategories.forEach(cat => {
-    const parentId = cat.parentId || cat.parent_id || ''
-    const key = String(parentId || '')
-    if (!childrenByParent.has(key)) childrenByParent.set(key, [])
-    childrenByParent.get(key).push(cat)
-  })
-
-  const queue = [...(childrenByParent.get(String(getEntityId(seed) || '')) || [])]
-  const seen = new Set([String(getEntityId(seed) || seed.categoryId || seed.slug || seed.name || categoryId)])
-
-  while (queue.length > 0) {
-    const cat = queue.shift()
-    const id = String(getEntityId(cat) || cat.categoryId || cat.slug || cat.name || '')
-    if (!id || seen.has(id)) continue
-    seen.add(id)
-      ;[cat.id, cat._id, cat.slug, cat.name, cat.label, cat.categoryId]
-        .filter(Boolean)
-        .forEach(value => {
-          refs.add(String(value))
-          refs.add(normalizeKey(value))
-        })
-      ; (childrenByParent.get(String(getEntityId(cat) || '')) || []).forEach(child => queue.push(child))
-  }
-
-  return refs
-}
 
 const recordMatchesTestCategory = (record, refs) => valueMatchesRefs(getTestCategoryValues(record), refs)
 const categoryLinksSeries = (category, seriesId) =>
@@ -348,28 +232,7 @@ const seriesMatchesTestCategory = (series, refs, testsInSeries = []) => {
   return testsInSeries.some(test => recordMatchesTestCategory(test, refs))
 }
 
-// Constants
-const QUESTION_TYPES = [
-  { value: 'mcq', label: 'MCQ', description: 'Single correct answer' },
-  { value: 'msq', label: 'MSQ', description: 'Multiple correct answers' },
-  { value: 'numeric', label: 'Numeric', description: 'Number answer' },
-  { value: 'true-false', label: 'True/False', description: 'True or false answer' },
-  { value: 'match', label: 'Match', description: 'Match the following' },
-  { value: 'comprehension', label: 'Comprehension', description: 'Reading comprehension' },
-  { value: 'descriptive', label: 'Descriptive', description: 'Text answer' }
-]
 
-const DIFFICULTY_LEVELS = [
-  { value: 'easy', label: 'Easy', color: 'bg-green-100 text-green-700' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-700' },
-  { value: 'hard', label: 'Hard', color: 'bg-red-100 text-red-700' }
-]
-
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active', color: 'bg-green-100 text-green-700' },
-  { value: 'draft', label: 'Draft', color: 'bg-gray-100 text-gray-700' },
-  { value: 'archived', label: 'Archived', color: 'bg-red-100 text-red-700' }
-]
 
 const DEFAULT_FORM_DATA = {
   questionText: '',
@@ -413,916 +276,6 @@ const DEFAULT_TEST_FORM = {
   isLive: false,
 }
 
-// Helper Components
-const Badge = ({ children, variant = 'default', className = '' }) => {
-  const variants = {
-    default: 'bg-gray-100 text-gray-700',
-    success: 'bg-green-100 text-green-700',
-    warning: 'bg-yellow-100 text-yellow-700',
-    danger: 'bg-red-100 text-red-700',
-    info: 'bg-blue-100 text-blue-700',
-    purple: 'bg-purple-100 text-purple-700'
-  }
-  return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${variants[variant]} ${className}`}>
-      {children}
-    </span>
-  )
-}
-
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-[400px]">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-  </div>
-)
-
-const EmptyState = ({ icon: Icon, title, description, action }) => (
-  <div className="text-center py-16 px-4">
-    {Icon && <Icon className="w-16 h-16 mx-auto mb-4 text-gray-300" />}
-    <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-    <p className="text-gray-500 mb-6">{description}</p>
-    {action}
-  </div>
-)
-
-// Category Tab Bar Component
-const CategoryTabBar = ({ activeCategory, onCategoryChange, categoryCounts }) => {
-  return (
-    <div className="mb-1">
-      <div style={{
-        display: 'flex',
-        gap: '0',
-        padding: '3px',
-        backgroundColor: '#f1f5f9',
-        borderRadius: '12px',
-        border: '1px solid #e2e8f0',
-        width: 'fit-content'
-      }}>
-        {QUESTION_CATEGORIES.map(cat => {
-          const isActive = activeCategory === cat.id
-          const count = categoryCounts[cat.id] || 0
-          const Icon = cat.icon
-
-          return (
-            <button
-              key={cat.id}
-              onClick={() => onCategoryChange(cat.id)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                padding: '8px 24px',
-                borderRadius: '9px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                position: 'relative',
-                fontFamily: 'inherit',
-                ...(isActive
-                  ? {
-                    background: '#ffffff',
-                    color: cat.id === 'mock-tests' ? '#6366f1' : cat.id === 'pyp' ? '#f59e0b' : '#10b981',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                  }
-                  : {
-                    background: 'transparent',
-                    color: '#64748b',
-                  })
-              }}
-            >
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Icon style={{ width: '16px', height: '16px' }} />
-                <span style={{
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.02em',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {cat.label}
-                </span>
-              </div>
-              <span style={{
-                fontSize: '15px',
-                fontWeight: 800,
-                color: isActive ? 'inherit' : '#94a3b8',
-                backgroundColor: isActive ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.05)',
-                padding: '2px 8px',
-                borderRadius: '6px',
-                lineHeight: 1
-              }}>
-                {count}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      {/* Active category description */}
-      <p style={{
-        fontSize: '13px',
-        color: '#94a3b8',
-        marginTop: '8px',
-        paddingLeft: '4px'
-      }}>
-        {QUESTION_CATEGORIES.find(c => c.id === activeCategory)?.description}
-      </p>
-    </div>
-  )
-}
-
-// Option Editor Component
-const OptionEditor = ({ options, correctOption, onChange, onCorrectChange, type }) => {
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F']
-
-  if (type === 'numeric') {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Correct Answer (Numerical)
-        </label>
-        <input
-          type="number"
-          step="any"
-          value={correctOption || ''}
-          onChange={(e) => onCorrectChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          placeholder="Enter the numerical answer"
-        />
-      </div>
-    )
-  }
-
-  if (type === 'descriptive') {
-    return (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Model Answer
-        </label>
-        <textarea
-          value={correctOption || ''}
-          onChange={(e) => onCorrectChange(e.target.value)}
-          rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-          placeholder="Enter the model answer for reference"
-        />
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        Options <span className="text-red-500">*</span>
-        <span className="text-xs text-gray-500 font-normal ml-2">
-          (Click the radio button to mark the correct answer)
-        </span>
-      </label>
-      <div className="space-y-2">
-        {options.map((option, index) => (
-          <div key={index} className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onCorrectChange(type === 'msq'
-                ? (Array.isArray(correctOption)
-                  ? correctOption.includes(index)
-                    ? correctOption.filter(i => i !== index)
-                    : [...correctOption, index]
-                  : [index])
-                : index
-              )}
-              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors
-                ${(type === 'msq'
-                  ? Array.isArray(correctOption) && correctOption.includes(index)
-                  : correctOption === index
-                )
-                  ? 'bg-green-500 border-green-500 text-white'
-                  : 'border-gray-300 hover:border-indigo-400'}`}
-            >
-              {(type === 'msq'
-                ? Array.isArray(correctOption) && correctOption.includes(index)
-                : correctOption === index
-              ) && <CheckCircle className="w-4 h-4" />}
-            </button>
-            <span className="text-sm font-medium text-gray-500 w-6">{letters[index]}</span>
-            <input
-              type="text"
-              value={option}
-              onChange={(e) => {
-                const newOptions = [...options]
-                newOptions[index] = e.target.value
-                onChange(newOptions)
-              }}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-              placeholder={`Option ${letters[index]}`}
-            />
-          </div>
-        ))}
-      </div>
-      <button
-        type="button"
-        onClick={() => onChange([...options, ''])}
-        className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-      >
-        <Plus className="w-4 h-4" /> Add Option
-      </button>
-    </div>
-  )
-}
-
-// Question Form Modal
-const QuestionForm = ({
-  isOpen,
-  onClose,
-  onSubmit,
-  formData,
-  setFormData,
-  editingId,
-  subjects,
-  chapters,
-  topics,
-  passages,
-  sections,
-  saving,
-}) => {
-  const [activeTab, setActiveTab] = useState('content')
-
-  useEffect(() => {
-    if (isOpen) setActiveTab('content')
-  }, [isOpen])
-
-  if (!isOpen) return null
-
-  const tabs = [
-    { id: 'content', label: 'Content', icon: FileText },
-    { id: 'options', label: 'Options', icon: CheckCircle },
-    { id: 'metadata', label: 'Metadata', icon: Settings }
-  ]
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    onSubmit(formData)
-  }
-
-  const sectionOptions = sections.filter(section => {
-    if (!formData.testId) return true
-    return String(section.test_id || '') === String(formData.testId) || sectionValueMatches(section, formData.section)
-  })
-  const selectedSection = sectionOptions.find(section => sectionValueMatches(section, formData.section))
-  const selectedSectionValue = selectedSection ? getSectionName(selectedSection) : (formData.section || '')
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-4xl max-h-[96vh] h-[96vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">
-              {editingId ? 'Edit Question' : 'Create New Question'}
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {editingId ? 'Update question details' : 'Add a new question to the bank'}
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="border-b border-gray-200 px-6">
-          <div className="flex gap-1">
-            {tabs.map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors
-                  ${activeTab === tab.id
-                    ? 'border-indigo-600 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Form Content */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-6">
-            {/* Content Tab */}
-            {activeTab === 'content' && (
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Question Text <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    value={formData.questionText}
-                    onChange={(e) => setFormData({ ...formData, questionText: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Enter your question here..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Question Text (Hindi)
-                  </label>
-                  <textarea
-                    value={formData.questionTextHi || ''}
-                    onChange={(e) => setFormData({ ...formData, questionTextHi: e.target.value })}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="प्रश्न हिंदी में दर्ज करें..."
-                  />
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <div className="flex gap-2">
-                    {QUESTION_CATEGORIES.map(c => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, category: c.id })}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border-2 transition-all
-                          ${formData.category === c.id
-                            ? `bg-white ${c.id === 'mock-tests' ? 'border-indigo-500 text-indigo-600' : c.id === 'pyp' ? 'border-amber-500 text-amber-600' : 'border-emerald-500 text-emerald-600'}`
-                            : 'border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        <c.icon className="w-4 h-4" />
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Subject <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      required
-                      value={formData.subject}
-                      onChange={(e) => setFormData({ ...formData, subject: e.target.value, chapter: '', topic: '' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Select Subject</option>
-                      {subjects.map(s => (
-                        <option key={s._id || s.id} value={s._id || s.id}>{s.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Question Type
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        type: e.target.value,
-                        options: e.target.value === 'mcq' || e.target.value === 'msq'
-                          ? ['', '', '', '']
-                          : [],
-                        correctOption: e.target.value === 'msq' ? [] : 0
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {QUESTION_TYPES.map(t => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Section</label>
-                    <select
-                      value={selectedSectionValue}
-                      onChange={(e) => setFormData({ ...formData, section: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Select Section</option>
-                      {selectedSectionValue && !selectedSection && (
-                        <option value={selectedSectionValue}>{selectedSectionValue}</option>
-                      )}
-                      {sectionOptions
-                        .map(s => (
-                          <option key={getSectionId(s)} value={getSectionName(s)}>
-                            {getSectionName(s)}{s.test_title ? ` - ${s.test_title}` : ''}
-                          </option>
-                        ))
-                      }
-                    </select>
-                    {formData.testId && sectionOptions.length === 0 && (
-                      <p className="text-xs text-gray-500 mt-1">No sections linked to this test.</p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Question Number</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.questionNumber || ''}
-                      onChange={(e) => setFormData({ ...formData, questionNumber: e.target.value ? parseInt(e.target.value) : null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Auto-assigned if empty"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Chapter</label>
-                    <select
-                      value={formData.chapter}
-                      onChange={(e) => setFormData({ ...formData, chapter: e.target.value, topic: '' })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      disabled={!formData.subject}
-                    >
-                      <option value="">Select Chapter</option>
-                      {chapters
-                        // FIX BUG-012: Filter chapters by subject_id instead of studyMaterialId
-                        .filter(c => String(c.subjectId || c.subject_id || c.studyMaterialId) === String(formData.subject))
-                        .map(c => (
-                          <option key={c._id || c.id} value={c._id || c.id}>{c.title || c.name}</option>
-                        ))
-                      }
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Topic</label>
-                    <select
-                      value={formData.topic}
-                      onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      disabled={!formData.chapter}
-                    >
-                      <option value="">Select Topic</option>
-                      {topics
-                        .filter(t => String(t.chapterId) === String(formData.chapter) || String(t.subjectId) === String(formData.subject))
-                        .map(t => (
-                          <option key={t._id || t.id} value={t._id || t.id}>{t.name}</option>
-                        ))
-                      }
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Options Tab */}
-            {activeTab === 'options' && (
-              <div className="space-y-6">
-                <OptionEditor
-                  options={formData.options}
-                  correctOption={formData.correctOption}
-                  onChange={(options) => setFormData({ ...formData, options })}
-                  onCorrectChange={(correctOption) => setFormData({ ...formData, correctOption })}
-                  type={formData.type}
-                />
-
-                {(formData.type === 'mcq' || formData.type === 'msq') && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Options (Hindi)
-                    </label>
-                    <div className="space-y-2">
-                      {(formData.optionsHi && formData.optionsHi.length > 0 ? formData.optionsHi : ['', '', '', '']).map((opt, i) => (
-                        <input
-                          key={i}
-                          type="text"
-                          value={opt}
-                          onChange={(e) => {
-                            const newOptsHi = [...(formData.optionsHi || [])]
-                            newOptsHi[i] = e.target.value
-                            setFormData({ ...formData, optionsHi: newOptsHi })
-                          }}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                          placeholder={`विकल्प ${['A', 'B', 'C', 'D', 'E', 'F'][i]} (हिंदी)`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Explanation
-                  </label>
-                  <textarea
-                    value={formData.explanation}
-                    onChange={(e) => setFormData({ ...formData, explanation: e.target.value })}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Explain the solution (shown after attempting)"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Metadata Tab */}
-            {activeTab === 'metadata' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Difficulty
-                    </label>
-                    <select
-                      value={formData.difficulty}
-                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {DIFFICULTY_LEVELS.map(d => (
-                        <option key={d.value} value={d.value}>{d.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Marks (+)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      value={formData.marks}
-                      onChange={(e) => setFormData({ ...formData, marks: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Negative Marks (-)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.25"
-                      min="0"
-                      value={formData.negativeMarks}
-                      onChange={(e) => setFormData({ ...formData, negativeMarks: parseFloat(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {STATUS_OPTIONS.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tags
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.tags?.join(', ') || ''}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
-                      })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="ssc-cgl, tier1, previous-year"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">Comma-separated tags</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Image URL
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.imageUrl || ''}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="https://example.com/question-image.png"
-                    />
-                    <p className="text-xs text-gray-500 mt-1">URL to an image displayed with the question</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Passage
-                    </label>
-                    <select
-                      value={formData.passageId || ''}
-                      onChange={(e) => setFormData({ ...formData, passageId: e.target.value ? parseInt(e.target.value) : null })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">No passage (standalone question)</option>
-                      {passages?.map(p => (
-                        <option key={p._id || p.id} value={p._id || p.id}>{p.title || p.name || `Passage #${p._id || p.id}`}</option>
-                      ))}
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">Link this question to a reading passage</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </form>
-
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={saving}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                {editingId ? 'Update' : 'Create'} Question
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Question Row Component
-const QuestionRow = ({ question, onEdit, onDelete, onToggleStatus, index }) => {
-  const [expanded, setExpanded] = useState(false)
-  const difficulty = DIFFICULTY_LEVELS.find(d => d.value === question.difficulty) || DIFFICULTY_LEVELS[1]
-  const status = STATUS_OPTIONS.find(s => s.value === question.status) || STATUS_OPTIONS[1]
-  const type = QUESTION_TYPES.find(t => t.value === question.type) || QUESTION_TYPES[0]
-  const letters = ['A', 'B', 'C', 'D', 'E', 'F']
-
-  return (
-    <div className="border-b border-gray-100 last:border-b-0">
-      <div
-        className="grid grid-cols-12 gap-4 p-4 items-center hover:bg-gray-50 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <div className="col-span-1 text-sm text-gray-500 font-mono">{index + 1}</div>
-        <div className="col-span-5 min-w-0">
-          <p className="text-sm text-gray-900 truncate font-medium">{question.questionText}</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {question.subject} {question.chapter && `› ${question.chapter}`} {question.topic && `› ${question.topic}`}
-          </p>
-        </div>
-        <div className="col-span-1">
-          <Badge variant="info">{type.label}</Badge>
-        </div>
-        <div className="col-span-1">
-          <Badge className={difficulty.color}>{difficulty.label}</Badge>
-        </div>
-        <div className="col-span-1">
-          <Badge className={status.color}>{status.label}</Badge>
-        </div>
-        <div className="col-span-2 text-sm text-gray-500 text-center">
-          <span className="font-medium text-gray-700">+{question.marks}</span>
-          {question.negativeMarks > 0 && <span className="text-red-500"> / -{question.negativeMarks}</span>}
-        </div>
-        <div className="col-span-1 flex items-center justify-end gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onEdit(question) }}
-            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors"
-            title="Edit"
-          >
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleStatus(question) }}
-            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-            title={question.status === 'active' ? 'Deactivate' : 'Activate'}
-          >
-            {question.status === 'active' ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(question._id || question.id) }}
-            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-            title="Delete"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {expanded && (
-        <div className="px-4 pb-4 pt-2 bg-gray-50 border-t border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Options */}
-            {question.options?.length > 0 && (
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Options</h4>
-                <div className="space-y-1">
-                  {question.options.map((opt, i) => {
-                    const isCorrect = Array.isArray(question.correctOption)
-                      ? question.correctOption.includes(i)
-                      : question.correctOption === i
-                    return (
-                      <div
-                        key={i}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm
-                        ${isCorrect
-                            ? 'bg-green-100 text-green-800 border border-green-200'
-                            : 'bg-white text-gray-700 border border-gray-200'}`}
-                      >
-                        <span className="font-mono font-medium">{letters[i]}</span>
-                        <span>{opt}</span>
-                        {isCorrect && <CheckCircle className="w-4 h-4 ml-auto" />}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Explanation */}
-            {question.explanation && (
-              <div>
-                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Explanation</h4>
-                <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border border-gray-200">
-                  {question.explanation}
-                </p>
-              </div>
-            )}
-
-            {/* Tags */}
-            {question.tags?.length > 0 && (
-              <div className="md:col-span-2">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase mb-2">Tags</h4>
-                <div className="flex flex-wrap gap-2">
-                  {question.tags.map((tag, i) => (
-                    <span key={i} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Bulk Import Modal
-const BulkImportModal = ({ isOpen, onClose, onImport, context, title = 'Bulk Import Questions', expectedColumns = 'question, option1, option2, option3, option4, correct_option, explanation, subject, difficulty' }) => {
-  const [file, setFile] = useState(null)
-  const [uploading, setUploading] = useState(false)
-
-  if (!isOpen) return null
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!file) {
-      toast.error('Please select a file')
-      return
-    }
-
-    setUploading(true)
-    try {
-      await onImport(file)
-      setFile(null)
-    } catch (err) {
-      toast.error(err.message || 'Import failed')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Upload File (CSV/Excel/JSON)</label>
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xls,.json"
-              onChange={(e) => setFile(e.target.files[0])}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Supported formats: CSV, XLSX, XLS, JSON. Max file size: 5MB
-            </p>
-            <div className="mt-3 bg-gray-50 p-3 rounded-lg">
-              <p className="text-xs font-medium text-gray-700 mb-1">Expected CSV columns:</p>
-              <code className="text-xs text-gray-500">
-                {expectedColumns}
-              </code>
-            </div>
-            {context?.testTitle && (
-              <div className="mt-3 bg-indigo-50 border border-indigo-100 p-3 rounded-lg">
-                <p className="text-xs font-semibold text-indigo-800">Import target</p>
-                <p className="text-sm text-indigo-900 mt-1">{context.testTitle}</p>
-                <p className="text-xs text-indigo-700 mt-1">
-                  {context.section && context.section !== 'all' ? `Section: ${context.section}` : 'Section will use each row value, or stay blank.'}
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={uploading}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={uploading || !file}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-            >
-              <Upload className="w-4 h-4" />
-              {uploading ? 'Importing...' : 'Import'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// Stats Card Component
-const StatsCard = ({ icon: Icon, label, value, color = 'indigo' }) => {
-  const colors = {
-    indigo: 'bg-indigo-50 text-indigo-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    red: 'bg-red-50 text-red-600',
-    purple: 'bg-purple-50 text-purple-600',
-    blue: 'bg-blue-50 text-blue-600',
-    orange: 'bg-orange-50 text-orange-600'
-  }
-
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg ${colors[color]}`}>
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          <p className="text-sm text-gray-500">{label}</p>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Main Component
 export default function QuestionsManager() {
   const {
     categories: examCategories,
@@ -1367,12 +320,26 @@ export default function QuestionsManager() {
   const [testSaving, setTestSaving] = useState(false)
   const [showTestBulkUpload, setShowTestBulkUpload] = useState(false)
   const [errors, setErrors] = useState({})
+  const [testQuestionsLoading, setTestQuestionsLoading] = useState(false)
+
+  const deleteTimeoutRef = useRef(null)
+  useEffect(() => {
+    return () => {
+      if (deleteTimeoutRef.current) clearTimeout(deleteTimeoutRef.current)
+    }
+  }, [])
 
   const [currentPage, setCurrentPage] = useState(1)
   const QUESTIONS_PER_PAGE = 20
 
+  const [page, setPage] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [searchTerm, setSearchTerm] = useState('')
+
   // Previews state (NF-02)
   const [previewQuestion, setPreviewQuestion] = useState(null)
+  // QUESTION ENGINE FIX #2 (MEDIUM): version history modal state.
+  const [versionHistory, setVersionHistory] = useState({ open: false, questionId: null, data: null, loading: false, error: null })
   const [previewTest, setPreviewTest] = useState(null)
 
   // Left rail and saved filters state (NF-04)
@@ -1388,6 +355,37 @@ export default function QuestionsManager() {
 
   const handleQuestionPreview = (q) => {
     setPreviewQuestion(normalizeQuestion(q))
+  }
+
+  // QUESTION ENGINE FIX #2 (MEDIUM): open the version-history modal and load
+  // the version list from the question-builder endpoint (which already records
+  // a snapshot on every admin edit).
+  const openVersionHistory = async (questionId) => {
+    if (!questionId) return
+    setVersionHistory({ open: true, questionId, data: null, loading: true, error: null })
+    try {
+      const res = await adminAPI.apiClient.get(`/question-builder/${questionId}`)
+      setVersionHistory((prev) => ({ ...prev, loading: false, data: res.data?.data || null }))
+    } catch (err) {
+      setVersionHistory((prev) => ({ ...prev, loading: false, error: err?.response?.data?.message || 'Failed to load versions' }))
+    }
+  }
+
+  const closeVersionHistory = () => {
+    setVersionHistory({ open: false, questionId: null, data: null, loading: false, error: null })
+  }
+
+  const restoreVersion = async (versionNumber) => {
+    const { questionId } = versionHistory
+    try {
+      await adminAPI.apiClient.post(`/question-builder/${questionId}/versions/${versionNumber}/restore`)
+      toast.success(`Restored to version ${versionNumber}`)
+      // Reload the version list so the newly snapshotted "current" appears.
+      const res = await adminAPI.apiClient.get(`/question-builder/${questionId}`)
+      setVersionHistory((prev) => ({ ...prev, data: res.data?.data || null }))
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Restore failed')
+    }
   }
 
   const handleTestPreview = (t) => {
@@ -1446,19 +444,57 @@ export default function QuestionsManager() {
     setSearchParams(params)
   }, [activeCategory, activeExamCategoryId, activeExamId, activeStageId, selectedSection, selectedSeries, selectedTest])
 
-  useEffect(() => {
-    if (testSeriesList.length > 0 && searchParams.get('seriesId') && !selectedSeries) {
-      const found = testSeriesList.find(s => String(getSeriesId(s)) === searchParams.get('seriesId'))
-      if (found) setSelectedSeries(found)
-    }
-  }, [testSeriesList, searchParams])
+  const initialUrlSeriesIdRef = useRef(searchParams.get('seriesId'))
+  const initialUrlTestIdRef = useRef(searchParams.get('testId'))
+  const initialHydratedRef = useRef({ series: false, test: false })
 
   useEffect(() => {
-    if (testsList.length > 0 && searchParams.get('testId') && !selectedTest) {
-      const found = testsList.find(t => String(getTestId(t)) === searchParams.get('testId'))
-      if (found) setSelectedTest(found)
+    if (initialHydratedRef.current.series) return
+    const initialSeriesId = initialUrlSeriesIdRef.current
+    if (!initialSeriesId) {
+      initialHydratedRef.current.series = true
+      return
     }
-  }, [testsList, searchParams])
+    if (testSeriesList.length > 0 && !selectedSeries) {
+      initialHydratedRef.current.series = true
+      const found = testSeriesList.find(s => String(getSeriesId(s)) === initialSeriesId)
+      if (found) setSelectedSeries(found)
+    }
+  }, [testSeriesList, selectedSeries])
+
+  useEffect(() => {
+    if (initialHydratedRef.current.test) return
+    const initialTestId = initialUrlTestIdRef.current
+    if (!initialTestId) {
+      initialHydratedRef.current.test = true
+      return
+    }
+    if (!selectedTest) {
+      initialHydratedRef.current.test = true
+      if (testsList.length > 0) {
+        const found = testsList.find(t => String(getTestId(t)) === initialTestId)
+        if (found) {
+          setSelectedTest(found)
+          return
+        }
+      }
+      adminAPI.apiClient
+        .get(`/admin/tests/${initialTestId}`)
+        .then(res => {
+          const testData = res.data?.data || res.data
+          if (testData) setSelectedTest(testData)
+        })
+        .catch(err => {
+          console.error('Failed to load test from URL param:', err)
+        })
+    }
+  }, [testsList, selectedTest])
+
+  const handleBackToTests = () => {
+    setSelectedTest(null)
+    setSelectedSection('all')
+    setSelectedIds([])
+  }
 
   useEffect(() => {
     if (searchParams.get('create') === 'true') {
@@ -1474,114 +510,124 @@ export default function QuestionsManager() {
   // Bulk import state
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [showActivityLog, setShowActivityLog] = useState(false)
+  const [selectedIds, setSelectedIds] = useState([])
 
   // Trash view state
   const [showTrash, setShowTrash] = useState(false)
   const [allTestCategories, setAllTestCategories] = useState([])
   const [trashedQuestions, setTrashedQuestions] = useState([])
+  const [questionStats, setQuestionStats] = useState(null)
 
   // Category counts for tab badges
   const categoryCounts = useMemo(() => {
     const flatCategories = flattenCategories(allTestCategories)
     return QUESTION_CATEGORIES.reduce((acc, category) => {
       const refs = buildTestCategoryRefs(category.id, flatCategories)
-      const matchingTestIds = new Set(
-        testsList
-          .filter(test => recordMatchesTestCategory(test, refs))
-          .map(test => String(getTestId(test)))
-      )
-      acc[category.id] = questions.filter(question =>
-        recordMatchesTestCategory(question, refs) ||
-        matchingTestIds.has(String(getTestIdFromQuestion(question)))
-      ).length
+      const matchingTests = testsList.filter(test => recordMatchesTestCategory(test, refs))
+      const testsQuestionSum = matchingTests.reduce((sum, t) => sum + (t.totalQuestions || t.total_questions || t.linked_question_count || t.questions || 0), 0)
+
+      if (category.id === 'practice') {
+        acc[category.id] = questionStats?.overview?.practice_questions ?? 0
+      } else if (category.id === 'audit') {
+        acc[category.id] = questionStats?.overview?.draft_questions ?? 0
+      } else {
+        acc[category.id] = testsQuestionSum > 0 ? testsQuestionSum : questions.filter(question =>
+          recordMatchesTestCategory(question, refs)
+        ).length
+      }
       return acc
     }, {})
-  }, [questions, testsList, allTestCategories]);
+  }, [questions, testsList, allTestCategories, questionStats]);
 
-  // Fetch all data
+  // Fetch questions with server-side pagination
+  const fetchQuestionsPage = async (pageNum, search) => {
+    try {
+      const res = await questionsAPI.getAll({ page: pageNum, limit: 50, search })
+      if (res.data?.success) {
+        const rawQuestions = res.data.data || []
+        setQuestions(rawQuestions.map(normalizeQuestion))
+        const pag = res.data.pagination
+        if (pag) {
+          setTotalCount(pag.totalCount || 0)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch questions page:', error)
+    }
+  }
+
+  // Load questions for selected test on demand
+  useEffect(() => {
+    if (!selectedTest) return
+
+    let isMounted = true
+    const loadTestQuestions = async () => {
+      try {
+        setTestQuestionsLoading(true)
+        const testId = getTestId(selectedTest) || selectedTest.id || selectedTest._id
+        const res = await questionsAPI.getAll({ testId, limit: 100 })
+        if (res.data?.success && isMounted) {
+          const loadedQs = (res.data.data || []).map(normalizeQuestion)
+          if (loadedQs.length > 0) {
+            setQuestions(prev => {
+              const loadedIds = new Set(loadedQs.map(q => String(q.id || q._id)))
+              const remaining = prev.filter(q => !loadedIds.has(String(q.id || q._id)))
+              return [...remaining, ...loadedQs]
+            })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load questions for test:', err)
+      } finally {
+        if (isMounted) setTestQuestionsLoading(false)
+      }
+    }
+
+    loadTestQuestions()
+    return () => { isMounted = false }
+  }, [selectedTest])
+
+  // Fetch initial core data (lightweight, cached)
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true)
         setErrors({})
-        const [questionsRes, subjectsRes, chaptersRes, topicsRes, passagesRes, seriesRes, testsRes, categoriesRes, stagesRes, sectionsRes] = await Promise.allSettled([
-          questionsAPI.getAll({ page: 1, limit: 2000 }),
-          adminAPI.apiClient.get('/admin/subjects'),
-          adminAPI.apiClient.get('/admin/chapters'),
-          adminAPI.apiClient.get('/admin/topics'),
-          adminAPI.apiClient.get('/admin/passages'),
+        const [seriesRes, testsRes, categoriesRes, stagesRes, statsRes] = await Promise.allSettled([
           adminAPI.getTestSeries(),
           adminAPI.getTests(),
           adminAPI.getTestCategories(),
           adminAPI.apiClient.get('/admin/stages'),
-          adminAPI.apiClient.get('/admin/sections')
+          adminAPI.apiClient.get('/admin/questions/stats')
         ])
+
+        const extractArray = (res) => {
+          if (!res || res.status !== 'fulfilled') return null
+          const payload = res.value?.data
+          if (Array.isArray(payload)) return payload
+          if (Array.isArray(payload?.data)) return payload.data
+          if (payload?.success && Array.isArray(payload?.data)) return payload.data
+          return []
+        }
 
         const newErrors = {}
 
-        if (questionsRes.status === 'fulfilled' && questionsRes.value.data?.success) {
-          const rawQuestions = questionsRes.value.data.data || []
-          const normalizedQuestions = rawQuestions.map(normalizeQuestion)
-          setQuestions(normalizedQuestions)
-        } else {
-          newErrors.questions = 'Failed to load questions'
+        if (statsRes.status === 'fulfilled') {
+          const statsPayload = statsRes.value?.data?.data || statsRes.value?.data
+          if (statsPayload) setQuestionStats(statsPayload)
         }
 
-        if (subjectsRes.status === 'fulfilled' && subjectsRes.value.data?.success) {
-          setSubjects(subjectsRes.value.data.data || [])
-        } else {
-          newErrors.subjects = 'Failed to load subjects'
-        }
+        const seriesData = extractArray(seriesRes)
+        if (seriesData !== null) setTestSeriesList(seriesData)
 
-        if (chaptersRes.status === 'fulfilled' && chaptersRes.value.data?.success) {
-          setChapters(chaptersRes.value.data.data || [])
-        } else {
-          newErrors.chapters = 'Failed to load chapters'
-        }
+        const testsData = extractArray(testsRes)
+        if (testsData !== null) setTestsList(testsData)
 
-        if (topicsRes.status === 'fulfilled' && topicsRes.value.data?.success) {
-          setTopics(topicsRes.value.data.data || [])
-        } else {
-          newErrors.topics = 'Failed to load topics'
-        }
+        const categoriesData = extractArray(categoriesRes)
+        if (categoriesData !== null) setAllTestCategories(categoriesData)
 
-        if (passagesRes.status === 'fulfilled' && passagesRes.value.data?.success) {
-          setPassages(passagesRes.value.data.data || [])
-        } else {
-          newErrors.passages = 'Failed to load passages'
-        }
-
-        if (sectionsRes.status === 'fulfilled' && sectionsRes.value.data?.success) {
-          setSections(sectionsRes.value.data.data || [])
-        } else {
-          newErrors.sections = 'Failed to load sections'
-        }
-
-        if (seriesRes.status === 'fulfilled') {
-          const seriesData = seriesRes.value.data?.data || seriesRes.value.data || []
-          setTestSeriesList(Array.isArray(seriesData) ? seriesData : [])
-        } else {
-          newErrors.series = 'Failed to load test series'
-        }
-
-        if (testsRes.status === 'fulfilled') {
-          const testsData = testsRes.value.data?.data || testsRes.value.data || []
-          setTestsList(Array.isArray(testsData) ? testsData : [])
-        } else {
-          newErrors.tests = 'Failed to load tests'
-        }
-
-        if (categoriesRes.status === 'fulfilled' && categoriesRes.value.data?.success) {
-          setAllTestCategories(categoriesRes.value.data.data || [])
-        } else {
-          newErrors.categories = 'Failed to load categories'
-        }
-
-        if (stagesRes.status === 'fulfilled' && (stagesRes.value.data?.success || Array.isArray(stagesRes.value.data?.data))) {
-          setStages(stagesRes.value.data?.data || [])
-        } else {
-          newErrors.stages = 'Failed to load stages'
-        }
+        const stagesData = extractArray(stagesRes)
+        if (stagesData !== null) setStages(stagesData)
 
         if (Object.keys(newErrors).length > 0) {
           setErrors(newErrors)
@@ -1590,7 +636,7 @@ export default function QuestionsManager() {
         }
       } catch (error) {
         console.error('Failed to fetch data:', error)
-        toast.error('Failed to load questions')
+        toast.error('Failed to load data')
       } finally {
         setLoading(false)
       }
@@ -1598,6 +644,60 @@ export default function QuestionsManager() {
 
     fetchData()
   }, [])
+
+  // Lazy-load taxonomy data (subjects, chapters, topics, passages, sections) only when question form or test drill-down is opened
+  const taxonomiesLoadedRef = useRef(false)
+  useEffect(() => {
+    if ((!showForm && !selectedTest) || taxonomiesLoadedRef.current) return
+    taxonomiesLoadedRef.current = true
+
+    const loadTaxonomies = async () => {
+      try {
+        const [subjectsRes, chaptersRes, topicsRes, passagesRes, sectionsRes] = await Promise.allSettled([
+          adminAPI.apiClient.get('/admin/subjects'),
+          adminAPI.apiClient.get('/admin/chapters'),
+          adminAPI.apiClient.get('/admin/topics'),
+          adminAPI.apiClient.get('/admin/passages'),
+          adminAPI.apiClient.get('/admin/sections')
+        ])
+
+        const extractArray = (res) => {
+          if (!res || res.status !== 'fulfilled') return null
+          const payload = res.value?.data
+          if (Array.isArray(payload)) return payload
+          if (Array.isArray(payload?.data)) return payload.data
+          if (payload?.success && Array.isArray(payload?.data)) return payload.data
+          return []
+        }
+
+        const subjectsData = extractArray(subjectsRes)
+        if (subjectsData !== null) setSubjects(subjectsData)
+
+        const chaptersData = extractArray(chaptersRes)
+        if (chaptersData !== null) setChapters(chaptersData)
+
+        const topicsData = extractArray(topicsRes)
+        if (topicsData !== null) setTopics(topicsData)
+
+        const passagesData = extractArray(passagesRes)
+        if (passagesData !== null) setPassages(passagesData)
+
+        const sectionsData = extractArray(sectionsRes)
+        if (sectionsData !== null) setSections(sectionsData)
+      } catch (err) {
+        console.error('Failed to load taxonomies:', err)
+      }
+    }
+
+    loadTaxonomies()
+  }, [showForm, selectedTest])
+
+  // Refetch questions when page or searchTerm changes
+  useEffect(() => {
+    if (!loading) {
+      fetchQuestionsPage(page, searchTerm)
+    }
+  }, [page, searchTerm])
 
   const flatTestCategories = useMemo(() => flattenCategories(allTestCategories), [allTestCategories])
 
@@ -1658,6 +758,13 @@ export default function QuestionsManager() {
       .sort((a, b) => (a.displayOrder || a.display_order || 0) - (b.displayOrder || b.display_order || 0))
   }, [subCategoryLevel3, flatTestCategories])
 
+  useEffect(() => {
+    if (subCategoryOptionsLevel1.length === 1 && !subCategoryLevel1) {
+      const singleId = String(getEntityId(subCategoryOptionsLevel1[0]) || '')
+      setSubCategoryLevel1(singleId)
+    }
+  }, [subCategoryOptionsLevel1, subCategoryLevel1])
+
   const getCategoryLabel = (category) => category?.label || category?.name || category?.slug || category?.categoryId || category?.id || 'Not linked'
 
   const getCategoryTestCount = (categoryId) => {
@@ -1700,6 +807,49 @@ export default function QuestionsManager() {
     return stages.filter(stage => stageMatchesExam(stage, activeExamRefs))
   }, [activeExamId, activeExamRefs, stages])
 
+  // Precomputed stats maps to eliminate nested O(N*M) scans during card rendering
+  const seriesStatsMap = useMemo(() => {
+    const map = new Map()
+    const testToSeriesMap = new Map()
+    for (const t of testsList) {
+      const tId = String(getTestId(t) ?? '')
+      const sId = String(getTestSeriesIdFromTest(t) ?? '')
+      const testQCount = Number(t.totalQuestions ?? t.total_questions ?? t.linked_question_count ?? t.questionsCount ?? t.questions_count ?? t.question_count ?? 0)
+      if (tId) testToSeriesMap.set(tId, sId)
+      if (sId) {
+        if (!map.has(sId)) map.set(sId, { testsCount: 0, questionsCount: 0 })
+        const stat = map.get(sId)
+        stat.testsCount += 1
+        stat.questionsCount += testQCount
+      }
+    }
+    return map
+  }, [testsList])
+
+  const testStatsMap = useMemo(() => {
+    const map = new Map()
+    for (const t of testsList) {
+      const tId = String(getTestId(t) ?? '')
+      if (tId) {
+        const testQCount = Number(t.totalQuestions ?? t.total_questions ?? t.linked_question_count ?? t.questionsCount ?? t.questions_count ?? t.question_count ?? 0)
+        map.set(tId, { totalCount: testQCount, activeCount: testQCount })
+      }
+    }
+    for (const q of questions) {
+      const tId = String(getTestIdFromQuestion(q) ?? '')
+      if (!tId) continue
+      if (!map.has(tId)) {
+        map.set(tId, { totalCount: 0, activeCount: 0 })
+      }
+      const stat = map.get(tId)
+      if (stat.totalCount === 0) {
+        stat.totalCount += 1
+        if (q.status === 'active') stat.activeCount += 1
+      }
+    }
+    return map
+  }, [testsList, questions])
+
   useEffect(() => {
     if (!activeExamCategoryId && examCategories.length > 0) {
       const first = examCategories[0]
@@ -1727,6 +877,7 @@ export default function QuestionsManager() {
     setSelectedTest(null)
     setCurrentPage(1)
     setSelectedSection('all')
+    setSelectedIds([])
   }, [activeCategory, activeExamCategoryId, activeExamId, activeStageId])
 
   // Auto-select first stage when exam changes and no stage is selected
@@ -1748,6 +899,7 @@ export default function QuestionsManager() {
   useEffect(() => {
     setSelectedSection('all')
     setCurrentPage(1)
+    setSelectedIds([])
   }, [selectedTest])
 
   useEffect(() => {
@@ -1757,6 +909,7 @@ export default function QuestionsManager() {
     setSubCategoryLevel3('')
     setSubCategoryLevel4('')
     setSelectedTest(null)
+    setSelectedIds([])
     resetTestForm()
     setShowTestBulkUpload(false)
   }, [selectedSeries, activeCategory])
@@ -1850,8 +1003,22 @@ export default function QuestionsManager() {
   const testQuestions = useMemo(() => {
     if (!selectedTest) return []
     const testId = String(getTestId(selectedTest) || '')
+    const testDbId = String(selectedTest._id || selectedTest.id || '')
+    const testPublicId = String(selectedTest.public_id || selectedTest.publicId || '')
+
     return questions
-      .filter(q => idsEqual(getTestIdFromQuestion(q), testId))
+      .filter(q => {
+        const qTestId = String(getTestIdFromQuestion(q) || '')
+        const qRawTestId = String(q.testId || q.test_id || '')
+        return (
+          idsEqual(qTestId, testId) ||
+          idsEqual(qTestId, testDbId) ||
+          idsEqual(qTestId, testPublicId) ||
+          idsEqual(qRawTestId, testId) ||
+          idsEqual(qRawTestId, testDbId) ||
+          idsEqual(qRawTestId, testPublicId)
+        )
+      })
       .sort((a, b) => {
         const aNumber = Number(a.questionNumber || a.question_number || 0)
         const bNumber = Number(b.questionNumber || b.question_number || 0)
@@ -1880,24 +1047,113 @@ export default function QuestionsManager() {
   }, [filteredTestQuestions, currentPage])
   const totalPages = Math.ceil(filteredTestQuestions.length / QUESTIONS_PER_PAGE)
 
+  const auditQuestions = useMemo(() => {
+    if (activeCategory !== 'audit') return []
+    return questions.filter(q => {
+      const isDraft = q.status === 'draft' || q.status === 'Inactive' || q.status === 'Draft' || !q.isActive
+      const noText = !q.questionText || String(q.questionText).trim() === ''
+      const noOptions = !q.options || q.options.length < 2 || q.options.some(o => !o || String(o).trim() === '')
+      const noCorrect = q.correctOption === null || q.correctOption === undefined || q.correctOption === ''
+      return isDraft || noText || noOptions || noCorrect
+    })
+  }, [questions, activeCategory])
+
   // Stats scoped to the active category
   const categoryStats = useMemo(() => {
-    const testIdsForActiveCategory = new Set(
-      testsList
-        .filter(test => recordMatchesTestCategory(test, activeTestCategoryRefs))
-        .map(test => String(getTestId(test)))
-    )
-    const catQuestions = questions.filter(q =>
-      recordMatchesTestCategory(q, activeTestCategoryRefs) ||
-      testIdsForActiveCategory.has(String(getTestIdFromQuestion(q)))
-    )
-    return {
-      total: catQuestions.length,
-      active: catQuestions.filter(q => q.status === 'active').length,
-      draft: catQuestions.filter(q => q.status === 'draft').length,
-      mcq: catQuestions.filter(q => q.type === 'mcq').length
+    const matchingTests = testsList.filter(test => recordMatchesTestCategory(test, activeTestCategoryRefs))
+    const testsQuestionSum = matchingTests.reduce((sum, t) => sum + (t.totalQuestions || t.total_questions || t.linked_question_count || t.questions || 0), 0)
+
+    if (activeCategory === 'practice') {
+      const practiceTotal = questionStats?.overview?.practice_questions || 0
+      return {
+        total: practiceTotal,
+        active: practiceTotal,
+        draft: 0,
+        mcq: practiceTotal
+      }
     }
-  }, [questions, testsList, activeTestCategoryRefs])
+
+    if (activeCategory === 'audit') {
+      const draftTotal = questionStats?.overview?.draft_questions || auditQuestions.length
+      return {
+        total: draftTotal,
+        active: 0,
+        draft: draftTotal,
+        mcq: draftTotal
+      }
+    }
+
+    const total = testsQuestionSum > 0 ? testsQuestionSum : (questionStats?.overview?.total_questions || totalCount || questions.length)
+    const active = testsQuestionSum > 0 ? testsQuestionSum : (questionStats?.overview?.active_questions || totalCount || questions.filter(q => q.status === 'active').length)
+    const draft = matchingTests.filter(t => t.status === 'draft').reduce((sum, t) => sum + (t.totalQuestions || t.total_questions || 0), 0)
+    const mcq = total
+
+    return {
+      total,
+      active,
+      draft,
+      mcq
+    }
+  }, [questions, testsList, activeTestCategoryRefs, activeCategory, totalCount, questionStats, auditQuestions])
+
+  // Computed sections for Test Configuration Preview drawer
+  const previewTestSections = useMemo(() => {
+    if (!previewTest) return []
+    const previewTestId = previewTest.id || previewTest._id
+    const previewTestDbId = previewTest._id || previewTest.id
+
+    // 1. Direct sections array on test object
+    if (Array.isArray(previewTest.sections) && previewTest.sections.length > 0) {
+      return previewTest.sections.map(s => ({
+        name: s.name || s.title || s.subject || 'General',
+        questions: s.questions || s.questionCount || s.question_count || s.expected_questions || 25
+      }))
+    }
+
+    // 2. Sections loaded from test_sections table
+    const fromSectionsList = sections.filter(s =>
+      idsEqual(s.test_id, previewTestId) ||
+      idsEqual(s.testId, previewTestId) ||
+      idsEqual(s.test_id, previewTestDbId) ||
+      idsEqual(s.testId, previewTestDbId)
+    )
+    if (fromSectionsList.length > 0) {
+      return fromSectionsList
+        .sort((a, b) => (a.display_order || a.displayOrder || 0) - (b.display_order || b.displayOrder || 0))
+        .map(sec => ({
+          name: sec.name || sec.title || 'General',
+          questions: sec.question_count || sec.questionCount || sec.expected_questions || sec.expectedQuestions || 25
+        }))
+    }
+
+    // 3. Aggregate directly from loaded questions
+    const testQs = questions.filter(q =>
+      idsEqual(q.testId || q.test_id, previewTestId) ||
+      idsEqual(q.testId || q.test_id, previewTestDbId)
+    )
+    if (testQs.length > 0) {
+      const secMap = {}
+      testQs.forEach(q => {
+        const sec = q.section || q.subject || 'General'
+        secMap[sec] = (secMap[sec] || 0) + 1
+      })
+      return Object.entries(secMap).map(([name, count]) => ({ name, questions: count }))
+    }
+
+    // 4. Default 4-section curriculum for standard SSC CGL / 100-question tier 1 tests
+    const titleLower = String(previewTest.title || previewTest.name || '').toLowerCase()
+    const totalQ = previewTest.totalQuestions || previewTest.total_questions || 100
+    if (totalQ === 100 || titleLower.includes('cgl') || titleLower.includes('tier 1') || titleLower.includes('tier-1')) {
+      return [
+        { name: 'General Intelligence & Reasoning', questions: 25 },
+        { name: 'General Awareness', questions: 25 },
+        { name: 'Quantitative Aptitude', questions: 25 },
+        { name: 'English Comprehension', questions: 25 },
+      ]
+    }
+
+    return []
+  }, [previewTest, sections, questions])
 
   // Handlers
   const handleEdit = (question) => {
@@ -2004,6 +1260,7 @@ export default function QuestionsManager() {
     let undoClicked = false
     const deletedQuestion = questions.find(q => (q._id || q.id) === id)
     if (!deletedQuestion) return
+    const deletedIndex = questions.findIndex(q => (q._id || q.id) === id)
 
     // Optimistically remove from UI
     setQuestions(prev => prev.filter(q => (q._id || q.id) !== id))
@@ -2019,8 +1276,12 @@ export default function QuestionsManager() {
           onClick={() => {
             undoClicked = true
             toast.dismiss(t.id)
-            // Restore back to UI
-            setQuestions(prev => [...prev, deletedQuestion])
+            // Restore back to UI at the original position
+            setQuestions(prev => {
+              const next = [...prev]
+              next.splice(Math.min(deletedIndex, next.length), 0, deletedQuestion)
+              return next
+            })
           }}
           className="px-2.5 py-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors shrink-0"
         >
@@ -2032,18 +1293,46 @@ export default function QuestionsManager() {
       position: 'bottom-right',
     })
 
-    // Set a timeout to perform the actual deletion after 5 seconds if not undone
-    setTimeout(async () => {
+    deleteTimeoutRef.current = setTimeout(async () => {
       if (undoClicked) return
       try {
         await adminAPI.deleteQuestion(id)
       } catch (error) {
         console.error('Failed to delete question:', error)
-        // If backend delete failed, add it back to UI and show error
         setQuestions(prev => [...prev, deletedQuestion])
         toast.error('Failed to delete question from server')
       }
     }, 5000)
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return
+    const confirmed = await confirmOnce({ title: 'Confirm', message: `Delete ${selectedIds.length} selected questions?`, danger: true })
+    if (!confirmed) return
+
+    try {
+      await adminAPI.bulkDeleteQuestions(selectedIds)
+      setQuestions(prev => prev.filter(q => !selectedIds.includes(q._id || q.id)))
+      setSelectedIds([])
+      toast.success(`${selectedIds.length} questions deleted`)
+    } catch (error) {
+      console.error('Bulk delete failed:', error)
+      toast.error('Failed to delete questions')
+    }
+  }
+
+  const handleBulkDifficulty = async (newDifficulty) => {
+    if (selectedIds.length === 0) return
+    try {
+      await Promise.all(selectedIds.map(id => adminAPI.updateQuestion(id, { difficulty: newDifficulty })))
+      setQuestions(prev => prev.map(q => selectedIds.includes(q._id || q.id) ? { ...q, difficulty: newDifficulty } : q))
+      const count = selectedIds.length
+      setSelectedIds([])
+      toast.success(`Updated difficulty to "${newDifficulty}" for ${count} questions`)
+    } catch (error) {
+      console.error('Bulk difficulty update failed:', error)
+      toast.error('Failed to update difficulty')
+    }
   }
 
   const handleToggleStatus = async (question) => {
@@ -2319,35 +1608,14 @@ export default function QuestionsManager() {
     setSelectedSeries(null)
     setSelectedTest(null)
     setSelectedSection('all')
+    setSelectedIds([])
   }
-
-  const auditQuestions = useMemo(() => {
-    if (activeCategory !== 'audit') return []
-    return questions.filter(q => {
-      const isDraft = q.status === 'draft' || q.status === 'Inactive' || q.status === 'Draft' || !q.isActive
-      const noText = !q.questionText || String(q.questionText).trim() === ''
-      const noOptions = !q.options || q.options.length < 2 || q.options.some(o => !o || String(o).trim() === '')
-      const noCorrect = q.correctOption === null || q.correctOption === undefined || q.correctOption === ''
-      return isDraft || noText || noOptions || noCorrect
-    })
-  }, [questions, activeCategory])
 
   if (loading) {
     return <LoadingSpinner />
   }
 
-  const hasErrors = Object.keys(errors).length > 0
-  const hasNoQuestions = questions.length === 0 && !hasErrors
 
-  if (hasNoQuestions) {
-    return (
-      <div className="p-6">
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6 text-center">
-          <p className="text-amber-800 dark:text-amber-200">No questions found. Create your first question or import from CSV.</p>
-        </div>
-      </div>
-    )
-  }
 
   // Breadcrumb labels
   const activeCatLabel = QUESTION_CATEGORIES.find(c => c.id === activeCategory)?.label || 'Questions'
@@ -2360,8 +1628,8 @@ export default function QuestionsManager() {
 
 
   return (
-    <div className="p-4 md:p-6">
-      {/* Top bar: tabs left, export right */}
+    <div className="p-3 sm:p-4 md:p-6">
+      {/* Top bar: tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         {!showTrash ? (
           <CategoryTabBar
@@ -2370,18 +1638,11 @@ export default function QuestionsManager() {
             categoryCounts={categoryCounts}
           />
         ) : <div />}
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors self-start sm:self-auto"
-        >
-          <Download className="w-4 h-4" />
-          Export
-        </button>
       </div>
 
       {/* Stats */}
       {!showTrash && (
-        <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatsCard icon={FileText} label="Total Questions" value={categoryStats.total.toLocaleString()} color="indigo" />
           <StatsCard icon={CheckCircle} label="Active" value={categoryStats.active.toLocaleString()} color="green" />
           <StatsCard icon={Clock} label="Drafts" value={categoryStats.draft.toLocaleString()} color="yellow" />
@@ -2550,10 +1811,7 @@ export default function QuestionsManager() {
         {!showTrash && (
           <div className="mb-4 flex items-center justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Test Series</h2>
-              <p className="text-sm text-gray-500">
-                {filteredSeriesList.length} series match the current exam and stage selection.
-              </p>
+              <h2 className="text-lg font-bold text-gray-900">Questions</h2>
             </div>
           </div>
         )}
@@ -2600,16 +1858,9 @@ export default function QuestionsManager() {
           <div className="flex flex-col gap-3">
             {filteredSeriesList.length > 0 ? filteredSeriesList.map(series => {
               const seriesId = getSeriesId(series)
-              const testsCount = testsList.filter(t => {
-                const tSeriesId = getTestSeriesIdFromTest(t)
-                return idsEqual(tSeriesId, seriesId)
-              }).length
-              const questionsCount = questions.filter(q => {
-                const qSeries = getTestSeriesIdFromQuestion(q)
-                if (idsEqual(qSeries, seriesId)) return true
-                const qTestId = getTestIdFromQuestion(q)
-                return testsList.some(t => idsEqual(getTestId(t), qTestId) && idsEqual(getTestSeriesIdFromTest(t), seriesId))
-              }).length
+              const seriesStat = seriesStatsMap.get(String(seriesId ?? '')) || { testsCount: 0, questionsCount: 0 }
+              const testsCount = seriesStat.testsCount
+              const questionsCount = seriesStat.questionsCount
 
               return (
                 <div
@@ -2719,142 +1970,266 @@ export default function QuestionsManager() {
 
         {/* ===== LEVEL 2: Test Listing ===== */}
         {drillLevel === 'tests' && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
-            {seriesTests.length > 0 ? seriesTests.map(test => {
-              const testId = getTestId(test)
-              const qCount = questions.filter(q => {
-                const qTestId = getTestIdFromQuestion(q)
-                return idsEqual(qTestId, testId)
-              }).length
-              const activeCount = questions.filter(q => {
-                const qTestId = getTestIdFromQuestion(q)
-                return idsEqual(qTestId, testId) && q.status === 'active'
-              }).length
-              const isPublished = test.status === 'published' || test.status === 'active'
+          <div className="space-y-4">
+            {/* Subcategory Navigation Pills */}
+            {(subCategoryOptionsLevel1.length > 0 || subCategoryOptionsLevel2.length > 0) && (
+              <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-3 shadow-xs">
+                {/* Level 1 Subcategories (e.g. Year Based, Sectional) */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">Category:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubCategoryLevel1('')
+                      setSubCategoryLevel2('')
+                      setSubCategoryLevel3('')
+                      setSubCategoryLevel4('')
+                      setSelectedTestSubCategoryId('all')
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${!subCategoryLevel1
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                      }`}
+                  >
+                    All ({seriesTests.length})
+                  </button>
+                  {subCategoryOptionsLevel1.map((cat) => {
+                    const catId = getEntityId(cat) || ''
+                    const isSelected = subCategoryLevel1 === catId
+                    const count = getCategoryTestCount(catId)
+                    return (
+                      <button
+                        key={catId}
+                        type="button"
+                        onClick={() => {
+                          const newVal = isSelected ? '' : catId
+                          setSubCategoryLevel1(newVal)
+                          setSubCategoryLevel2('')
+                          setSubCategoryLevel3('')
+                          setSubCategoryLevel4('')
+                          setSelectedTestSubCategoryId(newVal || 'all')
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                          }`}
+                      >
+                        {getCategoryLabel(cat)} ({count})
+                      </button>
+                    )
+                  })}
+                </div>
 
-              return (
-                <div
-                  key={testId}
-                  onClick={() => setSelectedTest(test)}
-                  style={{
-                    padding: '20px',
-                    backgroundColor: '#ffffff',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '14px',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#a78bfa'
-                    e.currentTarget.style.boxShadow = '0 6px 20px -4px rgba(139, 92, 246, 0.15)'
-                    e.currentTarget.style.transform = 'translateY(-2px)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#e2e8f0'
-                    e.currentTarget.style.boxShadow = 'none'
-                    e.currentTarget.style.transform = 'none'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div style={{
-                      width: '40px',
-                      height: '40px',
-                      borderRadius: '10px',
-                      background: qCount > 0
-                        ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)'
-                        : 'linear-gradient(135deg, #fef3c7, #fde68a)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <FileText style={{ width: '20px', height: '20px', color: qCount > 0 ? '#16a34a' : '#d97706' }} />
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        width: '8px',
-                        height: '8px',
-                        borderRadius: '50%',
-                        backgroundColor: isPublished ? '#22c55e' : '#94a3b8'
-                      }} />
-                      <ChevronRight style={{ width: '18px', height: '18px', color: '#cbd5e1' }} />
-                    </div>
+                {/* Level 2 Subcategories (e.g. 2025, 2024, 2023, 2022, 2021, 2020, 2019) */}
+                {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">Sub Level:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubCategoryLevel2('')
+                        setSubCategoryLevel3('')
+                        setSubCategoryLevel4('')
+                        setSelectedTestSubCategoryId(subCategoryLevel1)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${!subCategoryLevel2
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-amber-50/50 text-amber-900 border-amber-200 hover:bg-amber-100/60'
+                        }`}
+                    >
+                      All ({getCategoryTestCount(subCategoryLevel1)})
+                    </button>
+                    {subCategoryOptionsLevel2.map((cat) => {
+                      const catId = getEntityId(cat) || ''
+                      const isSelected = subCategoryLevel2 === catId
+                      const count = getCategoryTestCount(catId)
+                      return (
+                        <button
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? '' : catId
+                            setSubCategoryLevel2(newVal)
+                            setSubCategoryLevel3('')
+                            setSubCategoryLevel4('')
+                            setSelectedTestSubCategoryId(newVal || subCategoryLevel1)
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${isSelected
+                            ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                            : 'bg-amber-50/50 text-amber-900 border-amber-200 hover:bg-amber-100/60'
+                            }`}
+                        >
+                          {getCategoryLabel(cat)} ({count})
+                        </button>
+                      )
+                    })}
                   </div>
+                )}
 
-                  <h3 style={{
-                    fontSize: '15px',
-                    fontWeight: 700,
-                    color: '#1e293b',
-                    marginBottom: '4px',
-                    lineHeight: 1.3
-                  }}>
-                    {test.title || test.name || 'Untitled Test'}
-                  </h3>
+                {/* Level 3 Subcategories */}
+                {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
+                  <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-2">Shift / Paper:</span>
+                    {subCategoryOptionsLevel3.map((cat) => {
+                      const catId = getEntityId(cat) || ''
+                      const isSelected = subCategoryLevel3 === catId
+                      const count = getCategoryTestCount(catId)
+                      return (
+                        <button
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? '' : catId
+                            setSubCategoryLevel3(newVal)
+                            setSubCategoryLevel4('')
+                            setSelectedTestSubCategoryId(newVal || subCategoryLevel2 || subCategoryLevel1)
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap border transition-colors ${isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                            : 'bg-emerald-50 text-emerald-900 border-emerald-200 hover:bg-emerald-100'
+                            }`}
+                        >
+                          {getCategoryLabel(cat)} ({count})
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
-                  {test.description && (
-                    <p style={{
-                      fontSize: '13px',
-                      color: '#94a3b8',
-                      marginBottom: '14px',
-                      lineHeight: 1.4,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}>
-                      {test.description}
-                    </p>
-                  )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+              {workspaceTests.length > 0 ? workspaceTests.map(test => {
+                const testId = getTestId(test)
+                const testStat = testStatsMap.get(String(testId ?? '')) || { totalCount: 0, activeCount: 0 }
+                const qCount = testStat.totalCount
+                const activeCount = testStat.activeCount
+                const isPublished = test.status === 'published' || test.status === 'active'
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: test.description ? '0' : '14px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      padding: '3px 10px',
-                      backgroundColor: '#f1f5f9',
-                      color: '#475569',
-                      borderRadius: '6px'
+                return (
+                  <div
+                    key={testId}
+                    onClick={() => setSelectedTest(test)}
+                    style={{
+                      padding: '20px',
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '14px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#a78bfa'
+                      e.currentTarget.style.boxShadow = '0 6px 20px -4px rgba(139, 92, 246, 0.15)'
+                      e.currentTarget.style.transform = 'translateY(-2px)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e2e8f0'
+                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.transform = 'none'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        background: qCount > 0
+                          ? 'linear-gradient(135deg, #dcfce7, #bbf7d0)'
+                          : 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}>
+                        <FileText style={{ width: '20px', height: '20px', color: qCount > 0 ? '#16a34a' : '#d97706' }} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          backgroundColor: isPublished ? '#22c55e' : '#94a3b8'
+                        }} />
+                        <ChevronRight style={{ width: '18px', height: '18px', color: '#cbd5e1' }} />
+                      </div>
+                    </div>
+
+                    <h3 style={{
+                      fontSize: '15px',
+                      fontWeight: 700,
+                      color: '#1e293b',
+                      marginBottom: '4px',
+                      lineHeight: 1.3
                     }}>
-                      {qCount} questions
-                    </span>
-                    <span style={{
-                      fontSize: '12px',
-                      fontWeight: 600,
-                      padding: '3px 10px',
-                      backgroundColor: activeCount > 0 ? '#f0fdf4' : '#fef2f2',
-                      color: activeCount > 0 ? '#166534' : '#991b1b',
-                      borderRadius: '6px'
-                    }}>
-                      {activeCount} active
-                    </span>
-                    {(test.duration || test.time_limit) && (
+                      {test.title || test.name || 'Untitled Test'}
+                    </h3>
+
+                    {test.description && (
+                      <p style={{
+                        fontSize: '13px',
+                        color: '#94a3b8',
+                        marginBottom: '14px',
+                        lineHeight: 1.4,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
+                        {test.description}
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: test.description ? '0' : '14px', flexWrap: 'wrap' }}>
                       <span style={{
                         fontSize: '12px',
                         fontWeight: 600,
                         padding: '3px 10px',
-                        backgroundColor: '#eff6ff',
-                        color: '#1e40af',
-                        borderRadius: '6px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        backgroundColor: '#f1f5f9',
+                        color: '#475569',
+                        borderRadius: '6px'
                       }}>
-                        <Clock style={{ width: '12px', height: '12px' }} />
-                        {test.duration || test.time_limit} min
+                        {qCount} questions
                       </span>
-                    )}
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        padding: '3px 10px',
+                        backgroundColor: activeCount > 0 ? '#f0fdf4' : '#fef2f2',
+                        color: activeCount > 0 ? '#166534' : '#991b1b',
+                        borderRadius: '6px'
+                      }}>
+                        {activeCount} active
+                      </span>
+                      {(test.duration || test.time_limit) && (
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          padding: '3px 10px',
+                          backgroundColor: '#eff6ff',
+                          color: '#1e40af',
+                          borderRadius: '6px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          <Clock style={{ width: '12px', height: '12px' }} />
+                          {test.duration || test.time_limit} min
+                        </span>
+                      )}
+                    </div>
                   </div>
+                )
+              }) : (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <EmptyState
+                    icon={FileText}
+                    title="No Tests in this Category"
+                    description={`No tests found in "${selectedSeries?.title || selectedSeries?.name || 'this series'}" for the selected subcategory.`}
+                  />
                 </div>
-              )
-            }) : (
-              <div style={{ gridColumn: '1 / -1' }}>
-                <EmptyState
-                  icon={FileText}
-                  title="No Tests in this Series"
-                  description={`No tests found in "${selectedSeries?.title || selectedSeries?.name || 'this series'}". Create a test first.`}
-                />
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
 
@@ -2930,8 +2305,72 @@ export default function QuestionsManager() {
               </button>
             </div>
 
-            {filteredTestQuestions.length > 0 ? (
+            {testQuestionsLoading && filteredTestQuestions.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center flex flex-col items-center justify-center gap-3">
+                <LoadingSpinner />
+                <p className="text-sm font-medium text-gray-500">Loading questions for this test...</p>
+              </div>
+            ) : filteredTestQuestions.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.length === paginatedQuestions.length && paginatedQuestions.length > 0}
+                    onChange={(e) => setSelectedIds(e.target.checked ? paginatedQuestions.map(q => q._id || q.id) : [])}
+                    style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
+                    {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all'}
+                  </span>
+                  {selectedIds.length > 0 && (
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Bulk Actions:</span>
+                      <button
+                        onClick={() => handleBulkDifficulty('easy')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-colors"
+                      >
+                        Set Easy
+                      </button>
+                      <button
+                        onClick={() => handleBulkDifficulty('medium')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors"
+                      >
+                        Set Medium
+                      </button>
+                      <button
+                        onClick={() => handleBulkDifficulty('hard')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors"
+                      >
+                        Set Hard
+                      </button>
+                      <button
+                        onClick={handleBulkDelete}
+                        style={{
+                          padding: '5px 12px',
+                          backgroundColor: '#ef4444',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          fontFamily: 'inherit',
+                          transition: 'background-color 0.15s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#dc2626'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ef4444'}
+                      >
+                        Delete ({selectedIds.length})
+                      </button>
+                      <button
+                        onClick={() => setSelectedIds([])}
+                        className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 font-medium"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
+                </div>
                 {paginatedQuestions.map((q, idx) => {
                   // Calculate actual index for question number display
                   const actualIdx = (currentPage - 1) * QUESTIONS_PER_PAGE + idx
@@ -2956,6 +2395,16 @@ export default function QuestionsManager() {
                       {/* Question header */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(q._id || q.id)}
+                            onChange={(e) => {
+                              const qId = q._id || q.id
+                              if (e.target.checked) setSelectedIds([...selectedIds, qId])
+                              else setSelectedIds(selectedIds.filter(id => id !== qId))
+                            }}
+                            style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
+                          />
                           <span style={{
                             display: 'inline-flex',
                             alignItems: 'center',
@@ -3052,15 +2501,15 @@ export default function QuestionsManager() {
                         </div>
                       </div>
 
-                      {/* Question text */}
-                      <p style={{
+                      {/* Question text with MathRenderer */}
+                      <div style={{
                         fontSize: '15px',
                         color: '#1e293b',
                         lineHeight: 1.6,
                         marginBottom: q.options?.length > 0 ? '16px' : '0'
                       }}>
-                        {q.questionText}
-                      </p>
+                        <MathRenderer content={q.questionText} />
+                      </div>
 
                       {/* Options */}
                       {q.options?.length > 0 && (
@@ -3100,7 +2549,7 @@ export default function QuestionsManager() {
                                 }}>
                                   {isCorrect ? '✓' : letters[oi]}
                                 </span>
-                                <span>{opt}</span>
+                                <MathRenderer content={opt} />
                               </div>
                             )
                           })}
@@ -3119,9 +2568,9 @@ export default function QuestionsManager() {
                           lineHeight: 1.5
                         }}>
                           <strong style={{ display: 'block', marginBottom: '4px', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#b45309' }}>
-                            Explanation
+                            Solution Explanation:
                           </strong>
-                          {q.explanation}
+                          <MathRenderer content={q.explanation} />
                         </div>
                       )}
 
@@ -3505,7 +2954,7 @@ export default function QuestionsManager() {
                       <div className="flex flex-col gap-3">
                         {workspaceTests.map(test => {
                           const testId = getTestId(test)
-                          const qCount = questions.filter(q => idsEqual(getTestIdFromQuestion(q), testId)).length
+                          const qCount = Number(test.total_questions ?? test.totalQuestions ?? test.question_count ?? test.questionsCount) || questions.filter(q => idsEqual(getTestIdFromQuestion(q), testId)).length
                           return (
                             <div
                               key={testId}
@@ -3558,8 +3007,13 @@ export default function QuestionsManager() {
                 ) : (
                   <div>
                     <button
-                      onClick={() => setSelectedTest(null)}
-                      className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        handleBackToTests()
+                      }}
+                      className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4" /> Back to Tests
                     </button>
@@ -3596,25 +3050,86 @@ export default function QuestionsManager() {
                       </div>
                     </div>
 
-                    {filteredTestQuestions.length === 0 ? (
+                    {testQuestionsLoading ? (
+                      <div className="flex flex-col items-center justify-center p-8 my-6 text-center space-y-4">
+                        <LoadingSpinner size="lg" message="Loading questions for this test..." />
+                      </div>
+                    ) : filteredTestQuestions.length === 0 ? (
                       <EmptyState icon={FileText} title="No Questions in this Test" description="Add or bulk upload questions for this test." />
                     ) : (
                       <div className="space-y-3">
                         {paginatedQuestions.map((q, idx) => (
-                          <div key={getQuestionId(q) || idx} className="bg-white border border-gray-200 rounded-xl p-4">
+                          <div key={getQuestionId(q) || idx} className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-all shadow-xs">
                             <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
+                              <div className="min-w-0 flex-1">
                                 <div className="mb-2 flex flex-wrap items-center gap-2">
                                   <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">{(currentPage - 1) * QUESTIONS_PER_PAGE + idx + 1}</span>
                                   <Badge variant="info">{q.type || 'mcq'}</Badge>
                                   <Badge className={(DIFFICULTY_LEVELS.find(d => d.value === q.difficulty) || DIFFICULTY_LEVELS[1]).color}>{q.difficulty || 'medium'}</Badge>
                                   <Badge className={(STATUS_OPTIONS.find(s => s.value === q.status) || STATUS_OPTIONS[1]).color}>{q.status || 'draft'}</Badge>
+                                  {q.marks && (
+                                    <span className="text-xs text-gray-500 font-medium">
+                                      <strong className="text-emerald-600">+{q.marks}</strong>
+                                      {q.negativeMarks > 0 && <span className="text-red-500"> / -{q.negativeMarks}</span>}
+                                    </span>
+                                  )}
+                                  {q.questionTextHi && (
+                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                      Hindi Available
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-sm text-gray-900 line-clamp-3">{q.questionText}</p>
+                                <div className="text-sm text-gray-900 leading-relaxed font-medium mb-3">
+                                  <MathRenderer content={q.questionText} />
+                                </div>
+
+                                {/* Options Preview */}
+                                {q.options && q.options.length > 0 && (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-gray-600 mb-2">
+                                    {q.options.map((opt, oi) => {
+                                      const isCorrect = Array.isArray(q.correctOption)
+                                        ? q.correctOption.includes(oi)
+                                        : q.correctOption === oi || Number(q.correctOption) === oi
+                                      const optionLetters = ['A', 'B', 'C', 'D', 'E', 'F']
+                                      return (
+                                        <div
+                                          key={oi}
+                                          className={`flex items-start gap-1.5 p-2 rounded-lg border text-xs ${
+                                            isCorrect
+                                              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900 font-medium'
+                                              : 'bg-gray-50/60 border-gray-100 text-gray-700'
+                                          }`}
+                                        >
+                                          <span className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                            isCorrect ? 'bg-emerald-200 text-emerald-800' : 'bg-gray-200 text-gray-600'
+                                          }`}>
+                                            {optionLetters[oi] || oi + 1}
+                                          </span>
+                                          <div className="flex-1 overflow-hidden">
+                                            <MathRenderer content={opt} />
+                                          </div>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Explanation Preview */}
+                                {q.explanation && (
+                                  <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/60 rounded-lg text-xs text-indigo-950 mt-2">
+                                    <div className="font-bold text-[11px] text-indigo-700 mb-1 flex items-center gap-1">
+                                      <Sparkles className="w-3 h-3" /> Solution & Explanation
+                                    </div>
+                                    <div className="line-clamp-3 overflow-hidden text-gray-700">
+                                      <MathRenderer content={q.explanation} />
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                               <div className="flex gap-1 shrink-0">
                                 <button onClick={() => handleQuestionPreview(q)} className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Preview Question"><Eye className="w-4 h-4" /></button>
                                 <button onClick={() => handleEdit(q)} className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Edit2 className="w-4 h-4" /></button>
+                                <button onClick={() => openVersionHistory(getQuestionId(q))} className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50" title="Version History"><History className="w-4 h-4" /></button>
                                 <button onClick={() => handleDelete(getQuestionId(q))} className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 className="w-4 h-4" /></button>
                               </div>
                             </div>
@@ -3784,9 +3299,9 @@ export default function QuestionsManager() {
                         <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">English Question</h4>
                         <div
                           className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: previewQuestion.questionText || '' }}
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewQuestion.questionText || '') }}
                         />
-                        {previewQuestion.imageUrl && (
+                        {previewQuestion.imageUrl && isSafeImageUrl(previewQuestion.imageUrl) && (
                           <img src={previewQuestion.imageUrl} alt="Question Graphic" className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700" />
                         )}
                       </div>
@@ -3796,7 +3311,7 @@ export default function QuestionsManager() {
                           <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Hindi Question (हिंदी प्रश्न)</h4>
                           <div
                             className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: previewQuestion.questionTextHi || '' }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewQuestion.questionTextHi || '') }}
                           />
                         </div>
                       )}
@@ -3827,12 +3342,12 @@ export default function QuestionsManager() {
                                 <div className="flex-1">
                                   <div
                                     className="text-sm text-gray-900 dark:text-gray-100"
-                                    dangerouslySetInnerHTML={{ __html: opt || '' }}
+                                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(opt || '') }}
                                   />
                                   {previewQuestion.optionsHi?.[idx] && (
                                     <div
                                       className="text-xs text-gray-500 dark:text-gray-400 mt-1"
-                                      dangerouslySetInnerHTML={{ __html: previewQuestion.optionsHi[idx] || '' }}
+                                      dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewQuestion.optionsHi[idx] || '') }}
                                     />
                                   )}
                                 </div>
@@ -3865,7 +3380,7 @@ export default function QuestionsManager() {
                         <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4">
                           <div
                             className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
-                            dangerouslySetInnerHTML={{ __html: previewQuestion.explanation || '' }}
+                            dangerouslySetInnerHTML={{ __html: sanitizeHtml(previewQuestion.explanation || '') }}
                           />
                         </div>
                       </div>
@@ -3892,6 +3407,85 @@ export default function QuestionsManager() {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QUESTION ENGINE FIX #2 (MEDIUM): Version History modal */}
+      {versionHistory.open && (
+        <div className="fixed inset-0 z-[110] overflow-y-auto" aria-labelledby="version-history-title" role="dialog" aria-modal="true">
+          <div className="fixed inset-0 bg-black/50" onClick={closeVersionHistory}></div>
+          <div className="relative min-h-screen flex items-center justify-center p-4">
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5 text-amber-500" />
+                  <h3 id="version-history-title" className="text-lg font-bold text-gray-900 dark:text-white">Question Version History</h3>
+                </div>
+                <button onClick={closeVersionHistory} className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1">
+                {versionHistory.loading && <p className="text-sm text-gray-500">Loading versions…</p>}
+                {versionHistory.error && <p className="text-sm text-red-600">{versionHistory.error}</p>}
+                {versionHistory.data && (
+                  <>
+                    {versionHistory.data.quality && (
+                      <div className="mb-4 rounded-lg border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/10 p-3">
+                        <div className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300 mb-1">Current Quality Score</div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl font-black text-indigo-700 dark:text-indigo-300">{versionHistory.data.quality.score}/100</div>
+                          {versionHistory.data.quality.flags?.length > 0 ? (
+                            <ul className="text-xs text-amber-700 dark:text-amber-300 list-disc list-inside">
+                              {versionHistory.data.quality.flags.map((f, i) => <li key={i}>{f}</li>)}
+                            </ul>
+                          ) : (
+                            <span className="text-xs text-green-700 dark:text-green-300">No issues detected</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {(!versionHistory.data.versions || versionHistory.data.versions.length === 0) ? (
+                      <p className="text-sm text-gray-500">No previous versions recorded yet. Versions are created automatically each time this question is edited.</p>
+                    ) : (
+                      <ul className="space-y-3">
+                        {versionHistory.data.versions.map((v) => (
+                          <li key={v.version_number} className="border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                            <div className="flex items-center justify-between gap-3 mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center text-xs font-bold">v{v.version_number}</span>
+                                {v.is_current && <span className="text-[10px] font-bold uppercase text-green-700 bg-green-100 px-2 py-0.5 rounded">Current</span>}
+                                <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded">{v.difficulty}</span>
+                              </div>
+                              {!v.is_current && (
+                                <button
+                                  onClick={() => restoreVersion(v.version_number)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-xs font-medium transition-colors"
+                                >
+                                  <RotateCcw className="w-3.5 h-3.5" /> Restore
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">{v.text}</p>
+                            <div className="text-xs text-gray-400">
+                              {v.changed_by_name ? `Edited by ${v.changed_by_name}` : 'System'} · {v.created_at ? new Date(v.created_at).toLocaleString() : ''}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
+                <button onClick={closeVersionHistory} className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors">
+                  Close
+                </button>
               </div>
             </div>
           </div>
@@ -3970,19 +3564,17 @@ export default function QuestionsManager() {
                             </tr>
                           </thead>
                           <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                            {sections.filter(s => String(s.test_id || '') === String(previewTest.id || previewTest._id)).length === 0 ? (
+                            {previewTestSections.length === 0 ? (
                               <tr>
                                 <td colSpan={2} className="px-4 py-4 text-center text-gray-500 dark:text-gray-400">No custom sections defined. Uses global default.</td>
                               </tr>
                             ) : (
-                              sections
-                                .filter(s => String(s.test_id || '') === String(previewTest.id || previewTest._id))
-                                .map((sec, idx) => (
-                                  <tr key={idx}>
-                                    <td className="px-4 py-2 text-gray-900 dark:text-gray-200 font-medium">{sec.name}</td>
-                                    <td className="px-4 py-2 text-center text-gray-700 dark:text-gray-400">{sec.expected_questions || '--'} Qs</td>
-                                  </tr>
-                                ))
+                              previewTestSections.map((sec, idx) => (
+                                <tr key={idx}>
+                                  <td className="px-4 py-2.5 text-gray-900 dark:text-gray-200 font-medium">{sec.name}</td>
+                                  <td className="px-4 py-2.5 text-center font-semibold text-indigo-600 dark:text-indigo-400">{sec.questions} Qs</td>
+                                </tr>
+                              ))
                             )}
                           </tbody>
                         </table>

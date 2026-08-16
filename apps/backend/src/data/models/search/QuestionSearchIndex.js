@@ -20,7 +20,7 @@ class QuestionSearchIndex {
     const client = await pool.connect()
     try {
       const result = await client.query(
-        `SELECT * FROM question_search_index WHERE is_indexed = false ORDER BY created_at ASC LIMIT $1`,
+        `SELECT id, question_id, search_text, keywords, difficulty, topic_id, subtopic_id, subject, question_type, language, embedding, is_indexed, last_indexed_at, created_at, updated_at FROM question_search_index WHERE is_indexed = false ORDER BY created_at ASC LIMIT $1`,
         [limit]
       )
       return result.rows
@@ -218,7 +218,7 @@ class QuestionSearchIndex {
           COALESCE(s.name, '') as subject_name,
           COALESCE(q.difficulty, '') as difficulty
         FROM questions q
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE q.id = $1
       `, [questionId])
@@ -286,7 +286,7 @@ class QuestionSearchIndex {
           NOW(),
           NOW()
         FROM questions q
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE q.id = $1
         ON CONFLICT (question_id) DO UPDATE SET
@@ -346,7 +346,7 @@ class QuestionSearchIndex {
           NOW(),
           NOW()
         FROM questions q
-        LEFT JOIN topics t ON t.id = q.topic_id
+        LEFT JOIN subject_topics t ON t.id = q.topic_id
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE q.is_active = true
           AND NOT EXISTS (SELECT 1 FROM question_search_index qsi WHERE qsi.question_id = q.id)

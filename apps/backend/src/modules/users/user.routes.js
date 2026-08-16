@@ -5,6 +5,7 @@ import { dirname } from 'path'
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
+import { responseCache } from '../../middleware/responseCache.middleware.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -14,11 +15,34 @@ import { idsMatch, parseNumericId } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, getPublicResponseId, mapLookupId } from '../../shared/utils/public-id-response.js'
 import { sanitizeUser, parseEnrolledSeries, getSubjectIcon, mapEnrolledSeriesIdsForResponse, populateEnrolledSeries } from '../../shared/utils/user-utils.js'
+import { encryptPii, decryptPii, isPiiEncryptionEnabled } from '../../shared/utils/piiCrypto.js'
 import { getUserAttempts, isCompletedAttempt, formatAttemptResponse } from '../../shared/utils/attempt-utils.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
 import { invalidateSession, getUserSessions } from '../../services/SessionCaptureService.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
+
+// M14: decrypt PII shadow columns back into the user object for API responses.
+// No-ops (returns the input unchanged) when PII encryption is not enabled.
+const decryptUserPii = (user) => {
+  if (!user || !isPiiEncryptionEnabled()) return user
+  const out = { ...user }
+  const map = [
+    ['phone_enc', 'phone'],
+    ['phone_enc', 'mobile'],
+    ['dob_enc', 'dateOfBirth'],
+    ['dob_enc', 'dob'],
+    ['location_enc', 'location'],
+    ['education_enc', 'education'],
+    ['bio_enc', 'bio'],
+  ]
+  for (const [encKey, plainKey] of map) {
+    const enc = user[encKey]
+    if (enc) out[plainKey] = decryptPii(enc)
+  }
+  return out
+}
 
 // Profile update validation schema (Issue #33)
 const profileUpdateSchema = createSchema()
@@ -63,7 +87,7 @@ const deleteOldProfileAsset = (oldPath) => {
  * @param {string} oldPath - Old file path to delete (optional)
  * @returns {string|null} New file path
  */
-const saveProfileAsset = (imageData, userId, prefix, oldPath = null) => {
+const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
   const matches = String(imageData).match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/)
 
   if (!matches) {
@@ -75,10 +99,9 @@ const saveProfileAsset = (imageData, userId, prefix, oldPath = null) => {
     deleteOldProfileAsset(oldPath)
   }
 
-  const extension = matches[1]
   const base64Data = matches[2]
   const buffer = Buffer.from(base64Data, 'base64')
-  const fileName = `${prefix}_${userId}_${Date.now()}.${extension}`
+  const fileName = `${prefix}_${userId}_${Date.now()}.webp`
   const uploadDir = path.join(__dirname, '../../../uploads/avatars')
   const filePath = path.join(uploadDir, fileName)
 
@@ -86,7 +109,23 @@ const saveProfileAsset = (imageData, userId, prefix, oldPath = null) => {
     fs.mkdirSync(uploadDir, { recursive: true })
   }
 
-  fs.writeFileSync(filePath, buffer)
+  // Compress to keep files small: avatars are square thumbnails, banners are wide.
+  const maxWidth = prefix === 'banner' ? 1280 : 256
+  const maxHeight = prefix === 'banner' ? 480 : 256
+
+  try {
+    const sharp = (await import('sharp')).default
+    await sharp(buffer)
+      .rotate()
+      .resize(maxWidth, maxHeight, { fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toFile(filePath)
+  } catch (error) {
+    console.error(`❌ [assetSaveError] Failed to compress ${fileName}:`, error.message)
+    // Fallback: write the original buffer so the upload still succeeds
+    await fs.promises.writeFile(filePath, buffer)
+  }
+
   return `/assets/avatar/${fileName}`
 }
 
@@ -96,6 +135,7 @@ const saveProfileAsset = (imageData, userId, prefix, oldPath = null) => {
 router.get('/profile', protect, async (req, res) => {
   try {
     const user = await dbHelpers.findById('users', req.user.id)
+    const profileUser = isPiiEncryptionEnabled() ? decryptUserPii(user) : user
 
     if (!user) {
       return res.status(404).json({
@@ -159,7 +199,7 @@ router.get('/profile', protect, async (req, res) => {
     res.json({
       success: true,
       data: { 
-        ...sanitizeUser(user), 
+        ...sanitizeUser(profileUser), 
         enrolledSeries: populatedSeries,
         attemptedTests,
         attemptedTestIds: Array.from(attemptedTestIds).map((testId) => mapLookupId(testId, attemptedTestsLookup, testId))
@@ -168,7 +208,7 @@ router.get('/profile', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -206,6 +246,17 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
     if (education !== undefined) sanitizedData.education = String(education).trim().substring(0, 200)
     if (bio !== undefined) sanitizedData.bio = String(bio).trim().substring(0, 500)
 
+    // M14: encrypt PII into the dedicated *_enc columns so it is not stored as
+    // plaintext. The plaintext columns are retained for backward compat but the
+    // encrypted copies are the source of truth.
+    if (isPiiEncryptionEnabled()) {
+      if (phoneValue !== undefined) sanitizedData.phone_enc = encryptPii(phoneValue)
+      if (dateOfBirth !== undefined) sanitizedData.dob_enc = encryptPii(dateOfBirth)
+      if (location !== undefined) sanitizedData.location_enc = encryptPii(location)
+      if (education !== undefined) sanitizedData.education_enc = encryptPii(education)
+      if (bio !== undefined) sanitizedData.bio_enc = encryptPii(bio)
+    }
+
     // Fetch current user data to get old file paths
     const currentUser = await dbHelpers.findById('users', req.user.id)
     const oldAvatar = currentUser?.avatar || null
@@ -217,7 +268,7 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
       sanitizedData.avatar = null
     } else if (avatar && avatar.startsWith('data:image')) {
       // Uploading new avatar - delete old and save new
-      sanitizedData.avatar = saveProfileAsset(avatar, req.user.id, 'avatar', oldAvatar)
+      sanitizedData.avatar = await saveProfileAsset(avatar, req.user.id, 'avatar', oldAvatar)
     } else if (avatar) {
       // Setting avatar from URL
       sanitizedData.avatar = String(avatar).trim().substring(0, 500)
@@ -229,7 +280,7 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
       sanitizedData.banner = null
     } else if (banner && banner.startsWith('data:image')) {
       // Uploading new banner - delete old and save new
-      sanitizedData.banner = saveProfileAsset(banner, req.user.id, 'banner', oldBanner)
+      sanitizedData.banner = await saveProfileAsset(banner, req.user.id, 'banner', oldBanner)
     } else if (banner) {
       // Setting banner from URL
       sanitizedData.banner = String(banner).trim().substring(0, 500)
@@ -257,16 +308,22 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
       }
     }
 
-    if (typeof isActive === 'boolean') {
-      sanitizedData.isActive = isActive
-      sanitizedData.deactivatedAt = isActive ? null : new Date().toISOString()
+    // SECURITY: Strip admin-only fields from the request body so a regular user
+    // cannot self-modify isActive (self-deactivation), role, isProUser, proExpiry,
+    // or other privileged fields via the profile update endpoint.
+    const ADMIN_ONLY_FIELDS = ['isActive', 'role', 'isProUser', 'proExpiry', 'pro_expiry', 'passType', 'pass_type', 'deactivatedAt', 'refreshTokenVersion', 'refresh_token_version', 'emailVerified', 'isEmailVerified', 'phoneVerified']
+    for (const field of ADMIN_ONLY_FIELDS) {
+      delete sanitizedData[field]
     }
+    // `isActive` from req.body is intentionally ignored — self-deactivation
+    // must go through the dedicated DELETE /profile endpoint (account deletion).
 
     const user = await dbHelpers.updateById(
       'users',
       req.user.id,
       sanitizedData
     )
+    const decryptedUser = isPiiEncryptionEnabled() ? decryptUserPii(user) : user
     const enrolledSeries = await mapEnrolledSeriesIdsForResponse(
       user.enrolledSeries ?? user.enrolled_series ?? [],
       dbHelpers
@@ -282,7 +339,7 @@ router.put('/profile', protect, validateBody(profileUpdateSchema), async (req, r
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -309,7 +366,7 @@ router.delete('/profile', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -422,7 +479,7 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     console.error('[Enroll] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -525,7 +582,7 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
     console.error('[Unenroll] Error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -554,7 +611,7 @@ router.get('/enrolled-series', protect, async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -562,7 +619,7 @@ router.get('/enrolled-series', protect, async (req, res) => {
 // @route   GET /api/users/analytics
 // @desc    Get user's performance analytics
 // @access  Private
-router.get('/analytics', protect, async (req, res) => {
+router.get('/analytics', protect, responseCache("user-analytics", 60), async (req, res) => {
   try {
     const userAttempts = await getUserAttempts(req.user.id, dbHelpers)
     const userId = String(req.user.id)
@@ -583,61 +640,116 @@ router.get('/analytics', protect, async (req, res) => {
     let totalScore = 0
     let totalTimeSpent = 0
     
-    // Fetch real subject-wise stats from the database by joining with questions and subjects
-    const subjectStatsRes = await dbHelpers.pool.query(`
-      SELECT 
-        s.name as name,
-        COUNT(*)::int as attempted,
-        SUM(CASE WHEN (qa->>'selectedOption')::int = q.correct_option THEN 1 ELSE 0 END)::int as correct
-      FROM (
-        SELECT id, jsonb_array_elements(CASE WHEN jsonb_typeof(answers)='array' THEN answers ELSE '[]'::jsonb END) as qa
-        FROM attempts 
-        WHERE user_id = $1 AND status = 'completed'
-      ) t
-      JOIN questions q ON q.id = (t.qa->>'questionId')::int
-      JOIN subjects s ON s.id = q.subject
-      GROUP BY s.name
-    `, [req.user.id])
+    let subjectWise = []
+    let topicWise = []
 
-    const subjectStatsRow = subjectStatsRes.rows || []
+    try {
+      // Fetch real subject-wise stats from the database by joining with questions and subjects
+      const subjectStatsRes = await dbHelpers.pool.query(`
+        SELECT 
+          s.name as name,
+          COUNT(*)::int as attempted,
+          SUM(CASE 
+            WHEN (
+              CASE 
+                WHEN jsonb_typeof(t.qa->'selectedOption') = 'number' THEN (t.qa->>'selectedOption')::int
+                WHEN jsonb_typeof(t.qa->'selectedOption') = 'object' AND jsonb_typeof(t.qa->'selectedOption'->'selectedOption') = 'number' THEN (t.qa->'selectedOption'->>'selectedOption')::int
+                WHEN t.qa->>'selectedOption' ~ '^-?[0-9]+$' THEN (t.qa->>'selectedOption')::int
+                ELSE NULL 
+              END
+            ) = q.correct_option THEN 1 
+            ELSE 0 
+          END)::int as correct
+        FROM (
+          SELECT id, jsonb_array_elements(CASE WHEN jsonb_typeof(answers)='array' THEN answers ELSE '[]'::jsonb END) as qa
+          FROM attempts 
+          WHERE user_id = $1 AND status = 'completed'
+        ) t
+        JOIN questions q ON (
+          CASE 
+            WHEN jsonb_typeof(t.qa->'questionId') = 'number' THEN (t.qa->>'questionId')::int
+            WHEN t.qa->>'questionId' ~ '^[0-9]+$' THEN (t.qa->>'questionId')::int
+            ELSE NULL 
+          END
+        ) = q.id
+        JOIN subjects s ON (
+          s.id = q.subject_id
+          OR (q.subject IS NOT NULL AND q.subject::text ~ '^[0-9]+$' AND s.id = q.subject::text::int)
+          OR (q.subject IS NOT NULL AND NOT (q.subject::text ~ '^[0-9]+$') AND LOWER(s.name) = LOWER(q.subject::text))
+        )
+        GROUP BY s.name
+      `, [req.user.id])
 
-    const subjectWise = subjectStatsRow.map(s => ({
-      name: s.name,
-      accuracy: s.attempted > 0 ? Math.round((s.correct / s.attempted) * 100) : 0,
-      attempted: s.attempted,
-      icon: getSubjectIcon(s.name)
-    }))
-    
-    // Fetch topic-level analytics
-    const topicStatsRes = await dbHelpers.pool.query(`
-      SELECT 
-        COALESCE(tp.name, 'Uncategorized') as topic_name,
-        COALESCE(s.name, 'General') as subject_name,
-        COUNT(*)::int as attempted,
-        SUM(CASE WHEN (qa->>'selectedOption')::int = q.correct_option THEN 1 ELSE 0 END)::int as correct,
-        AVG(CASE WHEN LOWER(q.difficulty) = 'easy' THEN 1 WHEN LOWER(q.difficulty) = 'medium' THEN 2 WHEN LOWER(q.difficulty) = 'hard' THEN 3 ELSE 2 END) as avg_difficulty_numeric
-      FROM (
-        SELECT id, jsonb_array_elements(CASE WHEN jsonb_typeof(answers)='array' THEN answers ELSE '[]'::jsonb END) as qa
-        FROM attempts 
-        WHERE user_id = $1 AND status = 'completed'
-      ) t
-      JOIN questions q ON q.id = (t.qa->>'questionId')::int
-      LEFT JOIN topics tp ON tp.id = q.topic_id
-      LEFT JOIN subjects s ON s.id = q.subject
-      GROUP BY tp.name, s.name
-      HAVING COUNT(*) > 0
-      ORDER BY attempted DESC
-      LIMIT 20
-    `, [req.user.id])
+      const subjectStatsRow = subjectStatsRes.rows || []
+      subjectWise = subjectStatsRow.map(s => ({
+        name: s.name,
+        accuracy: s.attempted > 0 ? Math.round((s.correct / s.attempted) * 100) : 0,
+        attempted: s.attempted,
+        icon: getSubjectIcon(s.name)
+      }))
+    } catch (subjErr) {
+      console.warn('[Analytics] Subject stats extraction fallback:', subjErr.message)
+    }
 
-    const topicWise = topicStatsRes.rows.map(t => ({
-      topicName: t.topic_name,
-      subjectName: t.subject_name,
-      attempted: t.attempted,
-      correct: t.correct,
-      accuracy: t.attempted > 0 ? Math.round((t.correct / t.attempted) * 100) : 0,
-       difficulty: !t.avg_difficulty_numeric ? 'medium' : t.avg_difficulty_numeric < 1.5 ? 'easy' : t.avg_difficulty_numeric < 2.5 ? 'medium' : 'hard'
-    }))
+    try {
+      // Fetch topic-level analytics
+      const topicStatsRes = await dbHelpers.pool.query(`
+        SELECT 
+          COALESCE(tp.name, 'Uncategorized') as topic_name,
+          COALESCE(s.name, 'General') as subject_name,
+          COUNT(*)::int as attempted,
+          SUM(CASE 
+            WHEN (
+              CASE 
+                WHEN jsonb_typeof(t.qa->'selectedOption') = 'number' THEN (t.qa->>'selectedOption')::int
+                WHEN jsonb_typeof(t.qa->'selectedOption') = 'object' AND jsonb_typeof(t.qa->'selectedOption'->'selectedOption') = 'number' THEN (t.qa->'selectedOption'->>'selectedOption')::int
+                WHEN t.qa->>'selectedOption' ~ '^-?[0-9]+$' THEN (t.qa->>'selectedOption')::int
+                ELSE NULL 
+              END
+            ) = q.correct_option THEN 1 
+            ELSE 0 
+          END)::int as correct,
+          AVG(CASE 
+            WHEN LOWER(q.difficulty::text) IN ('easy', '1') THEN 1 
+            WHEN LOWER(q.difficulty::text) IN ('medium', '2') THEN 2 
+            WHEN LOWER(q.difficulty::text) IN ('hard', '3') THEN 3 
+            ELSE 2 
+          END) as avg_difficulty_numeric
+        FROM (
+          SELECT id, jsonb_array_elements(CASE WHEN jsonb_typeof(answers)='array' THEN answers ELSE '[]'::jsonb END) as qa
+          FROM attempts 
+          WHERE user_id = $1 AND status = 'completed'
+        ) t
+        JOIN questions q ON (
+          CASE 
+            WHEN jsonb_typeof(t.qa->'questionId') = 'number' THEN (t.qa->>'questionId')::int
+            WHEN t.qa->>'questionId' ~ '^[0-9]+$' THEN (t.qa->>'questionId')::int
+            ELSE NULL 
+          END
+        ) = q.id
+        LEFT JOIN subject_topics tp ON tp.id = q.topic_id
+        LEFT JOIN subjects s ON (
+          s.id = q.subject_id
+          OR (q.subject IS NOT NULL AND q.subject::text ~ '^[0-9]+$' AND s.id = q.subject::text::int)
+          OR (q.subject IS NOT NULL AND NOT (q.subject::text ~ '^[0-9]+$') AND LOWER(s.name) = LOWER(q.subject::text))
+        )
+        GROUP BY tp.name, s.name
+        HAVING COUNT(*) > 0
+        ORDER BY attempted DESC
+        LIMIT 20
+      `, [req.user.id])
+
+      topicWise = (topicStatsRes.rows || []).map(t => ({
+        topicName: t.topic_name,
+        subjectName: t.subject_name,
+        attempted: t.attempted,
+        correct: t.correct,
+        accuracy: t.attempted > 0 ? Math.round((t.correct / t.attempted) * 100) : 0,
+        difficulty: !t.avg_difficulty_numeric ? 'medium' : t.avg_difficulty_numeric < 1.5 ? 'easy' : t.avg_difficulty_numeric < 2.5 ? 'medium' : 'hard'
+      }))
+    } catch (topErr) {
+      console.warn('[Analytics] Topic stats extraction fallback:', topErr.message)
+    }
 
     const recentTests = []
     results.forEach((result, index) => {
@@ -673,8 +785,9 @@ router.get('/analytics', protect, async (req, res) => {
     const weakSubjects = sortedSubjects.slice(-2).map(s => s.name)
     
     const rank = totalTests > 0 ? await analyticsService.calculateUserRank(req.user.id, avgScore) : 0
-    const totalUsers = await dbHelpers.find('users')
-    const percentile = totalTests > 0 ? Math.round(((totalUsers.length - rank) / totalUsers.length) * 100) : 0
+    const totalUsersResult = await dbHelpers.pool.query('SELECT COUNT(*)::int as count FROM users')
+    const totalUsers = totalUsersResult.rows[0]?.count || 1
+    const percentile = totalTests > 0 ? Math.round(((totalUsers - rank) / totalUsers) * 100) : 0
     
     const streak = await analyticsService.getStudyStreak(req.user.id)
 
@@ -714,23 +827,130 @@ router.get('/analytics', protect, async (req, res) => {
     console.error('Analytics error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
+  }
+})
+
+// @route   GET /api/users/attempts/incomplete
+// @desc    Get user's in-progress / paused (resumable) test attempts
+// @access  Private
+router.get('/attempts/incomplete', protect, async (req, res) => {
+  try {
+    const userId = Number(req.user.id)
+
+    const userAttempts = await dbHelpers.find('attempts', { userId })
+    
+    // Set of test IDs that the user has already completed
+    const completedTestIds = new Set(
+      userAttempts
+        .filter((a) => {
+          const st = String(a.status || '').toUpperCase()
+          return st === 'COMPLETED' || a.isCompleted || a.is_completed
+        })
+        .map((a) => String(a.testId || a.test_id))
+    )
+
+    const incompleteAttempts = userAttempts.filter((a) => {
+      const status = String(a.status || '').toUpperCase()
+      const isPausedOrInProgress = status === 'IN_PROGRESS' || status === 'PAUSED'
+      if (!isPausedOrInProgress) return false
+
+      const testId = String(a.testId || a.test_id)
+      const answersArr = Array.isArray(a.answers)
+        ? a.answers
+        : (typeof a.answers === 'string' ? JSON.parse(a.answers || '[]') : [])
+
+      // If the test has already been completed and this incomplete attempt has 0 answers, ignore it
+      if (completedTestIds.has(testId) && (!answersArr || answersArr.length === 0)) {
+        return false
+      }
+      return true
+    })
+
+    if (incompleteAttempts.length === 0) {
+      return res.json({ success: true, data: [] })
+    }
+
+    // Most recently active first
+    incompleteAttempts.sort(
+      (a, b) => new Date(b.lastActivityAt || b.updatedAt || b.createdAt || 0) -
+        new Date(a.lastActivityAt || a.updatedAt || a.createdAt || 0)
+    )
+
+    const tests = await dbHelpers.find('tests')
+    const series = await dbHelpers.find('testSeries')
+
+    const testMap = {}
+    tests.forEach((test) => {
+      const id = test._id ?? test.id
+      if (id !== undefined) {
+        testMap[id] = test
+        testMap[String(id)] = test
+        testMap[Number(id)] = test
+      }
+    })
+
+    const seriesMap = {}
+    series.forEach((entry) => {
+      const id = entry._id ?? entry.id
+      if (id !== undefined) {
+        seriesMap[id] = entry
+        seriesMap[String(id)] = entry
+        seriesMap[Number(id)] = entry
+      }
+    })
+
+    const formatted = incompleteAttempts.map((attempt) => {
+      const test = testMap[attempt.testId] || testMap[String(attempt.testId)] || testMap[Number(attempt.testId)] || {}
+      const resolvedSeriesId = attempt.seriesId || test.seriesId || test.series_id
+      const testSeries = seriesMap[resolvedSeriesId] || seriesMap[String(resolvedSeriesId)] || seriesMap[Number(resolvedSeriesId)] || {}
+
+      const totalDuration = test.duration ? test.duration * 60 : (attempt.remainingTimeSeconds || 0)
+      const timeSpent = attempt.totalTimeSpent || 0
+      const progressPct = totalDuration > 0 ? Math.min(100, Math.round((timeSpent / totalDuration) * 100)) : 0
+
+      return {
+        attemptId: getPublicResponseId(dbHelpers, 'attempts', attempt, attempt._id || attempt.id),
+        testId: getPublicResponseId(dbHelpers, 'tests', test, attempt.testId || test.id || test._id),
+        testSlug: test.slug || null,
+        seriesId: getPublicResponseId(dbHelpers, 'testSeries', testSeries, attempt.seriesId || test.seriesId || test.series_id),
+        seriesSlug: testSeries.slug || null,
+        title: attempt.testTitle || test.title || 'Unknown Test',
+        seriesTitle: testSeries.title || 'Unknown Series',
+        status: attempt.status,
+        totalQuestions: attempt.totalQuestions || test.questions || test.total_questions || 0,
+        answeredQuestions: Array.isArray(attempt.answers) ? attempt.answers.length : 0,
+        timeSpentSeconds: timeSpent,
+        remainingTimeSeconds: attempt.remainingTimeSeconds || 0,
+        totalDurationSeconds: totalDuration,
+        progressPct,
+        lastQuestionIndex: attempt.lastQuestionIndex || 0,
+      }
+    })
+
+    res.json({ success: true, data: formatted })
+  } catch (error) {
+    console.error('Get incomplete attempts error:', error)
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
 // @route   GET /api/users/attempts
 // @desc    Get user's test attempts (completed only)
 // @access  Private
-router.get('/attempts', protect, async (req, res) => {
+router.get('/attempts', protect, responseCache("user-attempts", 60), async (req, res) => {
   try {
     const { limit = 50, page = 1 } = req.query
     
     // Get user ID
     const userId = Number(req.user.id)
     
-    // Get all attempts for this user directly from DB
-    const userAttempts = await dbHelpers.find('attempts', { userId: userId })
+    // Get all attempts for this user directly from DB and user quizzes in parallel
+    const [userAttempts, quizzes] = await Promise.all([
+      dbHelpers.find('attempts', { userId: userId }),
+      dbHelpers.find('quizzes', { created_by: userId }).catch(() => [])
+    ])
     
     // Filter completed/submitted attempts
     const completedAttempts = userAttempts.filter(a => {
@@ -747,9 +967,29 @@ router.get('/attempts', protect, async (req, res) => {
     // Sort by date desc
     completedAttempts.sort((a, b) => new Date(b.submittedAt || b.createdAt || 0) - new Date(a.submittedAt || a.createdAt || 0))
     
-    // Get test and series details
-    const tests = await dbHelpers.find('tests')
-    const series = await dbHelpers.find('testSeries')
+    // Collect ONLY the specific test and series IDs needed for completed attempts
+    const rawTestIds = completedAttempts.map(a => a.testId || a.test_id).filter(Boolean)
+    const numTestIds = rawTestIds.filter(id => typeof id === 'number' || /^\d+$/.test(id)).map(Number)
+    const strTestIds = rawTestIds.filter(id => typeof id === 'string' && !/^\d+$/.test(id))
+
+    const [numTests, strTests] = await Promise.all([
+      numTestIds.length ? dbHelpers.find('tests', { id: { $in: [...new Set(numTestIds)] } }) : Promise.resolve([]),
+      strTestIds.length ? dbHelpers.find('tests', { public_id: { $in: [...new Set(strTestIds)] } }) : Promise.resolve([])
+    ])
+    const tests = [...numTests, ...strTests]
+
+    const rawSeriesIds = [
+      ...completedAttempts.map(a => a.seriesId || a.series_id),
+      ...tests.map(t => t.seriesId || t.series_id)
+    ].filter(Boolean)
+    const numSeriesIds = rawSeriesIds.filter(id => typeof id === 'number' || /^\d+$/.test(id)).map(Number)
+    const strSeriesIds = rawSeriesIds.filter(id => typeof id === 'string' && !/^\d+$/.test(id))
+
+    const [numSeries, strSeries] = await Promise.all([
+      numSeriesIds.length ? dbHelpers.find('testSeries', { id: { $in: [...new Set(numSeriesIds)] } }) : Promise.resolve([]),
+      strSeriesIds.length ? dbHelpers.find('testSeries', { public_id: { $in: [...new Set(strSeriesIds)] } }) : Promise.resolve([])
+    ])
+    const series = [...numSeries, ...strSeries]
     
     const testMap = {}
     tests.forEach((test) => {
@@ -813,9 +1053,8 @@ router.get('/attempts', protect, async (req, res) => {
     })
     
     
-    // Also get quizzes created by user (as a teacher/creator)
-    const quizzes = await dbHelpers.find('quizzes', { created_by: userId })
-    const formattedQuizzes = quizzes.map(q => ({
+    // Also format quizzes created by user (as a teacher/creator)
+    const formattedQuizzes = (quizzes || []).map(q => ({
       id: q.id,
       type: 'quiz',
       testId: q.id,
@@ -860,7 +1099,7 @@ router.get('/attempts', protect, async (req, res) => {
     console.error('Get attempts error:', error)
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: sanitizeErrorMessage(error),
     })
   }
 })
@@ -892,7 +1131,7 @@ router.get('/sessions', protect, async (req, res) => {
     
     res.json({ success: true, data: formattedSessions })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -923,7 +1162,7 @@ router.delete('/sessions/:sessionId', protect, async (req, res) => {
 
     res.json({ success: true, message: 'Session revoked' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -943,7 +1182,7 @@ router.post('/change-email', protect, async (req, res) => {
     }
     res.json({ success: true, message: 'Verification email sent to new address' })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -960,7 +1199,7 @@ router.get('/top-performers', async (req, res) => {
     res.json({ success: true, data: topPerformers })
   } catch (error) {
     console.error('Top performers error:', error)
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

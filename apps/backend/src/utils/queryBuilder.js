@@ -46,7 +46,7 @@ export const buildWhereClause = (filters, allowedFields = [], startParamCount = 
       // Handle different value types
       if (typeof value === 'string' && /^\d+$/.test(value)) {
         // Convert numeric strings to numbers for proper type handling
-        params.push(parseInt(value))
+        params.push(parseInt(value, 10))
       } else {
         params.push(value)
       }

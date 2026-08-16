@@ -1,5 +1,6 @@
 import express from 'express';
 import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -51,7 +52,7 @@ router.get('/', async (req, res) => {
 
     // Fetch paginated results sorted by date descending
     const articlesRes = await pool.query(
-      `SELECT * FROM study_materials WHERE ${whereClause}
+      `SELECT id, slug, title, icon, description, topics, videos, pdf, tests, color, bg, is_active, created_at, updated_at, "order", public_id_uuid, public_id, is_deleted, deleted_at, deleted_by, type, url, file_path, file_size, mime_type, thumbnail_url, duration, subject_id, chapter_id, topic_id, is_pro, display_order, metadata, _orphaned FROM study_materials WHERE ${whereClause}
        ORDER BY COALESCE(date, created_at) DESC NULLS LAST
        LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`,
       [...params, parsedLimit, offset],
@@ -73,7 +74,7 @@ router.get('/', async (req, res) => {
     });
   } catch (error) {
     console.error('Get current affairs error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

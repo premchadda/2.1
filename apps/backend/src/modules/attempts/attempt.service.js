@@ -1,8 +1,9 @@
 import { AttemptRepository } from "./attempt.repository.js";
 import { TestRepository } from "../tests/test.repository.js";
 import { QuestionRepository } from "../questions/question.repository.js";
-import { addJob, emitDomainEvent, QUEUE_EVENTS, QUEUE_NAMES } from "../../infrastructure/queue/queueManager.js";
-import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
+import { addJob, QUEUE_NAMES } from "../../infrastructure/queue/queueManager.js";
+import { emitDomainEvent } from "../../infrastructure/events/eventBus.js";
+import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
 
 const repo = new AttemptRepository();
 const testRepo = new TestRepository();
@@ -170,46 +171,66 @@ export const attemptService = {
       submittedAt: new Date().toISOString(),
     };
 
+    // DATA-INTEGRITY FIX (H17): the attempt row, its answers, and its section
+    // scores must be written atomically. Previously these were three separate
+    // statements with no transaction, so a failure after the attempt insert
+    // left a "completed" attempt with missing/partial answers. Wrap all writes
+    // in a single transaction and only emit the domain event after COMMIT.
+    const client = await pool.connect();
     let attempt;
-    if (attemptId) {
-      attempt = await repo.update(attemptId, attemptData);
-    } else {
-      attempt = await repo.insert(attemptData);
-    }
+    try {
+      await client.query("BEGIN");
 
-    await repo.saveAnswers(attempt.id, evaluatedAnswers);
-
-    if (sectionTimers) {
-      const sectionScores = {};
-      for (const [sectionId, timer] of Object.entries(sectionTimers)) {
-        const sectionQuestions = questions.filter((q) => String(q.section_id) === String(sectionId));
-        const secCorrect = evaluatedAnswers.filter(
-          (a) => a.isCorrect && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
-        ).length;
-        const secWrong = evaluatedAnswers.filter(
-          (a) => a.isWrong && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
-        ).length;
-        const secUnattempted = sectionQuestions.length - secCorrect - secWrong;
-        const secScore = evaluatedAnswers
-          .filter((a) => sectionQuestions.some((sq) => String(sq.id) === String(a.questionId)))
-          .reduce((sum, a) => sum + (a.marks || 0), 0);
-        const secTotalMarks = sectionQuestions.reduce((sum, q) => sum + Number(q.marks ?? q.junction_marks ?? fallbackMarksPerQ), 0);
-        sectionScores[sectionId] = {
-          score: Math.max(0, secScore),
-          totalMarks: secTotalMarks,
-          correct: secCorrect,
-          wrong: secWrong,
-          unattempted: secUnattempted,
-          timeSpent: timer,
-        };
+      if (attemptId) {
+        attempt = await repo.update(attemptId, attemptData, client);
+      } else {
+        attempt = await repo.insert(attemptData, client);
       }
-      await repo.saveSectionScores(attempt.id, sectionScores);
+
+      await repo.saveAnswers(attempt.id, evaluatedAnswers, client);
+
+      if (sectionTimers) {
+        const sectionScores = {};
+        for (const [sectionId, timer] of Object.entries(sectionTimers)) {
+          const sectionQuestions = questions.filter((q) => String(q.section_id) === String(sectionId));
+          const secCorrect = evaluatedAnswers.filter(
+            (a) => a.isCorrect && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
+          ).length;
+          const secWrong = evaluatedAnswers.filter(
+            (a) => a.isWrong && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
+          ).length;
+          const secUnattempted = sectionQuestions.length - secCorrect - secWrong;
+          const secScore = evaluatedAnswers
+            .filter((a) => sectionQuestions.some((sq) => String(sq.id) === String(a.questionId)))
+            .reduce((sum, a) => sum + (a.marks || 0), 0);
+          const secTotalMarks = sectionQuestions.reduce((sum, q) => sum + Number(q.marks ?? q.junction_marks ?? fallbackMarksPerQ), 0);
+          sectionScores[sectionId] = {
+            score: Math.max(0, secScore),
+            totalMarks: secTotalMarks,
+            correct: secCorrect,
+            wrong: secWrong,
+            unattempted: secUnattempted,
+            timeSpent: timer,
+          };
+        }
+        await repo.saveSectionScores(attempt.id, sectionScores, client);
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
 
-    await emitDomainEvent(QUEUE_EVENTS.TEST_SUBMITTED, {
+    await emitDomainEvent('test_submitted', {
       userId, testId: test.id, attemptId: attempt.id,
       title: "Test Submitted",
       message: `Your ${test.title} result is ready`,
+      // Flag live-test submissions so the WS layer can scope leaderboard
+      // refreshes to actual live tests (same check as test.routes.js).
+      source: (test.isLive || test.is_live) ? 'live-tests' : undefined,
     });
 
     return attempt;

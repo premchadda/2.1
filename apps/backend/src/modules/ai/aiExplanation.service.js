@@ -12,70 +12,22 @@
 
 import { pool } from '../../infrastructure/database/postgres-helpers.js'
 import AiGenerationLog from '../../data/models/ai/AiGenerationLog.js'
-
-const AI_CONFIG = {
-  defaultModel: process.env.AI_MODEL || 'gpt-4',
-  defaultProvider: process.env.AI_PROVIDER || 'openrouter',
-  apiKey: process.env.AI_API_KEY || process.env.OPENROUTER_API_KEY,
-  baseUrl: process.env.AI_BASE_URL || 'https://openrouter.ai/api/v1',
-  maxTokens: parseInt(process.env.AI_MAX_TOKENS) || 2000,
-  temperature: parseFloat(process.env.AI_TEMPERATURE) || 0.7,
-  rateLimitPerMinute: parseInt(process.env.AI_RATE_LIMIT) || 60,
-}
+import { AI_CONFIG, callAIWithFallback } from './aiClient.js'
 
 /**
  * Call AI API for text generation.
  */
 async function callAI(prompt, options = {}) {
-  const startTime = Date.now()
-
-  try {
-    const response = await fetch(`${AI_CONFIG.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${AI_CONFIG.apiKey}`,
-        'HTTP-Referer': 'https://trstprep.com',
-        'X-Title': 'TrstPrep AI',
-      },
-      body: JSON.stringify({
-        model: options.model || AI_CONFIG.defaultModel,
-        messages: [
-          {
-            role: 'system',
-            content: options.systemPrompt || 'You are an expert educator creating clear, accurate explanations for exam questions.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: options.maxTokens || AI_CONFIG.maxTokens,
-        temperature: options.temperature || AI_CONFIG.temperature,
-      }),
-    })
-
-    if (!response.ok) {
-      throw new Error(`AI API error: ${response.status}`)
-    }
-
-    const data = await response.json()
-    const latencyMs = Date.now() - startTime
-
-    return {
-      text: data.choices[0]?.message?.content || '',
-      model: data.model,
-      tokensInput: data.usage?.prompt_tokens || 0,
-      tokensOutput: data.usage?.completion_tokens || 0,
-      latencyMs,
-    }
-  } catch (error) {
-    const latencyMs = Date.now() - startTime
-    throw {
-      message: error.message,
-      latencyMs,
-    }
-  }
+  const systemPrompt = options.systemPrompt || 'You are an expert educator creating clear, accurate explanations for exam questions.'
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    { role: 'user', content: prompt },
+  ]
+  return callAIWithFallback(messages, {
+    model: options.model,
+    maxTokens: options.maxTokens || AI_CONFIG.maxTokens,
+    temperature: options.temperature || AI_CONFIG.temperature,
+  })
 }
 
 const aiExplanationService = {
@@ -89,7 +41,7 @@ const aiExplanationService = {
     try {
       // Get question
       const questionResult = await client.query(
-        `SELECT * FROM questions WHERE id = $1`,
+        `SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE id = $1`,
         [questionId]
       )
 
@@ -115,7 +67,7 @@ const aiExplanationService = {
         entityId: questionId,
         prompt: prompt.substring(0, 1000),
         model: aiResult.model,
-        provider: AI_CONFIG.defaultProvider,
+        provider: AI_CONFIG.provider,
         tokensInput: aiResult.tokensInput,
         tokensOutput: aiResult.tokensOutput,
         latencyMs: aiResult.latencyMs,
@@ -182,7 +134,7 @@ const aiExplanationService = {
 
     try {
       const questionResult = await client.query(
-        `SELECT * FROM questions WHERE id = $1`,
+        `SELECT id, question_text, question_text_hi, options, options_hi, correct_answer, correct_option, explanation, explanation_hi, marks, negative_marks, difficulty, question_type, category, sub_category_id, tags, status, is_active, is_practice, question_number, test_id, series_id, section_id, subject, subject_id, chapter_id, topic_id, topic, quiz_id, study_material_id, image_asset_id, image_url, passage_id, created_by, category_id, external_question_id, language, solution_image_url, source, imported_from, is_deleted, deleted_by, deleted_at, created_at, updated_at FROM questions WHERE id = $1`,
         [questionId]
       )
 
@@ -218,7 +170,7 @@ Please provide an improved explanation.
         entityId: questionId,
         prompt: prompt.substring(0, 1000),
         model: aiResult.model,
-        provider: AI_CONFIG.defaultProvider,
+        provider: AI_CONFIG.provider,
         tokensInput: aiResult.tokensInput,
         tokensOutput: aiResult.tokensOutput,
         latencyMs: aiResult.latencyMs,

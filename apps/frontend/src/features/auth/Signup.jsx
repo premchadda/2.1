@@ -1,9 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import { User, Mail, Lock, Phone, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle, X } from 'lucide-react'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { GoogleLogin } from '@react-oauth/google'
 import AnimatedHero from '../../shared/components/common/AnimatedHero'
 import { Logo } from '../../shared/components'
 import { getPublicStats } from '../../shared/lib/dataService'
@@ -12,7 +11,7 @@ import { usePublicSettings } from '../../shared/hooks/usePublicSettings'
 function Signup() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { signup, googleLogin, loading, error } = useAuth()
+  const { user, signup, loading, authResolved, error } = useAuth()
   const { isFeatureEnabled } = usePublicSettings()
   const registrationEnabled = isFeatureEnabled('userRegistration')
 
@@ -45,22 +44,56 @@ function Signup() {
     fetchStats()
   }, [])
 
+  const handleClose = () => {
+    const bgLoc = location.state?.backgroundLocation
+    if (bgLoc?.pathname) {
+      navigate(`${bgLoc.pathname}${bgLoc.search || ''}`, { replace: true })
+    } else {
+      navigate('/', { replace: true })
+    }
+  }
+
   useEffect(() => {
-    document.body.style.overflow = 'hidden'
     const onKey = (e) => { if (e.key === 'Escape') handleClose() }
     window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  // Move focus into the modal on open and restore it to the trigger on close.
+  const dialogRef = useRef(null)
+  useEffect(() => {
+    const prevFocused = document.activeElement
+    const node = dialogRef.current
+    if (node) {
+      const focusable = node.querySelector(
+        'input:not([type="hidden"]), button, [href], select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      ;(focusable || node).focus()
+    }
     return () => {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', onKey)
+      if (prevFocused && typeof prevFocused.focus === 'function') prevFocused.focus()
     }
   }, [])
 
-  const handleClose = () => {
-    if (location.state?.from?.pathname) {
-      navigate(-1)
-    } else {
-      navigate('/')
-    }
+  // AC1 + AC3: If the user is already authenticated, send them to the protected route.
+  // Covers the same three cases as Login.jsx:
+  //   1) They just signed up successfully in this tab
+  //   2) They hard-refreshed while authenticated (AuthProvider rehydrated `user`)
+  //   3) They typed /signup into the address bar while still logged in
+  if (authResolved && !loading && user) {
+    return <Navigate to="/dashboard" replace state={{}} />
+  }
+
+  // Show loading spinner while auth state is being determined
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">Verifying session...</p>
+        </div>
+      </div>
+    )
   }
 
   // Password strength checker
@@ -112,6 +145,11 @@ function Signup() {
       return
     }
 
+    if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/[+\s-]/g, ''))) {
+      setFormError('Please enter a valid 10-digit mobile number')
+      return
+    }
+
     if (!agreedToTerms) {
       setFormError('Please agree to the Terms of Service')
       return
@@ -122,9 +160,9 @@ function Signup() {
     if (result.success) {
       if (result.requiresVerification) {
         const targetEmail = result.email || email
-        navigate(`/verify-email?mode=pending&email=${encodeURIComponent(targetEmail)}`, { replace: true })
+        navigate(`/verify-email?mode=pending&email=${encodeURIComponent(targetEmail)}`, { replace: true, state: {} })
       } else {
-        navigate('/', { replace: true })
+        navigate('/dashboard', { replace: true, state: {} })
       }
     } else {
       setFormError(result.error)
@@ -133,8 +171,8 @@ function Signup() {
 
   if (!registrationEnabled) {
     return createPortal(
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in" onClick={handleClose}>
-        <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center animate-scale-in" onClick={(e) => e.stopPropagation()}>
+      <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={handleClose}>
+        <div ref={dialogRef} role="dialog" aria-modal="true" aria-label="Registration Unavailable" tabIndex={-1} className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 text-center animate-scale-in" onClick={(e) => e.stopPropagation()}>
           <div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-amber-500" />
           </div>
@@ -151,19 +189,24 @@ function Signup() {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fade-in"
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
       onClick={handleClose}
     >
       <div
-        className="relative w-full max-w-5xl max-h-[95vh] overflow-hidden bg-white rounded-2xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sign up"
+        tabIndex={-1}
+        className="relative w-[min(100%,28rem)] lg:w-[min(100%,60rem)] max-h-[92vh] overflow-hidden bg-white dark:bg-gray-800 rounded-3xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
+        {/* Close Button */}
         <button
           type="button"
           onClick={handleClose}
           aria-label="Close signup"
-          className="absolute top-3 right-3 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-white/80 hover:bg-white text-gray-600 hover:text-gray-900 shadow-sm transition"
+          className="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 shadow-sm transition"
         >
           <X className="w-5 h-5" />
         </button>
@@ -194,12 +237,13 @@ function Signup() {
             <form onSubmit={handleSubmit} className="space-y-3">
               {/* Name */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="signup-name" className="block text-xs font-medium text-gray-700 mb-1">
                   Full Name *
                 </label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    id="signup-name"
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -211,12 +255,13 @@ function Signup() {
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="signup-email" className="block text-xs font-medium text-gray-700 mb-1">
                   Email Address *
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    id="signup-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -228,16 +273,19 @@ function Signup() {
 
               {/* Mobile (Optional) */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="signup-mobile" className="block text-xs font-medium text-gray-700 mb-1">
                   Mobile Number <span className="text-gray-400">(Optional)</span>
                 </label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    id="signup-mobile"
                     type="tel"
                     value={mobile}
                     onChange={(e) => setMobile(e.target.value)}
                     placeholder="+91 98765 43210"
+                    pattern="[+0-9 ]{10,15}"
+                    title="Enter a valid 10-digit mobile number"
                     className="w-full pl-9 pr-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:border-brand-start focus:ring-0 outline-none transition-all"
                   />
                 </div>
@@ -245,12 +293,13 @@ function Signup() {
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="signup-password" className="block text-xs font-medium text-gray-700 mb-1">
                   Password *
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    id="signup-password"
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -260,6 +309,8 @@ function Signup() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    aria-pressed={showPassword}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -287,12 +338,13 @@ function Signup() {
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label htmlFor="signup-confirm-password" className="block text-xs font-medium text-gray-700 mb-1">
                   Confirm Password *
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <input
+                    id="signup-confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -342,34 +394,6 @@ function Signup() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="my-4 flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-xs text-gray-500">or sign up with</span>
-              <div className="flex-1 h-px bg-gray-200" />
-            </div>
-
-            {/* Social Login */}
-            <div className="flex justify-center">
-              <GoogleLogin
-                onSuccess={async (credentialResponse) => {
-                  const result = await googleLogin(credentialResponse.credential)
-                  if (result.success) {
-                    navigate('/', { replace: true })
-                  } else {
-                    setFormError(result.error)
-                  }
-                }}
-                onError={() => {
-                  setFormError('Google Sign-In failed. Please try again.')
-                }}
-                theme="filled_blue"
-                shape="pill"
-                text="signup_with"
-                width="100%"
-              />
-            </div>
-
             {/* Sign In Link */}
             <p className="mt-4 text-center text-xs text-gray-500">
               Already have an account?{' '}
@@ -382,29 +406,29 @@ function Signup() {
 
         {/* Right Side - Animated Hero (Desktop only) */}
         <AnimatedHero pageType="signup" className="hidden lg:flex flex-1 items-center justify-center !rounded-none">
-          <div className="max-w-lg text-center p-8">
-            <div className="text-8xl mb-8 animate-float">🚀</div>
-            <h2 className="text-3xl font-bold text-white mb-4 animate-slide-up">Join {platformStats.activeLearners} Students</h2>
-            <p className="text-white/80 text-lg mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-              Create your free account and start preparing for your dream government job today.
-            </p>
+            <div className="max-w-lg text-center p-8">
+              <div className="text-8xl mb-8 animate-float">🚀</div>
+              <h2 className="text-3xl font-bold text-white mb-4 animate-slide-up">Join {platformStats.activeLearners} Students</h2>
+              <p className="text-white/80 text-lg mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+                Create your free account and start preparing for your dream government job today.
+              </p>
 
-            {/* Benefits */}
-            <div className="text-left space-y-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              {[
-                `${platformStats.mockTests} Free Mock Tests`,
-                'Detailed Performance Analysis',
-                'All India Ranking',
-                'Free Study Materials',
-              ].map((benefit, i) => (
-                <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-xl hover:bg-white/15 transition-colors">
-                  <CheckCircle className="w-5 h-5 text-green-300" />
-                  <span className="text-white">{benefit}</span>
-                </div>
-              ))}
+              {/* Benefits */}
+              <div className="text-left space-y-4 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                {[
+                  `${platformStats.mockTests} Free Mock Tests`,
+                  'Detailed Performance Analysis',
+                  'All India Ranking',
+                  'Free Study Materials',
+                ].map((benefit, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-white/10 backdrop-blur-sm px-4 py-3 rounded-xl hover:bg-white/15 transition-colors">
+                    <CheckCircle className="w-5 h-5 text-green-300" />
+                    <span className="text-white">{benefit}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </AnimatedHero>
+          </AnimatedHero>
       </div>
     </div>,
     document.body

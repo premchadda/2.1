@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom'
 import Cropper from 'react-easy-crop'
 import { X, Check } from 'lucide-react'
+import { toast } from 'react-hot-toast'
 
 // Helper function to create the cropped image
 const createImage = (url) =>
@@ -99,10 +100,58 @@ export default function ImageCropperModal({
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const dialogRef = useRef(null)
+  const titleId = useId()
 
   const onCropCompleteHandler = useCallback((croppedArea, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels)
   }, [])
+
+  // Move focus into the dialog on open and restore it to the trigger on close.
+  useEffect(() => {
+    if (!isOpen || !imageSrc) return
+    const prevFocused = document.activeElement
+    const node = dialogRef.current
+    if (node) {
+      const focusable = node.querySelector(
+        'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      ;(focusable || node).focus()
+    }
+    return () => {
+      if (prevFocused && typeof prevFocused.focus === 'function' && document.contains(prevFocused)) {
+        prevFocused.focus()
+      }
+    }
+  }, [isOpen, imageSrc])
+
+  const handleKeyDown = (e) => {
+    if (e.key !== 'Tab') return
+    const node = dialogRef.current
+    if (!node) return
+    const focusable = Array.from(
+      node.querySelectorAll('a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+    ).filter((el) => !el.hasAttribute('disabled'))
+    if (focusable.length === 0) {
+      e.preventDefault()
+      node.focus()
+      return
+    }
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const active = document.activeElement
+    if (e.shiftKey) {
+      if (active === first || !node.contains(active)) {
+        e.preventDefault()
+        last.focus()
+      }
+    } else {
+      if (active === last || !node.contains(active)) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+  }
 
   const handleSave = async () => {
     if (!croppedAreaPixels || !imageSrc) return
@@ -112,7 +161,7 @@ export default function ImageCropperModal({
       onCropComplete(croppedImageBase64)
     } catch (e) {
       console.error(e)
-      alert('Failed to crop image')
+      toast.error('Failed to crop image')
     } finally {
       setIsProcessing(false)
     }
@@ -122,9 +171,17 @@ export default function ImageCropperModal({
 
   return createPortal(
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col"
+      >
         <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
+          <h3 id={titleId} className="text-lg font-bold text-gray-900 dark:text-white">{title}</h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 transition-colors">
             <X className="w-5 h-5" />
           </button>

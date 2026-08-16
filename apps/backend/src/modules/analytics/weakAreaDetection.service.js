@@ -39,7 +39,7 @@ const weakAreaDetectionService = {
             ELSE 0
           END as avg_time_per_question
         FROM user_topic_stats uts
-        JOIN topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
+        JOIN subject_topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
         LEFT JOIN subjects s ON s.id = t.subject_id
         WHERE uts.user_id = $1
           AND uts.total_attempts >= $2
@@ -85,7 +85,7 @@ const weakAreaDetectionService = {
             ELSE 0
           END as accuracy
         FROM user_topic_stats uts
-        JOIN topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
+        JOIN subject_topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
         JOIN subjects s ON s.id = t.subject_id
         WHERE uts.user_id = $1
         GROUP BY s.id, s.name
@@ -247,7 +247,7 @@ const weakAreaDetectionService = {
             AVG(uts.accuracy) as avg_accuracy,
             AVG(uts.total_time_spent_seconds / NULLIF(uts.total_attempts, 0)) as avg_time
           FROM user_topic_stats uts
-          WHERE (uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) = (SELECT LOWER(name) FROM topics WHERE id = $1)))
+          WHERE (uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) = (SELECT LOWER(name) FROM subject_topics WHERE id = $1)))
             AND uts.user_id != $2
             AND uts.total_attempts >= 5
 
@@ -258,7 +258,7 @@ const weakAreaDetectionService = {
             uts.accuracy as avg_accuracy,
             uts.total_time_spent_seconds / NULLIF(uts.total_attempts, 0) as avg_time
           FROM user_topic_stats uts
-          WHERE (uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) = (SELECT LOWER(name) FROM topics WHERE id = $1)))
+          WHERE (uts.topic_id = $1 OR (uts.topic_id IS NULL AND LOWER(uts.topic) = (SELECT LOWER(name) FROM subject_topics WHERE id = $1)))
             AND uts.user_id = $2
         `
         params = [topicId, userId]

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { protect, admin } from '../../middleware/auth.middleware.js';
 import { validateCsrfToken } from '../../middleware/csrf.middleware.js';
 import { fortskyService } from '../../services/fortspyService.js';
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router();
 
@@ -74,7 +75,7 @@ router.get('/health', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to check FortSpy health',
-      error: error.message,
+      error: sanitizeErrorMessage(error),
     });
   }
 });
@@ -92,7 +93,7 @@ router.post('/keygen', protect, admin, validateCsrfToken, async (req, res) => {
     console.error('FortSpy keygen error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to generate encryption key',
+      message: sanitizeErrorMessage(error) || 'Failed to generate encryption key',
     });
   }
 });
@@ -122,7 +123,7 @@ router.post('/encrypt', protect, admin, validateCsrfToken, upload.single('file')
     console.error('FortSpy encrypt error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to encrypt video',
+      message: sanitizeErrorMessage(error) || 'Failed to encrypt video',
     });
   }
 });
@@ -152,7 +153,7 @@ router.post('/decrypt', protect, admin, validateCsrfToken, async (req, res) => {
     console.error('FortSpy decrypt error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to decrypt video',
+      message: sanitizeErrorMessage(error) || 'Failed to decrypt video',
     });
   }
 });
@@ -197,7 +198,7 @@ router.get('/stream/:id', protect, verifyStreamToken, async (req, res) => {
     console.error('FortSpy stream error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to stream video',
+      message: sanitizeErrorMessage(error) || 'Failed to stream video',
     });
   }
 });
@@ -216,7 +217,7 @@ router.get('/info/:id', protect, async (req, res) => {
     console.error('FortSpy info error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to get video info',
+      message: sanitizeErrorMessage(error) || 'Failed to get video info',
     });
   }
 });
@@ -262,7 +263,7 @@ router.post('/generate-stream-token', protect, async (req, res) => {
     console.error('FortSpy token generation error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to generate stream token',
+      message: sanitizeErrorMessage(error) || 'Failed to generate stream token',
     });
   }
 });

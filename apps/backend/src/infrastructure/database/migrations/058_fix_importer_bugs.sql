@@ -11,7 +11,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_indexes WHERE indexname = 'idx_test_questions_test_question_unique'
   ) THEN
-    CREATE UNIQUE INDEX idx_test_questions_test_question_unique
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_test_questions_test_question_unique
       ON test_questions(test_id, question_id);
   END IF;
 END $$;

@@ -67,7 +67,7 @@ BEGIN
     SELECT 1 FROM pg_indexes
      WHERE tablename = 'notifications' AND indexname = 'idx_notifications_is_read'
   ) THEN
-    CREATE INDEX idx_notifications_is_read
+    CREATE INDEX IF NOT EXISTS idx_notifications_is_read
       ON notifications(is_read) WHERE is_read = false;
   END IF;
 
@@ -76,7 +76,7 @@ BEGIN
     SELECT 1 FROM pg_indexes
      WHERE tablename = 'notifications' AND indexname = 'idx_notifications_user_is_read'
   ) THEN
-    CREATE INDEX idx_notifications_user_is_read
+    CREATE INDEX IF NOT EXISTS idx_notifications_user_is_read
       ON notifications(user_id, is_read) WHERE is_read = false;
   END IF;
 END $$;

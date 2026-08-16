@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, ChevronDown, ChevronUp } from 'lucide-react'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { getExamCategories, getTests, getTestSeries } from '../../shared/lib/dataService'
@@ -67,72 +67,78 @@ export default function ExamCategory() {
   const [examSeriesCounts, setExamSeriesCounts] = useState({})
 
   useEffect(() => {
-    fetchCategoryData()
+    const controller = new AbortController()
+    fetchCategoryData(controller.signal)
+    return () => controller.abort()
   }, [categoryId])
 
-  const fetchCategoryData = async () => {
+  const fetchCategoryData = async (signal) => {
     try {
       setLoading(true)
       setError(null)
-      
+
       // Convert numeric ID to string ID if needed - use live data matching
       const resolvedCategoryId = categoryId.toString().toLowerCase()
-      
+
       // Fetch exam categories with exams from dataService
       const categories = await getExamCategories()
-      
+      if (signal?.aborted) return
+
       // Find the matching category using multiple strategies
-      const categoryInfo = categories.find(cat => 
-        String(cat.id) === resolvedCategoryId || 
+      const categoryInfo = categories.find(cat =>
+        String(cat.id) === resolvedCategoryId ||
         String(cat.categoryId) === resolvedCategoryId ||
         cat.slug?.toLowerCase() === resolvedCategoryId ||
         cat.slug?.toLowerCase() === categoryId.toString().toLowerCase() ||
         cat.label?.toLowerCase() === resolvedCategoryId ||
         cat.name?.toLowerCase() === resolvedCategoryId
       )
-      
+
       if (!categoryInfo) {
         setError('Category not found')
         return
       }
 
       setCategoryData(categoryInfo)
-      
+
       // Fetch test counts for each exam
       const testSeries = await getTestSeries()
       const tests = await getTests()
-      
+      if (signal?.aborted) return
+
       // Calculate counts by exam type
       const testCounts = {}
       const seriesCounts = {}
-      
+
       if (categoryInfo.exams) {
         categoryInfo.exams.forEach(exam => {
           const examId = exam.id || exam.examId
           // Count tests for this exam
-          testCounts[examId] = tests.filter(t => 
-            t.category === categoryId || 
+          testCounts[examId] = tests.filter(t =>
+            t.category === categoryId ||
             t.examId === examId ||
             t.tags?.includes(examId)
           ).length
-          
+
           // Count test series for this exam
-          seriesCounts[examId] = testSeries.filter(s => 
-            s.category === categoryId || 
+          seriesCounts[examId] = testSeries.filter(s =>
+            s.category === categoryId ||
             s.examId === examId ||
             s.tags?.includes(examId)
           ).length
         })
       }
-      
+
       setExamTestCounts(testCounts)
       setExamSeriesCounts(seriesCounts)
-      
+
     } catch (err) {
-      console.error('Error fetching category data:', err)
-      setError('Failed to load category information')
+      if (err.name !== 'AbortError') {
+        console.error('Error fetching category data:', err)
+        setError('Failed to load category information')
+      }
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) setLoading(false)
     }
   }
 

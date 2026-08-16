@@ -1,52 +1,368 @@
-# MED-04 FIX: 'version' field removed — deprecated in Docker Compose V2
+# ==============================================================================
+# FIX 2.4: Docker Network Isolation
+# - frontend-net:   nginx <-> frontend, admin-panel
+# - backend-net:    nginx <-> backend-1, backend-2 <-> backend-db
+# - monitoring-net: backend-1, backend-2 <-> prometheus <-> grafana (internal)
+#
+# FIX 2.16: Prometheus/Grafana secured
+# - Bound to 127.0.0.1 (host-only)
+# - Grafana admin password from env var / secrets
+# - Anonymous access disabled
+# ==============================================================================
+
+# H31: Centralized logging via Grafana Loki. All services ship stdout/stderr to
+# the in-cluster `loki` service (see the `loki` service + `loki-data` volume
+# below) via the Loki logging driver. This replaces the prior local json-file
+# rotation. The Loki driver buffers and drops if Loki is unavailable, so
+# containers still start when Loki is down. Reused by every service via the
+# `logging: *default_logging` alias below. See deploy/logging.md for details.
+x-logging: &default_logging
+  driver: loki
+  options:
+    loki-url: "http://loki:3100/loki/api/v1/push"
+    max-retries: "3"
 
 services:
-  backend:
+  backend-1:
     build:
       context: ./apps/backend
       dockerfile: Dockerfile
     ports:
-      - "5001:5001"
+      - "127.0.0.1:5001:5001"
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
+      - ENFORCE_HTTPS=true
       - PORT=5001
       - DATABASE_URL=${DATABASE_URL}
       - JWT_SECRET=${JWT_SECRET}
-      - FRONTEND_URL=http://localhost:3000
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL:-https://${DOMAIN:-localhost}}
+      - INSTANCE_ID=backend-1
+    command: node src/app-port5001.js
+    restart: unless-stopped
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Read-only rootfs: all runtime-writable paths are backed by named volumes
+    # (uploads, email spool) or tmpfs (/tmp). Logs go to stdout (pino) so no log
+    # file is written on disk. Dev source mounts / dev command live in
+    # docker-compose.dev.yml.
+    read_only: true
+    tmpfs:
+      - /tmp
     volumes:
-      - ./apps/backend:/app
-      - /app/node_modules
-    command: npm run dev
+      - backend-uploads:/app/uploads
+      - backend-spool:/app/.email-spool
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    depends_on:
+      backend-db:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - monitoring-net
+
+  backend-2:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:5002:5001"
+    environment:
+      - NODE_ENV=production
+      - ENFORCE_HTTPS=true
+      - PORT=5001
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - FRONTEND_URL=${FRONTEND_URL:-https://${DOMAIN:-localhost}}
+      - INSTANCE_ID=backend-2
+    command: node src/app-port5001.js
+    restart: unless-stopped
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Read-only rootfs: see backend-1 note above — uploads / email spool are on
+    # named volumes and /tmp is tmpfs, so the rootfs can be read-only.
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - backend-uploads:/app/uploads
+      - backend-spool:/app/.email-spool
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    depends_on:
+      backend-db:
+        condition: service_healthy
+    networks:
+      - backend-net
+      - monitoring-net
 
   frontend:
     build:
       context: ./apps/frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:5001/api
-      - VITE_SOCKET_URL=http://localhost:5001
-      - VITE_ADMIN_URL=http://localhost:3002
-    volumes:
-      - ./apps/frontend:/app
-      - /app/node_modules
+      - VITE_API_URL=https://${DOMAIN:-localhost}/api
+      - VITE_SOCKET_URL=https://${DOMAIN:-localhost}
+      - VITE_ADMIN_URL=https://${DOMAIN:-localhost}/admin
     depends_on:
-      - backend
-    command: npm run dev
+      backend-1:
+        condition: service_healthy
+      backend-2:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /var/log/nginx
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    networks:
+      - frontend-net
 
   admin-panel:
     build:
       context: ./apps/admin-panel
       dockerfile: Dockerfile
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
     environment:
-      - VITE_API_URL=http://localhost:5001/api
-      - VITE_MAIN_SITE_URL=http://localhost:3000
-    volumes:
-      - ./apps/admin-panel:/app
-      - /app/node_modules
+      - VITE_API_URL=https://${DOMAIN:-localhost}/api
+      - VITE_MAIN_SITE_URL=https://${DOMAIN:-localhost}
     depends_on:
-      - backend
-    command: npm run dev
+      backend-1:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+      - /var/log/nginx
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    networks:
+      - frontend-net
+
+  nginx:
+    image: nginx:1.27.3-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+      - certbot-certs:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    logging: *default_logging
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+    depends_on:
+      - frontend
+      - backend-1
+      - backend-2
+      - admin-panel
+    restart: unless-stopped
+    networks:
+      - frontend-net
+      - backend-net
+
+  # FIX A05: Provision and auto-renew trusted Let's Encrypt certificates
+  # (replaces self-signed certs).
+  #
+  # INITIAL ISSUANCE is automated by the `certbot-init` one-shot service below
+  # (profile "init"). Run it via the helper script:
+  #   ./deploy/setup-ssl.sh
+  # or directly:
+  #   docker compose --profile init run --rm certbot-init
+  # (DOMAIN and CERTBOT_EMAIL must be set in .env — see .env.example.)
+  #
+  # RENEWAL is handled automatically by the long-running `certbot` service below
+  # (renew loop every 12h). To force a renew manually:
+  #   docker compose run --rm certbot renew
+  certbot:
+    image: certbot/certbot:v2.11.0
+    volumes:
+      - certbot-certs:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --quiet; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+    networks:
+      - frontend-net
+
+  # FIX A05: Automated one-shot initial certificate issuance. Only runs when the
+  # "init" profile is explicitly invoked, e.g.:
+  #   docker compose --profile init run --rm certbot-init
+  # (see deploy/setup-ssl.sh). Requires DOMAIN and CERTBOT_EMAIL in .env.
+  certbot-init:
+    image: certbot/certbot:v2.11.0
+    profiles: ["init"]
+    depends_on:
+      - nginx
+    volumes:
+      - certbot-certs:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: ["certbot"]
+    command:
+      - "certonly"
+      - "--webroot"
+      - "-w"
+      - "/var/www/certbot"
+      - "-d"
+      - "${DOMAIN:?set DOMAIN}"
+      - "--non-interactive"
+      - "--agree-tos"
+      - "-m"
+      - "${CERTBOT_EMAIL:?set CERTBOT_EMAIL}"
+      - "--keep-until-expiring"
+      - "--deploy-hook"
+      - "nginx -s reload"
+    restart: "no"
+    networks:
+      - frontend-net
+
+  # FIX 2.16: Prometheus bound to localhost, on internal monitoring network only
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      - backend-1
+      - backend-2
+    restart: unless-stopped
+    logging: *default_logging
+    networks:
+      - monitoring-net
+
+  # FIX 2.16: Grafana bound to localhost, admin password from env, anonymous access disabled
+  grafana:
+    image: grafana/grafana-oss:11.1.0
+    ports:
+      - "127.0.0.1:3003:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=None
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    logging: *default_logging
+    networks:
+      - monitoring-net
+
+  # H31: Grafana Loki — centralized log store. Receives logs from all services
+  # via the Loki logging driver (see the `x-logging` anchor above). Internal to
+  # monitoring-net only; grafana (also on monitoring-net) queries it directly at
+  # http://loki:3100. Not published publicly. Note: this service must NOT use the
+  # loki logging driver itself (it would depend on itself), so it keeps json-file.
+  loki:
+    image: grafana/loki:2.9.2
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki-data:/loki
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - monitoring-net
+
+# M56: Persistent volumes for monitoring data
+volumes:
+  grafana-data:
+  prometheus-data:
+  certbot-certs:
+  certbot-www:
+  loki-data:
+  backend-uploads:
+  backend-spool:
+
+# FIX 2.4: Explicit network definitions
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  monitoring-net:
+    driver: bridge
+    internal: true

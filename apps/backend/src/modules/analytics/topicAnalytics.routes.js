@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import topicAnalyticsService from './topicAnalytics.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -12,7 +13,7 @@ router.get('/:topicId/overview', protect, async (req, res) => {
     }
     res.json({ success: true, data: overview })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -21,7 +22,7 @@ router.get('/:topicId/questions', protect, async (req, res) => {
     const analytics = await topicAnalyticsService.getQuestionAnalytics(req.params.topicId)
     res.json({ success: true, data: analytics })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -30,7 +31,7 @@ router.get('/:topicId/engagement', protect, async (req, res) => {
     const engagement = await topicAnalyticsService.getUserEngagement(req.params.topicId)
     res.json({ success: true, data: engagement })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -39,7 +40,7 @@ router.get('/:topicId/difficulty', protect, async (req, res) => {
     const distribution = await topicAnalyticsService.getDifficultyDistribution(req.params.topicId)
     res.json({ success: true, data: distribution })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -52,7 +53,7 @@ router.get('/:topicId/trends', protect, async (req, res) => {
     )
     res.json({ success: true, data: trends })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -61,7 +62,7 @@ router.get('/:topicId/dashboard', protect, async (req, res) => {
     const summary = await topicAnalyticsService.getDashboardSummary(req.params.topicId)
     res.json({ success: true, data: summary })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -77,7 +78,7 @@ router.post('/comparative', protect, async (req, res) => {
     const analytics = await topicAnalyticsService.getComparativeAnalytics(topicIds)
     res.json({ success: true, data: analytics })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 

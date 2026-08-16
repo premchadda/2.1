@@ -1,6 +1,7 @@
 import express from 'express'
 import { protect, admin } from '../../middleware/auth.middleware.js'
 import questionSearchService from './questionSearch.service.js'
+import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
@@ -16,7 +17,7 @@ router.get('/search', async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -32,7 +33,7 @@ router.post('/search/embedding', async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -47,7 +48,7 @@ router.post('/search/keywords', async (req, res) => {
     })
     res.json({ success: true, data: results })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -57,7 +58,7 @@ router.get('/stats', protect, admin, async (req, res) => {
     const unindexed = await questionSearchService.getUnindexedCount()
     res.json({ success: true, data: { ...stats, unindexed_count: unindexed } })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -66,7 +67,7 @@ router.post('/index/:questionId', protect, admin, async (req, res) => {
     const entry = await questionSearchService.indexQuestion(req.params.questionId)
     res.json({ success: true, data: entry })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -76,7 +77,7 @@ router.post('/index/bulk', protect, admin, async (req, res) => {
     const indexed = await questionSearchService.bulkIndex(limit)
     res.json({ success: true, data: { indexed } })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -85,7 +86,7 @@ router.delete('/index/:questionId', protect, admin, async (req, res) => {
     await questionSearchService.removeFromIndex(req.params.questionId)
     res.json({ success: true, message: 'Removed from search index' })
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message })
+    res.status(400).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
@@ -97,7 +98,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ success: true, data: entry })
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message })
+    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) })
   }
 })
 
