@@ -36,8 +36,13 @@ class EmailService {
   }
 
   setupProvider() {
-    if (process.env.NODE_ENV === 'production' && isDisabledProvider(this.provider) && process.env.ALLOW_NO_EMAIL_IN_PRODUCTION !== 'true') {
-      throw new Error(`CRITICAL ERROR: Transactional email provider is disabled (EMAIL_PROVIDER=none) in production. Please set EMAIL_PROVIDER to 'sendgrid', 'aws', or 'smtp'. Or set ALLOW_NO_EMAIL_IN_PRODUCTION=true to override.`);
+    if (isDisabledProvider(this.provider)) {
+      if (process.env.NODE_ENV === 'production') {
+        logger.warn('[Email] Transactional email provider is disabled (EMAIL_PROVIDER=none) in production. Set EMAIL_PROVIDER to sendgrid, aws, or smtp when ready.')
+      } else {
+        logger.info('[Email] Delivery disabled (EMAIL_PROVIDER=none).')
+      }
+      return
     }
 
     switch (this.provider) {
