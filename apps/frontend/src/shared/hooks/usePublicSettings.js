@@ -31,13 +31,18 @@ export function usePublicSettings() {
   const { data, isLoading } = useQuery({
     queryKey: ['public-settings'],
     queryFn: async () => {
-      const res = await api.get('/api/settings/public')
-      return res.data?.data || FALLBACK_SETTINGS
+      try {
+        const res = await api.get('/api/settings/public', { timeout: 8000 })
+        return res.data?.data || FALLBACK_SETTINGS
+      } catch (err) {
+        return FALLBACK_SETTINGS
+      }
     },
-    staleTime: 1000 * 60 * 2,
+    placeholderData: FALLBACK_SETTINGS,
+    staleTime: 1000 * 60 * 5,
     refetchInterval: 1000 * 60 * 5,
-    retry: 2,
-    refetchOnMount: true,
+    retry: 1,
+    refetchOnMount: false,
   })
 
   const settings = data || FALLBACK_SETTINGS
