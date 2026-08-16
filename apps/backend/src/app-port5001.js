@@ -153,10 +153,25 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET", "JWT_REFRESH_SECRET", "FRONTEND_URL"];
+// Provide defaults for optional URLs
+process.env.FRONTEND_URL = process.env.FRONTEND_URL || "https://trstprep.vercel.app";
+process.env.ADMIN_PANEL_URL = process.env.ADMIN_PANEL_URL || "https://trstprep-admin.vercel.app";
+
+// If JWT_REFRESH_SECRET is missing but JWT_SECRET is provided, derive a secure cryptographic fallback
+if (!process.env.JWT_REFRESH_SECRET && process.env.JWT_SECRET) {
+  process.env.JWT_REFRESH_SECRET = crypto
+    .createHmac("sha256", process.env.JWT_SECRET)
+    .update("trstprep-refresh-key-salt")
+    .digest("hex");
+  console.warn("⚠️ JWT_REFRESH_SECRET not explicitly set. Derived secure HMAC fallback from JWT_SECRET.");
+}
+
+const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((v) => !process.env[v]);
 if (missingEnvVars.length > 0) {
-  logger.error("Missing required environment variables", { missing: missingEnvVars });
+  const errMsg = `❌ Missing required environment variable(s): ${missingEnvVars.join(", ")}. Please set them in your deployment dashboard.`;
+  console.error(errMsg);
+  logger.error(errMsg);
   process.exit(1);
 }
 
