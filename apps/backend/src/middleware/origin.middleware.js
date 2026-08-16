@@ -78,8 +78,21 @@ export const validateOrigin = (req, res, next) => {
 
   if (sameOriginHost(originHost, requestHost)) return next()
 
-  // Trusted, explicitly configured origins (e.g. admin SPA on another subdomain).
-  if (TRUSTED_ORIGINS.includes(origin)) return next()
+  const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  const trustedOrigins = new Set([
+    ...envOrigins,
+    process.env.FRONTEND_URL,
+    process.env.ADMIN_PANEL_URL,
+    'https://trstprep.vercel.app',
+    'https://trstprep-admin.vercel.app',
+  ].filter(Boolean))
+
+  // Trusted, explicitly configured origins or vercel.app preview domains
+  if (trustedOrigins.has(origin) || (originHostname && originHostname.endsWith('.vercel.app'))) return next()
 
   // Development convenience: allow loopback origins regardless of port so the
   // Vite dev server (e.g. :5173) can call the API (e.g. :5001).

@@ -214,9 +214,9 @@ app.set('etag', 'strong');
 app.set('trust proxy', 1);
 
 const helmetOptions = {
-  crossOriginEmbedderPolicy: true,
-  crossOriginOpenerPolicy: true,
-  crossOriginResourcePolicy: { policy: "same-origin" },
+  crossOriginEmbedderPolicy: false,
+  crossOriginOpenerPolicy: false,
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   dnsPrefetchControl: { allow: false },
   frameguard: { action: "deny" },
   hidePoweredBy: true,
@@ -311,14 +311,41 @@ const isLocalNetworkOrigin = (origin) => {
   return false;
 };
 
-const isAdminPanelRequest = (req) => {
-  const origin = req.headers.origin;
-  const adminOrigins = [process.env.ADMIN_PANEL_URL].filter(Boolean);
-  if (isDevelopment) {
-    adminOrigins.push("http://localhost:3002", "http://localhost:3001");
-  }
-  return adminOrigins.includes(origin);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const trusted = new Set([
+      ...allowedOrigins,
+      ...envOrigins,
+      "https://trstprep.vercel.app",
+      "https://trstprep-admin.vercel.app",
+      "http://localhost:3000",
+      "http://localhost:3002",
+    ]);
+
+    let hostname = "";
+    try {
+      hostname = new URL(origin).hostname;
+    } catch {}
+
+    if (trusted.has(origin) || (hostname && hostname.endsWith(".vercel.app")) || isLocalNetworkOrigin(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Requested-With", "Accept", "X-Load-Test"],
+  exposedHeaders: ["Set-Cookie"],
 };
+
+app.use(cors(corsOptions));
+
 
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10);
 const GENERAL_RATE_LIMIT_MAX = parseInt(process.env.GENERAL_RATE_LIMIT_MAX || "1000", 10);
