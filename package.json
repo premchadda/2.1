@@ -24,19 +24,21 @@
     "build:frontend": "turbo build --filter=trstprep-frontend",
     "build:admin": "turbo build --filter=trstprep-admin",
     "upgrade": "ncu -u",
-    "prepare": "husky install",
+    "prepare": "node -e \"if (!process.env.CI && process.env.NODE_ENV !== 'production') { try { require('child_process').execSync('husky install', { stdio: 'ignore' }); } catch (e) {} }\"",
     "load-test": "k6 run tests/load/api.js",
     "load-test:auth": "k6 run tests/load/auth.js",
     "load-test:api": "k6 run tests/load/api.js",
     "load-test:realtime": "k6 run tests/load/realtime.js"
+  },
+  "dependencies": {
+    "turbo": "^2.10.5"
   },
   "devDependencies": {
     "chokidar": "^3.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.4.0",
     "npm-check-updates": "^22.1.0",
-    "prettier": "^3.5.3",
-    "turbo": "^2.10.5"
+    "prettier": "^3.5.3"
   },
   "overrides": {
     "qs": "6.15.0",
