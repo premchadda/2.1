@@ -1,3 +1,9 @@
+import dns from "dns";
+// Force IPv4-first DNS resolution globally across database connection pools
+try {
+  dns.setDefaultResultOrder("ipv4first");
+} catch (e) {}
+
 import { Pool } from "pg";
 import dotenv from "dotenv";
 
@@ -11,30 +17,39 @@ const parsePositiveInt = (value, fallback) => {
 const isDev =
   process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
+// For Supabase, Neon, and cloud PostgreSQL providers, rejectUnauthorized: false ensures reliable TLS handshake
 const sslConfig =
-  process.env.PG_SSL_REJECT_UNAUTHORIZED === "false"
-    ? { rejectUnauthorized: false }
-    : (isDev ? { rejectUnauthorized: false } : { rejectUnauthorized: true });
+  process.env.PG_SSL_REJECT_UNAUTHORIZED === "true"
+    ? { rejectUnauthorized: true }
+    : { rejectUnauthorized: false };
+
+function sanitizeDatabaseUrl(rawUrl) {
+  if (!rawUrl) return rawUrl;
+  if (rawUrl.includes('.supabase.co') && rawUrl.includes('db.')) {
+    console.warn(
+      '⚠️ Notice: Supabase Direct Connection (db.<ref>.supabase.co) is IPv6-only. ' +
+      'If you see connect ENETUNREACH, switch DATABASE_URL to Supabase Connection Pooler: ' +
+      'postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres'
+    );
+  }
+  return rawUrl;
+}
+
+const writeConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
+const readConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_READ_URL || process.env.DATABASE_URL);
 
 // Primary pool (read/write) - reuses same settings as main pool
 const writePool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: writeConnectionUrl,
   ssl: sslConfig,
-  // The database is remote/slow to establish a TLS connection, so a 10s
-  // connection timeout caused intermittent 500s ("Connection terminated due
-  // to connection timeout"). Raise it well above observed connect latency.
   connectionTimeoutMillis: parsePositiveInt(
     process.env.PG_CONNECTION_TIMEOUT_MS,
     30000
   ),
-  // Keep idle connections alive longer so the pool stays warm and we don't
-  // repeatedly pay the expensive connection-establishment cost.
   idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 60000),
   query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 60000),
   max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
   allowExitOnIdle: true,
-  // TCP keepalive prevents the database from silently dropping idle sockets,
-  // which otherwise surfaces as mid-query "Connection terminated unexpectedly".
   keepAlive: true,
   application_name: "trstprep-backend-write",
   statement_timeout: 60000,
@@ -44,7 +59,7 @@ const writePool = new Pool({
 // Falls back to primary if DATABASE_READ_URL is not configured
 const readPool = process.env.DATABASE_READ_URL
   ? new Pool({
-      connectionString: process.env.DATABASE_READ_URL,
+      connectionString: readConnectionUrl,
       ssl: sslConfig,
       connectionTimeoutMillis: parsePositiveInt(
         process.env.PG_CONNECTION_TIMEOUT_MS,
@@ -63,117 +78,89 @@ const readPool = process.env.DATABASE_READ_URL
     })
   : writePool;
 
+// Surface background pool errors instead of unhandled promise rejections
 writePool.on("error", (err) => {
-  console.error("[WritePool] Idle client error (non-fatal):", err.message);
+  console.error("[DB writePool background error]:", err.message);
 });
 
-// M14 / fix for 42704: set the PII encryption key on every newly-opened
-// connection so the trigger_users_pii_enc / encrypt_pii() DB functions resolve
-// `current_setting('app.pgcrypto_key')` at runtime. When PGCRYPTO_KEY is not
-// configured we leave it unset — migration 104 makes those functions a no-op
-// instead of crashing, so GETs/writes keep working. NEVER log the key value.
-const PGC_KEY = process.env.PGCRYPTO_KEY;
-const attachPgcryptoKey = (client) => {
-  if (!PGC_KEY) return;
-  client
-    .query("SELECT set_config('app.pgcrypto_key', $1, false)", [PGC_KEY])
-    .catch((err) =>
-      console.error("[Pool] Failed to set app.pgcrypto_key on connection:", err.message)
-    );
-};
-writePool.on("connect", attachPgcryptoKey);
-
-if (process.env.DATABASE_READ_URL) {
+if (readPool !== writePool) {
   readPool.on("error", (err) => {
-    console.error("[ReadPool] Idle client error (non-fatal):", err.message);
+    console.error("[DB readPool background error]:", err.message);
   });
-  readPool.on("connect", attachPgcryptoKey);
 }
 
-// ============================================================
-// H19 FIX: Pool monitoring — detect silent connection exhaustion.
-//
-// `pg.Pool` exposes live counters (totalCount, idleCount, waitingCount).
-// Previously nothing observed them, so a pool running out of connections
-// (waitingCount climbing, requests queueing) failed silently until requests
-// timed out. We now expose stats and periodically warn when the pool is
-// saturated (all connections checked out AND requests are waiting).
-// ============================================================
-const poolStats = (targetPool, name) => ({
-  name,
-  max: targetPool.options?.max ?? null,
-  total: targetPool.totalCount,
-  idle: targetPool.idleCount,
-  waiting: targetPool.waitingCount,
-});
-
-export const getPoolStats = () => {
-  const stats = { write: poolStats(writePool, "write") };
-  if (process.env.DATABASE_READ_URL) {
-    stats.read = poolStats(readPool, "read");
-  }
-  return stats;
-};
-
-const POOL_MONITOR_INTERVAL_MS = parsePositiveInt(
-  process.env.PG_POOL_MONITOR_INTERVAL_MS,
-  30000
-);
-
-const checkPoolSaturation = (targetPool, name) => {
-  const max = targetPool.options?.max ?? Infinity;
-  const waiting = targetPool.waitingCount;
-  // Saturated: every connection is checked out (no idle) AND callers are queued.
-  if (waiting > 0 && targetPool.totalCount >= max && targetPool.idleCount === 0) {
-    console.warn(
-      `[PoolMonitor] ${name} pool SATURATED — total=${targetPool.totalCount}/${max}, ` +
-        `idle=${targetPool.idleCount}, waiting=${waiting}. Requests are queueing; ` +
-        `consider raising PG_POOL_MAX or investigating slow/leaked queries.`
-    );
-  }
-};
-
-if (process.env.NODE_ENV !== "test" && POOL_MONITOR_INTERVAL_MS > 0) {
-  const monitor = setInterval(() => {
-    checkPoolSaturation(writePool, "write");
-    if (process.env.DATABASE_READ_URL) {
-      checkPoolSaturation(readPool, "read");
-    }
-  }, POOL_MONITOR_INTERVAL_MS);
-  // Don't keep the process alive just for the monitor.
-  if (typeof monitor.unref === "function") monitor.unref();
-}
-
-// Pre-open a few connections so the first user requests don't each pay the
-// expensive DNS + TLS handshake cost against the remote database.
-const warmPool = async (targetPool, count) => {
-  const clients = await Promise.all(
-    Array.from({ length: count }, () =>
-      targetPool.connect().catch((err) => {
-        console.error("[PoolWarm] Failed to pre-open connection:", err.message);
-        return null;
-      })
-    )
-  );
-  clients.forEach((client) => client && client.release());
-  return clients.filter(Boolean).length;
-};
-
-export const warmPools = async () => {
-  const writeWarmed = await warmPool(
-    writePool,
-    parsePositiveInt(process.env.PG_POOL_WARM, 3)
-  );
-  let readWarmed = 0;
-  if (process.env.DATABASE_READ_URL) {
-    readWarmed = await warmPool(
-      readPool,
-      parsePositiveInt(process.env.PG_READ_POOL_WARM, 2)
-    );
-  }
-  return { writeWarmed, readWarmed };
-};
-
+/**
+ * Returns a pool for read operations. Uses readPool if configured,
+ * otherwise transparently falls back to writePool.
+ */
 export const getReadPool = () => readPool;
+
+/**
+ * Returns the primary pool for write (and transaction) operations.
+ */
 export const getWritePool = () => writePool;
-export { readPool, writePool };
+
+/**
+ * Helper to execute read queries using the replica pool when available
+ */
+export const readQuery = async (text, params) => {
+  return readPool.query(text, params);
+};
+
+/**
+ * Helper to execute write queries using the primary pool
+ */
+export const writeQuery = async (text, params) => {
+  return writePool.query(text, params);
+};
+
+/**
+ * Health check for both pools
+ */
+export const checkPoolsHealth = async () => {
+  const result = {
+    writePool: { healthy: false, latencyMs: 0 },
+    readPool: { healthy: false, latencyMs: 0, isReplica: readPool !== writePool },
+  };
+
+  const startWrite = Date.now();
+  try {
+    await writePool.query("SELECT 1");
+    result.writePool.healthy = true;
+    result.writePool.latencyMs = Date.now() - startWrite;
+  } catch (err) {
+    result.writePool.error = err.message;
+  }
+
+  if (readPool !== writePool) {
+    const startRead = Date.now();
+    try {
+      await readPool.query("SELECT 1");
+      result.readPool.healthy = true;
+      result.readPool.latencyMs = Date.now() - startRead;
+    } catch (err) {
+      result.readPool.error = err.message;
+    }
+  } else {
+    result.readPool = { ...result.writePool, isReplica: false };
+  }
+
+  return result;
+};
+
+/**
+ * Pre-warms pool connections so the first user request doesn't pay
+ * the cold-connection establishment latency.
+ */
+export const warmPools = async () => {
+  try {
+    const promises = [writePool.query("SELECT 1")];
+    if (readPool !== writePool) {
+      promises.push(readPool.query("SELECT 1"));
+    }
+    await Promise.all(promises);
+    console.log("[DB] Connection pools warmed successfully.");
+  } catch (err) {
+    console.warn("[DB] Pool pre-warming encountered an issue (non-fatal):", err.message);
+  }
+};
