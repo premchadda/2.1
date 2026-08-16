@@ -302,6 +302,8 @@ export const authController = {
         success: true,
         message: 'Login successful',
         data: {
+          token,
+          refreshToken,
           user: userWithoutPassword,
           sessionId,
           csrfToken,
@@ -455,6 +457,8 @@ export const authController = {
            success: true,
            message: 'Registration successful',
            data: {
+             token,
+             refreshToken,
              user: userWithoutPassword,
              sessionId: sessionId || null,
              csrfToken
@@ -559,6 +563,8 @@ export const authController = {
         success: true,
         message: 'Login successful',
         data: {
+          token,
+          refreshToken,
           user: userWithoutPassword,
           sessionId,
           csrfToken
@@ -799,6 +805,8 @@ export const authController = {
         success: true,
         message: 'Token refreshed successfully',
         data: {
+          token,
+          refreshToken: newRefreshToken,
           csrfToken
         }
       })
