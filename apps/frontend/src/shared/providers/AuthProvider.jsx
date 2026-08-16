@@ -64,9 +64,9 @@ export function AuthProvider({ children }) {
   // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
   useEffect(() => {
     let cancelled = false
-    const MAX_RETRIES = 12
-    const BASE_RETRY_DELAY = 1500 // ms
-    const MAX_RETRY_DELAY = 5000 // ms cap for backoff
+    const MAX_RETRIES = 2
+    const BASE_RETRY_DELAY = 1000 // ms
+    const MAX_RETRY_DELAY = 3000 // ms cap for backoff
 
     const checkAuth = async (attempt = 0) => {
       if (cancelled) return
