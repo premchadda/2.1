@@ -7,16 +7,16 @@ function QuestionPalette({
   user,
   userName,
   userInitials,
-  userIdentifier,
+  userEmail,
   stats,
   currentSectionStats,
   currentSection,
+  sections = [],
   getSectionTimeRemaining,
   getSectionTimeColor,
   formatSectionTime,
-  currentSectionIndexes,
   getQuestionStatus,
-  questions,
+  questions = [],
   currentQuestion,
   goToQuestion,
   reviewMode,
@@ -31,7 +31,7 @@ function QuestionPalette({
   const buttonRefs = useRef([])
 
   const focusAt = (pos) => {
-    const count = currentSectionIndexes.length
+    const count = questions.length
     if (count === 0) return
     const next = ((pos % count) + count) % count
     setCurrentIndex(next)
@@ -56,30 +56,49 @@ function QuestionPalette({
         break
       case 'End':
         e.preventDefault()
-        focusAt(currentSectionIndexes.length - 1)
+        focusAt(questions.length - 1)
         break
       default:
         break
     }
   }
 
+  // Derive unique sections from either sections prop or questions list
+  const effectiveSections = sections && sections.length > 0
+    ? sections
+    : Array.from(new Set(questions.map(q => q.section || q.subject || 'General')))
+
   return (
-    <aside className={`
-        fixed md:static inset-0 z-[60] md:z-auto
-        ${showPalette ? 'block' : 'hidden md:block'}
-        md:w-72 md:flex-shrink-0
-      `}>
-        {/* Close button (mobile) */}
-        <button
+    <>
+      {/* Backdrop overlay with blur effect - clicking outside auto-closes palette */}
+      {showPalette && (
+        <div
+          onClick={() => setShowPalette(false)}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 md:hidden transition-all duration-300 animate-fade-in"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`
+          fixed md:static inset-y-0 right-0 z-[60] md:z-auto
+          ${showPalette ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}
+          ${showPalette ? 'block' : 'hidden md:block'}
+          w-72 sm:w-80 md:w-72 md:flex-shrink-0 transition-transform duration-300 ease-in-out
+        `}
+      >
+        <div className="h-full w-full bg-sky-50 dark:bg-gray-800 md:border-l border-gray-200 dark:border-gray-700 overflow-hidden shadow-2xl md:shadow-none transition-transform flex flex-col relative">
+          {/* Close button (mobile) */}
+          <button
             onClick={() => setShowPalette(false)}
-            className="md:hidden absolute top-1 right-2 p-1.5 hover:bg-sky-100 dark:hover:bg-gray-700 rounded z-10"
+            aria-label="Close question palette"
+            className="md:hidden absolute top-2.5 right-2.5 p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full z-20 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-700 dark:text-gray-300" />
           </button>
 
-        <div className="absolute md:static right-0 top-0 h-full w-72 md:w-full bg-sky-50 dark:bg-gray-800 md:border-l border-gray-200 dark:border-gray-700 overflow-hidden shadow-xl md:shadow-none transition-transform flex flex-col">
-
           <div className="flex flex-col flex-1 min-h-0">
+            {/* User Profile Bar */}
             <div className="flex items-center gap-2.5 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 h-12 md:h-14 shrink-0">
               <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center overflow-hidden border border-blue-200 dark:border-blue-700 shadow-inner shrink-0">
                 {user?.avatar || user?.avatarUrl ? (
@@ -90,13 +109,16 @@ function QuestionPalette({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">{userName}</div>
-                {userIdentifier && (
-                  <div className="truncate text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">ID: {userIdentifier}</div>
+                {(user?.email || userEmail) && (
+                  <div className="truncate text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5" title={user?.email || userEmail}>
+                    {user?.email || userEmail}
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3">
+            {/* Metric / Status Legend Bar */}
+            <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shrink-0">
               <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                 <div className="flex items-center gap-1.5">
                   <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-1 font-bold text-gray-700 dark:text-gray-300 shadow-sm">{stats.notVisited}</span>
@@ -124,70 +146,93 @@ function QuestionPalette({
               </div>
             </div>
 
-            {/* Question Grid (Filtered by Section) */}
-            <div className="pb-3 flex-1 overflow-y-auto">
-              <div className="bg-sky-200/70 dark:bg-sky-900/40 px-3 py-2 text-sm font-bold text-gray-800 dark:text-gray-200 border-b border-sky-300 dark:border-sky-800 flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm">
-                <div className="flex items-center gap-1.5">
-                  <span className="uppercase text-[10px] tracking-wider opacity-80 bg-sky-100 dark:bg-sky-800/50 px-1.5 py-0.5 rounded">Section</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{currentSection}</span>
-                  {getSectionTimeRemaining(currentSection) !== null && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${getSectionTimeColor(getSectionTimeRemaining(currentSection))}`}>
-                      {formatSectionTime(getSectionTimeRemaining(currentSection))}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs bg-white/60 dark:bg-gray-700/60 px-1.5 py-0.5 rounded-md font-medium text-sky-800 dark:text-sky-200">
-                  {currentSectionIndexes.length} Qs
-                </span>
-              </div>
-              <div
-                className="grid grid-cols-5 gap-2.5 p-3"
-                role="listbox"
-                aria-label="Question palette"
-                onKeyDown={handlePaletteKeyDown}
-              >
-                {currentSectionIndexes.map(({ index }, sectionPosition) => {
-                  const status = getQuestionStatus(index)
-                  const targetSection = questions[index]?.section || 'General'
-                  const isSecExpired = getSectionTimeRemaining(targetSection) !== null && getSectionTimeRemaining(targetSection) <= 0
-                  const statusClass =
-                    isSecExpired
-                      ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 text-red-300 dark:text-red-700 cursor-not-allowed opacity-50'
-                      : status === 'p-answered'
-                        ? 'bg-green-500 border-green-600 text-white'
-                        : status === 'p-not-answered'
-                          ? 'bg-red-500 border-red-600 text-white'
-                          : status === 'p-review'
-                            ? 'bg-purple-500 border-purple-600 text-white rounded-full'
-                            : status === 'p-ans-review'
-                              ? 'bg-purple-500 border-purple-600 text-white rounded-full'
-                              : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-300 hover:border-indigo-400 dark:hover:border-indigo-500'
+            {/* All Sections Scrollable Palette */}
+            <div
+              className="pb-4 flex-1 overflow-y-auto"
+              role="listbox"
+              aria-label="Question palette"
+              onKeyDown={handlePaletteKeyDown}
+            >
+              {effectiveSections.map(section => {
+                // Find all questions belonging to this section with their global original index
+                const sectionQuestionsWithIdx = questions
+                  .map((q, idx) => ({ question: q, index: idx }))
+                  .filter(item => (item.question.section || item.question.subject || 'General') === section)
 
-                  return (
-                    <button
-                      key={index}
-                      ref={(el) => { buttonRefs.current[sectionPosition] = el }}
-                      tabIndex={sectionPosition === currentIndex ? 0 : -1}
-                      onClick={() => {
-                        if (!isSecExpired) {
-                          setCurrentIndex(sectionPosition)
-                          goToQuestion(index)
-                        }
-                      }}
-                      disabled={isSecExpired}
-                      aria-label={`Question ${index + 1}, ${isSecExpired ? 'Expired' : status === 'p-answered' ? 'Answered' : status === 'p-not-answered' ? 'Not Answered' : status === 'p-review' ? 'Marked for Review' : status === 'p-ans-review' ? 'Answered and Marked' : 'Not Visited'}`}
-                      className={`relative w-8 h-8 mx-auto rounded-full border flex items-center justify-center text-xs font-semibold transition-all shadow-sm ${statusClass} ${currentQuestion === index ? 'ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10' : ''
-                        }`}
-                      title={isSecExpired ? `Question ${index + 1} (Expired)` : `Question ${index + 1}`}
-                    >
-                      {sectionPosition + 1}
-                      {status === 'p-ans-review' && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border border-white" />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
+                if (sectionQuestionsWithIdx.length === 0) return null
+
+                const sectionRemaining = getSectionTimeRemaining ? getSectionTimeRemaining(section) : null
+                const isSecExpired = sectionRemaining !== null && sectionRemaining <= 0
+                const isActiveSection = currentSection === section
+
+                return (
+                  <div key={section} className="mb-2">
+                    {/* Section Header */}
+                    <div className={`px-3 py-2 text-xs sm:text-sm font-bold border-b border-sky-300/60 dark:border-sky-800 flex justify-between items-center sticky top-0 z-10 backdrop-blur-sm ${
+                      isActiveSection
+                        ? 'bg-sky-200/90 dark:bg-sky-900/60 text-indigo-950 dark:text-indigo-200'
+                        : 'bg-sky-100/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300'
+                    }`}>
+                      <div className="flex items-center gap-1.5 min-w-0 pr-1">
+                        <span className="uppercase text-[9px] sm:text-[10px] tracking-wider opacity-80 bg-sky-200/80 dark:bg-sky-800/60 px-1.5 py-0.5 rounded font-bold shrink-0">
+                          Section
+                        </span>
+                        <span className="font-extrabold truncate">{section}</span>
+                        {sectionRemaining !== null && (
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border shrink-0 ${getSectionTimeColor ? getSectionTimeColor(sectionRemaining) : ''}`}>
+                            {isSecExpired ? 'Expired' : formatSectionTime ? formatSectionTime(sectionRemaining) : `${sectionRemaining}s`}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] bg-white/70 dark:bg-gray-700/70 px-1.5 py-0.5 rounded-md font-bold text-sky-900 dark:text-sky-200 shrink-0">
+                        {sectionQuestionsWithIdx.length} Qs
+                      </span>
+                    </div>
+
+                    {/* Question Bubble Grid for this section */}
+                    <div className="grid grid-cols-5 gap-2.5 p-3">
+                      {sectionQuestionsWithIdx.map(({ index }) => {
+                        const status = getQuestionStatus(index)
+                        const statusClass = isSecExpired
+                          ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 text-red-300 dark:text-red-700 cursor-not-allowed opacity-50'
+                          : status === 'p-answered'
+                            ? 'bg-green-500 border-green-600 text-white'
+                            : status === 'p-not-answered'
+                              ? 'bg-red-500 border-red-600 text-white'
+                              : status === 'p-review'
+                                ? 'bg-purple-500 border-purple-600 text-white rounded-full'
+                                : status === 'p-ans-review'
+                                  ? 'bg-purple-500 border-purple-600 text-white rounded-full'
+                                  : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-300 hover:border-indigo-400 dark:hover:border-indigo-500'
+
+                        return (
+                          <button
+                            key={index}
+                            ref={(el) => { buttonRefs.current[index] = el }}
+                            tabIndex={index === currentIndex ? 0 : -1}
+                            onClick={() => {
+                              if (!isSecExpired) {
+                                setCurrentIndex(index)
+                                goToQuestion(index)
+                              }
+                            }}
+                            disabled={isSecExpired}
+                            aria-label={`Question ${index + 1}, ${isSecExpired ? 'Expired' : status === 'p-answered' ? 'Answered' : status === 'p-not-answered' ? 'Not Answered' : status === 'p-review' ? 'Marked for Review' : status === 'p-ans-review' ? 'Answered and Marked' : 'Not Visited'}`}
+                            className={`relative w-9 h-9 sm:w-10 sm:h-10 mx-auto rounded-full border flex items-center justify-center text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer ${statusClass} ${currentQuestion === index ? 'ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10' : ''
+                              }`}
+                            title={isSecExpired ? `Question ${index + 1} (Expired)` : `Question ${index + 1} (${section})`}
+                          >
+                            {index + 1}
+                            {status === 'p-ans-review' && (
+                              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border border-white" />
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Submit Button */}
@@ -196,14 +241,14 @@ function QuestionPalette({
                 <button
                   onClick={confirmSubmit}
                   disabled={isSubmitting}
-                  className="w-full py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded hover:shadow-md active:scale-[0.98] transition-all disabled:opacity-50 text-sm"
+                  className="w-full py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded hover:shadow-md active:scale-[0.98] transition-all disabled:opacity-50 text-sm cursor-pointer"
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit Test'}
                 </button>
               ) : (
                 <button
                   onClick={() => navigate(`/test-result/${seriesId}/${testId}`, { state: { attemptId: location.state?.attemptId } })}
-                  className="w-full py-2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold rounded hover:shadow-md active:scale-[0.98] transition-all text-sm"
+                  className="w-full py-2 bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-bold rounded hover:shadow-md active:scale-[0.98] transition-all text-sm cursor-pointer"
                 >
                   Back To Result
                 </button>
@@ -212,6 +257,7 @@ function QuestionPalette({
           </div>
         </div>
       </aside>
+    </>
   )
 }
 

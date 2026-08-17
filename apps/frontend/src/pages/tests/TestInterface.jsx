@@ -364,16 +364,52 @@ function TestInterface() {
           const questionsData = await getQuestionsByTestId(testData._id || testId)
           let finalQuestions = Array.isArray(questionsData) ? questionsData : []
 
-          finalQuestions = finalQuestions.map(q => {
-            // Use section if available, otherwise use subject, otherwise default to 'General'
-            const rawSection = q.section || q.subject || 'General'
-            return {
-              ...q,
-              section: rawSection,
-              // Keep original subject for display
-              subject: q.subject || rawSection
-            }
-          })
+          const testSections = Array.isArray(testData?.sections) && testData.sections.length > 0
+            ? testData.sections
+            : (typeof testData?.testSections === 'string' && testData.testSections.trim()
+                ? testData.testSections.split(',').map(s => ({ name: s.trim() }))
+                : (testData?.totalQuestions === 100 || finalQuestions.length === 100
+                    ? [
+                        { name: 'General Intelligence & Reasoning', questionCount: 25 },
+                        { name: 'General Awareness', questionCount: 25 },
+                        { name: 'Quantitative Aptitude', questionCount: 25 },
+                        { name: 'English Comprehension', questionCount: 25 },
+                      ]
+                    : null))
+
+          const hasExplicitSections = finalQuestions.some(q => q.section && q.section !== 'General' && q.section !== 'Full Test')
+
+          if (!hasExplicitSections && testSections && testSections.length > 1 && finalQuestions.length > 0) {
+            const totalQ = finalQuestions.length
+            const qPerSec = Math.floor(totalQ / testSections.length)
+
+            finalQuestions = finalQuestions.map((q, idx) => {
+              let accumulated = 0
+              let assignedSection = testSections[testSections.length - 1]?.name || (typeof testSections[testSections.length - 1] === 'string' ? testSections[testSections.length - 1] : 'General')
+              for (let sIdx = 0; sIdx < testSections.length; sIdx++) {
+                const secCount = testSections[sIdx]?.questionCount || (sIdx === testSections.length - 1 ? (totalQ - qPerSec * (testSections.length - 1)) : qPerSec)
+                if (idx < accumulated + secCount) {
+                  assignedSection = testSections[sIdx]?.name || (typeof testSections[sIdx] === 'string' ? testSections[sIdx] : 'General')
+                  break
+                }
+                accumulated += secCount
+              }
+              return {
+                ...q,
+                section: assignedSection,
+                subject: q.subject || assignedSection
+              }
+            })
+          } else {
+            finalQuestions = finalQuestions.map(q => {
+              const rawSection = q.section || q.subject || 'General'
+              return {
+                ...q,
+                section: rawSection,
+                subject: q.subject || rawSection
+              }
+            })
+          }
 
           const standardOrderMap = {
             'reasoning': 1, 'general intelligence & reasoning': 1, 'general intelligence and reasoning': 1, 'general intelligence': 1, 'logical reasoning': 1,
@@ -496,14 +532,22 @@ function TestInterface() {
           return
         }
         if (status === 403) {
-          if (data?.requiresPro) {
+          const msg = (data?.message || error?.message || '').toLowerCase()
+          const isProRequired = Boolean(data?.requiresPro || msg.includes('pro pass') || msg.includes('pro required') || msg.includes('upgrade to continue'))
+          if (isProRequired) {
             toast.error('Pro Pass required for this test. Upgrade to continue.', { icon: '👑' })
             navigate('/pass')
           } else if (data?.limitReached) {
-            toast.error(data.message)
+            toast.error(data?.message || 'Attempt limit reached')
             navigate('/pass')
+          } else if (data?.code === 'LIVE_TEST_NOT_STARTED' || data?.code === 'LIVE_TEST_EXPIRED') {
+            setIsError(true)
+            setErrorMessage(data.message)
+          } else if (!user) {
+            navigate('/login', { state: { from: `/${seriesId}/tests/${testId}`, message: data?.message || 'Please login to access this test' } })
           } else {
-            navigate('/login', { state: { from: `/${seriesId}/tests/${testId}`, message: 'Access denied' } })
+            setIsError(true)
+            setErrorMessage(data?.message || 'Access denied for this test')
           }
           return
         }
@@ -527,7 +571,10 @@ function TestInterface() {
   }, [test?.duration])
 
   useEffect(() => {
-    if (reviewMode || loading || !test || isPaused || showPauseModal) return
+    if (reviewMode || loading || !test || isPaused || showPauseModal || showSubmitSummary) return
+
+    // Re-sync absolute deadline upon resumption so elapsed pause/summary time is not counted
+    endTimeRef.current = Date.now() + (timeLeft * 1000)
 
     const tick = () => {
       const remaining = Math.max(0, endTimeRef.current - Date.now())
@@ -538,19 +585,19 @@ function TestInterface() {
     const interval = setInterval(tick, 1000)
 
     return () => clearInterval(interval)
-  }, [reviewMode, loading, test, isPaused, showPauseModal])
+  }, [reviewMode, loading, test, isPaused, showPauseModal, showSubmitSummary])
 
   // Auto-submit once the clock hits zero (cheap guard effect; runs on each tick
   // but does no work unless time has actually elapsed).
   useEffect(() => {
-    if (timeLeft <= 0 && !reviewMode && !loading && test && !isPaused && !showPauseModal && !isSubmitting) {
+    if (timeLeft <= 0 && !reviewMode && !loading && test && !isPaused && !showPauseModal && !showSubmitSummary && !isSubmitting) {
       handleSubmit()
     }
-  }, [timeLeft, reviewMode, loading, test, isPaused, showPauseModal, isSubmitting, handleSubmit])
+  }, [timeLeft, reviewMode, loading, test, isPaused, showPauseModal, showSubmitSummary, isSubmitting, handleSubmit])
 
   // Monitor section time limits
   useEffect(() => {
-    if (reviewMode || loading || !test || isPaused || isSubmitting || !currentSection) return
+    if (reviewMode || loading || !test || isPaused || showPauseModal || showSubmitSummary || isSubmitting || !currentSection) return
 
     const remaining = getSectionTimeRemaining(currentSection)
     if (remaining !== null && remaining <= 0) {
@@ -569,14 +616,13 @@ function TestInterface() {
         handleSubmit()
       }
     }
-  }, [timeLeft, currentSection, reviewMode, loading, test, isPaused, isSubmitting])
+  }, [timeLeft, currentSection, reviewMode, loading, test, isPaused, showPauseModal, showSubmitSummary, isSubmitting])
 
-  // Format time
+  // Format time (mm:ss)
   const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600)
-    const mins = Math.floor((seconds % 3600) / 60)
-    const secs = seconds % 60
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
 
@@ -934,7 +980,7 @@ function TestInterface() {
 
   // Initialize central Telemetry SDK
   useEffect(() => {
-    if (reviewMode || !attemptId || !test || isPaused) return
+    if (reviewMode || !attemptId || !test || isPaused || showSubmitSummary) return
 
     Telemetry.start({
       attemptId,
@@ -1085,12 +1131,12 @@ function TestInterface() {
   }
 
   useEffect(() => {
-    if (reviewMode || loading || isPaused || showPauseModal) return
+    if (reviewMode || loading || isPaused || showPauseModal || showSubmitSummary) return
 
     const listener = (e) => keyHandlerRef.current?.(e)
     window.addEventListener('keydown', listener)
     return () => window.removeEventListener('keydown', listener)
-  }, [reviewMode, loading, isPaused, showPauseModal, showCalculator])
+  }, [reviewMode, loading, isPaused, showPauseModal, showSubmitSummary, showCalculator])
 
   // Track question time when changing questions
   useEffect(() => {
@@ -1258,6 +1304,19 @@ function TestInterface() {
 
   const confirmSubmit = () => {
     if (reviewMode) return
+    // Save current active question time so far
+    if (questionStartTimeRef.current) {
+      const spent = Math.floor((Date.now() - questionStartTimeRef.current) / 1000)
+      setQuestionTimers(prev => ({
+        ...prev,
+        [currentQuestion]: (prev[currentQuestion] || 0) + spent
+      }))
+      setSectionTimers(prev => ({
+        ...prev,
+        [questions[currentQuestion]?.section || 'General']: (prev[questions[currentQuestion]?.section || 'General'] || 0) + spent
+      }))
+      questionStartTimeRef.current = null
+    }
     setShowSubmitSummary(true)
   }
 
@@ -1419,7 +1478,7 @@ function TestInterface() {
     .join('')
     .toUpperCase() || 'ST'
   return (
-    <div className="h-[100dvh] md:overflow-hidden flex flex-col md:flex-row bg-gray-50 dark:bg-gray-900">
+    <div className="h-[100dvh] md:overflow-hidden flex flex-col md:flex-row bg-gray-50 dark:bg-gray-900 test-interface overscroll-none overscroll-y-none touch-pan-y">
       <Helmet>
         <title>{test?.title || 'Test'} | Trstprep</title>
         <meta name="description" content="Taking test on Trstprep." />
@@ -1431,12 +1490,12 @@ function TestInterface() {
       <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
       
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm z-30 flex-none h-12 md:h-14 sticky top-0">
-        <div className="h-full px-2 md:px-3 flex items-center justify-between gap-2">
+      <header className="bg-white dark:bg-gray-800 shadow-sm z-30 flex-none min-h-[3.25rem] sm:min-h-[3.5rem] md:h-14 py-1 sticky top-0 border-b border-gray-200 dark:border-gray-700">
+        <div className="h-full px-2 md:px-3 flex items-center justify-between gap-1.5 sm:gap-2">
 
-          {/* Left Side: Back Button (Left before test name) + Pause (if test) + Test Name */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            {/* Back Button (Left before test name on mobile & desktop) */}
+          {/* Left Side: Back Button + Test Name (Two rows) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+            {/* Back Button */}
             <button
               onClick={() => {
                 if (reviewMode) {
@@ -1452,85 +1511,73 @@ function TestInterface() {
               <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
             </button>
 
-            {/* Mobile: Pause Button (Test Mode Only) */}
-            {!reviewMode && (
-              <button
-                onClick={isPaused ? handleResume : handlePause}
-                className="md:hidden w-7 h-7 rounded-full border border-indigo-200 dark:border-indigo-800 flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/50 active:scale-95 transition-transform flex-shrink-0"
+            {/* Test Name: shown in two rows */}
+            <div className="min-w-0 flex-1 pr-1">
+              <h1
+                title={test?.title || 'Mock Test'}
+                className="text-xs sm:text-sm md:text-base font-extrabold text-gray-900 dark:text-gray-100 line-clamp-2 leading-tight break-words"
               >
-                {isPaused ? <Play className="w-3 h-3 text-indigo-600 fill-current" /> : <Pause className="w-3 h-3 text-indigo-600 fill-current" />}
-              </button>
-            )}
-
-            {/* Stack: Timer + Name */}
-            <div className="flex flex-col min-w-0 justify-center flex-1 pr-2">
-              {!reviewMode && (
-                <div aria-live="polite" aria-atomic="true" className={`md:hidden font-mono font-bold text-xs leading-none mb-0.5 ${
-                  timeLeft < 300 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'
-                }`}>
-                  <span>Time: {formatTime(timeLeft)}</span>
-                </div>
-              )}
-
-              {/* Test Name */}
-              <h1 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-gray-100 leading-snug break-words line-clamp-2">
                 {test?.title || 'Mock Test'}
               </h1>
             </div>
           </div>
 
-          {/* Right Side: Language + Controls */}
-          <div className="flex items-center justify-end gap-1.5 md:gap-2 flex-shrink-0">
+          {/* Right Side: Timer with embedded Pause button + Language + Controls */}
+          <div className="flex items-center justify-end gap-1.5 sm:gap-2 flex-shrink-0">
 
-            {/* Language Switcher Button (Moved to Top Header) */}
+            {/* Timer + Embedded Pause Button */}
+            {!reviewMode && (
+              <div
+                aria-live="polite"
+                aria-atomic="true"
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg border font-mono font-bold text-xs sm:text-sm transition-colors shadow-2xs ${
+                  timeLeft < 300
+                    ? 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 animate-pulse'
+                    : 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={isPaused ? handleResume : handlePause}
+                  title={isPaused ? 'Resume Test' : 'Pause Test'}
+                  aria-label={isPaused ? 'Resume Test' : 'Pause Test'}
+                  className="p-0.5 sm:p-1 rounded-md hover:bg-indigo-200/60 dark:hover:bg-indigo-800/60 active:scale-95 transition-all text-indigo-700 dark:text-indigo-300 flex items-center justify-center cursor-pointer"
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current" /> : <Pause className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400 fill-current" />}
+                </button>
+                <div className="h-3.5 w-px bg-indigo-200 dark:bg-indigo-800" />
+                <span className="tabular-nums tracking-tight font-mono">
+                  {formatTime(timeLeft)}
+                </span>
+              </div>
+            )}
+
+            {/* Language Switcher Button */}
             <button
               onClick={() => setLanguage(lang => {
                 const next = lang === 'en' ? 'hi' : 'en'
                 document.documentElement.lang = next
                 return next
               })}
-              className="flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-2xs"
+              title="Change Language"
+              className="flex items-center gap-1 h-7 sm:h-8 px-2 sm:px-2.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:border-indigo-300 dark:hover:border-indigo-600 transition-colors shadow-2xs"
             >
               <Globe className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-              <span className="text-xs font-bold text-gray-700 dark:text-gray-200">{language.toUpperCase()}</span>
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-200">{language.toUpperCase()}</span>
             </button>
 
-            {/* Timer (Desktop Only) — hidden in review mode */}
-            {!reviewMode && (
-              <div aria-live="polite" aria-atomic="true" className={`hidden md:flex items-center gap-2 px-3 py-1.5 rounded-md border ${
-                timeLeft < 300 ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400' : 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
-              }`}>
-                <Clock className="w-4 h-4" />
-                <span className="font-mono font-bold text-sm md:text-base text-center">
-                  Time: {formatTime(timeLeft)}
-                </span>
-              </div>
-            )}
-
-            {/* Pause Button (Desktop) */}
-            {!reviewMode && (
-              <button
-                onClick={isPaused ? handleResume : handlePause}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-indigo-200 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/50 hover:bg-indigo-100 dark:hover:bg-indigo-800/50 transition-colors"
-              >
-                {isPaused ? <Play className="w-4 h-4 text-indigo-600 fill-current" /> : <Pause className="w-4 h-4 text-indigo-600 fill-current" />}
-                <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">{isPaused ? 'Resume' : 'Pause'}</span>
-              </button>
-            )}
-
-            {/* Fullscreen Button (Desktop) — must be a direct click to satisfy browser gesture requirement */}
+            {/* Fullscreen Button (Desktop) */}
             {!reviewMode && (
               <button
                 onClick={requestFullscreenSafely}
                 title="Enter fullscreen"
                 aria-label="Enter fullscreen mode"
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <ZoomIn className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                 <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Fullscreen</span>
               </button>
             )}
-
 
             {/* Desktop Dashboard Link */}
             {reviewMode && (
@@ -1545,7 +1592,9 @@ function TestInterface() {
 
             <button
               onClick={() => setShowPalette(!showPalette)}
-              className="md:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors"
+              title="Question Palette"
+              aria-label="Toggle Question Palette"
+              className="md:hidden p-1.5 sm:p-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 active:bg-gray-200 dark:active:bg-gray-600 transition-colors"
             >
               <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
@@ -1599,7 +1648,7 @@ function TestInterface() {
         <main className="flex-1 flex flex-col min-w-0 min-h-0 bg-gray-50 dark:bg-gray-900">
 
           {/* Scrollable Content */}
-          <div className="flex-1 p-3 pb-24 md:pb-3 scroll-smooth overflow-y-auto">
+          <div className="flex-1 p-3 pb-24 md:pb-3 scroll-smooth overflow-y-auto overscroll-contain">
             <div className="mx-auto flex flex-col min-h-full">
 
               {/* Section Tabs - Modern Compact Responsive */}
@@ -1649,34 +1698,36 @@ function TestInterface() {
 
               {/* Question Card */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-3 md:p-5 mb-3 border border-gray-100 dark:border-gray-700 flex-1">
-                {/* Question Info Header */}
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
-                  <div className="flex items-center gap-2 flex-wrap min-w-0 flex-1">
-                    <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded-full text-[10px] font-bold">
+                {/* Question Info Header - One Row Only */}
+                <div className="flex items-center justify-between gap-1.5 sm:gap-2 mb-3 sm:mb-4 border-b border-gray-100 dark:border-gray-700 pb-2.5 sm:pb-3 min-w-0 flex-nowrap">
+                  {/* Left: Q.No + Negative Marking + Question Timer */}
+                  <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar">
+                    {/* Q Number */}
+                    <span className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full text-xs font-bold shrink-0">
                       Q.{currentQuestion + 1}
                     </span>
+
                     {adaptiveLevel && (
                       <DifficultyBadge level={adaptiveLevel} score={adaptiveScore} size="sm" />
                     )}
-                    <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-                    <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium">
-                      {reviewMode ? 'Review Only' : 'Single Choice'}
-                    </span>
-                    <div className="hidden md:block h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-                    <span className="hidden md:inline text-gray-500 dark:text-gray-400 text-[11px] font-medium">
-                      +{(test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? (test.totalMarks / test.totalQuestions) : DEFAULT_MARKS_PER_QUESTION)).toFixed(2)} / -{(test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS).toFixed(2)}
-                    </span>
-                    {!reviewMode && (test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS) > 0 && (
-                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] font-bold">
-                        <AlertTriangle className="w-3 h-3" />
-                        -{(test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS).toFixed(2)} for wrong
+
+                    {/* Negative marking badge */}
+                    {!reviewMode && (test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS) > 0 ? (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
+                        <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span>-{(test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS).toFixed(2)} for wrong</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-500 dark:text-gray-400 text-[11px] font-medium shrink-0">
+                        +{(test?.marksPerQuestion || DEFAULT_MARKS_PER_QUESTION).toFixed(1)} Marks
                       </span>
                     )}
+
+                    {/* Question Timer */}
                     {(!reviewMode || !interactiveReviewEnabled || reviewCurrentResponse !== undefined) && (
-                      <>
-                        <div className="h-3 w-px bg-gray-300 dark:bg-gray-600"></div>
-                        <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300 text-[11px] font-bold bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                          <Clock className="w-3 h-3 text-indigo-500" />
+                      <span className="flex items-center gap-1 text-gray-700 dark:text-gray-300 text-[10px] sm:text-[11px] font-bold bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded shrink-0">
+                        <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                        <span>
                           {reviewMode ? formatTime(totalReviewTime) : (() => {
                             const spent = (questionTimers[currentQuestion] || 0) +
                               (isPaused ? 0 : (questionStartTimeRef.current ? Math.floor((Date.now() - questionStartTimeRef.current) / 1000) : 0))
@@ -1685,17 +1736,17 @@ function TestInterface() {
                             return `${m}:${s}`
                           })()}
                         </span>
-                      </>
+                      </span>
                     )}
                   </div>
 
-                  {/* Discussion (Review Mode Only) & Save Question buttons on RIGHT SIDE */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+                  {/* Right: Save Question (and Discuss in Review mode) */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {reviewMode && (
                       <button
                         onClick={() => setShowDiscussions(true)}
                         aria-label="Open discussions for this question"
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-800/40 transition-colors shadow-2xs"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                         <span>Discuss</span>
@@ -1704,14 +1755,15 @@ function TestInterface() {
                     <button
                       onClick={() => toggleSaveQuestion(currentQ?.id || currentQ?._id || currentQuestion)}
                       aria-label="Save question"
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold transition-colors shadow-2xs ${
+                      title={savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'Saved' : 'Save Question'}
+                      className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-md border text-xs font-bold transition-colors shadow-2xs ${
                         savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion))
                           ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200'
                           : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 hover:text-amber-700'
                       }`}
                     >
                       <Bookmark className={`w-3.5 h-3.5 ${savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'fill-amber-500 text-amber-500' : ''}`} />
-                      <span>{savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'Saved' : 'Save Question'}</span>
+                      <span>{savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'Saved' : 'Save'}</span>
                     </button>
                   </div>
                 </div>
@@ -1736,7 +1788,7 @@ function TestInterface() {
                       </button>
                     </div>
                   )}
-                  <div className="text-gray-900 dark:text-gray-100 text-sm md:text-base leading-relaxed break-words font-medium antialiased">
+                  <div className="text-gray-900 dark:text-gray-100 text-base sm:text-lg md:text-xl leading-relaxed break-words font-medium antialiased">
                     {/* Render text safely - handle both object and string formats */}
                     {currentQ?.text ? (
                       <MathRenderer
@@ -1752,7 +1804,7 @@ function TestInterface() {
 
                 {/* MSQ (Multi-Select) Checkboxes */}
                 {currentQ?.type === 'msq' && (
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {(getLocalizedField(currentQ?.options, language) || []).map((option, idx) => {
                         const isSelected = Array.isArray(answers[currentQuestion]) && answers[currentQuestion].includes(idx)
                         const resolvedCorrectOption = currentQ.correctOption ?? currentQ.correctAnswer ?? currentQ.correct
@@ -1766,7 +1818,7 @@ function TestInterface() {
                           optionButtonClass = 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 shadow-sm ring-1 ring-indigo-600'
                         }
                         return (
-                          <label key={`option-${idx}`} className={`flex items-center gap-3 p-3 border-2 rounded-lg cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? 'cursor-default' : ''}`}>
+                          <label key={`option-${idx}`} className={`flex items-center gap-3.5 p-3.5 sm:p-4 border-2 rounded-xl cursor-pointer transition-all ${optionButtonClass} ${isReviewMode ? 'cursor-default' : ''}`}>
                             <input
                               type="checkbox"
                               checked={isSelected}
@@ -1777,16 +1829,16 @@ function TestInterface() {
                                 const updated = current.includes(idx) ? current.filter(i => i !== idx) : [...current, idx]
                                 handleAnswer(updated)
                               }}
-                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <span className="text-sm leading-snug break-words min-w-0 flex-1">
+                            <span className="text-base sm:text-lg leading-relaxed break-words min-w-0 flex-1">
                               <MathRenderer text={sanitizeHtml(getLocalizedField(option, language))} />
                             </span>
                             {isReviewMode && isCorrectOption && (
-                              <span className="px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-[10px] font-bold">Correct</span>
+                              <span className="px-2 py-0.5 rounded bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-bold">Correct</span>
                             )}
                             {isReviewMode && isSelected && !isCorrectOption && (
-                              <span className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[10px] font-bold">Attempt</span>
+                              <span className="px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs font-bold">Attempt</span>
                             )}
                           </label>
                         )
@@ -1800,7 +1852,7 @@ function TestInterface() {
                     type="number"
                     value={answers[currentQuestion] ?? ''}
                     onChange={(e) => handleAnswer(parseFloat(e.target.value) || '')}
-                    className="w-full p-3 border-2 rounded-lg text-sm font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                    className="w-full p-4 border-2 rounded-xl text-base sm:text-lg font-medium bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
                     placeholder="Enter your answer"
                   />
                 )}
@@ -1823,7 +1875,7 @@ function TestInterface() {
                           key={String(val)}
                           onClick={() => !reviewMode && handleAnswer(val)}
                           disabled={reviewMode}
-                          className={`flex-1 p-4 border-2 rounded-lg font-medium text-sm transition-all ${btnClass} ${reviewMode ? 'cursor-default' : ''}`}
+                          className={`flex-1 p-4 border-2 rounded-xl font-bold text-base sm:text-lg transition-all ${btnClass} ${reviewMode ? 'cursor-default' : ''}`}
                         >
                           {val ? 'True' : 'False'}
                         </button>
@@ -1890,22 +1942,22 @@ function TestInterface() {
                           <button
                             key={`option-${idx}`}
                             onClick={() => handleAnswer(idx)}
-                            className={`group flex items-start text-left w-full p-2.5 border-2 rounded-lg transition-all duration-200 select-none ${optionButtonClass} ${reviewMode && !interactiveReviewEnabled ? 'cursor-default' : ''}`}
+                            className={`group flex items-start text-left w-full p-3 sm:p-3.5 border-2 rounded-xl transition-all duration-200 select-none ${optionButtonClass} ${reviewMode && !interactiveReviewEnabled ? 'cursor-default' : ''}`}
                           >
-                            <div className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-2.5 transition-colors ${optionIndicatorClass}`}>
+                            <div className={`mt-0.5 w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center mr-3 transition-colors ${optionIndicatorClass}`}>
                               {(reviewMode ? ((revealReviewAnswers && isCorrectOption) || isCurrentCompared || (revealReviewAnswers && isSelected)) : isSelected) && (
-                                <div className={`w-2.5 h-2.5 rounded-full ${reviewMode
+                                <div className={`w-3 h-3 rounded-full ${reviewMode
                                     ? (revealReviewAnswers && isCorrectOption) ? 'bg-green-600' : isDifferentReviewAttempt ? 'bg-red-500' : isSameReviewAttempt ? 'bg-sky-500' : 'bg-amber-500'
                                     : 'bg-indigo-600'
                                   }`} />
                               )}
                               {!(reviewMode ? ((revealReviewAnswers && isCorrectOption) || isCurrentCompared || (revealReviewAnswers && isSelected)) : isSelected) && (
-                                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400">
+                                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 group-hover:text-indigo-400 dark:group-hover:text-indigo-400">
                                   {String.fromCharCode(65 + idx)}
                                 </span>
                               )}
                             </div>
-                            <span className={`text-sm pt-0.5 leading-snug break-words min-w-0 flex-1 ${optionTextClass}`}>
+                            <span className={`text-base sm:text-lg pt-0.5 leading-relaxed break-words min-w-0 flex-1 ${optionTextClass}`}>
                               <MathRenderer text={sanitizeHtml(option)} />
                             </span>
                             {reviewMode && (
@@ -2007,46 +2059,61 @@ function TestInterface() {
           </div>
 
           {/* Combined Navigation Footer */}
-          <div className="sticky bottom-0 mt-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 h-[60px] px-4 items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 shrink-0 flex">
+          <div className="sticky bottom-0 mt-auto bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 h-[64px] px-2.5 sm:px-4 items-center justify-between shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20 shrink-0 flex gap-2">
             
-            {/* Left/Prev */}
-            <button
-              onClick={prevQuestion}
-              disabled={currentQuestion === 0}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" /> <span className="hidden md:inline">Prev</span>
-            </button>
+            {/* Left Action: Prev + Mark For Review */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                onClick={prevQuestion}
+                disabled={currentQuestion === 0}
+                title="Previous Question"
+                className="flex items-center gap-1 px-2.5 sm:px-3.5 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-bold hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>Prev</span>
+              </button>
 
-            {/* Middle/Center Controls */}
-            {!reviewMode && (
-              <div className="flex items-center gap-2">
+              {!reviewMode && (
                 <button
+                  type="button"
                   onClick={toggleReview}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-semibold transition-colors border ${markedForReview.has(currentQuestion)
-                      ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700'
-                      : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600'
-                    }`}
+                  title="Mark for Review"
+                  className={`flex items-center gap-1 px-2.5 sm:px-3.5 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all border active:scale-95 cursor-pointer ${
+                    markedForReview.has(currentQuestion)
+                      ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 border-purple-400 dark:border-purple-600 shadow-sm'
+                      : 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 border-blue-500 dark:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30'
+                  }`}
                 >
-                  <Flag className="w-4 h-4" /> <span className="hidden md:inline">{markedForReview.has(currentQuestion) ? 'Unmark' : 'Mark'}</span>
+                  <Flag className="w-3.5 h-3.5" />
+                  <span>{markedForReview.has(currentQuestion) ? 'Marked' : 'Mark For Review'}</span>
                 </button>
+              )}
+            </div>
+
+            {/* Right Action: Clear + Save & Next */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {!reviewMode && (
                 <button
+                  type="button"
                   onClick={clearResponse}
                   disabled={answers[currentQuestion] === undefined && !markedForReview.has(currentQuestion)}
-                  className="px-3 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                  title="Clear Selected Option"
+                  className="px-2.5 sm:px-3 py-2 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm font-semibold hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer"
                 >
                   Clear
                 </button>
-              </div>
-            )}
+              )}
 
-            {/* Right/Next */}
-            <button
-              onClick={nextQuestion}
-              className="flex items-center gap-1.5 px-5 py-2 bg-indigo-600 text-white border border-transparent rounded-md text-sm font-bold hover:bg-indigo-700 shadow-sm transition-all"
-            >
-              {reviewMode ? (currentQuestion === questions.length - 1 ? 'Finish' : 'Next') : (currentQuestion === questions.length - 1 ? 'Finish' : 'Next')} <ChevronRight className="w-4 h-4" />
-            </button>
+              <button
+                type="button"
+                onClick={nextQuestion}
+                className="flex items-center gap-1 px-3.5 sm:px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs sm:text-sm font-bold shadow-md shadow-blue-500/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <span>{reviewMode ? (currentQuestion === questions.length - 1 ? 'Finish' : 'Next') : (currentQuestion === questions.length - 1 ? 'Submit' : 'Save & Next')}</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </main>
       </div>
@@ -2058,10 +2125,12 @@ function TestInterface() {
         user={user}
         userName={userName}
         userInitials={userInitials}
-        userIdentifier={userIdentifier}
+        userEmail={user?.email || ''}
         stats={stats}
         currentSectionStats={currentSectionStats}
         currentSection={currentSection}
+        sections={sections}
+        changeSection={changeSection}
         getSectionTimeRemaining={getSectionTimeRemaining}
         getSectionTimeColor={getSectionTimeColor}
         formatSectionTime={formatSectionTime}
@@ -2087,7 +2156,10 @@ function TestInterface() {
       {/* Submit Summary Modal */}
       <SubmitSummaryModal
         isOpen={showSubmitSummary}
-        onClose={() => setShowSubmitSummary(false)}
+        onClose={() => {
+          setShowSubmitSummary(false)
+          questionStartTimeRef.current = Date.now()
+        }}
         onSubmit={handleSubmit}
         isSubmitting={isSubmitting}
         testTitle={test?.title || 'Test Paper'}

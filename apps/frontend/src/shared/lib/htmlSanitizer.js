@@ -33,11 +33,26 @@ if (purify) {
 }
 
 export const sanitizeHtml = (html) => {
-  if (!purify) return html;
+  if (!purify || !html) return html;
   return purify.sanitize(html, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li', 'span', 'div', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'code', 'blockquote'],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'id', 'title', 'target', 'rel'],
-    ALLOW_DATA_ATTR: false,
+    ALLOWED_TAGS: [
+      // Standard Typography & Structural Tags
+      'b', 'i', 'em', 'strong', 'a', 'p', 'br', 'hr', 'ul', 'ol', 'li', 'span', 'div',
+      'table', 'tr', 'td', 'th', 'thead', 'tbody', 'tfoot', 'img',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'pre', 'code', 'blockquote', 'sub', 'sup',
+      // KaTeX, MathML & Math SVG Elements
+      'math', 'mrow', 'mi', 'mn', 'mo', 'mfrac', 'msup', 'msub', 'msubsup', 'msqrt',
+      'mroot', 'mspace', 'mtext', 'annotation', 'semantics', 'mtable', 'mtr', 'mtd',
+      'svg', 'path', 'line', 'rect', 'polygon', 'circle', 'g', 'defs', 'clippath'
+    ],
+    ALLOWED_ATTR: [
+      'href', 'src', 'alt', 'class', 'id', 'title', 'target', 'rel',
+      'style', 'aria-hidden', 'aria-label', 'role', 'tabindex',
+      'xmlns', 'viewbox', 'viewBox', 'd', 'width', 'height', 'fill', 'stroke',
+      'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'preserveaspectratio',
+      'preserveAspectRatio', 'clip-path'
+    ],
+    ALLOW_DATA_ATTR: true,
     // Keep `img` usable for diagrams but only allow safe data:image uris.
     ALLOWED_URI_REGEXP: /^(?:(?:(?:https?|ftp):|data:image\/)|[^a-z]|[a-z+.]+[^a-z+.:])/i,
   });

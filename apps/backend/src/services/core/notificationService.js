@@ -4,9 +4,11 @@ import { idsMatch } from './common.js'
 
 export const createInAppNotification = async (
   userId,
-  { title, message, type = 'info', metadata = {} } = {}
+  { title, message, type = 'info', metadata = {}, actionUrl = null } = {}
 ) => {
   if (!userId || !title || !message) return null
+
+  const linkUrl = actionUrl || metadata?.link || metadata?.actionUrl || null
 
   return dbHelpers.insertOne('notifications', {
     userId,
@@ -15,7 +17,11 @@ export const createInAppNotification = async (
     type,
     channel: 'in_app',
     isRead: false,
-    metadata,
+    linkUrl,
+    metadata: {
+      ...metadata,
+      link: linkUrl || metadata?.link || null
+    },
     isActive: true,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -70,7 +76,7 @@ export const dispatchNotification = async (
   const user = preloadedUser || await dbHelpers.findById('users', userId)
   if (!user) return { success: false, reason: 'user_not_found' }
 
-  const inApp = await createInAppNotification(userId, { title, message, type, metadata })
+  const inApp = await createInAppNotification(userId, { title, message, type, metadata, actionUrl })
   const email = sendEmail ? await sendEmailNotification(user, { title, message, actionUrl }) : { success: false, skipped: true }
   const push = sendPush ? await sendPushNotification(user, { title, message, metadata }) : { success: false, skipped: true }
 
@@ -83,11 +89,25 @@ export const dispatchNotification = async (
 
 export const handleNotificationJob = async (jobName, payload = {}) => {
   if (jobName === 'notifications.test-result-ready') {
+    const seriesSlug = payload.seriesSlug || payload.series_slug || 'ssc-cgl-2026'
+    const testId = payload.testId || payload.test_id
+    const attemptId = payload.attemptId || payload.attempt_id
+    const resultLink = testId ? `/${seriesSlug}/tests/${testId}/result${attemptId ? `?attemptId=${attemptId}` : ''}` : null
+
     return dispatchNotification(payload.userId, {
       title: 'Test result available',
-      message: `Your result for test #${payload.testId} is ready. Score: ${payload.score ?? 'N/A'}.`,
+      message: payload.testTitle
+        ? `Your result for ${payload.testTitle} is now available.`
+        : `Your result for test #${payload.testId} is now available.`,
       type: 'result_declared',
-      metadata: payload,
+      actionUrl: resultLink,
+      metadata: {
+        ...payload,
+        link: resultLink,
+        seriesSlug,
+        testId,
+        attemptId
+      },
     })
   }
 

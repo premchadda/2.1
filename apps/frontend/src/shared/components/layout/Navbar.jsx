@@ -214,6 +214,40 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
     }
   }
 
+  const getNotificationTargetUrl = (notif) => {
+    if (!notif) return null
+    if (notif.link) return notif.link
+    if (notif.linkUrl || notif.link_url) return notif.linkUrl || notif.link_url
+    if (notif.actionUrl || notif.action_url) return notif.actionUrl || notif.action_url
+    if (notif.metadata?.link) return notif.metadata.link
+    if (notif.metadata?.actionUrl) return notif.metadata.actionUrl
+    if (notif.metadata?.resultUrl) return notif.metadata.resultUrl
+
+    const testId = notif.metadata?.testId || notif.metadata?.test_id || notif.testId || notif.test_id
+    const seriesSlug = notif.metadata?.seriesSlug || notif.metadata?.series_slug || notif.seriesSlug || 'ssc-cgl-2026'
+    const attemptId = notif.metadata?.attemptId || notif.metadata?.attempt_id || notif.attemptId
+
+    if (testId) {
+      return `/${seriesSlug}/tests/${testId}/result${attemptId ? `?attemptId=${attemptId}` : ''}`
+    }
+
+    const title = (notif.title || '').toLowerCase()
+    const msg = (notif.message || '').toLowerCase()
+    if (notif.type === 'result' || notif.type === 'result_declared' || title.includes('result') || msg.includes('result')) {
+      return `/${seriesSlug}/tests`
+    }
+    return null
+  }
+
+  const handleNotifClick = (notif) => {
+    markAsRead(notif.id || notif._id)
+    setIsNotifOpen(false)
+    const targetUrl = getNotificationTargetUrl(notif)
+    if (targetUrl) {
+      navigate(targetUrl)
+    }
+  }
+
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
@@ -411,8 +445,8 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                             notifications.map((notif) => (
                               <div 
                                 key={notif.id || notif._id}
-                                onClick={() => markAsRead(notif.id || notif._id)}
-                                className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-50 last:border-0 dark:hover:bg-gray-700/50 dark:border-gray-700/50 ${
+                                onClick={() => handleNotifClick(notif)}
+                                className={`flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition border-b border-gray-50 last:border-0 dark:hover:bg-gray-700/50 dark:border-gray-700/50 group ${
                                   !notif.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
                                 }`}
                               >
@@ -421,7 +455,7 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
-                                    <p className={`text-sm font-medium truncate ${!notif.read ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+                                    <p className={`text-sm font-medium truncate group-hover:text-brand-start transition-colors ${!notif.read ? 'text-gray-900 dark:text-white font-semibold' : 'text-gray-700 dark:text-gray-300'}`}>
                                       {notif.title}
                                     </p>
                                     {!notif.read && (
@@ -444,7 +478,10 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
                         {/* Footer */}
                         {notifications.length > 0 && (
                           <div className="border-t border-gray-100 dark:border-gray-700">
-                            <button className="w-full px-4 py-2.5 text-sm font-medium text-brand-start hover:bg-gray-50 transition dark:hover:bg-gray-700">
+                            <button 
+                              onClick={() => { setIsNotifOpen(false); navigate('/notifications') }}
+                              className="w-full px-4 py-2.5 text-sm font-medium text-brand-start hover:bg-gray-50 transition dark:hover:bg-gray-700"
+                            >
                               View all notifications
                             </button>
                           </div>
@@ -497,17 +534,6 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
 
                       {/* Menu Items */}
                       <div className="py-2">
-                        {/* Admin Panel - Only for admins */}
-                        {user.role === 'admin' && (
-                          <>
-                            <Link to="/admin" className="profile-dropdown-item bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 font-semibold" onClick={() => setIsProfileOpen(false)}>
-                              <Settings className="w-4 h-4" />
-                              Admin Panel
-                            </Link>
-                            <div className="profile-dropdown-divider"></div>
-                          </>
-                        )}
-                        
                         <Link to="/profile" className="profile-dropdown-item" onClick={() => setIsProfileOpen(false)}>
                           <User className="w-4 h-4" />
                           My Profile

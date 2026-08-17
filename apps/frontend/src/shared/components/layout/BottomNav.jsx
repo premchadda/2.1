@@ -23,23 +23,14 @@ function BottomNav() {
         { icon: BookMarked, label: 'Study', path: '/study' },
         { icon: LogIn, label: 'Login', path: '/login' },
       ]
-    } else if (user.role === 'admin') {
-      return [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-        { icon: BookOpen, label: 'Tests', path: '/test-series' },
-        { icon: Shield, label: 'Admin', path: '/admin', isAdmin: true },
-        { icon: BookMarked, label: 'Study', path: '/study' },
-        { icon: User, label: 'Profile', path: '/profile' },
-      ]
-    } else {
-      return [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-        { icon: BookOpen, label: 'Tests', path: '/test-series' },
-        { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: true },
-        { icon: BookMarked, label: 'Study', path: '/study' },
-        { icon: User, label: 'Profile', path: '/profile' },
-      ]
     }
+    return [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+      { icon: BookOpen, label: 'Tests', path: '/test-series' },
+      { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: true },
+      { icon: BookMarked, label: 'Study', path: '/study' },
+      { icon: User, label: 'Profile', path: '/profile' },
+    ]
   }
 
   const hiddenRoutes = ['/terms', '/privacy', '/refund', '/faq', '/404']

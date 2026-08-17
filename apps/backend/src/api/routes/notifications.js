@@ -35,7 +35,7 @@ router.get('/', protect, async (req, res) => {
       total = countResult.rows[0]?.total || 0
       
       const { rows } = await pool.query(
-        `SELECT id, title, message, type, is_read, created_at
+        `SELECT id, title, message, type, is_read, created_at, link_url, metadata
          FROM notifications
          ${whereClause}
          ORDER BY created_at DESC
@@ -59,18 +59,32 @@ router.get('/', protect, async (req, res) => {
       unreadCount = unreadNotifications.length
     }
     
-    const formattedNotifications = (notifications || []).map(n => ({
-      id: n.id,
-      _id: n.id,
-      title: n.title,
-      message: n.message,
-      type: n.type || 'general',
-      read: n.is_read !== undefined ? n.is_read : (n.isRead || false),
-      isRead: n.is_read !== undefined ? n.is_read : (n.isRead || false),
-      time: getTimeAgo(n.created_at || n.createdAt),
-      createdAt: n.created_at || n.createdAt,
-      link: (n.link_url || (n.metadata && typeof n.metadata === 'object' ? n.metadata.link : null)) || null
-    }))
+    const formattedNotifications = (notifications || []).map(n => {
+      const metadata = typeof n.metadata === 'string' ? JSON.parse(n.metadata) : (n.metadata || {})
+      const testId = metadata.testId || metadata.test_id || n.test_id || n.testId
+      const seriesSlug = metadata.seriesSlug || metadata.series_slug || 'ssc-cgl-2026'
+      const attemptId = metadata.attemptId || metadata.attempt_id
+
+      let link = n.link_url || n.linkUrl || metadata.link || metadata.actionUrl || null
+      if (!link && testId) {
+        link = `/${seriesSlug}/tests/${testId}/result${attemptId ? `?attemptId=${attemptId}` : ''}`
+      }
+
+      return {
+        id: n.id,
+        _id: n.id,
+        title: n.title,
+        message: n.message,
+        type: n.type || 'general',
+        read: n.is_read !== undefined ? n.is_read : (n.isRead || false),
+        isRead: n.is_read !== undefined ? n.is_read : (n.isRead || false),
+        time: getTimeAgo(n.created_at || n.createdAt),
+        createdAt: n.created_at || n.createdAt,
+        link,
+        linkUrl: link,
+        metadata
+      }
+    })
     
     res.json({
       success: true,

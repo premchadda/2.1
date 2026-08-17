@@ -15,7 +15,7 @@ import { getTestStartDate, checkIsLiveExpired, checkIsQuiz } from '../../shared/
 import {
   ArrowRight, Radio, HelpCircle, BookOpen, Target,
   Star, Users, Calendar,
-  Crown, ChevronRight, Play, Clock, Zap, Sparkles, Award
+  Crown, ChevronRight, Play, Clock, Zap, Sparkles, Award, User
 } from 'lucide-react'
 
 function AnimatedCounter({ end, duration = 1500, suffix = '' }) {
@@ -358,12 +358,29 @@ function Home() {
         {user ? (
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-xl md:text-2xl font-bold text-white shadow-lg animate-scale-in">
-                {user.name?.split(' ').map(n => n[0]).join('').toUpperCase()}
-              </div>
+              <Link to="/profile" className="relative group block shrink-0" title="View Profile">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
+                  {user.avatar || user.avatarUrl || user.photoURL ? (
+                    <img
+                      src={user.avatar || user.avatarUrl || user.photoURL}
+                      alt={user.name || 'User'}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        if (e.currentTarget.nextSibling) {
+                          e.currentTarget.nextSibling.style.display = 'flex';
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div className={`${user.avatar || user.avatarUrl || user.photoURL ? 'hidden' : 'flex'} w-full h-full items-center justify-center bg-white/20 backdrop-blur-sm`}>
+                    <User className="w-7 h-7 md:w-8 md:h-8 text-white/90" />
+                  </div>
+                </div>
+              </Link>
               <div className="text-white">
-                <h1 className="text-xl md:text-2xl font-bold animate-slide-in-right">
-                  Welcome back, {user.name?.split(' ')[0]}! 👋
+                <h1 className="text-xl md:text-2xl font-bold animate-slide-in-right truncate">
+                  Welcome {user.name?.trim().split(/\s+/)[0] || 'Student'} 👋
                 </h1>
                 <p className="text-purple-100 text-sm md:text-base mt-1 animate-slide-in-right"
                   style={{ animationDelay: '0.1s' }}>

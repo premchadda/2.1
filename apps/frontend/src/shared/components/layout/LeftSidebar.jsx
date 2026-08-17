@@ -144,19 +144,6 @@ function LeftSidebar() {
             <span className="text-[10px] bg-gradient-to-r from-amber-100 to-amber-200 text-amber-700 px-2 py-0.5 rounded-full font-bold">PRO</span>
           </Link>
         </div>
-
-        {/* Admin Link - Only for admins */}
-        {user?.role === 'admin' && (
-          <div className="pt-4">
-            <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
-              Administration
-            </h3>
-            <Link to="/admin" className={navItemClass('/admin')}>
-              <Shield className={iconClass('/admin', 'text-indigo-600')} />
-              <span className="text-sm">Admin Panel</span>
-            </Link>
-          </div>
-        )}
       </div>
 
     </aside>

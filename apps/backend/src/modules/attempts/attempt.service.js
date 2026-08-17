@@ -149,7 +149,7 @@ export const attemptService = {
       });
     }
 
-    const score = Math.max(0, totalScore);
+    const score = Number(totalScore.toFixed(2));
     const accuracy = (correct + wrong) > 0 ? (correct / (correct + wrong)) * 100 : 0;
 
     const attemptData = {
@@ -205,7 +205,7 @@ export const attemptService = {
             .reduce((sum, a) => sum + (a.marks || 0), 0);
           const secTotalMarks = sectionQuestions.reduce((sum, q) => sum + Number(q.marks ?? q.junction_marks ?? fallbackMarksPerQ), 0);
           sectionScores[sectionId] = {
-            score: Math.max(0, secScore),
+            score: Number(secScore.toFixed(2)),
             totalMarks: secTotalMarks,
             correct: secCorrect,
             wrong: secWrong,

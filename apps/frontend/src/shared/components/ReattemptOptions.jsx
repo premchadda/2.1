@@ -51,8 +51,13 @@ export function ReattemptOptions({ testId, attemptId, isProUser }) {
       })
 
       if (response.data.success) {
-        // Navigate to the new test attempt
-        window.location.href = `/test/${testId}/${response.data.attempt.id}`
+        // Route is /test/:seriesId/:testId — the reattempt POST already created
+        // the new attempt, and POST /tests/:testId/start resumes the in-progress
+        // attempt, so navigate with the real series + test identifiers. The old
+        // code passed testId as seriesId and attempt.id as testId (both wrong).
+        const attempt = response.data.attempt || {}
+        const seriesId = attempt.seriesId || attempt.seriesSlug || testId
+        window.location.href = `/test/${seriesId}/${testId}`
       }
     } catch (err) {
       console.error('Error creating reattempt:', err)

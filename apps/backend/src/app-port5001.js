@@ -320,13 +320,12 @@ const isLocalNetworkOrigin = (origin) => {
   if (!origin) return false;
   // Only allow origins explicitly listed in ALLOWED_LAN_HOSTS env var.
   if (allowedLanOrigins.has(origin)) return true;
-  // M1: never silently trust localhost/loopback. In development we additionally
-  // allow loopback origins, but a misconfigured NODE_ENV (e.g. unset) must NOT
-  // open the loopback allowlist in a production context.
+  // In development, allow localhost/loopback and private IPv4 LAN addresses (e.g. 10.x.x.x, 192.168.x.x, 172.16-31.x.x).
   if (isDevelopment) {
     try {
       const hostname = new URL(origin).hostname;
-      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") return true;
+      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "0.0.0.0") return true;
+      if (localIPs.includes(hostname) || PRIVATE_IP_REGEX.test(hostname)) return true;
     } catch { return false; }
   }
   return false;
@@ -456,14 +455,15 @@ app.use(cors({
     if (isDevelopment) {
       try {
         const hostname = new URL(origin).hostname;
-        const devOrigins = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]"];
-        const devPorts = ["3000", "3001", "3002", "5173"];
+        const devOrigins = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", ...localIPs];
+        const devPorts = ["3000", "3001", "3002", "5001", "5173"];
         const url = new URL(origin);
-        if (devOrigins.includes(hostname) && devPorts.includes(url.port)) {
+        const isDevHost = devOrigins.includes(hostname) || PRIVATE_IP_REGEX.test(hostname);
+        if (isDevHost && (devPorts.includes(url.port) || !url.port)) {
           logger.debug(`[CORS] Allowed Dev Origin: ${origin}`);
           return callback(null, true);
         }
-        if (devOrigins.includes(hostname)) {
+        if (isDevHost) {
           logger.debug(`[CORS] Allowed Dev Host: ${origin}`);
           return callback(null, true);
         }

@@ -11,7 +11,6 @@ import ProtectedRoute from './shared/components/auth/ProtectedRoute'
 import ErrorBoundary from './shared/components/common/ErrorBoundary'
 import MaintenanceMode from './shared/components/common/MaintenanceMode'
 import FeatureGate from './shared/components/common/FeatureGate'
-import OnboardingWizard from './shared/components/common/OnboardingWizard'
 
 // PERF-03: Route-level code splitting via React.lazy with automatic retries.
 // Reduces initial JS bundle by 30-50% — each page is loaded on demand.
@@ -116,17 +115,6 @@ const ServerError = lazy(() => import('./pages/errors/ServerError'))
 function LegacyExamRedirect() {
   const { examId } = useParams()
   return <Navigate to={`/exam/${examId}`} replace />
-}
-
-// Admin Panel URL (change this in production)
-const ADMIN_PANEL_URL = import.meta.env.VITE_ADMIN_URL || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? 'https://trstprep-admin.vercel.app' : 'http://localhost:3002')
-
-// Component to handle cross-origin redirect to admin panel
-function AdminPanelRedirect() {
-  useEffect(() => {
-    window.location.href = ADMIN_PANEL_URL
-  }, [])
-  return null
 }
 
 class RouteErrorBoundary extends React.Component {
@@ -417,9 +405,6 @@ function App() {
           <Route path="/error-500" element={<RouteErrorBoundary><ServerError /></RouteErrorBoundary>} />
         </Route>
 
-        {/* Admin Panel Redirect - Now hosted separately */}
-        <Route path="/admin/*" element={<RouteErrorBoundary><AdminPanelRedirect /></RouteErrorBoundary>} />
-
         {/* 404 */}
         <Route path="*" element={<RouteErrorBoundary><NotFound /></RouteErrorBoundary>} />
       </Routes>
@@ -432,7 +417,6 @@ function App() {
         </Routes>
       )}
       </Suspense>
-      <OnboardingWizard />
       </MaintenanceMode>
     </ErrorBoundary>
     </ConditionalGoogleProvider>

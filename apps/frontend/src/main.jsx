@@ -11,6 +11,7 @@ import { setSharedApiClient } from '@trstprep/shared-hooks'
 import { apiClient } from './shared/lib/dataService.js'
 import './styles/tokens.css'
 import './styles/index.css'
+import 'katex/dist/katex.min.css'
 
 // Register the frontend API client instance globally for shared hooks
 setSharedApiClient(apiClient)

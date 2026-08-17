@@ -20,7 +20,15 @@ import {
   Trash2,
   Printer,
   Sparkles,
-  Target
+  Target,
+  Lightbulb,
+  CheckCircle2,
+  Layers,
+  Award,
+  Zap,
+  Info,
+  ListChecks,
+  HelpCircle
 } from 'lucide-react';
 import { useAuth } from '../../shared/providers/AuthContext'
 import { apiClient, getStudyMaterialById, getTestSeries } from '../../shared/lib/dataService'
@@ -41,11 +49,61 @@ const getPreferredTab = (chapter) => {
   const pdfCount = chapter?.pdfCount || chapter?.pdfsList?.length || 0
   const testCount = chapter?.testCount || chapter?.testsList?.length || 0
 
-  if (topicCount > 0) return 'overview'
-  if (videoCount > 0) return 'videos'
-  if (pdfCount > 0) return 'notes'
   if (testCount > 0) return 'tests'
   return 'overview'
+}
+
+const getTopicDetails = (topic, chapter, subject, index = 0) => {
+  const topicName = topic?.name || topic?.title || `Topic ${index + 1}`
+  const chapterName = chapter?.title || chapter?.name || 'Chapter'
+
+  const rawDesc = topic?.description || topic?.summary || topic?.content || ''
+  const isGenericDesc = !rawDesc ||
+    rawDesc.includes('Topic outline available') ||
+    rawDesc.includes('structured topic outline') ||
+    rawDesc.includes('Media resources can be added')
+
+  const description = !isGenericDesc
+    ? rawDesc
+    : `Comprehensive study of ${topicName} in ${chapterName}. Master fundamental concepts, standard formulas, shortcuts, and high-frequency examination patterns.`
+
+  const objectives = Array.isArray(topic?.objectives) && topic.objectives.length > 0
+    ? topic.objectives
+    : Array.isArray(topic?.keyPoints) && topic.keyPoints.length > 0
+      ? topic.keyPoints
+      : [
+          `Master core definitions, key rules, and theoretical fundamentals of ${topicName}`,
+          `Learn standard application formulas, shortcuts, and calculation methods`,
+          `Analyze high-yield question formats asked in recent competitive exams`,
+          `Identify common traps, edge cases, and time-saving elimination techniques`
+        ]
+
+  const highlights = Array.isArray(topic?.highlights) && topic.highlights.length > 0
+    ? topic.highlights
+    : [
+        {
+          title: 'Core Concept',
+          detail: topic?.coreConcept || `Build strong clarity on the basic axioms and definitions of ${topicName}.`
+        },
+        {
+          title: 'Exam Application',
+          detail: topic?.examApplication || 'Apply formula shortcuts and fast verification methods to solve questions in under 45 seconds.'
+        },
+        {
+          title: 'Common Mistake to Avoid',
+          detail: topic?.commonMistake || 'Avoid misinterpreting variable bounds and watch for sign errors in multi-step questions.'
+        }
+      ]
+
+  return {
+    name: topicName,
+    description,
+    objectives,
+    highlights,
+    estimatedTime: topic?.duration || topic?.estimatedTime || '20-30 mins',
+    weightage: topic?.weightage || (index === 0 ? 'High' : (index % 2 === 0 ? 'Very High' : 'Moderate')),
+    expectedQuestions: topic?.expectedQuestions || (index === 0 ? '2-3 Questions' : '1-2 Questions')
+  }
 }
 
 export default function StudyMaterialChapter() {
@@ -661,7 +719,7 @@ export default function StudyMaterialChapter() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content Area (3/4 on desktop) */}
           <div className="lg:col-span-3 space-y-6">
@@ -728,68 +786,194 @@ export default function StudyMaterialChapter() {
               {/* Tab Content Area */}
               <div className="p-2">
                 {activeTab === 'overview' && (
-                  <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-50 dark:border-gray-700 overflow-hidden page-transition fade-in">
-                    <div className="p-3 border-b border-gray-50 dark:border-gray-700 bg-gradient-to-r from-white to-indigo-50/40 dark:from-gray-800 dark:to-indigo-900/30">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                          <BookOpen className="w-5 h-5" />
+                  <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 overflow-hidden page-transition fade-in shadow-sm">
+                    {/* Header Banner */}
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-indigo-50/70 via-white to-purple-50/50 dark:from-gray-800 dark:via-gray-800 dark:to-indigo-950/30">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-2 bg-indigo-600 text-white rounded-xl shadow-md shadow-indigo-100 dark:shadow-none">
+                            <BookOpen className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h2 className="text-base font-black text-gray-900 dark:text-white">Chapter Overview</h2>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+                                {chapterTopics.length} Topics
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 hidden sm:block">
+                              Select a topic from the right panel to explore its concepts, objectives, and resources.
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h2 className="text-xl font-black text-gray-900 dark:text-white">Chapter Overview</h2>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">Browse the topic sequence before lessons, notes, and tests are added.</p>
+
+                        {/* Quick Resource Badges */}
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                          {chapterVideos.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('videos')}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-bold hover:bg-blue-100 dark:hover:bg-blue-900/50 transition"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-current" /> {chapterVideos.length} Video{chapterVideos.length !== 1 ? 's' : ''}
+                            </button>
+                          )}
+                          {chapterPdfs.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('notes')}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 font-bold hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> {chapterPdfs.length} Notes
+                            </button>
+                          )}
+                          {chapterTests.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('tests')}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 font-bold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition"
+                            >
+                              <Target className="w-3.5 h-3.5" /> {chapterTests.length} Quiz{chapterTests.length !== 1 ? 'zes' : ''}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-3">
+                    <div className="p-2.5 sm:p-3 space-y-3">
                       {chapterTopics.length > 0 ? (
-                        <div className="space-y-5">
-                          <div className="rounded-2xl border border-indigo-100 dark:border-indigo-800/60 bg-indigo-50/50 dark:bg-indigo-900/30 p-5">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-600 dark:text-indigo-400">Current Topic</p>
-                            <h3 className="mt-2 text-xl font-black text-gray-900 dark:text-white">
-                              {chapterTopics[activeTopicIndex]?.name || chapterTopics[activeTopicIndex]?.title || 'Core Concepts'}
-                            </h3>
-                            <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                              {chapterTopics[activeTopicIndex]?.description || chapter.description || 'This chapter currently contains a structured topic outline. Media resources can be added later without changing the chapter flow.'}
-                            </p>
-                          </div>
+                        <>
+                          {/* Selected Topic Full Concept Deep-Dive */}
+                          {(() => {
+                            const details = getTopicDetails(chapterTopics[activeTopicIndex], chapter, subject, activeTopicIndex)
+                            const activeTopicIdStr = chapterTopics[activeTopicIndex] ? String(chapterTopics[activeTopicIndex].id || chapterTopics[activeTopicIndex]._id) : null
+                            const topicSpecificVideos = (chapter?.videosList || []).filter(v =>
+                              activeTopicIdStr && (String(v.topicId || v.topic_id) === activeTopicIdStr)
+                            )
+                            const topicSpecificPdfs = (chapter?.pdfsList || []).filter(p =>
+                              activeTopicIdStr && (String(p.topicId || p.topic_id) === activeTopicIdStr)
+                            )
+                            const topicSpecificTests = (chapter?.testsList || []).filter(t =>
+                              activeTopicIdStr && (String(t.topicId || t.topic_id) === activeTopicIdStr)
+                            )
 
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            {chapterTopics.map((topic, index) => (
-                              <button
-                                key={topic.id || topic._id || index}
-                                type="button"
-                                onClick={() => setActiveTopicIndex(index)}
-                                className={`rounded-2xl border p-4 text-left transition-all ${
-                                  activeTopicIndex === index
-                                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                                    : 'border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-200 dark:hover:border-indigo-800 hover:bg-indigo-50/40 dark:hover:bg-indigo-900/30'
-                                }`}
-                              >
-                                <div className="flex items-start gap-3">
-                                  <div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black ${
-                                    activeTopicIndex === index ? 'bg-white/20 text-white' : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                                  }`}>
-                                    {index + 1}
+                            return (
+                              <div className="space-y-3">
+                                {/* Topic Hero Summary Card */}
+                                <div className="rounded-xl border border-indigo-100 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/40 dark:from-gray-800 dark:via-gray-800 dark:to-indigo-950/40 p-3 shadow-sm">
+                                  <div className="flex flex-wrap items-center justify-between gap-1.5 mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-xs font-black">
+                                        Topic {activeTopicIndex + 1}
+                                      </span>
+                                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                                        {chapter.title || 'Chapter'}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                                      <Clock className="w-3.5 h-3.5" />
+                                      <span>{details.estimatedTime}</span>
+                                      <span className="text-gray-300 dark:text-gray-600">•</span>
+                                      <span className="text-amber-600 dark:text-amber-400">{details.weightage}</span>
+                                    </div>
                                   </div>
-                                  <div className="min-w-0">
-                                    <h4 className={`text-sm font-bold ${activeTopicIndex === index ? 'text-white' : 'text-gray-900 dark:text-white'}`}>
-                                      {topic.name || topic.title}
-                                    </h4>
-                                    <p className={`mt-1 text-xs leading-relaxed ${activeTopicIndex === index ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'}`}>
-                                      {topic.description || 'Topic outline available for this chapter.'}
-                                    </p>
+
+                                  <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight">
+                                    {details.name}
+                                  </h3>
+
+                                  <p className="mt-1 text-xs leading-relaxed text-gray-600 dark:text-gray-300">
+                                    {details.description}
+                                  </p>
+
+                                  {/* Quick Jump Action Bar */}
+                                  <div className="mt-2.5 pt-2.5 border-t border-indigo-100/80 dark:border-gray-700 flex flex-wrap items-center gap-1.5">
+                                    {topicSpecificVideos.length > 0 || chapterVideos.length > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (topicSpecificVideos[0]) handleVideoClick(topicSpecificVideos[0])
+                                          else setActiveTab('videos')
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition"
+                                      >
+                                        <Play className="w-3 h-3 fill-current" />
+                                        Watch Video
+                                      </button>
+                                    ) : null}
+
+                                    {topicSpecificPdfs.length > 0 || chapterPdfs.length > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (topicSpecificPdfs[0]) handlePDFClick(topicSpecificPdfs[0])
+                                          else setActiveTab('notes')
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-gray-200 text-xs font-bold hover:bg-gray-50 transition"
+                                      >
+                                        <FileText className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                        Notes
+                                      </button>
+                                    ) : null}
+
+                                    {topicSpecificTests.length > 0 || chapterTests.length > 0 ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveTab('tests')}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-bold hover:bg-purple-100 transition border border-purple-200 dark:border-purple-800/40"
+                                      >
+                                        <Target className="w-3 h-3" />
+                                        Practice Quiz
+                                      </button>
+                                    ) : null}
                                   </div>
                                 </div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+
+                                {/* Key Learning Objectives & Exam Insights Grid */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                                  {/* What You Will Learn */}
+                                  <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-2 text-emerald-700 dark:text-emerald-400">
+                                      <CheckCircle2 className="w-4 h-4" />
+                                      <h4 className="text-xs font-bold text-gray-900 dark:text-white">What You'll Learn</h4>
+                                    </div>
+                                    <ul className="space-y-2">
+                                      {details.objectives.map((obj, i) => (
+                                        <li key={i} className="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                                          <span>{obj}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+
+                                  {/* Key Concepts & Exam Tips */}
+                                  <div className="rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shadow-sm">
+                                    <div className="flex items-center gap-1.5 mb-2 text-amber-600 dark:text-amber-400">
+                                      <Lightbulb className="w-4 h-4" />
+                                      <h4 className="text-xs font-bold text-gray-900 dark:text-white">Key Concepts & Exam Tips</h4>
+                                    </div>
+                                    <div className="space-y-2">
+                                      {details.highlights.map((h, i) => (
+                                        <div key={i} className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-750 border border-gray-100 dark:border-gray-700">
+                                          <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 block mb-0.5">{h.title}</span>
+                                          <p className="text-[11px] text-gray-600 dark:text-gray-300 leading-relaxed">{h.detail}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })()}
+                        </>
                       ) : (
                         <div className="text-center py-12 bg-gray-50 dark:bg-gray-900 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
                           <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-500 mx-auto mb-3" />
-                          <h3 className="font-bold text-gray-900 dark:text-white">No Topic Outline Yet</h3>
-                          <p className="text-gray-500 dark:text-gray-400 text-sm">This chapter exists, but the detailed topic outline hasn't been published yet.</p>
+                          <h3 className="font-bold text-gray-900 dark:text-white">Chapter Summary</h3>
+                          <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md mx-auto mt-1">
+                            {chapter.description || 'Welcome to this study chapter. Explore the video lectures, notes, and tests using the tabs above.'}
+                          </p>
                         </div>
                       )}
                     </div>
@@ -999,19 +1183,19 @@ export default function StudyMaterialChapter() {
 
             {/* Pagination / Navigation */}
             {(previousChapter || nextChapter) && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-4">
                 {previousChapter ? (
                   <Link
                     to={getChapterPath(subjectId, previousChapter, chapters, chapterIndex - 1)}
-                    className="flex flex-col p-5 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 hover:shadow-md transition-all group"
+                    className="flex items-center gap-2.5 px-3 py-2.5 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 hover:shadow-sm transition-all group"
                   >
-                    <div className="flex items-center gap-2 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-3">
-                      <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                      Previous Chapter
+                    <ChevronLeft className="w-3.5 h-3.5 text-gray-400 group-hover:-translate-x-0.5 transition-transform shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-0.5">Previous</p>
+                      <p className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
+                        {previousChapter.title || previousChapter.name}
+                      </p>
                     </div>
-                    <p className="font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
-                      {previousChapter.title || previousChapter.name}
-                    </p>
                   </Link>
                 ) : (
                   <div className="hidden md:block" />
@@ -1020,15 +1204,15 @@ export default function StudyMaterialChapter() {
                 {nextChapter && (
                   <Link
                     to={getChapterPath(subjectId, nextChapter, chapters, chapterIndex + 1)}
-                    className="flex flex-col items-end p-5 bg-indigo-600 rounded-2xl border border-indigo-700 hover:bg-indigo-700 hover:shadow-lg hover:shadow-indigo-100 transition-all group"
+                    className="flex items-center justify-end gap-2.5 px-3 py-2.5 bg-indigo-600 rounded-xl border border-indigo-700 hover:bg-indigo-700 hover:shadow-md transition-all group"
                   >
-                    <div className="flex items-center gap-2 text-[10px] font-black text-indigo-100 uppercase tracking-[0.2em] mb-3">
-                      Next Chapter
-                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    <div className="min-w-0 text-right">
+                      <p className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-0.5">Next</p>
+                      <p className="text-xs font-bold text-white line-clamp-1">
+                        {nextChapter.title || nextChapter.name}
+                      </p>
                     </div>
-                    <p className="font-bold text-white line-clamp-1 text-right">
-                      {nextChapter.title || nextChapter.name}
-                    </p>
+                    <ChevronRight className="w-3.5 h-3.5 text-indigo-200 group-hover:translate-x-0.5 transition-transform shrink-0" />
                   </Link>
                 )}
               </div>

@@ -112,15 +112,19 @@ function TestInstructions() {
 
     const sectionNames = Array.isArray(test?.testSections) 
       ? test.testSections 
-      : (typeof test?.testSections === 'string' && test.testSections.trim() ? test.testSections.split(',').map(s => s.trim()) : null)
+      : (typeof test?.testSections === 'string' && test.testSections.trim() ? test.testSections.split(',').map(s => s.trim()).filter(Boolean) : null)
 
-    const names = sectionNames && sectionNames.length > 0
+    const totalQs = Number(displayQuestionCount !== '...' ? displayQuestionCount : (test?.totalQuestions || 100))
+    const totalM = Number(test?.totalMarks || (totalQs * (test?.marksPerQuestion || 2)))
+
+    // Fallback: If 100 Qs or standard full mock test, use 4 default sections (Reasoning, GK, Math, English)
+    const names = (sectionNames && sectionNames.length > 0)
       ? sectionNames
-      : null
+      : (totalQs === 100
+          ? ['General Intelligence & Reasoning', 'General Awareness', 'Quantitative Aptitude', 'English Comprehension']
+          : null)
 
     if (!names || names.length === 0) {
-      const totalQs = Number(displayQuestionCount !== '...' ? displayQuestionCount : (test?.totalQuestions || 0))
-      const totalM = Number(test?.totalMarks || 0)
       return [{
         name: 'Full Test',
         questionCount: totalQs || 0,
@@ -129,8 +133,6 @@ function TestInstructions() {
       }]
     }
 
-    const totalQs = Number(displayQuestionCount !== '...' ? displayQuestionCount : (test?.totalQuestions || 100))
-    const totalM = Number(test?.totalMarks || (totalQs * 2))
     const qPerSec = Math.floor(totalQs / names.length)
     const mPerSec = Math.floor(totalM / names.length)
 
@@ -479,7 +481,7 @@ function TestInstructions() {
   const _isQuestionsReady = !noQuestions && actualQuestionCount > 0
 
   return (
-    <div className="min-h-screen flex flex-col bg-tcs-surface pb-16 lg:pb-3">
+    <div className="min-h-screen flex flex-col bg-tcs-surface pb-16 lg:pb-3 overscroll-none overscroll-y-none touch-pan-y">
       {/* Top Header Bar - Non Sticky on Desktop */}
       <header className="bg-white border-b border-tcs-border shrink-0 z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8">
@@ -605,7 +607,7 @@ function TestInstructions() {
                 </div>
 
                 {/* Exam Key Metrics Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 bg-tcs-surface/40 border-b border-tcs-border text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-tcs-surface/40 border-b border-tcs-border text-xs">
                   <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
                     <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
                     <div>
@@ -631,19 +633,7 @@ function TestInstructions() {
                     <Shield className="w-4 h-4 text-indigo-600 shrink-0" />
                     <div>
                       <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'अंकन' : 'Marking'}</div>
-                      <div className="font-bold text-emerald-600 text-xs sm:text-sm">+2 / -{test.negativeMarking || 0.25}</div>
-                    </div>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-white border border-tcs-border flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-indigo-600 shrink-0" />
-                    <div>
-                      <div className="text-tcs-text-secondary text-[10px] uppercase font-semibold">{isHindi ? 'कठिनाई' : 'Difficulty'}</div>
-                      <div className="font-bold text-tcs-text-primary text-xs sm:text-sm">
-                        {isHindi 
-                          ? (test.difficulty === 'easy' ? 'आसान' : test.difficulty === 'hard' ? 'कठिन' : 'मध्यम') 
-                          : (test.difficulty ? test.difficulty.charAt(0).toUpperCase() + test.difficulty.slice(1) : 'Medium')
-                        }
-                      </div>
+                      <div className="font-bold text-emerald-600 text-xs sm:text-sm">+{test.marksPerQuestion || 2} / -{test.negativeMarking || 0.25}</div>
                     </div>
                   </div>
                 </div>

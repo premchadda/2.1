@@ -269,14 +269,6 @@ export default function MaintenanceMode({ children }) {
             {import.meta.env.VITE_SUPPORT_EMAIL || 'support@trstprep.com'}
           </a>
         </div>
-
-        {allowAdmin && !previewMode && (
-          <div className="mt-6">
-            <Link to="/admin" className="text-xs text-slate-600 hover:text-slate-400 transition-colors">
-              Admin Access
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* === All keyframe animations === */}
