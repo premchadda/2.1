@@ -237,7 +237,7 @@ export default function PracticeLab() {
 // ════════════════════════════════════════════════════════════════════════════
 function ChooseExamModal({ onSelectExam, onClose }) {
   return (
-    <div className="fixed inset-0 top-0 left-0 w-screen h-screen z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 top-0 left-0 w-full h-full z-[9999] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 md:p-8 max-w-xl w-full shadow-2xl space-y-6 m-auto">
         <div className="flex items-center justify-between">
           <div>

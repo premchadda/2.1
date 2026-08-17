@@ -5,24 +5,31 @@
 /* ===== Base Responsive Layout Styles ===== */
 html {
     overflow-x: hidden;
-    max-width: 100vw;
+    max-width: 100%;
     width: 100%;
+    overscroll-behavior-x: none;
+    touch-action: pan-y;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
     background-color: #f8f9fa;
     overflow-x: hidden;
-    max-width: 100vw;
+    max-width: 100%;
     width: 100%;
     position: relative;
     font-family: 'Segoe UI', 'Inter', sans-serif;
+    overscroll-behavior-x: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 #root {
     overflow-x: hidden;
-    max-width: 100vw;
+    max-width: 100%;
     width: 100%;
     min-height: 100vh;
+    min-height: 100dvh;
+    position: relative;
 }
 
 /* ===== TCS Style Color System ===== */

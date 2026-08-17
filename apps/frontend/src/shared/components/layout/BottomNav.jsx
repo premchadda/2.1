@@ -52,9 +52,11 @@ function BottomNav() {
   return (
     <nav
       aria-label="Mobile navigation"
-      className="fixed inset-x-0 bottom-0 z-[10000] pointer-events-none block md:hidden px-3"
+      className="fixed inset-x-0 bottom-0 z-[10000] pointer-events-none block md:hidden px-3 w-full max-w-full"
       style={{
         paddingBottom: 'max(12px, calc(env(safe-area-inset-bottom, 0px) + 8px))',
+        transform: 'translateZ(0)',
+        WebkitTransform: 'translateZ(0)',
       }}
     >
       <div

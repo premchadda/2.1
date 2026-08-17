@@ -18,18 +18,13 @@ let sessionActive = false
 export const setSessionActive = (value) => { sessionActive = value }
 
 // The shared factory wires up CSRF, error mapping, and 401/419 refresh. We
-// supply the browser-only behavior (redirect on fatal auth failure) via the
-// onAuthFailure hook so the factory stays framework-agnostic.
+// supply the browser-only behavior (notify auth provider on fatal auth failure)
+// via the onAuthFailure hook so the factory stays framework-agnostic.
 const onAuthFailure = () => {
   const wasActive = sessionActive
   sessionActive = false
-  window.dispatchEvent(new Event('unauthorized'))
-  if (
-    wasActive &&
-    typeof window !== 'undefined' &&
-    window.location.pathname !== '/login'
-  ) {
-    window.location.href = '/login'
+  if (wasActive && typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('unauthorized'))
   }
 }
 

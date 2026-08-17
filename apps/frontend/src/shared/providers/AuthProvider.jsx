@@ -11,7 +11,7 @@
  * - sameSite='strict' provides CSRF protection
  */
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../lib/api'
 import { setSessionActive } from '../lib/apiClient'
 import { clearDashboardCache } from '../lib/dashboardCache'
@@ -60,19 +60,21 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(!initialCachedUser)
   const [error, setError] = useState(null)
   const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser))
+  const authSequenceRef = useRef(0)
 
   // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
   useEffect(() => {
     let cancelled = false
+    const sequenceAtStart = authSequenceRef.current
     const MAX_RETRIES = 2
     const BASE_RETRY_DELAY = 1000 // ms
     const MAX_RETRY_DELAY = 3000 // ms cap for backoff
 
     const checkAuth = async (attempt = 0) => {
-      if (cancelled) return
+      if (cancelled || authSequenceRef.current !== sequenceAtStart) return
       try {
         const response = await api.get('/api/auth/me')
-        if (cancelled) return
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return
         const userData = response.data.data
         
         if (userData) {
@@ -92,7 +94,7 @@ export function AuthProvider({ children }) {
         setLoading(false)
         setAuthResolved(true)
       } catch (err) {
-        if (cancelled) return
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return
         const isAuthError =
           err?.name === 'AuthenticationError' ||
           err?.code === 'AUTHENTICATION_ERROR' ||
@@ -188,6 +190,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password, rememberMe = false) => {
     setError(null)
     setLoading(true)
+    authSequenceRef.current++
 
     try {
       const response = await api.post('/api/auth/login', { email, password })
@@ -216,6 +219,7 @@ export function AuthProvider({ children }) {
       clearDashboardCache()
       setUser(frontendUser)
       saveUserCache(frontendUser)
+      setAuthResolved(true)
       
       const meta = {
         lastActivity: Date.now(),
@@ -249,6 +253,7 @@ export function AuthProvider({ children }) {
   const googleLogin = async (credential) => {
     setError(null)
     setLoading(true)
+    authSequenceRef.current++
 
     try {
       const response = await api.post('/api/auth/google', { credential })
@@ -263,6 +268,7 @@ export function AuthProvider({ children }) {
       const frontendUser = mapUserToFrontend(userData)
       setUser(frontendUser)
       saveUserCache(frontendUser)
+      setAuthResolved(true)
       
       const meta = {
         lastActivity: Date.now(),
@@ -285,6 +291,7 @@ export function AuthProvider({ children }) {
   const verify2FA = async (tempToken, code, isBackupCode = false) => {
     setError(null)
     setLoading(true)
+    authSequenceRef.current++
 
     try {
       const body = { tempToken }
@@ -306,6 +313,7 @@ export function AuthProvider({ children }) {
       const frontendUser = mapUserToFrontend(userData)
       setUser(frontendUser)
       saveUserCache(frontendUser)
+      setAuthResolved(true)
 
       const meta = {
         lastActivity: Date.now(),
@@ -328,6 +336,7 @@ export function AuthProvider({ children }) {
   const signup = async (name, email, password, mobile = null) => {
     setError(null)
     setLoading(true)
+    authSequenceRef.current++
 
     try {
       const response = await api.post('/api/auth/register', { name, email, password, mobile })
@@ -349,6 +358,7 @@ export function AuthProvider({ children }) {
         const frontendUser = mapUserToFrontend(userData)
         setUser(frontendUser)
         saveUserCache(frontendUser)
+        setAuthResolved(true)
         
         const meta = {
           lastActivity: Date.now(),
@@ -377,6 +387,7 @@ export function AuthProvider({ children }) {
 
   // Logout function
   const logout = async () => {
+    authSequenceRef.current++
     try {
       await api.post('/api/auth/logout')
     } catch (err) {
@@ -390,6 +401,7 @@ export function AuthProvider({ children }) {
       clearCsrfToken()
       setUser(null)
       setError(null)
+      setAuthResolved(true)
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
       }
