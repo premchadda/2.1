@@ -34,7 +34,7 @@ const USER_CACHE_KEY = 'trstprep_user_profile'
 
 const getInitialUser = () => {
   try {
-    const cached = sessionStorage.getItem(USER_CACHE_KEY)
+    const cached = sessionStorage.getItem(USER_CACHE_KEY) || localStorage.getItem(USER_CACHE_KEY)
     return cached ? JSON.parse(cached) : null
   } catch {
     return null
@@ -46,11 +46,45 @@ const saveUserCache = (frontendUser) => {
     if (frontendUser) {
       const str = JSON.stringify(frontendUser)
       sessionStorage.setItem(USER_CACHE_KEY, str)
+      localStorage.setItem(USER_CACHE_KEY, str)
     } else {
       sessionStorage.removeItem(USER_CACHE_KEY)
+      localStorage.removeItem(USER_CACHE_KEY)
     }
   } catch {
-    // sessionStorage may throw in private mode
+    // sessionStorage / localStorage may throw in private mode
+  }
+}
+
+const saveAuthTokens = ({ token, refreshToken, csrfToken }) => {
+  try {
+    if (token) {
+      sessionStorage.setItem('trstprep_auth_token', token)
+      localStorage.setItem('trstprep_token', token)
+    }
+    if (refreshToken) {
+      sessionStorage.setItem('trstprep_refresh_token', refreshToken)
+      localStorage.setItem('trstprep_refresh_token', refreshToken)
+    }
+    if (csrfToken) {
+      setCsrfToken(csrfToken)
+    }
+  } catch {
+    // storage may throw in private mode
+  }
+}
+
+const clearAuthTokens = () => {
+  try {
+    sessionStorage.removeItem('trstprep_auth_token')
+    sessionStorage.removeItem('trstprep_refresh_token')
+    sessionStorage.removeItem(SESSION_META_KEY)
+    localStorage.removeItem('trstprep_token')
+    localStorage.removeItem('trstprep_refresh_token')
+    localStorage.removeItem(SESSION_META_KEY)
+    clearCsrfToken()
+  } catch {
+    // storage may throw in private mode
   }
 }
 
@@ -62,7 +96,7 @@ export function AuthProvider({ children }) {
   const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser))
   const authSequenceRef = useRef(0)
 
-  // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
+  // Check for existing session on mount (Issue #42: Uses httpOnly cookies + fallback tokens)
   useEffect(() => {
     let cancelled = false
     const sequenceAtStart = authSequenceRef.current
@@ -86,8 +120,12 @@ export function AuthProvider({ children }) {
             lastActivity: Date.now(),
             expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
           }
-          sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+          try {
+            sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+            localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+          } catch {}
         } else {
+          clearAuthTokens()
           setUser(null)
           saveUserCache(null)
         }
@@ -109,7 +147,7 @@ export function AuthProvider({ children }) {
           return
         }
         if (isAuthError || status === 401) {
-          sessionStorage.removeItem(SESSION_META_KEY)
+          clearAuthTokens()
           setUser(null)
           saveUserCache(null)
         } else {
@@ -127,10 +165,8 @@ export function AuthProvider({ children }) {
   // Listen for unauthorized events
   useEffect(() => {
     const handleUnauthorized = () => {
-      sessionStorage.removeItem(SESSION_META_KEY)
-      sessionStorage.removeItem('trstprep_auth_token')
-      localStorage.removeItem('trstprep_token')
-      clearCsrfToken()
+      clearAuthTokens()
+      saveUserCache(null)
       setUser(null)
     }
 
@@ -146,17 +182,22 @@ export function AuthProvider({ children }) {
   // Refresh token function
   const refreshToken = useCallback(async () => {
     try {
-      const response = await api.post('/api/auth/refresh')
-      if (response.data.data.csrfToken) {
-        setCsrfToken(response.data.data.csrfToken)
-      }
+      const storedRefreshToken = typeof window !== 'undefined'
+        ? (sessionStorage.getItem('trstprep_refresh_token') || localStorage.getItem('trstprep_refresh_token'))
+        : null
+      const response = await api.post(
+        '/api/auth/refresh',
+        storedRefreshToken ? { refreshToken: storedRefreshToken } : {}
+      )
+      const { token: newToken, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data?.data || {}
+      saveAuthTokens({ token: newToken, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
       return { success: true }
     } catch (err) {
       logger.error('Token refresh failed:', err)
       const status = err?.response?.status
       if (status === 401 || status === 419) {
-        sessionStorage.removeItem(SESSION_META_KEY)
-        clearCsrfToken()
+        clearAuthTokens()
+        saveUserCache(null)
         setUser(null)
         return { success: false, error: 'Session expired' }
       }
@@ -172,12 +213,16 @@ export function AuthProvider({ children }) {
       
       const frontendUser = mapUserToFrontend(userData)
       setUser(frontendUser)
+      saveUserCache(frontendUser)
       
       const meta = {
         lastActivity: Date.now(),
         expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
       }
-      sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      try {
+        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      } catch {}
       
       return { success: true, user: frontendUser }
     } catch (err) {
@@ -204,16 +249,9 @@ export function AuthProvider({ children }) {
         }
       }
 
-      const { user: userData, token, csrfToken: newCsrfToken } = response.data.data
+      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
 
-      if (token) {
-        sessionStorage.setItem('trstprep_auth_token', token)
-        localStorage.setItem('trstprep_token', token)
-      }
-
-      if (newCsrfToken) {
-        setCsrfToken(newCsrfToken)
-      }
+      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
 
       const frontendUser = mapUserToFrontend(userData)
       clearDashboardCache()
@@ -227,7 +265,10 @@ export function AuthProvider({ children }) {
           ? new Date(Date.now() + SESSION_CONFIG.rememberMeExpiry).toISOString()
           : new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
       }
-      sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      try {
+        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      } catch {}
       
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
@@ -257,11 +298,9 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await api.post('/api/auth/google', { credential })
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data
+      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
 
-      if (newCsrfToken) {
-        setCsrfToken(newCsrfToken)
-      }
+      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
 
       await new Promise(resolve => setTimeout(resolve, 200))
 
@@ -274,7 +313,10 @@ export function AuthProvider({ children }) {
         lastActivity: Date.now(),
         expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
       }
-      sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      try {
+        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      } catch {}
       
       return { success: true, user: frontendUser }
     } catch (err) {
@@ -302,11 +344,9 @@ export function AuthProvider({ children }) {
       }
 
       const response = await api.post('/api/auth/login/2fa', body)
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data
+      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
 
-      if (newCsrfToken) {
-        setCsrfToken(newCsrfToken)
-      }
+      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
 
       await new Promise(resolve => setTimeout(resolve, 200))
 
@@ -319,7 +359,10 @@ export function AuthProvider({ children }) {
         lastActivity: Date.now(),
         expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
       }
-      sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      try {
+        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+      } catch {}
 
       return { success: true, user: frontendUser }
     } catch (err) {
@@ -353,6 +396,12 @@ export function AuthProvider({ children }) {
       }
 
       if (userData) {
+        saveAuthTokens({
+          token: payload.token,
+          refreshToken: payload.refreshToken,
+          csrfToken: payload.csrfToken
+        })
+
         await new Promise(resolve => setTimeout(resolve, 200))
 
         const frontendUser = mapUserToFrontend(userData)
@@ -364,7 +413,10 @@ export function AuthProvider({ children }) {
           lastActivity: Date.now(),
           expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
         }
-        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        try {
+          sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+          localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
+        } catch {}
         
         return { success: true, user: frontendUser, requiresVerification: false }
       }
@@ -394,11 +446,8 @@ export function AuthProvider({ children }) {
       logger.error('Logout API call failed:', err)
     } finally {
       clearDashboardCache()
-      sessionStorage.removeItem(SESSION_META_KEY)
-      sessionStorage.removeItem('trstprep_auth_token')
-      localStorage.removeItem('trstprep_token')
+      clearAuthTokens()
       saveUserCache(null)
-      clearCsrfToken()
       setUser(null)
       setError(null)
       setAuthResolved(true)

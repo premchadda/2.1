@@ -786,10 +786,15 @@ router.post('/:attemptId/heartbeat', protect, async (req, res) => {
       attemptStatus = 'revoked'
     }
 
-    // Update last activity if attempt is still active
+    // Update last activity and heartbeat if attempt is still active
     if (attemptStatus === 'active') {
+      const nowIso = new Date().toISOString()
       await dbHelpers.updateById('attempts', internalAttemptId, {
-        lastActivityAt: new Date().toISOString()
+        lastActivityAt: nowIso,
+        last_activity_at: nowIso,
+        lastHeartbeatAt: nowIso,
+        last_heartbeat_at: nowIso,
+        updated_at: nowIso
       })
     }
 

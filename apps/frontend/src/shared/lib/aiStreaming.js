@@ -22,8 +22,13 @@ export function isStreamingSupported() {
 }
 
 function buildHeaders(csrfToken) {
-  // No Authorization header — httpOnly cookie is sent via `credentials: 'include'`
   const headers = { 'Content-Type': 'application/json' }
+  if (typeof window !== 'undefined') {
+    const token = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token')
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
+    }
+  }
   if (csrfToken) {
     headers['X-CSRF-Token'] = csrfToken
   }

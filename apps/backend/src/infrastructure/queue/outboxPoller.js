@@ -109,7 +109,7 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
     try {
       client = await pool.connect();
       
-      // Auto-abandon inactive attempts where status is IN_PROGRESS and last_heartbeat_at is older than 5 minutes
+      // Auto-abandon inactive attempts where status is IN_PROGRESS and no activity has been recorded for 30 minutes
       // Uses subquery with FOR UPDATE SKIP LOCKED to prevent race conditions in multi-instance deployments
       const result = await client.query(`
         UPDATE attempts 
@@ -118,7 +118,7 @@ export const startAttemptCleaner = (intervalMs = 60000) => {
           SELECT id 
           FROM attempts 
           WHERE (status = 'in_progress' OR status = 'IN_PROGRESS')
-          AND last_heartbeat_at < NOW() - INTERVAL '5 minutes'
+          AND COALESCE(last_heartbeat_at, last_activity_at, updated_at, created_at) < NOW() - INTERVAL '30 minutes'
           FOR UPDATE SKIP LOCKED
         )
         RETURNING id
