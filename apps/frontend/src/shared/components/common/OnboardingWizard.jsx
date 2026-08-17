@@ -25,7 +25,7 @@ export default function OnboardingWizard() {
 
   // Show the wizard for authenticated users who haven't completed onboarding
   useEffect(() => {
-    if (user && !hasCompletedOnboarding()) {
+    if (user && !hasCompletedOnboarding(user)) {
       setIsOpen(true)
       fetchCatalog()
     }
