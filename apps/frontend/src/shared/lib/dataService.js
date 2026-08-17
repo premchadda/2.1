@@ -209,10 +209,18 @@ class DataService {
 
   async getUserAnalytics(options = {}) {
     const { userId } = options
-    const key = this.cache.generateUserKey(userId, '/users/analytics')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token && !userId) return null
+
+    const key = this.cache.generateUserKey(userId || 'me', '/users/analytics')
     return this.fetchWithCache(key, async () => {
-      const response = await userAPI.getAnalytics()
-      return response.data?.data || response.data || null
+      try {
+        const response = await userAPI.getAnalytics()
+        return response.data?.data || response.data || null
+      } catch (err) {
+        if (err?.response?.status === 401 || err?.status === 401) return null
+        throw err
+      }
     }, {
       ttl: 60000,
       ...options
@@ -295,27 +303,33 @@ class DataService {
 
   async getTestSeriesById(id, options = {}) {
     if (!id) throw new ValidationError('Test Series ID is required')
-    const allSeries = await this.getTestSeries(options)
-    const idLower = String(id).toLowerCase().trim()
-    const found = allSeries.find(s =>
-      String(s.id || '').toLowerCase() === idLower ||
-      String(s.slug || '').toLowerCase() === idLower ||
-      String(s.public_id || '').toLowerCase() === idLower ||
-      String(s.publicId || '').toLowerCase() === idLower ||
-      String(s._id || '') === String(id) ||
-      String(s.dbId || '') === String(id)
-    )
-    if (found) return found
-
-    // Fallback to direct API call if not in cached list
-    try {
-      const response = await seriesAPI.getById(id)
-      const data = response.data?.data || response.data
-      if (data) return mapTestSeriesToFrontend(data)
-    } catch {
-      // not found
-    }
-    return null
+    const key = this.cache.generateKey(`/admin/test-series/${id}`)
+    return this.fetchWithCache(key, async () => {
+      try {
+        const response = await seriesAPI.getById(id)
+        const data = response.data?.data || response.data
+        if (data) return mapTestSeriesToFrontend(data)
+      } catch {
+        // Fallback to searching cached allSeries if direct getById not supported
+        try {
+          const allSeries = await this.getTestSeries(options)
+          const idLower = String(id).toLowerCase().trim()
+          const found = allSeries.find(s =>
+            String(s.id || '').toLowerCase() === idLower ||
+            String(s.slug || '').toLowerCase() === idLower ||
+            String(s.public_id || '').toLowerCase() === idLower ||
+            String(s.publicId || '').toLowerCase() === idLower ||
+            String(s._id || '') === String(id) ||
+            String(s.dbId || '') === String(id)
+          )
+          if (found) return found
+        } catch {}
+      }
+      return null
+    }, {
+      ttl: this.cache.longTTL,
+      ...options
+    })
   }
 
   async getTestsBySeriesId(seriesId, options = {}) {

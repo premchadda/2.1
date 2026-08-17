@@ -48,7 +48,9 @@ const badgeConfig = {
 // CTA button configuration conforming to TRSTPrep Live CTA standard
 const ctaConfig = {
   coming_soon: { label: 'Coming Soon', bg: 'bg-gray-200 dark:bg-slate-800', hover: 'hover:bg-gray-200', color: 'text-gray-500 dark:text-slate-400', border: 'border border-gray-300 dark:border-slate-700' },
-  unlock: { label: '🔒 Unlock', bg: 'bg-white dark:bg-slate-800', hover: 'hover:bg-gray-50 dark:hover:bg-slate-700', color: 'text-blue-500 dark:text-blue-400', border: 'border-2 border-blue-500 dark:border-blue-400' },
+  unlock: { label: '🔒 Get Pro Pass', bg: 'bg-gradient-to-r from-amber-500 to-orange-500', hover: 'hover:from-amber-600 hover:to-orange-600', color: 'text-white', border: 'shadow-xs' },
+  login_unlock: { label: '🔒 Login to Unlock', bg: 'bg-white dark:bg-slate-800', hover: 'hover:bg-amber-50 dark:hover:bg-slate-700', color: 'text-amber-600 dark:text-amber-400', border: 'border-2 border-amber-500 dark:border-amber-400' },
+  login: { label: 'Log In to Start', bg: 'bg-gradient-to-r from-brand-start to-brand-end', hover: 'hover:opacity-95', color: 'text-white', border: '' },
   expired: { label: 'Expired', bg: 'bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-400', hover: 'hover:bg-gray-200', color: 'text-gray-500 dark:text-slate-400', border: 'border border-gray-300 dark:border-slate-700' },
   result: { label: 'Result', bg: 'bg-emerald-500', hover: 'hover:bg-emerald-600', color: 'text-white', border: '' },
   attempt_now: { label: '🎯 Attempt Now', bg: 'bg-red-500', hover: 'hover:bg-red-600', color: 'text-white', border: '' },
@@ -170,21 +172,31 @@ function TestCard({
   // Test status
   const isLive = checkIsLive(test)
   const isUpcoming = checkIsUpcoming(test)
-  const isFree = test.type === 'Free' || test.type === 'quiz' || !test.isPro
+  // Pro & Free access resolution
+  const isTestPro = Boolean(test.isPro === true || test.is_pro === true || test.isProPass === true)
+  const isUserPro = Boolean(
+    user?.isProUser || 
+    user?.isPro || 
+    user?.is_pro || 
+    user?.role === 'admin' || 
+    (user?.passType && user.passType !== 'free')
+  )
+
+  const isFree = (test.type === 'Free' || test.type === 'quiz' || (!isTestPro && (test.price === 0 || !test.price))) && !isTestPro
 
   // Use pass system helpers to check access based on test type
-  const isChapter = test.type === 'Chapter' || test.subCategory?.includes('Chapter');
-  const isSectional = test.tags?.some(tag => String(tag).toLowerCase().includes('sectional')) || test.subCategory?.includes('Sectional');
-  const isPYQ = test.type === 'PYQ' || test.tags?.includes('PYQ') || test.subCategory?.includes('PYQ');
+  const isChapter = test.type === 'Chapter' || test.subCategory?.includes('Chapter')
+  const isSectional = test.tags?.some(tag => String(tag).toLowerCase().includes('sectional')) || test.subCategory?.includes('Sectional')
+  const isPYQ = test.type === 'PYQ' || test.tags?.includes('PYQ') || test.subCategory?.includes('PYQ')
 
   const featureKey = isLive ? 'live_tests' : 
                     isSectional ? 'sectional_tests' :
                     isChapter ? 'chapter_tests' : 
-                    isPYQ ? 'pyq_papers' : 'mock_tests';
+                    isPYQ ? 'pyq_papers' : 'mock_tests'
 
-  const passAccess = checkFeatureAccess(featureKey, user?.passType || 'free');
-  const hasAccess = isFree || !!passAccess;
-  const isLocked = !hasAccess;
+  const passAccess = isUserPro || checkFeatureAccess(featureKey, user?.passType || (isUserPro ? 'pro_pass' : 'free'))
+  const hasAccess = isFree || isUserPro || (isTestPro ? isUserPro : !!passAccess)
+  const isLocked = isTestPro ? !isUserPro : !hasAccess
 
   // Question count comes directly from the test object
   const totalQs = test.totalQuestions ?? test.total_questions ?? (Array.isArray(test.questions) ? test.questions.length : (typeof test.questions === 'number' ? test.questions : 0))
@@ -276,19 +288,39 @@ function TestCard({
   )
 
   // Deterministic Priority CTA Resolution:
-  // Coming Soon → Locked → Expired → Attempted/Completed → Live (Not Reg: Join Now / Reg: Attempt Now) → Upcoming (Not Reg: Register / Reg: Registered) → Start Now
+  // Coming Soon → Unauthenticated (Login / Login to Unlock) → Locked → Expired → Attempted/Completed → Live (Not Reg: Join Now / Reg: Attempt Now) → Upcoming (Not Reg: Register / Reg: Registered) → Start Now
   const resolvedCta = useMemo(() => {
     // 1. Coming Soon (or no questions on non-live tests)
     if (checkIsComingSoon(test) || (noQuestions && !isLiveTest)) {
       return { type: 'coming_soon', label: 'Coming Soon', isDisabled: true, tooltip: 'Test questions are under preparation' }
     }
 
-    // 2. Locked (PRO Pass required)
-    if (isLocked) {
-      return { type: 'unlock', label: '🔒 Unlock', isLink: true, to: '/pass' }
+    // 2. Unauthenticated (User not logged in)
+    if (!user) {
+      if (isLocked) {
+        return {
+          type: 'login_unlock',
+          label: '🔒 Login to Unlock',
+          isLink: true,
+          to: '/login',
+          state: { from: instructionsUrl, message: 'Please login to unlock this test' }
+        }
+      }
+      return {
+        type: 'login',
+        label: 'Log In to Start',
+        isLink: true,
+        to: '/login',
+        state: { from: instructionsUrl }
+      }
     }
 
-    // 3. Expired / Contest Ended
+    // 3. Locked (PRO Pass required)
+    if (isLocked) {
+      return { type: 'unlock', label: '🔒 Get Pro Pass', isLink: true, to: '/pass' }
+    }
+
+    // 4. Expired / Contest Ended
     if (isExpired) {
       if (isAttempted) {
         return { type: 'result', label: 'Result', isLink: true, isResult: true }
@@ -296,12 +328,12 @@ function TestCard({
       return { type: 'expired', label: 'Expired', isDisabled: true, tooltip: 'This live contest has ended' }
     }
 
-    // 4. Completed / Attempted
+    // 5. Completed / Attempted
     if (isAttempted) {
       return { type: 'result', label: 'Result', isLink: true, isResult: true }
     }
 
-    // 5. Live Now (Active Contest Window)
+    // 6. Live Now (Active Contest Window)
     if (isLive || (isLiveTest && !isUpcoming && !isExpired)) {
       if (isUserRegistered) {
         return {
@@ -319,7 +351,7 @@ function TestCard({
       }
     }
 
-    // 6. Upcoming (Scheduled Session)
+    // 7. Upcoming (Scheduled Session)
     if (isUpcoming) {
       if (isUserRegistered) {
         return {
@@ -336,14 +368,14 @@ function TestCard({
       }
     }
 
-    // 7. Regular Mock Test Fallback
+    // 8. Regular Mock Test Fallback
     return {
       type: 'start',
       label: 'Start Now',
       isLink: true,
       to: instructionsUrl,
     }
-  }, [test, noQuestions, isLiveTest, isLocked, isExpired, isAttempted, isLive, isUpcoming, isUserRegistered, isQuizItem, instructionsUrl])
+  }, [test, noQuestions, isLiveTest, user, isLocked, isExpired, isAttempted, isLive, isUpcoming, isUserRegistered, isQuizItem, instructionsUrl])
 
   // Border class based on status
   const borderClass = getCardBorderClass(isLive, isUpcoming, isFree, isLocked, isHovered, isQuizItem)
@@ -545,6 +577,7 @@ function TestCard({
             ) : (
               <Link
                 to={resolvedCta.to || (hasAccess ? instructionsUrl : '/pass')}
+                state={resolvedCta.state}
                 className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-150 shadow-xs flex items-center justify-center active:scale-95 ${
                   isHovered ? 'brightness-95' : 'brightness-100'
                 } ${ctaConfig[resolvedCta.type]?.bg || 'bg-sky-500'} ${

@@ -10,11 +10,11 @@ import { useEffect, useRef, useState, useMemo } from 'react'
  * @param {string} className - Additional CSS classes
  * @param {boolean} compact - Use compact variant for smaller headers
  */
-function AnimatedHero({ 
-  pageType = 'default', 
-  title, 
-  subtitle, 
-  children, 
+function AnimatedHero({
+  pageType = 'default',
+  title,
+  subtitle,
+  children,
   className = '',
   compact = false,
   overlay: _overlay = true
@@ -262,7 +262,7 @@ function AnimatedHero({
         // Draw particle
         ctx.beginPath()
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        
+
         if (config.particles.color === 'multi') {
           ctx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${p.opacity})`
         } else {
@@ -289,7 +289,7 @@ function AnimatedHero({
 
     if (config.decorative.includes('large-circle')) {
       elements.push(
-        <div 
+        <div
           key="large-circle"
           className="absolute top-0 right-0 w-64 h-64 md:w-96 md:h-96 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 animate-float-slow"
           style={{ animationDuration: '20s' }}
@@ -299,7 +299,7 @@ function AnimatedHero({
 
     if (config.decorative.includes('small-circle')) {
       elements.push(
-        <div 
+        <div
           key="small-circle"
           className="absolute bottom-0 left-0 w-48 h-48 md:w-64 md:h-64 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 animate-float-slow"
           style={{ animationDuration: '25s', animationDelay: '5s' }}
@@ -319,7 +319,7 @@ function AnimatedHero({
 
     if (config.decorative.includes('trophy-glow')) {
       elements.push(
-        <div 
+        <div
           key="trophy-glow"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-yellow-400/20 rounded-full blur-3xl animate-pulse-slow"
         />
@@ -330,11 +330,11 @@ function AnimatedHero({
       elements.push(
         <div key="star-burst" className="absolute inset-0 overflow-hidden pointer-events-none">
           {[...Array(8)].map((_, i) => (
-            <div 
+            <div
               key={i}
               className="absolute w-2 h-2 bg-yellow-300/60 rounded-full animate-twinkle"
-              style={{ 
-                top: `${Math.random() * 100}%`, 
+              style={{
+                top: `${Math.random() * 100}%`,
                 left: `${Math.random() * 100}%`,
                 animationDelay: `${i * 0.5}s`
               }}
@@ -346,7 +346,7 @@ function AnimatedHero({
 
     if (config.decorative.includes('crown-glow')) {
       elements.push(
-        <div 
+        <div
           key="crown-glow"
           className="absolute top-1/4 left-1/2 -translate-x-1/2 w-48 h-48 bg-yellow-400/30 rounded-full blur-3xl animate-shimmer"
         />
@@ -355,7 +355,7 @@ function AnimatedHero({
 
     if (config.decorative.includes('avatar-ring')) {
       elements.push(
-        <div 
+        <div
           key="avatar-ring"
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72 border-2 border-white/10 rounded-full animate-spin-slow"
           style={{ animationDuration: '30s' }}
@@ -463,7 +463,7 @@ function AnimatedHero({
 
     // Default decorative elements for all pages
     elements.push(
-      <div 
+      <div
         key="gradient-overlay"
         className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/10 pointer-events-none"
       />
@@ -473,18 +473,18 @@ function AnimatedHero({
   }
 
   return (
-    <section 
+    <section
       ref={containerRef}
       className={`
         relative overflow-hidden
-        ${compact ? 'py-3.5 sm:py-4 md:py-5' : 'pt-4 pb-12 md:pb-10'}
+        ${compact ? 'py-3.5 sm:py-4 md:py-5' : 'pt-4 pb-6 md:pb-10'}
         bg-gradient-to-br ${config.gradient}
         ${className}
       `}
     >
       {/* Animated background pattern */}
       {config.animation.type !== 'none' && (
-        <div 
+        <div
           className={`absolute inset-0 opacity-10 animate-${config.animation.type}`}
           style={{ animationDuration: `${config.animation.duration}s` }}
         >
@@ -494,7 +494,7 @@ function AnimatedHero({
 
       {/* Particle canvas */}
       {config.particles.count > 0 && (
-        <canvas 
+        <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full pointer-events-none"
           style={{ opacity: 0.6 }}
@@ -507,9 +507,9 @@ function AnimatedHero({
       {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {title && (
-          <h1 
+          <h1
             className={`${compact ? 'text-xl sm:text-2xl md:text-3xl font-black text-white mb-1 tracking-tight' : 'text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4'} animate-slide-up`}
-            style={{ 
+            style={{
               textShadow: '0 2px 10px rgba(0,0,0,0.2)',
               animationDelay: '0.1s'
             }}
@@ -518,7 +518,7 @@ function AnimatedHero({
           </h1>
         )}
         {subtitle && (
-          <p 
+          <p
             className={`${compact ? 'text-white/90 text-xs sm:text-sm max-w-2xl leading-relaxed' : 'text-white/80 text-lg md:text-xl max-w-2xl'} animate-slide-up`}
             style={{ animationDelay: '0.2s' }}
           >

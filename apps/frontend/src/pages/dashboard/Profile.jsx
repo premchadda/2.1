@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async'
 import { useAuth } from '../../shared/providers/AuthContext'
 import { useTheme } from '../../shared/context/ThemeContext'
 import { getUserAnalytics, userAPI, getExams } from '../../shared/lib/dataService';
+import { invalidateDashboardCache } from '../../shared/lib/enrollment';
 import useProPass from '../../shared/hooks/useProPass'
 import ImageCropperModal from '../../shared/components/common/ImageCropperModal'
 import { toast } from 'react-hot-toast'
@@ -320,9 +321,10 @@ function Profile({ initialTab = 'personal' }) {
         
         // Enrich enrolled series with test counts from user.attemptedTests
         const enrichedSeries = enrolledSeries.map(series => {
-          const totalTests = series.totalTests || 0
           const attemptedCount = getSeriesAttemptCount(series, attemptRowsData)
-          return { ...series, done: attemptedCount, tests: totalTests, completed: totalTests > 0 && attemptedCount >= totalTests }
+          const baseTotal = Number(series.totalTests || series.total_tests || series.testsCount || (Array.isArray(series.tests) ? series.tests.length : 0) || 0)
+          const totalTests = Math.max(baseTotal, attemptedCount)
+          return { ...series, done: attemptedCount, tests: totalTests, totalTests, completed: totalTests > 0 && attemptedCount >= totalTests }
         })
         setEnrolledTestSeries(enrichedSeries)
         
@@ -549,8 +551,11 @@ function Profile({ initialTab = 'personal' }) {
       setUnenrollingId(exam.id || exam._id)
       await userAPI.unenrollFromSeries(exam.enrolledSeriesId || exam.id)
       setEnrolledExams(prev => prev.filter(e => (e.id || e._id) !== (exam.id || exam._id)))
+      await refreshUser?.()
+      invalidateDashboardCache()
       setShowUnenrollConfirm(null)
       setActiveMenuId(null)
+      toast.success('Successfully unenrolled from exam!')
     } catch (error) {
       console.error('Failed to unenroll from exam:', error)
       toast.error('Failed to unenroll. Please try again.')
@@ -564,8 +569,11 @@ function Profile({ initialTab = 'personal' }) {
       setUnenrollingId(series.id || series._id)
       await userAPI.unenrollFromSeries(series.id || series._id)
       setEnrolledTestSeries(prev => prev.filter(s => (s.id || s._id) !== (series.id || series._id)))
+      await refreshUser?.()
+      invalidateDashboardCache()
       setShowUnenrollConfirm(null)
       setActiveMenuId(null)
+      toast.success('Successfully unenrolled! All previous attempt history has been deleted.')
     } catch (error) {
       console.error('Failed to unenroll from series:', error)
       toast.error('Failed to unenroll. Please try again.')
@@ -1687,7 +1695,7 @@ function Profile({ initialTab = 'personal' }) {
               <p className="text-sm text-gray-500 mt-2">
                 {showUnenrollConfirm.type === 'exam' 
                   ? `You will be unenrolled from "${showUnenrollConfirm.item.title || showUnenrollConfirm.item.name}". Your progress will be archived.`
-                  : `You will be unenrolled from "${showUnenrollConfirm.item.title}". Your test history will be preserved.`}
+                  : `You will be unenrolled from "${showUnenrollConfirm.item.title}". All your previous attempt history and progress will be deleted.`}
               </p>
             </div>
             <div className="flex gap-3">

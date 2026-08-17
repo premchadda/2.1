@@ -5,7 +5,7 @@ import { dirname } from 'path'
 import express from 'express'
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
 import { protect } from '../../middleware/auth.middleware.js'
-import { responseCache } from '../../middleware/responseCache.middleware.js'
+import { responseCache, invalidateResponseCache } from '../../middleware/responseCache.middleware.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -14,10 +14,11 @@ import { analyticsService } from '../../services/core/index.js'
 import { idsMatch, parseNumericId } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { buildPublicIdLookup, getPublicResponseId, mapLookupId } from '../../shared/utils/public-id-response.js'
-import { sanitizeUser, parseEnrolledSeries, getSubjectIcon, mapEnrolledSeriesIdsForResponse, populateEnrolledSeries } from '../../shared/utils/user-utils.js'
+import { sanitizeUser, parseEnrolledSeries, getSubjectIcon, mapEnrolledSeriesIdsForResponse, populateEnrolledSeries, isProUser } from '../../shared/utils/user-utils.js'
 import { encryptPii, decryptPii, isPiiEncryptionEnabled } from '../../shared/utils/piiCrypto.js'
 import { getUserAttempts, isCompletedAttempt, formatAttemptResponse } from '../../shared/utils/attempt-utils.js'
 import EnrollmentService from '../../services/EnrollmentService.js'
+import EntitlementService from '../../services/EntitlementService.js'
 import { invalidateSession, getUserSessions } from '../../services/SessionCaptureService.js'
 import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
@@ -393,6 +394,17 @@ router.post('/enroll/:seriesId', protect, async (req, res) => {
     }
     console.log('[Enroll] Series found:', series._id || series.id, series.title)
 
+    // Check if series is Pro and user has Pro access via centralized EntitlementService
+    const entitlement = EntitlementService.canEnrollSeries(req.user, series)
+    if (!entitlement.allowed) {
+      console.log('[Enroll] Entitlement check failed:', entitlement.reason, 'series:', seriesId, 'userId:', req.user.id)
+      return res.status(403).json({
+        success: false,
+        message: entitlement.message || 'Pro Pass required to enroll in this test series',
+        requiresPro: entitlement.requiresPro === true,
+      })
+    }
+
     const canonicalSeriesId = getInternalId(series)
 
     // Use EnrollmentService - primary source is enrollments table
@@ -507,7 +519,7 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
 
     const canonicalSeriesId = getInternalId(series)
 
-    // Archive user history before unenrolling
+    // 1. Archive user history before deleting
     try {
       const attempts = await dbHelpers.find('attempts', { 
         userId: req.user.id, 
@@ -549,8 +561,35 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
     } catch (archiveError) {
       console.error('[Unenroll] Error archiving history:', archiveError)
     }
+
+    // 2. Delete test attempts, quiz attempts and study progress for this series & its tests
+    try {
+      await dbHelpers.pool.query(
+        `DELETE FROM attempts 
+         WHERE user_id = $1 
+           AND (series_id = $2 OR test_id IN (SELECT id FROM tests WHERE series_id = $2))`,
+        [req.user.id, canonicalSeriesId]
+      )
+
+      await dbHelpers.pool.query(
+        `DELETE FROM test_attempts 
+         WHERE user_id = $1 
+           AND (series_id = $2 OR test_id IN (SELECT id FROM tests WHERE series_id = $2))`,
+        [req.user.id, canonicalSeriesId]
+      )
+
+      await dbHelpers.pool.query(
+        `DELETE FROM study_progress 
+         WHERE user_id = $1 
+           AND series_id = $2`,
+        [req.user.id, canonicalSeriesId]
+      )
+      console.log(`[Unenroll] Deleted all previous attempt history for series ${canonicalSeriesId} and user ${req.user.id}`)
+    } catch (deleteError) {
+      console.error('[Unenroll] Error deleting attempts:', deleteError)
+    }
     
-    // Use EnrollmentService to unenroll
+    // 3. Use EnrollmentService to unenroll
     const unenrolled = await EnrollmentService.unenrollFromSeries(
       dbHelpers,
       req.user.id,
@@ -567,6 +606,16 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
 
     console.log('[Unenroll] Successfully unenrolled')
 
+    // 4. Invalidate caches for instant real-time sync
+    try {
+      await invalidateResponseCache('auth-me')
+      await invalidateResponseCache('user-stats')
+      await invalidateResponseCache('dashboard')
+      await invalidateResponseCache('series-list')
+    } catch (cacheErr) {
+      console.error('[Unenroll] Error invalidating cache:', cacheErr)
+    }
+
     const enrolledSeriesIds = await EnrollmentService.getEnrolledSeriesIds(
       dbHelpers,
       req.user.id
@@ -575,8 +624,10 @@ router.delete('/unenroll/:seriesId', protect, async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Successfully unenrolled. Your history has been archived.',
-      data: enrolledSeriesIds.map((value) => mapLookupId(value, enrolledSeriesLookup, value))
+      message: 'Successfully unenrolled. All previous attempt history has been deleted.',
+      data: enrolledSeriesIds.map((value) => mapLookupId(value, enrolledSeriesLookup, value)),
+      enrolledSeries: enrolledSeriesIds.map((value) => mapLookupId(value, enrolledSeriesLookup, value)),
+      unenrolledSeriesId: canonicalSeriesId
     })
   } catch (error) {
     console.error('[Unenroll] Error:', error)

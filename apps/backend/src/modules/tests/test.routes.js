@@ -553,7 +553,7 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
 router.get('/', responseCache("tests-list", 60), async (req, res) => {
   try {
     const { rows } = await dbHelpers.pool.query(
-      `SELECT * FROM tests WHERE is_active = true AND status = 'published'`
+      `SELECT * FROM tests WHERE is_active = true AND (status = 'published' OR status = 'active' OR status IS NULL)`
     )
     const allTests = rows.map(row => dbHelpers.toCamel(row))
     const testsWithBanners = await enrichTestsWithBannerAssets(allTests)
@@ -607,32 +607,6 @@ router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
   try {
     const { tag } = req.params
 
-    if (tag === 'quizzes') {
-      return res.json({
-        success: true,
-        count: 0,
-        data: [],
-        message: 'Use /api/quizzes endpoint for quiz content',
-      })
-    }
-
-    let query = { isActive: true }
-
-    if (isPypSlug(tag)) {
-      query.category = 'PYPs'
-    } else {
-      switch (tag) {
-        case 'live-tests':
-          query.isLive = true
-          break
-        case 'practice':
-          query.category = 'Practice'
-          break
-        default:
-          query.tags = { $regex: tag, $options: 'i' }
-      }
-    }
-
     const allTests = await dbHelpers.find('tests', { isActive: true })
     let filteredTests = allTests
 
@@ -640,16 +614,25 @@ router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
       filteredTests = allTests.filter((test) => test.category === 'PYPs')
     } else {
       switch (tag) {
+        case 'quizzes':
+        case 'quiz':
+          filteredTests = allTests.filter(
+            (test) =>
+              String(test.type).toLowerCase() === 'quiz' ||
+              String(test.subCategory || test.sub_category).toLowerCase().includes('quiz') ||
+              String(test.category).toLowerCase().includes('quiz') ||
+              (Array.isArray(test.tags) && test.tags.some((t) => String(t).toLowerCase() === 'quizzes' || String(t).toLowerCase() === 'quiz'))
+          )
+          break
         case 'live-tests':
           filteredTests = allTests.filter(
             (test) =>
-              test.isLive === true ||
+              (test.isLive === true ||
               test.is_live === true ||
-              test.type === 'live-tests' ||
-              test.test_type === 'live-tests' ||
-              test.testType === 'live-tests' ||
-              test.category === 'live-tests' ||
-              (Array.isArray(test.tags) && test.tags.some((t) => String(t).toLowerCase() === 'live-tests'))
+              String(test.type).toLowerCase() === 'live-tests' ||
+              String(test.subCategory || test.sub_category).toLowerCase().includes('live')) &&
+              String(test.type).toLowerCase() !== 'quiz' &&
+              !String(test.subCategory || test.sub_category).toLowerCase().includes('quiz')
           )
           break
         case 'practice':
@@ -673,21 +656,18 @@ router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
       if (series._id !== undefined) seriesMap[String(series._id)] = series
     })
 
-    const testsWithSeries = filteredTests.map((test) => ({
-      ...test,
-      testSeriesId: getPublicResponseId(
-        dbHelpers,
-        'testSeries',
-        seriesMap[getTestSeriesId(test)],
-        getTestSeriesId(test)
-      ),
-      seriesId: getPublicResponseId(
-        dbHelpers,
-        'testSeries',
-        seriesMap[getTestSeriesId(test)],
-        getTestSeriesId(test)
-      )
-    }))
+    const testsWithSeries = filteredTests.map((test) => {
+      const rawSeriesId = getTestSeriesId(test) || test.series_id || test.seriesId;
+      const matchedSeries = rawSeriesId ? (seriesMap[rawSeriesId] || seriesMap[String(rawSeriesId)] || null) : null;
+      const publicSeriesId = getPublicResponseId(dbHelpers, 'testSeries', matchedSeries, rawSeriesId);
+
+      return {
+        ...test,
+        series: matchedSeries,
+        testSeriesId: publicSeriesId,
+        seriesId: publicSeriesId,
+      };
+    })
 
     const enrichedTests = await enrichTestsWithBannerAssets(testsWithSeries)
 

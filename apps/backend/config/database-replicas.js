@@ -38,21 +38,21 @@ function sanitizeDatabaseUrl(rawUrl) {
 const writeConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
 const readConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_READ_URL || process.env.DATABASE_URL);
 
-// Primary pool (read/write) - reuses same settings as main pool
+// Primary pool (read/write) - max 8 connections to stay within Supabase session pool limit (15)
 const writePool = new Pool({
   connectionString: writeConnectionUrl,
   ssl: sslConfig,
   connectionTimeoutMillis: parsePositiveInt(
     process.env.PG_CONNECTION_TIMEOUT_MS,
-    30000
+    15000
   ),
-  idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 60000),
-  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 60000),
-  max: parsePositiveInt(process.env.PG_POOL_MAX, 20),
+  idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 10000),
+  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
+  max: parsePositiveInt(process.env.PG_POOL_MAX, 8),
   allowExitOnIdle: true,
   keepAlive: true,
   application_name: "trstprep-backend-write",
-  statement_timeout: 60000,
+  statement_timeout: 30000,
 });
 
 // Read replica pool - separate connection for read-heavy operations
@@ -63,18 +63,18 @@ const readPool = process.env.DATABASE_READ_URL
       ssl: sslConfig,
       connectionTimeoutMillis: parsePositiveInt(
         process.env.PG_CONNECTION_TIMEOUT_MS,
-        30000
+        15000
       ),
       idleTimeoutMillis: parsePositiveInt(
         process.env.PG_IDLE_TIMEOUT_MS,
-        60000
+        10000
       ),
-      query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 60000),
-      max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 10),
+      query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
+      max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 4),
       allowExitOnIdle: true,
       keepAlive: true,
       application_name: "trstprep-backend-read",
-      statement_timeout: 60000,
+      statement_timeout: 30000,
     })
   : writePool;
 

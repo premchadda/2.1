@@ -226,16 +226,28 @@ function TestInstructions() {
   // Check access once test is loaded
   useEffect(() => {
     if (test && user && user.role !== 'admin') {
-      const isLive = checkIsLive(test)
-      const isFree = test.type === 'Free' || !test.isPro
+      const isTestPro = Boolean(test.isPro === true || test.is_pro === true || test.isProPass === true)
+      const isUserPro = Boolean(
+        user.isProUser || 
+        user.isPro || 
+        user.is_pro || 
+        (user.passType && user.passType !== 'free')
+      )
       
+      if (isUserPro) return
+
+      const isLive = checkIsLive(test)
+      const isFree = (test.type === 'Free' || test.type === 'quiz' || (!isTestPro && (test.price === 0 || !test.price))) && !isTestPro
+      
+      if (isFree) return
+
       const featureKey = isLive ? 'live_tests' : 
                         test.type === 'Chapter' ? 'chapter_tests' : 
-                        test.type === 'PYQ' ? 'pyq_papers' : 'mock_tests';
+                        test.type === 'PYQ' ? 'pyq_papers' : 'mock_tests'
                         
       const access = checkFeatureAccess(featureKey, user.passType || 'free')
       
-      if (!isFree && !access) {
+      if (!access) {
         navigate('/pass')
       }
     }

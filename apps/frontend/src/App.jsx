@@ -198,12 +198,18 @@ class RouteErrorBoundary extends React.Component {
   }
 }
 
+function ConditionalGoogleProvider({ children }) {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  if (!clientId) return <>{children}</>
+  return <GoogleOAuthProvider clientId={clientId}>{children}</GoogleOAuthProvider>
+}
+
 function App() {
   const location = useLocation()
   const background = ['/login', '/signup'].includes(location.pathname) ? location.state?.backgroundLocation : null
 
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
+    <ConditionalGoogleProvider>
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none font-medium"
@@ -294,6 +300,9 @@ function App() {
           <Route path="/test-series" element={<RouteErrorBoundary><TestSeries /></RouteErrorBoundary>} />
           <Route path="/tests" element={<RouteErrorBoundary><TestSeries /></RouteErrorBoundary>} />
           <Route path="/live-tests" element={<RouteErrorBoundary><LiveTests /></RouteErrorBoundary>} />
+          <Route path="/live" element={<RouteErrorBoundary><Navigate to="/live-tests" replace /></RouteErrorBoundary>} />
+          <Route path="/pricing" element={<RouteErrorBoundary><Navigate to="/pass" replace /></RouteErrorBoundary>} />
+          <Route path="/results" element={<RouteErrorBoundary><Navigate to="/attempted-tests" replace /></RouteErrorBoundary>} />
           <Route path="/test-series/:seriesId" element={<RouteErrorBoundary><TestDetails /></RouteErrorBoundary>} />
           <Route path="/test-series/:seriesId/my" element={<RouteErrorBoundary><TestDetails /></RouteErrorBoundary>} />
           <Route path="/:examSlug/test-series/my" element={<RouteErrorBoundary><TestDetails /></RouteErrorBoundary>} />
@@ -426,7 +435,7 @@ function App() {
       <OnboardingWizard />
       </MaintenanceMode>
     </ErrorBoundary>
-    </GoogleOAuthProvider>
+    </ConditionalGoogleProvider>
   )
 }
 

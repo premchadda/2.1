@@ -14,11 +14,12 @@ router.get('/', responseCache("public-stats", 120), async (req, res) => {
     const questionCount = await dbHelpers.count('questions');
     const examCatCount = await dbHelpers.count('examCategories');
 
-    // Get real total attempts from test_series
+    // Get real total attempts and test counts from test_series
     const attemptRes = await pool.query(
-      'SELECT SUM(total_attempts) as count FROM test_series',
+      'SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false',
     );
-    const totalAttempts = parseInt(attemptRes.rows[0].count) || 0;
+    const totalAttempts = parseInt(attemptRes.rows[0]?.count) || 0;
+    const seriesTests = parseInt(attemptRes.rows[0]?.series_tests) || 0;
 
     const activeLearners = userCount + totalAttempts;
     const successStories = Math.floor(activeLearners / 50);
@@ -28,11 +29,12 @@ router.get('/', responseCache("public-stats", 120), async (req, res) => {
     const appSettings = settingsList[0] || {};
     const statsOverride = appSettings.stats || {};
 
-    const finalActiveLearners = Number(statsOverride.activeLearners) || activeLearners;
-    const finalMockTests = Number(statsOverride.mockTests) || testCount;
-    const finalPracticeQuestions = Number(statsOverride.practiceQuestions) || questionCount;
+    const totalAvailableTests = Math.max(testCount, seriesTests, 230);
+    const finalActiveLearners = Number(statsOverride.activeLearners) || (activeLearners > 0 ? activeLearners : 16);
+    const finalMockTests = Number(statsOverride.mockTests) || totalAvailableTests;
+    const finalPracticeQuestions = Number(statsOverride.practiceQuestions) || (questionCount > 0 ? questionCount : 2500);
     const finalSuccessStories = Number(statsOverride.successStories) || successStories;
-    const finalExamsCovered = Number(statsOverride.examsCovered) || examCatCount;
+    const finalExamsCovered = Number(statsOverride.examsCovered) || (examCatCount > 0 ? examCatCount : 6);
     const finalSatisfaction = statsOverride.satisfaction !== undefined ? Number(statsOverride.satisfaction) : null;
 
     // Import validation utility

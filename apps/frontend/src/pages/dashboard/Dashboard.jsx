@@ -7,6 +7,7 @@ import { AnimatedHero } from '../../shared/components';
 import { getOnboardingPrefs } from '../../shared/lib/onboardingUtils'
 import { useDraggableScroll } from '../../shared/hooks/useDraggableScroll'
 import { isSeriesEnrolled, getNormalizedEnrolledSeries } from '../../shared/lib/enrollment'
+import { getSeriesTestStats } from '../../shared/lib/testSeriesStats'
 import RecentActivity from './RecentActivity'
 import TopPerformers from './TopPerformers'
 import { checkIsLiveExpired, checkIsQuiz, formatDateRange, getTestStartDate, getTestEndDate } from '../../shared/utils/testClassification'
@@ -337,17 +338,25 @@ function Dashboard() {
 
         const attemptedCount = Math.max(attemptCountFromUser, attemptCountFromRows)
 
+        const stats = getSeriesTestStats(series, _tests)
+        const total = Math.max(stats.totalTests || 0, attemptedCount)
+
+        const rawCat = String(series.categoryName || series.category || '').trim()
+        const formattedCategory = rawCat
+          ? (rawCat.toLowerCase() === 'ssc' ? 'SSC' : rawCat.toLowerCase() === 'railways' || rawCat.toLowerCase() === 'railway' ? 'Railway' : rawCat.charAt(0).toUpperCase() + rawCat.slice(1))
+          : 'General'
+
         return {
           id: series.slug || series.public_id || series._id || series.id,
           _id: series._id,
           dbId: series.dbId,
           slug: series.slug || series.public_id,
           title: series.title,
-          totalTests: series.totalTests || 0,
+          totalTests: total,
           attemptedTests: attemptedCount,
-          category: series.category,
+          category: formattedCategory,
           subcategory: series.subcategory || series.sub_category_id,
-          icon: series.icon || '📝'
+          icon: series.icon || (rawCat.toLowerCase().includes('railway') || rawCat.toLowerCase().includes('rrb') ? '🚂' : rawCat.toLowerCase().includes('ssc') ? '📝' : '📋')
         }
       })
   }, [attemptRows, user, testSeries, _tests, userEnrolledSeries])
@@ -647,8 +656,8 @@ function Dashboard() {
                         
                         <div className="mb-2">
                           <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mb-1">
-                            <span>{attempted}/{total} tests</span>
-                            <span>{progress >= 70 ? '🎯 Almost done!' : progress >= 40 ? '💪 Keep going!' : '🚀 Just started'}</span>
+                            <span>{total > 0 ? `${attempted}/${total} tests` : `${attempted} tests`}</span>
+                            <span>{progress >= 70 ? '🎯 Almost done!' : progress >= 40 ? '💪 Keep going!' : attempted > 0 ? '👍 In progress' : '🚀 Just started'}</span>
                           </div>
                           <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div 

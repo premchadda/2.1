@@ -33,6 +33,60 @@ function parseUserCount(countStr) {
   return parseInt(str, 10) || 0;
 }
 
+function categorizeTests(rawTests = []) {
+  const pypYears = [];
+  let pypCount = 0;
+  let liveCount = 0;
+  let fullMockCount = 0;
+  let quizCount = 0;
+  const otherCounts = {};
+
+  rawTests.forEach((t) => {
+    const cat = String(t.category || '');
+    const sub = String(t.sub_category || '');
+    const type = String(t.type || '');
+    const isLive = Boolean(t.is_live);
+
+    if (cat.toLowerCase() === 'pyps' || /^\d{4}$/.test(sub.trim())) {
+      pypCount++;
+      const year = parseInt(sub.trim(), 10);
+      if (year && !isNaN(year)) pypYears.push(year);
+    } else if (type.toLowerCase() === 'quiz' || sub.toLowerCase().includes('quiz') || cat.toLowerCase().includes('quiz')) {
+      quizCount++;
+    } else if (isLive || sub.toLowerCase().includes('live')) {
+      liveCount++;
+    } else if (sub.toLowerCase().includes('full mock') || type.toLowerCase().includes('mock')) {
+      fullMockCount++;
+    } else {
+      const label = sub || cat || type || 'Mock Tests';
+      otherCounts[label] = (otherCounts[label] || 0) + 1;
+    }
+  });
+
+  const testTypesMap = {};
+  if (pypCount > 0) {
+    if (pypYears.length > 0) {
+      const minYear = Math.min(...pypYears);
+      const maxYear = Math.max(...pypYears);
+      const label = minYear === maxYear 
+        ? `Previous Year Papers (${minYear})` 
+        : `Previous Year Papers (${minYear} - ${maxYear})`;
+      testTypesMap[label] = pypCount;
+    } else {
+      testTypesMap['Previous Year Papers'] = pypCount;
+    }
+  }
+
+  if (liveCount > 0) testTypesMap['Live Tests'] = liveCount;
+  if (fullMockCount > 0) testTypesMap['Full Mock Tests'] = fullMockCount;
+  if (quizCount > 0) testTypesMap['Speed & Topic Quizzes'] = quizCount;
+  Object.entries(otherCounts).forEach(([k, v]) => {
+    testTypesMap[k] = v;
+  });
+
+  return testTypesMap;
+}
+
 // Helper function to calculate actual test counts for series
 async function enrichSeriesWithTestCounts(seriesList) {
   if (!seriesList || seriesList.length === 0) return seriesList;
@@ -47,32 +101,25 @@ async function enrichSeriesWithTestCounts(seriesList) {
 
   if (seriesIds.length > 0) {
     try {
-      [
-        testsResult,
-        enrollmentsResult,
-        stagesResult,
-        categoriesResult,
-        examsResult,
-      ] = await Promise.all([
-        dbHelpers.pool.query(
-          `SELECT series_id, COUNT(*) as actual_count, 
-                  SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count
-           FROM tests 
-           WHERE is_active = true AND series_id::text = ANY($1::text[])
-           GROUP BY series_id`,
-          [seriesIds.map(String)],
-        ),
-        dbHelpers.pool.query(
-          `SELECT series_id, COUNT(*) as count 
-           FROM enrollments 
-           WHERE series_id::text = ANY($1::text[])
-           GROUP BY series_id`,
-          [seriesIds.map(String)],
-        ),
-        dbHelpers.pool.query(`SELECT id, name FROM stages WHERE is_active = true`),
-        dbHelpers.pool.query(`SELECT id, category_id, label FROM exam_categories WHERE is_active = true`),
-        dbHelpers.pool.query(`SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`),
-      ]);
+      testsResult = await dbHelpers.pool.query(
+        `SELECT series_id, COUNT(*) as actual_count, 
+                SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
+                json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
+         FROM tests 
+         WHERE is_active = true AND series_id::text = ANY($1::text[])
+         GROUP BY series_id`,
+        [seriesIds.map(String)],
+      );
+      enrollmentsResult = await dbHelpers.pool.query(
+        `SELECT series_id, COUNT(*) as count 
+         FROM enrollments 
+         WHERE series_id::text = ANY($1::text[])
+         GROUP BY series_id`,
+        [seriesIds.map(String)],
+      );
+      stagesResult = await dbHelpers.pool.query(`SELECT id, name FROM stages WHERE is_active = true`);
+      categoriesResult = await dbHelpers.pool.query(`SELECT id, category_id, label FROM exam_categories WHERE is_active = true`);
+      examsResult = await dbHelpers.pool.query(`SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`);
     } catch (e) {
       console.error("Error fetching series counts", e);
     }
@@ -83,6 +130,8 @@ async function enrichSeriesWithTestCounts(seriesList) {
     const testRow = testsResult.rows.find((r) => String(r.series_id) === sId);
     const actualTestCount = testRow ? parseInt(testRow.actual_count) : 0;
     const freeTestCount = testRow ? parseInt(testRow.free_count) : 0;
+    const rawTests = testRow ? (testRow.raw_tests || []) : [];
+    const testTypesMap = categorizeTests(rawTests);
 
     const enrollmentRow = enrollmentsResult.rows.find(
       (r) => String(r.series_id) === sId,
@@ -137,14 +186,21 @@ async function enrichSeriesWithTestCounts(seriesList) {
       return count.toString();
     };
 
+    const baseUsers = parseUserCount(series.active_users || series.users || series.users_count || series.activeUsers || 0);
+    const finalUserCount = enrollmentCount > 0 ? enrollmentCount : (baseUsers || 0);
+
     return {
       ...series,
       totalTests: actualTestCount,
+      total_tests: actualTestCount,
       freeTests: freeTestCount,
-      activeUsers: formatUserCount(enrollmentCount),
-      users: formatUserCount(enrollmentCount),
-      usersCount: enrollmentCount,
-      enrollmentCount: enrollmentCount,
+      free_tests: freeTestCount,
+      testCounts: testTypesMap,
+      testTypes: Object.keys(testTypesMap),
+      activeUsers: formatUserCount(finalUserCount),
+      users: formatUserCount(finalUserCount),
+      usersCount: finalUserCount,
+      enrollmentCount: finalUserCount,
       stageNames: stageNames,
       categoryName: categoryName,
       examName: examName,
@@ -328,12 +384,38 @@ router.get("/:slug", optionalAuth, async (req, res) => {
       console.error("Error fetching category/exam names", e);
     }
 
+    // Calculate section breakdown counts if available in series.sections
+    let sectionTotalTests = 0;
+    let sectionFreeTests = 0;
+    const testCounts = {};
+    if (Array.isArray(series.sections) && series.sections.length > 0) {
+      series.sections.forEach((sec) => {
+        const free = Number(sec.freeTestCount) || 0;
+        const paid = Number(sec.paidTestCount) || 0;
+        const total = free + paid;
+        if (total > 0) {
+          sectionTotalTests += total;
+          sectionFreeTests += free;
+          testCounts[sec.name] = total;
+        }
+      });
+    }
+
+    const dbTotalTests = parseInt(series.total_tests || series.totalTests) || 0;
+    const finalTotalTests = Math.max(actualTestCount, dbTotalTests, sectionTotalTests);
+    const dbFreeTests = parseInt(series.free_tests || series.freeTests) || 0;
+    const finalFreeTests = freeTestCount > 0 ? freeTestCount : (sectionFreeTests > 0 ? sectionFreeTests : dbFreeTests);
+
     res.json({
       success: true,
       data: {
         ...series,
-        totalTests: actualTestCount,
-        freeTests: freeTestCount,
+        totalTests: finalTotalTests,
+        total_tests: finalTotalTests,
+        freeTests: finalFreeTests,
+        free_tests: finalFreeTests,
+        testCounts: Object.keys(testCounts).length > 0 ? testCounts : (series.testCounts || series.test_counts || {}),
+        testTypes: Object.keys(testCounts).length > 0 ? Object.keys(testCounts) : (series.testTypes || series.test_types || []),
         isEnrolled,
         categoryName,
         examName,

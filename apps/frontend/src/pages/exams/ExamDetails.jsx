@@ -25,13 +25,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import api from '../../shared/lib/api'
 import { useAuth } from '../../shared/providers/AuthContext'
+import { invalidateDashboardCache } from '../../shared/lib/enrollment'
 import ComingSoon from '../../shared/components/common/ComingSoon'
 import { toast } from 'react-hot-toast'
 
 export default function ExamDetails() {
   const { examId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const queryClient = useQueryClient();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [activeTab, setActiveTab] = useState('overview');
@@ -141,10 +142,12 @@ export default function ExamDetails() {
       const response = await api.post(`/api/users/enroll-exam/${examId}`);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setIsEnrolled(true);
       queryClient.invalidateQueries(['enrolled-exams']);
       queryClient.invalidateQueries(['user-profile']);
+      await refreshUser?.();
+      invalidateDashboardCache();
     },
     onError: (error) => {
       console.error('Enrollment error:', error);
@@ -162,10 +165,13 @@ export default function ExamDetails() {
       const response = await api.delete(`/api/users/unenroll-exam/${examId}`);
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setIsEnrolled(false);
       queryClient.invalidateQueries(['enrolled-exams']);
       queryClient.invalidateQueries(['user-profile']);
+      await refreshUser?.();
+      invalidateDashboardCache();
+      toast.success('Successfully unenrolled from exam!');
     },
     onError: (error) => {
       console.error('Unenrollment error:', error);

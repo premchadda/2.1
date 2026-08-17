@@ -7,7 +7,6 @@ import { getTestSeries, getTests, userAPI } from '../../shared/lib/dataService'
 import { useTestCategories } from '../../shared/hooks/useTestCategories'
 import {
   Users,
-  Filter,
   ArrowRight,
   Crown,
   ChevronRight,
@@ -23,6 +22,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import SearchBox from '../../shared/components/common/SearchBox'
 import { hasLegacyEnrolledSeriesIds, isSeriesEnrolled } from '../../shared/lib/enrollment.js'
 import { checkIsLive, checkIsQuiz } from '../../shared/utils/testClassification'
+import { getSeriesTestStats } from '../../shared/lib/testSeriesStats.js'
 
 const getCategoryStyles = (cat) => {
   const lower = String(cat || '').toLowerCase();
@@ -227,6 +227,13 @@ function TestSeries() {
       return
     }
 
+    const isUserPro = Boolean(user?.isProUser || user?.isPro || user?.role === 'admin' || (user?.passType && user.passType !== 'free'))
+    const isSeriesPro = Boolean(series?.isPro || series?.is_pro)
+    if (isSeriesPro && !isUserPro) {
+      navigate('/pass')
+      return
+    }
+
     // Use slug for API call (backend supports both slug and numeric ID)
     const seriesIdentifier = series.slug || series._id || series.id
     if (!seriesIdentifier) {
@@ -269,11 +276,16 @@ function TestSeries() {
     }
   }
 
+  // Enrich series with dynamic active test counts and real types
+  const seriesWithStats = useMemo(() => {
+    return allSeries.map((series) => getSeriesTestStats(series, allTests))
+  }, [allSeries, allTests])
+
   // Get enrolled series for logged-in users - check actual enrollment
   const enrolledSeries = useMemo(() => {
     if (!user) return []
-    return allSeries.filter((series) => isSeriesEnrolled(user, series))
-  }, [user, allSeries])
+    return seriesWithStats.filter((series) => isSeriesEnrolled(user, series))
+  }, [user, seriesWithStats])
 
   // Get live tests
   const liveTests = useMemo(() => {
@@ -293,14 +305,14 @@ function TestSeries() {
   const newSeriesForYou = useMemo(() => {
     if (!user) return []
     // Filter out enrolled series and return newest ones
-    return allSeries
+    return seriesWithStats
       .filter((series) => !isSeriesEnrolled(user, series))
       .slice(0, 4)
-  }, [user, allSeries])
+  }, [user, seriesWithStats])
 
   // Get popular series (sorted by admin order, respecting pinning)
   const _popularSeries = useMemo(() => {
-    return [...allSeries].sort((a, b) => {
+    return [...seriesWithStats].sort((a, b) => {
       // Pinned items always first
       if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
       // For all items (pinned and non-pinned), sort by admin order first
@@ -309,11 +321,11 @@ function TestSeries() {
       // If same order, sort by popularity as secondary
       return (b.users || 0) - (a.users || 0);
     }).slice(0, 8);
-  }, [allSeries])
+  }, [seriesWithStats])
 
   // Filter and sort series for the grid
   const filteredSeries = useMemo(() => {
-    let result = [...allSeries]
+    let result = [...seriesWithStats]
 
     // If user is logged in, filter out enrolled test series from this section
     if (user) {
@@ -389,12 +401,12 @@ function TestSeries() {
     }
 
     return result
-  }, [searchQuery, selectedCategory, sortBy, freeOnly, hindiOnly, allSeries, user])
+  }, [searchQuery, selectedCategory, sortBy, freeOnly, hindiOnly, seriesWithStats, user])
 
   // Group series by category for browse section
   const seriesByCategory = useMemo(() => {
     const grouped = {}
-    allSeries.forEach(series => {
+    seriesWithStats.forEach(series => {
       const categoryKey = series.categoryName || series.category
       if (!grouped[categoryKey]) {
         grouped[categoryKey] = []
@@ -402,7 +414,7 @@ function TestSeries() {
       grouped[categoryKey].push(series)
     })
     return grouped
-  }, [allSeries])
+  }, [seriesWithStats])
 
   if (loading) {
     return (
@@ -524,14 +536,14 @@ function TestSeries() {
                             {/* Header details */}
                             <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
                               <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl transition-all duration-300 group-hover:scale-110 ${styles.bgLight.split(' ')[0]} ${styles.bgLight.split(' ')[1]}`}>
-                                {getCategoryEmoji(series.categoryName || series.category)}
+                                {series.icon || getCategoryEmoji(series.categoryName || series.category)}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-extrabold text-gray-900 dark:text-white text-xs sm:text-sm truncate group-hover:text-indigo-600 transition-colors">
                                   {series.title}
                                 </h3>
-                                <p className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate">
-                                  {series.categoryName || series.category} • {series.totalTests || 0} Tests
+                                <p className="text-[10px] sm:text-[11px] text-gray-400 font-semibold truncate capitalize">
+                                  {String(series.categoryName || series.category || '').toLowerCase() === 'railways' || String(series.categoryName || series.category || '').toLowerCase() === 'railway' ? 'Railway' : (series.categoryName || series.category)} • {series.totalTests || 0} Tests
                                 </p>
                               </div>
                             </div>
@@ -583,9 +595,46 @@ function TestSeries() {
               </section>
             )}
 
+            {/* Popular Test Series for GUEST / NOT LOGGED IN USERS (First in list) */}
+            {!user && filteredSeries.length > 0 && (
+              <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm" style={{ animationDelay: '0.1s' }}>
+                {/* Full-width Section Header Banner (Responsive) */}
+                <div className="bg-gradient-to-r from-slate-800 via-slate-800 to-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 px-4 sm:px-5 py-3.5 sm:py-4 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                  <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center text-white text-base sm:text-lg shrink-0">
+                      🔥
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h2 className="text-sm sm:text-base md:text-lg font-bold text-white leading-tight truncate">Popular Test Series</h2>
+                        <span className="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider backdrop-blur-sm shrink-0">
+                          {filteredSeries.length} Series
+                        </span>
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-slate-300 truncate">High-yield mock tests & previous year papers</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 sm:p-5 md:p-6">
+                  {/* Series Grid - Horizontal scroll left to right */}
+                  <div className="relative z-10 flex items-stretch gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                    {filteredSeries.map(series => (
+                      <TestSeriesCard
+                        key={series._id}
+                        series={series}
+                        user={user}
+                        onEnroll={handleEnrollSeries}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </section>
+            )}
+
             {/* LIVE TESTS & QUIZZES - Two Column Layout */}
             {(liveTests.length > 0 || freeQuizzes.length > 0) && (
-              <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-rose-100 dark:border-rose-900/30 shadow-sm" style={{ animationDelay: '0.1s' }}>
+              <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-rose-100 dark:border-rose-900/30 shadow-sm" style={{ animationDelay: user ? '0.1s' : '0.2s' }}>
                 {/* Full-width Section Header Banner (Responsive) */}
                 <div className="bg-gradient-to-r from-red-600 via-rose-600 to-orange-600 px-4 sm:px-5 py-3.5 sm:py-4 text-white flex items-center justify-between gap-2.5 sm:gap-3 shadow-sm">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
@@ -615,7 +664,7 @@ function TestSeries() {
                       </div>
                       <div className="space-y-3 sm:space-y-4">
                         {liveTests.length > 0 ? liveTests.map(test => {
-                          const series = allSeries.find(s => String(s._id) === String(test.seriesId) || String(s.id) === String(test.seriesId))
+                          const series = seriesWithStats.find(s => String(s._id) === String(test.seriesId) || String(s.id) === String(test.seriesId))
                           return (
                             <Link
                               key={test._id || test.id}
@@ -660,7 +709,7 @@ function TestSeries() {
                       </div>
                       <div className="space-y-3 sm:space-y-4">
                         {freeQuizzes.length > 0 ? freeQuizzes.map(test => {
-                          const series = allSeries.find(s => String(s._id) === String(test.seriesId) || String(s.id) === String(test.seriesId))
+                          const series = seriesWithStats.find(s => String(s._id) === String(test.seriesId) || String(s.id) === String(test.seriesId))
                           return (
                             <Link
                               key={test._id || test.id}
@@ -720,46 +769,23 @@ function TestSeries() {
                 </div>
 
                 <div className="p-4 sm:p-5 md:p-6">
-                  <div className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                    {newSeriesForYou.map(series => {
-                      const isEnrolled = isSeriesEnrolled(user, series)
-                      return (
-                        <Link
-                          key={series._id}
-                          to={`/test-series/${series.slug || series.id || series._id}`}
-                          className="group bg-slate-50/70 dark:bg-gray-900/50 hover:bg-white dark:hover:bg-gray-700/80 rounded-2xl border border-gray-200 dark:border-gray-700 p-3.5 sm:p-4 cursor-pointer hover:shadow-xl hover:border-indigo-300 dark:hover:border-indigo-500 transition-all flex-shrink-0 w-60 sm:w-[260px]"
-                        >
-                          <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
-                            <div className="text-xl sm:text-2xl group-hover:scale-110 transition-transform shrink-0">{getCategoryEmoji(series.categoryName || series.category)}</div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-gray-800 dark:text-white text-xs sm:text-sm line-clamp-1 group-hover:text-indigo-600">{series.title}</h3>
-                              <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">{series.categoryName || series.category} • {series.totalTests || 0} Tests</p>
-                            </div>
-                          </div>
-                          {isEnrolled ? (
-                            <div className="py-1.5 sm:py-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-xl text-center">
-                              ✓ Enrolled
-                            </div>
-                          ) : series.isPro || (series.freeTests === 0 && series.totalTests > 0) ? (
-                            <button className="w-full py-1.5 sm:py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-xs transition">
-                              Get Pro
-                            </button>
-                          ) : (
-                            <button onClick={(e) => { e.preventDefault(); handleEnrollSeries(series) }} className="w-full py-1.5 sm:py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-bold rounded-xl shadow-xs transition">
-                              + Add Series
-                            </button>
-                          )}
-                        </Link>
-                      )
-                    })}
+                  <div className="relative z-10 flex items-stretch gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                    {newSeriesForYou.map(series => (
+                      <TestSeriesCard
+                        key={series._id || series.id}
+                        series={series}
+                        user={user}
+                        onEnroll={handleEnrollSeries}
+                      />
+                    ))}
                   </div>
                 </div>
               </section>
             )}
 
-            {/* Popular Test Series - FOR ALL USERS */}
-            {filteredSeries.length > 0 && (
-              <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm" style={{ animationDelay: user ? '0.3s' : '0.2s' }}>
+            {/* Popular Test Series for LOGGED-IN USERS */}
+            {user && filteredSeries.length > 0 && (
+              <section className="fade-in relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-amber-100 dark:border-amber-900/30 shadow-sm" style={{ animationDelay: '0.3s' }}>
                 {/* Full-width Section Header Banner (Responsive) */}
                 <div className="bg-gradient-to-r from-slate-800 via-slate-800 to-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 px-4 sm:px-5 py-3.5 sm:py-4 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
@@ -776,37 +802,11 @@ function TestSeries() {
                       <p className="text-[11px] sm:text-xs text-slate-300 truncate">High-yield mock tests & previous year papers</p>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap text-xs font-bold">
-                    {/* Filters */}
-                    <button
-                      onClick={() => setFreeOnly(v => !v)}
-                      className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all ${freeOnly ? 'bg-emerald-500 text-white shadow-xs' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'}`}
-                    >
-                      🆓 Free
-                    </button>
-                    <button
-                      onClick={() => setHindiOnly(v => !v)}
-                      className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-xl text-xs font-bold transition-all ${hindiOnly ? 'bg-orange-500 text-white shadow-xs' : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'}`}
-                    >
-                      📝 Hindi
-                    </button>
-                    <select
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value)}
-                      className="bg-white/20 backdrop-blur-sm border border-white/30 text-white rounded-xl px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs font-bold focus:outline-none focus:bg-slate-900 cursor-pointer"
-                    >
-                      <option value="custom" className="text-gray-900">📋 Custom</option>
-                      <option value="popular" className="text-gray-900">🔥 Popular</option>
-                      <option value="rating" className="text-gray-900">⭐ Rated</option>
-                      <option value="tests" className="text-gray-900">📝 Most Qs</option>
-                    </select>
-                  </div>
                 </div>
 
                 <div className="p-4 sm:p-5 md:p-6">
                   {/* Series Grid - Horizontal scroll left to right */}
-                  <div className="relative z-10 flex gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                  <div className="relative z-10 flex items-stretch gap-3 sm:gap-4 overflow-x-auto pb-2 scrollbar-hide">
                     {filteredSeries.map(series => (
                       <TestSeriesCard
                         key={series._id}
@@ -906,47 +906,6 @@ function TestSeries() {
 
           {/* RIGHT SIDEBAR - Informative / Recommendation Cards (Desktop only) */}
           <aside className="hidden lg:block space-y-5 lg:sticky lg:top-24 lg:self-start">
-            {/* Exam Categories Quick Browse */}
-            {Object.keys(seriesByCategory).length > 0 && (
-              <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">
-                <div className="absolute -top-6 -right-6 w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-sm">
-                      <Filter className="w-4 h-4 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">Categories</h3>
-                      <p className="text-[10px] text-gray-500 dark:text-gray-400">Browse by exam type</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(seriesByCategory).slice(0, 8).map(([category, series]) => {
-                      const active = selectedCategory === category
-                      return (
-                        <button
-                          key={category}
-                          onClick={() => {
-                            setSelectedCategory(category)
-                            window.scrollTo({ top: 0, behavior: 'smooth' })
-                          }}
-                          className={`group inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-full border transition-all ${active
-                            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white border-transparent shadow-sm scale-105'
-                            : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600 hover:border-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-700 dark:hover:text-indigo-300'
-                            }`}
-                        >
-                          <span className="text-sm leading-none">{getCategoryEmoji(category)}</span>
-                          <span>{category}</span>
-                          <span className={`text-[9px] font-bold px-1 rounded ${active ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'}`}>
-                            {series.length}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Recent Activity */}
             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 hover:shadow-md transition-shadow">

@@ -232,28 +232,40 @@ if (process.env.NODE_ENV === "production") {
   helmetOptions.contentSecurityPolicy = {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", process.env.FRONTEND_URL || "http://localhost:3000"],
+      scriptSrc: ["'self'", "https://checkout.razorpay.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      connectSrc: [
+        "'self'",
+        process.env.FRONTEND_URL,
+        process.env.ADMIN_PANEL_URL,
+        "https://trstprep.vercel.app",
+        "https://trstprep-admin.vercel.app",
+        "https://trstprep.com",
+        "https://www.trstprep.com",
+        "https://api.razorpay.com",
+        "https://*.supabase.co",
+        "wss:",
+        "ws:",
+      ].filter(Boolean),
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://api.razorpay.com"],
     },
   };
 } else {
   helmetOptions.contentSecurityPolicy = {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       connectSrc: ["'self'", process.env.FRONTEND_URL || "http://localhost:3000", "ws:", "wss:", "http:", "https:"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://api.razorpay.com"],
     },
   };
 }
@@ -282,6 +294,15 @@ const PRIVATE_IP_REGEX = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01]
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_PANEL_URL,
+  process.env.CLIENT_URL,
+  "https://trstprep.vercel.app",
+  "https://trstprep-admin.vercel.app",
+  "https://trstprep.com",
+  "https://www.trstprep.com",
+  ...(process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean),
 ].filter(Boolean);
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -310,41 +331,6 @@ const isLocalNetworkOrigin = (origin) => {
   }
   return false;
 };
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    const envOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const trusted = new Set([
-      ...allowedOrigins,
-      ...envOrigins,
-      "https://trstprep.vercel.app",
-      "https://trstprep-admin.vercel.app",
-      "http://localhost:3000",
-      "http://localhost:3002",
-    ]);
-
-    let hostname = "";
-    try {
-      hostname = new URL(origin).hostname;
-    } catch {}
-
-    if (trusted.has(origin) || (hostname && hostname.endsWith(".vercel.app")) || isLocalNetworkOrigin(origin)) {
-      return callback(null, true);
-    }
-    return callback(null, true);
-  },
-  credentials: true,
-  methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Requested-With", "Accept", "X-Load-Test"],
-  exposedHeaders: ["Set-Cookie"],
-};
-
-app.use(cors(corsOptions));
 
 
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10);

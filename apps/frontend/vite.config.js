@@ -199,10 +199,10 @@ export default defineConfig(({ mode }) => {
       }),
     ],
     optimizeDeps: {
-      include: ['@trstprep/shared-config', '@trstprep/shared-hooks']
+      include: ['@trstprep/shared-config', '@trstprep/shared-hooks', 'react', 'react-dom', 'react-router-dom']
     },
     resolve: {
-      dedupe: ['react', 'react-dom'],
+      dedupe: ['react', 'react-dom', 'react-router-dom', 'react-router'],
       extensions: ['.js', '.jsx', '.json']
     },
     server: {

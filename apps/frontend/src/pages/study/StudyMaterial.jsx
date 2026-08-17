@@ -32,7 +32,7 @@ const GROUP_ORDER = [
 ]
 
 function StudyMaterial() {
-  const { user: _user } = useAuth()
+  const { user } = useAuth()
   const [subjects, setSubjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -53,7 +53,7 @@ function StudyMaterial() {
         // Fetch materials and user analytics in parallel
         const [materials, analytics] = await Promise.all([
           getStudyMaterials(),
-          getUserAnalytics().catch(() => null) // Don't fail if analytics fails
+          user ? getUserAnalytics({ userId: user.id || user._id }).catch(() => null) : Promise.resolve(null)
         ])
 
         if (controller.signal.aborted) return

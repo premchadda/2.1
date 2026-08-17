@@ -343,8 +343,7 @@ export const validateCsrfToken = async (req, res, next) => {
     res.set('X-CSRF-Token', recoveryToken)
     return res.status(403).json({
       success: false,
-      message: 'Invalid CSRF token',
-      csrfToken: recoveryToken
+      message: 'Invalid CSRF token'
     })
   }
 

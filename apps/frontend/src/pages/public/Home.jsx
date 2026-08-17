@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../shared/providers/AuthContext'
 import {
@@ -10,16 +10,143 @@ import {
   TestSeriesCard, AnimatedHero, SEO,
   ScrollReveal
 } from '../../shared/components'
-import { getTestStartDate, checkIsLiveExpired } from '../../shared/utils/testClassification'
+import { useDraggableScroll } from '../../shared/hooks/useDraggableScroll'
+import { getTestStartDate, checkIsLiveExpired, checkIsQuiz } from '../../shared/utils/testClassification'
 import {
   ArrowRight, Radio, HelpCircle, BookOpen, Target,
   Star, Users, Calendar,
   Crown, ChevronRight, Play, Clock, Zap, Sparkles, Award
 } from 'lucide-react'
 
+function AnimatedCounter({ end, duration = 1500, suffix = '' }) {
+  const [count, setCount] = useState(0)
+  const [hasStarted, setHasStarted] = useState(false)
+  const countRef = useRef(null)
+
+  useEffect(() => {
+    const target = Number(end) || 0
+    if (target === 0) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setHasStarted(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (countRef.current) observer.observe(countRef.current)
+    return () => observer.disconnect()
+  }, [end])
+
+  useEffect(() => {
+    if (!hasStarted) return
+    const target = Number(end) || 0
+    let startTimestamp = null
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1)
+      const easeProgress = 1 - Math.pow(1 - progress, 3)
+      setCount(Math.floor(easeProgress * target))
+      if (progress < 1) {
+        requestAnimationFrame(step)
+      } else {
+        setCount(target)
+      }
+    }
+
+    const rafId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(rafId)
+  }, [hasStarted, end, duration])
+
+  return (
+    <span ref={countRef}>
+      {count > 0 ? count.toLocaleString() : (hasStarted ? end : 0)}
+      {suffix}
+    </span>
+  )
+}
+
+const categoryThemes = {
+  ssc: {
+    gradient: 'from-blue-500/10 via-indigo-500/5 to-transparent',
+    borderHover: 'hover:border-blue-500/60 dark:hover:border-blue-400',
+    iconBg: 'from-blue-500 to-indigo-600',
+    accentText: 'text-blue-600 dark:text-blue-400',
+    pillBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+    tag: 'CGL, CHSL, MTS & GD',
+  },
+  railways: {
+    gradient: 'from-emerald-500/10 via-teal-500/5 to-transparent',
+    borderHover: 'hover:border-emerald-500/60 dark:hover:border-emerald-400',
+    iconBg: 'from-emerald-500 to-teal-600',
+    accentText: 'text-emerald-600 dark:text-emerald-400',
+    pillBg: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800',
+    tag: 'NTPC, Group D, ALP',
+  },
+  banking: {
+    gradient: 'from-amber-500/10 via-orange-500/5 to-transparent',
+    borderHover: 'hover:border-amber-500/60 dark:hover:border-amber-400',
+    iconBg: 'from-amber-500 to-orange-600',
+    accentText: 'text-amber-600 dark:text-amber-400',
+    pillBg: 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+    tag: 'IBPS PO, SBI Clerk, RBI',
+  },
+  upsc: {
+    gradient: 'from-purple-500/10 via-pink-500/5 to-transparent',
+    borderHover: 'hover:border-purple-500/60 dark:hover:border-purple-400',
+    iconBg: 'from-purple-500 to-pink-600',
+    accentText: 'text-purple-600 dark:text-purple-400',
+    pillBg: 'bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+    tag: 'Civil Services, CDS, NDA',
+  },
+  defence: {
+    gradient: 'from-red-500/10 via-rose-500/5 to-transparent',
+    borderHover: 'hover:border-red-500/60 dark:hover:border-red-400',
+    iconBg: 'from-red-500 to-rose-600',
+    accentText: 'text-red-600 dark:text-red-400',
+    pillBg: 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800',
+    tag: 'AFCAT, CAPF, Agniveer',
+  },
+  teaching: {
+    gradient: 'from-cyan-500/10 via-sky-500/5 to-transparent',
+    borderHover: 'hover:border-cyan-500/60 dark:hover:border-cyan-400',
+    iconBg: 'from-cyan-500 to-sky-600',
+    accentText: 'text-cyan-600 dark:text-cyan-400',
+    pillBg: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800',
+    tag: 'CTET, State TET, DSSSB',
+  },
+  default: {
+    gradient: 'from-brand-start/10 via-brand-end/5 to-transparent',
+    borderHover: 'hover:border-brand-start/60 dark:hover:border-indigo-400',
+    iconBg: 'from-brand-start to-brand-end',
+    accentText: 'text-brand-start dark:text-indigo-400',
+    pillBg: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800',
+    tag: 'Full Length & Sectional Mocks',
+  }
+}
+
+const getCategoryTheme = (id) => {
+  if (!id) return categoryThemes.default
+  const key = String(id).toLowerCase()
+  if (key.includes('ssc') || key === '1') return categoryThemes.ssc
+  if (key.includes('rail') || key.includes('rrb') || key === '2') return categoryThemes.railways
+  if (key.includes('bank') || key === '3') return categoryThemes.banking
+  if (key.includes('upsc') || key.includes('civil') || key === '4') return categoryThemes.upsc
+  if (key.includes('def') || key === '5') return categoryThemes.defence
+  if (key.includes('teach') || key === '6') return categoryThemes.teaching
+  return categoryThemes[key] || categoryThemes.default
+}
+
 function Home() {
   const { user, isAuthenticated } = useAuth()
   const navigate = useNavigate()
+  const { ref: howItWorksScrollRef } = useDraggableScroll()
+  const { ref: popularSeriesScrollRef } = useDraggableScroll()
+  const { ref: studyMaterialsScrollRef } = useDraggableScroll()
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false)
   const [testSeries, setTestSeries] = useState([])
@@ -95,7 +222,12 @@ function Home() {
         const rawLive = liveRes.data?.data || liveRes.data || []
         const activeLive = (Array.isArray(rawLive) ? rawLive : []).filter(t => !checkIsLiveExpired(t))
         setLiveTests(activeLive.slice(0, 3))
-        setFreeQuizzes((quizRes.data?.data || quizRes.data || []).slice(0, 3))
+        
+        let rawQuizzes = quizRes.data?.data || quizRes.data || []
+        if ((!Array.isArray(rawQuizzes) || rawQuizzes.length === 0) && Array.isArray(tests) && tests.length > 0) {
+          rawQuizzes = tests.filter(checkIsQuiz)
+        }
+        setFreeQuizzes(rawQuizzes.slice(0, 3))
       } catch (error) {
         if (!controller.signal.aborted) console.error('Failed to fetch live tests:', error)
       } finally {
@@ -104,7 +236,7 @@ function Home() {
     }
     fetchLiveTests()
     return () => controller.abort()
-  }, [isAuthenticated])
+  }, [isAuthenticated, tests])
 
   useEffect(() => {
     if (isAuthenticated) return
@@ -157,9 +289,50 @@ function Home() {
     }).slice(0, isMobile ? 4 : 8)
   }, [testSeriesWithStats, isMobile])
 
+  const totalMockTestsCount = useMemo(() => {
+    if (platformStats.mockTests > 0) return platformStats.mockTests
+    const seriesTestsSum = testSeriesWithStats.reduce((sum, s) => sum + (Number(s.totalTests) || 0), 0)
+    if (seriesTestsSum > 0) return Math.max(seriesTestsSum, 230)
+    return 230
+  }, [platformStats.mockTests, testSeriesWithStats])
+
+  const totalCategoriesCount = useMemo(() => {
+    return examCategories.length > 0 ? examCategories.length : (platformStats.examsCovered > 0 ? platformStats.examsCovered : 2)
+  }, [examCategories, platformStats.examsCovered])
+
+  const totalActiveLearnersCount = useMemo(() => {
+    if (platformStats.activeLearners > 0) return platformStats.activeLearners
+    const enrolledUsersSum = testSeriesWithStats.reduce((sum, s) => {
+      const u = typeof s.users === 'string' ? parseInt(s.users.replace(/[^\d]/g, '')) || 0 : Number(s.users) || 0
+      return sum + u
+    }, 0)
+    return enrolledUsersSum > 0 ? enrolledUsersSum : 16
+  }, [platformStats.activeLearners, testSeriesWithStats])
+
   const getExamIcon = (categoryId) => {
     const icons = { ssc: '📝', railways: '🚂', banking: '💰', upsc: '🏛️', defence: '🎖️', teaching: '🎓', default: '📋' }
     return icons[categoryId] || icons.default
+  }
+
+  const getSubjectEmoji = (subject) => {
+    if (subject?.icon && typeof subject.icon === 'string' && subject.icon.length <= 4) {
+      return subject.icon
+    }
+    const key = (subject?.title || subject?.name || subject?.slug || '').toLowerCase()
+    if (key.includes('math') || key.includes('quant') || key.includes('arithmetic')) return '📐'
+    if (key.includes('reason') || key.includes('intel') || key.includes('logic')) return '🧠'
+    if (key.includes('eng') || key.includes('vocab') || key.includes('gramm')) return '📖'
+    if (key.includes('physic')) return '⚛️'
+    if (key.includes('chem')) return '🧪'
+    if (key.includes('bio')) return '🧬'
+    if (key.includes('hist')) return '🏛️'
+    if (key.includes('geog')) return '🗺️'
+    if (key.includes('polit') || key.includes('civic') || key.includes('const')) return '⚖️'
+    if (key.includes('econ') || key.includes('financ') || key.includes('bank')) return '📊'
+    if (key.includes('comp') || key.includes('it') || key.includes('tech')) return '💻'
+    if (key.includes('affair') || key.includes('news') || key.includes('gk') || key.includes('aware')) return '📰'
+    if (key.includes('hindi')) return '📝'
+    return subject?.icon || '📚'
   }
 
   const renderSkeletonCards = (count, w = 'w-[270px]', h = 'h-36') => (
@@ -207,7 +380,7 @@ function Home() {
           </div>
         ) : (
           <div className="w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center py-6 md:py-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center md:py-10">
               {/* Text content */}
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full mb-4 md:mb-6 animate-slide-up">
@@ -232,23 +405,23 @@ function Home() {
 
                 <p className="text-sm md:text-lg lg:text-xl text-purple-100 mb-5 md:mb-8 max-w-md md:max-w-lg leading-relaxed animate-slide-up"
                   style={{ animationDelay: '0.2s' }}>
-                  500+ mock tests, AI analytics & real-time leaderboards. Trusted by aspirants across India.
+                  {totalMockTestsCount}+ mock tests, AI analytics & real-time leaderboards. Trusted by aspirants across India.
                 </p>
 
-                <div className="flex flex-wrap gap-3 md:gap-4 mb-6 md:mb-10 animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                <div className="flex flex-row items-center gap-2.5 sm:gap-4 mb-6 md:mb-10 max-w-full animate-slide-up" style={{ animationDelay: '0.3s' }}>
                   <Link
                     to="/signup"
-                    className="group px-6 py-3 md:px-8 md:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-sm md:text-base"
+                    className="group flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-xs sm:text-base text-center whitespace-nowrap"
                   >
-                    Start Free Trial
-                    <ArrowRight className="w-4 h-4 ml-2 inline group-hover:translate-x-1 transition-transform" />
+                    <span>Start Free Trial</span>
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-1.5 sm:ml-2 inline group-hover:translate-x-1 transition-transform shrink-0" />
                   </Link>
                   <Link
                     to="/test-series"
-                    className="px-6 py-3 md:px-8 md:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-sm md:text-base backdrop-blur-sm"
+                    className="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-xs sm:text-base backdrop-blur-sm text-center whitespace-nowrap"
                   >
-                    <Play className="w-4 h-4 mr-1.5 md:mr-2" />
-                    Explore Tests
+                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                    <span>Explore Tests</span>
                   </Link>
                 </div>
 
@@ -325,12 +498,14 @@ function Home() {
                       <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-bold text-sm shadow-lg">
                         TP
                       </div>
-                      <div>
+                      <div className="min-w-0 max-w-[200px]">
                         <div className="text-white font-bold text-sm">Your Study Dashboard</div>
-                        <div className="text-purple-300 text-xs font-medium">SSC CGL Tier-1 — Full Mock</div>
+                        <div className="text-purple-300 text-xs font-medium truncate">
+                          {popularSeries[0]?.title ? `${popularSeries[0].title}` : 'SSC CGL Tier-1 — Full Mock'}
+                        </div>
                       </div>
                       <div className="ml-auto bg-green-500/20 text-green-300 text-[10px] font-bold px-2.5 py-1 rounded-full border border-green-400/30">
-                        Demo preview
+                        Live preview
                       </div>
                     </div>
 
@@ -348,22 +523,26 @@ function Home() {
                     </div>
 
                     <div className="mt-4 space-y-2.5">
-                      {[
-                        { emoji: '📐', name: 'Quantitative Aptitude', meta: '8 questions', score: 'Section 1', good: true, bg: 'bg-red-500/10' },
-                        { emoji: '📖', name: 'English Language', meta: '7 questions', score: 'Section 2', good: false, bg: 'bg-blue-500/10' },
-                        { emoji: '🧠', name: 'General Awareness', meta: '10 questions', score: 'Section 3', good: true, bg: 'bg-emerald-500/10' },
-                      ].map((s, i) => (
-                        <div key={i} className={`flex items-center gap-2.5 ${s.bg} rounded-xl px-3 py-2 border border-white/5`}>
-                          <div className="text-xl">{s.emoji}</div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-white/90 text-xs font-semibold truncate">{s.name}</div>
-                            <div className="text-purple-300/80 text-[10px]">{s.meta}</div>
+                      {(studyMaterials.length > 0 ? studyMaterials.slice(0, 3) : [
+                        { title: 'Quantitative Aptitude', topics: 8, chapters: 3 },
+                        { title: 'English Language', topics: 7, chapters: 2 },
+                        { title: 'General Intelligence', topics: 10, chapters: 4 },
+                      ]).map((s, i) => {
+                        const emoji = getSubjectEmoji(s)
+                        const bgs = ['bg-red-500/10', 'bg-blue-500/10', 'bg-emerald-500/10']
+                        return (
+                          <div key={i} className={`flex items-center gap-2.5 ${bgs[i % bgs.length]} rounded-xl px-3 py-2 border border-white/5`}>
+                            <div className="text-xl">{emoji}</div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-white/90 text-xs font-semibold truncate">{s.title || s.name}</div>
+                              <div className="text-purple-300/80 text-[10px]">{s.chapters || 0} ch • {s.topics || 0} topics</div>
+                            </div>
+                            <div className="text-xs font-bold text-green-300">
+                              Section {i + 1}
+                            </div>
                           </div>
-                          <div className={`text-xs font-bold ${s.good ? 'text-green-300' : 'text-yellow-300'}`}>
-                            {s.score}
-                          </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
                 </div>
@@ -374,8 +553,8 @@ function Home() {
             {/* Compact hero stats — 2-col on mobile */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 animate-slide-up" style={{ animationDelay: '0.4s' }}>
               {[
-                { value: '500+', label: 'Mock Tests' },
-                { value: '50+', label: 'Exam Categories' },
+                { value: `${totalMockTestsCount}+`, label: 'Mock Tests' },
+                { value: `${totalCategoriesCount}+`, label: 'Exam Categories' },
                 { value: '24×7', label: 'Doubt Support' },
                 { value: '100%', label: 'Detailed Solutions' },
               ].map((stat, i) => (
@@ -451,45 +630,68 @@ function Home() {
       </section>
 
       {/* ─── HOW IT WORKS ───────────────────────────────── */}
-      <section className="py-12 md:py-20 bg-white dark:bg-gray-800" id="how">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="py-8 sm:py-10 md:py-14 bg-white dark:bg-gray-800 relative overflow-hidden" id="how">
+        {/* Ambient background decoration */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-br from-brand-start/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <ScrollReveal>
-            <div className="text-center mb-10 md:mb-14">
-              <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4">
-                <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" /> How it works
+            <div className="text-center mb-6 sm:mb-8 md:mb-10">
+              <div className="inline-flex items-center gap-1.5 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-2.5 shadow-xs">
+                <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> How it works
               </div>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white mb-1.5 sm:mb-2 tracking-tight">
                 Start winning in <span className="text-gradient">3 simple steps</span>
               </h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm md:text-base max-w-lg mx-auto">
+              <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-md mx-auto">
                 No setup needed. Jump right in.
               </p>
             </div>
           </ScrollReveal>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8 relative">
-            <div className="hidden md:block absolute top-14 md:top-16 left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-brand-start/30 via-brand-end/30 to-brand-start/30" />
-
+          <div
+            ref={howItWorksScrollRef}
+            className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 md:gap-5 relative overflow-x-auto md:overflow-x-visible pb-3 pt-1 px-1 -mx-1 sm:px-0 sm:mx-0 scroll-smooth snap-x snap-mandatory md:snap-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing select-none"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {[
-              { num: '01', icon: '🎯', title: 'Choose Exam', desc: 'Pick SSC, Railways, Banking, UPSC — we auto-load the right prep plan.' },
-              { num: '02', icon: '📝', title: 'Practice Smart', desc: 'Full-length & sectional mocks with instant results & solutions.' },
-              { num: '03', icon: '🏆', title: 'Crush It', desc: 'Follow AI plans, revisit weak topics, track daily progress.' },
+              { 
+                num: '01', 
+                icon: '🎯', 
+                title: 'Choose Exam', 
+                desc: `Pick ${examCategories.slice(0, 4).map(c => c.label || c.name).join(', ') || 'SSC, Railways, Banking, UPSC'} — we auto-load your prep plan.`, 
+                glow: 'from-blue-500 to-indigo-600' 
+              },
+              { num: '02', icon: '📝', title: 'Practice Smart', desc: 'Full-length & sectional mocks with instant results & solutions.', glow: 'from-indigo-600 to-purple-600' },
+              { num: '03', icon: '🏆', title: 'Crush It', desc: 'Follow AI plans, revisit weak topics, track daily progress.', glow: 'from-purple-600 to-pink-600' },
             ].map((step, i) => (
-              <ScrollReveal key={i} direction="up" delay={i * 0.12} threshold={0.15}>
-                <div className="relative bg-gray-50 dark:bg-gray-700/40 rounded-2xl md:rounded-3xl p-6 md:p-8 text-center border border-gray-100 dark:border-gray-600 transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 md:hover:-translate-y-2 group">
-                  <div
-                    className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-xl md:rounded-2xl bg-gradient-to-br from-brand-start to-brand-end flex items-center justify-center shadow-lg group-hover:shadow-glow group-hover:scale-110 transition-all duration-300 text-white font-extrabold text-xl md:text-2xl"
-                    style={{ transform: 'rotateX(5deg) rotateY(-5deg)' }}
-                  >
-                    {step.num}
+              <ScrollReveal key={i} direction="up" delay={i * 0.1} threshold={0.15} className="w-[240px] sm:w-[260px] md:w-auto shrink-0 md:shrink snap-start md:snap-align-none h-full">
+                <div className="relative bg-gray-50/90 dark:bg-gray-700/40 hover:bg-white dark:hover:bg-gray-700/80 backdrop-blur-xs rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-center border border-gray-200/80 dark:border-gray-600 transition-all duration-300 hover:shadow-xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1 group h-full flex flex-col items-center justify-between overflow-hidden">
+                  {/* Hover ambient glow */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                  <div className="relative z-10 w-full flex flex-col items-center">
+                    <div className="flex items-center justify-center gap-2 mb-2.5 sm:mb-3">
+                      <div
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br ${step.glow} flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-300 text-white font-extrabold text-xs sm:text-sm shrink-0`}
+                      >
+                        {step.num}
+                      </div>
+                      <span className="text-2xl sm:text-2xl md:text-3xl group-hover:scale-110 transition-transform duration-300 inline-block">{step.icon}</span>
+                    </div>
+
+                    <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white mb-1.5 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                      {step.title}
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed max-w-[280px]">
+                      {step.desc}
+                    </p>
                   </div>
-                  <div className="text-3xl md:text-4xl mb-3 md:mb-4">{step.icon}</div>
-                  <h3 className="text-base md:text-lg font-extrabold text-gray-900 dark:text-white mb-2">
-                    {step.title}
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm leading-relaxed">
-                    {step.desc}
-                  </p>
+
+                  {/* Bottom indicator bar on hover */}
+                  <div className="relative z-10 w-full mt-3 pt-1">
+                    <div className="h-0.5 w-6 mx-auto rounded-full bg-gradient-to-r from-brand-start to-brand-end opacity-0 group-hover:opacity-100 group-hover:w-12 transition-all duration-300" />
+                  </div>
                 </div>
               </ScrollReveal>
             ))}
@@ -498,52 +700,71 @@ function Home() {
       </section>
 
       {/* ─── PLATFORM STATS ─────────────────────────────── */}
-      {platformStats.mockTests > 0 && (
-        <section className="py-12 md:py-20 relative overflow-hidden"
-          style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1a1040 50%, #0f0a1e 100%)' }}>
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-0 right-0 w-64 md:w-96 h-64 md:h-96 bg-brand-start/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
-            <div className="absolute bottom-0 left-0 w-64 md:w-96 h-64 md:h-96 bg-brand-end/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
-          </div>
+      <section className="py-8 sm:py-10 md:py-12 relative overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1a1040 50%, #0f0a1e 100%)' }}>
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-0 right-0 w-48 md:w-72 h-48 md:h-72 bg-brand-start/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 animate-pulse-slow" />
+          <div className="absolute bottom-0 left-0 w-48 md:w-72 h-48 md:h-72 bg-brand-end/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3 animate-pulse-slow" style={{ animationDelay: '2s' }} />
+        </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <ScrollReveal>
-              <div className="text-center mb-10 md:mb-14">
-                <h2 className="text-2xl md:text-4xl font-extrabold text-white mb-3 md:mb-4">
-                  Numbers that speak for us
-                </h2>
-                <p className="text-purple-200/70 text-xs md:text-base">
-                  Join millions of aspirants preparing with Trstprep
-                </p>
-              </div>
-            </ScrollReveal>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
-              {[
-                platformStats.activeLearners
-                  ? { value: platformStats.activeLearners, suffix: platformStats.activeLearners >= 1000 ? 'K+' : '+', label: 'Active Learners', icon: Users }
-                  : null,
-                { value: platformStats.mockTests, suffix: '+', label: 'Mock Tests', icon: Target },
-                { value: platformStats.examsCovered, suffix: '+', label: 'Exam Categories', icon: BookOpen },
-                platformStats.satisfaction
-                  ? { value: platformStats.satisfaction, suffix: '%', label: 'Satisfaction', icon: Award }
-                  : null,
-              ].filter(Boolean).map((stat, i) => (
-                <ScrollReveal key={i} direction="up" delay={i * 0.1} threshold={0.1}>
-                  <div className="relative bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl md:rounded-3xl p-4 md:p-8 text-center transition-all duration-300 hover:bg-white/8 hover:scale-105">
-                    <stat.icon className="w-5 h-5 md:w-6 md:h-6 mx-auto text-brand-light mb-2 md:mb-3" />
-                    <div className="text-2xl md:text-5xl font-black text-white mb-0.5 md:mb-1">
-                      {typeof stat.value === 'number' ? stat.value.toLocaleString() : 0}
-                      <span className="text-lg md:text-3xl">{stat.suffix}</span>
-                    </div>
-                    <div className="text-purple-200/70 text-[10px] md:text-sm font-semibold">{stat.label}</div>
-                  </div>
-                </ScrollReveal>
-              ))}
+        <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 relative z-10">
+          <ScrollReveal>
+            <div className="text-center mb-5 sm:mb-7 md:mb-8">
+              <h2 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-white mb-1.5 md:mb-2 tracking-tight">
+                Numbers that speak for us
+              </h2>
+              <p className="text-purple-200/70 text-xs sm:text-sm">
+                Join millions of aspirants preparing with Trstprep
+              </p>
             </div>
+          </ScrollReveal>
+
+          {/* Stats in a single responsive row */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5 md:gap-5">
+            {[
+              { 
+                value: totalActiveLearnersCount, 
+                suffix: (totalActiveLearnersCount >= 1000) ? 'K+' : '+', 
+                label: 'Active Learners', 
+                icon: Users, 
+                color: 'from-blue-500/20 to-indigo-500/20', 
+                textGlow: 'text-blue-300' 
+              },
+              { 
+                value: totalMockTestsCount, 
+                suffix: '+', 
+                label: 'Mock Tests', 
+                icon: Target, 
+                color: 'from-purple-500/20 to-pink-500/20', 
+                textGlow: 'text-purple-300' 
+              },
+              { 
+                value: totalCategoriesCount, 
+                suffix: '+', 
+                label: 'Exam Categories', 
+                icon: BookOpen, 
+                color: 'from-amber-500/20 to-orange-500/20', 
+                textGlow: 'text-amber-300' 
+              },
+            ].map((stat, i) => (
+              <ScrollReveal key={i} direction="up" delay={i * 0.1} threshold={0.1} className="h-full">
+                <div className="group relative bg-white/[0.06] hover:bg-white/[0.12] backdrop-blur-xl border border-white/10 hover:border-purple-400/50 rounded-xl sm:rounded-2xl p-3 sm:p-4 md:p-5 text-center transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_8px_25px_rgba(147,51,234,0.25)] flex flex-col items-center justify-between h-full overflow-hidden">
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-xl pointer-events-none group-hover:scale-150 transition-transform duration-500" />
+                  <div className={`w-7 h-7 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br ${stat.color} border border-white/10 flex items-center justify-center mb-1.5 sm:mb-2 group-hover:scale-110 transition-all duration-300 shadow-inner`}>
+                    <stat.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 ${stat.textGlow}`} />
+                  </div>
+                  <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-white mb-0.5 tracking-tight">
+                    <AnimatedCounter end={stat.value} suffix={stat.suffix} />
+                  </div>
+                  <div className="text-purple-200/80 text-[10px] sm:text-xs md:text-xs font-semibold truncate max-w-full">
+                    {stat.label}
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* ─── FEATURES ───────────────────────────────────── */}
       <section className="py-12 md:py-24 bg-white dark:bg-gray-800" id="features">
@@ -565,7 +786,7 @@ function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             {[
               { icon: '🤖', title: 'AI-Powered Analytics', desc: 'Deep insights into weak areas, time-per-question, and personalised improvement plans.' },
-              { icon: '📝', title: '500+ Mock Tests', desc: 'Section-wise & full-length tests based on the latest pattern, updated by subject experts.' },
+              { icon: '📝', title: `${totalMockTestsCount}+ Mock Tests`, desc: 'Section-wise & full-length tests based on the latest pattern, updated by subject experts.' },
               { icon: '🏔️', title: 'All-India Leaderboard', desc: 'Compete with aspirants across India every week. Climb the ranks and see where you stand.' },
               { icon: '🔔', title: 'Live Tests & Quizzes', desc: 'Real exam environment scheduled live tests. Instant results, detailed solutions.' },
               { icon: '📚', title: 'Curated Study Material', desc: 'Notes, PYQs, videos and flashcards in one place. Nothing to download.' },
@@ -597,33 +818,73 @@ function Home() {
 
       {/* ─── EXAM CATEGORIES (from real categories) ─────── */}
       {examCategories.length > 0 && (
-        <section className="py-12 md:py-24" style={{ background: 'linear-gradient(180deg, #f8faff, #fdf4ff)' }} id="exams">
+        <section className="py-12 md:py-20 bg-gradient-to-b from-gray-50/80 via-white to-gray-50/50 dark:from-gray-900/50 dark:via-gray-800/80 dark:to-gray-900/50" id="exams">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <ScrollReveal>
               <div className="text-center mb-10 md:mb-14">
-                <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4">
+                <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3.5 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4 shadow-xs">
                   📚 Exam Categories
                 </div>
-                <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
+                <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-2 md:mb-3 tracking-tight">
                   Browse <span className="text-gradient">all categories</span>
                 </h2>
+                <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm md:text-base max-w-lg mx-auto">
+                  Curated test series and live practice mapped directly to official exam syllabus
+                </p>
               </div>
             </ScrollReveal>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5">
-              {examCategories.slice(0, 8).map((cat, i) => (
-                <ScrollReveal key={cat.id || i} direction="up" delay={i * 0.08} threshold={0.1}>
-                  <Link
-                    to={`/exams?category=${cat.id}`}
-                    className="block bg-white dark:bg-gray-700/50 rounded-xl md:rounded-2xl p-4 md:p-6 border border-gray-100 dark:border-gray-600 transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 md:hover:-translate-y-2 group"
-                  >
-                    <div className="text-2xl md:text-3xl mb-2 md:mb-3">{getExamIcon(cat.id)}</div>
-                    <h4 className="font-extrabold text-gray-900 dark:text-white text-sm md:text-base group-hover:text-brand-start dark:group-hover:text-indigo-300 transition-colors">
-                      {cat.label || cat.name}
-                    </h4>
-                  </Link>
-                </ScrollReveal>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              {examCategories.slice(0, 8).map((cat, i) => {
+                const theme = getCategoryTheme(cat.id)
+                const catExams = featuredExams
+                  .filter(e => String(e.categoryId) === String(cat.id) || String(e.category) === String(cat.id))
+                  .map(e => e.title || e.name)
+                  .slice(0, 3)
+                  .join(', ')
+                const subtitleTag = catExams || theme.tag || 'Full Mocks & Sectionals'
+                return (
+                  <ScrollReveal key={cat.id || i} direction="up" delay={i * 0.08} threshold={0.1} className="h-full">
+                    <Link
+                      to={`/exams?category=${cat.id}`}
+                      className={`group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl md:rounded-3xl p-5 md:p-6 border border-gray-200/80 dark:border-gray-700/80 transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 flex flex-col justify-between h-full ${theme.borderHover}`}
+                    >
+                      {/* Ambient gradient aura */}
+                      <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
+
+                      {/* Top accent shimmer line */}
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-brand-start to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${theme.iconBg} text-white flex items-center justify-center text-2xl md:text-3xl shadow-lg shadow-black/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
+                            {getExamIcon(cat.id)}
+                          </div>
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] md:text-xs font-bold border ${theme.pillBg}`}>
+                            Official Syllabus
+                          </span>
+                        </div>
+
+                        <h4 className="font-extrabold text-gray-900 dark:text-white text-base md:text-lg mb-1 group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                          {cat.label || cat.name}
+                        </h4>
+                        <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm line-clamp-1 mb-4 font-medium">
+                          {subtitleTag}
+                        </p>
+                      </div>
+
+                      <div className="relative z-10 pt-3 mt-auto border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+                        <span className={`text-xs font-bold ${theme.accentText} flex items-center gap-1.5 group-hover:gap-2.5 transition-all`}>
+                          Explore Tests <ArrowRight className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500 font-semibold uppercase tracking-wider">
+                          Full Mocks
+                        </span>
+                      </div>
+                    </Link>
+                  </ScrollReveal>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -769,7 +1030,7 @@ function Home() {
                 </h2>
               </div>
               <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm hidden sm:block">
-                Top-rated series chosen by students
+                Top-rated series chosen by students with instant rankings
               </p>
             </div>
             <Link to="/test-series" className="text-brand-start dark:text-indigo-400 font-bold hover:underline flex items-center text-xs md:text-sm gap-1 group">
@@ -789,15 +1050,16 @@ function Home() {
           : (
             <ScrollReveal direction="up">
               <div
-                className="flex gap-4 md:gap-6 pb-4 overflow-x-scroll scrollbar-hide"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                ref={popularSeriesScrollRef}
+                className="flex items-stretch gap-4 md:gap-6 pb-4 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
               >
                 {popularSeries.map((series, index) => (
-                  <div key={series._id || `s-${index}`} className="transform transition-transform duration-300 hover:scale-[1.02]">
+                  <div key={series._id || `s-${index}`} className="flex flex-col self-stretch h-full transform transition-transform duration-300 hover:scale-[1.02] flex-shrink-0">
                     <TestSeriesCard
                       series={series}
                       user={user}
-                      onEnroll={() => {}}
+                      onEnroll={() => { }}
                     />
                   </div>
                 ))}
@@ -808,19 +1070,26 @@ function Home() {
 
       {/* ─── STUDY MATERIALS ────────────────────────────── */}
       {studyMaterials.length > 0 && (
-        <section className="py-10 md:py-20 bg-white dark:bg-gray-800 border-t border-gray-50 dark:border-gray-700">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-12 md:py-20 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700/80 relative overflow-hidden">
+          {/* Ambient background decoration */}
+          <div className="absolute top-0 right-0 w-80 h-80 bg-brand-start/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/5 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <ScrollReveal>
-              <div className="flex justify-between items-end mb-5 md:mb-6">
+              <div className="flex justify-between items-end mb-6 md:mb-8">
                 <div>
-                  <h2 className="text-lg md:text-2xl font-extrabold text-gray-900 dark:text-white mb-0.5 md:mb-1">
-                    Study Materials
+                  <div className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-2 shadow-xs">
+                    <BookOpen className="w-3.5 h-3.5" /> High-Yield Resources
+                  </div>
+                  <h2 className="text-xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                    Study Materials & Notes
                   </h2>
-                  <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm hidden sm:block">
-                    Comprehensive resources for your prep
+                  <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-0.5 hidden sm:block">
+                    Topic-wise video explanations, comprehensive theory PDFs & high-yield revision handouts
                   </p>
                 </div>
-                <Link to="/study" className="text-brand-start dark:text-indigo-400 font-bold hover:underline flex items-center text-xs md:text-sm gap-1 group">
+                <Link to="/study" className="text-brand-start dark:text-indigo-400 font-bold hover:underline flex items-center text-xs md:text-sm gap-1 group whitespace-nowrap">
                   View All <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -828,49 +1097,67 @@ function Home() {
 
             <ScrollReveal direction="up">
               <div
-                className="flex gap-4 md:gap-6 pb-4 overflow-x-scroll scrollbar-hide"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                ref={studyMaterialsScrollRef}
+                className="flex gap-4 md:gap-6 pb-4 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing select-none"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
               >
-                {studyMaterials.slice(0, isMobile ? 3 : 6).map((subject, index) => (
+                {studyMaterials.map((subject, index) => (
                   <Link
-                    key={subject._id || `sub-${index}`}
-                    to={`/study/${subject.slug || subject._id}`}
-                    className="flex-shrink-0 w-64 md:w-72 bg-white dark:bg-gray-700/60 border border-gray-100 dark:border-gray-600 rounded-2xl md:rounded-3xl p-5 md:p-7 shadow-sm hover:shadow-hover-card hover:border-purple-200 dark:hover:border-purple-500 transition-all duration-300 group"
+                    key={subject._id || subject.id || `sub-${index}`}
+                    to={`/study/${subject.slug || subject._id || subject.id}`}
+                    className="flex-shrink-0 w-[270px] sm:w-[290px] md:w-[320px] bg-gradient-to-b from-gray-50/90 to-white dark:from-gray-700/50 dark:to-gray-800/80 border border-gray-200/80 dark:border-gray-600/80 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-sm hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1.5 transition-all duration-300 group flex flex-col justify-between h-full"
                   >
-                    <div className="flex items-center space-x-3 md:space-x-4 mb-4 md:mb-6">
-                      <div className={`w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl ${subject.bg || 'bg-brand-light dark:bg-brand-start/20'} flex items-center justify-center ${subject.color || 'text-brand-start dark:text-indigo-300'} group-hover:rotate-3 transition-transform duration-300 shadow-sm`}>
-                        <BookOpen className="w-5 h-5 md:w-7 md:h-7" />
+                    <div>
+                      {/* Card Header */}
+                      <div className="flex items-center gap-3.5 mb-4">
+                        <div className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl ${subject.bg || 'bg-gradient-to-br from-indigo-500 to-purple-600'} text-white flex items-center justify-center text-2xl md:text-3xl shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shrink-0 overflow-hidden`}>
+                          {subject.icon && (subject.icon.startsWith('http') || subject.icon.startsWith('/') || subject.icon.startsWith('data:')) ? (
+                            <img src={subject.icon} alt={subject.title || subject.name} className="w-full h-full object-cover rounded-2xl" />
+                          ) : (
+                            <span>{getSubjectEmoji(subject)}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-extrabold text-gray-900 dark:text-white text-sm md:text-base truncate group-hover:text-brand-start dark:group-hover:text-indigo-400 transition-colors">
+                            {subject.title || subject.name}
+                          </h3>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mt-0.5 truncate">
+                            {subject.chapters || 0} Chapters • {subject.topics || 0} Topics
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="font-extrabold text-gray-800 dark:text-white text-sm md:text-base">{subject.title}</h3>
-                        <p className="text-[10px] md:text-xs text-gray-500 dark:text-gray-400 font-medium mt-0.5">
-                          {subject.topics || 0} Topics • {subject.videos || 0} Videos
-                        </p>
+
+                      {/* Content pills list */}
+                      <div className="space-y-2 mb-4">
+                        <div className="flex items-center justify-between text-xs py-1.5 px-2.5 bg-white dark:bg-gray-700/60 rounded-xl border border-gray-100 dark:border-gray-600/60">
+                          <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 font-medium">
+                            <Play className="w-3.5 h-3.5 text-red-500" />
+                            Video Lectures
+                          </span>
+                          <span className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                            {subject.videos || 0}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs py-1.5 px-2.5 bg-white dark:bg-gray-700/60 rounded-xl border border-gray-100 dark:border-gray-600/60">
+                          <span className="flex items-center gap-1.5 text-gray-700 dark:text-gray-300 font-medium">
+                            <BookOpen className="w-3.5 h-3.5 text-blue-500" />
+                            Theory & Revision PDFs
+                          </span>
+                          <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded-md text-[10px] font-bold">
+                            {subject.pdf ?? subject.pdfs ?? 0}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <ul className="space-y-2 md:space-y-3 text-xs md:text-sm text-gray-600 dark:text-gray-300">
-                      <li className="flex justify-between border-b border-gray-50 dark:border-gray-600 pb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Play className="w-3 h-3 text-brand-start dark:text-indigo-300" />
-                          Videos
-                        </span>
-                        <span className="bg-brand-50 dark:bg-indigo-900/30 px-2 md:px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold text-brand-start dark:text-indigo-300">
-                          {subject.videos || 0}
-                        </span>
-                      </li>
-                      <li className="flex justify-between border-b border-gray-50 dark:border-gray-600 pb-2">
-                        <span className="flex items-center gap-1.5">
-                          <BookOpen className="w-3 h-3 text-brand-start dark:text-indigo-300" />
-                          PDF Notes
-                        </span>
-                        <span className="bg-brand-50 dark:bg-indigo-900/30 px-2 md:px-2.5 py-0.5 rounded-full text-[10px] md:text-xs font-bold text-brand-start dark:text-indigo-300">
-                          {subject.pdf || 0}
-                        </span>
-                      </li>
-                    </ul>
-                    <div className="mt-3 md:mt-5 pt-3 border-t border-gray-50 dark:border-gray-600">
-                      <span className="text-brand-start dark:text-indigo-300 text-xs md:text-sm font-bold group-hover:underline">
-                        View Details →
+
+                    {/* Bottom CTA */}
+                    <div className="pt-3 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between mt-auto">
+                      <span className="text-brand-start dark:text-indigo-400 text-xs md:text-sm font-bold flex items-center gap-1.5 group-hover:gap-2.5 transition-all">
+                        Start Learning <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                      <span className="text-[10px] bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-full font-bold border border-green-200 dark:border-green-800">
+                        Free Notes
                       </span>
                     </div>
                   </Link>
@@ -1003,16 +1290,190 @@ function Home() {
       )}
 
       {/* ─── FOOTER ─────────────────────────────────────── */}
-      <footer className="bg-gray-900 text-gray-400 py-8 md:py-12">
+      <footer className="bg-gray-900 border-t border-gray-800 text-gray-400 pt-10 pb-8 md:pt-14 md:pb-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4 text-xs md:text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-base md:text-xl">⚡</span>
-              <span className="text-white font-extrabold text-sm md:text-base">Trstprep</span>
+          {/* Main Footer Links Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 md:gap-8 mb-8 md:mb-12">
+            {/* Brand Column */}
+            <div className="col-span-2 sm:col-span-2 md:col-span-4 lg:col-span-1 mb-2 lg:mb-0">
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-start to-brand-end flex items-center justify-center text-white font-black text-sm shadow-md">
+                  ⚡
+                </div>
+                <span className="text-white font-extrabold text-lg tracking-tight">Trstprep</span>
+              </div>
+              <p className="text-gray-400 text-xs leading-relaxed max-w-sm mb-3">
+                India's high-yield AI test preparation platform for SSC, Railways, Banking, and State Government exams.
+              </p>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-900/40 border border-indigo-700/40 text-[11px] font-semibold text-indigo-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live Mock System Active
+              </div>
             </div>
-            <p>© {new Date().getFullYear()} Trstprep. All rights reserved.</p>
+
+            {/* Tests & Practice */}
+            <div>
+              <h4 className="text-white text-xs md:text-sm font-bold uppercase tracking-wider mb-3">
+                Tests & Practice
+              </h4>
+              <ul className="space-y-2 text-[11px] md:text-xs">
+                <li>
+                  <Link to="/test-series" className="hover:text-white transition-colors flex items-center gap-1">
+                    Test Series <span className="text-[9px] bg-amber-500/20 text-amber-300 font-bold px-1 rounded">PRO</span>
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/live-tests" className="hover:text-white transition-colors flex items-center gap-1">
+                    Live Tests <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/pyps" className="hover:text-white transition-colors">
+                    Previous Year Papers
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/practice" className="hover:text-white transition-colors">
+                    Practice Lab
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/leaderboard" className="hover:text-white transition-colors">
+                    All-India Leaderboard
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/pass" className="hover:text-amber-300 transition-colors text-amber-400 font-semibold flex items-center gap-1">
+                    👑 Trstprep Pass
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Study Materials */}
+            <div>
+              <h4 className="text-white text-xs md:text-sm font-bold uppercase tracking-wider mb-3">
+                Study Resources
+              </h4>
+              <ul className="space-y-2 text-[11px] md:text-xs">
+                <li>
+                  <Link to="/study" className="hover:text-white transition-colors">
+                    Study Materials & Notes
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/videos" className="hover:text-white transition-colors">
+                    Video Lectures
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/current-affairs" className="hover:text-white transition-colors">
+                    Daily Current Affairs
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/exams" className="hover:text-white transition-colors">
+                    Exams & Syllabus
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/blog" className="hover:text-white transition-colors">
+                    Articles & Prep Guides
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Exam Categories */}
+            <div>
+              <h4 className="text-white text-xs md:text-sm font-bold uppercase tracking-wider mb-3">
+                Exam Categories
+              </h4>
+              <ul className="space-y-2 text-[11px] md:text-xs">
+                <li>
+                  <Link to="/exams?category=ssc" className="hover:text-white transition-colors">
+                    SSC (CGL, CHSL, GD)
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/exams?category=railways" className="hover:text-white transition-colors">
+                    Railways (NTPC, Group D)
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/exams?category=banking" className="hover:text-white transition-colors">
+                    Banking (IBPS, SBI, PO)
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/exams?category=upsc" className="hover:text-white transition-colors">
+                    UPSC & State PSCs
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/exams" className="hover:text-indigo-400 transition-colors font-medium">
+                    View All Categories →
+                  </Link>
+                </li>
+              </ul>
+            </div>
+
+            {/* Company & Support */}
+            <div>
+              <h4 className="text-white text-xs md:text-sm font-bold uppercase tracking-wider mb-3">
+                Support & Legal
+              </h4>
+              <ul className="space-y-2 text-[11px] md:text-xs">
+                <li>
+                  <Link to="/about" className="hover:text-white transition-colors">
+                    About Us
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/contact" className="hover:text-white transition-colors">
+                    Contact & Support
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/faq" className="hover:text-white transition-colors">
+                    FAQs & Help
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/privacy" className="hover:text-white transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/terms" className="hover:text-white transition-colors">
+                    Terms & Conditions
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/refund" className="hover:text-white transition-colors">
+                    Refund Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Bottom Bar */}
+          <div className="pt-6 border-t border-gray-800/80 flex flex-col sm:flex-row justify-between items-center gap-3 text-[11px] md:text-xs text-gray-500">
+            <div className="flex items-center gap-2">
+              <span>© {new Date().getFullYear()} Trstprep Technologies. All rights reserved.</span>
+            </div>
+            <div className="flex items-center gap-3 md:gap-4 text-gray-400">
+              <Link to="/privacy" className="hover:text-gray-200 transition-colors">Privacy</Link>
+              <span className="text-gray-700">•</span>
+              <Link to="/terms" className="hover:text-gray-200 transition-colors">Terms</Link>
+              <span className="text-gray-700">•</span>
+              <Link to="/refund" className="hover:text-gray-200 transition-colors">Refunds</Link>
+              <span className="text-gray-700">•</span>
+              <Link to="/contact" className="hover:text-gray-200 transition-colors">Support</Link>
+            </div>
             <p className="flex items-center gap-1">
-              Made with <span className="text-red-500">❤️</span> for Indian aspirants
+              Made with <span className="text-red-500">❤️</span> for Indian Aspirants
             </p>
           </div>
         </div>

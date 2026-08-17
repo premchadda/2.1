@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     res.json({ success: true, data: testimonials });
   } catch (err) {
     console.error('Testimonials fetch error:', err);
-    res.status(503).json({ success: false, message: 'Testimonials temporarily unavailable' });
+    res.json({ success: true, data: [] });
   }
 });
 

@@ -26,6 +26,7 @@ import {
 import Breadcrumb from '../../shared/components/common/Breadcrumb'
 import { useConfirm } from '../../shared/components/common/ConfirmModal'
 import { TestCard } from '../../shared/components'
+import EmptyState from '../../shared/components/ui/EmptyState'
 import { useAuth } from '../../shared/providers/AuthContext'
 import {
   getTestSeriesById,
@@ -42,7 +43,7 @@ import api from '../../shared/lib/api'
 import { toast } from 'react-hot-toast'
 
 import { useStages } from '../../shared/hooks/useStages'
-import { hasLegacyEnrolledSeriesIds, isSeriesEnrolled } from '../../shared/lib/enrollment.js'
+import { hasLegacyEnrolledSeriesIds, isSeriesEnrolled, invalidateDashboardCache } from '../../shared/lib/enrollment.js'
 import { checkIsArchivedLive, checkIsLive, checkIsQuiz, checkIsPermanentTest } from '../../shared/utils/testClassification'
 
 function TestDetails() {
@@ -223,9 +224,22 @@ function TestDetails() {
 
 
 
+  const isUserPro = Boolean(user?.isProUser || user?.isPro || user?.role === 'admin' || (user?.passType && user.passType !== 'free'))
+  const isSeriesPro = Boolean(series?.isPro || series?.is_pro)
+
+  const isEnrolled = useMemo(() => {
+    if (!user || !series) return false
+    return isSeriesEnrolled(user, series, [seriesId])
+  }, [user, series, seriesId])
+
   const handleEnroll = async () => {
     if (!user) {
       navigate('/login', { state: { backgroundLocation: location } })
+      return
+    }
+
+    if (isSeriesPro && !isUserPro) {
+      navigate('/pass')
       return
     }
 
@@ -250,6 +264,7 @@ function TestDetails() {
       const response = await api.post(`/api/users/enroll/${seriesIdentifier}`)
       if (response.data.success) {
         await refreshUser()
+        invalidateDashboardCache()
         if (!response.data.alreadyEnrolled) {
           toast.success('Successfully enrolled in this test series!')
         }
@@ -276,14 +291,22 @@ function TestDetails() {
       return
     }
 
-    const ok = await confirm({ title: 'Unenroll from Test Series', message: 'Are you sure you want to unenroll from this test series? Your progress will be lost.', danger: true, confirmLabel: 'Unenroll' })
+    const ok = await confirm({ 
+      title: 'Unenroll from Test Series', 
+      message: 'Are you sure you want to unenroll from this test series? All your previous attempt history and progress for this series will be completely deleted.', 
+      danger: true, 
+      confirmLabel: 'Unenroll & Reset Progress' 
+    })
     if (!ok) return
 
     try {
       const response = await api.delete(`/api/users/unenroll/${seriesIdentifier}`)
       if (response.data.success) {
         await refreshUser()
-        toast.success('Successfully unenrolled from this test series!')
+        invalidateDashboardCache()
+        setUserStats(null)
+        setSeries(prev => prev ? { ...prev, isEnrolled: false } : prev)
+        toast.success('Successfully unenrolled! All previous attempt history has been deleted.')
       }
     } catch (err) {
       console.error('Unenroll error:', err)
@@ -1016,12 +1039,12 @@ function TestDetails() {
 
     const fetchData = async () => {
       try {
-        const allSeries = await getTestSeries()
         let seriesData = null
         let lookupId = seriesId
 
         if (isMyView || !lookupId || lookupId === 'my') {
           // Resolve series for 'my' route or examSlug
+          const allSeries = await getTestSeries()
           let matched = null
           if (examSlug) {
             const slugLower = String(examSlug).toLowerCase()
@@ -1048,17 +1071,7 @@ function TestDetails() {
           seriesData = matched
           lookupId = matched ? (matched.slug || matched._id || matched.id) : lookupId
         } else {
-          try {
-            seriesData = await getTestSeriesById(lookupId)
-          } catch {
-            seriesData = allSeries.find(s =>
-              String(s.slug || '').toLowerCase() === String(lookupId).toLowerCase() ||
-              String(s.public_id || '').toLowerCase() === String(lookupId).toLowerCase() ||
-              String(s.publicId || '').toLowerCase() === String(lookupId).toLowerCase() ||
-              String(s.id || '').toLowerCase() === String(lookupId).toLowerCase() ||
-              String(s._id || '') === String(lookupId)
-            )
-          }
+          seriesData = await getTestSeriesById(lookupId)
           if (!seriesData) {
             try {
               const res = await seriesAPI.getById(lookupId)
@@ -1307,7 +1320,6 @@ function TestDetails() {
     setCurrentPage(1);
   }, [activeMainCategory, activeSubCategory, activeThirdCategory, activeFourthCategory, activeStage, seriesId, series?.id, series?._id]);
 
-  const isEnrolled = isSeriesEnrolled(user, series, [seriesId])
   const hasProPass = user?.hasProPass || false
   const isAdmin = user?.role === 'admin'
 
@@ -1569,7 +1581,7 @@ function TestDetails() {
             </div>
 
             {/* Right - Stage Menu & CTA */}
-            <div className={`${isEnrolled ? 'hidden md:flex' : 'flex'} flex-col justify-center relative md:w-auto md:items-end md:min-w-[180px]`}>
+            <div className="flex flex-col justify-center relative md:w-auto md:items-end md:min-w-[190px]">
               {/* Desktop Triple Dot / Manage Options */}
               {(isEnrolled || isAdmin) && (
                 <div className="hidden md:block absolute -top-2 right-0">
@@ -1642,60 +1654,61 @@ function TestDetails() {
                 </div>
               </div>
 
-              {/* CTA Button */}
-              {!isEnrolled && (
-                <div className="flex justify-end">
-                  {showComingSoonBanner ? (
-                    <button
-                      disabled
-                      className="px-3 md:px-4 py-2 bg-gray-400 dark:bg-gray-600 text-white font-semibold md:font-bold rounded-lg cursor-not-allowed flex items-center gap-1.5 md:gap-2 text-xs md:text-sm h-[34px] md:h-auto"
-                    >
-                      Coming Soon
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleEnroll}
-                      disabled={isEnrolling}
-                      className="px-3 md:px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold md:font-bold rounded-lg hover:shadow-lg transition-all flex items-center gap-1.5 md:gap-2 text-xs md:text-sm h-[34px] md:h-auto disabled:opacity-50"
-                    >
-                      {isEnrolling ? 'Adding...' : (
-                        <>
-                          Add
-                          <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              )}
+              {/* Action Buttons Section */}
+              <div className="flex flex-col gap-2.5 w-full md:w-auto items-stretch md:items-end">
+                {showComingSoonBanner ? (
+                  <button
+                    disabled
+                    className="px-4 py-2 bg-gray-400 dark:bg-gray-600 text-white font-semibold md:font-bold rounded-lg cursor-not-allowed flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm h-[38px]"
+                  >
+                    Coming Soon
+                  </button>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2 justify-end">
+                    {/* Add / Enroll Button (shown when user is not enrolled) */}
+                    {!isEnrolled && (
+                      <button
+                        onClick={handleEnroll}
+                        disabled={isEnrolling}
+                        className="px-3 md:px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold md:font-bold rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm h-[36px] md:h-[38px] disabled:opacity-50 cursor-pointer shadow-sm"
+                      >
+                        {isEnrolling ? 'Adding...' : (
+                          <>
+                            Add
+                            <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                          </>
+                        )}
+                      </button>
+                    )}
 
-              {/* Desktop: Show progress card if enrolled (only on desktop) */}
-              {isEnrolled && !isAdmin && (
-                <div className="hidden md:block mt-4 w-full">
-                  <div className="bg-slate-100/50 border border-slate-150 dark:bg-white/5 dark:border-white/10 rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-semibold text-slate-600 dark:text-indigo-200">Your Progress</span>
-                      <span className="text-sm font-black text-slate-950 dark:text-indigo-300">{progressPercentage}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-200 dark:bg-white/10 rounded-full mt-2 overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
+                    {/* Get Pro Pass Button (shown for free / non-pro users) */}
+                    {!isUserPro && !isAdmin && (
+                      <Link
+                        to="/pass"
+                        className="px-3 md:px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold md:font-bold rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm h-[36px] md:h-[38px] shadow-sm cursor-pointer whitespace-nowrap"
+                      >
+                        <Crown className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        Get Pro Pass
+                      </Link>
+                    )}
+                  </div>
+                )}
+
+                {/* Progress Card (if enrolled on desktop) */}
+                {isEnrolled && !isAdmin && (
+                  <div className="hidden md:block w-full min-w-[200px] mt-1">
+                    <div className="bg-slate-100/50 border border-slate-150 dark:bg-white/5 dark:border-white/10 rounded-2xl p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs font-semibold text-slate-600 dark:text-indigo-200">Your Progress</span>
+                        <span className="text-xs font-black text-slate-950 dark:text-indigo-300">{progressPercentage}%</span>
+                      </div>
+                      <div className="h-2 bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-emerald-400 to-teal-500 rounded-full transition-all duration-500" style={{ width: `${progressPercentage}%` }} />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Desktop: Show Get Pro Pass button */}
-              {!isEnrolled && !isAdmin && !hasProPass && (
-                <div className="hidden md:block mt-3">
-                  <Link
-                    to="/pass"
-                    className="w-full py-2 md:py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold md:font-bold rounded-xl hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm"
-                  >
-                    <Crown className="w-4 h-4" />
-                    Get Pro Pass
-                  </Link>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -2024,11 +2037,12 @@ function TestDetails() {
                     })()}
                   </>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-3">📭</div>
-                    <p className="text-gray-500 dark:text-gray-400 mb-2">No tests found in this category</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500">Try selecting a different category or stage</p>
-                  </div>
+                  <EmptyState
+                    illustration="search"
+                    title="No tests found in this category"
+                    description="Try selecting a different test category, tier, or stage to explore available practice tests."
+                    className="py-12"
+                  />
                 )}
               </div>
             </div>
