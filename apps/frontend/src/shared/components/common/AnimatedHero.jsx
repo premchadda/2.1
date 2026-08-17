@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
+import { twMerge } from 'tailwind-merge'
 
 /**
  * AnimatedHero - A reusable animated hero banner component with page-specific animations
@@ -475,12 +476,12 @@ function AnimatedHero({
   return (
     <section
       ref={containerRef}
-      className={`
-        relative overflow-hidden
-        ${compact ? 'py-3.5 sm:py-4 md:py-5' : 'pt-4 pb-6 md:pb-10'}
-        bg-gradient-to-br ${config.gradient}
-        ${className}
-      `}
+      className={twMerge(
+        'relative overflow-hidden',
+        compact ? 'py-3.5 sm:py-4 md:py-5' : 'pt-4 pb-6 md:pb-10',
+        `bg-gradient-to-br ${config.gradient}`,
+        className
+      )}
     >
       {/* Animated background pattern */}
       {config.animation.type !== 'none' && (

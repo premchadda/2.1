@@ -247,7 +247,7 @@ const PYPTest = () => {
   const questionOptions = getLocalizedField(question?.options, 'en') || []
 
   return (
-    <div className="test-interface">
+    <div className="test-interface overscroll-none overscroll-y-none touch-pan-y">
       <Helmet>
         <title>{test?.title || 'PYP Test'} | Trstprep</title>
         <meta name="description" content="Solving previous year paper on Trstprep." />
@@ -256,8 +256,8 @@ const PYPTest = () => {
       </Helmet>
       {/* Header */}
       <div className="test-header">
-        <div className="test-header-left">
-          <h1>{test.title}</h1>
+        <div className="test-header-left min-w-0 flex-1 pr-1">
+          <h1 title={test.title} className="line-clamp-2 leading-tight break-words font-extrabold">{test.title}</h1>
         </div>
         <div className="test-header-right">
           <div className={`test-timer ${timeLeft < 300 ? 'warning' : ''}`}>

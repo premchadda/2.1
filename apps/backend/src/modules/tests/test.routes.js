@@ -79,11 +79,34 @@ const fetchTestSectionLimits = async (testId) => {
 
 // Fetch questions for a specific test from DB directly (avoids full-table scan)
 const fetchQuestionsByTestId = async (testId) => {
-  const result = await dbHelpers.pool.query(
-    'SELECT * FROM questions WHERE test_id = $1 AND is_active = true',
+  let result = await dbHelpers.pool.query(
+    `SELECT q.*, ts.name as section_name, ts.display_order as section_order
+     FROM questions q
+     LEFT JOIN test_sections ts ON ts.id = q.section_id
+     WHERE q.test_id = $1 AND q.is_active = true
+     ORDER BY q.question_number, q.id`,
     [testId]
   )
-  return result.rows.map(row => dbHelpers.toCamel(row))
+  if (!result.rows || result.rows.length === 0) {
+    result = await dbHelpers.pool.query(
+      `SELECT q.*, tq.marks as junction_marks, tq.negative_marks as junction_neg_marks,
+              tq.order_index, tq.section_id as junction_section_id,
+              ts.name as section_name, ts.display_order as section_order
+       FROM questions q
+       JOIN test_questions tq ON q.id = tq.question_id
+       LEFT JOIN test_sections ts ON (ts.id = tq.section_id OR ts.id = q.section_id)
+       WHERE tq.test_id = $1 AND q.is_active = true
+       ORDER BY tq.order_index, q.id`,
+      [testId]
+    )
+  }
+  return result.rows.map(row => {
+    const camel = dbHelpers.toCamel(row)
+    if (row.section_name && (!camel.section || camel.section === 'General')) {
+      camel.section = row.section_name
+    }
+    return camel
+  })
 }
 
 // Fetch questions from JSON file (for json-file content source)
@@ -704,13 +727,59 @@ router.get('/:testId', optionalAuth, async (req, res) => {
     }
 
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
-
     const [enrichedTest] = await enrichTestsWithBannerAssets([test])
+
+    let sections = enrichedTest?.sections
+    const internalTestId = getInternalId(test)
+
+    if (!sections || !Array.isArray(sections) || sections.length === 0) {
+      try {
+        const secResult = await dbHelpers.pool.query(
+          `SELECT id, name, duration, time_limit, display_order FROM test_sections WHERE test_id = $1 ORDER BY display_order, id`,
+          [internalTestId]
+        )
+        if (secResult.rows && secResult.rows.length > 0) {
+          const marksPerQ = Number(test.marksPerQuestion || test.marks_per_question || 2)
+          sections = secResult.rows.map(s => ({
+            name: s.name,
+            questionCount: Math.round((test.totalQuestions || test.total_questions || 100) / secResult.rows.length),
+            totalMarks: Math.round((test.totalQuestions || test.total_questions || 100) / secResult.rows.length) * marksPerQ,
+            duration: Number(s.duration || 0),
+            timeLimit: s.time_limit ? Number(s.time_limit) : null,
+            displayOrder: s.display_order ?? 0
+          }))
+        } else {
+          const rawSecStr = test.testSections || test.test_sections
+          if (rawSecStr) {
+            const names = typeof rawSecStr === 'string'
+              ? rawSecStr.split(',').map(s => s.trim()).filter(Boolean)
+              : (Array.isArray(rawSecStr) ? rawSecStr : [])
+            if (names.length > 0) {
+              const totalQ = Number(test.totalQuestions || test.total_questions || 100)
+              const marksPerQ = Number(test.marksPerQuestion || test.marks_per_question || 2)
+              const qPerSec = Math.floor(totalQ / names.length)
+              sections = names.map((name, i) => {
+                const count = i === names.length - 1 ? totalQ - qPerSec * (names.length - 1) : qPerSec
+                return {
+                  name,
+                  questionCount: count,
+                  totalMarks: count * marksPerQ,
+                  timeLimit: null
+                }
+              })
+            }
+          }
+        }
+      } catch (secErr) {
+        console.warn('Could not enrich sections:', secErr.message)
+      }
+    }
 
     res.json({
       success: true,
       data: {
         ...enrichedTest,
+        sections: sections || enrichedTest.sections || [],
         testSeriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
         seriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
         hasAccess,
@@ -786,6 +855,7 @@ router.post('/:testId/start', protect, async (req, res) => {
     if (isProRestrictedTest(test) && !isProUser(req.user)) {
       return res.status(403).json({
         success: false,
+        requiresPro: true,
         message: 'Pro Pass required for this test',
       })
     }
@@ -1089,25 +1159,42 @@ router.put('/:testId/submit', protect, async (req, res) => {
     let unattempted = 0
 
     const totalQuestions = Number(test.totalQuestions ?? questions.length ?? 0) || questions.length
-    const totalMarks = Number(test.totalMarks ?? totalQuestions * 1)
-    const marksPerQuestion = totalQuestions > 0 ? totalMarks / totalQuestions : 0
-    const negativeMarks = Number(test.negativeMarking ?? test.negativeMarks ?? 0)
+    
+    // In SSC and standard test prep: default is 2 marks per question, negative mark is 0.5 per question (0.25 of marksPerQuestion)
+    const testMarksPerQ = Number(test.marksPerQuestion ?? test.positiveMarks ?? test.positive_marks ?? 0)
+    const marksPerQuestion = testMarksPerQ > 0 ? testMarksPerQ : (Number(test.totalMarks) > 0 && totalQuestions > 0 ? Number(test.totalMarks) / totalQuestions : 2)
+    const totalMarks = Number(test.totalMarks ?? (totalQuestions * marksPerQuestion)) || (totalQuestions * 2)
+
+    // If a question is 2 marks, its negative marking is 0.5 per question (or 0.25 of positive mark)
+    const testNeg = Number(test.negativeMarking ?? test.negativeMarks ?? test.negative_marks ?? 0)
+    const negativeMarks = testNeg > 0 ? testNeg : (marksPerQuestion === 2 ? 0.5 : (marksPerQuestion * 0.25))
+
+    let calculatedTotalScore = 0
 
     questions.forEach((question) => {
       const answer = submittedAnswers.find((entry) => idsMatch(entry?.questionId, getQuestionId(question)))
       const selectedOption = normalizeOptionIndex(answer?.selectedOption)
       const correctOption = normalizeOptionIndex(getCorrectOption(question))
 
+      const qPositive = Number(question.marks ?? question.positive_marks ?? marksPerQuestion)
+      const qNegative = Number(
+        (question.negativeMarks !== undefined && question.negativeMarks !== null && !isNaN(question.negativeMarks) && Number(question.negativeMarks) > 0)
+          ? question.negativeMarks
+          : (qPositive === 2 ? 0.5 : (qPositive * 0.25))
+      )
+
       if (selectedOption === null) {
         unattempted++
       } else if (selectedOption === correctOption) {
         correct++
+        calculatedTotalScore += qPositive
       } else {
         wrong++
+        calculatedTotalScore -= qNegative
       }
     })
 
-    const score = (correct * marksPerQuestion) - (wrong * negativeMarks)
+    const score = Number(calculatedTotalScore.toFixed(2))
     const accuracy = correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0
 
     const attemptData = {
@@ -1116,7 +1203,7 @@ router.put('/:testId/submit', protect, async (req, res) => {
       testTitle: test.title || null,
       seriesId: test.seriesId || test.series_id,
       totalQuestions,
-      score: Math.max(0, score),
+      score: score, // Preserves negative scores (e.g. -3.0 when 6 questions attempted and all wrong)
       totalMarks,
       correct,
       wrong,
@@ -1271,7 +1358,14 @@ router.put('/:testId/submit', protect, async (req, res) => {
             title: 'Test result available',
             message: `Your result for ${test.title || 'test'} is now available.`,
             type: 'result_declared',
-            metadata: { testId: test._id || test.id, attemptId: resolvedAttemptId },
+            actionUrl: `/${test.seriesSlug || test.series_slug || 'ssc-cgl-2026'}/tests/${test._id || test.id}/result${resolvedAttemptId ? `?attemptId=${resolvedAttemptId}` : ''}`,
+            metadata: { 
+              testId: test._id || test.id, 
+              attemptId: resolvedAttemptId,
+              seriesSlug: test.seriesSlug || test.series_slug || 'ssc-cgl-2026',
+              link: `/${test.seriesSlug || test.series_slug || 'ssc-cgl-2026'}/tests/${test._id || test.id}/result${resolvedAttemptId ? `?attemptId=${resolvedAttemptId}` : ''}`,
+              testTitle: test.title
+            },
           }),
         ])
       } catch (backgroundError) {

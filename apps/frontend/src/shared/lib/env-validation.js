@@ -2,8 +2,7 @@
 // Called during app initialization to ensure required env vars are set
 
 const REQUIRED_ENV_VARS = [
-  'VITE_SOCKET_URL',
-  'VITE_ADMIN_URL'
+  'VITE_SOCKET_URL'
 ]
 
 const WARNINGS = [

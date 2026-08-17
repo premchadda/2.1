@@ -197,22 +197,14 @@ const LiveTestInterface = () => {
     }
   }, [])
 
-  // Request fullscreen when test starts
+  // Only exit fullscreen on unmount if active
   useEffect(() => {
-    if (test && !loading && !isSubmitted) {
-      const el = document.documentElement
-      if (el.requestFullscreen) {
-        el.requestFullscreen().catch(() => {
-          toast('For best experience, use fullscreen mode', { icon: 'ℹ️' })
-        })
-      }
-    }
     return () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {})
       }
     }
-  }, [test, loading, isSubmitted])
+  }, [])
 
   // Track visited questions
   useEffect(() => {
@@ -334,7 +326,7 @@ const LiveTestInterface = () => {
   const progress = ((currentQuestion + 1) / test.questions.length) * 100
 
   return (
-    <div className="test-interface">
+    <div className="test-interface overscroll-none overscroll-y-none touch-pan-y">
       <Helmet>
         <title>{test?.title || 'Live Test'} | Trstprep</title>
         <meta name="description" content="Taking live test on Trstprep." />
@@ -342,10 +334,10 @@ const LiveTestInterface = () => {
         <meta property="og:type" content="website" />
       </Helmet>
       <div className="test-header">
-        <div className="test-header-left">
-          <h1>{test.title}</h1>
+        <div className="test-header-left min-w-0 flex-1 pr-1">
+          <h1 title={test.title} className="line-clamp-2 leading-tight break-words font-extrabold">{test.title}</h1>
           {liveRank && (
-            <span className="test-live-rank">
+            <span className="test-live-rank shrink-0">
               Live Rank: <strong>#{liveRank.rank}</strong> ({liveRank.percentile}%)
             </span>
           )}

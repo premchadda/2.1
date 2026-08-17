@@ -32,12 +32,20 @@ const TRUSTED_ORIGINS = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN 
 
 const WEBHOOK_PREFIXES = ['/api/payments/webhook', '/api/webhooks']
 
+const PRIVATE_IP_REGEX = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/
+
+const isPrivateIP = (hostname) => {
+  if (!hostname) return false
+  return PRIVATE_IP_REGEX.test(hostname)
+}
+
 const isLoopback = (hostname) => {
   if (!hostname) return false
   return (
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
     hostname === '::1' ||
+    hostname === '0.0.0.0' ||
     hostname.endsWith('.localhost') ||
     hostname.endsWith('.local')
   )
@@ -85,6 +93,11 @@ export const validateOrigin = (req, res, next) => {
 
   const trustedOrigins = new Set([
     ...envOrigins,
+    ...(process.env.ALLOWED_LAN_HOSTS || '')
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean)
+      .map((h) => (h.startsWith('http') ? h : `http://${h}`)),
     process.env.FRONTEND_URL,
     process.env.ADMIN_PANEL_URL,
     'https://trstprep.vercel.app',
@@ -94,9 +107,9 @@ export const validateOrigin = (req, res, next) => {
   // Trusted, explicitly configured origins or vercel.app preview domains
   if (trustedOrigins.has(origin) || (originHostname && originHostname.endsWith('.vercel.app'))) return next()
 
-  // Development convenience: allow loopback origins regardless of port so the
-  // Vite dev server (e.g. :5173) can call the API (e.g. :5001).
-  if (process.env.NODE_ENV !== 'production' && isLoopback(originHostname)) return next()
+  // Development convenience: allow loopback and private LAN origins regardless of port so
+  // local mobile / dev testing can call the API.
+  if (process.env.NODE_ENV !== 'production' && (isLoopback(originHostname) || isPrivateIP(originHostname))) return next()
 
   console.warn(`[CSRF] Blocked cross-origin state-changing request from ${origin} to ${requestHost || path}`)
   return res.status(403).json({
@@ -153,6 +166,15 @@ export const restrictAdminOrigin = (req, res, next) => {
 
   if (sameOriginHost(originHost, requestHost)) return next()
 
+  const lanOrigins = new Set(
+    (process.env.ALLOWED_LAN_HOSTS || '')
+      .split(',')
+      .map((h) => h.trim())
+      .filter(Boolean)
+      .map((h) => (h.startsWith('http') ? h : `http://${h}`))
+  )
+  if (lanOrigins.has(origin)) return next()
+
   if (ADMIN_PANEL_URL) {
     try {
       if (new URL(ADMIN_PANEL_URL).host === originHost) return next()
@@ -161,7 +183,7 @@ export const restrictAdminOrigin = (req, res, next) => {
     }
   }
 
-  if (process.env.NODE_ENV !== 'production' && isLoopback(originHostname)) return next()
+  if (process.env.NODE_ENV !== 'production' && (isLoopback(originHostname) || isPrivateIP(originHostname))) return next()
 
   console.warn(`[ADMIN] Blocked non-admin-origin state-changing request from ${origin}`)
   return res.status(403).json({

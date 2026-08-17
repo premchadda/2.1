@@ -422,14 +422,14 @@ const liveMockService = {
           submitted_at = NOW(),
           updated_at = NOW()
          WHERE id = $6`,
-         [Math.max(0, score), totalMarks, correct, wrong, skipped, attempt.rows[0].id]
+         [Number(score.toFixed(2)), totalMarks, correct, wrong, skipped, attempt.rows[0].id]
       )
 
       await client.query('COMMIT')
 
       return {
         attemptId: attempt.rows[0].id,
-        score: Math.max(0, score),
+        score: Number(score.toFixed(2)),
         correct,
         wrong,
         skipped,

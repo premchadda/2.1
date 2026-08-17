@@ -32,6 +32,7 @@ import {
   Brain,
   Sparkles,
   RotateCcw,
+  User,
 } from 'lucide-react';
 
 import { getDashboardCache, setDashboardCache, clearDashboardCache } from '../../shared/lib/dashboardCache'
@@ -485,15 +486,154 @@ function Dashboard() {
       })
   }, [attemptRows])
 
-  // Calculate user stats from analytics
-  const userStats = useMemo(() => ({
-    testsTaken: analytics?.totalTests || user?.testsTaken || user?.totalTests || 0,
-    accuracy: analytics?.avgAccuracy || user?.avgAccuracy || user?.accuracy || 0,
-    rank: analytics?.rank || user?.rank || user?.bestRank || '-',
-    timeSpent: analytics?.totalHours || user?.timeSpent || user?.hoursSpent || 0,
-    streak: analytics?.streak || user?.streak || 0,
-    improvement: analytics?.improvement || null
-  }), [analytics, user])
+  // Derive real-time aggregate statistics from user attempt history
+  const derivedStatsFromAttempts = useMemo(() => {
+    if (!attemptRows || !Array.isArray(attemptRows) || attemptRows.length === 0) {
+      return {
+        testsTaken: 0,
+        accuracy: 0,
+        timeSpent: '0h',
+        totalHours: 0,
+        rank: '—',
+        streak: 0,
+      }
+    }
+
+    const completed = attemptRows.filter(a => {
+      const st = String(a.status || '').toLowerCase()
+      return st === 'completed' || st === 'submitted' || a.isCompleted || a.is_completed || a.score !== undefined
+    })
+
+    const effectiveAttempts = completed.length > 0 ? completed : attemptRows
+    const totalTests = effectiveAttempts.length
+
+    let totalCorrect = 0
+    let totalWrong = 0
+    let totalTimeSpentSeconds = 0
+    let bestRank = null
+    const attemptDates = new Set()
+
+    effectiveAttempts.forEach((attempt) => {
+      totalCorrect += Number(attempt.correct ?? attempt.correctAnswers) || 0
+      totalWrong += Number(attempt.wrong ?? attempt.wrongAnswers) || 0
+      totalTimeSpentSeconds += Number(attempt.timeSpent || attempt.time_spent || attempt.timeTaken || attempt.duration || 0)
+
+      const r = Number(attempt.rank)
+      if (r > 0) {
+        if (!bestRank || r < bestRank) {
+          bestRank = r
+        }
+      }
+
+      const rawDate = attempt.submittedAt || attempt.date || attempt.createdAt || attempt.created_at
+      if (rawDate) {
+        try {
+          const d = new Date(rawDate).toISOString().split('T')[0]
+          attemptDates.add(d)
+        } catch {
+          // ignore
+        }
+      }
+    })
+
+    const totalAnswered = totalCorrect + totalWrong
+    const avgAccuracy = totalAnswered > 0 
+      ? Math.round((totalCorrect / totalAnswered) * 100) 
+      : (effectiveAttempts.some(a => Number(a.accuracy) > 0)
+          ? Math.round(effectiveAttempts.reduce((acc, a) => acc + (Number(a.accuracy) || 0), 0) / effectiveAttempts.length)
+          : 0)
+
+    const totalMinutes = Math.round(totalTimeSpentSeconds / 60)
+    let timeSpentDisplay = '0h'
+    if (totalTimeSpentSeconds >= 3600) {
+      const hours = (totalTimeSpentSeconds / 3600).toFixed(1)
+      timeSpentDisplay = `${parseFloat(hours)}h`
+    } else if (totalMinutes > 0) {
+      timeSpentDisplay = `${totalMinutes}m`
+    } else if (totalTimeSpentSeconds > 0) {
+      timeSpentDisplay = `${totalTimeSpentSeconds}s`
+    } else if (totalTests > 0) {
+      timeSpentDisplay = `${totalTests * 0.5}h`
+    }
+
+    // Calculate streak from unique calendar days
+    let currentStreak = 0
+    if (attemptDates.size > 0) {
+      const today = new Date()
+      let checkDate = new Date(today)
+      const todayStr = checkDate.toISOString().split('T')[0]
+      checkDate.setDate(checkDate.getDate() - 1)
+      const yesterdayStr = checkDate.toISOString().split('T')[0]
+
+      if (attemptDates.has(todayStr) || attemptDates.has(yesterdayStr)) {
+        let cursor = attemptDates.has(todayStr) ? new Date(today) : checkDate
+        while (attemptDates.has(cursor.toISOString().split('T')[0])) {
+          currentStreak++
+          cursor.setDate(cursor.getDate() - 1)
+        }
+      }
+      if (currentStreak === 0 && attemptDates.size > 0) {
+        currentStreak = 1
+      }
+    }
+
+    return {
+      testsTaken: totalTests,
+      accuracy: avgAccuracy,
+      timeSpent: timeSpentDisplay,
+      totalHours: Math.round(totalTimeSpentSeconds / 3600),
+      rank: bestRank ? `#${bestRank}` : '—',
+      streak: currentStreak,
+    }
+  }, [attemptRows])
+
+  // Calculate user stats by fusing analytics with real-time attempt rows
+  const userStats = useMemo(() => {
+    const testsTaken = (Number(analytics?.totalTests) > 0)
+      ? Number(analytics.totalTests)
+      : Math.max(derivedStatsFromAttempts.testsTaken, Number(user?.testsTaken) || Number(user?.totalTests) || 0)
+
+    const accuracy = (Number(analytics?.avgAccuracy) > 0)
+      ? Number(analytics.avgAccuracy)
+      : (derivedStatsFromAttempts.accuracy > 0
+          ? derivedStatsFromAttempts.accuracy
+          : (Number(user?.avgAccuracy) || Number(user?.accuracy) || 0))
+
+    let rank = '—'
+    if (analytics?.rank && Number(analytics.rank) > 0) {
+      rank = `#${analytics.rank}`
+    } else if (derivedStatsFromAttempts.rank !== '—') {
+      rank = derivedStatsFromAttempts.rank
+    } else if (user?.rank && user.rank !== '-' && user.rank !== 0) {
+      rank = String(user.rank).startsWith('#') ? user.rank : `#${user.rank}`
+    } else if (user?.bestRank && user.bestRank !== '-' && user.bestRank !== 0) {
+      rank = String(user.bestRank).startsWith('#') ? user.bestRank : `#${user.bestRank}`
+    }
+
+    let timeSpent = '0h'
+    if (analytics?.totalHours !== undefined && Number(analytics.totalHours) > 0) {
+      timeSpent = `${analytics.totalHours}h`
+    } else if (derivedStatsFromAttempts.timeSpent !== '0h') {
+      timeSpent = derivedStatsFromAttempts.timeSpent
+    } else if (Number(user?.timeSpent || user?.hoursSpent) > 0) {
+      timeSpent = `${user.timeSpent || user.hoursSpent}h`
+    }
+
+    const streak = (Number(analytics?.streak) > 0)
+      ? Number(analytics.streak)
+      : (derivedStatsFromAttempts.streak > 0
+          ? derivedStatsFromAttempts.streak
+          : (Number(user?.streak) || (testsTaken > 0 ? 1 : 0)))
+
+    return {
+      testsTaken,
+      accuracy,
+      rank,
+      timeSpent,
+      streak,
+      improvement: analytics?.improvement || null
+    }
+  }, [analytics, derivedStatsFromAttempts, user])
 
   // Helper function to get category emoji for dashboard
   const getCategoryEmojiForDashboard = (category) => {
@@ -522,25 +662,46 @@ function Dashboard() {
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Welcome Banner with Animated Background */}
-      <AnimatedHero pageType="dashboard">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <AnimatedHero pageType="dashboard" className="pb-9 sm:pb-10 md:pb-11">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-2xl font-bold text-white shadow-lg animate-scale-in hover:scale-110 transition-transform duration-300 cursor-default">
-              {initials}
-            </div>
-            <div className="text-white">
-              <h1 className="text-3xl md:text-3xl font-bold animate-slide-in-right" style={{ animationDelay: '0.1s' }}>
-                Welcome back, {userName.split(' ')[0]}! 👋
+            <Link
+              to="/profile"
+              className="relative group block shrink-0"
+              title="View Profile"
+            >
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
+                {user?.avatar || user?.avatarUrl || user?.photoURL ? (
+                  <img
+                    src={user.avatar || user.avatarUrl || user.photoURL}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextSibling) {
+                        e.currentTarget.nextSibling.style.display = 'flex';
+                      }
+                    }}
+                  />
+                ) : null}
+                <div className={`${user?.avatar || user?.avatarUrl || user?.photoURL ? 'hidden' : 'flex'} w-full h-full items-center justify-center bg-white/20 backdrop-blur-sm`}>
+                  <User className="w-7 h-7 sm:w-8 sm:h-8 text-white/90" />
+                </div>
+              </div>
+            </Link>
+            <div className="text-white min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold animate-slide-in-right truncate" title={`Welcome ${userName.trim().split(/\s+/)[0] || 'Student'}`} style={{ animationDelay: '0.1s' }}>
+                Welcome {userName.trim().split(/\s+/)[0] || 'Student'} 👋
               </h1>
-              <p className="text-purple-100 text-sm md:text-base mt-1 animate-slide-in-right" style={{ animationDelay: '0.2s' }}>
+              <p className="text-purple-100 text-xs sm:text-sm md:text-base mt-1 animate-slide-in-right truncate" style={{ animationDelay: '0.2s' }}>
                 Continue your preparation journey
               </p>
             </div>
           </div>
           
           {/* Your Progress - Hero Section */}
-          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-4 animate-slide-in-right" style={{ animationDelay: '0.3s' }}>
-            <div className="flex items-center gap-2 mb-3">
+          <div className="bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 p-4 md:p-4.5 md:min-w-[320px] lg:min-w-[360px] shadow-lg animate-slide-in-right shrink-0" style={{ animationDelay: '0.3s' }}>
+            <div className="flex items-center gap-2 mb-2.5">
               <Flame className="w-5 h-5 text-orange-300" />
               <span className="text-white font-bold text-sm">Your Progress</span>
               <span className="ml-auto px-2 py-0.5 bg-white/20 rounded-full text-xs text-white font-medium">
@@ -550,28 +711,28 @@ function Dashboard() {
             <p className="text-purple-100 text-xs mb-3">Keep up the great work!</p>
             <div className="grid grid-cols-4 gap-2">
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{userStats.testsTaken}</p>
-                <p className="text-purple-200 text-[10px]">Tests</p>
+                <p className="text-xl font-bold text-white leading-none">{userStats.testsTaken}</p>
+                <p className="text-purple-200 text-[10px] mt-1">Tests</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{userStats.accuracy}%</p>
-                <p className="text-purple-200 text-[10px]">Accuracy</p>
+                <p className="text-xl font-bold text-white leading-none">{userStats.accuracy}%</p>
+                <p className="text-purple-200 text-[10px] mt-1">Accuracy</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{userStats.rank !== '-' && userStats.rank ? `#${userStats.rank}` : '—'}</p>
-                <p className="text-purple-200 text-[10px]">Rank</p>
+                <p className="text-xl font-bold text-white leading-none">{userStats.rank}</p>
+                <p className="text-purple-200 text-[10px] mt-1">Rank</p>
               </div>
               <div className="text-center">
-                <p className="text-xl font-bold text-white">{userStats.timeSpent}h</p>
-                <p className="text-purple-200 text-[10px]">Time</p>
+                <p className="text-xl font-bold text-white leading-none">{userStats.timeSpent}</p>
+                <p className="text-purple-200 text-[10px] mt-1">Time</p>
               </div>
             </div>
           </div>
         </div>
       </AnimatedHero>
 
-      {/* Quick Access - Overlaps welcome banner with -mt-6, matches homepage */}
-      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-9 relative z-20">
+      {/* Quick Access - Floats slightly over hero section with title height */}
+      <section className="max-w-7xl mb-6 mx-auto px-4 sm:px-6 lg:px-8 -mt-6 md:-mt-7 relative z-20">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-4 md:p-6 animate-slide-in-up" style={{ animationDelay: '0.15s' }}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Quick Access</h2>

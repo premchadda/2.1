@@ -48,6 +48,7 @@ function TestResult() {
   const [error, setError] = useState(null)
   const [_activeTab, _setActiveTab] = useState('overview')
   const [solutionFilter, setSolutionFilter] = useState('all')
+  const [solutionSectionFilter, setSolutionSectionFilter] = useState('all')
   const [expandedSolutions, setExpandedSolutions] = useState({})
   const [isProUser, setIsProUser] = useState(false)
   const [_reportingQuestionId, _setReportingQuestionId] = useState(null)
@@ -139,17 +140,70 @@ function TestResult() {
         const resultData = response.data?.data
 
         if (resultData) {
+          const answersMap = new Map()
+          if (Array.isArray(resultData.answers)) {
+            resultData.answers.forEach((ans, idx) => {
+              if (ans?.questionId) answersMap.set(String(ans.questionId), ans)
+              answersMap.set(String(idx), ans)
+            })
+          }
+
           if (Array.isArray(resultData.questions)) {
             resultData.questions = resultData.questions.map((q, index) => {
               const mapped = mapQuestionToFrontend(q)
+              const qid = String(q.id || q._id || mapped.id || mapped._id)
+              const ansFromList = answersMap.get(qid) || answersMap.get(String(index)) || null
+              
+              const rawTime = q.timeTaken ?? q.timeSpent ?? q.time_taken ?? q.time_spent ?? ansFromList?.timeSpent ?? ansFromList?.timeTaken ?? ansFromList?.time_spent ?? ansFromList?.time ?? 0
+              const rawUserAns = q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice ?? ansFromList?.selectedOption ?? ansFromList?.userAnswer
+              
+              const rawMarks = Number(
+                (q.marks && !isNaN(q.marks) && Number(q.marks) > 0)
+                  ? q.marks
+                  : (mapped.marks && !isNaN(mapped.marks) && Number(mapped.marks) > 0)
+                  ? mapped.marks
+                  : (resultData.marksPerQuestion ?? resultData.positiveMarks ?? 2)
+              )
+
+              const rawNegativeMarks = Number(
+                (q.negativeMarks !== undefined && q.negativeMarks !== null && !isNaN(q.negativeMarks) && Number(q.negativeMarks) > 0)
+                  ? q.negativeMarks
+                  : (resultData.negativeMarks !== undefined && resultData.negativeMarks !== null && !isNaN(resultData.negativeMarks) && Number(resultData.negativeMarks) > 0)
+                  ? resultData.negativeMarks
+                  : (rawMarks > 0 ? rawMarks * 0.25 : 0.5)
+              )
+
               return {
                 ...mapped,
                 originalIndex: index + 1,
-                userAnswer: q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice,
+                userAnswer: rawUserAns,
                 isMarked: q.isMarked ?? q.is_marked ?? false,
-                correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.correct !== undefined ? q.correct : q.correct_option)
+                correctAnswer: q.correctAnswer !== undefined ? q.correctAnswer : (q.correct !== undefined ? q.correct : q.correct_option),
+                timeTaken: Number(rawTime || 0),
+                timeSpent: Number(rawTime || 0),
+                marks: rawMarks,
+                negativeMarks: rawNegativeMarks,
               }
             })
+
+            // Recalculate score from evaluated questions to handle any historical 0-clamped backend data
+            let computedScore = 0
+            let hasEvaluatedQuestions = false
+            resultData.questions.forEach((q) => {
+              const uAns = q.userAnswer
+              if (uAns !== undefined && uAns !== null && uAns !== '' && uAns !== -1) {
+                hasEvaluatedQuestions = true
+                const isCorr = Number(uAns) === Number(q.correctAnswer ?? q.correct)
+                if (isCorr) {
+                  computedScore += Number(q.marks || 2)
+                } else {
+                  computedScore -= Number(q.negativeMarks !== undefined ? q.negativeMarks : 0.5)
+                }
+              }
+            })
+            if (hasEvaluatedQuestions && (resultData.score === undefined || resultData.score === null || resultData.score === 0)) {
+              resultData.score = Number(computedScore.toFixed(2))
+            }
           }
           setResult(resultData)
         } else {
@@ -282,16 +336,73 @@ function TestResult() {
   }
 
   const getSubjectBreakdown = () => {
-    if (!result.questions) return {}
+    if (!result?.questions) return {}
     const breakdown = {}
-    result.questions.forEach(q => {
+    
+    const defaultMarks = Number(
+      result.positiveMarks ?? result.positive_marks ?? result.marksPerQuestion ?? result.marks_per_question ?? 2
+    )
+    const defaultNeg = Number(
+      result.negativeMarks ?? result.negative_marks ?? (defaultMarks > 0 ? defaultMarks * 0.25 : 0.5)
+    )
+
+    result.questions.forEach((q) => {
       const section = q.section || q.subject || 'General'
-      if (!breakdown[section]) breakdown[section] = { correct: 0, wrong: 0, unattempted: 0, total: 0 }
+
+      const qMarks = Number(q.marks && !isNaN(q.marks) && Number(q.marks) > 0 ? q.marks : defaultMarks)
+      const qNeg = Number(
+        (q.negativeMarks !== undefined && q.negativeMarks !== null && !isNaN(q.negativeMarks) && Number(q.negativeMarks) > 0)
+          ? q.negativeMarks
+          : (defaultNeg > 0 ? defaultNeg : (qMarks * 0.25))
+      )
+
+      if (!breakdown[section]) {
+        breakdown[section] = {
+          correct: 0,
+          wrong: 0,
+          unattempted: 0,
+          total: 0,
+          timeSpent: 0,
+          score: 0,
+          maxScore: 0,
+          positiveMarks: qMarks,
+          negativeMarks: qNeg
+        }
+      }
       breakdown[section].total++
-      if (isSkippedQuestion(q)) breakdown[section].unattempted++
-      else if (isCorrectQuestion(q)) breakdown[section].correct++
-      else breakdown[section].wrong++
+      breakdown[section].maxScore += qMarks
+
+      const qTime = Number(q.timeTaken || q.timeSpent || 0)
+      breakdown[section].timeSpent += qTime
+
+      if (isSkippedQuestion(q)) {
+        breakdown[section].unattempted++
+      } else if (isCorrectQuestion(q)) {
+        breakdown[section].correct++
+        breakdown[section].score += qMarks
+      } else {
+        breakdown[section].wrong++
+        breakdown[section].score -= qNeg
+      }
     })
+
+    // If per-question times sum to 0, check sectionTimers/sectionTimings or overall timeSpent
+    const sectionTimers = result.sectionTimers || result.sectionTimings || {}
+    Object.keys(breakdown).forEach(sec => {
+      if (breakdown[sec].timeSpent === 0 && sectionTimers[sec]) {
+        breakdown[sec].timeSpent = Number(sectionTimers[sec])
+      }
+    })
+
+    const totalCalculatedTime = Object.values(breakdown).reduce((s, b) => s + b.timeSpent, 0)
+    const overallTotalTime = Number(result.timeSpent || result.timeTaken || 0)
+    if (totalCalculatedTime === 0 && overallTotalTime > 0 && result.questions.length > 0) {
+      Object.keys(breakdown).forEach(sec => {
+        const ratio = breakdown[sec].total / result.questions.length
+        breakdown[sec].timeSpent = Math.round(overallTotalTime * ratio)
+      })
+    }
+
     return breakdown
   }
 
@@ -310,11 +421,19 @@ function TestResult() {
 
   const getFilteredQuestions = () => {
     if (!result.questions) return []
-    if (solutionFilter === 'correct') return result.questions.filter(q => isCorrectQuestion(q))
-    if (solutionFilter === 'wrong') return result.questions.filter(q => isWrongQuestion(q))
-    if (solutionFilter === 'unattempted' || solutionFilter === 'skip') return result.questions.filter(q => isSkippedQuestion(q))
-    if (solutionFilter === 'marked') return result.questions.filter(q => q.isMarked || q.is_marked)
-    return result.questions
+    let list = result.questions
+
+    // 1. Filter by Section
+    if (solutionSectionFilter && solutionSectionFilter !== 'all') {
+      list = list.filter(q => (q.section || q.subject || 'General') === solutionSectionFilter)
+    }
+
+    // 2. Filter by Status
+    if (solutionFilter === 'correct') return list.filter(q => isCorrectQuestion(q))
+    if (solutionFilter === 'wrong') return list.filter(q => isWrongQuestion(q))
+    if (solutionFilter === 'unattempted' || solutionFilter === 'skip') return list.filter(q => isSkippedQuestion(q))
+    if (solutionFilter === 'marked') return list.filter(q => q.isMarked || q.is_marked)
+    return list
   }
 
   const toggleSolution = (qId) => {
@@ -341,7 +460,7 @@ function TestResult() {
   const skippedCount = questions.length > 0 ? calculatedSkipped : (result.unattempted ?? result.skippedQuestions ?? 0)
   const totalQuestions = result.totalQuestions || questions.length || 0
   const attemptRate = totalQuestions > 0 ? ((correctCount + wrongCount) / totalQuestions) * 100 : 0
-  const avgTimePerQuestion = totalQuestions > 0 ? Math.round((result.timeSpent || result.timeTaken || 0) / totalQuestions) : 0
+
   const strongestSubject = Object.entries(subjectBreakdown)
     .map(([subject, data]) => ({ subject, accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0 }))
     .sort((a, b) => b.accuracy - a.accuracy)[0]
@@ -439,33 +558,89 @@ function TestResult() {
   // Sidebar sections
   const sections = [
     { id: 'score', label: 'Score', icon: Trophy },
-    { id: 'overview', label: 'Overview', icon: PieChart },
     { id: 'subjects', label: 'Subjects', icon: Layers },
     { id: 'difficulty', label: 'Difficulty', icon: Zap },
     { id: 'time', label: 'Time', icon: Timer },
     { id: 'solutions', label: 'Solutions', icon: BookOpen },
   ]
 
+  // Unique sections list
+  const resultSections = Array.from(new Set(questions.map(q => q.section || q.subject || 'General'))).filter(Boolean)
+
+  // Questions in currently active section filter
+  const questionsInActiveSection = (!solutionSectionFilter || solutionSectionFilter === 'all')
+    ? questions
+    : questions.filter(q => (q.section || q.subject || 'General') === solutionSectionFilter)
+
+  const statusCounts = {
+    correct: questionsInActiveSection.filter(q => isCorrectQuestion(q)).length,
+    wrong: questionsInActiveSection.filter(q => isWrongQuestion(q)).length,
+    skipped: questionsInActiveSection.filter(q => isSkippedQuestion(q)).length,
+    marked: questionsInActiveSection.filter(q => q.isMarked || q.is_marked).length
+  }
+
   // Per-question time analysis
   const questionTimeData = questions.map((q, i) => ({
     index: i + 1,
     time: q.timeTaken || q.timeSpent || 0,
+    section: q.section || q.subject || 'General',
     correct: Number(q.userAnswer) === Number(q.correctAnswer ?? q.correct),
-    skipped: q.userAnswer === undefined || q.userAnswer === null,
+    skipped: isSkippedQuestion(q),
   }))
-  const avgTime = questionTimeData.length > 0 ? questionTimeData.reduce((s, q) => s + q.time, 0) / questionTimeData.length : 0
-  const fastestQ = questionTimeData.length > 0 ? questionTimeData.reduce((a, b) => a.time < b.time ? a : b) : null
-  const slowestQ = questionTimeData.length > 0 ? questionTimeData.filter(q => q.time > 0).reduce((a, b) => a.time > b.time ? a : b, questionTimeData[0]) : null
 
-  // Accuracy by section for radar-like display  
-  const subjectAccuracies = Object.entries(subjectBreakdown).map(([subject, data]) => ({
-    subject,
-    accuracy: data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-    correct: data.correct,
-    wrong: data.wrong,
-    unattempted: data.unattempted,
-    total: data.total,
-  }))
+  const activeQuestionsWithTime = questionTimeData.filter(q => q.time > 0)
+  const attemptedQuestions = questionTimeData.filter(q => !q.skipped)
+  const totalOverallTime = result.timeSpent || result.timeTaken || activeQuestionsWithTime.reduce((s, q) => s + q.time, 0)
+  const countForAvg = activeQuestionsWithTime.length > 0 
+    ? activeQuestionsWithTime.length 
+    : (attemptedQuestions.length > 0 ? attemptedQuestions.length : (totalQuestions || 1))
+  const avgTimePerVisitedQuestion = Math.round(totalOverallTime / countForAvg)
+
+  // Fastest question with positive time spent (> 0s)
+  const fastestQ = activeQuestionsWithTime.length > 0
+    ? activeQuestionsWithTime.reduce((min, q) => q.time < min.time ? q : min)
+    : (questionTimeData[0] || null)
+
+  // Slowest question with max time spent
+  const slowestQ = activeQuestionsWithTime.length > 0
+    ? activeQuestionsWithTime.reduce((max, q) => q.time > max.time ? q : max)
+    : (questionTimeData[0] || null)
+
+  // Section Scorecard data with high-precision analytics
+  const subjectAccuracies = Object.entries(subjectBreakdown).map(([subject, data]) => {
+    const attempted = data.correct + data.wrong
+    // Accuracy %: Ratio of correct answers out of attempted questions (standard exam metric)
+    const accuracy = attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0
+    // Attempt Rate %: Ratio of attempted questions out of total questions in section
+    const attemptRatePct = data.total > 0 ? Math.round((attempted / data.total) * 100) : 0
+    // Average speed per attempted/visited question
+    const avgSecSpeed = attempted > 0 
+      ? Math.round(data.timeSpent / attempted) 
+      : (data.total > 0 ? Math.round(data.timeSpent / data.total) : 0)
+
+    return {
+      subject,
+      accuracy,
+      attemptRatePct,
+      correct: data.correct,
+      wrong: data.wrong,
+      unattempted: data.unattempted,
+      total: data.total,
+      score: data.score,
+      maxScore: data.maxScore || (data.total * 2),
+      timeSpent: data.timeSpent,
+      avgSpeed: avgSecSpeed,
+      positiveMarks: data.positiveMarks || 2,
+      negativeMarks: data.negativeMarks !== undefined ? data.negativeMarks : 0.5,
+    }
+  })
+
+  const formatScoreValue = (val) => {
+    if (val === undefined || val === null || isNaN(val)) return '0'
+    const num = Number(val)
+    const formatted = Number.isInteger(num) ? num.toString() : num.toFixed(1)
+    return num > 0 ? `+${formatted}` : formatted
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
@@ -504,24 +679,39 @@ function TestResult() {
         </div>
       </div>
 
-      <div className="flex relative">
+      <div className="flex relative items-start">
         {/* ═══ LEFT SIDEBAR ═══ */}
         {sidebarOpen && (
           <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />
         )}
-        <aside className={`fixed lg:sticky top-[4.5rem] left-0 h-[calc(100vh-4.5rem)] w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-30 flex-shrink-0 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+        <aside className={`fixed lg:sticky top-[4.5rem] self-start left-0 h-[calc(100vh-4.5rem)] w-60 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-30 flex-shrink-0 flex flex-col transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
           
           {/* Score Ring in Sidebar */}
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-b from-slate-50 to-white dark:from-gray-800 dark:to-gray-800">
             <div className="flex items-center justify-center">
-              <div className="relative w-24 h-24">
-                <svg className="w-24 h-24 transform -rotate-90">
-                  <circle cx="48" cy="48" r="38" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-200 dark:text-gray-600" />
-                  <circle cx="48" cy="48" r="38" stroke="currentColor" strokeWidth="6" fill="transparent" strokeDasharray={2 * Math.PI * 38} strokeDashoffset={2 * Math.PI * 38 - (scorePct / 100) * 2 * Math.PI * 38} className={`${scorePct >= 70 ? 'text-emerald-500' : scorePct >= 40 ? 'text-amber-500' : 'text-rose-500'} transition-all duration-1000`} strokeLinecap="round" />
+              <div className="relative w-24 h-24 bg-white dark:bg-gray-900 rounded-full p-1 shadow-inner border border-gray-200 dark:border-gray-700">
+                <svg className="w-full h-full transform -rotate-90">
+                  <circle cx="44" cy="44" r="36" stroke="currentColor" strokeWidth="5" fill="transparent" className="text-gray-200 dark:text-gray-700" />
+                  <circle 
+                    cx="44" 
+                    cy="44" 
+                    r="36" 
+                    stroke="currentColor" 
+                    strokeWidth="5" 
+                    fill="transparent" 
+                    strokeDasharray={2 * Math.PI * 36} 
+                    strokeDashoffset={2 * Math.PI * 36 - (Math.max(0, Math.min(100, scorePct)) / 100) * 2 * Math.PI * 36} 
+                    className={`${scorePct >= 70 ? 'text-emerald-500' : scorePct >= 40 ? 'text-amber-500' : 'text-rose-500'} transition-all duration-1000`} 
+                    strokeLinecap="round" 
+                  />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-lg font-black">{Math.round(scorePct)}%</span>
-                  <span className="text-[9px] text-gray-400 dark:text-gray-500 font-bold">SCORE</span>
+                  <span className={`text-base font-black tracking-tight ${
+                    (result.score || 0) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-gray-900 dark:text-white'
+                  }`}>
+                    {formatScoreValue(result.score || 0)}
+                  </span>
+                  <span className="text-[8px] text-gray-400 dark:text-gray-500 font-bold uppercase">SCORE</span>
                 </div>
               </div>
             </div>
@@ -559,68 +749,106 @@ function TestResult() {
 
           {/* ── Section 1: Score ── */}
           <section ref={el => sectionRefs.current['score'] = el} data-section-id="score" className="scroll-mt-24 space-y-4">
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl border border-slate-700/50">
-              <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-400 via-purple-500 to-transparent pointer-events-none" />
+            <div className="relative bg-gradient-to-br from-indigo-50 via-slate-50 to-indigo-100 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-950 rounded-2xl sm:rounded-3xl border border-indigo-100 dark:border-indigo-950/40 p-4 sm:p-6 md:p-8 overflow-hidden shadow-card dark:shadow-2xl transition-all duration-300">
+              {/* Animated Glow Background Effects */}
+              <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute -top-32 -left-32 w-80 h-80 bg-indigo-400/15 dark:bg-indigo-500/15 rounded-full blur-3xl animate-pulse duration-[8000ms]" />
+                <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-violet-400/15 dark:bg-indigo-600/15 rounded-full blur-3xl animate-pulse duration-[6000ms]" />
+                <div className="absolute inset-0 opacity-[0.06] dark:opacity-5 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:20px_20px]" />
+              </div>
               
-              <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                {/* Score Dial */}
-                <div className="relative w-32 h-32 md:w-36 md:h-36 flex-shrink-0">
-                  <svg viewBox="0 0 100 100" className="w-32 h-32 md:w-36 md:h-36 transform -rotate-90">
-                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" strokeDasharray={251.327} strokeDashoffset={251.327 - (scorePct / 100) * 251.327} className={`${scorePct >= 70 ? 'text-emerald-400' : scorePct >= 40 ? 'text-amber-400' : 'text-rose-400'} transition-all duration-1000 ease-out`} strokeLinecap="round" />
+              {/* Top Row: Left Marks Dial + Right Test Name, Rank, Percentile, Badge */}
+              <div className="relative z-10 flex flex-row items-center gap-3.5 sm:gap-6 text-left">
+                {/* Score Dial / Marks Display (Left Side) */}
+                <div className="relative w-28 h-28 sm:w-36 sm:h-36 md:w-40 md:h-40 flex-shrink-0 bg-white dark:bg-slate-900 rounded-full p-2.5 shadow-md border-2 border-indigo-200 dark:border-indigo-800/80">
+                  <svg viewBox="0 0 100 100" className="w-full h-full transform -rotate-90">
+                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-100 dark:text-slate-800" />
+                    <circle 
+                      cx="50" 
+                      cy="50" 
+                      r="40" 
+                      stroke={scorePct >= 70 ? '#10b981' : scorePct >= 40 ? '#f59e0b' : '#ef4444'} 
+                      strokeWidth="8" 
+                      fill="transparent" 
+                      strokeDasharray={251.327} 
+                      strokeDashoffset={251.327 - (Math.max(0, Math.min(100, scorePct)) / 100) * 251.327} 
+                      className="transition-all duration-1000 ease-out" 
+                      strokeLinecap="round" 
+                    />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-2xl md:text-3xl font-black tracking-tighter" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                      {(result.score || 0).toFixed(1)}
+                    <span className={`text-xl sm:text-2xl md:text-3xl font-black tracking-tighter ${
+                      (result.score || 0) < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-900 dark:text-white'
+                    }`} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+                      {formatScoreValue(result.score || 0)}
                     </span>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Out of {maxScore}</span>
+                    <span className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 font-extrabold uppercase tracking-wider">Out of {maxScore}</span>
                   </div>
                 </div>
 
-                {/* Score Title & Context */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap mb-2">
-                    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-xs font-black shadow-md`}>
+                {/* Score Title & Context (Right Side: Test Name, Rank, Percentile, Badge) */}
+                <div className="flex-1 min-w-0 flex flex-col justify-center">
+                  <h2 className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white leading-tight break-words">
+                    {result.testTitle || 'Test Completed!'}
+                  </h2>
+                  
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mt-2">
+                    {/* Performance Badge */}
+                    <div className={`inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 rounded-full ${perfBadge.bg} ${perfBadge.text} text-[10px] sm:text-xs font-black shadow-xs`}>
                       <BadgeIcon className="w-3.5 h-3.5" /> {perfBadge.label}
                     </div>
+
+                    {/* Rank Pill/Card */}
+                    {(result.rank || result.predictedRank) && (
+                      <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs">
+                        <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> Rank #{result.predictedRank ? result.predictedRank.toLocaleString() : (result.rank || 1)}
+                      </span>
+                    )}
+
+                    {/* Percentile Pill/Card */}
+                    {result.percentile !== undefined && (
+                      <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-indigo-100 dark:bg-indigo-400/20 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-400/30 shadow-2xs">
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-300" /> {Number(result.percentile).toFixed(1)}%ile {result.isCalibrated ? '(Calibrated)' : ''}
+                      </span>
+                    )}
+
+                    {/* Attempt Delta */}
                     {attemptDelta !== null && (
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-black ${attemptDelta >= 0 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-rose-500/20 text-rose-300'}`}>
+                      <span className={`inline-flex items-center px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black ${
+                        attemptDelta >= 0 ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30' : 'bg-rose-100 dark:bg-rose-500/20 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-500/30'
+                      }`}>
                         {attemptDelta >= 0 ? '+' : ''}{attemptDelta}% vs Previous
                       </span>
                     )}
-                    {(result.rank || result.predictedRank) && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-amber-400/20 text-amber-300 border border-amber-400/30">
-                        <Trophy className="w-3.5 h-3.5 text-amber-400" /> Rank #{result.predictedRank ? result.predictedRank.toLocaleString() : (result.rank || 1)}
-                      </span>
-                    )}
-                    {result.percentile !== undefined && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black bg-indigo-400/20 text-indigo-200 border border-indigo-400/30">
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-300" /> {Number(result.percentile).toFixed(1)}%ile {result.isCalibrated ? '(Calibrated)' : ''}
-                      </span>
-                    )}
                   </div>
-                  <h2 className="text-xl md:text-2xl font-black text-white leading-tight">{result.testTitle || 'Test Completed!'}</h2>
-                  <p className="text-emerald-300 text-xs md:text-sm font-bold mt-1">{getEncouragingCopy()}</p>
                 </div>
               </div>
 
-              {/* 4 KPI Glass Cards */}
-              <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-6 border-t border-white/10">
-                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center md:text-left">
-                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Correct</p>
-                  <p className="text-xl font-black text-emerald-400 mt-0.5">{correctCount}<span className="text-xs text-slate-400 font-medium">/{totalQuestions}</span></p>
+              {/* Encouraging Copy Banner (Full Width Row) */}
+              <div className="relative z-10 bg-white/75 dark:bg-slate-800/75 backdrop-blur-md rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/40 flex items-center gap-2.5 shadow-2xs mt-3 sm:mt-4">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                <p className="text-slate-700 dark:text-emerald-300 text-xs sm:text-sm font-bold leading-snug">
+                  {getEncouragingCopy()}
+                </p>
+              </div>
+
+              {/* 4 KPI Glass Cards (Full Width Row in 1 row on mobile & desktop) */}
+              <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                  <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Correct</p>
+                  <p className="text-sm sm:text-lg md:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{correctCount}<span className="text-[10px] sm:text-xs text-slate-400 font-medium">/{totalQuestions}</span></p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center md:text-left">
-                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Wrong</p>
-                  <p className="text-xl font-black text-rose-400 mt-0.5">{wrongCount}<span className="text-xs text-slate-400 font-medium">/{totalQuestions}</span></p>
+                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                  <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Wrong</p>
+                  <p className="text-sm sm:text-lg md:text-xl font-black text-rose-600 dark:text-rose-400 mt-0.5">{wrongCount}<span className="text-[10px] sm:text-xs text-slate-400 font-medium">/{totalQuestions}</span></p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center md:text-left">
-                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Accuracy</p>
-                  <p className="text-xl font-black text-amber-400 mt-0.5">{(result.accuracy || 0).toFixed(1)}%</p>
+                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                  <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Accuracy</p>
+                  <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{(result.accuracy || 0).toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3.5 border border-white/10 text-center md:text-left">
-                  <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider">Time Taken</p>
-                  <p className="text-xl font-black text-blue-400 mt-0.5">{formatTime(result.timeSpent || result.timeTaken)}</p>
+                <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
+                  <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">Time Taken</p>
+                  <p className="text-sm sm:text-lg md:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate">{formatTime(result.timeSpent || result.timeTaken)}</p>
                 </div>
               </div>
             </div>
@@ -681,84 +909,7 @@ function TestResult() {
             </div>
           </section>
 
-          {/* ── Section 2: Overview ── */}
-          <div className="flex items-center gap-3 pt-4">
-            <div className="flex-1 border-t-2 border-dashed border-indigo-200 dark:border-indigo-800" />
-            <span className="px-3.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
-              <PieChart className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Overview & Distribution
-            </span>
-            <div className="flex-1 border-t-2 border-dashed border-indigo-200 dark:border-indigo-800" />
-          </div>
-
-          <section ref={el => sectionRefs.current['overview'] = el} data-section-id="overview" className="scroll-mt-24 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Accuracy Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-end mb-3">
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Accuracy Meter</p>
-                    <p className="text-3xl font-black text-gray-900 dark:text-white">{(result.accuracy || 0).toFixed(1)}%</p>
-                  </div>
-                  <Target className={`w-8 h-8 ${getAccuracyColor()} opacity-40`} />
-                </div>
-                <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${result.accuracy || 0}%`,
-                      background: (result.accuracy || 0) >= 70 ? '#10b981' : (result.accuracy || 0) >= 50 ? '#f59e0b' : '#ef4444'
-                    }}
-                  />
-                </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 font-bold text-right">
-                  {correctCount} correct of {correctCount + wrongCount} attempted
-                </p>
-              </div>
-
-              {/* Attempt Rate Card */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-end mb-3">
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Attempt Rate</p>
-                    <p className="text-3xl font-black text-gray-900 dark:text-white">{attemptRate.toFixed(1)}%</p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 text-blue-500 opacity-40" />
-                </div>
-                <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{ width: `${attemptRate}%` }} />
-                </div>
-                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 font-bold text-right">
-                  {correctCount + wrongCount} of {totalQuestions} total questions answered
-                </p>
-              </div>
-            </div>
-
-            {/* Answer Distribution Bar */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Answer Distribution</p>
-                <span className="text-xs font-extrabold text-gray-500 dark:text-gray-400">{totalQuestions} Total Questions</span>
-              </div>
-              <div className="flex h-5 rounded-full overflow-hidden bg-gray-100 dark:bg-gray-700 shadow-inner">
-                {correctCount > 0 && <div className="bg-emerald-500 transition-all duration-1000" style={{ width: `${totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0}%` }} />}
-                {wrongCount > 0 && <div className="bg-rose-500 transition-all duration-1000" style={{ width: `${totalQuestions > 0 ? (wrongCount / totalQuestions) * 100 : 0}%` }} />}
-                {skippedCount > 0 && <div className="bg-slate-300 dark:bg-gray-600 transition-all duration-1000" style={{ width: `${totalQuestions > 0 ? (skippedCount / totalQuestions) * 100 : 0}%` }} />}
-              </div>
-              <div className="flex flex-wrap sm:flex-nowrap justify-between gap-2 mt-3 text-xs font-bold">
-                <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                  ● Correct: {correctCount} ({totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0}%)
-                </span>
-                <span className="text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 px-2.5 py-1 rounded-lg border border-rose-200 dark:border-rose-800">
-                  ● Wrong: {wrongCount} ({totalQuestions > 0 ? Math.round((wrongCount / totalQuestions) * 100) : 0}%)
-                </span>
-                <span className="text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-gray-700">
-                  ● Skipped: {skippedCount} ({totalQuestions > 0 ? Math.round((skippedCount / totalQuestions) * 100) : 0}%)
-                </span>
-              </div>
-            </div>
-          </section>
-
-          {/* ── Section 3: Subjects ── */}
+          {/* ── Section 3: Subjects & Section Report Card ── */}
           {Object.keys(subjectBreakdown).length > 0 && (
             <>
               <div className="flex items-center gap-3 pt-4">
@@ -770,33 +921,112 @@ function TestResult() {
               </div>
 
               <section ref={el => sectionRefs.current['subjects'] = el} data-section-id="subjects" className="scroll-mt-24 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {subjectAccuracies.map((s, i) => {
-                    const bgClass = subjectBarClasses[i % subjectBarClasses.length]
-                    return (
-                      <div key={s.subject} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-extrabold text-gray-900 dark:text-white truncate">{s.subject}</h4>
-                          <span className={`text-base font-black px-2.5 py-0.5 rounded-lg ${s.accuracy >= 70 ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300' : s.accuracy >= 40 ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300' : 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'}`}>
-                            {s.accuracy}%
-                          </span>
-                        </div>
-                        <div className="h-2.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden mb-3">
-                          <div className={`h-full ${bgClass} rounded-full transition-all duration-1000`} style={{ width: `${s.accuracy}%` }} />
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs font-bold pt-1">
-                          <span className="text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded">✓ {s.correct}</span>
-                          <span className="text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 px-2 py-0.5 rounded">✗ {s.wrong}</span>
-                          <span className="text-slate-600 dark:text-gray-400 bg-slate-50 dark:bg-gray-900 px-2 py-0.5 rounded">— {s.unattempted}</span>
-                          <span className="text-gray-500 dark:text-gray-400 ml-auto font-medium">Total: {s.total}</span>
-                        </div>
-                      </div>
-                    )
-                  })}
+                {/* Section Performance Report Card Table */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200 dark:border-gray-700 overflow-hidden">
+                  <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-base font-extrabold text-gray-900 dark:text-white">Section-Wise Scorecard</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Detailed report of accuracy, attempts, score and time per section</p>
+                    </div>
+                    <span className="text-xs font-extrabold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-lg border border-indigo-200 dark:border-indigo-800">
+                      {Object.keys(subjectBreakdown).length} Sections
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-[11px] sm:text-xs font-black text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="py-3 px-3 sm:px-4">Section / Subject</th>
+                          <th className="py-3 px-2 sm:px-3 text-center">Total Qs</th>
+                          <th className="py-3 px-2 sm:px-3 text-center">Attempted</th>
+                          <th className="py-3 px-2 sm:px-3 text-center text-emerald-600 dark:text-emerald-400">Correct</th>
+                          <th className="py-3 px-2 sm:px-3 text-center text-rose-600 dark:text-rose-400">Incorrect</th>
+                          <th className="py-3 px-2 sm:px-3 text-center text-slate-500">Skipped</th>
+                          <th className="py-3 px-3 sm:px-4 text-center">Accuracy</th>
+                          <th className="py-3 px-2 sm:px-3 text-center">Score</th>
+                          <th className="py-3 px-3 sm:px-4 text-right">Time Spent</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700 font-medium">
+                        {subjectAccuracies.map((s) => {
+                          const attempted = s.correct + s.wrong
+
+                          return (
+                            <tr key={s.subject} className="hover:bg-slate-50/80 dark:hover:bg-gray-700/40 transition-colors">
+                              <td className="py-3 px-3 sm:px-4 font-bold text-gray-900 dark:text-white">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0" />
+                                  <span className="truncate">{s.subject}</span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center font-bold text-gray-700 dark:text-gray-300">{s.total}</td>
+                              <td className="py-3 px-2 sm:px-3 text-center font-bold text-gray-800 dark:text-gray-200">
+                                {attempted}
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md font-extrabold text-xs bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                                  {s.correct}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-md font-extrabold text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300">
+                                  {s.wrong}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center text-slate-500 dark:text-gray-400 font-semibold">{s.unattempted}</td>
+                              <td className="py-3 px-3 sm:px-4 text-center">
+                                <span className={`inline-flex font-black text-xs px-2.5 py-0.5 rounded-md ${
+                                  s.accuracy >= 75
+                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                                    : s.accuracy >= 50
+                                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                    : 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                                }`}>
+                                  {attempted > 0 ? `${s.accuracy}%` : '-'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-2 sm:px-3 text-center">
+                                <span className={`font-black text-xs sm:text-sm ${
+                                  s.score > 0 ? 'text-indigo-600 dark:text-indigo-400' : s.score < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-400'
+                                }`}>
+                                  {formatScoreValue(s.score)}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 sm:px-4 text-right font-bold text-gray-600 dark:text-gray-300 tabular-nums">
+                                {formatTime(s.timeSpent)}
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-slate-100/80 dark:bg-gray-900/80 font-black border-t-2 border-gray-300 dark:border-gray-600 text-xs sm:text-sm text-gray-900 dark:text-white">
+                          <td className="py-3 px-3 sm:px-4 uppercase tracking-wider">Total / Overall</td>
+                          <td className="py-3 px-2 sm:px-3 text-center">{totalQuestions}</td>
+                          <td className="py-3 px-2 sm:px-3 text-center">{correctCount + wrongCount}</td>
+                          <td className="py-3 px-2 sm:px-3 text-center text-emerald-600 dark:text-emerald-400">{correctCount}</td>
+                          <td className="py-3 px-2 sm:px-3 text-center text-rose-600 dark:text-rose-400">{wrongCount}</td>
+                          <td className="py-3 px-2 sm:px-3 text-center text-slate-500 dark:text-gray-400">{skippedCount}</td>
+                          <td className="py-3 px-3 sm:px-4 text-center">
+                            <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-md font-black">
+                              {(result.accuracy || (correctCount + wrongCount > 0 ? (correctCount / (correctCount + wrongCount)) * 100 : 0)).toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="py-3 px-2 sm:px-3 text-center font-black text-indigo-700 dark:text-indigo-300">
+                            {formatScoreValue(result.score || 0)}
+                          </td>
+                          <td className="py-3 px-3 sm:px-4 text-right tabular-nums">
+                            {formatTime(result.timeSpent || result.timeTaken)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
                 </div>
 
                 {/* Strongest / Weakest Area Highlight */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3">
                   {strongestSubject && (
                     <div className="flex items-start gap-3.5 bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-800">
                       <div className="w-10 h-10 rounded-xl bg-emerald-200 dark:bg-emerald-800/40 flex items-center justify-center flex-shrink-0 text-emerald-800 dark:text-emerald-200 shadow-2xs">
@@ -836,34 +1066,37 @@ function TestResult() {
           </div>
 
           <section ref={el => sectionRefs.current['difficulty'] = el} data-section-id="difficulty" className="scroll-mt-24 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Scrollable single row on mobile, 3-column grid on desktop */}
+            <div className="flex sm:grid sm:grid-cols-3 gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-1">
               {['Easy', 'Medium', 'Hard'].map(difficulty => {
                 const data = difficultyBreakdown[difficulty]
                 const style = difficultyStyles[difficulty]
                 const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0
                 const wrongD = data.total - data.correct
                 return (
-                  <div key={difficulty} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-3 h-3 ${style.dot} rounded-full shadow-xs`} />
-                        <span className="text-base font-extrabold text-gray-900 dark:text-white">{difficulty}</span>
+                  <div key={difficulty} className="min-w-[240px] sm:min-w-0 flex-1 shrink-0 bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700 relative overflow-hidden flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 ${style.dot} rounded-full shadow-xs`} />
+                          <span className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white">{difficulty}</span>
+                        </div>
+                        <span className={`text-lg sm:text-xl font-black ${style.text}`}>{pct}%</span>
                       </div>
-                      <span className={`text-xl font-black ${style.text}`}>{pct}%</span>
-                    </div>
 
-                    {/* Dual Mini Bar Chart */}
-                    <div className="flex gap-2 h-16 items-end mb-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
-                      <div className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full bg-emerald-500 rounded-t-md" style={{ height: `${data.total > 0 ? (data.correct / data.total) * 100 : 0}%`, minHeight: data.correct > 0 ? '4px' : '0' }} />
-                        <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{data.correct} Correct</span>
-                      </div>
-                      <div className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full bg-rose-500 rounded-t-md" style={{ height: `${data.total > 0 ? (wrongD / data.total) * 100 : 0}%`, minHeight: wrongD > 0 ? '4px' : '0' }} />
-                        <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300">{wrongD} Wrong</span>
+                      {/* Dual Mini Bar Chart */}
+                      <div className="flex gap-2 h-14 sm:h-16 items-end mb-3 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl">
+                        <div className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full bg-emerald-500 rounded-t-md" style={{ height: `${data.total > 0 ? (data.correct / data.total) * 100 : 0}%`, minHeight: data.correct > 0 ? '4px' : '0' }} />
+                          <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">{data.correct} Correct</span>
+                        </div>
+                        <div className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full bg-rose-500 rounded-t-md" style={{ height: `${data.total > 0 ? (wrongD / data.total) * 100 : 0}%`, minHeight: wrongD > 0 ? '4px' : '0' }} />
+                          <span className="text-[10px] font-bold text-rose-700 dark:text-rose-300">{wrongD} Wrong</span>
+                        </div>
                       </div>
                     </div>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold text-center">{data.total} total questions in this tier</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold text-center">{data.total} total questions</p>
                   </div>
                 )
               })}
@@ -880,34 +1113,36 @@ function TestResult() {
           </div>
 
           <section ref={el => sectionRefs.current['time'] = el} data-section-id="time" className="scroll-mt-24 space-y-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
                 <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Total Time</p>
-                <p className="text-xl font-black text-gray-900 dark:text-white">{formatTime(result.timeSpent || result.timeTaken)}</p>
+                <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">{formatTime(result.timeSpent || result.timeTaken)}</p>
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 font-medium mt-1">Full test session</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center">
-                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Avg Speed / Question</p>
-                <p className="text-xl font-black text-gray-900 dark:text-white">{avgTimePerQuestion}s</p>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-3.5 sm:p-4 shadow-xs border border-gray-200 dark:border-gray-700 text-center flex flex-col justify-between">
+                <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Avg Speed / Visited Q</p>
+                <p className="text-lg sm:text-xl font-black text-gray-900 dark:text-white">{avgTimePerVisitedQuestion}s</p>
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 font-medium mt-1">Based on {countForAvg} visited Qs</p>
               </div>
               {fastestQ && (
-                <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-4 border border-emerald-200 dark:border-emerald-800 text-center">
-                  <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-wider mb-1">Fastest Solved</p>
-                  <p className="text-xl font-black text-emerald-700 dark:text-emerald-300">Q{fastestQ.index}</p>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{fastestQ.time}s</p>
+                <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-2xl p-3.5 sm:p-4 border border-emerald-200 dark:border-emerald-800 text-center flex flex-col justify-between">
+                  <p className="text-[10px] font-black text-emerald-800 dark:text-emerald-200 uppercase tracking-wider mb-1">Lowest Time Taken</p>
+                  <p className="text-base sm:text-xl font-black text-emerald-700 dark:text-emerald-300">Q{fastestQ.index} <span className="text-xs font-semibold text-emerald-600">({fastestQ.time}s)</span></p>
+                  <p className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold truncate mt-1">{fastestQ.section || 'Fastest'}</p>
                 </div>
               )}
               {slowestQ && (
-                <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-4 border border-rose-200 dark:border-rose-800 text-center">
-                  <p className="text-[10px] font-black text-rose-800 dark:text-rose-200 uppercase tracking-wider mb-1">Slowest / Time Sink</p>
-                  <p className="text-xl font-black text-rose-700 dark:text-rose-300">Q{slowestQ.index}</p>
-                  <p className="text-[10px] text-rose-600 dark:text-rose-400 font-bold">{slowestQ.time}s</p>
+                <div className="bg-rose-50/80 dark:bg-rose-900/20 rounded-2xl p-3.5 sm:p-4 border border-rose-200 dark:border-rose-800 text-center flex flex-col justify-between">
+                  <p className="text-[10px] font-black text-rose-800 dark:text-rose-200 uppercase tracking-wider mb-1">Max Time Taken</p>
+                  <p className="text-base sm:text-xl font-black text-rose-700 dark:text-rose-300">Q{slowestQ.index} <span className="text-xs font-semibold text-rose-600">({formatTime(slowestQ.time)})</span></p>
+                  <p className="text-[9px] text-rose-600 dark:text-rose-400 font-bold truncate mt-1">{slowestQ.section || 'Max Time'}</p>
                 </div>
               )}
             </div>
 
             {/* Per-question time bar chart */}
             {questionTimeData.some(q => q.time > 0) && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xs border border-gray-200 dark:border-gray-700">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-5 shadow-xs border border-gray-200 dark:border-gray-700">
                 <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-4">Question-by-Question Time Graph</p>
                 <div className="flex items-end gap-[2px] h-32 overflow-x-auto">
                   {questionTimeData.map(q => {
@@ -918,7 +1153,7 @@ function TestResult() {
                         <div
                           className={`w-full rounded-t transition-all ${q.skipped ? 'bg-slate-300 dark:bg-gray-600' : q.correct ? 'bg-emerald-500' : 'bg-rose-500'}`}
                           style={{ height: `${Math.max(h, 3)}%` }}
-                          title={`Q${q.index}: ${q.time}s`}
+                          title={`Q${q.index} (${q.section}): ${q.time}s`}
                         />
                       </div>
                     )
@@ -928,11 +1163,11 @@ function TestResult() {
                   <span>Q1</span>
                   <span>Q{questionTimeData.length}</span>
                 </div>
-                <div className="flex items-center gap-4 mt-3 text-xs font-bold">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 text-xs font-bold">
                   <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Correct</span>
                   <span className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" /> Wrong</span>
                   <span className="flex items-center gap-1.5 text-slate-600 dark:text-gray-400"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-gray-600 inline-block" /> Skipped</span>
-                  <span className="text-gray-400 dark:text-gray-500 ml-auto font-medium">Average: {Math.round(avgTime)}s</span>
+                  <span className="text-gray-400 dark:text-gray-500 ml-auto font-medium">Avg Visited: {avgTimePerVisitedQuestion}s</span>
                 </div>
               </div>
             )}
@@ -950,17 +1185,28 @@ function TestResult() {
           <section ref={el => sectionRefs.current['solutions'] = el} data-section-id="solutions" className="scroll-mt-24 pb-12 space-y-4">
             {questions.length > 0 ? (
               <>
-                <div className="sticky top-20 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md space-y-3 mb-4">
+                <div className="sticky top-16 md:top-20 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-md space-y-2.5 mb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="text-base sm:text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-2">
-                      <BookOpen className="w-5 h-5 text-indigo-500" /> Solutions & Explanations
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold shrink-0">
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white leading-tight">
+                          Solutions & Explanations
+                        </h3>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-semibold">
+                          Showing {getFilteredQuestions().length} of {questions.length} questions
+                        </p>
+                      </div>
+                    </div>
+                    
                     <div className="flex items-center gap-2 ml-auto">
                       <button
                         onClick={handleSolutionMode}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-xs"
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5" /> Interactive Review
+                        <Sparkles className="w-3.5 h-3.5" /> <span className="hidden xs:inline">Interactive</span> Review
                       </button>
                       <button
                         onClick={() => setLanguage(lang => {
@@ -969,7 +1215,7 @@ function TestResult() {
                           document.documentElement.lang = next
                           return next
                         })}
-                        className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 shadow-2xs font-bold text-xs"
+                        className="flex items-center gap-1.5 h-8 px-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-slate-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 shadow-2xs font-bold text-xs transition-colors cursor-pointer"
                       >
                         <Globe className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                         <span className="uppercase">{language}</span>
@@ -977,13 +1223,52 @@ function TestResult() {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-700">
+                  {/* Section-Wise Filter Pills (Horizontal Scroll) */}
+                  {resultSections.length > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-0.5 -mx-1 px-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500 shrink-0">
+                        Section:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSolutionSectionFilter('all')}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
+                          solutionSectionFilter === 'all'
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                            : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        All Sections ({questions.length})
+                      </button>
+                      {resultSections.map(sec => {
+                        const secCount = questions.filter(q => (q.section || q.subject || 'General') === sec).length
+                        const isSecActive = solutionSectionFilter === sec
+                        return (
+                          <button
+                            key={sec}
+                            type="button"
+                            onClick={() => setSolutionSectionFilter(sec)}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 border cursor-pointer whitespace-nowrap ${
+                              isSecActive
+                                ? 'bg-indigo-600 border-indigo-600 text-white shadow-xs'
+                                : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {sec} ({secCount})
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+
+                  {/* Status Filter Buttons (Horizontal Scroll on Mobile) */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-2 border-t border-gray-100 dark:border-gray-700 -mx-1 px-1">
                     {[
-                      { key: 'all', label: `All (${questions.length})` },
-                      { key: 'correct', label: `Correct (${correctCount})`, color: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
-                      { key: 'wrong', label: `Wrong (${wrongCount})`, color: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800' },
-                      { key: 'unattempted', label: `Skip (${skippedCount})`, color: 'text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900 border-slate-200 dark:border-gray-700' },
-                      ...(markedCount > 0 ? [{ key: 'marked', label: `Marked (${markedCount})`, color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' }] : [])
+                      { key: 'all', label: `All (${questionsInActiveSection.length})` },
+                      { key: 'correct', label: `✓ Correct (${statusCounts.correct})`, color: 'text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' },
+                      { key: 'wrong', label: `✗ Wrong (${statusCounts.wrong})`, color: 'text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800' },
+                      { key: 'unattempted', label: `— Skipped (${statusCounts.skipped})`, color: 'text-slate-700 dark:text-gray-200 bg-slate-50 dark:bg-gray-900 border-slate-200 dark:border-gray-700' },
+                      ...(statusCounts.marked > 0 ? [{ key: 'marked', label: `★ Marked (${statusCounts.marked})`, color: 'text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800' }] : [])
                     ].map(filter => {
                       const isActive = solutionFilter === filter.key
                       const baseClass = filter.color || 'text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700'
@@ -991,10 +1276,10 @@ function TestResult() {
                         <button
                           key={filter.key}
                           onClick={() => setSolutionFilter(filter.key)}
-                          className={`px-3 py-1 rounded-xl border text-xs font-bold transition-all ${
+                          className={`px-3 py-1 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
                             isActive
-                              ? 'bg-slate-900 border-slate-900 text-white shadow-md'
-                              : `hover:shadow-sm ${baseClass}`
+                              ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                              : `hover:shadow-xs ${baseClass}`
                           }`}
                         >
                           {filter.label}
@@ -1004,80 +1289,171 @@ function TestResult() {
                   </div>
                 </div>
 
-                <div className="space-y-3">
+                {/* Question Cards List */}
+                <div className="space-y-3.5">
                   {getFilteredQuestions().map((q, idx) => {
                     const isCorrect = isCorrectQuestion(q)
                     const isSkipped = isSkippedQuestion(q)
                     const correctAnswer = q.correctAnswer !== undefined ? q.correctAnswer : (q.correct !== undefined ? q.correct : q.correct_option)
                     const questionNum = q.originalIndex || (questions.indexOf(q) + 1)
                     const isExpanded = expandedSolutions[q.id || q._id || idx]
-                    const cardStyle = isSkipped 
-                      ? 'border-l-4 border-l-slate-300 bg-white dark:bg-gray-800' 
+                    const qMarks = Number(q.marks || 2)
+                    const qNegMarks = Number(q.negativeMarks !== undefined ? q.negativeMarks : 0.5)
+                    const qTime = Number(q.timeTaken || q.timeSpent || 0)
+
+                    const cardBorder = isSkipped 
+                      ? 'border-l-4 border-l-slate-400 dark:border-l-slate-600' 
                       : isCorrect 
-                        ? 'border-l-4 border-l-emerald-500 bg-white dark:bg-gray-800' 
-                        : 'border-l-4 border-l-rose-500 bg-white dark:bg-gray-800'
+                        ? 'border-l-4 border-l-emerald-500' 
+                        : 'border-l-4 border-l-rose-500'
                     
                     return (
-                      <div key={q.id || q._id || idx} className={`${cardStyle} border-y border-r rounded-2xl overflow-hidden transition-all ${isExpanded ? 'shadow-lg border-y-indigo-200 border-r-indigo-200 my-3' : 'border-y-gray-200 dark:border-y-gray-700 border-r-gray-200 dark:border-r-gray-700 hover:shadow-md'}`}>
-                        <div onClick={() => toggleSolution(q.id || q._id || idx)} className={`flex items-center justify-between p-4 sm:p-5 cursor-pointer transition-colors ${isExpanded ? 'bg-indigo-50/10 dark:bg-indigo-900/20' : 'hover:bg-gray-50/50 dark:hover:bg-gray-800/50'}`}>
-                          <div className="flex items-start gap-4 min-w-0 pr-4">
-                            <span className={`w-9 h-9 flex-shrink-0 rounded-xl flex items-center justify-center text-sm font-black shadow-sm ${
-                              isSkipped ? 'bg-slate-100 dark:bg-gray-700 text-slate-500 dark:text-gray-400 border border-slate-200 dark:border-gray-700' : isCorrect ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                            }`}>Q{questionNum}</span>
-                            <div>
-                              <div className="text-base font-bold text-gray-800 dark:text-gray-200 line-clamp-2 leading-relaxed">
-                                <MathRenderer text={sanitizeHtml(getLocalizedField(q.text, language) || q.questionText || '')} />
+                      <div 
+                        key={q.id || q._id || idx} 
+                        className={`bg-white dark:bg-gray-800 ${cardBorder} border-y border-r rounded-2xl overflow-hidden transition-all duration-200 ${
+                          isExpanded 
+                            ? 'shadow-md border-y-indigo-200 dark:border-y-indigo-900/60 border-r-indigo-200 dark:border-r-indigo-900/60' 
+                            : 'border-y-gray-200 dark:border-y-gray-700/80 border-r-gray-200 dark:border-r-gray-700/80 hover:shadow-xs'
+                        }`}
+                      >
+                        {/* Header Bar */}
+                        <div 
+                          onClick={() => toggleSolution(q.id || q._id || idx)} 
+                          className={`p-3.5 sm:p-5 cursor-pointer transition-colors ${
+                            isExpanded ? 'bg-indigo-50/15 dark:bg-indigo-950/20' : 'hover:bg-gray-50/60 dark:hover:bg-gray-750'
+                          }`}
+                        >
+                          {/* Top Meta Row on Mobile & Desktop */}
+                          <div className="flex items-center justify-between gap-2 mb-2.5">
+                            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                              <span className={`px-2.5 py-0.5 rounded-lg text-xs font-black shadow-2xs ${
+                                isSkipped 
+                                  ? 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-300' 
+                                  : isCorrect 
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300' 
+                                    : 'bg-rose-100 dark:bg-rose-900/40 text-rose-800 dark:text-rose-300'
+                              }`}>
+                                Question {questionNum}
+                              </span>
+                              
+                              {q.section && (
+                                <span className="text-[10px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md truncate max-w-[140px] sm:max-w-[220px]">
+                                  {q.section}
+                                </span>
+                              )}
+
+                              {qTime > 0 && (
+                                <span className="text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {qTime}s
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Status and Expand Action */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {q.isMarked && (
+                                <span className="p-1 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/30 rounded-md" title="Marked for Review">
+                                  <Flag className="w-3.5 h-3.5" />
+                                </span>
+                              )}
+                              
+                              <span className={`px-2 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wider rounded-md ${
+                                isSkipped 
+                                  ? 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400' 
+                                  : isCorrect 
+                                    ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' 
+                                    : 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300'
+                              }`}>
+                                {isSkipped ? '0.0 (Skipped)' : isCorrect ? `+${qMarks} (Correct)` : `-${qNegMarks} (Wrong)`}
+                              </span>
+
+                              <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center transition-colors ${
+                                isExpanded ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-400'
+                              }`}>
+                                {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                               </div>
-                              {q.section && <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mt-2 bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 rounded-md">{q.section}</span>}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {q.isMarked && <Flag className="w-4 h-4 text-purple-500" />}
-                            <span className={`px-2.5 py-1 text-[10px] font-black uppercase tracking-wider rounded-lg ${
-                              isSkipped ? 'bg-slate-100 dark:bg-gray-700 text-slate-600 dark:text-gray-400' : isCorrect ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300' : 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300'
-                            }`}>{isSkipped ? 'Skipped' : isCorrect ? 'Correct' : 'Wrong'}</span>
-                            <div className={`w-7 h-7 rounded-xl flex items-center justify-center ${isExpanded ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
-                              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                            </div>
+
+                          {/* Question Text Body */}
+                          <div className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100 leading-relaxed break-words">
+                            <MathRenderer text={sanitizeHtml(getLocalizedField(q.text, language) || q.questionText || '')} />
                           </div>
                         </div>
 
+                        {/* Expanded Content: Options & Explanation */}
                         {isExpanded && (
-                          <div className="p-4 sm:p-5 border-t border-gray-100 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/50 space-y-4">
+                          <div className="p-3.5 sm:p-5 border-t border-gray-100 dark:border-gray-700/80 bg-slate-50/50 dark:bg-gray-800/60 space-y-4">
+                            {/* Options List */}
                             <div className="space-y-2">
+                              <p className="text-[11px] font-black uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                                Options & Choices:
+                              </p>
                               {(getLocalizedField(q.options, language) || []).map((opt, optIdx) => {
                                 const isCorrectOpt = optIdx === Number(correctAnswer)
                                 const isUserChoice = optIdx === Number(q.userAnswer)
+                                
                                 return (
-                                  <div key={optIdx} className={`flex items-center gap-3 p-3.5 rounded-xl border text-sm font-medium transition-all ${
-                                    isCorrectOpt 
-                                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100 shadow-xs ring-1 ring-emerald-500/20' 
-                                      : isUserChoice 
-                                        ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-100' 
-                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 opacity-70'
-                                  }`}>
-                                    <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${
+                                  <div 
+                                    key={optIdx} 
+                                    className={`flex items-start gap-2.5 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
+                                      isCorrectOpt 
+                                        ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 text-emerald-950 dark:text-emerald-100 shadow-2xs ring-1 ring-emerald-500/20' 
+                                        : isUserChoice 
+                                          ? 'bg-rose-50 dark:bg-rose-950/30 border-rose-300 dark:border-rose-700 text-rose-950 dark:text-rose-100' 
+                                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700/70 text-gray-700 dark:text-gray-300'
+                                    }`}
+                                  >
+                                    <span className={`w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
                                       isCorrectOpt ? 'bg-emerald-600 text-white' : isUserChoice ? 'bg-rose-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                                    }`}>{String.fromCharCode(65 + optIdx)}</span>
-                                    <div className="flex-1 min-w-0">
+                                    }`}>
+                                      {String.fromCharCode(65 + optIdx)}
+                                    </span>
+                                    
+                                    <div className="flex-1 min-w-0 pt-0.5 leading-relaxed break-words">
                                       <MathRenderer text={sanitizeHtml(getLocalizedField(opt, language))} />
                                     </div>
-                                    {isCorrectOpt && <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />}
-                                    {isUserChoice && !isCorrectOpt && <XCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 shrink-0" />}
+
+                                    {isCorrectOpt && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/50 px-2 py-0.5 rounded shrink-0">
+                                        <CheckCircle className="w-3.5 h-3.5" /> Correct
+                                      </span>
+                                    )}
+                                    {isUserChoice && !isCorrectOpt && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-900/50 px-2 py-0.5 rounded shrink-0">
+                                        <XCircle className="w-3.5 h-3.5" /> Your Choice
+                                      </span>
+                                    )}
                                   </div>
                                 )
                               })}
                             </div>
+
+                            {/* Detailed Explanation */}
                             {q.explanation && (
-                              <div className="p-4 bg-gradient-to-br from-indigo-50/90 to-sky-50/90 dark:from-indigo-900/30 dark:to-sky-900/30 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
-                                <p className="text-xs font-black uppercase text-indigo-950 dark:text-indigo-200 tracking-wider mb-1.5 flex items-center gap-1.5">
-                                  <Lightbulb className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Detailed Explanation
-                                </p>
-                                <div className="text-sm text-indigo-950 dark:text-indigo-200 leading-relaxed">
+                              <div className="p-3.5 sm:p-4 bg-gradient-to-br from-indigo-50/90 via-blue-50/90 to-slate-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-950 rounded-xl border border-indigo-200/80 dark:border-indigo-800/60 shadow-2xs">
+                                <div className="flex items-center gap-1.5 text-xs font-black uppercase text-indigo-950 dark:text-indigo-300 tracking-wider mb-2">
+                                  <Lightbulb className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                                  <span>Explanation & Concept</span>
+                                </div>
+                                <div className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed font-normal break-words">
                                   <MathRenderer text={sanitizeHtml(getLocalizedField(q.explanation, language) || q.explanation)} />
                                 </div>
                               </div>
                             )}
+
+                            {/* Quick Action Bar for this question */}
+                            <div className="flex items-center justify-between pt-1 text-xs">
+                              <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                                Marking: +{qMarks} / -{qNegMarks}
+                              </span>
+                              <button
+                                onClick={() => navigate(`/practice?mode=custom&questionId=${q.id || q._id}`)}
+                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                              >
+                                Practice Similar Questions →
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>

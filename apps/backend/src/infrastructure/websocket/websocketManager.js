@@ -124,6 +124,8 @@ export const initWebSocket = async (server) => {
     )
   }
 
+  const PRIVATE_IP_REGEX = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/
+
   io = new Server(server, {
     cors: {
       origin: (origin, callback) => {
@@ -133,6 +135,22 @@ export const initWebSocket = async (server) => {
 
         if (allowedOrigins.includes(origin)) {
           return callback(null, true)
+        }
+
+        if (process.env.NODE_ENV !== 'production') {
+          try {
+            const url = new URL(origin)
+            const hostname = url.hostname
+            if (
+              hostname === 'localhost' ||
+              hostname === '127.0.0.1' ||
+              hostname === '0.0.0.0' ||
+              hostname === '[::1]' ||
+              PRIVATE_IP_REGEX.test(hostname)
+            ) {
+              return callback(null, true)
+            }
+          } catch { /* ignore */ }
         }
 
         logger.warn(`[WebSocket] Blocked origin: ${origin}`)
