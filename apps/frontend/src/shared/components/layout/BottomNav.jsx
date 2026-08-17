@@ -42,6 +42,11 @@ function BottomNav() {
     }
   }
 
+  const hiddenRoutes = ['/terms', '/privacy', '/refund', '/faq', '/404']
+  if (hiddenRoutes.includes(location.pathname) || location.pathname.startsWith('/test/') || location.pathname.startsWith('/live-test/')) {
+    return null
+  }
+
   const navItems = getNavItems()
 
   const isActive = (path) => {

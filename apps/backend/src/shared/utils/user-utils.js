@@ -152,7 +152,17 @@ export const mapEnrolledSeriesIdsForResponse = async (
  * @returns {boolean}
  */
 export const isProUser = (user) => {
-  return Boolean(user?.isProUser || user?.isPro || user?.is_pro || user?.role === 'admin');
+  if (!user) return false;
+  if (user.role === 'admin') return true;
+  const passType = String(user.passType || user.pass_type || '').toLowerCase();
+  if (passType && passType !== 'free' && passType !== 'none') return true;
+  if (user.isProUser === true || user.is_pro_user === true || user.isPro === true || user.is_pro === true) {
+    if (user.proExpiry || user.pro_expiry) {
+      return new Date(user.proExpiry || user.pro_expiry) > new Date();
+    }
+    return true;
+  }
+  return false;
 };
 
 /**
@@ -161,10 +171,10 @@ export const isProUser = (user) => {
  * @returns {boolean}
  */
 export const isProRestrictedTest = (test) => {
-  // IMPORTANT: test.type is a CATEGORY field ('Pro', 'mock-tests', 'pyp', etc.),
-  // NOT an access control field. Many free tests (e.g. PYP imports) have
-  // type:'Pro' but isPro:false. The single access control flag is isPro (boolean).
-  return test?.isPro === true;
+  if (!test) return false;
+  if (test.isFree === true || test.is_free === true) return false;
+  if (String(test.type || '').toLowerCase() === 'free') return false;
+  return test.isPro === true || test.is_pro === true;
 };
 
 /**

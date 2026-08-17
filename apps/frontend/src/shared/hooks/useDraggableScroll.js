@@ -43,7 +43,13 @@ export function useDraggableScroll(options = {}) {
       lastPointerX = pageX;
       scrollLeftAtStart = element.scrollLeft;
       
-      element.setPointerCapture?.(e.pointerId);
+      if (e?.pointerId != null && typeof element.setPointerCapture === 'function') {
+        try {
+          element.setPointerCapture(e.pointerId);
+        } catch (_) {
+          // Ignored if pointer is inactive or unsupported
+        }
+      }
     };
 
     const onPointerMove = (e) => {
@@ -70,12 +76,20 @@ export function useDraggableScroll(options = {}) {
       }
     };
 
-    const onPointerUp = () => {
+    const onPointerUp = (e) => {
       if (!isPointerDown) return;
       isPointerDown = false;
       
       element.style.cursor = 'grab';
       element.style.removeProperty('user-select');
+
+      if (e?.pointerId != null && typeof element.releasePointerCapture === 'function') {
+        try {
+          element.releasePointerCapture(e.pointerId);
+        } catch (_) {
+          // Ignored
+        }
+      }
       
       if (hasMoved && enableMomentum) {
         const momentumLoop = () => {

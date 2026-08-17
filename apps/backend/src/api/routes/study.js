@@ -332,29 +332,60 @@ router.get('/', responseCache("study-materials", 120), async (req, res) => {
       const pdfs = allPdfs.filter(matchesScope).length
       const topicTests = allTests.filter(matchesScope).length
 
+      const matchingSm = studyMaterials.find(sm => 
+        (sm.slug && subject.slug && sm.slug === subject.slug) ||
+        (sm.title && (subject.name || subject.title) && sm.title.toLowerCase() === (subject.name || subject.title).toLowerCase()) ||
+        (sm.name && (subject.name || subject.title) && sm.name.toLowerCase() === (subject.name || subject.title).toLowerCase())
+      )
+
+      const finalTitle = subject.title || subject.name || matchingSm?.title || matchingSm?.name || 'Study Material'
+      const finalIcon = subject.icon || matchingSm?.icon || null
+      const finalChapters = subjectChapters.length > 0 
+        ? subjectChapters.length 
+        : (matchingSm?.chapters != null ? Number(matchingSm.chapters) : (Number(subject.chapters) || 0))
+      const finalTopics = topicsCount > 0 
+        ? topicsCount 
+        : (matchingSm?.topics != null ? Number(matchingSm.topics) : (Number(subject.topics) || 0))
+      const finalVideos = videos > 0 
+        ? videos 
+        : (matchingSm?.videos != null ? Number(matchingSm.videos) : (Number(subject.videos) || 0))
+      const finalPdfs = pdfs > 0 
+        ? pdfs 
+        : (matchingSm?.pdf != null ? Number(matchingSm.pdf) : (matchingSm?.pdfs != null ? Number(matchingSm.pdfs) : (Number(subject.pdf || subject.pdfs) || 0)))
+      const finalTests = topicTests > 0 
+        ? topicTests 
+        : (matchingSm?.tests != null ? Number(matchingSm.tests) : (Number(subject.tests) || 0))
+      const finalColor = subject.color || matchingSm?.color || '#6366f1'
+
       return {
-        _id: subject._id,
+        _id: subject._id || subject.id,
+        id: subject.id || subject._id,
         slug: subject.slug,
-        title: subject.name, // Mapping name to title for frontend
-        icon: subject.icon,
-        topics: topicsCount,
-        chapters: subjectChapters.length,
-        videos: videos,
-        pdf: pdfs,
-        tests: topicTests,
-        color: subject.color,
-        bg: subject.color + '20', // Generate bg from color
-        description: subject.description,
-        subjectGroup: subject.subjectGroup || null, // Group label (e.g. "General Science")
-        order: subject.order || 0,
-        isActive: subject.isActive,
-        createdAt: subject.createdAt,
-        updatedAt: subject.updatedAt
+        title: finalTitle,
+        icon: finalIcon,
+        topics: finalTopics,
+        chapters: finalChapters,
+        videos: finalVideos,
+        pdf: finalPdfs,
+        tests: finalTests,
+        color: finalColor,
+        bg: finalColor + '20',
+        description: subject.description || matchingSm?.description || '',
+        subjectGroup: subject.subjectGroup || subject.subject_group || matchingSm?.subjectGroup || null,
+        order: subject.order ?? subject.sort_order ?? 0,
+        isActive: subject.isActive ?? subject.is_active ?? true,
+        createdAt: subject.createdAt || subject.created_at,
+        updatedAt: subject.updatedAt || subject.updated_at
       }
     })
 
-    // Sort by order 
-    materialsWithCounts.sort((a, b) => (a.order || 0) - (b.order || 0))
+    // Sort by order: featured positive order first, then standalone, then grouped
+    materialsWithCounts.sort((a, b) => {
+      const orderA = (a.order && a.order > 0) ? a.order : (a.subjectGroup ? 100 : 50)
+      const orderB = (b.order && b.order > 0) ? b.order : (b.subjectGroup ? 100 : 50)
+      if (orderA !== orderB) return orderA - orderB
+      return (a.title || '').localeCompare(b.title || '')
+    })
 
     res.json({
       success: true,

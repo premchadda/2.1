@@ -77,7 +77,59 @@ const testSeriesUpdateSchema = createSchema()
   .field("banner_asset_id", { type: "id", required: false })
   .field("bannerAssetId", { type: "id", required: false })
   .field("promotion_banner_asset_id", { type: "id", required: false })
-  .field("promotionBannerAssetId", { type: "id", required: false });
+function categorizeTests(rawTests = []) {
+  const pypYears = [];
+  let pypCount = 0;
+  let liveCount = 0;
+  let fullMockCount = 0;
+  let quizCount = 0;
+  const otherCounts = {};
+
+  rawTests.forEach((t) => {
+    const cat = String(t.category || '');
+    const sub = String(t.sub_category || '');
+    const type = String(t.type || '');
+    const isLive = Boolean(t.is_live);
+
+    if (cat.toLowerCase() === 'pyps' || /^\d{4}$/.test(sub.trim())) {
+      pypCount++;
+      const year = parseInt(sub.trim(), 10);
+      if (year && !isNaN(year)) pypYears.push(year);
+    } else if (type.toLowerCase() === 'quiz' || sub.toLowerCase().includes('quiz') || cat.toLowerCase().includes('quiz')) {
+      quizCount++;
+    } else if (isLive || sub.toLowerCase().includes('live')) {
+      liveCount++;
+    } else if (sub.toLowerCase().includes('full mock') || type.toLowerCase().includes('mock')) {
+      fullMockCount++;
+    } else {
+      const label = sub || cat || type || 'Mock Tests';
+      otherCounts[label] = (otherCounts[label] || 0) + 1;
+    }
+  });
+
+  const testTypesMap = {};
+  if (pypCount > 0) {
+    if (pypYears.length > 0) {
+      const minYear = Math.min(...pypYears);
+      const maxYear = Math.max(...pypYears);
+      const label = minYear === maxYear 
+        ? `Previous Year Papers (${minYear})` 
+        : `Previous Year Papers (${minYear} - ${maxYear})`;
+      testTypesMap[label] = pypCount;
+    } else {
+      testTypesMap['Previous Year Papers'] = pypCount;
+    }
+  }
+
+  if (liveCount > 0) testTypesMap['Live Tests'] = liveCount;
+  if (fullMockCount > 0) testTypesMap['Full Mock Tests'] = fullMockCount;
+  if (quizCount > 0) testTypesMap['Speed & Topic Quizzes'] = quizCount;
+  Object.entries(otherCounts).forEach(([k, v]) => {
+    testTypesMap[k] = v;
+  });
+
+  return testTypesMap;
+}
 
 // ===== TEST SERIES MANAGEMENT =====
 
@@ -90,7 +142,7 @@ router.get("/test-series", responseCache("admin-test-series-list", 60), asyncHan
          series_id, 
          COUNT(*) as actual_count, 
          SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
-         array_agg(COALESCE(category, type, test_type, 'Other')) as type_list
+         json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
        FROM tests 
        WHERE is_active = true 
        GROUP BY series_id`,
@@ -104,17 +156,17 @@ router.get("/test-series", responseCache("admin-test-series-list", 60), asyncHan
     series = series.map((s) => {
       const sid = String(s._id || s.id);
       const metrics = countsMap[sid];
-      const typeList = metrics ? metrics.type_list || [] : [];
-      const testTypesMap = {};
-      typeList.forEach((t) => {
-        testTypesMap[t] = (testTypesMap[t] || 0) + 1;
-      });
+      const rawTests = metrics ? (metrics.raw_tests || []) : [];
+      const testTypesMap = categorizeTests(rawTests);
+
+      const totalTests = metrics ? parseInt(metrics.actual_count) : 0;
+      const freeTests = metrics ? parseInt(metrics.free_count) : 0;
 
       return {
         ...s,
         examId: s.examId || s.exam_id || s.subcategory || s.subCategory || s.sub_category || null,
-        totalTests: metrics ? parseInt(metrics.actual_count) : 0,
-        freeTests: metrics ? parseInt(metrics.free_count) : 0,
+        totalTests,
+        freeTests,
         testTypes: Object.keys(testTypesMap),
         testCounts: testTypesMap,
       };

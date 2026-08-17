@@ -115,36 +115,37 @@ export function useTestCategories() {
 
   // Get category emoji/icon
   const getCategoryEmoji = useCallback((categoryName) => {
+    const raw = String(categoryName || '').trim().toLowerCase()
     const category = categories.find(c => 
-      c.name.toLowerCase() === categoryName?.toLowerCase()
+      c.name?.toLowerCase() === raw ||
+      c.slug?.toLowerCase() === raw ||
+      (raw && (raw.includes(c.name?.toLowerCase() || '___') || raw.includes(c.slug?.toLowerCase() || '___')))
     )
     if (category?.icon) return category.icon
     
-    const emojis = {
-      'ssc': '📝',
-      'banking': '💰',
-      'railway': '🚂',
-      'upsc': '🏛️',
-      'defence': '🎖️',
-      'teaching': '🎓',
-      'default': '📋'
-    }
+    if (raw.includes('railway') || raw.includes('rrb') || raw.includes('ntpc')) return '🚂'
+    if (raw.includes('ssc') || raw.includes('cgl') || raw.includes('chsl')) return '📝'
+    if (raw.includes('bank') || raw.includes('ibps') || raw.includes('sbi')) return '💰'
+    if (raw.includes('upsc') || raw.includes('civil') || raw.includes('ias')) return '🏛️'
+    if (raw.includes('defence') || raw.includes('police') || raw.includes('nda') || raw.includes('cds')) return '🎖️'
+    if (raw.includes('teach') || raw.includes('tet') || raw.includes('ctet') || raw.includes('ugc')) return '🎓'
+    if (raw.includes('state') || raw.includes('psc')) return '🗺️'
+    if (raw.includes('engineer') || raw.includes('gate') || raw.includes('je')) return '⚙️'
+    if (raw.includes('medical') || raw.includes('neet')) return '🩺'
     
-    return emojis[categoryName] || emojis.default
+    return '📋'
   }, [categories])
 
   // Get gradient color for category
   const getCategoryColor = useCallback((categoryName) => {
-    const colors = {
-      'ssc': 'from-red-500 to-red-600',
-      'railway': 'from-green-500 to-green-600',
-      'banking': 'from-purple-500 to-purple-600',
-      'upsc': 'from-indigo-500 to-indigo-600',
-      'defence': 'from-orange-500 to-orange-600',
-      'teaching': 'from-yellow-500 to-yellow-600',
-      'all': 'from-blue-500 to-blue-600'
-    }
-    return colors[categoryName?.toLowerCase()] || 'from-gray-500 to-gray-600'
+    const raw = String(categoryName || '').trim().toLowerCase()
+    if (raw.includes('railway') || raw.includes('rrb')) return 'from-green-500 to-green-600'
+    if (raw.includes('ssc')) return 'from-red-500 to-red-600'
+    if (raw.includes('bank') || raw.includes('ibps')) return 'from-purple-500 to-purple-600'
+    if (raw.includes('upsc')) return 'from-indigo-500 to-indigo-600'
+    if (raw.includes('defence') || raw.includes('police')) return 'from-orange-500 to-orange-600'
+    if (raw.includes('teach') || raw.includes('tet')) return 'from-yellow-500 to-yellow-600'
+    return 'from-blue-500 to-blue-600'
   }, [])
 
   // Initial fetch

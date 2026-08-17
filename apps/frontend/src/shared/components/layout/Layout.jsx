@@ -65,7 +65,7 @@ function Layout() {
   const isLeftNavMode = navMode === 'left' && !isMobile && !isAuthPage && !!user
 
   return (
-    <div className={`min-h-screen bg-gray-50 overflow-x-hidden w-full max-w-full ${isLeftNavMode ? 'desktop-left-nav-mode' : ''}`}>
+    <div className={`min-h-screen bg-gray-50 w-full max-w-full ${isLeftNavMode ? 'desktop-left-nav-mode' : ''}`}>
       {/* Skip to main content */}
       <a
         href="#main-content"
@@ -93,7 +93,7 @@ function Layout() {
       {/* Mobile Overlay */}
       {sidebarOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+          className="fixed inset-0 bg-black/50 z-[10001] transition-opacity"
           onClick={closeSidebar}
         />
       )}
@@ -111,7 +111,7 @@ function Layout() {
          tabIndex={-1}
          className={`
            transition-all duration-300 ease-in-out
-           pb-[80px] md:pb-0
+           pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] md:pb-0
            ${isLeftNavMode ? 'lg:ml-[260px]' : ''}
          `}
        >

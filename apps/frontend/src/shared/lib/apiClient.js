@@ -34,7 +34,7 @@ export const apiClient = createApiClient({
   // ~15s. A shorter timeout surfaces as a network error and falsely logs the
   // user out, so keep this comfortably above observed cold-start latency.
   timeout: 30000,
-  authEndpoints: ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'],
+  authEndpoints: ['/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/me'],
   refreshUrl: '/api/auth/refresh',
   authUrlMatch: 'includes',
   captureCsrfOnError: true,

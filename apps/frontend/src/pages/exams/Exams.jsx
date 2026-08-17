@@ -349,31 +349,32 @@ function Exams() {
         title="Explore Govt. Exams"
         subtitle={`Mock tests, PYQs & preparation material for ${siteStats.exams} state & central exams.`}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 md:gap-4 w-full">
-          {/* Left: Search Bar */}
-            <SearchBox 
-              placeholder="Search for your exam..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onClear={() => setSearchQuery('')}
-              containerClass="w-full md:max-w-sm lg:max-w-md"
-              inputClass="bg-white/10 backdrop-blur-sm border border-white/20 text-white group-focus-within:bg-white group-focus-within:text-gray-900 placeholder-indigo-100/40 group-focus-within:placeholder-gray-400"
-              iconColorClass="text-indigo-200 group-focus-within:text-indigo-600"
-            />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 w-full">
+          {/* Left: Compact Search Bar */}
+          <SearchBox 
+            placeholder="Search for your exam..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            onClear={() => setSearchQuery('')}
+            compact={true}
+            containerClass="w-full md:max-w-xs lg:max-w-sm"
+            inputClass="bg-white/15 backdrop-blur-md border border-white/25 text-white group-focus-within:bg-white group-focus-within:text-gray-900 placeholder-indigo-100/60 group-focus-within:placeholder-gray-400 text-xs sm:text-sm py-1.5 sm:py-2 pl-9 rounded-xl focus:ring-2 focus:ring-white/40 shadow-sm"
+            iconColorClass="text-indigo-200 group-focus-within:text-indigo-600"
+          />
 
           {/* Right: Stat Chips */}
-          <div className="flex flex-wrap gap-2 md:gap-3 md:justify-end">
+          <div className="flex flex-wrap gap-1.5 md:gap-2.5 md:justify-end">
             {[
-              { label: 'Exams', value: siteStats.exams, icon: <Target className="w-3 h-3 md:w-3.5 md:h-3.5 text-indigo-300" /> },
-              { label: 'Tests', value: siteStats.tests, icon: <Zap className="w-3 h-3 md:w-3.5 md:h-3.5 text-yellow-300" /> },
-              { label: 'Aspirants', value: siteStats.aspirants, icon: <Users className="w-3 h-3 md:w-3.5 md:h-3.5 text-blue-300" /> },
-              { label: 'Free Tests', value: siteStats.free, icon: <Star className="w-3 h-3 md:w-3.5 md:h-3.5 text-emerald-300" /> }
+              { label: 'Exams', value: siteStats.exams, icon: <Target className="w-3 h-3 text-indigo-300" /> },
+              { label: 'Tests', value: siteStats.tests, icon: <Zap className="w-3 h-3 text-yellow-300" /> },
+              { label: 'Aspirants', value: siteStats.aspirants, icon: <Users className="w-3 h-3 text-blue-300" /> },
+              { label: 'Free Tests', value: siteStats.free, icon: <Star className="w-3 h-3 text-emerald-300" /> }
             ].map((stat, i) => (
-              <div key={i} className="flex items-center gap-1.5 md:gap-2 bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg md:rounded-xl px-2.5 md:px-4 py-1.5 md:py-2 hover:bg-white/10 transition-colors cursor-default">
+              <div key={i} className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm border border-white/15 rounded-lg px-2.5 py-1 md:py-1.5 hover:bg-white/15 transition-colors cursor-default">
                 {stat.icon}
                 <div className="flex flex-col">
                   <span className="text-[10px] md:text-xs font-black text-white leading-tight">{stat.value}</span>
-                  <span className="text-[8px] md:text-[10px] font-bold text-indigo-100 uppercase tracking-tighter">{stat.label}</span>
+                  <span className="text-[8px] md:text-[9px] font-bold text-indigo-100 uppercase tracking-tight">{stat.label}</span>
                 </div>
               </div>
             ))}

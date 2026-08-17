@@ -62,7 +62,7 @@ export function createApiClient(options = {}) {
     timeout = 30000,
     headers,
     withCredentials = true,
-    authEndpoints = ['/auth/login', '/auth/register', '/auth/refresh'],
+    authEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/me', '/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/me'],
     refreshUrl = '/auth/refresh',
     authUrlMatch = 'includes',
     captureCsrfOnError = false,

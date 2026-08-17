@@ -16,13 +16,13 @@ function Sidebar({ isOpen, onClose }) {
       {/* Overlay */}
       <div 
         onClick={onClose}
-        className={`mobile-overlay fixed inset-0 bg-black/40 z-40 transition-opacity ${isOpen ? 'open' : ''}`}
+        className={`mobile-overlay fixed inset-0 bg-black/50 z-[10001] transition-opacity ${isOpen ? 'open' : ''}`}
         style={{ opacity: isOpen ? 1 : 0, visibility: isOpen ? 'visible' : 'hidden' }}
       />
 
       {/* Drawer */}
       <div 
-        className={`mobile-drawer fixed top-0 right-0 h-full w-60 max-w-[85vw] bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? 'open' : ''}`}
+        className={`mobile-drawer fixed top-0 right-0 h-full w-60 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? 'open' : ''}`}
         style={{ transform: isOpen ? 'translateX(0)' : 'translateX(100%)' }}
       >
         
@@ -139,42 +139,42 @@ function Sidebar({ isOpen, onClose }) {
         </div>
 
         {/* Auth Section (Sticky at Bottom) */}
-        <div className="p-3 border-t border-gray-100 bg-white flex-shrink-0">
+        <div className="p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
           {user ? (
             <div className="flex gap-2">
               <Link 
                 to="/profile" 
                 onClick={handleNavClick}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 text-sm font-medium transition"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 text-sm font-medium transition"
               >
                 <Settings className="w-4 h-4" />
                 Settings
               </Link>
               <button 
                 onClick={() => { logout(); handleNavClick() }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-red-50 hover:bg-red-100 rounded-lg text-red-600 text-sm font-medium transition"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400 text-sm font-medium transition"
               >
                 <LogOut className="w-4 h-4" />
                 Logout
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="flex items-center gap-2">
               <Link 
                 to="/signup" 
                 state={{ backgroundLocation: location }}
                 onClick={handleNavClick}
-                className="block w-full py-2.5 text-center bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition"
+                className="flex-1 py-2 text-center bg-gradient-to-r from-brand-start to-brand-end text-white text-xs font-bold rounded-xl hover:shadow-glow transition-all active:scale-98 shadow-sm"
               >
-                Create Account
+                Sign Up
               </Link>
               <Link 
                 to="/login" 
                 state={{ backgroundLocation: location }}
                 onClick={handleNavClick}
-                className="block w-full py-2.5 text-center bg-gray-100 text-gray-700 font-semibold rounded-lg hover:bg-gray-200 transition"
+                className="flex-1 py-2 text-center bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-bold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all active:scale-98 border border-gray-200/80 dark:border-gray-700"
               >
-                Sign In
+                Login
               </Link>
             </div>
           )}
