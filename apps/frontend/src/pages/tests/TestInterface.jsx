@@ -1,14 +1,14 @@
-import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense, lazy } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { toast } from 'react-hot-toast'
 import { apiClient, isCancel, getTestById, getQuestionsByTestId, bookmarksAPI } from '../../shared/lib/dataService'
+import { API_BASE_URL } from '../../shared/lib/apiBase.js'
 import Telemetry from '../../shared/lib/telemetry'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
 import { getLocalizedField } from '../../shared/lib/language'
 import MathRenderer from '../../shared/components/MathRenderer'
 import { useAuth } from '../../shared/providers/AuthContext'
-import { lazyWithRetry as lazy } from '../../shared/utils/lazyWithRetry'
 // M25: code-split the heavy, conditionally-shown panels out of the main
 // TestInterface chunk so they're only fetched when the user actually opens
 // them (calculator / notes / discussions).
@@ -701,9 +701,18 @@ function TestInterface() {
           currentSection: s.currentSection
         }
 
-        fetch(`${window.location.origin}/api/tests/${actualTestId}/autosave`, {
+        const token = typeof window !== 'undefined'
+          ? (sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token'))
+          : null
+        const headers = { 'Content-Type': 'application/json' }
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
+        }
+
+        const autosaveEndpoint = `${API_BASE_URL || ''}/api/tests/${actualTestId}/autosave`
+        fetch(autosaveEndpoint, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(payload),
           credentials: 'include',
           keepalive: true
@@ -1696,13 +1705,13 @@ function TestInterface() {
                       onClick={() => toggleSaveQuestion(currentQ?.id || currentQ?._id || currentQuestion)}
                       aria-label="Save question"
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold transition-colors shadow-2xs ${
-                        savedQuestions.has(currentQ?.id || currentQ?._id || currentQuestion)
+                        savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion))
                           ? 'bg-amber-100 dark:bg-amber-900/50 border-amber-300 dark:border-amber-700 text-amber-800 dark:text-amber-200'
                           : 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:border-amber-300 hover:text-amber-700'
                       }`}
                     >
-                      <Bookmark className={`w-3.5 h-3.5 ${savedQuestions.has(currentQ?.id || currentQ?._id || currentQuestion) ? 'fill-amber-500 text-amber-500' : ''}`} />
-                      <span>{savedQuestions.has(currentQ?.id || currentQ?._id || currentQuestion) ? 'Saved' : 'Save Question'}</span>
+                      <Bookmark className={`w-3.5 h-3.5 ${savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'fill-amber-500 text-amber-500' : ''}`} />
+                      <span>{savedQuestions.has(String(currentQ?.id || currentQ?._id || currentQuestion)) ? 'Saved' : 'Save Question'}</span>
                     </button>
                   </div>
                 </div>

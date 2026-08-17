@@ -615,7 +615,7 @@ export const authController = {
   // POST /api/auth/refresh
   refreshToken: async (req, res, next) => {
     try {
-      const { refreshToken } = req.cookies
+      const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken
 
       if (!refreshToken) {
         return res.status(401).json({
@@ -1445,6 +1445,8 @@ export const authController = {
         success: true,
         message: 'Login successful',
         data: {
+          token: accessToken,
+          refreshToken,
           user: userWithoutPassword,
           sessionId,
           csrfToken,

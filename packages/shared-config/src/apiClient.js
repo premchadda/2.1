@@ -190,7 +190,35 @@ export function createApiClient(options = {}) {
         if (!isRefreshing) {
           isRefreshing = true
           try {
-            await instance.post(refreshUrl)
+            const storedRefreshToken = typeof window !== 'undefined'
+              ? (sessionStorage.getItem('trstprep_refresh_token') || localStorage.getItem('trstprep_refresh_token'))
+              : null
+            const refreshRes = await instance.post(
+              refreshUrl,
+              storedRefreshToken ? { refreshToken: storedRefreshToken } : {}
+            )
+            const freshToken = refreshRes.data?.data?.token || refreshRes.data?.token
+            const freshRefreshToken = refreshRes.data?.data?.refreshToken || refreshRes.data?.refreshToken
+
+            if (typeof window !== 'undefined') {
+              if (freshToken) {
+                try {
+                  sessionStorage.setItem('trstprep_auth_token', freshToken)
+                  localStorage.setItem('trstprep_token', freshToken)
+                } catch {}
+              }
+              if (freshRefreshToken) {
+                try {
+                  sessionStorage.setItem('trstprep_refresh_token', freshRefreshToken)
+                  localStorage.setItem('trstprep_refresh_token', freshRefreshToken)
+                } catch {}
+              }
+            }
+
+            if (freshToken && originalRequest?.headers) {
+              originalRequest.headers.Authorization = `Bearer ${freshToken}`
+            }
+
             isRefreshing = false
             processQueue(null)
             return instance(originalRequest)
@@ -207,7 +235,15 @@ export function createApiClient(options = {}) {
 
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
-        }).then(() => instance(originalRequest))
+        }).then(() => {
+          if (typeof window !== 'undefined') {
+            const latestToken = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token')
+            if (latestToken && originalRequest?.headers) {
+              originalRequest.headers.Authorization = `Bearer ${latestToken}`
+            }
+          }
+          return instance(originalRequest)
+        })
       }
 
       if (error.response) {

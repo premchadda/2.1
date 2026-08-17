@@ -74,6 +74,7 @@ class TelemetryService {
     this.batchCount = 0;
     this.telemetrySessionId = generateUUID();
     this.isFlushing = false;
+    this.hasEverEnteredFullscreen = false;
 
     // 1. Handshake to compute server time offset (tamper protection)
     this.syncServerTime();
@@ -280,6 +281,12 @@ class TelemetryService {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', url, false); // Synchronous XMLHttpRequest
       xhr.setRequestHeader('Content-Type', 'application/json');
+      if (typeof window !== 'undefined') {
+        const token = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token');
+        if (token) {
+          xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        }
+      }
       xhr.send(payload);
     } catch (err) {
       console.error('[TelemetryService] Fallback sync flush failed:', err);
@@ -470,12 +477,15 @@ class TelemetryService {
 
   handleFullscreenChange() {
     this.lastActivity = Date.now();
-    if (!document.fullscreenElement) {
-      this.logEvent('fullscreen_exit', {}, 'high');
-      if (this.onViolation) this.onViolation('fullscreen_exit');
-    } else {
+    const isFs = typeof document !== 'undefined' && Boolean(document.fullscreenElement);
+    if (isFs) {
+      this.hasEverEnteredFullscreen = true;
       this.logEvent('fullscreen_enter', {}, 'low');
       if (this.onViolation) this.onViolation('fullscreen_enter');
+    } else if (this.hasEverEnteredFullscreen) {
+      this.hasEverEnteredFullscreen = false;
+      this.logEvent('fullscreen_exit', {}, 'high');
+      if (this.onViolation) this.onViolation('fullscreen_exit');
     }
   }
 

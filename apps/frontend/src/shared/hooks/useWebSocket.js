@@ -1,9 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { io } from 'socket.io-client'
+import { API_BASE_URL } from '../lib/apiBase.js'
 
 const SOCKET_URL = (() => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL
   if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL
+  if (API_BASE_URL) return API_BASE_URL
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`
   }
@@ -28,6 +30,9 @@ export const useWebSocket = (enabled = true) => {
     consumerCount++
 
     if (!sharedSocket) {
+      const storedToken = typeof window !== 'undefined'
+        ? (sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token'))
+        : null
       sharedSocket = io(SOCKET_URL, {
         transports: ['polling', 'websocket'],
         withCredentials: true,
@@ -35,6 +40,7 @@ export const useWebSocket = (enabled = true) => {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 15000,
+        auth: storedToken ? { token: storedToken } : {}
       })
     }
 

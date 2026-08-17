@@ -8,6 +8,7 @@ html {
     max-width: 100%;
     width: 100%;
     overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
     touch-action: pan-y;
     -webkit-text-size-adjust: 100%;
 }
@@ -20,6 +21,7 @@ body {
     position: relative;
     font-family: 'Segoe UI', 'Inter', sans-serif;
     overscroll-behavior-x: none;
+    overscroll-behavior-y: none;
     -webkit-overflow-scrolling: touch;
 }
 
@@ -30,6 +32,7 @@ body {
     min-height: 100vh;
     min-height: 100dvh;
     position: relative;
+    overscroll-behavior-y: none;
 }
 
 /* ===== TCS Style Color System ===== */

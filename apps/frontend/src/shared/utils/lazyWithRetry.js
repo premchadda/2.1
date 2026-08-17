@@ -32,16 +32,20 @@ export function lazyWithRetry(componentImport, retries = 2, interval = 1000) {
         }
 
         // If all retries failed and it's a dynamic import failure in the browser,
-        // perform a one-time force reload to pull the new version of the app assets.
+        // perform a one-time force reload for regular pages, but NEVER disrupt an active test session.
         if (typeof window !== 'undefined' && isDynamicImportError) {
-          const reloadKey = `chunk_reload_${window.location.pathname}`
-          const hasReloaded = window.sessionStorage.getItem(reloadKey)
-          if (!hasReloaded) {
-            window.sessionStorage.setItem(reloadKey, 'true')
-            window.location.reload()
-            return new Promise(() => {}) // Suspend until browser reloads
+          const path = window.location.pathname || ''
+          const isTestPath = /\/tests\/|\/live-tests\/|\/pyp\/.*\/test/i.test(path)
+          if (!isTestPath) {
+            const reloadKey = `chunk_reload_${path}`
+            const hasReloaded = window.sessionStorage.getItem(reloadKey)
+            if (!hasReloaded) {
+              window.sessionStorage.setItem(reloadKey, 'true')
+              window.location.reload()
+              return new Promise(() => {}) // Suspend until browser reloads
+            }
+            window.sessionStorage.removeItem(reloadKey)
           }
-          window.sessionStorage.removeItem(reloadKey)
         }
 
         throw error

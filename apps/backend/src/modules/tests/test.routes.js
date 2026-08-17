@@ -854,6 +854,21 @@ router.post('/:testId/start', protect, async (req, res) => {
       }
     }
 
+    const isReattempt = Boolean(req.body?.isReattempt)
+    if (isReattempt && attempt) {
+      const nowIso = new Date().toISOString()
+      const internalAttemptId = getInternalId(attempt)
+      await dbHelpers.updateById('attempts', internalAttemptId, {
+        status: 'abandoned',
+        isCompleted: true,
+        is_completed: true,
+        submittedAt: nowIso,
+        submitted_at: nowIso,
+        updated_at: nowIso
+      })
+      attempt = null
+    }
+
     if (!attempt) {
       // Check attempt limits for non-pro users
       const allUserAttempts = await dbHelpers.find('attempts', { userId: req.user.id })
@@ -872,6 +887,7 @@ router.post('/:testId/start', protect, async (req, res) => {
         idsMatch(a.testId, test._id || test.id) || idsMatch(a.test_id, test._id || test.id)
       )
       const attemptNumber = previousAttempts.length + 1
+      const nowIso = new Date().toISOString()
 
       try {
         attempt = await dbHelpers.insertOne('attempts', {
@@ -881,7 +897,7 @@ router.post('/:testId/start', protect, async (req, res) => {
           attemptNumber: attemptNumber,
           attempt_number: attemptNumber,
           status: 'in_progress',
-          startTime: new Date().toISOString(),
+          startTime: nowIso,
           duration: test.duration,
           answers: [],
           markedForReview: [],
@@ -889,7 +905,11 @@ router.post('/:testId/start', protect, async (req, res) => {
           currentSection: null,
           timeSpent: 0,
           isCompleted: false,
-          createdAt: new Date().toISOString()
+          lastActivityAt: nowIso,
+          last_activity_at: nowIso,
+          lastHeartbeatAt: nowIso,
+          last_heartbeat_at: nowIso,
+          createdAt: nowIso
         });
 
         await publishEvent('test_started', {
@@ -976,6 +996,7 @@ router.put('/:testId/autosave', protect, async (req, res) => {
     }
 
     const normalizedAnswers = await normalizeSubmittedAnswers(answers)
+    const nowIso = new Date().toISOString()
 
     const updated = await dbHelpers.updateById('attempts', internalAttemptId, {
       answers: normalizedAnswers,
@@ -983,7 +1004,12 @@ router.put('/:testId/autosave', protect, async (req, res) => {
       markedForReview: Array.isArray(markedForReview) ? markedForReview : [],
       sectionTimers: sectionTimers && typeof sectionTimers === 'object' ? sectionTimers : {},
       currentSection: typeof currentSection === 'string' ? currentSection : null,
-      updatedAt: new Date().toISOString()
+      lastActivityAt: nowIso,
+      last_activity_at: nowIso,
+      lastHeartbeatAt: nowIso,
+      last_heartbeat_at: nowIso,
+      updatedAt: nowIso,
+      updated_at: nowIso
     })
 
     res.json({ success: true, data: updated })

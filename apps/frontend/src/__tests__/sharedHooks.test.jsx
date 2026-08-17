@@ -24,7 +24,7 @@ describe('Shared Hooks API Client & Interceptors', () => {
     })
 
     await waitFor(() => {
-      expect(mockClient.get).toHaveBeenCalledWith('/stages')
+      expect(mockClient.get).toHaveBeenCalledWith('/api/stages')
       expect(result.current.stages).toEqual(mockData.data)
     })
   })

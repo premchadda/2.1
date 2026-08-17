@@ -18,15 +18,18 @@ const queryClient = new QueryClient({
 });
 
 import { HelmetProvider } from 'react-helmet-async';
+import { ThemeProvider } from '../src/shared/context/ThemeContext';
 
 describe('App', () => {
   test('renders without throwing', () => {
     render(
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
-          <MemoryRouter>
-            <App />
-          </MemoryRouter>
+          <ThemeProvider>
+            <MemoryRouter>
+              <App />
+            </MemoryRouter>
+          </ThemeProvider>
         </QueryClientProvider>
       </HelmetProvider>
     );

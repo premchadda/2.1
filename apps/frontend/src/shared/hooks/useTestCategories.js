@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { API_URL } from '../lib/apiBase.js'
+import api from '../lib/api'
 
 export function useTestCategories() {
   const [categories, setCategories] = useState([])
@@ -12,12 +12,11 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories`)
-      const data = await response.json()
-      if (data.success) {
-        setCategories(data.data)
+      const response = await api.get('/api/test-categories')
+      if (response.data?.success) {
+        setCategories(response.data.data)
       } else {
-        setError(data.message || 'Failed to fetch categories')
+        setError(response.data?.message || 'Failed to fetch categories')
       }
     } catch (err) {
       setError(err.message)
@@ -30,12 +29,11 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/tree`)
-      const data = await response.json()
-      if (data.success) {
-        setTree(data.data)
+      const response = await api.get('/api/test-categories/tree')
+      if (response.data?.success) {
+        setTree(response.data.data)
       } else {
-        setError(data.message || 'Failed to fetch category tree')
+        setError(response.data?.message || 'Failed to fetch category tree')
       }
     } catch (err) {
       setError(err.message)
@@ -48,12 +46,11 @@ export function useTestCategories() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`${API_URL}/api/test-categories/roots`)
-      const data = await response.json()
-      if (data.success) {
-        setRoots(data.data)
+      const response = await api.get('/api/test-categories/roots')
+      if (response.data?.success) {
+        setRoots(response.data.data)
       } else {
-        setError(data.message || 'Failed to fetch root categories')
+        setError(response.data?.message || 'Failed to fetch root categories')
       }
     } catch (err) {
       setError(err.message)
