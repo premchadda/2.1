@@ -5,6 +5,37 @@ import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
 
 const router = express.Router()
 
+// @route   GET /api/community
+// @desc    Get community overview (stats, top groups, recent posts)
+// @access  Public
+router.get('/', optionalAuth, async (req, res) => {
+  try {
+    const groups = await dbHelpers.find('communityGroups', { isActive: true }).catch(() => [])
+    const posts = await dbHelpers.find('communityPosts', { isActive: true }).catch(() => [])
+    res.json({
+      success: true,
+      data: {
+        groups: (groups || []).slice(0, 10),
+        posts: (posts || []).slice(0, 10),
+        stats: {
+          totalGroups: groups?.length || 0,
+          totalPosts: posts?.length || 0,
+          activeMembers: 0,
+        }
+      }
+    })
+  } catch (error) {
+    res.json({
+      success: true,
+      data: {
+        groups: [],
+        posts: [],
+        stats: { totalGroups: 0, totalPosts: 0, activeMembers: 0 }
+      }
+    })
+  }
+})
+
 // ===== COMMUNITY GROUPS CRUD =====
 // @route   GET /api/community/groups
 // @desc    Get all community groups (public)

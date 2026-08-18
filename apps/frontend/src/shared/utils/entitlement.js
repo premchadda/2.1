@@ -117,10 +117,20 @@ export const getSeriesAccessType = (series) => {
  *   requiresPro: boolean,
  *   requiresLogin: boolean,
  *   isLocked: boolean,
- *   reason: string | null,
- *   message: string | null
- * }}
+/**
+ * Evaluates if a Pro Pass is required for a user to access a series or test.
+ *
+ * @param {Object} opts
+ * @param {boolean} [opts.userIsPro]
+ * @param {boolean} [opts.seriesIsPro]
+ * @param {boolean} [opts.testIsPro]
+ * @returns {boolean}
  */
+export const needsProPass = ({ userIsPro = false, seriesIsPro = false, testIsPro = false } = {}) => {
+  if (userIsPro) return false;
+  return Boolean(seriesIsPro || testIsPro);
+};
+
 export const getTestEntitlement = ({ test, user, series = null }) => {
   if (!test) {
     return {

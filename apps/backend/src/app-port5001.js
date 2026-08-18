@@ -602,14 +602,21 @@ app.get("/api/health", async (req, res) => {
       cleanQueueHealth.error = queueHealth.error;
     }
 
+    if (isProd) {
+      return res.status(cleanDbHealth.healthy ? 200 : 503).json({
+        status: cleanDbHealth.healthy ? "ok" : "degraded",
+        timestamp: new Date().toISOString()
+      });
+    }
+
     if (!cleanDbHealth.healthy) {
       return res.status(503).json({
         status: "degraded",
         message: "Database connection issues",
         database: "PostgreSQL",
-        dbHealth: isProd ? { healthy: false } : cleanDbHealth,
-        redis: isProd ? { enabled: cleanRedisHealth.enabled } : cleanRedisHealth,
-        queues: isProd ? { enabled: cleanQueueHealth.enabled } : cleanQueueHealth,
+        dbHealth: cleanDbHealth,
+        redis: cleanRedisHealth,
+        queues: cleanQueueHealth,
         timestamp: new Date().toISOString()
       });
     }
@@ -619,16 +626,19 @@ app.get("/api/health", async (req, res) => {
       status: degraded ? "degraded" : "ok",
       message: degraded ? "API is running, but Redis/queue services are degraded" : "Trstprep API is running with PostgreSQL + Redis queue foundations",
       database: "PostgreSQL",
-      dbHealth: isProd ? { healthy: cleanDbHealth.healthy, latencyMs: cleanDbHealth.latencyMs } : cleanDbHealth,
-      redis: isProd ? { enabled: cleanRedisHealth.enabled, connected: cleanRedisHealth.connected } : cleanRedisHealth,
-      queues: isProd ? { enabled: cleanQueueHealth.enabled } : cleanQueueHealth,
+      dbHealth: cleanDbHealth,
+      redis: cleanRedisHealth,
+      queues: cleanQueueHealth,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
+    if (process.env.NODE_ENV === "production") {
+      return res.status(503).json({ status: "error", timestamp: new Date().toISOString() });
+    }
     res.status(503).json({
       status: "error",
       message: "Health check failed",
-      error: process.env.NODE_ENV === "development" ? sanitizeErrorMessage(error) : undefined,
+      error: error.message,
       timestamp: new Date().toISOString()
     });
   }
@@ -739,6 +749,7 @@ app.use("/api/bookmarks", validateCsrfToken, bookmarksRoutes);
 app.use("/api/notifications", validateCsrfToken, notificationsRoutes);
 app.use("/api/achievements", achievementsRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use("/api/blog", blogRoutes);
 app.use("/api/referrals", validateCsrfToken, referralsRoutes);
 app.use("/api/doubts", validateCsrfToken, doubtsRoutes);
 app.use("/api/study-groups", validateCsrfToken, studyGroupsRoutes);

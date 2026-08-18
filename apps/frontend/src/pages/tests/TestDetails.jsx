@@ -271,6 +271,10 @@ function TestDetails() {
       }
     } catch (err) {
       console.error('Enrollment error:', err)
+      if (err.response?.data?.requiresPro || err.response?.data?.code === 'PRO_REQUIRED') {
+        navigate('/pass')
+        return
+      }
       const message = err.response?.data?.message || ''
       if (message.includes('Already enrolled') || message.includes('already enrolled')) {
         toast('You are already enrolled in this test series')
@@ -1454,7 +1458,7 @@ function TestDetails() {
                 )}
                 <div className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-                  <span className="font-bold text-slate-900 dark:text-white">{series.users_count || series.active_users || series.users || '0'} Users</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{series.usersCount ?? series.enrollmentCount ?? series.users_count ?? (typeof series.users === 'number' ? series.users : parseInt(series.users) || 0)} Users</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
@@ -1612,8 +1616,24 @@ function TestDetails() {
                   </button>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2 justify-end">
-                    {/* Add / Enroll Button (shown when user is not enrolled) */}
-                    {!isEnrolled && (
+                    {/* Free Series: Add button for unenrolled users */}
+                    {!isSeriesPro && !isEnrolled && (
+                      <button
+                        onClick={handleEnroll}
+                        disabled={isEnrolling}
+                        className="px-3 md:px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold md:font-bold rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-1.5 md:gap-2 text-xs md:text-sm h-[36px] md:h-[38px] disabled:opacity-50 cursor-pointer shadow-sm"
+                      >
+                        {isEnrolling ? 'Adding...' : (
+                          <>
+                            Add
+                            <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Pro Series: Add button ONLY for already-Pro / Admin users who are not yet enrolled */}
+                    {isSeriesPro && (isUserPro || isAdmin) && !isEnrolled && (
                       <button
                         onClick={handleEnroll}
                         disabled={isEnrolling}
@@ -1771,6 +1791,7 @@ function TestDetails() {
                       <TestCard
                         test={categoryNextTest.test}
                         seriesId={series.slug || series._id || seriesId}
+                        series={series}
                         user={user}
                       />
                     </div>
@@ -1821,7 +1842,7 @@ function TestDetails() {
               {/* Layer 2 - Sub-Category Tabs */}
               {computedCategories[activeMainCategory]?.children?.length > 0 && (
                 <>
-                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide py-1 border-t border-gray-200 dark:border-gray-700 mt-1">
+                  <div className="flex gap-1.5 overflow-x-auto scrollbar-hide py-1 px-1 pr-6 border-t border-gray-200 dark:border-gray-700 mt-1">
                     {computedCategories[activeMainCategory].children.map((subcat) => (
                       <button
                         key={subcat.key}
@@ -1841,7 +1862,7 @@ function TestDetails() {
 
               {/* Layer 3 - Third Category Tabs */}
               {availableThirdCategories.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 border-t border-gray-100 dark:border-gray-700">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1 pr-6 border-t border-gray-100 dark:border-gray-700">
                   {availableThirdCategories.map((third) => (
                     <button
                       key={third.key}
@@ -1860,7 +1881,7 @@ function TestDetails() {
 
               {/* Layer 4 - Fourth Category Tabs */}
               {availableFourthCategories.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 border-t border-gray-50 dark:border-gray-700">
+                <div className="flex gap-2 overflow-x-auto scrollbar-hide py-1 px-1 pr-6 border-t border-gray-50 dark:border-gray-700">
                   {availableFourthCategories.map((fourth) => (
                     <button
                       key={fourth.key}
@@ -1890,7 +1911,7 @@ function TestDetails() {
                           className="animate-slideUp"
                           style={{ animationDelay: `${index * 0.05}s` }}
                         >
-                          <TestCard test={test} seriesId={series.slug || series._id || seriesId} user={user} />
+                          <TestCard test={test} seriesId={series.slug || series._id || seriesId} series={series} user={user} />
                         </div>
                       ))}
                     </div>
@@ -2128,7 +2149,7 @@ function TestDetails() {
                           <div className="flex items-center gap-2 mt-1 text-xs text-gray-500 dark:text-gray-400">
                             <span>{suggested.totalTests || 0} Tests</span>
                             <span>•</span>
-                            <span>{suggested.users || '1K+'} users</span>
+                            <span>{suggested.usersCount ?? suggested.enrollmentCount ?? (typeof suggested.users === 'number' ? suggested.users : parseInt(suggested.users) || 0)} users</span>
                           </div>
                           {suggested.rating && (
                             <div className="flex items-center gap-1 mt-1">

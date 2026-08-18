@@ -126,13 +126,35 @@ function TestSeries() {
   })
 
   const {
-    data: allTests = [],
-    isLoading: loadingTests,
-    refetch: refetchTests
+    data: liveTests = [],
   } = useQuery({
-    queryKey: ['tests'],
-    queryFn: getTests,
-    staleTime: 1000 * 60 * 5,
+    queryKey: ['live-tests-summary'],
+    queryFn: async () => {
+      try {
+        const res = await testsAPI.getByTag('live-tests')
+        const raw = res.data?.data || res.data || []
+        return (Array.isArray(raw) ? raw : []).filter(t => !checkIsLiveExpired(t)).slice(0, 3)
+      } catch {
+        return []
+      }
+    },
+    staleTime: 1000 * 60 * 3,
+  })
+
+  const {
+    data: freeQuizzes = [],
+  } = useQuery({
+    queryKey: ['quizzes-summary'],
+    queryFn: async () => {
+      try {
+        const res = await testsAPI.getByTag('quizzes')
+        const raw = res.data?.data || res.data || []
+        return (Array.isArray(raw) ? raw : []).slice(0, 3)
+      } catch {
+        return []
+      }
+    },
+    staleTime: 1000 * 60 * 3,
   })
 
   const {
@@ -161,10 +183,9 @@ function TestSeries() {
   // Manual refresh handler
   const _handleManualRefresh = () => {
     refetchSeries()
-    refetchTests()
   }
 
-  const loading = loadingSeries || loadingTests
+  const loading = loadingSeries
   const _isRefreshing = isRefreshingSeries
 
   const attemptCountBySeries = useMemo(() => {
@@ -278,28 +299,18 @@ function TestSeries() {
 
   // Enrich series with dynamic active test counts and real types
   const seriesWithStats = useMemo(() => {
-    return allSeries.map((series) => getSeriesTestStats(series, allTests))
-  }, [allSeries, allTests])
+    return allSeries.map((series) => ({
+      ...series,
+      totalTests: Number(series.totalTests || series.total_tests || 0),
+      freeTests: Number(series.freeTests || series.free_tests || 0),
+    }))
+  }, [allSeries])
 
   // Get enrolled series for logged-in users - check actual enrollment
   const enrolledSeries = useMemo(() => {
     if (!user) return []
     return seriesWithStats.filter((series) => isSeriesEnrolled(user, series))
   }, [user, seriesWithStats])
-
-  // Get live tests
-  const liveTests = useMemo(() => {
-    return allTests
-      .filter(test => checkIsLive(test))
-      .slice(0, 3)
-  }, [allTests])
-
-  // Get free quizzes
-  const freeQuizzes = useMemo(() => {
-    return allTests
-      .filter(test => checkIsQuiz(test))
-      .slice(0, 3)
-  }, [allTests])
 
   // Get new/recent series for recommendations (logged-in users)
   const newSeriesForYou = useMemo(() => {

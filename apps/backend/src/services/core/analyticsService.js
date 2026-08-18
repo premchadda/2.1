@@ -608,15 +608,28 @@ export const getTopPerformers = async (limit = 10, filter = {}) => {
     const userMap = {};
     users.forEach(u => { userMap[String(u._id || u.id)] = u; });
 
-    return result.rows.map(r => {
+    const formatSafeName = (name, email) => {
+      const raw = (name || email?.split('@')[0] || 'Aspirant').trim()
+      const parts = raw.split(/\s+/)
+      if (parts.length > 1) {
+        return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`
+      }
+      if (raw.length > 3) {
+        return `${raw.slice(0, 3)}***`
+      }
+      return raw || 'Aspirant'
+    }
+
+    return result.rows.map((r, index) => {
       const uid = String(r.uid);
       const user = userMap[uid];
+      const safeName = formatSafeName(user?.name, user?.email);
       return {
-        id: uid,
-        name: user?.name || user?.email?.split('@')[0] || 'Anonymous',
+        id: `rank-${index + 1}`,
+        name: safeName,
         testsAttempted: parseInt(r.tests_attempted),
         avgScore: parseInt(r.tests_attempted) > 0 ? Math.round(parseFloat(r.total_score) / parseInt(r.tests_attempted)) : 0,
-        avatar: user?.name?.charAt(0)?.toUpperCase() || 'A',
+        avatar: safeName.charAt(0).toUpperCase() || 'A',
       }
     });
   } catch (error) {

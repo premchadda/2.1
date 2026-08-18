@@ -7,9 +7,9 @@ import {
 } from "../../shared/utils/identifier-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
 import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
-import { isPypSlug } from "../../utils/slug-helpers.js"
 import { responseCache } from '../../middleware/responseCache.middleware.js'
 import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import { toPublicTestDTO } from '../../modules/tests/test.routes.js';
 
 const router = express.Router();
 
@@ -187,7 +187,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
     };
 
     const baseUsers = parseUserCount(series.active_users || series.users || series.users_count || series.activeUsers || 0);
-    const finalUserCount = enrollmentCount > 0 ? enrollmentCount : (baseUsers || 0);
+    const finalUserCount = enrollmentCount > 0 ? enrollmentCount : Math.min(baseUsers || 0, 5);
 
     return {
       ...series,
@@ -211,7 +211,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
 // @route   GET /api/series
 // @desc    Get all test series
 // @access  Public
-router.get("/", responseCache("series-list", 120), async (req, res) => {
+router.get("/", responseCache("series-list-v2", 120), async (req, res) => {
   try {
     const { category, search, sort = "popular" } = req.query;
 
@@ -406,6 +406,30 @@ router.get("/:slug", optionalAuth, async (req, res) => {
     const dbFreeTests = parseInt(series.free_tests || series.freeTests) || 0;
     const finalFreeTests = freeTestCount > 0 ? freeTestCount : (sectionFreeTests > 0 ? sectionFreeTests : dbFreeTests);
 
+    // Calculate real user enrollments
+    let enrollmentCount = 0;
+    try {
+      const enrollResult = await dbHelpers.pool.query(
+        `SELECT COUNT(DISTINCT user_id) as count FROM enrollments WHERE series_id::text = $1 AND is_active = true`,
+        [sId],
+      );
+      if (enrollResult.rows.length > 0) {
+        enrollmentCount = parseInt(enrollResult.rows[0].count) || 0;
+      }
+    } catch (e) {
+      // Graceful fallback
+    }
+
+    const finalUserCount = enrollmentCount > 0
+      ? enrollmentCount
+      : Math.min(parseInt(series.users_count || series.usersCount || 0) || 0, 5);
+
+    const formatUserCount = (count) => {
+      if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
+      if (count >= 1000) return `${(count / 1000).toFixed(1)}K`;
+      return count.toString();
+    };
+
     res.json({
       success: true,
       data: {
@@ -416,6 +440,10 @@ router.get("/:slug", optionalAuth, async (req, res) => {
         free_tests: finalFreeTests,
         testCounts: Object.keys(testCounts).length > 0 ? testCounts : (series.testCounts || series.test_counts || {}),
         testTypes: Object.keys(testCounts).length > 0 ? Object.keys(testCounts) : (series.testTypes || series.test_types || []),
+        activeUsers: formatUserCount(finalUserCount),
+        users: formatUserCount(finalUserCount),
+        usersCount: finalUserCount,
+        enrollmentCount: finalUserCount,
         isEnrolled,
         categoryName,
         examName,
@@ -450,24 +478,17 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
       });
     }
 
-    const { category, subCategory, type } = req.query;
+    const { category, subCategory, type, page, limit } = req.query;
     const sId = String(getInternalId(series));
 
     // Get tests strictly for this series via DB match and avoids fetch-all
     let tests = [];
     try {
       const result = await dbHelpers.pool.query(
-        `SELECT id, series_id, slug, title, category, sub_category, type, total_questions, total_marks, duration, passing_marks, negative_marking, tags, is_live, live_schedule, scheduled_at, difficulty, is_active, created_at, updated_at, subject_id, is_pro, stage_id, banner_asset_id, promotion_banner_asset_id, is_coming_soon, public_id_uuid, public_id, category_path_ids, category_path_names, languages, coming_soon_date, test_category_id, stage_ids, section_id, status, year, is_deleted, deleted_by, deleted_at, _orphaned, _deleted_series_id, orphaned_at, cutoff_marks, published_at, live_at, expired_at, archived_at, state_updated_by, moderation_status, reviewed_by, reviewed_at, review_notes, instructions, test_type, start_time, end_time, shuffle_questions, shuffle_options, allow_review, max_attempts, version, attempt_count, imported_from, source_test_id, ai_explanation_enabled, _deleted_test_id, short_title, question_language_mode, is_pyq, pyq_year, show_config, timing_config, optional_section_config, attempt_rules, analysis_config, access_config, availability, is_featured, seo, exam_category_id, proctoring, adaptive, features, shift, pdf_asset_id, content_source, content_path, exam_id FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2)`,
+        `SELECT * FROM tests WHERE is_active = true AND (series_id = $1 OR series_id = $2)`,
         [Number(sId) || -1, String(sId)],
       );
-      tests = result.rows.map((row) => {
-        const test = dbHelpers.toCamel(row);
-        return {
-          ...test,
-          testSeriesId: getTestSeriesId(test),
-          seriesId: getTestSeriesId(test),
-        };
-      });
+      tests = result.rows.map((row) => dbHelpers.toCamel(row));
     } catch (e) {
       console.error(e);
     }
@@ -493,10 +514,20 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
       );
     }
 
+    const totalCount = tests.length;
+    if (page && limit) {
+      const p = Math.max(1, parseInt(page) || 1);
+      const l = Math.min(100, Math.max(1, parseInt(limit) || 20));
+      tests = tests.slice((p - 1) * l, p * l);
+    }
+
+    const publicTests = tests.map(toPublicTestDTO);
+
     res.json({
       success: true,
-      count: tests.length,
-      data: tests,
+      count: publicTests.length,
+      total: totalCount,
+      data: publicTests,
     });
   } catch (error) {
     res.status(500).json({

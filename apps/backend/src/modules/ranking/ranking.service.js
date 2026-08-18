@@ -296,7 +296,26 @@ const rankingService = {
         LIMIT $1
       `, [limit])
 
-      return result.rows
+      const formatSafeName = (name) => {
+        const raw = (name || 'Aspirant').trim()
+        const parts = raw.split(/\s+/)
+        if (parts.length > 1) {
+          return `${parts[0]} ${parts[1].charAt(0).toUpperCase()}.`
+        }
+        if (raw.length > 3) {
+          return `${raw.slice(0, 3)}***`
+        }
+        return raw || 'Aspirant'
+      }
+
+      return result.rows.map((row, idx) => ({
+        rank: idx + 1,
+        name: formatSafeName(row.name),
+        avatarUrl: row.avatar_url,
+        totalTests: parseInt(row.total_tests),
+        totalScore: Math.round(parseFloat(row.total_score || 0)),
+        avgPercentage: Math.round(parseFloat(row.avg_percentage || 0))
+      }))
     } finally {
       client.release()
     }
