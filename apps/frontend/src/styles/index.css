@@ -4702,6 +4702,28 @@ canvas.particle-canvas {
   line-height: 1.65;
 }
 
+.math-renderer-content p {
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.math-renderer-content p:first-child {
+  margin-top: 0;
+}
+
+.math-renderer-content p:last-child {
+  margin-bottom: 0;
+}
+
+button .math-renderer-content p,
+label .math-renderer-content p,
+.test-option .math-renderer-content p,
+.test-option-label .math-renderer-content p {
+  display: inline;
+  margin: 0;
+}
+
+
 .math-renderer-content table,
 .question-html-content table,
 .explanation-content table,

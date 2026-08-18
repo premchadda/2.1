@@ -1398,10 +1398,23 @@ function TestInterface() {
     }
   }
 
-  // Loading state
+  // Loading state — seamless dark transition that blends with the countdown overlay
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
+      <div className="text-center space-y-4 max-w-sm w-full animate-fade-in">
+        <div className="relative inline-flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin" />
+          <div className="absolute w-8 h-8 rounded-full bg-indigo-500/20 animate-ping" />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-bold text-white tracking-wide">
+            {reviewMode ? 'Loading Test Review...' : 'Preparing Assessment...'}
+          </h3>
+          <p className="text-xs text-slate-400">
+            {reviewMode ? 'Fetching your submitted solutions' : 'Loading questions, sections & timer'}
+          </p>
+        </div>
+      </div>
     </div>
   )
 
@@ -1958,8 +1971,9 @@ function TestInterface() {
                               )}
                             </div>
                             <span className={`text-base sm:text-lg pt-0.5 leading-relaxed break-words min-w-0 flex-1 ${optionTextClass}`}>
-                              <MathRenderer text={sanitizeHtml(option)} />
+                              <MathRenderer text={sanitizeHtml(getLocalizedField(option, language))} />
                             </span>
+
                             {reviewMode && (
                               <div className="ml-2 flex gap-1">
                                 {revealReviewAnswers && isSelected && (

@@ -24,6 +24,7 @@ function Signup() {
   const [formError, setFormError] = useState('')
   const [agreedToTerms, setAgreedToTerms] = useState(false)
   const [platformStats, setPlatformStats] = useState({ activeLearners: 0, mockTests: 0 })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -45,6 +46,7 @@ function Signup() {
   }, [])
 
   const handleClose = () => {
+    if (isSubmitting || loading) return
     const bgLoc = location.state?.backgroundLocation
     if (bgLoc?.pathname) {
       navigate(`${bgLoc.pathname}${bgLoc.search || ''}`, { replace: true })
@@ -54,10 +56,10 @@ function Signup() {
   }
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') handleClose() }
+    const onKey = (e) => { if (e.key === 'Escape' && !isSubmitting && !loading) handleClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [isSubmitting, loading])
 
   // Move focus into the modal on open and restore it to the trigger on close.
   const dialogRef = useRef(null)
@@ -80,12 +82,12 @@ function Signup() {
   //   1) They just signed up successfully in this tab
   //   2) They hard-refreshed while authenticated (AuthProvider rehydrated `user`)
   //   3) They typed /signup into the address bar while still logged in
-  if (authResolved && !loading && user) {
+  if (authResolved && !loading && !isSubmitting && user) {
     return <Navigate to="/dashboard" replace state={{}} />
   }
 
-  // Show loading spinner while auth state is being determined
-  if (loading) {
+  // Show loading spinner only during initial session determination before auth state is resolved
+  if (!authResolved && loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -120,6 +122,7 @@ function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting || loading) return
     setFormError('')
 
     // Validation
@@ -155,17 +158,24 @@ function Signup() {
       return
     }
 
-    const result = await signup(name, email, password, mobile)
+    setIsSubmitting(true)
+    try {
+      const result = await signup(name, email, password, mobile)
 
-    if (result.success) {
-      if (result.requiresVerification) {
-        const targetEmail = result.email || email
-        navigate(`/verify-email?mode=pending&email=${encodeURIComponent(targetEmail)}`, { replace: true, state: {} })
+      if (result?.success) {
+        if (result.requiresVerification) {
+          const targetEmail = result.email || email
+          navigate(`/verify-email?mode=pending&email=${encodeURIComponent(targetEmail)}`, { replace: true, state: {} })
+        } else {
+          navigate('/dashboard', { replace: true, state: {} })
+        }
       } else {
-        navigate('/dashboard', { replace: true, state: {} })
+        setFormError(result?.error || 'Registration failed')
       }
-    } else {
-      setFormError(result.error)
+    } catch (err) {
+      setFormError(err?.message || 'Registration failed. Please try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -205,8 +215,9 @@ function Signup() {
         <button
           type="button"
           onClick={handleClose}
+          disabled={isSubmitting || loading}
           aria-label="Close signup"
-          className="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 shadow-sm transition"
+          className="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -377,10 +388,10 @@ function Signup() {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isSubmitting || loading}
+                className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
-                {loading ? (
+                {isSubmitting || loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     Creating account...

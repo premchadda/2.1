@@ -57,3 +57,92 @@ export const sanitizeHtml = (html) => {
     ALLOWED_URI_REGEXP: /^(?:(?:(?:https?|ftp):|data:image\/)|[^a-z]|[a-z+.]+[^a-z+.:])/i,
   });
 };
+
+/**
+ * Decodes HTML entities in a string (e.g. &lt;p&gt; -> <p>, &#2344; -> Unicode char, &amp; -> &)
+ * Safe in both Node.js and browser environments.
+ *
+ * @param {string} str
+ * @returns {string}
+ */
+export const decodeHtmlEntities = (str) => {
+  if (!str || typeof str !== 'string') return '';
+  if (!str.includes('&') && !str.includes('&#')) return str;
+
+  let decoded = str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+
+  // Replace decimal numeric entities &#1234;
+  decoded = decoded.replace(/&#(\d+);/g, (match, dec) => {
+    try {
+      const code = parseInt(dec, 10);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    } catch {
+      return match;
+    }
+  });
+
+  // Replace hexadecimal numeric entities &#x12a;
+  decoded = decoded.replace(/&#x([0-9a-fA-F]+);/g, (match, hex) => {
+    try {
+      const code = parseInt(hex, 16);
+      return Number.isFinite(code) ? String.fromCodePoint(code) : match;
+    } catch {
+      return match;
+    }
+  });
+
+  return decoded;
+};
+
+/**
+ * Strips outer <p>...</p> tags if they wrap the entire content as a single block.
+ * Preserves multi-paragraph questions: "<p>Para 1</p><p>Para 2</p>" remains untouched.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+export const cleanHtmlWrapper = (html) => {
+  if (!html || typeof html !== 'string') return '';
+  const trimmed = html.trim();
+
+  // If wrapped in single <p>...</p> without inner closing tags
+  const singleParagraphMatch = trimmed.match(/^<p(?:\s+[^>]*)?>([\s\S]*?)<\/p>$/i);
+  if (singleParagraphMatch) {
+    const inner = singleParagraphMatch[1].trim();
+    if (!/<\/p>/i.test(inner)) {
+      return inner;
+    }
+  }
+
+  return trimmed;
+};
+
+/**
+ * Extracts English and Hindi versions from bilingual strings containing <span class="eqt"> / <span class="hqt">.
+ * Automatically decodes entities and unwraps single <p> wrappers.
+ *
+ * @param {string} html
+ * @returns {{ en: string, hi: string }}
+ */
+export const extractBilingualContent = (html) => {
+  if (!html || typeof html !== 'string') return { en: html || '', hi: '' };
+
+  const decoded = decodeHtmlEntities(html);
+
+  const eqtMatch = decoded.match(/<span[^>]*class=["'][^"']*eqt[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+  const hqtMatch = decoded.match(/<span[^>]*class=["'][^"']*hqt[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+
+  if (eqtMatch || hqtMatch) {
+    const en = eqtMatch ? cleanHtmlWrapper(eqtMatch[1]) : cleanHtmlWrapper(decoded);
+    const hi = hqtMatch ? cleanHtmlWrapper(hqtMatch[1]) : '';
+    return { en, hi };
+  }
+
+  return { en: cleanHtmlWrapper(decoded), hi: '' };
+};

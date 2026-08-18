@@ -21,9 +21,11 @@ import {
   Zap,
   Construction,
   Globe,
+  Crown,
 } from 'lucide-react';
 import { checkFeatureAccess } from '../../shared/utils/pass-helpers'
 import { checkIsLive } from '../../shared/utils/testClassification'
+import { getTestEntitlement } from '../../shared/utils/entitlement'
 
 function TestInstructions() {
   const routeParams = useParams()
@@ -225,35 +227,14 @@ function TestInstructions() {
     return () => controller.abort()
   }, [testId, seriesId])
 
-  // Check access once test is loaded
-  useEffect(() => {
-    if (test && user && user.role !== 'admin') {
-      const isTestPro = Boolean(test.isPro === true || test.is_pro === true || test.isProPass === true)
-      const isUserPro = Boolean(
-        user.isProUser || 
-        user.isPro || 
-        user.is_pro || 
-        (user.passType && user.passType !== 'free')
-      )
-      
-      if (isUserPro) return
+  // Pro & Free access resolution
+  const entitlement = useMemo(() => {
+    return getTestEntitlement({ test, user, series })
+  }, [test, user, series])
 
-      const isLive = checkIsLive(test)
-      const isFree = (test.type === 'Free' || test.type === 'quiz' || (!isTestPro && (test.price === 0 || !test.price))) && !isTestPro
-      
-      if (isFree) return
-
-      const featureKey = isLive ? 'live_tests' : 
-                        test.type === 'Chapter' ? 'chapter_tests' : 
-                        test.type === 'PYQ' ? 'pyq_papers' : 'mock_tests'
-                        
-      const access = checkFeatureAccess(featureKey, user.passType || 'free')
-      
-      if (!access) {
-        navigate('/pass')
-      }
-    }
-  }, [test, user, navigate])
+  const isTestPro = entitlement.accessType === 'PRO'
+  const isUserPro = entitlement.isUserPro
+  const isLocked = entitlement.requiresPro
 
   // System check
   useEffect(() => {
@@ -276,6 +257,11 @@ function TestInstructions() {
   }, [])
 
   const handleStartTest = () => {
+    if (isLocked) {
+      toast.error(isHindi ? 'इस टेस्ट के लिए प्रो पास आवश्यक है' : 'Pro Pass required for this test')
+      navigate('/pass')
+      return
+    }
     if (agreedToRules && !noQuestions) {
       setCountdown(3)
     } else if (!noQuestions) {
@@ -294,7 +280,6 @@ function TestInstructions() {
 
     if (countdown === 0) {
       setCountdown(null)
-      toast.success(isHindi ? 'परीक्षण शुरू हो रहा है... तैयार हो जाइए!' : 'Test starting... get ready!')
       const slug = series?.slug || routeParams.seriesSlug || (seriesId && seriesId !== 'undefined' ? seriesId : 'test')
       const targetTestId = test?.public_id_uuid || test?.public_id || test?.id || test?._id || testId
       const searchParams = new URLSearchParams(location.search)
@@ -785,29 +770,48 @@ function TestInstructions() {
               <div className="hidden lg:block bg-white p-4 rounded-xl border border-indigo-200 shadow-md space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-tcs-text-primary uppercase tracking-wider">
-                    {isHindi ? 'परीक्षण शुरू करें' : 'Start Assessment'}
+                    {isLocked ? (isHindi ? 'प्रो पास आवश्यक' : 'Pro Pass Required') : (isHindi ? 'परीक्षण शुरू करें' : 'Start Assessment')}
                   </h4>
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                     {isHindi ? `प्रयास #${attemptNo}` : `Attempt #${attemptNo}`}
                   </span>
                 </div>
 
-                <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-lg bg-tcs-surface border border-tcs-border hover:border-tcs-primary/30 transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={agreedToRules}
-                    onChange={(e) => setAgreedToRules(e.target.checked)}
-                    className="w-4 h-4 mt-0.5 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
-                  />
-                  <span className="text-xs sm:text-sm font-medium text-tcs-text-primary select-none leading-normal">
-                    {isHindi 
-                      ? 'मैंने सभी निर्देश, नियम और दिशानिर्देश पढ़ लिए हैं और उनसे सहमत हूँ।' 
-                      : 'I have read and agree to all instructions, rules & guidelines.'
-                    }
-                  </span>
-                </label>
+                {isLocked && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-amber-800">
+                    <Crown className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <p className="text-xs font-medium">
+                      {isHindi ? 'यह टेस्ट प्रो पास के अंतर्गत आता है।' : 'This test requires an active Pro Pass.'}
+                    </p>
+                  </div>
+                )}
 
-                {noQuestions ? (
+                {!isLocked && (
+                  <label className="flex items-start gap-2.5 cursor-pointer p-3 rounded-lg bg-tcs-surface border border-tcs-border hover:border-tcs-primary/30 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={agreedToRules}
+                      onChange={(e) => setAgreedToRules(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
+                    />
+                    <span className="text-xs sm:text-sm font-medium text-tcs-text-primary select-none leading-normal">
+                      {isHindi 
+                        ? 'मैंने सभी निर्देश, नियम और दिशानिर्देश पढ़ लिए हैं और उनसे सहमत हूँ।' 
+                        : 'I have read and agree to all instructions, rules & guidelines.'
+                      }
+                    </span>
+                  </label>
+                )}
+
+                {isLocked ? (
+                  <button
+                    onClick={() => navigate('/pass')}
+                    className="w-full py-3 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg cursor-pointer"
+                  >
+                    <Crown className="w-4 h-4" />
+                    {isHindi ? 'प्रो पास प्राप्त करें' : 'Get Pro Pass to Start'}
+                  </button>
+                ) : noQuestions ? (
                   <button
                     disabled
                     className="w-full py-3 rounded-lg font-bold text-xs sm:text-sm flex items-center justify-center gap-2 bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -842,20 +846,30 @@ function TestInstructions() {
       {/* Mobile Sticky Bottom Action Bar (Visible ONLY on Mobile & Hidden on Desktop) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-tcs-border p-3 shadow-tcs">
         <div className="w-full flex items-center justify-between gap-2">
-          <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
-            <input
-              type="checkbox"
-              checked={agreedToRules}
-              onChange={(e) => setAgreedToRules(e.target.checked)}
-              className="w-4 h-4 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
-            />
-            <span className="text-[11px] font-medium text-tcs-text-primary select-none truncate">
-              {isHindi ? 'मैं सभी नियमों से सहमत हूँ।' : 'I agree to all rules & instructions.'}
-            </span>
-          </label>
+          {!isLocked && (
+            <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+              <input
+                type="checkbox"
+                checked={agreedToRules}
+                onChange={(e) => setAgreedToRules(e.target.checked)}
+                className="w-4 h-4 text-tcs-primary rounded border-tcs-border focus:ring-tcs-primary cursor-pointer shrink-0"
+              />
+              <span className="text-[11px] font-medium text-tcs-text-primary select-none truncate">
+                {isHindi ? 'मैं सभी नियमों से सहमत हूँ।' : 'I agree to all rules & instructions.'}
+              </span>
+            </label>
+          )}
           
-          <div className="shrink-0">
-            {noQuestions ? (
+          <div className={isLocked ? 'w-full' : 'shrink-0'}>
+            {isLocked ? (
+              <button
+                onClick={() => navigate('/pass')}
+                className="w-full py-2.5 rounded-lg font-bold text-xs flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm cursor-pointer"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                {isHindi ? 'प्रो पास प्राप्त करें' : 'Get Pro Pass to Start'}
+              </button>
+            ) : noQuestions ? (
               <button
                 disabled
                 className="px-4 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 bg-gray-200 text-gray-400 cursor-not-allowed"

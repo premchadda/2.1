@@ -3,9 +3,12 @@ import { Helmet } from 'react-helmet-async'
 import { useParams, useNavigate } from 'react-router-dom'
 import { apiClient, getTestById, getQuestionsByTestId } from '../../shared/lib/dataService'
 import { getLocalizedField } from '../../shared/lib/language'
+import { sanitizeHtml } from '../../shared/lib/htmlSanitizer'
+import MathRenderer from '../../shared/components/MathRenderer'
 import Telemetry from '../../shared/lib/telemetry'
 import { toast } from 'react-hot-toast'
 import './TestInterface.css'
+
 
 const PYPTest = () => {
   const { pypId } = useParams()
@@ -310,7 +313,9 @@ const PYPTest = () => {
         {/* Center Panel - Question Display */}
         <div className="test-main">
           <div className="test-question">
-            <h2 className="test-question-title">{questionText}</h2>
+            <h2 className="test-question-title">
+              <MathRenderer text={sanitizeHtml(questionText)} />
+            </h2>
 
             <div className="test-options">
               {questionOptions.map((option, idx) => {
@@ -324,12 +329,15 @@ const PYPTest = () => {
                       checked={answers[currentQuestion] === idx}
                       onChange={() => handleAnswerChange(idx)}
                     />
-                    <span className="test-option-label">{optionText}</span>
+                    <span className="test-option-label">
+                      <MathRenderer text={sanitizeHtml(optionText)} />
+                    </span>
                   </label>
                 )
               })}
             </div>
           </div>
+
 
           <div className="test-navigation">
             <button

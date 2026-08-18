@@ -396,8 +396,9 @@ export default function TestReview() {
                         </span>
 
                         <div className="flex-1 min-w-0 pt-0.5 text-gray-900 dark:text-white text-sm sm:text-base font-medium">
-                          <MathRenderer text={sanitizeHtml(option)} />
+                          <MathRenderer text={sanitizeHtml(typeof option === 'object' ? (option?.text || option?.en || option?.value || String(option)) : option)} />
                         </div>
+
 
                         {/* Badges */}
                         <div className="flex flex-col items-end gap-1 flex-shrink-0">

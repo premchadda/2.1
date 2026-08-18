@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { api } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
+import MathRenderer from '../../shared/components/MathRenderer'
+
 
 export default function LiveTestReview() {
   const { liveTestId } = useParams()
@@ -75,7 +77,9 @@ export default function LiveTestReview() {
             </div>
           </div>
 
-          <div className="prose max-w-none text-slate-800 mb-8" dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQuestion.text || '') }} />
+          <div className="text-slate-800 text-base sm:text-lg mb-8 leading-relaxed">
+            <MathRenderer text={sanitizeHtml(currentQuestion.text || '')} />
+          </div>
 
           <div className="space-y-3">
             {currentQuestion.options.map((option, index) => {
@@ -89,8 +93,10 @@ export default function LiveTestReview() {
               return (
                 <div key={index} className={`rounded-2xl border-2 px-4 py-4 ${optionClasses}`}>
                   <div className="flex items-start justify-between gap-4">
-                    <div className="text-slate-800">{option}</div>
-                    <div className="flex items-center gap-2 text-xs font-semibold">
+                    <div className="text-slate-800 flex-1 min-w-0">
+                      <MathRenderer text={sanitizeHtml(option)} />
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-semibold shrink-0">
                       {isCorrectOption && <span className="text-green-600">Correct</span>}
                       {isSelectedOption && <span className="text-indigo-600">Your Answer</span>}
                     </div>
@@ -103,10 +109,13 @@ export default function LiveTestReview() {
           {currentQuestion.explanation && (
             <div className="mt-8 rounded-2xl bg-slate-50 border border-slate-200 p-5">
               <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Explanation</div>
-              <div className="prose max-w-none text-slate-700" dangerouslySetInnerHTML={{ __html: sanitizeHtml(currentQuestion.explanation) }} />
+              <div className="text-slate-700 leading-relaxed">
+                <MathRenderer text={sanitizeHtml(currentQuestion.explanation)} />
+              </div>
             </div>
           )}
         </div>
+
 
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex items-center justify-between">
           <button
