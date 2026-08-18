@@ -3,9 +3,12 @@ import { Helmet } from 'react-helmet-async'
 import { useParams, useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import { api } from '../../shared/lib/dataService'
+import { sanitizeHtml } from '../../shared/lib/htmlSanitizer'
+import MathRenderer from '../../shared/components/MathRenderer'
 import Telemetry from '../../shared/lib/telemetry'
 import { useAuth } from '../../shared/providers/AuthContext'
 import './TestInterface.css'
+
 
 const LiveTestInterface = () => {
   const { liveTestId } = useParams()
@@ -418,7 +421,9 @@ const LiveTestInterface = () => {
 
         <div className="test-main">
           <div className="test-question">
-            <h2 className="test-question-title">{question.text}</h2>
+            <h2 className="test-question-title">
+              <MathRenderer text={sanitizeHtml(question.text)} />
+            </h2>
 
             {question.type === 'mcq' && (
               <div className="test-options">
@@ -431,7 +436,9 @@ const LiveTestInterface = () => {
                       checked={answers[currentQuestion] === option}
                       onChange={(event) => handleAnswerChange(event.target.value)}
                     />
-                    <span className="test-option-label">{option}</span>
+                    <span className="test-option-label">
+                      <MathRenderer text={sanitizeHtml(option)} />
+                    </span>
                   </label>
                 ))}
               </div>
@@ -453,12 +460,15 @@ const LiveTestInterface = () => {
                           handleAnswerChange(updated)
                         }}
                       />
-                      <span className="test-option-label">{option}</span>
+                      <span className="test-option-label">
+                        <MathRenderer text={sanitizeHtml(option)} />
+                      </span>
                     </label>
                   )
                 })}
               </div>
             )}
+
 
             {question.type === 'numeric' && (
               <input

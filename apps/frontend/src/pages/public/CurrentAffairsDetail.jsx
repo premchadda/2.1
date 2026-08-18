@@ -3,9 +3,11 @@ import { Helmet } from 'react-helmet-async'
 import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../shared/lib/dataService'
 import sanitizeHtml from '../../shared/lib/sanitizeHtml'
+import MathRenderer from '../../shared/components/MathRenderer'
 import { toast } from 'react-hot-toast'
 import { useAuth } from '../../shared/providers/AuthContext'
 import './CurrentAffairsDetail.css'
+
 
 const CurrentAffairsDetail = () => {
   const { caId } = useParams()
@@ -170,8 +172,9 @@ const CurrentAffairsDetail = () => {
               <div className="ca-quiz-questions">
                 {quiz?.questions?.map((question, idx) => (
                   <div key={idx} className="ca-quiz-question">
-                    <h3 className="ca-quiz-question-title">
-                      Question {idx + 1}: {question.text}
+                    <h3 className="ca-quiz-question-title flex items-center gap-1.5">
+                      <span>Question {idx + 1}:</span>
+                      <MathRenderer text={sanitizeHtml(question.text)} />
                     </h3>
 
                     <div className="ca-quiz-options">
@@ -194,7 +197,9 @@ const CurrentAffairsDetail = () => {
                             onChange={() => handleQuizAnswerChange(idx, option)}
                             disabled={quizSubmitted}
                           />
-                          <span className="ca-quiz-option-label">{option}</span>
+                          <span className="ca-quiz-option-label">
+                            <MathRenderer text={sanitizeHtml(option)} />
+                          </span>
                           {quizSubmitted && option === question.correct && (
                             <span className="ca-quiz-option-mark">✓</span>
                           )}
@@ -204,12 +209,14 @@ const CurrentAffairsDetail = () => {
 
                     {quizSubmitted && (
                       <div className="ca-quiz-explanation">
-                        <p>
-                          <strong>Explanation:</strong> {question.explanation || 'No explanation provided.'}
-                        </p>
+                        <div className="flex items-start gap-1">
+                          <strong>Explanation:</strong>
+                          <MathRenderer text={sanitizeHtml(question.explanation || 'No explanation provided.')} />
+                        </div>
                       </div>
                     )}
                   </div>
+
                 ))}
               </div>
 

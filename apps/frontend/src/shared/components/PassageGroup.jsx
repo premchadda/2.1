@@ -156,12 +156,13 @@ function DefaultQuestionCard({ question, index, onOpenNotes, onOpenDiscussions, 
                     {String.fromCharCode(65 + idx)}.
                   </span>
                   <span className="truncate max-w-[200px]">
-                    {typeof opt === 'object' ? (opt[language] || opt.en || JSON.stringify(opt)) : opt}
+                    <MathRenderer text={sanitizeHtml(typeof opt === 'object' ? (opt[language] || opt.en || JSON.stringify(opt)) : opt)} />
                   </span>
                 </span>
               ))}
             </div>
           )}
+
 
           {/* Action Buttons */}
           <div className="flex gap-2 mt-1">

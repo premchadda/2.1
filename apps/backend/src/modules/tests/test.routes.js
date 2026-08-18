@@ -19,6 +19,7 @@ import { idsMatch, parseNumericId } from '../../shared/utils/db-utils.js'
 import { findEntityByIdentifier, getInternalId } from '../../shared/utils/identifier-utils.js'
 import { getPublicResponseId } from '../../shared/utils/public-id-response.js'
 import { isProUser, isProRestrictedTest } from '../../shared/utils/user-utils.js'
+import { EntitlementService } from '../../services/EntitlementService.js'
 import { findTestByIdentifier, filterQuestionsByTestId } from '../../shared/utils/test-utils.js'
 import { isPypSlug } from '../../utils/slug-helpers.js'
 import { readTestContent, readTestContentByPath } from '../../services/import/testContentStorage.js'
@@ -721,12 +722,9 @@ router.get('/:testId', optionalAuth, async (req, res) => {
       })
     }
 
-    let hasAccess = !isProRestrictedTest(test)
-    if (req.user && isProUser(req.user)) {
-      hasAccess = true
-    }
-
     const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
+    const entitlement = EntitlementService.getTestEntitlement(req.user, test, series)
+    const hasAccess = entitlement.canAttempt
     const [enrichedTest] = await enrichTestsWithBannerAssets([test])
 
     let sections = enrichedTest?.sections
@@ -783,6 +781,9 @@ router.get('/:testId', optionalAuth, async (req, res) => {
         testSeriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
         seriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
         hasAccess,
+        canAttempt: entitlement.canAttempt,
+        accessType: entitlement.accessType,
+        requiresPro: entitlement.requiresPro,
       },
     })
   } catch (error) {
@@ -807,10 +808,13 @@ router.get('/:testId/questions', protect, async (req, res) => {
       })
     }
 
-    if (isProRestrictedTest(test) && !isProUser(req.user)) {
+    const entitlement = EntitlementService.getTestEntitlement(req.user, test)
+    if (!entitlement.canAttempt) {
       return res.status(403).json({
         success: false,
-        message: 'Pro Pass required for this test',
+        code: entitlement.reason || 'PRO_REQUIRED',
+        requiresPro: entitlement.requiresPro,
+        message: entitlement.message || 'Pro Pass required for this test',
       })
     }
 
@@ -852,11 +856,13 @@ router.post('/:testId/start', protect, async (req, res) => {
       })
     }
 
-    if (isProRestrictedTest(test) && !isProUser(req.user)) {
+    const entitlement = EntitlementService.getTestEntitlement(req.user, test)
+    if (!entitlement.canAttempt) {
       return res.status(403).json({
         success: false,
-        requiresPro: true,
-        message: 'Pro Pass required for this test',
+        code: entitlement.reason || 'PRO_REQUIRED',
+        requiresPro: entitlement.requiresPro,
+        message: entitlement.message || 'Pro Pass required for this test',
       })
     }
 
@@ -1096,10 +1102,13 @@ router.put('/:testId/submit', protect, async (req, res) => {
       })
     }
 
-    if (isProRestrictedTest(test) && !isProUser(req.user)) {
+    const entitlement = EntitlementService.getTestEntitlement(req.user, test)
+    if (!entitlement.canAttempt) {
       return res.status(403).json({
         success: false,
-        message: 'Pro Pass required for this test',
+        code: entitlement.reason || 'PRO_REQUIRED',
+        requiresPro: entitlement.requiresPro,
+        message: entitlement.message || 'Pro Pass required for this test',
       })
     }
 

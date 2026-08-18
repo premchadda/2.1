@@ -1,5 +1,37 @@
 import BaseSeeder from './BaseSeeder.js';
 
+function decodeHtml(str) {
+  if (!str || typeof str !== 'string') return str || '';
+  if (!str.includes('&') && !str.includes('&#')) return str;
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, dec) => {
+      try { return String.fromCodePoint(parseInt(dec, 10)); } catch { return _; }
+    })
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      try { return String.fromCodePoint(parseInt(hex, 16)); } catch { return _; }
+    });
+}
+
+function extractBilingual(html) {
+  if (!html || typeof html !== 'string') return { en: html || '', hi: '' };
+  const decoded = decodeHtml(html);
+  const eqtMatch = decoded.match(/<span[^>]*class=["'][^"']*eqt[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+  const hqtMatch = decoded.match(/<span[^>]*class=["'][^"']*hqt[^"']*["'][^>]*>([\s\S]*?)<\/span>/i);
+  if (eqtMatch || hqtMatch) {
+    return {
+      en: eqtMatch ? eqtMatch[1].trim() : decoded.trim(),
+      hi: hqtMatch ? hqtMatch[1].trim() : '',
+    };
+  }
+  return { en: decoded.trim(), hi: '' };
+}
+
 export default class QuestionsSeeder extends BaseSeeder {
   static table = 'questions';
   static fixtureFile = 'questions.json';
@@ -14,11 +46,45 @@ export default class QuestionsSeeder extends BaseSeeder {
   ];
 
   static toRow(row) {
+    const rawQuestion = row.question_text ?? row.question ?? '';
+    const extractedQ = typeof rawQuestion === 'string' ? extractBilingual(rawQuestion) : { en: '', hi: '' };
+    const questionText = extractedQ.en || (typeof rawQuestion === 'object' ? rawQuestion.en : rawQuestion);
+    const questionTextHi = row.question_text_hi || extractedQ.hi || (typeof rawQuestion === 'object' ? rawQuestion.hi : null);
+
+    let options = row.options;
+    let optionsHi = row.options_hi || null;
+
+    if (Array.isArray(options)) {
+      const enOpts = [];
+      const hiOpts = [];
+      options.forEach((opt) => {
+        if (typeof opt === 'string') {
+          const ext = extractBilingual(opt);
+          enOpts.push(ext.en);
+          if (ext.hi) hiOpts.push(ext.hi);
+        } else {
+          enOpts.push(opt);
+        }
+      });
+      options = enOpts;
+      if (!optionsHi && hiOpts.length === enOpts.length) {
+        optionsHi = hiOpts;
+      }
+    }
+
+    const rawSolution = row.solution ?? row.explanation ?? null;
+    const extractedSol = typeof rawSolution === 'string' ? extractBilingual(rawSolution) : { en: '', hi: '' };
+    const solution = extractedSol.en || rawSolution;
+
     return {
       ...row,
-      question_text: row.question_text ?? row.question ?? null,
+      question_text: questionText,
+      question_text_hi: questionTextHi,
+      options: options,
+      options_hi: optionsHi,
       correct_option: row.correct_option ?? row.correct_option_id ?? 0,
-      solution: row.solution ?? row.explanation ?? null,
+      solution: solution,
     };
   }
 }
+

@@ -3,6 +3,12 @@ import { isProUser } from '../shared/utils/user-utils.js'
 /**
  * EntitlementService provides a single, canonical source of truth for
  * evaluating user access permissions across tests, series, and premium features.
+ * 
+ * Rules:
+ * 1. Series visibility/access ≠ individual Test access.
+ * 2. A FREE series can contain PRO tests (which require Pro Pass).
+ * 3. A PRO series can contain FREE tests (which any user can attempt for free).
+ * 4. Never derive Test attempt access from Series access.
  */
 export class EntitlementService {
   /**
@@ -41,20 +47,30 @@ export class EntitlementService {
 
   /**
    * Checks whether a given test is Pro-restricted.
+   * Explicit Free indicators always take precedence.
    *
    * @param {Object} test
    * @returns {boolean}
    */
   static isTestPro(test) {
     if (!test) return false
-    const type = String(test.type || '').toLowerCase()
+    const type = String(test.type || test.test_type || test.testType || '').toLowerCase()
     if (type === 'free') return false
     if (test.isFree === true || test.is_free === true) return false
-    return Boolean(test.isPro === true || test.is_pro === true || type === 'pro')
+    if (String(test.accessType || test.access_type || '').toUpperCase() === 'FREE') return false
+    return Boolean(
+      test.isPro === true ||
+      test.is_pro === true ||
+      test.isProPass === true ||
+      test.is_pro_pass === true ||
+      type === 'pro' ||
+      String(test.accessType || test.access_type || '').toUpperCase() === 'PRO' ||
+      (Number(test.price) > 0)
+    )
   }
 
   /**
-   * Checks whether a given test series is Pro-restricted.
+   * Checks whether a given test series is Pro-restricted (marketing/catalog level).
    *
    * @param {Object} series
    * @returns {boolean}
@@ -62,37 +78,101 @@ export class EntitlementService {
   static isSeriesPro(series) {
     if (!series) return false
     if (series.isFree === true || series.is_free === true) return false
-    return Boolean(series.isPro === true || series.is_pro === true)
+    if (String(series.type || '').toLowerCase() === 'free') return false
+    if (String(series.accessType || series.access_type || '').toUpperCase() === 'FREE') return false
+    return Boolean(
+      series.isPro === true ||
+      series.is_pro === true ||
+      series.isProPass === true ||
+      series.is_pro_pass === true ||
+      String(series.type || '').toLowerCase() === 'pro' ||
+      String(series.accessType || series.access_type || '').toUpperCase() === 'PRO' ||
+      (Number(series.price) > 0)
+    )
   }
 
   /**
-   * Evaluates whether a user can access a test for taking/starting.
+   * Evaluates canonical test entitlement.
+   * Test attempt entitlement is strictly decoupled from Series classification.
    *
    * @param {Object|null} user
    * @param {Object} test
-   * @returns {{ allowed: boolean, reason?: string, message?: string, requiresPro?: boolean }}
+   * @param {Object|null} series
+   * @returns {{ accessType: 'FREE'|'PRO', canAttempt: boolean, requiresPro: boolean, requiresAuth: boolean, allowed: boolean, reason: string|null, message: string|null }}
    */
-  static canAccessTest(user, test) {
-    if (!this.isTestPro(test)) {
-      return { allowed: true }
-    }
-    if (!user) {
+  static getTestEntitlement(user, test, _series = null) {
+    if (!test) {
       return {
+        accessType: 'FREE',
+        canAttempt: false,
+        requiresPro: false,
+        requiresAuth: false,
         allowed: false,
-        reason: 'AUTH_REQUIRED',
-        message: 'Authentication is required to access this test',
-        requiresAuth: true
+        reason: 'TEST_NOT_FOUND',
+        message: 'Test not found'
       }
     }
-    if (this.isPro(user)) {
-      return { allowed: true }
+
+    const isTestPro = this.isTestPro(test)
+    const isProUser = this.isPro(user)
+    const accessType = isTestPro ? 'PRO' : 'FREE'
+
+    // Free test inside ANY series (Free or Pro) is attemptable by everyone
+    if (!isTestPro) {
+      return {
+        accessType: 'FREE',
+        canAttempt: true,
+        requiresPro: false,
+        requiresAuth: false,
+        allowed: true,
+        reason: null,
+        message: null
+      }
     }
+
+    // Pro test requires authentication
+    if (!user) {
+      return {
+        accessType: 'PRO',
+        canAttempt: false,
+        requiresPro: true,
+        requiresAuth: true,
+        allowed: false,
+        reason: 'AUTH_REQUIRED',
+        message: 'Authentication is required to access this Pro test'
+      }
+    }
+
+    // Pro user has access
+    if (isProUser) {
+      return {
+        accessType: 'PRO',
+        canAttempt: true,
+        requiresPro: false,
+        requiresAuth: false,
+        allowed: true,
+        reason: null,
+        message: null
+      }
+    }
+
+    // Free user attempting Pro test
     return {
+      accessType: 'PRO',
+      canAttempt: false,
+      requiresPro: true,
+      requiresAuth: false,
       allowed: false,
       reason: 'PRO_REQUIRED',
-      message: 'Pro Pass is required to access this test',
-      requiresPro: true
+      message: 'Pro Pass is required to access this test'
     }
+  }
+
+  /**
+   * Backwards compatible helper for canAccessTest
+   */
+  static canAccessTest(user, test, series = null) {
+    return this.getTestEntitlement(user, test, series)
   }
 
   /**
@@ -104,21 +184,24 @@ export class EntitlementService {
    */
   static canEnrollSeries(user, series) {
     if (!this.isSeriesPro(series)) {
-      return { allowed: true }
+      return { allowed: true, canEnroll: true, requiresPro: false }
     }
     if (!user) {
       return {
         allowed: false,
+        canEnroll: false,
         reason: 'AUTH_REQUIRED',
         message: 'Authentication is required to enroll in this test series',
-        requiresAuth: true
+        requiresAuth: true,
+        requiresPro: true
       }
     }
     if (this.isPro(user)) {
-      return { allowed: true }
+      return { allowed: true, canEnroll: true, requiresPro: false }
     }
     return {
       allowed: false,
+      canEnroll: false,
       reason: 'PRO_REQUIRED',
       message: 'Pro Pass is required to enroll in this test series',
       requiresPro: true

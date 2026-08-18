@@ -1,5 +1,5 @@
 import { useState, useMemo, memo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   Radio,
   Crown,
@@ -14,6 +14,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import { checkFeatureAccess } from '../../utils/pass-helpers'
+import { getTestEntitlement, isUserPro as checkUserIsPro } from '../../utils/entitlement'
 import {
   checkIsLive,
   checkIsUpcoming,
@@ -69,7 +70,7 @@ const getTestBadges = (test, isLiveParam, isUpcomingParam, isFreeParam, isQuizIt
   const isExpired = checkIsLiveExpired(test)
   const isLive = (isLiveParam ?? checkIsLive(test)) && !isExpired
   const isUpcoming = isUpcomingParam ?? checkIsUpcoming(test)
-  const isFree = isFreeParam ?? (test.type === 'Free' || !test.isPro)
+  const isFree = isFreeParam
 
   if (isQuizItem) {
     if (isLive) badges.push('LIVE QUIZ')
@@ -82,11 +83,15 @@ const getTestBadges = (test, isLiveParam, isUpcomingParam, isFreeParam, isQuizIt
     if (isUpcoming && !isLive && !isExpired) badges.push('SCHEDULED')
   }
 
-  if (isFree) badges.push('FREE')
+  if (isFree) {
+    badges.push('FREE')
+  } else {
+    badges.push('PRO')
+  }
+
   if (test.isMustAttempt || test.tags?.includes('Must Attempt')) badges.push('MUST ATTEMPT')
   if (test.isNew || test.tags?.includes('New')) badges.push('NEW')
   if (checkIsComingSoon(test)) badges.push('COMING SOON')
-  if (!isFree && !isLive && !isQuizItem) badges.push('PRO')
 
   return badges
 }
@@ -164,6 +169,7 @@ function TestCard({
   showLeaderboardAndReview = false,
   variant: _variant = 'default',
 }) {
+  const location = useLocation()
   const [isHovered, setIsHovered] = useState(false)
 
   // Determine if item is a Quiz or Full Test
@@ -172,31 +178,17 @@ function TestCard({
   // Test status
   const isLive = checkIsLive(test)
   const isUpcoming = checkIsUpcoming(test)
-  // Pro & Free access resolution
-  const isTestPro = Boolean(test.isPro === true || test.is_pro === true || test.isProPass === true)
-  const isUserPro = Boolean(
-    user?.isProUser || 
-    user?.isPro || 
-    user?.is_pro || 
-    user?.role === 'admin' || 
-    (user?.passType && user.passType !== 'free')
-  )
 
-  const isFree = (test.type === 'Free' || test.type === 'quiz' || (!isTestPro && (test.price === 0 || !test.price))) && !isTestPro
+  // Canonical entitlement resolution (Series access decoupled from Test access)
+  const entitlement = useMemo(() => {
+    return getTestEntitlement({ test, user })
+  }, [test, user])
 
-  // Use pass system helpers to check access based on test type
-  const isChapter = test.type === 'Chapter' || test.subCategory?.includes('Chapter')
-  const isSectional = test.tags?.some(tag => String(tag).toLowerCase().includes('sectional')) || test.subCategory?.includes('Sectional')
-  const isPYQ = test.type === 'PYQ' || test.tags?.includes('PYQ') || test.subCategory?.includes('PYQ')
-
-  const featureKey = isLive ? 'live_tests' : 
-                    isSectional ? 'sectional_tests' :
-                    isChapter ? 'chapter_tests' : 
-                    isPYQ ? 'pyq_papers' : 'mock_tests'
-
-  const passAccess = isUserPro || checkFeatureAccess(featureKey, user?.passType || (isUserPro ? 'pro_pass' : 'free'))
-  const hasAccess = isFree || isUserPro || (isTestPro ? isUserPro : !!passAccess)
-  const isLocked = isTestPro ? !isUserPro : !hasAccess
+  const isTestPro = entitlement.accessType === 'PRO'
+  const isFree = entitlement.accessType === 'FREE'
+  const isUserPro = entitlement.isUserPro
+  const isLocked = entitlement.requiresPro
+  const hasAccess = entitlement.canAttempt
 
   // Question count comes directly from the test object
   const totalQs = test.totalQuestions ?? test.total_questions ?? (Array.isArray(test.questions) ? test.questions.length : (typeof test.questions === 'number' ? test.questions : 0))
@@ -303,7 +295,7 @@ function TestCard({
           label: '🔒 Login to Unlock',
           isLink: true,
           to: '/login',
-          state: { from: instructionsUrl, message: 'Please login to unlock this test' }
+          state: { from: instructionsUrl, backgroundLocation: location, message: 'Please login to unlock this test' }
         }
       }
       return {
@@ -311,7 +303,7 @@ function TestCard({
         label: 'Log In to Start',
         isLink: true,
         to: '/login',
-        state: { from: instructionsUrl }
+        state: { from: instructionsUrl, backgroundLocation: location }
       }
     }
 

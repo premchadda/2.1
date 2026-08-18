@@ -18,6 +18,7 @@ function Login() {
   const [rememberMe, setRememberMe] = useState(false)
   const [formError, setFormError] = useState('')
   const [platformStats, setPlatformStats] = useState({ activeLearners: 0, mockTests: 0 })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Active Session Conflict state
   const [showSessionConflict, setShowSessionConflict] = useState(false)
@@ -48,19 +49,20 @@ function Login() {
   }, [])
 
   const handleClose = useCallback(() => {
+    if (isSubmitting || loading) return
     const bgLoc = location.state?.backgroundLocation
     if (bgLoc?.pathname) {
       navigate(`${bgLoc.pathname}${bgLoc.search || ''}`, { replace: true })
     } else {
       navigate('/', { replace: true })
     }
-  }, [location, navigate])
+  }, [isSubmitting, loading, location, navigate])
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') handleClose() }
+    const onKey = (e) => { if (e.key === 'Escape' && !isSubmitting && !loading) handleClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [handleClose])
+  }, [handleClose, isSubmitting, loading])
 
   let from = '/dashboard'
   if (typeof location.state?.from === 'string' && location.state.from !== '/' && location.state.from !== '/login') {
@@ -92,12 +94,12 @@ function Login() {
   //   3) They typed /login into the address bar while still logged in
   // We must wait for `authResolved` so we don't redirect before the initial /me call
   // completes (which would briefly flash the login modal on every refresh).
-  if (authResolved && !loading && user && !showSessionConflict) {
+  if (authResolved && !loading && !isSubmitting && user && !showSessionConflict) {
     return <Navigate to={from} replace state={{}} />
   }
 
-  // Show loading spinner while auth state is being determined
-  if (loading) {
+  // Show loading spinner only during initial session determination before auth state is resolved
+  if (!authResolved && loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
@@ -110,6 +112,7 @@ function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting || loading) return
     setFormError('')
 
     if (!email || !password) {
@@ -117,28 +120,37 @@ function Login() {
       return
     }
 
-    const result = await login(email, password, rememberMe)
+    setIsSubmitting(true)
+    try {
+      const result = await login(email, password, rememberMe)
 
-    if (result.success) {
-      if (result.previousSession) {
-        setConflictSessions(result.otherSessions || [])
-        setShowSessionConflict(true)
+      if (result?.success) {
+        if (result.previousSession) {
+          setConflictSessions(result.otherSessions || [])
+          setShowSessionConflict(true)
+        } else {
+          // Modal stays visible until navigation to dashboard/from target occurs
+          navigate(from, { replace: true, state: {} })
+        }
+      } else if (result?.requires2FA) {
+        // Backend validated credentials but user has 2FA enabled
+        setTempToken(result.tempToken)
+        setTwoFAStep(true)
+        setTotpCode('')
+        setFormError('')
       } else {
-        navigate(from, { replace: true, state: {} })
+        setFormError(result?.error || 'Invalid email or password')
       }
-    } else if (result.requires2FA) {
-      // Backend validated credentials but user has 2FA enabled
-      setTempToken(result.tempToken)
-      setTwoFAStep(true)
-      setTotpCode('')
-      setFormError('')
-    } else {
-      setFormError(result.error)
+    } catch (err) {
+      setFormError(err?.message || 'Login failed. Please check your connection and try again.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   const handle2FASubmit = async (e) => {
     e.preventDefault()
+    if (isSubmitting || loading) return
     setFormError('')
 
     if (!totpCode) {
@@ -146,10 +158,19 @@ function Login() {
       return
     }
 
-    const result = await verify2FA(tempToken, totpCode, useBackupCode)
+    setIsSubmitting(true)
+    try {
+      const result = await verify2FA(tempToken, totpCode, useBackupCode)
 
-    if (!result.success) {
-      setFormError(result.error)
+      if (result?.success) {
+        navigate(from, { replace: true, state: {} })
+      } else {
+        setFormError(result?.error || 'Invalid verification code')
+      }
+    } catch (err) {
+      setFormError(err?.message || 'Verification failed')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -188,8 +209,9 @@ function Login() {
         <button
           type="button"
           onClick={handleClose}
+          disabled={isSubmitting || loading}
           aria-label="Close login"
-          className="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 shadow-sm transition"
+          className="absolute top-4 right-4 z-50 w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <X className="w-5 h-5" />
         </button>
@@ -252,10 +274,10 @@ function Login() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={loading || (!useBackupCode && totpCode.length !== 6)}
-                    className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting || loading || (!useBackupCode && totpCode.length !== 6)}
+                    className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    {loading ? (
+                    {isSubmitting || loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         Verifying...
@@ -387,10 +409,10 @@ function Login() {
                   {/* Submit Button */}
                   <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting || loading}
+                    className="w-full py-2.5 text-sm bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    {loading ? (
+                    {isSubmitting || loading ? (
                       <>
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                         Signing in...

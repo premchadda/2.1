@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import 'katex/dist/katex.min.css';
-import { sanitizeHtml } from '../lib/htmlSanitizer';
+import { sanitizeHtml, decodeHtmlEntities } from '../lib/htmlSanitizer';
+
 
 // Maps common Unicode superscripts, subscripts, Greek letters, and math symbols to LaTeX
 const UNICODE_MATH_MAP = [
@@ -123,10 +124,12 @@ function normalizeMathString(input) {
 }
 
 /**
- * Checks if a string line is a pure mathematical expression without conversational words
+ * Checks if a string line is a pure mathematical expression without conversational words or HTML tags
  */
 function isPureMathLine(text) {
   if (!text || text.length > 120) return false;
+  // If it contains any HTML tags, it is NOT pure math — KaTeX must never parse HTML tags as math operators
+  if (/<[a-zA-Z\/][^>]*>/.test(text)) return false;
   // If it contains natural language words in English or Hindi, it's not a pure math line
   if (/[a-zA-Z]{5,}/.test(text.replace(/\\(sin|cos|tan|sec|cosec|csc|cot|theta|alpha|beta|gamma|lambda|sqrt|frac|times|div|approx|infty|Delta|circ)/g, ''))) {
     return false;
@@ -138,6 +141,7 @@ function isPureMathLine(text) {
   // Must contain math operators or functions
   return /\\(?:sin|cos|tan|sec|cosec|csc|cot|theta|alpha|beta|gamma|sqrt|frac|times|div|Delta)|[0-9+\-*/=^()_]/.test(text);
 }
+
 
 /**
  * Checks if a string contains math symbols
@@ -322,19 +326,20 @@ export default function MathRenderer({ text, content, children, display = false,
       return;
     }
     let cancelled = false;
+    const decodedInput = decodeHtmlEntities(String(rawInput));
 
     // KaTeX is loaded dynamically for efficient bundle size
     import('katex')
       .then(({ default: katex }) => {
         if (cancelled) return;
-        const renderedMath = processAndRenderMath(String(rawInput), katex, display);
+        const renderedMath = processAndRenderMath(decodedInput, katex, display);
         const formattedTables = formatExplanationTables(renderedMath);
         const sanitized = sanitizeHtml(formattedTables);
         setHtml(sanitized);
       })
       .catch(() => {
         if (!cancelled) {
-          const formattedTables = formatExplanationTables(String(rawInput));
+          const formattedTables = formatExplanationTables(decodedInput);
           const sanitized = sanitizeHtml(formattedTables);
           setHtml(sanitized);
         }
@@ -344,6 +349,7 @@ export default function MathRenderer({ text, content, children, display = false,
       cancelled = true;
     };
   }, [rawInput, display]);
+
 
   const hasBlockTags = /<(?:p|div|table|ul|ol|li|h[1-6]|blockquote)/i.test(html) || html.includes('class="katex-display"');
 

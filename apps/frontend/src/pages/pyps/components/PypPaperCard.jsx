@@ -3,6 +3,7 @@ import { Radio, Crown, Download } from 'lucide-react'
 import Card from '../../../shared/components/ui/Card.jsx'
 import Badge from '../../../shared/components/ui/Badge.jsx'
 import { getCategoryEmoji } from '../../../assets/config/emoji.js'
+import { getTestEntitlement } from '../../../shared/utils/entitlement.js'
 
 function formatLanguages(langs) {
   if (!langs) return null
@@ -48,8 +49,12 @@ function getStatusPills({ isLive, isComingSoon, isNew, isFree }) {
   return pills
 }
 
-function PypPaperCard({ test, _user, examSlug }) {
-  const isFree = !test.isPro
+function PypPaperCard({ test, user, examSlug }) {
+  const entitlement = getTestEntitlement({ test, user })
+  const isTestPro = entitlement.accessType === 'PRO'
+  const isUserPro = entitlement.isUserPro
+  const isFree = entitlement.accessType === 'FREE'
+  const isLocked = entitlement.requiresPro
   const isLive = test.isLive
   const isComingSoon = test.isComingSoon
   const isNew = test.isNew || (test.pyqYear && new Date().getFullYear() === test.pyqYear)
@@ -107,12 +112,19 @@ function PypPaperCard({ test, _user, examSlug }) {
               <span className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap bg-gray-200 text-gray-500">
                 Coming Soon
               </span>
+            ) : isLocked ? (
+              <Link
+                to="/pass"
+                className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap text-center transition-all text-white bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-xs"
+              >
+                🔒 Get Pro Pass
+              </Link>
             ) : (
               <Link
                 to={attemptHref}
                 className="px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap text-center transition-colors text-white bg-gradient-to-r from-brand-start to-brand-end"
               >
-                {isFree ? 'Attempt' : 'Unlock'}
+                Attempt
               </Link>
             )}
             {test.pdfAssetId && (

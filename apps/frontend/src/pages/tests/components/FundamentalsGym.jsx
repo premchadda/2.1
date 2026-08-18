@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { practiceAPI } from '../../../shared/lib/practiceAPI'
 import { toast } from 'react-hot-toast'
 import { Zap, Award, CheckCircle, XCircle, ArrowLeft, RefreshCw, Trophy, BookOpen, Play } from 'lucide-react'
+import { sanitizeHtml } from '../../../shared/lib/htmlSanitizer'
+import MathRenderer from '../../../shared/components/MathRenderer'
+
 
 const DRILL_CATEGORIES = [
   { id: 'tables', title: 'Multiplication Tables (1–30)', description: 'Master multiplication speed and mental calculation with 10-row matrix grid', icon: '🔢', color: 'indigo' },
@@ -113,7 +116,9 @@ export default function FundamentalsGym({ onBack }) {
             </div>
 
             <div className="text-center py-6">
-              <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-8 font-mono">{currentQ?.prompt}</h2>
+              <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white mb-8 font-mono">
+                <MathRenderer text={sanitizeHtml(currentQ?.prompt)} />
+              </h2>
 
               <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
                 {currentQ?.options?.map((opt, i) => {
@@ -134,12 +139,13 @@ export default function FundamentalsGym({ onBack }) {
                       onClick={() => handleSelectOption(opt)}
                       className={`p-4 rounded-2xl border-2 text-lg font-bold transition-all ${btnStyle}`}
                     >
-                      {opt}
+                      <MathRenderer text={sanitizeHtml(opt)} />
                     </button>
                   )
                 })}
               </div>
             </div>
+
 
             {selectedOption !== null && (
               <div className="mt-6 flex justify-end">

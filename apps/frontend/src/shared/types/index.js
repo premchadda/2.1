@@ -1,5 +1,7 @@
 // Frontend Type Definitions for Data Models
 import { getNormalizedEnrolledSeries } from '../lib/enrollment.js'
+import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '../lib/htmlSanitizer.js'
+
 
 /**
  * User data structure
@@ -292,50 +294,67 @@ export function mapTestToFrontend(backendTest) {
  * @returns {Question} Frontend question object
  */
 export function mapQuestionToFrontend(backendQuestion) {
-  // Handle options - could be array or need to be structured as object with language keys
-  let optionsFormatted
-  if (typeof backendQuestion.options === 'object' && Array.isArray(backendQuestion.options)) {
-    // Options is an array like ["A", "B", "C", "D"] - convert to language object
-    optionsFormatted = { en: backendQuestion.options }
-    if (backendQuestion.optionsHi || backendQuestion.options_hi) {
-      optionsFormatted.hi = backendQuestion.optionsHi || backendQuestion.options_hi
-    }
-  } else if (typeof backendQuestion.options === 'object') {
-    optionsFormatted = backendQuestion.options
-  } else {
-    optionsFormatted = { en: [] }
+  // 1. Process question text & bilingual spans
+  let textFormatted = { en: '', hi: '' };
+  const rawText = backendQuestion.questionText || backendQuestion.question_text || backendQuestion.text || backendQuestion.question || '';
+  const rawTextHi = backendQuestion.questionTextHi || backendQuestion.question_text_hi || backendQuestion.questionHi || backendQuestion.question_hi || '';
+
+
+  if (typeof rawText === 'string') {
+    const extracted = extractBilingualContent(rawText);
+    textFormatted.en = extracted.en;
+    textFormatted.hi = rawTextHi ? cleanHtmlWrapper(decodeHtmlEntities(rawTextHi)) : extracted.hi;
+  } else if (typeof rawText === 'object' && rawText !== null) {
+    textFormatted.en = cleanHtmlWrapper(decodeHtmlEntities(rawText.en || rawText.text || ''));
+    textFormatted.hi = cleanHtmlWrapper(decodeHtmlEntities(rawText.hi || rawTextHi || ''));
   }
 
-  // Handle question text - check both camelCase (from backend) and snake_case
-  let textFormatted
-  const questionText = backendQuestion.questionText || backendQuestion.question_text
-  const questionTextHi = backendQuestion.questionTextHi || backendQuestion.question_text_hi
-  
-  if (questionText) {
-    textFormatted = { en: questionText }
-    if (questionTextHi) {
-      textFormatted.hi = questionTextHi
+  // 2. Process options & bilingual options
+  let optionsFormatted = { en: [], hi: [] };
+  const rawOptions = backendQuestion.options;
+  const rawOptionsHi = backendQuestion.optionsHi || backendQuestion.options_hi;
+
+  if (Array.isArray(rawOptions)) {
+    const enOpts = [];
+    const hiOpts = [];
+    rawOptions.forEach((opt, idx) => {
+      if (typeof opt === 'string') {
+        const extracted = extractBilingualContent(opt);
+        enOpts.push(extracted.en);
+        if (extracted.hi) hiOpts.push(extracted.hi);
+      } else if (typeof opt === 'object' && opt !== null) {
+        enOpts.push(cleanHtmlWrapper(decodeHtmlEntities(opt.en || opt.text || opt.value || String(opt))));
+        if (opt.hi) hiOpts.push(cleanHtmlWrapper(decodeHtmlEntities(opt.hi)));
+      } else {
+        enOpts.push(cleanHtmlWrapper(decodeHtmlEntities(String(opt))));
+      }
+    });
+
+    optionsFormatted.en = enOpts;
+    if (Array.isArray(rawOptionsHi) && rawOptionsHi.length > 0) {
+      optionsFormatted.hi = rawOptionsHi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(typeof o === 'string' ? o : (o?.hi || o?.text || String(o)))));
+    } else if (hiOpts.length === enOpts.length) {
+      optionsFormatted.hi = hiOpts;
     }
-  } else if (typeof backendQuestion.text === 'object') {
-    textFormatted = backendQuestion.text
-  } else {
-    textFormatted = { en: backendQuestion.text || '' }
+  } else if (typeof rawOptions === 'object' && rawOptions !== null) {
+    optionsFormatted.en = Array.isArray(rawOptions.en) ? rawOptions.en.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : [];
+    optionsFormatted.hi = Array.isArray(rawOptions.hi) ? rawOptions.hi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : (Array.isArray(rawOptionsHi) ? rawOptionsHi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : []);
   }
 
-  // Handle explanation translations
-  let explanationFormatted
-  const explanationText = backendQuestion.explanation
-  const explanationTextHi = backendQuestion.explanationHi || backendQuestion.explanation_hi
-  if (explanationText) {
-    explanationFormatted = { en: explanationText }
-    if (explanationTextHi) {
-      explanationFormatted.hi = explanationTextHi
-    }
-  } else if (typeof backendQuestion.explanation === 'object') {
-    explanationFormatted = backendQuestion.explanation
-  } else {
-    explanationFormatted = { en: '' }
+  // 3. Process explanation & bilingual explanation
+  let explanationFormatted = { en: '', hi: '' };
+  const rawExplanation = backendQuestion.explanation || backendQuestion.solution || '';
+  const rawExplanationHi = backendQuestion.explanationHi || backendQuestion.explanation_hi || backendQuestion.solutionHi || backendQuestion.solution_hi || '';
+
+  if (typeof rawExplanation === 'string') {
+    const extracted = extractBilingualContent(rawExplanation);
+    explanationFormatted.en = extracted.en;
+    explanationFormatted.hi = rawExplanationHi ? cleanHtmlWrapper(decodeHtmlEntities(rawExplanationHi)) : extracted.hi;
+  } else if (typeof rawExplanation === 'object' && rawExplanation !== null) {
+    explanationFormatted.en = cleanHtmlWrapper(decodeHtmlEntities(rawExplanation.en || rawExplanation.text || ''));
+    explanationFormatted.hi = cleanHtmlWrapper(decodeHtmlEntities(rawExplanation.hi || rawExplanationHi || ''));
   }
+
 
   return {
     id: backendQuestion.public_id || String(backendQuestion.id || backendQuestion._id),

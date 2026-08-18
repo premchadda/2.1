@@ -1,3 +1,5 @@
+import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from './htmlSanitizer'
+
 // QUESTION ENGINE FIX #6 (MEDIUM): robust Hindi/English (mixed) rendering.
 //
 // Previously language selection relied on a single global `language` toggle
@@ -27,33 +29,65 @@ export const detectScript = (text) => {
   return 'unknown'
 }
 
+
 /**
  * Resolve a localized field given the user's chosen language, with graceful
- * fallback to the other language so mixed-content questions never render blank.
+ * fallback to the other language, automatic extraction of <span class="eqt"> /
+ * <span class="hqt"> bilingual spans, entity decoding, and HTML wrapper cleanup.
  *
- * @param {Object} field - e.g. { en: '...', hi: '...' } or a plain string.
- * @param {'en'|'hi'} lang - preferred language.
- * @returns {string}
+ * @param {Object|Array|string} field - e.g. { en: '...', hi: '...' }, string, or Array.
+ * @param {'en'|'hi'} lang - preferred language ('en' | 'hi').
+ * @returns {string|Array}
  */
 export const getLocalizedField = (field, lang = 'en') => {
-  // Arrays of option strings are already localized — return as-is.
-  if (Array.isArray(field)) return field
   if (field === null || field === undefined) return ''
-  if (typeof field === 'string') return field
 
-  const preferred = field[lang]
-  if (preferred !== null && preferred !== undefined && (Array.isArray(preferred) || String(preferred).trim() !== '')) {
-    return preferred
+  // If array of options, resolve each option item individually
+  if (Array.isArray(field)) {
+    return field.map((item) => getLocalizedField(item, lang))
   }
 
-  const fallback = lang === 'hi' ? field.en : field.hi
-  if (fallback !== null && fallback !== undefined && (Array.isArray(fallback) || String(fallback).trim() !== '')) {
-    return fallback
+  if (typeof field === 'string') {
+    // Check if the string contains embedded <span class="eqt"> / <span class="hqt">
+    if (/<span[^>]*class=["'][^"']*(?:eqt|hqt)[^"']*["'][^>]*>/i.test(field)) {
+      const { en, hi } = extractBilingualContent(field)
+      if (lang === 'hi') {
+        return hi && hi.trim() !== '' ? hi : en
+      }
+      return en && en.trim() !== '' ? en : hi
+    }
+    return cleanHtmlWrapper(decodeHtmlEntities(field))
   }
 
-  // Last resort: whichever language key has content.
-  const any = field.en || field.hi
-  return any !== null && any !== undefined ? any : ''
+  if (typeof field === 'object') {
+    const preferred = field[lang]
+    if (preferred !== null && preferred !== undefined && (Array.isArray(preferred) || String(preferred).trim() !== '')) {
+      if (Array.isArray(preferred)) {
+        return preferred.map((item) => getLocalizedField(item, lang))
+      }
+      return getLocalizedField(preferred, lang)
+    }
+
+    const fallback = lang === 'hi' ? field.en : field.hi
+    if (fallback !== null && fallback !== undefined && (Array.isArray(fallback) || String(fallback).trim() !== '')) {
+      if (Array.isArray(fallback)) {
+        return fallback.map((item) => getLocalizedField(item, lang))
+      }
+      return getLocalizedField(fallback, lang)
+    }
+
+    // Last resort: whichever language key or text key has content
+    const any = field.en || field.hi || field.text || field.value
+    if (any !== null && any !== undefined) {
+      if (Array.isArray(any)) {
+        return any.map((item) => getLocalizedField(item, lang))
+      }
+      return getLocalizedField(any, lang)
+    }
+    return ''
+  }
+
+  return cleanHtmlWrapper(decodeHtmlEntities(String(field)))
 }
 
 /**
@@ -78,3 +112,4 @@ export const pickDefaultLanguage = (question) => {
 }
 
 export default { hasDevanagari, hasLatin, detectScript, getLocalizedField, pickDefaultLanguage }
+

@@ -734,7 +734,12 @@ function TestDetails() {
     }
 
     const getAllIdsRecursive = (node) => {
-      const ids = [node.id, node.key, node.label.toLowerCase()];
+      const ids = [
+        String(node.id || '').toLowerCase(),
+        String(node.key || '').toLowerCase(),
+        String(node.label || '').toLowerCase()
+      ].filter(Boolean);
+
       if (node.children) {
         node.children.forEach(child => {
           if (child.key !== 'all') {
@@ -750,7 +755,7 @@ function TestDetails() {
 
   const testBelongsToActiveCategory = useCallback((test) => {
     if (!test) return false;
-    if (activeAllowedCategoryIds.length === 0) return true;
+    if (!activeAllowedCategoryIds || activeAllowedCategoryIds.length === 0) return true;
 
     const testCategoryIds = new Set();
     const addField = (val) => {
@@ -773,6 +778,9 @@ function TestDetails() {
     addField(test.category_slug);
     addField(test.subCategorySlug);
     addField(test.sub_category_slug);
+    addField(test.type);
+    addField(test.testType);
+    addField(test.test_type);
 
     addField(test.year);
     addField(test.pyqYear);
@@ -787,8 +795,33 @@ function TestDetails() {
     const isPypTest = test.category === 'PYPs' || test.isPyq || test.is_pyq ||
       (Array.isArray(test.tags) && test.tags.some(t => /pyp|previous/i.test(String(t))));
     if (isPypTest) {
+      addField('pyp');
+      addField('pyps');
+      addField('previous-year-papers');
+      addField('previous year papers');
       const titleYears = String(test.title || '').match(/\b(19\d\d|20\d\d)\b/g);
       if (titleYears) titleYears.forEach(addField);
+      const slugYears = String(test.slug || '').match(/\b(19\d\d|20\d\d)\b/g);
+      if (slugYears) slugYears.forEach(addField);
+    }
+
+    // Climb up parent hierarchy for any matched category in allTestCategories
+    if (Array.isArray(allTestCategories) && allTestCategories.length > 0) {
+      const directCatId = test.testCategoryId ?? test.test_category_id ?? test.categoryId ?? test.category_id;
+      if (directCatId) {
+        let curId = String(directCatId);
+        while (curId) {
+          const found = allTestCategories.find(c => String(c._id || c.id) === curId);
+          if (found) {
+            addField(found._id || found.id);
+            addField(found.slug);
+            addField(found.name);
+            curId = found.parentId || found.parent_id ? String(found.parentId || found.parent_id) : null;
+          } else {
+            curId = null;
+          }
+        }
+      }
     }
 
     return Array.from(testCategoryIds).some(id => {
@@ -798,7 +831,7 @@ function TestDetails() {
       }
       return false;
     });
-  }, [activeAllowedCategoryIds]);
+  }, [activeAllowedCategoryIds, allTestCategories]);
 
   // Most recently active paused / in-progress attempt for THIS specific series and active category
   const categoryResumeTest = useMemo(() => {
@@ -1215,96 +1248,10 @@ function TestDetails() {
 
 
 
-  // Updated recursive filtering logic for 4 layers (using stage-filtered tests as base)
+  // Unified recursive filtering logic for 4 layers (using stage-filtered tests as base)
   const filteredTests = useMemo(() => {
-    // Start with stage-filtered tests (stage filtering already applied)
-    let result = [...stageFilteredTests];
-
-    // Multi-level Category Filter
-    if (activeMainCategory && computedCategories[activeMainCategory]) {
-      // If activeSubCategory is 'all', show all tests in stageFilteredTests for this main category/series
-      if (activeSubCategory === 'all') {
-        return result;
-      }
-
-      // Find the bottom-most active node
-      let currentNode = computedCategories[activeMainCategory];
-      const path = [activeSubCategory, activeThirdCategory, activeFourthCategory];
-
-      for (const key of path) {
-        if (!key || key === 'all') break;
-        const next = currentNode.children?.find(c => c.key === key);
-        if (next) currentNode = next;
-        else break;
-      }
-
-      // Get all valid category IDs/Slugs under this node
-      const getAllIdsRecursive = (node) => {
-        const ids = [node.id, node.key, node.label.toLowerCase()];
-        if (node.children) {
-          node.children.forEach(child => {
-            if (child.key !== 'all') {
-              ids.push(...getAllIdsRecursive(child));
-            }
-          });
-        }
-        return ids;
-      };
-
-      const allowedIds = getAllIdsRecursive(currentNode);
-
-      result = result.filter(test => {
-        const testCategoryIds = new Set();
-        const addField = (val) => {
-          if (val !== undefined && val !== null && val !== '') {
-            testCategoryIds.add(String(val).toLowerCase());
-          }
-        };
-
-        addField(test.category);
-        addField(test.subCategory);
-        addField(test.subcategory);
-        addField(test.sub_category);
-        addField(test.testCategoryId);
-        addField(test.test_category_id);
-        addField(test.categoryId);
-        addField(test.category_id);
-        addField(test.subCategoryId);
-        addField(test.sub_category_id);
-        addField(test.categorySlug);
-        addField(test.category_slug);
-        addField(test.subCategorySlug);
-        addField(test.sub_category_slug);
-
-        addField(test.year);
-        addField(test.pyqYear);
-        addField(test.pyq_year);
-
-        if (Array.isArray(test.tags)) test.tags.forEach(addField);
-        if (Array.isArray(test.categoryPathIds)) test.categoryPathIds.forEach(addField);
-        if (Array.isArray(test.category_path_ids)) test.category_path_ids.forEach(addField);
-        if (Array.isArray(test.categoryPathNames)) test.categoryPathNames.forEach(addField);
-        if (Array.isArray(test.category_path_names)) test.category_path_names.forEach(addField);
-
-        const isPypTest = test.category === 'PYPs' || test.isPyq || test.is_pyq ||
-          (Array.isArray(test.tags) && test.tags.some(t => /pyp|previous/i.test(String(t))));
-        if (isPypTest) {
-          const titleYears = String(test.title || '').match(/\b(19\d\d|20\d\d)\b/g);
-          if (titleYears) titleYears.forEach(addField);
-        }
-
-        return Array.from(testCategoryIds).some(id => {
-          if (allowedIds.includes(id)) return true;
-          if (/\b(19\d\d|20\d\d)\b/.test(id)) {
-            return allowedIds.some(allowed => allowed.includes(id));
-          }
-          return false;
-        });
-      });
-    }
-
-    return result;
-  }, [stageFilteredTests, activeMainCategory, activeSubCategory, activeThirdCategory, activeFourthCategory, computedCategories]);
+    return stageFilteredTests.filter(test => testBelongsToActiveCategory(test));
+  }, [stageFilteredTests, testBelongsToActiveCategory]);
 
   // Pagination limit of 5 tests per page
   const TESTS_PER_PAGE = 5;
