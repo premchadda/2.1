@@ -7,9 +7,11 @@ export const API_BASE_URL = (() => {
 
   if (!url && typeof window !== 'undefined') {
     const devPorts = ['3000', '3002'];
-    if (devPorts.includes(window.location.port)) {
+    if (devPorts.includes(window.location.port) || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
       return '';
     }
+    // Production fallback if VITE_API_URL was not set during build
+    return 'https://trstprep-v-1.onrender.com';
   }
 
   if (!url && typeof process !== 'undefined' && process.env) {
@@ -17,7 +19,7 @@ export const API_BASE_URL = (() => {
   }
 
   // Strip trailing /api or trailing slash so it's always the normalized host origin
-  return (url || '').replace(/\/api\/?$/, '').replace(/\/+$/, '');
+  return (url || 'https://trstprep-v-1.onrender.com').replace(/\/api\/?$/, '').replace(/\/+$/, '');
 })();
 
 /** Convenience: full /api prefix URL */
