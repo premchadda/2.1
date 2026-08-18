@@ -175,12 +175,11 @@ function Home() {
     const controller = new AbortController()
     const fetchData = async () => {
       try {
-        const [series, allTests, materials, examsResponse, categoriesResponse, statsResponse] = await Promise.all([
-          getTestSeries(), getTests(), getStudyMaterials(),
+        const [series, materials, examsResponse, categoriesResponse, statsResponse] = await Promise.all([
+          getTestSeries(), getStudyMaterials(),
           examAPI.getExams(), examAPI.getCategories(), examAPI.getPublicStats()
         ])
         setTestSeries(series)
-        setTests(allTests)
         setStudyMaterials(materials)
         const exams = examsResponse.data?.data || []
         setFeaturedExams(exams.filter(exam => exam.isActive).slice(0, 6))
@@ -223,11 +222,8 @@ function Home() {
         const activeLive = (Array.isArray(rawLive) ? rawLive : []).filter(t => !checkIsLiveExpired(t))
         setLiveTests(activeLive.slice(0, 3))
         
-        let rawQuizzes = quizRes.data?.data || quizRes.data || []
-        if ((!Array.isArray(rawQuizzes) || rawQuizzes.length === 0) && Array.isArray(tests) && tests.length > 0) {
-          rawQuizzes = tests.filter(checkIsQuiz)
-        }
-        setFreeQuizzes(rawQuizzes.slice(0, 3))
+        const rawQuizzes = quizRes.data?.data || quizRes.data || []
+        setFreeQuizzes(Array.isArray(rawQuizzes) ? rawQuizzes.slice(0, 3) : [])
       } catch (error) {
         if (!controller.signal.aborted) console.error('Failed to fetch live tests:', error)
       } finally {
@@ -236,7 +232,7 @@ function Home() {
     }
     fetchLiveTests()
     return () => controller.abort()
-  }, [isAuthenticated, tests])
+  }, [isAuthenticated])
 
   useEffect(() => {
     if (isAuthenticated) return
@@ -258,13 +254,8 @@ function Home() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    let lastUpdate = 0
     const handleMouseMove = (e) => {
-      const now = performance.now()
-      if (now - lastUpdate > 100) { // throttle to ~10fps
-        lastUpdate = now
-        setMousePos({ x: e.clientX, y: e.clientY })
-      }
+      setMousePos({ x: e.clientX, y: e.clientY })
     }
     window.addEventListener('mousemove', handleMouseMove)
     return () => window.removeEventListener('mousemove', handleMouseMove)
@@ -277,8 +268,12 @@ function Home() {
   }, [examCategories])
 
   const testSeriesWithStats = useMemo(() => {
-    return testSeries.map(series => getSeriesTestStats(series, tests))
-  }, [testSeries, tests])
+    return testSeries.map(series => ({
+      ...series,
+      totalTests: Number(series.totalTests || series.total_tests || 0),
+      freeTests: Number(series.freeTests || series.free_tests || 0),
+    }))
+  }, [testSeries])
 
   const popularSeries = useMemo(() => {
     return [...testSeriesWithStats].sort((a, b) => {
@@ -425,19 +420,19 @@ function Home() {
                   {totalMockTestsCount}+ mock tests, AI analytics & real-time leaderboards. Trusted by aspirants across India.
                 </p>
 
-                <div className="flex flex-row items-center gap-2.5 sm:gap-4 mb-6 md:mb-10 max-w-full animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-6 md:mb-10 w-full sm:w-auto max-w-full animate-slide-up" style={{ animationDelay: '0.3s' }}>
                   <Link
                     to="/signup"
-                    className="group flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-xs sm:text-base text-center whitespace-nowrap"
+                    className="group justify-center px-5 py-3 sm:px-8 sm:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-sm sm:text-base text-center whitespace-nowrap"
                   >
                     <span>Start Free Trial</span>
-                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-1.5 sm:ml-2 inline group-hover:translate-x-1 transition-transform shrink-0" />
+                    <ArrowRight className="w-4 h-4 sm:w-4 sm:h-4 ml-2 inline group-hover:translate-x-1 transition-transform shrink-0" />
                   </Link>
                   <Link
                     to="/test-series"
-                    className="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-xs sm:text-base backdrop-blur-sm text-center whitespace-nowrap"
+                    className="justify-center px-5 py-3 sm:px-8 sm:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-sm sm:text-base backdrop-blur-sm text-center whitespace-nowrap"
                   >
-                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1 sm:mr-2 shrink-0" />
+                    <Play className="w-4 h-4 sm:w-4 sm:h-4 mr-2 shrink-0" />
                     <span>Explore Tests</span>
                   </Link>
                 </div>

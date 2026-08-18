@@ -11,6 +11,15 @@ const __dirname = path.dirname(__filename)
 const SPEC_PATH = path.join(__dirname, 'openapi.json')
 
 export function setupSwagger(app) {
+  // In production, disable public Swagger docs UI for security unless explicitly opted in
+  const isProduction = process.env.NODE_ENV === 'production';
+  const enableInProd = process.env.ENABLE_SWAGGER_IN_PROD === 'true' || process.env.ENABLE_SWAGGER === 'true';
+
+  if (isProduction && !enableInProd) {
+    console.log('[docs] Swagger UI disabled in production mode for security (set ENABLE_SWAGGER_IN_PROD=true to enable)');
+    return;
+  }
+
   let swaggerUi
   try {
     swaggerUi = require('swagger-ui-express')

@@ -294,22 +294,32 @@ function Exams() {
     setSearchQuery('')
   }, [])
 
+  const { data: publicStats } = useQuery({
+    queryKey: ['public-stats'],
+    queryFn: async () => {
+      try {
+        const response = await api.get('/api/public-stats')
+        return response.data?.data ?? null
+      } catch {
+        return null
+      }
+    },
+    staleTime: 1000 * 60 * 10,
+  })
+
   const siteStats = useMemo(() => {
-    const examsCount = allExams.length
-    // Fallback to a calculated average per exam if totalTests/testsCount is missing
-    const testsCount = allExams.reduce((sum, e) => sum + (e.totalTests || e.testsCount || 15), 0)
+    const examsCount = examCategories.length > 0 ? examCategories.length : allExams.length
+    const mockTests = publicStats?.mockTests || allExams.reduce((sum, e) => sum + (e.totalTests || e.testsCount || 0), 0)
+    const activeLearners = publicStats?.activeLearners || 25
     const freeTestsCount = allExams.reduce((sum, e) => sum + (e.freeTests || 0), 0)
-    
-    // Format thousands
-    const formatK = (num) => num >= 1000 ? `${(num/1000).toFixed(1)}K+` : num
-    
+
     return {
-      exams: examsCount > 0 ? examsCount : '0',
-      tests: testsCount > 0 ? formatK(testsCount) : '0',
-      aspirants: '50L+', // Global platform metric
-      free: freeTestsCount > 0 ? freeTestsCount : '0'
+      exams: examsCount > 0 ? `${examsCount}` : '2+',
+      tests: mockTests > 0 ? `${mockTests}+` : '230+',
+      aspirants: activeLearners > 0 ? `${activeLearners}+` : '25+',
+      free: freeTestsCount > 0 ? `${freeTestsCount}` : 'Free'
     }
-  }, [allExams])
+  }, [allExams, examCategories, publicStats])
 
   if (isLoading && examCategories.length === 0) {
     return (

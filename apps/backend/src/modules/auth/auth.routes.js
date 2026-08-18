@@ -48,6 +48,8 @@ router.post('/forgot-password', authRateLimiter, authController.forgotPassword)
 router.post('/reset-password', authRateLimiter, authController.resetPassword)
 router.post('/change-password', protect, validateCsrfToken, authController.changePassword)
 router.get('/verify-email/:token', authRateLimiter, authController.verifyEmail)
+router.get('/verify-email', authRateLimiter, authController.verifyEmail)
+router.post('/verify-email', authRateLimiter, authController.verifyEmail)
 router.post('/resend-verification', authRateLimiter, authController.resendVerification)
 
 // Two-factor authentication (TOTP) management — requires an authenticated session

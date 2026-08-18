@@ -32,11 +32,15 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
   const [expanded, setExpanded] = useState(false);
   const progressPercentage = showProgress && totalTests > 0 ? Math.round(((attemptedTests || 0) / totalTests) * 100) : 0;
 
-  const displayUserCount = (users && users !== '0' && users !== 0)
+  const displayUserCount = (typeof users === 'number' && users > 0)
     ? users
-    : (series.activeUsers && series.activeUsers !== '0' && series.activeUsers !== 0
-        ? series.activeUsers
-        : (series.usersCount || series.users_count || series.active_users || series.enrollmentCount || 5));
+    : (typeof series.usersCount === 'number' && series.usersCount > 0
+        ? series.usersCount
+        : (typeof series.enrollmentCount === 'number' && series.enrollmentCount > 0
+            ? series.enrollmentCount
+            : (typeof series.users_count === 'number' && series.users_count > 0
+                ? series.users_count
+                : (parseInt(series.users || series.active_users || series.activeUsers || 0) || 5))));
 
   const formatUserCount = (count) => {
     if (!count) return '0';
@@ -86,7 +90,7 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
         </Link>
       );
     }
-    if (requiresPro && !hasProPass) {
+    if (isSeriesPro && !hasProPass) {
       return (
         <Link
           to="/pass"
@@ -97,7 +101,7 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
         </Link>
       );
     }
-    if ((hasFreeTests || hasProPass) && user) {
+    if (user) {
       return (
         <button
           onClick={handleEnrollClick}
@@ -111,11 +115,11 @@ function TestSeriesCard({ series, user, showProgress = false, onEnroll, showCate
     if (isSeriesPro) {
       return (
         <Link
-          to={requiresPro ? '/pass' : `/test-series/${seriesId}`}
+          to={`/test-series/${seriesId}`}
           className="w-full py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-sm shadow-amber-500/20 transition-all active:scale-98"
         >
           <Crown className="w-3.5 h-3.5" />
-          <span>{requiresPro ? 'Get Pro' : 'View Pro Series'}</span>
+          <span>View Pro Series</span>
         </Link>
       );
     }

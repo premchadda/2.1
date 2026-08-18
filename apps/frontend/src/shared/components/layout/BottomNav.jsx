@@ -1,6 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Home, BookOpen, Radio, BookMarked, User, LayoutDashboard, Shield, LogIn } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../providers/AuthContext'
+import api from '../../lib/api'
 
 const navColors = [
   { bg: 'from-blue-500 to-indigo-600', text: '#6366f1', light: 'bg-indigo-50 dark:bg-indigo-900/30', glow: 'rgba(99, 102, 241, 0.3)' },
@@ -14,12 +16,33 @@ function BottomNav() {
   const location = useLocation()
   const { user } = useAuth()
 
+  const { data: liveCount = 0 } = useQuery({
+    queryKey: ['bottom-nav-active-live-count'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/api/live-tests?limit=10')
+        const tests = res.data?.data?.tests || res.data?.data || []
+        const now = Date.now()
+        return tests.filter(t => {
+          const start = new Date(t.startTime || t.start_time || 0).getTime()
+          const end = new Date(t.endTime || t.end_time || 0).getTime()
+          return t.isLive || (start <= now && end >= now)
+        }).length
+      } catch {
+        return 0
+      }
+    },
+    staleTime: 1000 * 60 * 3, // 3 minutes
+  })
+
+  const hasActiveLiveTests = liveCount > 0
+
   const getNavItems = () => {
     if (!user) {
       return [
         { icon: Home, label: 'Home', path: '/' },
         { icon: BookOpen, label: 'Tests', path: '/test-series' },
-        { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: true },
+        { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: hasActiveLiveTests },
         { icon: BookMarked, label: 'Study', path: '/study' },
         { icon: LogIn, label: 'Login', path: '/login' },
       ]
@@ -27,7 +50,7 @@ function BottomNav() {
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
       { icon: BookOpen, label: 'Tests', path: '/test-series' },
-      { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: true },
+      { icon: Radio, label: 'Live', path: '/live-tests', hasLiveDot: hasActiveLiveTests },
       { icon: BookMarked, label: 'Study', path: '/study' },
       { icon: User, label: 'Profile', path: '/profile' },
     ]

@@ -1069,10 +1069,10 @@ export const authController = {
     }
   },
 
-  // GET /api/auth/verify-email/:token
+  // GET /api/auth/verify-email/:token, GET /api/auth/verify-email?token=..., POST /api/auth/verify-email
   verifyEmail: async (req, res, next) => {
     try {
-      const { token } = req.params
+      const token = req.params.token || req.query?.token || req.body?.token
 
       if (!token) {
         return res.status(400).json({

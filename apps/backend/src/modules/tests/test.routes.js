@@ -571,20 +571,119 @@ const buildResultPayload = (test, attempt, questions, testIdFallback, rankData) 
   }
 }
 
+/**
+ * Sanitize a test object into a clean public DTO, dropping internal
+ * moderation, reviewer notes, soft-delete, proctoring internals, and content storage paths.
+ */
+export function toPublicTestDTO(test) {
+  if (!test) return null
+  const internalId = test.id ?? test._id
+  return {
+    id: internalId,
+    _id: test._id ?? test.id,
+    public_id: test.public_id ?? test.publicId ?? null,
+    slug: test.slug || null,
+    title: test.title || test.name || '',
+    name: test.name || test.title || '',
+    description: test.description || '',
+    category: test.category || '',
+    subCategory: test.subCategory || test.sub_category || test.subcategory || '',
+    subcategory: test.subcategory || test.subCategory || test.sub_category || '',
+    categoryId: test.categoryId || test.category_id || null,
+    subCategoryId: test.subCategoryId || test.sub_category_id || null,
+    categorySlug: test.categorySlug || test.category_slug || null,
+    subCategorySlug: test.subCategorySlug || test.sub_category_slug || null,
+    seriesId: test.seriesId || test.series_id || null,
+    series_id: test.series_id || test.seriesId || null,
+    testSeriesId: test.testSeriesId || test.test_series_id || test.seriesId || test.series_id || null,
+    examId: test.examId || test.exam_id || null,
+    exam_id: test.exam_id || test.examId || null,
+    stageId: test.stageId || test.stage_id || null,
+    stage_id: test.stage_id || test.stageId || null,
+    stages: Array.isArray(test.stages) ? test.stages : (test.stages ? [test.stages] : []),
+    type: test.type || 'Mock',
+    testType: test.testType || test.test_type || test.type || 'Mock',
+    isPro: Boolean(test.isPro || test.is_pro || test.isProPass || test.is_pro_pass),
+    is_pro: Boolean(test.is_pro || test.isPro || test.is_pro_pass || test.isProPass),
+    isFree: Boolean(test.isFree || test.is_free || test.type === 'Free' || test.type === 'free'),
+    is_free: Boolean(test.is_free || test.isFree || test.type === 'Free' || test.type === 'free'),
+    price: Number(test.price) || 0,
+    difficulty: test.difficulty || 'Medium',
+    duration: Number(test.duration) || 60,
+    marks: Number(test.marks || test.totalMarks || test.total_marks) || 100,
+    totalMarks: Number(test.totalMarks || test.total_marks || test.marks) || 100,
+    totalQuestions: Number(test.totalQuestions || test.total_questions || test.questionsCount || (Array.isArray(test.questions) ? test.questions.length : 0)) || 0,
+    passingMarks: Number(test.passingMarks || test.passing_marks) || 0,
+    negativeMarks: Number(test.negativeMarks || test.negative_marks) || 0,
+    marksPerQuestion: Number(test.marksPerQuestion || test.marks_per_question) || 2,
+    negativeMarking: test.negativeMarking ?? test.negative_marking ?? true,
+    tags: Array.isArray(test.tags) ? test.tags : [],
+    rating: Number(test.rating) || 4.8,
+    totalAttempts: Number(test.totalAttempts || test.total_attempts) || 0,
+    languages: Array.isArray(test.languages) ? test.languages : ['English', 'Hindi'],
+    instructions: test.instructions || '',
+    isLive: Boolean(test.isLive || test.is_live),
+    is_live: Boolean(test.is_live || test.isLive),
+    startTime: test.startTime || test.start_time || test.scheduledAt || test.scheduled_at || null,
+    endTime: test.endTime || test.end_time || test.scheduledEnd || test.scheduled_end || null,
+    scheduledAt: test.scheduledAt || test.scheduled_at || test.startTime || test.start_time || null,
+    registrationEndTime: test.registrationEndTime || test.registration_end_time || null,
+    allowLateJoin: test.allowLateJoin ?? test.allow_late_join ?? true,
+    isComingSoon: Boolean(test.isComingSoon || test.is_coming_soon),
+    is_coming_soon: Boolean(test.is_coming_soon || test.isComingSoon),
+    comingSoonDate: test.comingSoonDate || test.coming_soon_date || null,
+    status: test.status || 'published',
+    isActive: test.isActive ?? test.is_active ?? true,
+    is_active: test.is_active ?? test.isActive ?? true,
+    year: test.year || null,
+    pyqYear: test.pyqYear || test.pyq_year || null,
+    image: test.image || null,
+    thumbnail: test.thumbnail || null,
+    icon: test.icon || null,
+    banner: test.banner || null,
+    sections: Array.isArray(test.sections) ? test.sections : [],
+    createdAt: test.createdAt || test.created_at || null,
+    updatedAt: test.updatedAt || test.updated_at || null,
+  }
+}
+
 // @route   GET /api/tests
 // @desc    Get all active AND published tests
 // @access  Public
-router.get('/', responseCache("tests-list", 60), async (req, res) => {
+router.get('/', responseCache("tests-list-v2", 60), async (req, res) => {
   try {
+    const { category, seriesId, page, limit, search } = req.query
     const { rows } = await dbHelpers.pool.query(
       `SELECT * FROM tests WHERE is_active = true AND (status = 'published' OR status = 'active' OR status IS NULL)`
     )
-    const allTests = rows.map(row => dbHelpers.toCamel(row))
+    let allTests = rows.map(row => dbHelpers.toCamel(row))
+
+    if (seriesId) {
+      allTests = allTests.filter(t => idsMatch(t.seriesId, seriesId) || idsMatch(t.series_id, seriesId))
+    }
+    if (category && category !== 'all') {
+      allTests = allTests.filter(t => String(t.category).toLowerCase() === String(category).toLowerCase())
+    }
+    if (search) {
+      const q = String(search).toLowerCase()
+      allTests = allTests.filter(t => String(t.title || '').toLowerCase().includes(q))
+    }
+
+    const totalCount = allTests.length
+    if (page || limit) {
+      const p = Math.max(1, parseInt(page) || 1)
+      const l = Math.min(100, Math.max(1, parseInt(limit) || 20))
+      allTests = allTests.slice((p - 1) * l, p * l)
+    }
+
     const testsWithBanners = await enrichTestsWithBannerAssets(allTests)
+    const publicTests = testsWithBanners.map(toPublicTestDTO)
+
     res.json({
       success: true,
-      count: testsWithBanners.length,
-      data: testsWithBanners
+      count: publicTests.length,
+      total: totalCount,
+      data: publicTests
     })
   } catch (error) {
     res.status(500).json({
@@ -597,24 +696,38 @@ router.get('/', responseCache("tests-list", 60), async (req, res) => {
 // @route   GET /api/tests/series/:seriesId
 // @desc    Get published tests by series ID
 // @access  Public
-router.get('/series/:seriesId', async (req, res) => {
+router.get('/series/:seriesId', responseCache("tests-series-v2", 60), async (req, res) => {
   try {
     const { seriesId } = req.params
+    const { page, limit } = req.query
     const series = await findSeriesByIdentifier(seriesId)
     const resolvedSeriesId = getInternalId(series) ?? seriesId
-    const allTests = await dbHelpers.find('tests', { isActive: true })
 
-    const filteredTests = allTests.filter(test =>
-      (idsMatch(test.seriesId, resolvedSeriesId) || idsMatch(test.series_id, resolvedSeriesId)) &&
-      (test.status === 'published' || test.isActive === true)
+    const { rows } = await dbHelpers.pool.query(
+      `SELECT * FROM tests 
+       WHERE is_active = true 
+         AND (status = 'published' OR status = 'active' OR status IS NULL)
+         AND (series_id::text = $1 OR series_id::text = $2 OR series_id::text = $3)`,
+      [String(resolvedSeriesId), String(seriesId), String(series?.slug || seriesId)]
     )
 
-    const enrichedTests = await enrichTestsWithBannerAssets(filteredTests)
+    let allTests = rows.map(row => dbHelpers.toCamel(row))
+    const totalCount = allTests.length
+
+    if (page && limit) {
+      const p = Math.max(1, parseInt(page) || 1)
+      const l = Math.min(100, Math.max(1, parseInt(limit) || 20))
+      allTests = allTests.slice((p - 1) * l, p * l)
+    }
+
+    const enrichedTests = await enrichTestsWithBannerAssets(allTests)
+    const publicTests = enrichedTests.map(toPublicTestDTO)
 
     res.json({
       success: true,
-      count: enrichedTests.length,
-      data: enrichedTests
+      count: publicTests.length,
+      total: totalCount,
+      data: publicTests
     })
   } catch (error) {
     res.status(500).json({
@@ -627,7 +740,7 @@ router.get('/series/:seriesId', async (req, res) => {
 // @route   GET /api/tests/tag/:tag
 // @desc    Get tests by tag (live-tests, pyps, quizzes, practice)
 // @access  Public
-router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
+router.get('/tag/:tag', responseCache("tests-tag-v2", 60), async (req, res) => {
   try {
     const { tag } = req.params
 
@@ -694,11 +807,12 @@ router.get('/tag/:tag', responseCache("tests-tag", 60), async (req, res) => {
     })
 
     const enrichedTests = await enrichTestsWithBannerAssets(testsWithSeries)
+    const publicTests = enrichedTests.map(toPublicTestDTO)
 
     res.json({
       success: true,
-      count: enrichedTests.length,
-      data: enrichedTests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
+      count: publicTests.length,
+      data: publicTests.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
     })
   } catch (error) {
     res.status(500).json({
@@ -773,13 +887,17 @@ router.get('/:testId', optionalAuth, async (req, res) => {
       }
     }
 
+    const publicTest = toPublicTestDTO({
+      ...enrichedTest,
+      sections: sections || enrichedTest.sections || [],
+      testSeriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
+      seriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
+    })
+
     res.json({
       success: true,
       data: {
-        ...enrichedTest,
-        sections: sections || enrichedTest.sections || [],
-        testSeriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
-        seriesId: getPublicResponseId(dbHelpers, 'testSeries', series, getTestSeriesId(test)),
+        ...publicTest,
         hasAccess,
         canAttempt: entitlement.canAttempt,
         accessType: entitlement.accessType,
@@ -808,7 +926,8 @@ router.get('/:testId/questions', protect, async (req, res) => {
       })
     }
 
-    const entitlement = EntitlementService.getTestEntitlement(req.user, test)
+    const series = await findSeriesByIdentifier(test.seriesId || test.series_id)
+    const entitlement = EntitlementService.getTestEntitlement(req.user, test, series)
     if (!entitlement.canAttempt) {
       return res.status(403).json({
         success: false,
@@ -818,8 +937,47 @@ router.get('/:testId/questions', protect, async (req, res) => {
       })
     }
 
-    const rawQuestions = await fetchTestQuestions(test)
-    const questions = rawQuestions
+    // Check Live Test schedule rules (Authoritative Server Time Check):
+    const isLiveTest = Boolean(
+      test.isLive || test.is_live ||
+      test.type === 'live-tests' || test.type === 'live' ||
+      test.testType === 'live-tests' || test.testType === 'live' ||
+      test.scheduledAt || test.scheduled_at || test.startTime || test.start_time || test.liveSchedule || test.live_schedule
+    )
+    if (isLiveTest && !req.user?.isAdmin) {
+      const now = new Date()
+      const scheduledStart = test.scheduledAt || test.scheduled_at || test.startTime || test.start_time || test.scheduledStart || test.scheduled_start
+      const scheduledEnd = test.scheduledEnd || test.scheduled_end || test.dateEnd || test.date_end || test.endTime || test.end_time
+
+      if (scheduledStart && now < new Date(scheduledStart)) {
+        return res.status(403).json({
+          success: false,
+          code: 'LIVE_TEST_NOT_STARTED',
+          message: `This live test contest has not started yet. Starts at ${new Date(scheduledStart).toLocaleString('en-IN')}.`
+        })
+      }
+      if (scheduledEnd && now > new Date(scheduledEnd)) {
+        return res.status(403).json({
+          success: false,
+          code: 'LIVE_TEST_ENDED',
+          message: `This live test contest has already concluded.`
+        })
+      }
+    }
+
+    let rawQuestions = []
+    try {
+      rawQuestions = await fetchTestQuestions(test)
+    } catch (qErr) {
+      console.error('Error fetching questions for test:', qErr.message)
+      return res.status(404).json({
+        success: false,
+        code: 'QUESTIONS_UNAVAILABLE',
+        message: 'Test questions are currently unavailable or being updated.'
+      })
+    }
+
+    const questions = (rawQuestions || [])
       .map(sanitizeQuestionForAttempt)
       .sort((a, b) => {
         const left = Number(a.questionNumber ?? a.question_number ?? 0)

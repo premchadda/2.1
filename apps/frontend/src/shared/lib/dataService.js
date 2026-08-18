@@ -347,42 +347,42 @@ class DataService {
 
   async getTestById(id, options = {}) {
     if (!id) throw new ValidationError('Test ID is required')
-    const allTests = await this.getTests(options)
-    const idStr = String(id).toLowerCase()
-    const idNum = Number(id)
 
-    const found = allTests.find(t => {
-      if (!t) return false
-      const tIdStr = String(t.id || '').toLowerCase()
-      const tDbIdStr = String(t._id || '').toLowerCase()
-      const tPubIdStr = String(t.public_id || t.publicId || '').toLowerCase()
-      const tSlugStr = String(t.slug || '').toLowerCase()
-      const tUuidStr = String(t.public_id_uuid || t.uuid || '').toLowerCase()
-
-      return (
-        tIdStr === idStr ||
-        tDbIdStr === idStr ||
-        tPubIdStr === idStr ||
-        tSlugStr === idStr ||
-        tUuidStr === idStr ||
-        (!isNaN(idNum) && (t._id === idNum || t.id === idNum))
-      )
-    })
-
-    if (found) return found
-
-    // Direct API fallback if not found in cache/list
-    try {
-      const response = await testsAPI.getById(id)
-      const testData = response.data?.data || response.data
-      if (testData) {
-        return mapTestToFrontend(testData)
+    const key = this.cache.generateKey(`/tests/${id}`)
+    return this.fetchWithCache(key, async () => {
+      try {
+        const response = await testsAPI.getById(id)
+        const data = response.data?.data || response.data
+        if (data) return mapTestToFrontend(data)
+      } catch (err) {
+        // Fallback search in cached list
       }
-    } catch (err) {
-      console.warn(`[DataService] getTestById API fallback failed for id: ${id}`, err?.message)
-    }
 
-    return null
+      const allTests = await this.getTests(options)
+      const idStr = String(id).toLowerCase()
+      const idNum = Number(id)
+
+      const found = allTests.find(t => {
+        if (!t) return false
+        const tIdStr = String(t.id || '').toLowerCase()
+        const tDbIdStr = String(t._id || '').toLowerCase()
+        const tPubIdStr = String(t.public_id || t.publicId || '').toLowerCase()
+        const tSlugStr = String(t.slug || '').toLowerCase()
+        const tUuidStr = String(t.public_id_uuid || t.uuid || '').toLowerCase()
+
+        return (
+          tIdStr === idStr ||
+          tDbIdStr === idStr ||
+          tPubIdStr === idStr ||
+          tSlugStr === idStr ||
+          tUuidStr === idStr ||
+          (!isNaN(idNum) && (t._id === idNum || t.id === idNum))
+        )
+      })
+
+      if (!found) return null
+      return found
+    }, options)
   }
 
   async getQuestionsByTestId(testId, options = {}) {

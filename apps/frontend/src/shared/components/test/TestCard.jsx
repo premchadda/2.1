@@ -160,6 +160,7 @@ const getCardBorderClass = (isLive, isUpcoming, isFree, isLocked, isHovered, isQ
 function TestCard({
   test,
   seriesId,
+  series = null,
   user,
   showSeriesTitle = false,
   isLiveArena = false,
@@ -179,10 +180,10 @@ function TestCard({
   const isLive = checkIsLive(test)
   const isUpcoming = checkIsUpcoming(test)
 
-  // Canonical entitlement resolution (Series access decoupled from Test access)
+  // Canonical entitlement resolution (Series & Test access)
   const entitlement = useMemo(() => {
-    return getTestEntitlement({ test, user })
-  }, [test, user])
+    return getTestEntitlement({ test, user, series: series || test.series })
+  }, [test, user, series, test.series])
 
   const isTestPro = entitlement.accessType === 'PRO'
   const isFree = entitlement.accessType === 'FREE'

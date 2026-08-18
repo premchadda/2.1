@@ -33,6 +33,7 @@ export default function ExamDetails() {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
+  const isUserPro = Boolean(user?.isProUser || user?.isPro || user?.role === 'admin' || (user?.passType && user.passType !== 'free'));
   const queryClient = useQueryClient();
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [activeTab, setActiveTab] = useState('overview');
@@ -344,9 +345,11 @@ export default function ExamDetails() {
                   <button onClick={() => navigate('/test-series')} className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2 group">
                     START PREPARATION <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
-                  <button onClick={() => navigate('/pass')} className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2">
-                    GET PRO PASS <Award className="w-4 h-4 text-amber-400" />
-                  </button>
+                  {!isUserPro && (
+                    <button onClick={() => navigate('/pass')} className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2">
+                      GET PRO PASS <Award className="w-4 h-4 text-amber-400" />
+                    </button>
+                  )}
                 </div>
             </div>
           </div>

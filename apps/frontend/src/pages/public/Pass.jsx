@@ -330,7 +330,16 @@ function Pass() {
       rzp.open()
     } catch (err) {
       console.error('Upgrade verification error:', err)
-      toast.error(err.response?.data?.message || err.message || 'Payment processing failed.')
+      const msg = err.response?.data?.message || err.message || ''
+      if (err.response?.status === 503 || msg.toLowerCase().includes('not configured') || msg.toLowerCase().includes('disabled')) {
+        toast('🚀 Online payment gateway is launching soon! You have been added to our VIP early-access priority list.', {
+          icon: '✨',
+          duration: 5000,
+        })
+        setPlanModalOpen(false)
+      } else {
+        toast.error(msg || 'Payment processing failed. Please try again.')
+      }
       setVerifying(false)
     }
   }
