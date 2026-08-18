@@ -193,16 +193,32 @@ export const restrictAdminOrigin = (req, res, next) => {
   })
 }
 
-// Layer 2: optional API-key check — defense-in-depth only.
-// If ADMIN_API_KEY is set server-side, require a matching `X-Admin-API-Key`
-// header. If it is not configured, pass through (cookie/JWT remains the
-// authoritative gate and the client no longer sends a key).
+// Layer 2: API-key check — defense-in-depth for server-to-server / curl clients.
+// If ADMIN_API_KEY is set server-side, require either a matching `X-Admin-API-Key`
+// header OR a request originating from the verified admin panel origin.
 export const validateAdminApiKey = (req, res, next) => {
   const configuredKey = process.env.ADMIN_API_KEY
   if (!configuredKey) return next()
 
   const provided = req.headers['x-admin-api-key']
   if (provided && provided === configuredKey) return next()
+
+  // Allow verified browser requests originating from the admin panel to proceed to protect/admin checks
+  const origin = req.headers.origin || req.headers.referer || ''
+  if (origin) {
+    try {
+      const originHost = new URL(origin).host
+      const allowedAdminHost = process.env.ADMIN_PANEL_URL ? new URL(process.env.ADMIN_PANEL_URL).host : 'trstprep-admin.vercel.app'
+      if (allowedAdminHost && originHost === allowedAdminHost) {
+        return next()
+      }
+      if (process.env.NODE_ENV !== 'production' && (originHost.includes('localhost') || originHost.includes('127.0.0.1'))) {
+        return next()
+      }
+    } catch {
+      // ignore URL parse errors
+    }
+  }
 
   return res.status(403).json({
     success: false,
