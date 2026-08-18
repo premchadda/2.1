@@ -2,17 +2,26 @@ import { ValidationError } from '@trstprep/shared-config'
 import { apiClient } from '../apiClient.js'
 
 export const authAPI = {
-  login: (email, password) => {
-    if (!email || !password) {
+  login: (emailOrData, password) => {
+    let email, pass;
+    if (typeof emailOrData === 'object' && emailOrData !== null) {
+      email = emailOrData.email;
+      pass = emailOrData.password;
+    } else {
+      email = emailOrData;
+      pass = password;
+    }
+
+    if (!email || !pass) {
       throw new ValidationError('Email and password are required')
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       throw new ValidationError('Please enter a valid email address')
     }
-    if (password.length < 6) {
+    if (pass.length < 6) {
       throw new ValidationError('Password must be at least 6 characters')
     }
-    return apiClient.post('/auth/login', { email, password })
+    return apiClient.post('/auth/login', { email, password: pass })
   },
   register: (data) => {
     const required = ['name', 'email', 'password']
