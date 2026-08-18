@@ -189,7 +189,7 @@ export function AuthProvider({ children }) {
     setLoading(true)
 
     try {
-      const response = await authAPI.login({ email, password })
+      const response = await authAPI.login(email, password)
       const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
 
       saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })

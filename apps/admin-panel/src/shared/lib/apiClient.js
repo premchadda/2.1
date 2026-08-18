@@ -40,6 +40,16 @@ apiClient.interceptors.request.use(
         config.headers['X-CSRF-Token'] = csrfToken
       }
     }
+
+    // Attach Bearer token if available (supports cross-domain fallback alongside httpOnly cookies)
+    if (!config.headers['Authorization']) {
+      const token = typeof window !== 'undefined'
+        ? (sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token'))
+        : null
+      if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`
+      }
+    }
     
     return config
   },

@@ -1,4 +1,4 @@
-import express from "express"; // trigger-reload-v3
+import express from "express"; // trigger-reload-v4
 import dns from "dns";
 // Force IPv4-first DNS resolution (Supabase IPv6 often fails to resolve locally)
 dns.setDefaultResultOrder("ipv4first");
