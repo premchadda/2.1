@@ -13,25 +13,25 @@
  * the `onAuthFailure` hook so the factory stays isomorphic.
  */
 
-import axios from 'axios'
+import axios from "axios";
 import {
   DataError,
   NetworkError,
   ValidationError,
   AuthenticationError,
-  NotFoundError
-} from './errors.js'
-import { getCsrfToken, setCsrfToken } from './csrf-token-store.js'
+  NotFoundError,
+} from "./errors.js";
+import { getCsrfToken, setCsrfToken } from "./csrf-token-store.js";
 
 export {
   DataError,
   NetworkError,
   ValidationError,
   AuthenticationError,
-  NotFoundError
-}
+  NotFoundError,
+};
 
-export const isCancel = axios.isCancel
+export const isCancel = axios.isCancel;
 
 /**
  * @param {Object} options
@@ -58,233 +58,288 @@ export const isCancel = axios.isCancel
  */
 export function createApiClient(options = {}) {
   const {
-    baseURL = '',
+    baseURL = "",
     timeout = 30000,
     headers,
     withCredentials = true,
-    authEndpoints = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/me', '/api/auth/login', '/api/auth/register', '/api/auth/refresh', '/api/auth/me'],
-    refreshUrl = '/auth/refresh',
-    authUrlMatch = 'includes',
+    authEndpoints = [
+      "/auth/login",
+      "/auth/register",
+      "/auth/refresh",
+      "/api/auth/login",
+      "/api/auth/register",
+      "/api/auth/refresh",
+    ],
+    refreshUrl = "/auth/refresh",
+    authUrlMatch = "includes",
     captureCsrfOnError = false,
-    onAuthFailure = null
-  } = options
+    onAuthFailure = null,
+  } = options;
 
   const instance = axios.create({
     baseURL,
     timeout,
-    headers: headers || { 'Content-Type': 'application/json' },
-    withCredentials
-  })
+    headers: headers || { "Content-Type": "application/json" },
+    withCredentials,
+  });
 
   // ---- Request interceptor: attach CSRF token and Authorization header ----
   instance.interceptors.request.use(
     (config) => {
-      if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-        delete config.headers['Content-Type']
-        delete config.headers['content-type']
+      if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+        delete config.headers["Content-Type"];
+        delete config.headers["content-type"];
       }
 
       // Attach Authorization token as fallback for cross-domain cookie restrictions
-      if (typeof window !== 'undefined') {
-        const token = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token')
-        if (token && !config.headers.Authorization && !config.headers.authorization) {
-          config.headers.Authorization = `Bearer ${token}`
+      if (typeof window !== "undefined") {
+        const token =
+          sessionStorage.getItem("trstprep_auth_token") ||
+          localStorage.getItem("trstprep_token");
+        if (token) {
+          if (config.headers && typeof config.headers.set === "function") {
+            config.headers.set("Authorization", `Bearer ${token}`);
+          } else {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${token}`;
+          }
         }
       }
 
-      const method = config.method?.toUpperCase()
-      if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-        const csrfToken = getCsrfToken()
+      const method = config.method?.toUpperCase();
+      if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
+        const csrfToken = getCsrfToken();
         if (csrfToken) {
-          config.headers['X-CSRF-Token'] = csrfToken
+          config.headers["X-CSRF-Token"] = csrfToken;
         }
       }
-      return config
+      return config;
     },
     (error) => {
-      return Promise.reject(new NetworkError('Request setup failed', error))
-    }
-  )
+      return Promise.reject(new NetworkError("Request setup failed", error));
+    },
+  );
 
   // ---- Refresh queue (shared by concurrent 401/419s) ----
-  let isRefreshing = false
-  let failedQueue = []
+  let isRefreshing = false;
+  let failedQueue = [];
 
   const processQueue = (error) => {
     failedQueue.forEach(({ resolve, reject }) => {
-      if (error) reject(error)
-      else resolve()
-    })
-    failedQueue = []
-  }
+      if (error) reject(error);
+      else resolve();
+    });
+    failedQueue = [];
+  };
 
   const captureRotatedCsrf = (response) => {
-    if (!response) return
+    if (!response) return;
     const csrfToken =
-      response.headers?.['x-csrf-token'] ||
-      response.headers?.['X-CSRF-Token'] ||
+      response.headers?.["x-csrf-token"] ||
+      response.headers?.["X-CSRF-Token"] ||
       response.data?.data?.csrfToken ||
-      response.data?.csrfToken
+      response.data?.csrfToken;
     if (csrfToken) {
-      setCsrfToken(csrfToken)
+      setCsrfToken(csrfToken);
     }
-  }
+  };
 
   // ---- Response interceptor: CSRF rotation, refresh, error mapping ----
   instance.interceptors.response.use(
     (response) => {
-      captureRotatedCsrf(response)
-      return response
+      captureRotatedCsrf(response);
+      return response;
     },
     async (error) => {
       if (axios.isCancel(error)) {
-        return Promise.reject(error)
+        return Promise.reject(error);
       }
 
-      const originalRequest = error.config
+      const originalRequest = error.config;
 
       // Capture rotated CSRF token from error responses if configured.
       if (captureCsrfOnError) {
-        captureRotatedCsrf(error.response)
+        captureRotatedCsrf(error.response);
       }
 
-      const status = error.response?.status
-      const url = originalRequest?.url
+      const status = error.response?.status;
+      const url = originalRequest?.url;
 
       const matchFn =
-        authUrlMatch === 'startsWith'
+        authUrlMatch === "startsWith"
           ? (path) => url?.startsWith(path)
-          : (path) => url?.includes(path)
+          : (path) => url?.includes(path);
 
-      const isAuthEndpoint = authEndpoints.some(matchFn)
+      const isAuthEndpoint = authEndpoints.some(matchFn);
 
       // Handle 403 CSRF mismatch: auto-recover and retry once
       if (status === 403) {
-        const errorMsg = String(error.response?.data?.message || '')
-        if (errorMsg.toLowerCase().includes('csrf') && originalRequest && !originalRequest._csrfRetry) {
-          originalRequest._csrfRetry = true
+        const errorMsg = String(error.response?.data?.message || "");
+        if (
+          errorMsg.toLowerCase().includes("csrf") &&
+          originalRequest &&
+          !originalRequest._csrfRetry
+        ) {
+          originalRequest._csrfRetry = true;
           const freshCsrf =
-            error.response?.headers?.['x-csrf-token'] || error.response?.headers?.['X-CSRF-Token'] || error.response?.data?.csrfToken
+            error.response?.headers?.["x-csrf-token"] ||
+            error.response?.headers?.["X-CSRF-Token"] ||
+            error.response?.data?.csrfToken;
           if (freshCsrf) {
-            getCsrfToken?.() // trigger refresh if needed
-            originalRequest.headers = originalRequest.headers || {}
-            originalRequest.headers['X-CSRF-Token'] = freshCsrf
+            getCsrfToken?.(); // trigger refresh if needed
+            originalRequest.headers = originalRequest.headers || {};
+            originalRequest.headers["X-CSRF-Token"] = freshCsrf;
           }
-          return instance(originalRequest)
+          return instance(originalRequest);
         }
       }
 
       if (status === 401 || status === 419) {
         if (isAuthEndpoint) {
-          onAuthFailure?.(error, { isRefreshFailure: false })
-          return Promise.reject(error)
+          onAuthFailure?.(error, { isRefreshFailure: false });
+          return Promise.reject(error);
         }
 
         if (originalRequest?._authRefreshAttempted) {
-          onAuthFailure?.(error, { isRefreshFailure: false })
-          return Promise.reject(error)
+          onAuthFailure?.(error, { isRefreshFailure: false });
+          return Promise.reject(error);
         }
 
-        originalRequest._authRefreshAttempted = true
+        originalRequest._authRefreshAttempted = true;
 
         if (!isRefreshing) {
-          isRefreshing = true
+          isRefreshing = true;
           try {
-            const storedRefreshToken = typeof window !== 'undefined'
-              ? (sessionStorage.getItem('trstprep_refresh_token') || localStorage.getItem('trstprep_refresh_token'))
-              : null
+            const isPersistent = Boolean(
+              localStorage.getItem("trstprep_token") ||
+              localStorage.getItem("trstprep_refresh_token"),
+            );
+            const storedRefreshToken =
+              typeof window !== "undefined"
+                ? localStorage.getItem("trstprep_refresh_token") ||
+                  sessionStorage.getItem("trstprep_refresh_token")
+                : null;
             const refreshRes = await instance.post(
               refreshUrl,
-              storedRefreshToken ? { refreshToken: storedRefreshToken } : {}
-            )
-            const freshToken = refreshRes.data?.data?.token || refreshRes.data?.token
-            const freshRefreshToken = refreshRes.data?.data?.refreshToken || refreshRes.data?.refreshToken
+              storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+            );
+            const {
+              token: freshToken,
+              refreshToken: freshRefreshToken,
+              rememberMe: serverRememberMe,
+            } = refreshRes.data?.data || refreshRes.data || {};
+            const rememberMe =
+              serverRememberMe !== undefined ? serverRememberMe : isPersistent;
 
-            if (typeof window !== 'undefined') {
+            if (typeof window !== "undefined") {
+              const primaryStorage = rememberMe ? localStorage : sessionStorage;
+              const secondaryStorage = rememberMe
+                ? sessionStorage
+                : localStorage;
+
+              // Purge stale tokens from opposite storage
+              secondaryStorage.removeItem("trstprep_auth_token");
+              secondaryStorage.removeItem("trstprep_token");
+              secondaryStorage.removeItem("trstprep_refresh_token");
+
               if (freshToken) {
                 try {
-                  sessionStorage.setItem('trstprep_auth_token', freshToken)
-                  localStorage.setItem('trstprep_token', freshToken)
+                  primaryStorage.setItem(
+                    rememberMe ? "trstprep_token" : "trstprep_auth_token",
+                    freshToken,
+                  );
                 } catch {}
               }
               if (freshRefreshToken) {
                 try {
-                  sessionStorage.setItem('trstprep_refresh_token', freshRefreshToken)
-                  localStorage.setItem('trstprep_refresh_token', freshRefreshToken)
+                  primaryStorage.setItem(
+                    "trstprep_refresh_token",
+                    freshRefreshToken,
+                  );
                 } catch {}
               }
             }
 
             if (freshToken && originalRequest?.headers) {
-              originalRequest.headers.Authorization = `Bearer ${freshToken}`
+              originalRequest.headers.Authorization = `Bearer ${freshToken}`;
             }
 
-            isRefreshing = false
-            processQueue(null)
-            return instance(originalRequest)
+            isRefreshing = false;
+            processQueue(null);
+            return instance(originalRequest);
           } catch (refreshError) {
-            isRefreshing = false
-            processQueue(refreshError)
-            const refreshStatus = refreshError?.response?.status
+            isRefreshing = false;
+            processQueue(refreshError);
+            const refreshStatus = refreshError?.response?.status;
             if (refreshStatus === 401 || refreshStatus === 419) {
-              onAuthFailure?.(refreshError, { isRefreshFailure: true })
+              onAuthFailure?.(refreshError, { isRefreshFailure: true });
             }
-            return Promise.reject(refreshError)
+            return Promise.reject(refreshError);
           }
         }
 
         return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject })
+          failedQueue.push({ resolve, reject });
         }).then(() => {
-          if (typeof window !== 'undefined') {
-            const latestToken = sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token')
+          if (typeof window !== "undefined") {
+            const latestToken =
+              sessionStorage.getItem("trstprep_auth_token") ||
+              localStorage.getItem("trstprep_token");
             if (latestToken && originalRequest?.headers) {
-              originalRequest.headers.Authorization = `Bearer ${latestToken}`
+              originalRequest.headers.Authorization = `Bearer ${latestToken}`;
             }
           }
-          return instance(originalRequest)
-        })
+          return instance(originalRequest);
+        });
       }
 
       if (error.response) {
-        const { status: st, data } = error.response
-        const message = data?.message || error.message || 'Unknown error'
+        const { status: st, data } = error.response;
+        const message = data?.message || error.message || "Unknown error";
 
-        let mappedError
+        let mappedError;
         switch (st) {
           case 400:
-            mappedError = new ValidationError(message, data)
-            break
+            mappedError = new ValidationError(message, data);
+            break;
           case 401:
-            mappedError = new AuthenticationError(message, data)
-            break
+            mappedError = new AuthenticationError(message, data);
+            break;
           case 403:
-            mappedError = new AuthenticationError(message || 'Access forbidden', data)
-            break
+            mappedError = new AuthenticationError(
+              message || "Access forbidden",
+              data,
+            );
+            break;
           case 404:
-            mappedError = new NotFoundError(message, data)
-            break
+            mappedError = new NotFoundError(message, data);
+            break;
           case 500:
-            mappedError = new DataError('Server error', 'SERVER_ERROR', data)
-            break
+            mappedError = new DataError("Server error", "SERVER_ERROR", data);
+            break;
           default:
-            mappedError = new DataError(message, `HTTP_${st}`, data)
+            mappedError = new DataError(message, `HTTP_${st}`, data);
         }
         // Preserve the HTTP status on the error so callers can branch without
         // needing error.response (which is no longer available after mapping).
-        mappedError.status = st
-        return Promise.reject(mappedError)
+        mappedError.status = st;
+        return Promise.reject(mappedError);
       } else if (error.request) {
         return Promise.reject(
-          new NetworkError('Network error - please check your connection', error.request)
-        )
+          new NetworkError(
+            "Network error - please check your connection",
+            error.request,
+          ),
+        );
       } else {
-        return Promise.reject(new NetworkError('Request failed', error.message))
+        return Promise.reject(
+          new NetworkError("Request failed", error.message),
+        );
       }
-    }
-  )
+    },
+  );
 
-  return instance
+  return instance;
 }
 
-export default createApiClient
+export default createApiClient;

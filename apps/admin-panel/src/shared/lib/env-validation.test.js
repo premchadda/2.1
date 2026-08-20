@@ -4,9 +4,11 @@ import { validateEnvVars } from './env-validation.js'
 
 describe('env-validation', () => {
   test('returns true when required env vars are present', () => {
-    // The implementation requires VITE_API_URL and VITE_ADMIN_SITE_URL.
+    // Production requires API, admin-site, backend, and socket URLs.
     import.meta.env.VITE_API_URL = 'http://localhost:5001'
     import.meta.env.VITE_ADMIN_SITE_URL = 'http://localhost:3002'
+    import.meta.env.VITE_BACKEND_URL = 'http://localhost:5001'
+    import.meta.env.VITE_SOCKET_URL = 'http://localhost:5001'
     expect(validateEnvVars()).toBe(true)
   })
 

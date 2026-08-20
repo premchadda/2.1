@@ -1,519 +1,628 @@
 /**
  * AuthProvider - Authentication State Management Provider Component
- * 
+ *
  * SECURITY UPDATE (Issue #21, #42): httpOnly Cookie Authentication
  * ---------------------------------------------------------------
  * Token storage has been migrated from localStorage to httpOnly cookies.
- * 
+ *
  * SECURITY BENEFITS:
  * - httpOnly cookies cannot be accessed by JavaScript (XSS protection)
  * - secure flag ensures HTTPS-only transmission
  * - sameSite='strict' provides CSRF protection
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import api from '../lib/api'
-import { setSessionActive } from '../lib/apiClient'
-import { clearDashboardCache } from '../lib/dashboardCache'
-import { mapUserToFrontend } from '../types'
-import { useWebSocket } from '../hooks/useWebSocket'
-import { toast } from 'react-hot-toast'
-import { getCsrfToken, setCsrfToken, clearCsrfToken, logger } from '@trstprep/shared-config'
-import { AuthContext } from './AuthContextCore'
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import api from "../lib/api";
+import { setSessionActive } from "../lib/apiClient";
+import { clearDashboardCache } from "../lib/dashboardCache";
+import { mapUserToFrontend } from "../types";
+import { useWebSocket } from "../hooks/useWebSocket";
+import { toast } from "react-hot-toast";
+import {
+  getCsrfToken,
+  setCsrfToken,
+  clearCsrfToken,
+  logger,
+} from "@trstprep/shared-config";
+import { AuthContext } from "./AuthContextCore";
 
-// Session configuration
+// Session configuration - 3 days default inactivity timeout
 const SESSION_CONFIG = {
-  defaultExpiry: 24 * 60 * 60 * 1000, // 24 hours
-  rememberMeExpiry: 7 * 24 * 60 * 60 * 1000, // 7 days
-  inactivityTimeout: 30 * 60 * 1000, // 30 minutes
-}
+  defaultExpiry: 3 * 24 * 60 * 60 * 1000, // 3 days
+  rememberMeExpiry: 30 * 24 * 60 * 60 * 1000, // 30 days
+  inactivityTimeout: 3 * 24 * 60 * 60 * 1000, // 3 days
+};
 
-// Session storage key for non-sensitive user metadata only
-const SESSION_META_KEY = 'trstprep_session_meta'
-const USER_CACHE_KEY = 'trstprep_user_profile'
+const USER_CACHE_KEY = "trstprep_user_profile";
 
 const getInitialUser = () => {
   try {
-    const cached = sessionStorage.getItem(USER_CACHE_KEY) || localStorage.getItem(USER_CACHE_KEY)
-    return cached ? JSON.parse(cached) : null
+    const cached =
+      sessionStorage.getItem(USER_CACHE_KEY) ||
+      localStorage.getItem(USER_CACHE_KEY);
+    return cached ? JSON.parse(cached) : null;
   } catch {
-    return null
+    return null;
   }
-}
+};
 
-const saveUserCache = (frontendUser) => {
+const saveUserCache = (frontendUser, rememberMe = false) => {
   try {
+    const primary = rememberMe ? localStorage : sessionStorage;
+    const secondary = rememberMe ? sessionStorage : localStorage;
+    secondary.removeItem(USER_CACHE_KEY);
+
     if (frontendUser) {
-      const str = JSON.stringify(frontendUser)
-      sessionStorage.setItem(USER_CACHE_KEY, str)
-      localStorage.setItem(USER_CACHE_KEY, str)
+      primary.setItem(USER_CACHE_KEY, JSON.stringify(frontendUser));
     } else {
-      sessionStorage.removeItem(USER_CACHE_KEY)
-      localStorage.removeItem(USER_CACHE_KEY)
+      primary.removeItem(USER_CACHE_KEY);
     }
   } catch {
     // sessionStorage / localStorage may throw in private mode
   }
-}
+};
 
-const saveAuthTokens = ({ token, refreshToken, csrfToken }) => {
+export const applyAuthSession = ({
+  token,
+  refreshToken,
+  csrfToken,
+  rememberMe = false,
+}) => {
   try {
+    const primaryStorage = rememberMe ? localStorage : sessionStorage;
+    const secondaryStorage = rememberMe ? sessionStorage : localStorage;
+
+    // Purge stale tokens from opposite storage to prevent cross-contamination
+    secondaryStorage.removeItem("trstprep_auth_token");
+    secondaryStorage.removeItem("trstprep_token");
+    secondaryStorage.removeItem("trstprep_refresh_token");
+
     if (token) {
-      sessionStorage.setItem('trstprep_auth_token', token)
-      localStorage.setItem('trstprep_token', token)
+      primaryStorage.setItem(
+        rememberMe ? "trstprep_token" : "trstprep_auth_token",
+        token,
+      );
     }
     if (refreshToken) {
-      sessionStorage.setItem('trstprep_refresh_token', refreshToken)
-      localStorage.setItem('trstprep_refresh_token', refreshToken)
+      primaryStorage.setItem("trstprep_refresh_token", refreshToken);
     }
     if (csrfToken) {
-      setCsrfToken(csrfToken)
+      setCsrfToken(csrfToken);
     }
   } catch {
     // storage may throw in private mode
   }
-}
+};
 
-const clearAuthTokens = () => {
+// Backward-compatible alias for existing imports
+export const saveAuthTokens = applyAuthSession;
+
+export const clearAuthTokens = () => {
   try {
-    sessionStorage.removeItem('trstprep_auth_token')
-    sessionStorage.removeItem('trstprep_refresh_token')
-    sessionStorage.removeItem(SESSION_META_KEY)
-    localStorage.removeItem('trstprep_token')
-    localStorage.removeItem('trstprep_refresh_token')
-    localStorage.removeItem(SESSION_META_KEY)
-    clearCsrfToken()
+    sessionStorage.removeItem("trstprep_auth_token");
+    sessionStorage.removeItem("trstprep_token");
+    sessionStorage.removeItem("trstprep_refresh_token");
+    localStorage.removeItem("trstprep_token");
+    localStorage.removeItem("trstprep_auth_token");
+    localStorage.removeItem("trstprep_refresh_token");
+    clearCsrfToken();
   } catch {
     // storage may throw in private mode
   }
-}
+};
 
 export function AuthProvider({ children }) {
-  const initialCachedUser = getInitialUser()
-  const [user, setUser] = useState(initialCachedUser)
-  const [loading, setLoading] = useState(!initialCachedUser)
-  const [error, setError] = useState(null)
-  const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser))
-  const authSequenceRef = useRef(0)
-
-  // Check for existing session on mount (Issue #42: Uses httpOnly cookies + fallback tokens)
-  useEffect(() => {
-    let cancelled = false
-    const sequenceAtStart = authSequenceRef.current
-    const MAX_RETRIES = 2
-    const BASE_RETRY_DELAY = 1000 // ms
-    const MAX_RETRY_DELAY = 3000 // ms cap for backoff
-
-    const checkAuth = async (attempt = 0) => {
-      if (cancelled || authSequenceRef.current !== sequenceAtStart) return
-      try {
-        const response = await api.get('/api/auth/me')
-        if (cancelled || authSequenceRef.current !== sequenceAtStart) return
-        const userData = response.data.data
-        
-        if (userData) {
-          const frontendUser = mapUserToFrontend(userData)
-          setUser(frontendUser)
-          saveUserCache(frontendUser)
-          
-          const meta = {
-            lastActivity: Date.now(),
-            expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-          }
-          try {
-            sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-            localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-          } catch {}
-        } else {
-          clearAuthTokens()
-          setUser(null)
-          saveUserCache(null)
-        }
-        setLoading(false)
-        setAuthResolved(true)
-      } catch (err) {
-        if (cancelled || authSequenceRef.current !== sequenceAtStart) return
-        const isAuthError =
-          err?.name === 'AuthenticationError' ||
-          err?.code === 'AUTHENTICATION_ERROR' ||
-          err?.status === 401 ||
-          err?.statusCode === 401 ||
-          err?.response?.status === 401
-        const status = err?.response?.status || (isAuthError ? 401 : null)
-        const transient = !isAuthError && (!err.response || (status && status >= 500))
-        if (transient && attempt < MAX_RETRIES) {
-          const delay = Math.min(BASE_RETRY_DELAY * (attempt + 1), MAX_RETRY_DELAY)
-          setTimeout(() => checkAuth(attempt + 1), delay)
-          return
-        }
-        if (isAuthError || status === 401) {
-          clearAuthTokens()
-          setUser(null)
-          saveUserCache(null)
-        } else {
-          logger.error('Auth check failed (fatal/non-transient):', err)
-        }
-        setLoading(false)
-        setAuthResolved(true)
-      }
-    }
-
-    checkAuth()
-    return () => { cancelled = true }
-  }, [])
-
-  // Listen for unauthorized events
-  useEffect(() => {
-    const handleUnauthorized = () => {
-      clearAuthTokens()
-      saveUserCache(null)
-      setUser(null)
-    }
-
-    window.addEventListener('unauthorized', handleUnauthorized)
-    return () => window.removeEventListener('unauthorized', handleUnauthorized)
-  }, [])
-
-  // Keep API client's session flag in sync
-  useEffect(() => {
-    setSessionActive(Boolean(user))
-  }, [user])
+  const initialCachedUser = getInitialUser();
+  const [user, setUser] = useState(initialCachedUser);
+  const [loading, setLoading] = useState(!initialCachedUser);
+  const [error, setError] = useState(null);
+  const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser));
+  const authSequenceRef = useRef(0);
 
   // Refresh token function
   const refreshToken = useCallback(async () => {
     try {
-      const storedRefreshToken = typeof window !== 'undefined'
-        ? (sessionStorage.getItem('trstprep_refresh_token') || localStorage.getItem('trstprep_refresh_token'))
-        : null
+      const isPersistent =
+        typeof window !== "undefined" &&
+        Boolean(
+          localStorage.getItem("trstprep_token") ||
+          localStorage.getItem("trstprep_refresh_token"),
+        );
+      const storedRefreshToken =
+        typeof window !== "undefined"
+          ? localStorage.getItem("trstprep_refresh_token") ||
+            sessionStorage.getItem("trstprep_refresh_token")
+          : null;
       const response = await api.post(
-        '/api/auth/refresh',
-        storedRefreshToken ? { refreshToken: storedRefreshToken } : {}
-      )
-      const { token: newToken, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data?.data || {}
-      saveAuthTokens({ token: newToken, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
-      return { success: true }
+        "/api/auth/refresh",
+        storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+      );
+      const {
+        token: newToken,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: serverRememberMe,
+      } = response.data?.data || {};
+      const rememberMe =
+        serverRememberMe !== undefined ? serverRememberMe : isPersistent;
+      applyAuthSession({
+        token: newToken,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
+      });
+      return { success: true };
     } catch (err) {
-      logger.error('Token refresh failed:', err)
-      const status = err?.response?.status
+      logger.error("Token refresh failed:", err);
+      const status = err?.response?.status;
       if (status === 401 || status === 419) {
-        clearAuthTokens()
-        saveUserCache(null)
-        setUser(null)
-        return { success: false, error: 'Session expired' }
+        clearAuthTokens();
+        saveUserCache(null);
+        setUser(null);
+        return { success: false, error: "Session expired" };
       }
-      return { success: false, error: 'Service temporarily unavailable' }
+      return { success: false, error: "Service temporarily unavailable" };
     }
-  }, [])
+  }, []);
+
+  // Check for existing session on mount (Issue #42: Uses httpOnly cookies + fallback tokens)
+  useEffect(() => {
+    let cancelled = false;
+    const sequenceAtStart = authSequenceRef.current;
+    const MAX_RETRIES = 2;
+    const BASE_RETRY_DELAY = 1000; // ms
+    const MAX_RETRY_DELAY = 3000; // ms cap for backoff
+
+    const checkAuth = async (attempt = 0) => {
+      if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
+      try {
+        const response = await api.get("/api/auth/me");
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
+        const userData = response.data.data;
+
+        if (userData) {
+          const frontendUser = mapUserToFrontend(userData);
+          const isPersistent =
+            typeof window !== "undefined" &&
+            Boolean(
+              localStorage.getItem("trstprep_token") ||
+              localStorage.getItem("trstprep_refresh_token"),
+            );
+          setUser(frontendUser);
+          saveUserCache(frontendUser, isPersistent);
+        } else {
+          clearAuthTokens();
+          setUser(null);
+          saveUserCache(null);
+        }
+        setLoading(false);
+        setAuthResolved(true);
+      } catch (err) {
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
+        const isAuthError =
+          err?.name === "AuthenticationError" ||
+          err?.code === "AUTHENTICATION_ERROR" ||
+          err?.status === 401 ||
+          err?.statusCode === 401 ||
+          err?.response?.status === 401;
+        const status = err?.response?.status || (isAuthError ? 401 : null);
+        const transient =
+          !isAuthError && (!err.response || (status && status >= 500));
+        if (transient && attempt < MAX_RETRIES) {
+          const delay = Math.min(
+            BASE_RETRY_DELAY * (attempt + 1),
+            MAX_RETRY_DELAY,
+          );
+          setTimeout(() => checkAuth(attempt + 1), delay);
+          return;
+        }
+        if (isAuthError || status === 401) {
+          // If we have a refresh token or cookies, attempt one silent refresh before wiping
+          const storedRefreshToken =
+            typeof window !== "undefined"
+              ? localStorage.getItem("trstprep_refresh_token") ||
+                sessionStorage.getItem("trstprep_refresh_token")
+              : null;
+
+          if (
+            attempt === 0 &&
+            (storedRefreshToken ||
+              (typeof document !== "undefined" &&
+                document.cookie.includes("refreshToken")))
+          ) {
+            try {
+              const refreshRes = await refreshToken();
+              if (refreshRes?.success && !cancelled) {
+                return checkAuth(attempt + 1);
+              }
+            } catch {}
+          }
+
+          clearAuthTokens();
+          setUser(null);
+          saveUserCache(null);
+        } else {
+          logger.error("Auth check failed (fatal/non-transient):", err);
+        }
+        setLoading(false);
+        setAuthResolved(true);
+      }
+    };
+
+    checkAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshToken]);
+
+  // Listen for unauthorized events
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      clearAuthTokens();
+      saveUserCache(null);
+      setUser(null);
+    };
+
+    window.addEventListener("unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("unauthorized", handleUnauthorized);
+  }, []);
+
+  // Keep API client's session flag in sync
+  useEffect(() => {
+    setSessionActive(Boolean(user));
+  }, [user]);
 
   // Fetch current user data
   const fetchCurrentUser = useCallback(async () => {
     try {
-      const response = await api.get('/api/auth/me')
-      const userData = response.data.data
-      
-      const frontendUser = mapUserToFrontend(userData)
-      setUser(frontendUser)
-      saveUserCache(frontendUser)
-      
-      const meta = {
-        lastActivity: Date.now(),
-        expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-      }
-      try {
-        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-      } catch {}
-      
-      return { success: true, user: frontendUser }
+      const response = await api.get("/api/auth/me");
+      const userData = response.data.data;
+
+      const frontendUser = mapUserToFrontend(userData);
+      const isPersistent =
+        typeof window !== "undefined" &&
+        Boolean(
+          localStorage.getItem("trstprep_token") ||
+          localStorage.getItem("trstprep_refresh_token"),
+        );
+      setUser(frontendUser);
+      saveUserCache(frontendUser, isPersistent);
+
+      return { success: true, user: frontendUser };
     } catch (err) {
-      logger.error('Fetch current user failed:', err)
-      return { success: false, error: err.message }
+      logger.error("Fetch current user failed:", err);
+      return { success: false, error: err.message };
     }
-  }, [])
+  }, []);
 
   // Login function
-  const login = async (email, password, rememberMe = false) => {
-    setError(null)
-    setLoading(true)
-    authSequenceRef.current++
+  const login = async (
+    email,
+    password,
+    rememberMe = false,
+    botContext = {},
+  ) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
 
     try {
-      const response = await api.post('/api/auth/login', { email, password })
+      const response = await api.post("/api/auth/login", {
+        email,
+        password,
+        rememberMe,
+        ...botContext,
+      });
 
       if (response.data.requires2FA) {
-        setLoading(false)
+        setLoading(false);
         return {
           success: false,
           requires2FA: true,
           tempToken: response.data.data?.tempToken,
-        }
+        };
       }
 
-      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
+      const {
+        user: userData,
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: serverRememberMe,
+      } = response.data.data;
+      const isRemember =
+        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
 
-      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
+      applyAuthSession({
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: isRemember,
+      });
 
-      const frontendUser = mapUserToFrontend(userData)
-      clearDashboardCache()
-      setUser(frontendUser)
-      saveUserCache(frontendUser)
-      setAuthResolved(true)
-      
-      const meta = {
-        lastActivity: Date.now(),
-        expiresAt: rememberMe 
-          ? new Date(Date.now() + SESSION_CONFIG.rememberMeExpiry).toISOString()
-          : new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-      }
-      try {
-        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-      } catch {}
-      
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
+      const frontendUser = mapUserToFrontend(userData);
+      clearDashboardCache();
+      setUser(frontendUser);
+      saveUserCache(frontendUser, isRemember);
+      setAuthResolved(true);
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("trstprep:data-invalidated"));
       }
 
       return {
         success: true,
         user: frontendUser,
         previousSession: response.data?.data?.previousSession || false,
-        otherSessions: response.data?.data?.otherSessions || []
-      }
+        otherSessions: response.data?.data?.otherSessions || [],
+      };
     } catch (err) {
-      logger.error('Login failed:', err)
-      const message = err.response?.data?.message || err.message || 'Login failed'
-      setError(message)
-      return { success: false, error: message }
+      logger.error("Login failed:", err);
+      const message =
+        err.response?.data?.message || err.message || "Login failed";
+      setError(message);
+      return { success: false, error: message };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Google Login function
-  const googleLogin = async (credential) => {
-    setError(null)
-    setLoading(true)
-    authSequenceRef.current++
+  const googleLogin = async (credential, rememberMe = true) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
 
     try {
-      const response = await api.post('/api/auth/google', { credential })
-      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
+      const response = await api.post("/api/auth/google", {
+        credential,
+        rememberMe,
+      });
+      const {
+        user: userData,
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: serverRememberMe,
+      } = response.data.data;
+      const isRemember =
+        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
 
-      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
+      applyAuthSession({
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: isRemember,
+      });
 
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-      const frontendUser = mapUserToFrontend(userData)
-      setUser(frontendUser)
-      saveUserCache(frontendUser)
-      setAuthResolved(true)
-      
-      const meta = {
-        lastActivity: Date.now(),
-        expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-      }
-      try {
-        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-      } catch {}
-      
-      return { success: true, user: frontendUser }
+      const frontendUser = mapUserToFrontend(userData);
+      setUser(frontendUser);
+      saveUserCache(frontendUser, isRemember);
+      setAuthResolved(true);
+
+      return { success: true, user: frontendUser };
     } catch (err) {
-      logger.error('Google Login failed:', err)
-      const message = err.response?.data?.message || err.message || 'Google Login failed'
-      setError(message)
-      return { success: false, error: message }
+      logger.error("Google Login failed:", err);
+      const message =
+        err.response?.data?.message || err.message || "Google Login failed";
+      setError(message);
+      return { success: false, error: message };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Complete 2FA login
-  const verify2FA = async (tempToken, code, isBackupCode = false) => {
-    setError(null)
-    setLoading(true)
-    authSequenceRef.current++
+  const verify2FA = async (
+    tempToken,
+    code,
+    isBackupCode = false,
+    rememberMe = false,
+  ) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
 
     try {
-      const body = { tempToken }
+      const body = { tempToken, rememberMe };
       if (isBackupCode) {
-        body.backupCode = code
+        body.backupCode = code;
       } else {
-        body.token = code
+        body.token = code;
       }
 
-      const response = await api.post('/api/auth/login/2fa', body)
-      const { user: userData, token, refreshToken: newRefreshToken, csrfToken: newCsrfToken } = response.data.data
+      const response = await api.post("/api/auth/login/2fa", body);
+      const {
+        user: userData,
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: serverRememberMe,
+      } = response.data.data;
+      const isRemember =
+        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
 
-      saveAuthTokens({ token, refreshToken: newRefreshToken, csrfToken: newCsrfToken })
+      applyAuthSession({
+        token,
+        refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe: isRemember,
+      });
 
-      await new Promise(resolve => setTimeout(resolve, 200))
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-      const frontendUser = mapUserToFrontend(userData)
-      setUser(frontendUser)
-      saveUserCache(frontendUser)
-      setAuthResolved(true)
+      const frontendUser = mapUserToFrontend(userData);
+      setUser(frontendUser);
+      saveUserCache(frontendUser, isRemember);
+      setAuthResolved(true);
 
-      const meta = {
-        lastActivity: Date.now(),
-        expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-      }
-      try {
-        sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-        localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-      } catch {}
-
-      return { success: true, user: frontendUser }
+      return { success: true, user: frontendUser };
     } catch (err) {
-      logger.error('2FA verification failed:', err)
-      const message = err.response?.data?.message || err.message || '2FA verification failed'
-      setError(message)
-      return { success: false, error: message }
+      logger.error("2FA verification failed:", err);
+      const message =
+        err.response?.data?.message || err.message || "2FA verification failed";
+      setError(message);
+      return { success: false, error: message };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Signup function
-  const signup = async (name, email, password, mobile = null) => {
-    setError(null)
-    setLoading(true)
-    authSequenceRef.current++
+  const signup = async (
+    name,
+    email,
+    password,
+    mobile = null,
+    botContext = {},
+  ) => {
+    setError(null);
+    setLoading(true);
+    authSequenceRef.current++;
 
     try {
-      const response = await api.post('/api/auth/register', { name, email, password, mobile })
-      const payload = response.data?.data || {}
-      const userData = payload.user
+      const response = await api.post("/api/auth/register", {
+        name,
+        email,
+        password,
+        mobile,
+        ...botContext,
+      });
+      const payload = response.data?.data || {};
+      const userData = payload.user;
 
       if (payload.requiresEmailVerification) {
         return {
           success: true,
           requiresVerification: true,
           email: userData?.email || email,
-          message: payload.message || 'Registration successful. Please verify your email.'
-        }
+          message:
+            payload.message ||
+            "Registration successful. Please verify your email.",
+        };
       }
 
       if (userData) {
-        saveAuthTokens({
+        applyAuthSession({
           token: payload.token,
           refreshToken: payload.refreshToken,
-          csrfToken: payload.csrfToken
-        })
+          csrfToken: payload.csrfToken,
+          rememberMe: false,
+        });
 
-        await new Promise(resolve => setTimeout(resolve, 200))
+        await new Promise((resolve) => setTimeout(resolve, 200));
 
-        const frontendUser = mapUserToFrontend(userData)
-        setUser(frontendUser)
-        saveUserCache(frontendUser)
-        setAuthResolved(true)
-        
-        const meta = {
-          lastActivity: Date.now(),
-          expiresAt: new Date(Date.now() + SESSION_CONFIG.defaultExpiry).toISOString()
-        }
-        try {
-          sessionStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-          localStorage.setItem(SESSION_META_KEY, JSON.stringify(meta))
-        } catch {}
-        
-        return { success: true, user: frontendUser, requiresVerification: false }
+        const frontendUser = mapUserToFrontend(userData);
+        setUser(frontendUser);
+        saveUserCache(frontendUser, false);
+        setAuthResolved(true);
+
+        return {
+          success: true,
+          user: frontendUser,
+          requiresVerification: false,
+        };
       }
 
       return {
         success: true,
         requiresVerification: true,
         email: email,
-        message: 'Registration successful. Please verify your email.'
-      }
+        message: "Registration successful. Please verify your email.",
+      };
     } catch (err) {
-      logger.error('Signup failed:', err)
-      const message = err.response?.data?.message || err.message || 'Registration failed'
-      setError(message)
-      return { success: false, error: message }
+      logger.error("Signup failed:", err);
+      const message =
+        err.response?.data?.message || err.message || "Registration failed";
+      setError(message);
+      return { success: false, error: message };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Logout function
   const logout = async () => {
-    authSequenceRef.current++
+    authSequenceRef.current++;
     try {
-      await api.post('/api/auth/logout')
+      await api.post("/api/auth/logout");
     } catch (err) {
-      logger.error('Logout API call failed:', err)
+      logger.error("Logout API call failed:", err);
     } finally {
-      clearDashboardCache()
-      clearAuthTokens()
-      saveUserCache(null)
-      setUser(null)
-      setError(null)
-      setAuthResolved(true)
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('trstprep:data-invalidated'))
+      clearDashboardCache();
+      clearAuthTokens();
+      saveUserCache(null);
+      setUser(null);
+      setError(null);
+      setAuthResolved(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("trstprep:data-invalidated"));
       }
     }
-  }
+  };
 
   // Revoke all other active sessions
   const revokeOtherSessions = async () => {
     try {
-      const response = await api.delete('/api/sessions')
-      return { success: true, data: response.data }
+      const response = await api.delete("/api/sessions");
+      return { success: true, data: response.data };
     } catch (err) {
-      logger.error('Failed to revoke other sessions:', err)
-      return { success: false, error: err.response?.data?.message || err.message }
+      logger.error("Failed to revoke other sessions:", err);
+      return {
+        success: false,
+        error: err.response?.data?.message || err.message,
+      };
     }
-  }
+  };
 
   // Update user profile
   const updateProfile = async (updates) => {
-    if (!user) return { success: false, error: 'Not authenticated' }
+    if (!user) return { success: false, error: "Not authenticated" };
 
     try {
-      const response = await api.put('/api/users/profile', updates)
-      const updatedUser = mapUserToFrontend(response.data.data)
-      setUser(updatedUser)
-      return { success: true, user: updatedUser }
+      const response = await api.put("/api/users/profile", updates);
+      const updatedUser = mapUserToFrontend(response.data.data);
+      setUser(updatedUser);
+      return { success: true, user: updatedUser };
     } catch (err) {
-      return { success: false, error: err.message }
+      return { success: false, error: err.message };
     }
-  }
+  };
 
-  const isAuthenticated = !!user
-  const isAdmin = () => user?.role === 'admin'
+  const isAuthenticated = !!user;
+  const isAdmin = () => user?.role === "admin";
 
   const hasProPass = () => {
-    if (!user?.isProUser) return false
+    if (!user?.isProUser) return false;
     if (user?.proPassExpiry) {
-      const expiryDate = new Date(user.proPassExpiry)
-      const now = new Date()
-      return expiryDate > now
+      const expiryDate = new Date(user.proPassExpiry);
+      const now = new Date();
+      return expiryDate > now;
     }
-    return true
-  }
+    return true;
+  };
 
-  const { isConnected, socket, on, emit } = useWebSocket(Boolean(user))
+  const { isConnected, socket, on, emit } = useWebSocket(Boolean(user));
 
   useEffect(() => {
-    if (!socket) return
+    if (!socket) return;
 
-    const cleanup = on('notification:new', (data) => {
-      logger.debug('🔔 New Real-time Notification:', data)
+    const cleanup = on("notification:new", (data) => {
+      logger.debug("🔔 New Real-time Notification:", data);
       toast(data.message, {
-        icon: data.type === 'test:result_ready' ? '✅' : '🔔',
-        duration: 5000
-      })
-      
-      if (data.type === 'user:profile_updated') {
-        fetchCurrentUser()
-      }
-    })
+        icon: data.type === "test:result_ready" ? "✅" : "🔔",
+        duration: 5000,
+      });
 
-    return cleanup
-  }, [socket, on, fetchCurrentUser])
+      if (data.type === "user:profile_updated") {
+        fetchCurrentUser();
+      }
+    });
+
+    return cleanup;
+  }, [socket, on, fetchCurrentUser]);
 
   const value = {
     user,
@@ -537,12 +646,8 @@ export function AuthProvider({ children }) {
     refreshToken,
     refreshUser: fetchCurrentUser,
     fetchCurrentUser,
-    getCsrfToken
-  }
+    getCsrfToken,
+  };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

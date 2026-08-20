@@ -1,95 +1,124 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  Plus, Edit, Trash2, X, Save, Clock, FileText,
-  ChevronDown, ChevronUp, Search, AlertCircle, CheckCircle,
-  Link, AlertTriangle, Filter, Layers, GitBranch, Settings
-} from 'lucide-react'
-import { toast } from 'react-hot-toast'
-import { apiClient, adminAPI } from '../../../shared/lib/dataService'
-import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
-import { EXAM_PRESETS } from '../../../shared/config/examPresets'
+  Plus,
+  Edit,
+  Trash2,
+  X,
+  Save,
+  Clock,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  AlertCircle,
+  CheckCircle,
+  Link,
+  AlertTriangle,
+  Filter,
+  Layers,
+  GitBranch,
+  Settings,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { apiClient, adminAPI } from "../../../shared/lib/dataService";
+import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import { EXAM_PRESETS } from "../../../shared/config/examPresets";
 
 const CATEGORY_GROUPS = (() => {
   const orderedCategories = [];
   const categoryExamsMap = {};
 
-  EXAM_PRESETS.forEach(p => {
-    const cat = p.exam_category || 'Other';
-    const ex = p.exam || 'Other';
-    
+  EXAM_PRESETS.forEach((p) => {
+    const cat = p.exam_category || "Other";
+    const ex = p.exam || "Other";
+
     if (!categoryExamsMap[cat]) {
       categoryExamsMap[cat] = [];
       orderedCategories.push(cat);
     }
-    
+
     if (!categoryExamsMap[cat].includes(ex)) {
       categoryExamsMap[cat].push(ex);
     }
   });
 
-  return orderedCategories.map(cat => ({
+  return orderedCategories.map((cat) => ({
     category: cat,
-    exams: categoryExamsMap[cat]
+    exams: categoryExamsMap[cat],
   }));
 })();
 
 const DEFAULT_SECTION_FORM = {
-  name: '',
-  category_id: '',
-  exam_category_id: '',
-  test_id: '',
-  test_series_id: '',
-  stage_id: '',
-  description: '',
-  duration: 60,           // Legacy field (use time_limit instead)
+  name: "",
+  category_id: "",
+  exam_category_id: "",
+  test_id: "",
+  test_series_id: "",
+  stage_id: "",
+  description: "",
+  duration: 60, // Legacy field (use time_limit instead)
   passing_marks: 0,
   marks_per_question: 2, // Marks per question for this section
   negative_marks: 0.5, // Negative marks per question
-  time_limit: 900,       // Time limit in seconds (15 min default)
-  is_locked: false,       // Can user revisit after submission
+  time_limit: 900, // Time limit in seconds (15 min default)
+  is_locked: false, // Can user revisit after submission
   is_active: true,
   display_order: 0,
-  instructions: '',    // Instructions shown before section
-  difficulty: 'medium', // easy | medium | hard
+  instructions: "", // Instructions shown before section
+  difficulty: "medium", // easy | medium | hard
   shuffle_questions: false,
   shuffle_options: false,
   expected_questions: 0,
   total_marks: 0,
-  exam_stage: '',
-  paper: '',
-  session: '',
-  section_code: '',
+  exam_stage: "",
+  paper: "",
+  session: "",
+  section_code: "",
   is_qualifying: false,
-  exam_alias: ''
-}
+  exam_alias: "",
+};
 
-let sectionAliasMap = {}
+let sectionAliasMap = {};
 
 async function fetchSectionAliases() {
   try {
-    const res = await adminAPI.getSectionAliases()
-    const rows = res.data?.data || []
-    sectionAliasMap = {}
+    const res = await adminAPI.getSectionAliases();
+    const rows = res.data?.data || [];
+    sectionAliasMap = {};
     for (const row of rows) {
-      sectionAliasMap[row.alias_name.toLowerCase()] = row.canonical_name
+      sectionAliasMap[row.alias_name.toLowerCase()] = row.canonical_name;
     }
   } catch {
-    sectionAliasMap = {}
+    sectionAliasMap = {};
   }
 }
 
 function resolveCanonical(alias) {
-  return sectionAliasMap[(alias || '').toLowerCase()] || alias
+  return sectionAliasMap[(alias || "").toLowerCase()] || alias;
 }
 
 function SectionPreview({ existingSections, preset, seriesName, stageName }) {
-  if (!preset) return null
+  if (!preset) return null;
 
-  const existingNames = new Set(existingSections.map(s => (s.name || '').toLowerCase()))
-  const presetSections = (preset.sections || []).map(row => {
-    const [alias, examStage, paper, session, sectionCode, expectedQuestions, totalMarks, marksPerQuestion, negativeMarks, timeLimit, isQualifying] = row
-    const canonicalName = resolveCanonical(alias)
+  const existingNames = new Set(
+    existingSections.map((s) => (s.name || "").toLowerCase()),
+  );
+  const presetSections = (preset.sections || []).map((row) => {
+    const [
+      alias,
+      examStage,
+      paper,
+      session,
+      sectionCode,
+      expectedQuestions,
+      totalMarks,
+      marksPerQuestion,
+      negativeMarks,
+      timeLimit,
+      isQualifying,
+    ] = row;
+    const canonicalName = resolveCanonical(alias);
     return {
       name: canonicalName,
       exam_alias: alias !== canonicalName ? alias : null,
@@ -102,16 +131,29 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
       marks_per_question: marksPerQuestion,
       negative_marks: negativeMarks,
       time_limit: timeLimit,
-      is_qualifying: isQualifying
-    }
-  })
+      is_qualifying: isQualifying,
+    };
+  });
 
-  const willCreate = presetSections.filter(s => !existingNames.has(s.name.toLowerCase()))
-  const alreadyExist = presetSections.filter(s => existingNames.has(s.name.toLowerCase()))
+  const willCreate = presetSections.filter(
+    (s) => !existingNames.has(s.name.toLowerCase()),
+  );
+  const alreadyExist = presetSections.filter((s) =>
+    existingNames.has(s.name.toLowerCase()),
+  );
 
-  const totalNewMarks = willCreate.reduce((sum, s) => sum + (Number(s.total_marks) || 0), 0)
-  const totalNewQs = willCreate.reduce((sum, s) => sum + (Number(s.expected_questions) || 0), 0)
-  const totalNewTime = willCreate.reduce((sum, s) => sum + (Number(s.time_limit) || 0), 0)
+  const totalNewMarks = willCreate.reduce(
+    (sum, s) => sum + (Number(s.total_marks) || 0),
+    0,
+  );
+  const totalNewQs = willCreate.reduce(
+    (sum, s) => sum + (Number(s.expected_questions) || 0),
+    0,
+  );
+  const totalNewTime = willCreate.reduce(
+    (sum, s) => sum + (Number(s.time_limit) || 0),
+    0,
+  );
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
@@ -119,9 +161,13 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-indigo-500" />
-          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">Section Preview</h3>
+          <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300">
+            Section Preview
+          </h3>
           <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{seriesName} / {stageName}</span>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {seriesName} / {stageName}
+          </span>
         </div>
         <div className="flex items-center gap-3 text-xs">
           {willCreate.length > 0 && (
@@ -144,36 +190,77 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
         <span>{presetSections.length} sections total</span>
         {totalNewQs > 0 && <span>{totalNewQs} new questions</span>}
         {totalNewMarks > 0 && <span>{totalNewMarks} new marks</span>}
-        {totalNewTime > 0 && <span>{Math.round(totalNewTime / 60)} min new time</span>}
+        {totalNewTime > 0 && (
+          <span>{Math.round(totalNewTime / 60)} min new time</span>
+        )}
       </div>
 
       {/* Sections list */}
       <div className="divide-y divide-gray-100">
         {/* Will be created */}
         {willCreate.map((section, idx) => (
-          <div key={`new-${idx}`} className="px-4 py-2.5 flex items-center gap-3 hover:bg-green-50/50 transition-colors">
+          <div
+            key={`new-${idx}`}
+            className="px-4 py-2.5 flex items-center gap-3 hover:bg-green-50/50 transition-colors"
+          >
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold shrink-0">
               {section.section_code || idx + 1}
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">{section.name}</span>
-                {section.exam_alias && <span className="text-xs text-gray-400 dark:text-gray-500">({section.exam_alias})</span>}
-                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">New</span>
+                <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {section.name}
+                </span>
+                {section.exam_alias && (
+                  <span className="text-xs text-gray-400 dark:text-gray-500">
+                    ({section.exam_alias})
+                  </span>
+                )}
+                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">
+                  New
+                </span>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-[11px] mt-1">
-                {section.exam_stage && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">Stage: {section.exam_stage}</span>}
-                {section.paper && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">Paper: {section.paper}</span>}
-                {section.session && <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">Session: {section.session}</span>}
+                {section.exam_stage && (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">
+                    Stage: {section.exam_stage}
+                  </span>
+                )}
+                {section.paper && (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">
+                    Paper: {section.paper}
+                  </span>
+                )}
+                {section.session && (
+                  <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded font-medium border border-indigo-100">
+                    Session: {section.session}
+                  </span>
+                )}
                 <div className="w-px h-3 bg-gray-300 mx-1"></div>
                 <span className="text-gray-500 dark:text-gray-400">
-                  {section.expected_questions > 0 && <span>{section.expected_questions} Qs • </span>}
-                  {section.total_marks > 0 && <span>{section.total_marks} marks • </span>}
-                  {section.marks_per_question > 0 && <span>{section.marks_per_question} marks/Q • </span>}
-                  {section.negative_marks > 0 && <span className="text-red-500">-{section.negative_marks} neg • </span>}
-                  {section.time_limit > 0 && <span>{Math.round(section.time_limit / 60)} min</span>}
+                  {section.expected_questions > 0 && (
+                    <span>{section.expected_questions} Qs • </span>
+                  )}
+                  {section.total_marks > 0 && (
+                    <span>{section.total_marks} marks • </span>
+                  )}
+                  {section.marks_per_question > 0 && (
+                    <span>{section.marks_per_question} marks/Q • </span>
+                  )}
+                  {section.negative_marks > 0 && (
+                    <span className="text-red-500">
+                      -{section.negative_marks} neg •{" "}
+                    </span>
+                  )}
+                  {section.time_limit > 0 && (
+                    <span>{Math.round(section.time_limit / 60)} min</span>
+                  )}
                 </span>
-                {section.is_qualifying && <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 font-semibold rounded">Qualifying</span>}
+                {section.is_qualifying && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 font-semibold rounded">
+                    Qualifying
+                  </span>
+                )}
               </div>
             </div>
             <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
@@ -182,404 +269,508 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
 
         {/* Already exist */}
         {alreadyExist.map((section, idx) => {
-          const existing = existingSections.find(s => (s.name || '').toLowerCase() === section.name.toLowerCase())
+          const existing = existingSections.find(
+            (s) => (s.name || "").toLowerCase() === section.name.toLowerCase(),
+          );
           return (
-            <div key={`exist-${idx}`} className="px-4 py-2.5 flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 opacity-70">
+            <div
+              key={`exist-${idx}`}
+              className="px-4 py-2.5 flex items-center gap-3 bg-gray-50 dark:bg-gray-900/50 opacity-70"
+            >
               <span className="flex items-center justify-center w-6 h-6 rounded-full bg-gray-200 text-gray-500 dark:text-gray-400 text-xs font-bold shrink-0">
                 {section.section_code || idx + 1}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate line-through decoration-gray-300">{section.name}</span>
-                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">Exists</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate line-through decoration-gray-300">
+                    {section.name}
+                  </span>
+                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded uppercase">
+                    Exists
+                  </span>
                 </div>
                 <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                   {existing && (
                     <>
-                      <span>DB: {existing.expected_questions || 0} Qs / {existing.total_marks || 0} marks</span>
-                      <span>Preset: {section.expected_questions} Qs / {section.total_marks} marks</span>
+                      <span>
+                        DB: {existing.expected_questions || 0} Qs /{" "}
+                        {existing.total_marks || 0} marks
+                      </span>
+                      <span>
+                        Preset: {section.expected_questions} Qs /{" "}
+                        {section.total_marks} marks
+                      </span>
                     </>
                   )}
                   {!existing && <span>Will be skipped</span>}
                 </div>
               </div>
-              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" title="Already exists — will be skipped" />
+              <AlertTriangle
+                className="w-4 h-4 text-amber-400 shrink-0"
+                title="Already exists — will be skipped"
+              />
             </div>
-          )
+          );
         })}
       </div>
 
       {/* Footer */}
       {willCreate.length === 0 && alreadyExist.length > 0 && (
         <div className="px-4 py-3 bg-amber-50 border-t border-amber-200 text-center">
-          <p className="text-sm text-amber-700 font-medium">All sections from this scheme already exist for this scope.</p>
-          <p className="text-xs text-amber-500 mt-0.5">Applying the scheme will have no effect.</p>
+          <p className="text-sm text-amber-700 font-medium">
+            All sections from this scheme already exist for this scope.
+          </p>
+          <p className="text-xs text-amber-500 mt-0.5">
+            Applying the scheme will have no effect.
+          </p>
         </div>
       )}
       {willCreate.length > 0 && (
         <div className="px-4 py-3 bg-green-50 border-t border-green-200 text-center">
           <p className="text-sm text-green-700 font-medium">
-            Click <strong>Apply to Scope</strong> to create {willCreate.length} section{willCreate.length > 1 ? 's' : ''}
+            Click <strong>Apply to Scope</strong> to create {willCreate.length}{" "}
+            section{willCreate.length > 1 ? "s" : ""}
           </p>
           <p className="text-xs text-green-500 mt-0.5">
-            {alreadyExist.length > 0 ? `${alreadyExist.length} existing section${alreadyExist.length > 1 ? 's' : ''} will be skipped.` : 'All sections will be created fresh.'}
+            {alreadyExist.length > 0
+              ? `${alreadyExist.length} existing section${alreadyExist.length > 1 ? "s" : ""} will be skipped.`
+              : "All sections will be created fresh."}
           </p>
         </div>
       )}
     </div>
-  )
+  );
 }
 
 export default function SectionsManager({ testId: propTestId } = {}) {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const urlTab = searchParams.get('tab')
-  const initialTab = ['all sections', 'linking', 'presets'].includes(urlTab) ? urlTab : 'all sections'
-  const [activeTab, setActiveTab] = useState(initialTab)
-  const [sections, setSections] = useState([])
-  const [categories, setCategories] = useState([])
-  const [tests, setTests] = useState([])
-  const [seriesList, setSeriesList] = useState([])
-  const [stages, setStages] = useState([])
-  const [linkingSeriesId, setLinkingSeriesId] = useState(searchParams.get('series') || '')
-  const [linkingStageId, setLinkingStageId] = useState(searchParams.get('stage') || '')
-  const [linkingExamCategoryId, setLinkingExamCategoryId] = useState(searchParams.get('examCat') || '')
-  const [linkingExamId, setLinkingExamId] = useState(searchParams.get('exam') || '')
-  const [examCategories, setExamCategories] = useState([])
-  const [exams, setExams] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [saving, setSaving] = useState(false)
-  const [formData, setFormData] = useState(DEFAULT_SECTION_FORM)
-  const [errors, setErrors] = useState({})
-  const [searchQuery, setSearchQuery] = useState('')
-  const [testId, setTestId] = useState(propTestId || '')
-  const [selectedPresetId, setSelectedPresetId] = useState(EXAM_PRESETS[0].id)
-  const [selectedPresetCategory, setSelectedPresetCategory] = useState('SSC')
-  const [selectedPresetExam, setSelectedPresetExam] = useState('CGL')
-  const [deletingId, setDeletingId] = useState(null)
-  const [selectedIds, setSelectedIds] = useState([])
-  const [formTab, setFormTab] = useState('basic')
-  const [linkSectionPickerOpen, setLinkSectionPickerOpen] = useState(false)
-  const [activePopover, setActivePopover] = useState(null) // { id: section.id, type: 'aliases'|'exams' }
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get("tab");
+  const initialTab = ["all sections", "linking", "presets"].includes(urlTab)
+    ? urlTab
+    : "all sections";
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [tests, setTests] = useState([]);
+  const [seriesList, setSeriesList] = useState([]);
+  const [stages, setStages] = useState([]);
+  const [linkingSeriesId, setLinkingSeriesId] = useState(
+    searchParams.get("series") || "",
+  );
+  const [linkingStageId, setLinkingStageId] = useState(
+    searchParams.get("stage") || "",
+  );
+  const [linkingExamCategoryId, setLinkingExamCategoryId] = useState(
+    searchParams.get("examCat") || "",
+  );
+  const [linkingExamId, setLinkingExamId] = useState(
+    searchParams.get("exam") || "",
+  );
+  const [examCategories, setExamCategories] = useState([]);
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState(DEFAULT_SECTION_FORM);
+  const [errors, setErrors] = useState({});
+  const [searchQuery, setSearchQuery] = useState("");
+  const [testId, setTestId] = useState(propTestId || "");
+  const [selectedPresetId, setSelectedPresetId] = useState(EXAM_PRESETS[0].id);
+  const [selectedPresetCategory, setSelectedPresetCategory] = useState("SSC");
+  const [selectedPresetExam, setSelectedPresetExam] = useState("CGL");
+  const [deletingId, setDeletingId] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [formTab, setFormTab] = useState("basic");
+  const [linkSectionPickerOpen, setLinkSectionPickerOpen] = useState(false);
+  const [activePopover, setActivePopover] = useState(null); // { id: section.id, type: 'aliases'|'exams' }
 
   useEffect(() => {
-    const handleGlobalClick = () => setActivePopover(null)
-    window.addEventListener('click', handleGlobalClick)
-    return () => window.removeEventListener('click', handleGlobalClick)
-  }, [])
+    const handleGlobalClick = () => setActivePopover(null);
+    window.addEventListener("click", handleGlobalClick);
+    return () => window.removeEventListener("click", handleGlobalClick);
+  }, []);
 
   useEffect(() => {
-    fetchData()
-  }, [testId, activeTab, linkingSeriesId, linkingStageId])
+    fetchData();
+  }, [testId, activeTab, linkingSeriesId, linkingStageId]);
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setErrors({})
+      setLoading(true);
+      setErrors({});
 
-      await fetchSectionAliases()
+      await fetchSectionAliases();
 
       // Build the right sections query based on tab + filters.
-      const sectionParams = {}
-      if (testId) sectionParams.testId = testId
-      if (activeTab === 'all sections') sectionParams.scope = 'templates'
-      else if (activeTab === 'linking') {
-        sectionParams.scope = 'linking'
-        if (linkingSeriesId) sectionParams.testSeriesId = linkingSeriesId
-        if (linkingStageId) sectionParams.stageId = linkingStageId
+      const sectionParams = {};
+      if (testId) sectionParams.testId = testId;
+      if (activeTab === "all sections") sectionParams.scope = "templates";
+      else if (activeTab === "linking") {
+        sectionParams.scope = "linking";
+        if (linkingSeriesId) sectionParams.testSeriesId = linkingSeriesId;
+        if (linkingStageId) sectionParams.stageId = linkingStageId;
       }
 
       // Batch metadata + sections into 2 requests instead of 7
       const [batchRes, sectionsRes] = await Promise.allSettled([
-        apiClient.get('/admin/sections/batch'),
+        apiClient.get("/admin/sections/batch"),
         adminAPI.getSections(sectionParams),
-      ])
+      ]);
 
-      if (batchRes.status === 'fulfilled' && batchRes.value.data?.data) {
-        const d = batchRes.value.data.data
-        setCategories(d.categories || [])
-        setTests(d.tests || [])
-        setSeriesList(d.series || [])
-        setStages(d.stages || [])
-        setExamCategories(d.examCategories || [])
-        setExams(d.exams || [])
+      if (batchRes.status === "fulfilled" && batchRes.value.data?.data) {
+        const d = batchRes.value.data.data;
+        setCategories(d.categories || []);
+        setTests(d.tests || []);
+        setSeriesList(d.series || []);
+        setStages(d.stages || []);
+        setExamCategories(d.examCategories || []);
+        setExams(d.exams || []);
       }
 
-      if (sectionsRes.status === 'fulfilled' && sectionsRes.value.data?.data) {
-        setSections(sectionsRes.value.data.data)
+      if (sectionsRes.status === "fulfilled" && sectionsRes.value.data?.data) {
+        setSections(sectionsRes.value.data.data);
       } else {
-        setErrors(prev => ({ ...prev, sections: 'Failed to load sections' }))
+        setErrors((prev) => ({ ...prev, sections: "Failed to load sections" }));
       }
     } catch (error) {
-      console.error('Fetch error:', error)
-      toast.error('Failed to load data')
+      console.error("Fetch error:", error);
+      toast.error("Failed to load data");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   // Keep URL in sync so the tab + linking scope is shareable
   useEffect(() => {
-    const next = new URLSearchParams(searchParams)
-    if (activeTab === 'all sections') {
-      next.delete('tab')
+    const next = new URLSearchParams(searchParams);
+    if (activeTab === "all sections") {
+      next.delete("tab");
     } else {
-      next.set('tab', activeTab)
+      next.set("tab", activeTab);
     }
-    
-    if (activeTab === 'linking') {
-      if (linkingExamCategoryId) next.set('examCat', linkingExamCategoryId); else next.delete('examCat')
-      if (linkingExamId) next.set('exam', linkingExamId); else next.delete('exam')
-      if (linkingSeriesId) next.set('series', linkingSeriesId); else next.delete('series')
-      if (linkingStageId) next.set('stage', linkingStageId); else next.delete('stage')
+
+    if (activeTab === "linking") {
+      if (linkingExamCategoryId) next.set("examCat", linkingExamCategoryId);
+      else next.delete("examCat");
+      if (linkingExamId) next.set("exam", linkingExamId);
+      else next.delete("exam");
+      if (linkingSeriesId) next.set("series", linkingSeriesId);
+      else next.delete("series");
+      if (linkingStageId) next.set("stage", linkingStageId);
+      else next.delete("stage");
     } else {
-      next.delete('examCat')
-      next.delete('exam')
-      next.delete('series')
-      next.delete('stage')
+      next.delete("examCat");
+      next.delete("exam");
+      next.delete("series");
+      next.delete("stage");
     }
-    setSearchParams(next, { replace: true })
-  }, [activeTab, linkingExamCategoryId, linkingExamId, linkingSeriesId, linkingStageId])
+    setSearchParams(next, { replace: true });
+  }, [
+    activeTab,
+    linkingExamCategoryId,
+    linkingExamId,
+    linkingSeriesId,
+    linkingStageId,
+  ]);
 
   useEffect(() => {
-    if (!linkSectionPickerOpen) return
+    if (!linkSectionPickerOpen) return;
     const handler = (e) => {
-      if (!e.target.closest('[data-section-picker]')) {
-        setLinkSectionPickerOpen(false)
+      if (!e.target.closest("[data-section-picker]")) {
+        setLinkSectionPickerOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [linkSectionPickerOpen])
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [linkSectionPickerOpen]);
 
   const switchTab = (tabId) => {
-    setActiveTab(tabId)
-    if (tabId !== 'linking') {
-      setLinkingExamCategoryId('')
-      setLinkingExamId('')
-      setLinkingSeriesId('')
-      setLinkingStageId('')
+    setActiveTab(tabId);
+    if (tabId !== "linking") {
+      setLinkingExamCategoryId("");
+      setLinkingExamId("");
+      setLinkingSeriesId("");
+      setLinkingStageId("");
     }
-    setShowForm(false)
-  }
+    setShowForm(false);
+  };
 
   const normalizeSection = (section) => ({
     ...section,
-    name: section.name || section.title || '',
+    name: section.name || section.title || "",
     category_id: section.category_id ?? section.categoryId ?? null,
     test_id: section.test_id ?? section.testId ?? null,
     test_series_id: section.test_series_id ?? section.testSeriesId ?? null,
     stage_id: section.stage_id ?? section.stageId ?? null,
-    description: section.description || '',
+    description: section.description || "",
     duration: section.duration ?? 60,
     passing_marks: section.passing_marks ?? section.passingMarks ?? 0,
-    marks_per_question: section.marks_per_question ?? section.marksPerQuestion ?? 2,
+    marks_per_question:
+      section.marks_per_question ?? section.marksPerQuestion ?? 2,
     negative_marks: section.negative_marks ?? section.negativeMarks ?? 0.5,
     time_limit: section.time_limit ?? section.timeLimit ?? 900,
     is_locked: section.is_locked ?? section.isLocked ?? false,
     is_active: section.is_active ?? section.isActive ?? true,
     display_order: section.display_order ?? section.displayOrder ?? 0,
     question_count: section.question_count ?? 0,
-    instructions: section.instructions || '',
-    difficulty: section.difficulty || 'medium',
-    shuffle_questions: section.shuffle_questions ?? section.shuffleQuestions ?? false,
+    instructions: section.instructions || "",
+    difficulty: section.difficulty || "medium",
+    shuffle_questions:
+      section.shuffle_questions ?? section.shuffleQuestions ?? false,
     shuffle_options: section.shuffle_options ?? section.shuffleOptions ?? false,
-    expected_questions: section.expected_questions ?? section.expectedQuestions ?? 0,
+    expected_questions:
+      section.expected_questions ?? section.expectedQuestions ?? 0,
     total_marks: section.total_marks ?? section.totalMarks ?? 0,
-    exam_stage: section.exam_stage ?? section.examStage ?? '',
-    paper: section.paper || '',
-    session: section.session || '',
-    section_code: section.section_code ?? section.sectionCode ?? '',
+    exam_stage: section.exam_stage ?? section.examStage ?? "",
+    paper: section.paper || "",
+    session: section.session || "",
+    section_code: section.section_code ?? section.sectionCode ?? "",
     is_qualifying: section.is_qualifying ?? section.isQualifying ?? false,
-    exam_alias: section.exam_alias ?? section.examAlias ?? ''
-  })
+    exam_alias: section.exam_alias ?? section.examAlias ?? "",
+  });
 
   // Validation
-  const validateSection = useCallback((data, excludeId = null) => {
-    const validationErrors = {}
+  const validateSection = useCallback(
+    (data, excludeId = null) => {
+      const validationErrors = {};
 
-    // Required name
-    if (!data.name?.trim()) {
-      validationErrors.name = 'Section name is required'
-    } else {
-      // Check duplicate name (within same test if testId provided)
-      const duplicate = sections.find(s =>
-        s.name?.toLowerCase() === data.name.trim().toLowerCase() &&
-        s.id !== excludeId &&
-        (!testId || s.test_id === testId)
-      )
-      if (duplicate) {
-        validationErrors.name = 'A section with this name already exists'
+      // Required name
+      if (!data.name?.trim()) {
+        validationErrors.name = "Section name is required";
+      } else {
+        // Check duplicate name (within same test if testId provided)
+        const duplicate = sections.find(
+          (s) =>
+            s.name?.toLowerCase() === data.name.trim().toLowerCase() &&
+            s.id !== excludeId &&
+            (!testId || s.test_id === testId),
+        );
+        if (duplicate) {
+          validationErrors.name = "A section with this name already exists";
+        }
       }
-    }
 
-    // Duration validation (in seconds now)
-    const timeLimit = parseInt(data.time_limit) || 0
-    if (timeLimit < 60) {
-      validationErrors.time_limit = 'Time limit must be at least 60 seconds'
-    }
+      // Duration validation (in seconds now)
+      const timeLimit = parseInt(data.time_limit) || 0;
+      if (timeLimit < 60) {
+        validationErrors.time_limit = "Time limit must be at least 60 seconds";
+      }
 
-    // Marks validation
-    const marksPerQ = parseFloat(data.marks_per_question) || 0
-    if (marksPerQ <= 0) {
-      const isNonQuestionActivity = parseInt(data.expected_questions) === 0 && parseFloat(data.total_marks) === 0
-      if (!isNonQuestionActivity) validationErrors.marks_per_question = 'Marks per question must be greater than 0'
-    }
+      // Marks validation
+      const marksPerQ = parseFloat(data.marks_per_question) || 0;
+      if (marksPerQ <= 0) {
+        const isNonQuestionActivity =
+          parseInt(data.expected_questions) === 0 &&
+          parseFloat(data.total_marks) === 0;
+        if (!isNonQuestionActivity)
+          validationErrors.marks_per_question =
+            "Marks per question must be greater than 0";
+      }
 
-    // Negative marks validation (should be <= marks per question)
-    const negMarks = parseFloat(data.negative_marks) || 0
-    if (negMarks < 0) {
-      validationErrors.negative_marks = 'Negative marks cannot be negative'
-    }
-    if (negMarks > marksPerQ) {
-      validationErrors.negative_marks = 'Negative marks cannot exceed marks per question'
-    }
+      // Negative marks validation (should be <= marks per question)
+      const negMarks = parseFloat(data.negative_marks) || 0;
+      if (negMarks < 0) {
+        validationErrors.negative_marks = "Negative marks cannot be negative";
+      }
+      if (negMarks > marksPerQ) {
+        validationErrors.negative_marks =
+          "Negative marks cannot exceed marks per question";
+      }
 
-    return validationErrors
-  }, [sections, testId])
+      return validationErrors;
+    },
+    [sections, testId],
+  );
 
   // Filter stages based on selected series
   const linkedStages = useMemo(() => {
-    if (!linkingSeriesId) return stages
-    const selectedSeries = seriesList.find(s => String(s.id || s._id || s.public_id) === String(linkingSeriesId))
-    if (!selectedSeries) return stages
-    const stageIds = selectedSeries.stages || selectedSeries.stage_ids || []
-    if (!Array.isArray(stageIds) || stageIds.length === 0) return stages
-    return stages.filter(s => stageIds.includes(s.id) || stageIds.includes(Number(s.id)))
-  }, [linkingSeriesId, seriesList, stages])
+    if (!linkingSeriesId) return stages;
+    const selectedSeries = seriesList.find(
+      (s) => String(s.id || s._id || s.public_id) === String(linkingSeriesId),
+    );
+    if (!selectedSeries) return stages;
+    const stageIds = selectedSeries.stages || selectedSeries.stage_ids || [];
+    if (!Array.isArray(stageIds) || stageIds.length === 0) return stages;
+    return stages.filter(
+      (s) => stageIds.includes(s.id) || stageIds.includes(Number(s.id)),
+    );
+  }, [linkingSeriesId, seriesList, stages]);
 
   // Filter series by exam category + exam
   const linkedSeriesList = useMemo(() => {
-    let list = seriesList
+    let list = seriesList;
     if (linkingExamCategoryId) {
-      list = list.filter(s => {
-        const cat = s.category || s.examCategoryId || s.exam_category_id || s.subcategory || ''
-        return String(cat).toLowerCase() === String(linkingExamCategoryId).toLowerCase()
-      })
+      list = list.filter((s) => {
+        const cat =
+          s.category ||
+          s.examCategoryId ||
+          s.exam_category_id ||
+          s.subcategory ||
+          "";
+        return (
+          String(cat).toLowerCase() ===
+          String(linkingExamCategoryId).toLowerCase()
+        );
+      });
     }
     if (linkingExamId) {
-      list = list.filter(s => {
-        const exam = s.examId || s.exam_id || s.subcategory || ''
-        return String(exam).toLowerCase() === String(linkingExamId).toLowerCase()
-      })
+      list = list.filter((s) => {
+        const exam = s.examId || s.exam_id || s.subcategory || "";
+        return (
+          String(exam).toLowerCase() === String(linkingExamId).toLowerCase()
+        );
+      });
     }
-    return list
-  }, [seriesList, linkingExamCategoryId, linkingExamId])
+    return list;
+  }, [seriesList, linkingExamCategoryId, linkingExamId]);
 
   // Filter exams by exam category
   const linkedExams = useMemo(() => {
-    if (!linkingExamCategoryId) return exams
-    return exams.filter(e => {
-      const cat = e.examCategoryId || e.exam_category_id || e.category || ''
-      return String(cat).toLowerCase() === String(linkingExamCategoryId).toLowerCase()
-    })
-  }, [exams, linkingExamCategoryId])
+    if (!linkingExamCategoryId) return exams;
+    return exams.filter((e) => {
+      const cat = e.examCategoryId || e.exam_category_id || e.category || "";
+      return (
+        String(cat).toLowerCase() ===
+        String(linkingExamCategoryId).toLowerCase()
+      );
+    });
+  }, [exams, linkingExamCategoryId]);
 
   // Filter series for form modal by form's exam_category_id
   const formSeriesList = useMemo(() => {
-    if (!formData.exam_category_id) return seriesList
-    return seriesList.filter(s => {
-      const cat = s.category || s.examCategoryId || s.exam_category_id || s.subcategory || ''
-      return String(cat).toLowerCase() === String(formData.exam_category_id).toLowerCase()
-    })
-  }, [seriesList, formData.exam_category_id])
+    if (!formData.exam_category_id) return seriesList;
+    return seriesList.filter((s) => {
+      const cat =
+        s.category ||
+        s.examCategoryId ||
+        s.exam_category_id ||
+        s.subcategory ||
+        "";
+      return (
+        String(cat).toLowerCase() ===
+        String(formData.exam_category_id).toLowerCase()
+      );
+    });
+  }, [seriesList, formData.exam_category_id]);
 
   const filteredSections = useMemo(() => {
-    let normalized = sections.map(normalizeSection)
+    let normalized = sections.map(normalizeSection);
 
     // Filter by testId if provided
     if (testId) {
-      normalized = normalized.filter(s => String(s.test_id) === String(testId))
+      normalized = normalized.filter(
+        (s) => String(s.test_id) === String(testId),
+      );
     }
 
-    if (!searchQuery.trim()) return normalized
+    if (!searchQuery.trim()) return normalized;
 
-    const query = searchQuery.toLowerCase()
-    return normalized.filter(s =>
-      s.name?.toLowerCase().includes(query) ||
-      s.description?.toLowerCase().includes(query)
-    )
-  }, [sections, searchQuery, testId])
+    const query = searchQuery.toLowerCase();
+    return normalized.filter(
+      (s) =>
+        s.name?.toLowerCase().includes(query) ||
+        s.description?.toLowerCase().includes(query),
+    );
+  }, [sections, searchQuery, testId]);
 
   const getCategoryName = (categoryId) => {
-    if (!categoryId) return 'No category'
-    const cat = categories.find(c => c.id === categoryId || c.categoryId === categoryId)
-    return cat?.name || cat?.label || 'Unknown'
-  }
+    if (!categoryId) return "No category";
+    const cat = categories.find(
+      (c) => c.id === categoryId || c.categoryId === categoryId,
+    );
+    return cat?.name || cat?.label || "Unknown";
+  };
 
   const getTestName = (testIdVal) => {
-    if (!testIdVal) return 'No test'
-    const test = tests.find(t => t.id === testIdVal || t._id === testIdVal)
-    return test?.title || test?.name || 'Unknown Test'
-  }
+    if (!testIdVal) return "No test";
+    const test = tests.find((t) => t.id === testIdVal || t._id === testIdVal);
+    return test?.title || test?.name || "Unknown Test";
+  };
 
   const getSeriesName = (seriesIdVal) => {
-    if (!seriesIdVal) return null
-    const s = seriesList.find(item => String(item.id || item._id || item.public_id) === String(seriesIdVal))
-    return s?.title || s?.name || 'Series'
-  }
+    if (!seriesIdVal) return null;
+    const s = seriesList.find(
+      (item) =>
+        String(item.id || item._id || item.public_id) === String(seriesIdVal),
+    );
+    return s?.title || s?.name || "Series";
+  };
 
   const getStageName = (stageIdVal) => {
-    if (!stageIdVal) return null
-    const s = stages.find(item => String(item.id || item._id) === String(stageIdVal))
-    return s?.name || s?.title || 'Stage'
-  }
+    if (!stageIdVal) return null;
+    const s = stages.find(
+      (item) => String(item.id || item._id) === String(stageIdVal),
+    );
+    return s?.name || s?.title || "Stage";
+  };
 
   const getExamCategoryName = (catIdVal) => {
-    if (!catIdVal) return null
-    const c = examCategories.find(item => String(item.id || item.categoryId || item.slug) === String(catIdVal))
-    return c?.name || c?.label || 'Category'
-  }
+    if (!catIdVal) return null;
+    const c = examCategories.find(
+      (item) =>
+        String(item.id || item.categoryId || item.slug) === String(catIdVal),
+    );
+    return c?.name || c?.label || "Category";
+  };
 
   const getExamName = (examIdVal) => {
-    if (!examIdVal) return null
-    const e = exams.find(item => String(item.id || item._id || item.public_id) === String(examIdVal))
-    return e?.name || e?.title || 'Exam'
-  }
+    if (!examIdVal) return null;
+    const e = exams.find(
+      (item) =>
+        String(item.id || item._id || item.public_id) === String(examIdVal),
+    );
+    return e?.name || e?.title || "Exam";
+  };
 
   const getSeriesNumericId = (seriesIdVal) => {
-    if (!seriesIdVal) return null
-    const s = seriesList.find(item => String(item.id || item._id || item.public_id) === String(seriesIdVal))
-    return s?.id || s?._id || null
-  }
+    if (!seriesIdVal) return null;
+    const s = seriesList.find(
+      (item) =>
+        String(item.id || item._id || item.public_id) === String(seriesIdVal),
+    );
+    return s?.id || s?._id || null;
+  };
 
   const getStageNumericId = (stageIdVal) => {
-    if (!stageIdVal) return null
-    const s = stages.find(item => String(item.id || item._id) === String(stageIdVal))
-    return s?.id || s?._id || null
-  }
+    if (!stageIdVal) return null;
+    const s = stages.find(
+      (item) => String(item.id || item._id) === String(stageIdVal),
+    );
+    return s?.id || s?._id || null;
+  };
 
   const openCreateForm = () => {
     // Auto-assign display order
-    const maxOrder = sections.length > 0
-      ? Math.max(...sections.map(s => s.display_order || 0))
-      : 0
+    const maxOrder =
+      sections.length > 0
+        ? Math.max(...sections.map((s) => s.display_order || 0))
+        : 0;
 
     // On the Linking tab, prefill with the active series/stage so admins don't have to.
-    const prefill = { ...DEFAULT_SECTION_FORM, display_order: maxOrder + 1 }
-    if (activeTab === 'linking') {
-      if (linkingSeriesId) prefill.test_series_id = linkingSeriesId
-      if (linkingStageId) prefill.stage_id = linkingStageId
+    const prefill = { ...DEFAULT_SECTION_FORM, display_order: maxOrder + 1 };
+    if (activeTab === "linking") {
+      if (linkingSeriesId) prefill.test_series_id = linkingSeriesId;
+      if (linkingStageId) prefill.stage_id = linkingStageId;
     }
-    if (testId) prefill.test_id = testId
+    if (testId) prefill.test_id = testId;
 
-    setFormData(prefill)
-    setEditingId(null)
-    setErrors({})
-    setFormTab('basic')
-    setShowForm(true)
-  }
+    setFormData(prefill);
+    setEditingId(null);
+    setErrors({});
+    setFormTab("basic");
+    setShowForm(true);
+  };
 
   const openEditForm = (section) => {
-    const norm = normalizeSection(section)
+    const norm = normalizeSection(section);
     setFormData({
       name: norm.name,
-      category_id: norm.category_id || '',
-      exam_category_id: norm.exam_category_id || norm.examCategoryId || '',
-      test_id: norm.test_id || '',
-      test_series_id: norm.test_series_id || '',
-      stage_id: norm.stage_id || '',
+      category_id: norm.category_id || "",
+      exam_category_id: norm.exam_category_id || norm.examCategoryId || "",
+      test_id: norm.test_id || "",
+      test_series_id: norm.test_series_id || "",
+      stage_id: norm.stage_id || "",
       description: norm.description,
       duration: norm.duration,
       passing_marks: norm.passing_marks,
@@ -589,8 +780,8 @@ export default function SectionsManager({ testId: propTestId } = {}) {
       is_locked: norm.is_locked,
       is_active: norm.is_active,
       display_order: norm.display_order,
-      instructions: norm.instructions || '',
-      difficulty: norm.difficulty || 'medium',
+      instructions: norm.instructions || "",
+      difficulty: norm.difficulty || "medium",
       shuffle_questions: norm.shuffle_questions,
       shuffle_options: norm.shuffle_options,
       expected_questions: norm.expected_questions,
@@ -600,42 +791,42 @@ export default function SectionsManager({ testId: propTestId } = {}) {
       session: norm.session,
       section_code: norm.section_code,
       is_qualifying: norm.is_qualifying,
-      exam_alias: norm.exam_alias || ''
-    })
-    setEditingId(norm.id)
-    setErrors({})
-    setFormTab('basic')
-    setShowForm(true)
-  }
+      exam_alias: norm.exam_alias || "",
+    });
+    setEditingId(norm.id);
+    setErrors({});
+    setFormTab("basic");
+    setShowForm(true);
+  };
 
   const closeForm = () => {
-    setShowForm(false)
-    setEditingId(null)
-    setFormData(DEFAULT_SECTION_FORM)
-    setErrors({})
-  }
+    setShowForm(false);
+    setEditingId(null);
+    setFormData(DEFAULT_SECTION_FORM);
+    setErrors({});
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
 
     // Validate before submit
-    const validationErrors = validateSection(formData, editingId)
+    const validationErrors = validateSection(formData, editingId);
     if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors)
-      toast.error('Please fix validation errors')
-      return
+      setErrors(validationErrors);
+      toast.error("Please fix validation errors");
+      return;
     }
 
     try {
-      setSaving(true)
+      setSaving(true);
 
-      const passMarks = parseFloat(formData.passing_marks)
-      const marksPerQ = parseFloat(formData.marks_per_question)
-      const negMarks = parseFloat(formData.negative_marks)
-      const timeLimit = parseInt(formData.time_limit, 10)
-      const displayOrder = parseInt(formData.display_order, 10)
-      const expQ = parseInt(formData.expected_questions, 10)
-      const totMarks = parseFloat(formData.total_marks)
+      const passMarks = parseFloat(formData.passing_marks);
+      const marksPerQ = parseFloat(formData.marks_per_question);
+      const negMarks = parseFloat(formData.negative_marks);
+      const timeLimit = parseInt(formData.time_limit, 10);
+      const displayOrder = parseInt(formData.display_order, 10);
+      const expQ = parseInt(formData.expected_questions, 10);
+      const totMarks = parseFloat(formData.total_marks);
 
       const payload = {
         name: formData.name.trim(),
@@ -644,17 +835,22 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         test_id: formData.test_id || null,
         test_series_id: formData.test_series_id || null,
         stage_id: formData.stage_id || null,
-        description: formData.description || '',
+        description: formData.description || "",
         passing_marks: Number.isFinite(passMarks) ? passMarks : 0,
         marks_per_question: Number.isFinite(marksPerQ) ? marksPerQ : 2,
         negative_marks: Number.isFinite(negMarks) ? negMarks : 0,
         time_limit: Number.isFinite(timeLimit) ? timeLimit : 900,
-        duration: Math.max(1, Math.round((Number.isFinite(timeLimit) ? timeLimit : 900) / 60)),
+        duration: Math.max(
+          1,
+          Math.round((Number.isFinite(timeLimit) ? timeLimit : 900) / 60),
+        ),
         is_locked: Boolean(formData.is_locked),
         is_active: formData.is_active,
-        display_order: Number.isFinite(displayOrder) ? displayOrder : (sections.length + 1),
-        instructions: formData.instructions || '',
-        difficulty: formData.difficulty || 'medium',
+        display_order: Number.isFinite(displayOrder)
+          ? displayOrder
+          : sections.length + 1,
+        instructions: formData.instructions || "",
+        difficulty: formData.difficulty || "medium",
         shuffle_questions: Boolean(formData.shuffle_questions),
         shuffle_options: Boolean(formData.shuffle_options),
         expected_questions: Number.isFinite(expQ) ? expQ : 0,
@@ -664,108 +860,118 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         session: formData.session || null,
         section_code: formData.section_code || null,
         is_qualifying: Boolean(formData.is_qualifying),
-        exam_alias: formData.exam_alias || null
-      }
+        exam_alias: formData.exam_alias || null,
+      };
 
       if (editingId) {
-        await apiClient.put(`/admin/sections/${editingId}`, payload)
-        toast.success('Section updated')
+        await apiClient.put(`/admin/sections/${editingId}`, payload);
+        toast.success("Section updated");
       } else {
-        await apiClient.post('/admin/sections', payload)
-        toast.success('Section created')
+        await apiClient.post("/admin/sections", payload);
+        toast.success("Section created");
       }
 
-      closeForm()
-      await fetchData()
+      closeForm();
+      await fetchData();
     } catch (error) {
-      console.error('Save error:', error)
-      toast.error(error.response?.data?.message || 'Failed to save section')
+      console.error("Save error:", error);
+      toast.error(error.response?.data?.message || "Failed to save section");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDelete = async (sectionId) => {
     const confirmed = await confirmOnce({
-      title: 'Delete Section',
-      message: 'Are you sure you want to delete this section?',
-      confirmText: 'Delete',
-      confirmStyle: 'danger'
-    })
-    if (!confirmed) return
+      title: "Delete Section",
+      message: "Are you sure you want to delete this section?",
+      confirmText: "Delete",
+      confirmStyle: "danger",
+    });
+    if (!confirmed) return;
 
     try {
-      setDeletingId(sectionId)
-      const res = await apiClient.delete(`/admin/sections/${sectionId}`)
-      const deletedQs = res.data?.data?.deletedQuestions || 0
+      setDeletingId(sectionId);
+      const res = await apiClient.delete(`/admin/sections/${sectionId}`);
+      const deletedQs = res.data?.data?.deletedQuestions || 0;
       if (deletedQs > 0) {
-        toast.success(`Section deleted. ${deletedQs} linked question${deletedQs > 1 ? 's' : ''} were unlinked.`)
+        toast.success(
+          `Section deleted. ${deletedQs} linked question${deletedQs > 1 ? "s" : ""} were unlinked.`,
+        );
       } else {
-        toast.success('Section deleted')
+        toast.success("Section deleted");
       }
-      await fetchData()
+      await fetchData();
     } catch (error) {
-      console.error('Delete error:', error)
-      toast.error(error.response?.data?.message || 'Failed to delete')
+      console.error("Delete error:", error);
+      toast.error(error.response?.data?.message || "Failed to delete");
     } finally {
-      setDeletingId(null)
+      setDeletingId(null);
     }
-  }
+  };
 
   const handleBulkDelete = async () => {
-    if (selectedIds.length === 0) return
+    if (selectedIds.length === 0) return;
     const confirmed = await confirmOnce({
-      title: 'Delete Selected Sections',
+      title: "Delete Selected Sections",
       message: `Delete ${selectedIds.length} selected sections?`,
-      confirmText: 'Delete All',
-      confirmStyle: 'danger'
-    })
-    if (!confirmed) return
+      confirmText: "Delete All",
+      confirmStyle: "danger",
+    });
+    if (!confirmed) return;
     try {
-      await Promise.all(selectedIds.map(id => apiClient.delete(`/admin/sections/${id}`)))
-      setSections(prev => prev.filter(s => !selectedIds.includes(s.id)))
-      setSelectedIds([])
-      toast.success(`${selectedIds.length} sections deleted`)
+      await Promise.all(
+        selectedIds.map((id) => apiClient.delete(`/admin/sections/${id}`)),
+      );
+      setSections((prev) => prev.filter((s) => !selectedIds.includes(s.id)));
+      setSelectedIds([]);
+      toast.success(`${selectedIds.length} sections deleted`);
     } catch (error) {
-      console.error('Bulk delete failed:', error)
-      toast.error('Failed to delete some sections')
-      fetchData()
+      console.error("Bulk delete failed:", error);
+      toast.error("Failed to delete some sections");
+      fetchData();
     }
-  }
+  };
 
   const handleLinkSection = async (templateSection) => {
     if (!linkingSeriesId || !linkingStageId) {
-      toast.error('Select a test series and stage first')
-      return
+      toast.error("Select a test series and stage first");
+      return;
     }
 
-    const canonicalName = resolveCanonical(templateSection.name)
-    const examAlias = canonicalName !== templateSection.name ? templateSection.name : null
+    const canonicalName = resolveCanonical(templateSection.name);
+    const examAlias =
+      canonicalName !== templateSection.name ? templateSection.name : null;
 
-    const existingLinked = sections.find(s =>
-      String(s.name).toLowerCase() === canonicalName.toLowerCase() &&
-      String(s.test_series_id || '') === String(linkingSeriesId) &&
-      String(s.stage_id || '') === String(linkingStageId)
-    )
+    const existingLinked = sections.find(
+      (s) =>
+        String(s.name).toLowerCase() === canonicalName.toLowerCase() &&
+        String(s.test_series_id || "") === String(linkingSeriesId) &&
+        String(s.stage_id || "") === String(linkingStageId),
+    );
     if (existingLinked) {
-      toast.error(`"${canonicalName}" is already linked to this scope`)
-      return
+      toast.error(`"${canonicalName}" is already linked to this scope`);
+      return;
     }
 
     try {
-      setSaving(true)
+      setSaving(true);
       const maxOrder = sections
-        .filter(s => String(s.test_series_id || '') === String(linkingSeriesId) && String(s.stage_id || '') === String(linkingStageId))
-        .reduce((max, s) => Math.max(max, Number(s.display_order) || 0), 0)
+        .filter(
+          (s) =>
+            String(s.test_series_id || "") === String(linkingSeriesId) &&
+            String(s.stage_id || "") === String(linkingStageId),
+        )
+        .reduce((max, s) => Math.max(max, Number(s.display_order) || 0), 0);
 
-      await apiClient.post('/admin/sections', {
+      await apiClient.post("/admin/sections", {
         name: canonicalName,
         exam_alias: examAlias,
         test_series_id: linkingSeriesId,
         stage_id: linkingStageId,
         test_id: templateSection.test_id || null,
         category_id: templateSection.category_id || null,
-        description: templateSection.description || '',
+        description: templateSection.description || "",
         duration: templateSection.duration || 60,
         passing_marks: templateSection.passing_marks ?? 0,
         marks_per_question: templateSection.marks_per_question ?? 2,
@@ -774,8 +980,8 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         is_locked: templateSection.is_locked ?? false,
         is_active: true,
         display_order: maxOrder + 1,
-        instructions: templateSection.instructions || '',
-        difficulty: templateSection.difficulty || 'medium',
+        instructions: templateSection.instructions || "",
+        difficulty: templateSection.difficulty || "medium",
         shuffle_questions: templateSection.shuffle_questions || false,
         shuffle_options: templateSection.shuffle_options || false,
         expected_questions: templateSection.expected_questions || 0,
@@ -784,152 +990,216 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         paper: templateSection.paper || null,
         session: templateSection.session || null,
         section_code: templateSection.section_code || null,
-        is_qualifying: templateSection.is_qualifying || false
-      })
+        is_qualifying: templateSection.is_qualifying || false,
+      });
 
-      toast.success(`Linked "${canonicalName}" to scope`)
-      setLinkSectionPickerOpen(false)
-      await fetchData()
+      toast.success(`Linked "${canonicalName}" to scope`);
+      setLinkSectionPickerOpen(false);
+      await fetchData();
     } catch (error) {
-      console.error('Link error:', error)
-      toast.error(error.response?.data?.message || 'Failed to link section')
+      console.error("Link error:", error);
+      toast.error(error.response?.data?.message || "Failed to link section");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const applyPreset = async () => {
     // Resolve scope: linking tab uses series+stage; otherwise requires a test.
-    const scope = {}
-    if (activeTab === 'linking') {
+    const scope = {};
+    if (activeTab === "linking") {
       if (!linkingSeriesId || !linkingStageId) {
-        toast.error('Select both a test series and a stage before applying a scheme')
-        return
+        toast.error(
+          "Select both a test series and a stage before applying a scheme",
+        );
+        return;
       }
-      scope.testSeriesId = linkingSeriesId
-      scope.stageId = linkingStageId
+      scope.testSeriesId = linkingSeriesId;
+      scope.stageId = linkingStageId;
     } else if (testId) {
-      scope.testId = testId
+      scope.testId = testId;
     } else {
-      toast.error('Select a test, or switch to the Linking tab and pick series + stage')
-      return
+      toast.error(
+        "Select a test, or switch to the Linking tab and pick series + stage",
+      );
+      return;
     }
 
-    const preset = EXAM_PRESETS.find(item => item.id === selectedPresetId)
-    if (!preset) return
+    const preset = EXAM_PRESETS.find((item) => item.id === selectedPresetId);
+    if (!preset) return;
 
     try {
-      setSaving(true)
+      setSaving(true);
       const existingNames = new Set(
         sections
-          .filter(s => scope.testId
-            ? String(s.test_id || '') === String(scope.testId)
-            : String(s.test_series_id || '') === String(scope.testSeriesId) && String(s.stage_id || '') === String(scope.stageId))
-          .map(s => String(s.name || '').toLowerCase())
-      )
+          .filter((s) =>
+            scope.testId
+              ? String(s.test_id || "") === String(scope.testId)
+              : String(s.test_series_id || "") === String(scope.testSeriesId) &&
+                String(s.stage_id || "") === String(scope.stageId),
+          )
+          .map((s) => String(s.name || "").toLowerCase()),
+      );
       const baseOrder = sections
-        .filter(s => scope.testId
-          ? String(s.test_id || '') === String(scope.testId)
-          : String(s.test_series_id || '') === String(scope.testSeriesId) && String(s.stage_id || '') === String(scope.stageId))
-        .reduce((max, s) => Math.max(max, Number(s.display_order) || 0), 0)
+        .filter((s) =>
+          scope.testId
+            ? String(s.test_id || "") === String(scope.testId)
+            : String(s.test_series_id || "") === String(scope.testSeriesId) &&
+              String(s.stage_id || "") === String(scope.stageId),
+        )
+        .reduce((max, s) => Math.max(max, Number(s.display_order) || 0), 0);
 
-      const rowsToCreate = preset.sections.filter(([alias]) => !existingNames.has(resolveCanonical(alias).toLowerCase()))
+      const rowsToCreate = preset.sections.filter(
+        ([alias]) => !existingNames.has(resolveCanonical(alias).toLowerCase()),
+      );
       if (rowsToCreate.length === 0) {
-        toast('All sections from this scheme already exist for the selected scope')
-        return
+        toast(
+          "All sections from this scheme already exist for the selected scope",
+        );
+        return;
       }
 
-      await Promise.all(rowsToCreate.map((row, index) => {
-        const [alias, examStage, paper, session, sectionCode, expectedQuestions, totalMarks, marksPerQuestion, negativeMarks, timeLimit, isQualifying] = row
-        const canonicalName = resolveCanonical(alias)
-        return apiClient.post('/admin/sections', {
-          name: canonicalName,
-          exam_alias: alias !== canonicalName ? alias : null,
-          test_id: scope.testId || null,
-          test_series_id: scope.testSeriesId || null,
-          stage_id: scope.stageId || null,
-          description: `${preset.label}${sectionCode ? ` - Section ${sectionCode}` : ''}`,
-          duration: Math.max(1, Math.round(timeLimit / 60)),
-          passing_marks: 0,
-          marks_per_question: marksPerQuestion,
-          negative_marks: negativeMarks,
-          time_limit: timeLimit,
-          is_locked: false,
-          is_active: true,
-          display_order: baseOrder + index + 1,
-          instructions: preset.description,
-          difficulty: 'medium',
-          shuffle_questions: false,
-          shuffle_options: false,
-          expected_questions: expectedQuestions,
-          total_marks: totalMarks,
-          exam_stage: examStage,
-          paper,
-          session,
-          section_code: sectionCode,
-          is_qualifying: isQualifying
-        })
-      }))
+      await Promise.all(
+        rowsToCreate.map((row, index) => {
+          const [
+            alias,
+            examStage,
+            paper,
+            session,
+            sectionCode,
+            expectedQuestions,
+            totalMarks,
+            marksPerQuestion,
+            negativeMarks,
+            timeLimit,
+            isQualifying,
+          ] = row;
+          const canonicalName = resolveCanonical(alias);
+          return apiClient.post("/admin/sections", {
+            name: canonicalName,
+            exam_alias: alias !== canonicalName ? alias : null,
+            test_id: scope.testId || null,
+            test_series_id: scope.testSeriesId || null,
+            stage_id: scope.stageId || null,
+            description: `${preset.label}${sectionCode ? ` - Section ${sectionCode}` : ""}`,
+            duration: Math.max(1, Math.round(timeLimit / 60)),
+            passing_marks: 0,
+            marks_per_question: marksPerQuestion,
+            negative_marks: negativeMarks,
+            time_limit: timeLimit,
+            is_locked: false,
+            is_active: true,
+            display_order: baseOrder + index + 1,
+            instructions: preset.description,
+            difficulty: "medium",
+            shuffle_questions: false,
+            shuffle_options: false,
+            expected_questions: expectedQuestions,
+            total_marks: totalMarks,
+            exam_stage: examStage,
+            paper,
+            session,
+            section_code: sectionCode,
+            is_qualifying: isQualifying,
+          });
+        }),
+      );
 
-      toast.success(`Created ${rowsToCreate.length} section${rowsToCreate.length > 1 ? 's' : ''} for ${scope.testId ? 'this test' : `${getSeriesName(scope.testSeriesId)} / ${getStageName(scope.stageId)}`}`)
-      await fetchData()
+      toast.success(
+        `Created ${rowsToCreate.length} section${rowsToCreate.length > 1 ? "s" : ""} for ${scope.testId ? "this test" : `${getSeriesName(scope.testSeriesId)} / ${getStageName(scope.stageId)}`}`,
+      );
+      await fetchData();
     } catch (error) {
-      console.error('Preset error:', error)
-      toast.error(error.response?.data?.message || 'Failed to apply scheme')
+      console.error("Preset error:", error);
+      toast.error(error.response?.data?.message || "Failed to apply scheme");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   // Stats
   const stats = useMemo(() => {
     const scopedSections = testId
-      ? sections.filter(s => String(s.test_id ?? s.testId ?? '') === String(testId))
-      : sections
-    const total = scopedSections.length
-    const active = scopedSections.filter(s => s.is_active !== false).length
-    const withQuestions = scopedSections.filter(s => (s.question_count || 0) > 0).length
-    const plannedQuestions = scopedSections.reduce((sum, s) => sum + (Number(s.expected_questions) || 0), 0)
-    const plannedMarks = scopedSections.reduce((sum, s) => sum + (Number(s.total_marks) || 0), 0)
-    return { total, active, withQuestions, plannedQuestions, plannedMarks }
-  }, [sections, testId])
+      ? sections.filter(
+          (s) => String(s.test_id ?? s.testId ?? "") === String(testId),
+        )
+      : sections;
+    const total = scopedSections.length;
+    const active = scopedSections.filter((s) => s.is_active !== false).length;
+    const withQuestions = scopedSections.filter(
+      (s) => (s.question_count || 0) > 0,
+    ).length;
+    const plannedQuestions = scopedSections.reduce(
+      (sum, s) => sum + (Number(s.expected_questions) || 0),
+      0,
+    );
+    const plannedMarks = scopedSections.reduce(
+      (sum, s) => sum + (Number(s.total_marks) || 0),
+      0,
+    );
+    return { total, active, withQuestions, plannedQuestions, plannedMarks };
+  }, [sections, testId]);
 
   return (
-    <div className="p-3 sm:p-4 md:p-6">
+    <div className="p-3 sm:p-4">
       {/* Header and Tabs Row */}
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Section Manager</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">Template sections. Use Linking to bind to a test series.</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Section Manager
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
+            Template sections. Use Linking to bind to a test series.
+          </p>
         </div>
 
         {/* Tabs - Middle */}
         <div className="flex p-1 bg-slate-100 rounded-xl overflow-x-auto whitespace-nowrap scrollbar-hide border border-slate-200 shadow-inner w-fit xl:mx-auto">
           {[
-            { id: 'all sections', label: 'All Sections', icon: FileText, hint: 'Default templates, no linkage' },
-            { id: 'linking', label: 'Linking', icon: GitBranch, hint: 'Sections linked to a test series + stage' },
-            { id: 'presets', label: 'Exam Presets', icon: Layers, hint: 'View exam preset schemes' },
-          ].map(tab => {
-            const isActive = activeTab === tab.id
-            const Icon = tab.icon
+            {
+              id: "all sections",
+              label: "All Sections",
+              icon: FileText,
+              hint: "Default templates, no linkage",
+            },
+            {
+              id: "linking",
+              label: "Linking",
+              icon: GitBranch,
+              hint: "Sections linked to a test series + stage",
+            },
+            {
+              id: "presets",
+              label: "Exam Presets",
+              icon: Layers,
+              hint: "View exam preset schemes",
+            },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => switchTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2 font-medium text-sm transition-all shrink-0 rounded-lg ${isActive ? 'bg-white dark:bg-gray-800 text-indigo-700 shadow-sm border border-slate-200/60 ring-1 ring-slate-900/5' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 border border-transparent'}`}
+                className={`flex items-center gap-2 px-5 py-2 font-medium text-sm transition-all shrink-0 rounded-lg ${isActive ? "bg-white dark:bg-gray-800 text-indigo-700 shadow-sm border border-slate-200/60 ring-1 ring-slate-900/5" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50 border border-transparent"}`}
                 title={tab.hint}
               >
-                <Icon className={`w-4 h-4 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <Icon
+                  className={`w-4 h-4 transition-colors ${isActive ? "text-indigo-600" : "text-slate-400"}`}
+                />
                 {tab.label}
               </button>
-            )
+            );
           })}
         </div>
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
-          <button onClick={openCreateForm} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+          <button
+            onClick={openCreateForm}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+          >
             <Plus className="w-4 h-4" /> New Section
           </button>
         </div>
@@ -942,82 +1212,109 @@ export default function SectionsManager({ testId: propTestId } = {}) {
       ) : (
         <>
           {/* Linking scope picker + preview (only on Linking tab) */}
-          {activeTab === 'linking' && (
+          {activeTab === "linking" && (
             <div className="mb-6 space-y-4">
               {/* Scope Selector */}
               <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Linking Scope</h3>
+                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Linking Scope
+                  </h3>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exam Category</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Exam Category
+                    </label>
                     <select
                       value={linkingExamCategoryId}
                       onChange={(e) => {
-                        setLinkingExamCategoryId(e.target.value)
-                        setLinkingExamId('')
-                        setLinkingSeriesId('')
-                        setLinkingStageId('')
+                        setLinkingExamCategoryId(e.target.value);
+                        setLinkingExamId("");
+                        setLinkingSeriesId("");
+                        setLinkingStageId("");
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamCategoryId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamCategoryId ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold" : "bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
                     >
                       <option value="">All categories</option>
-                      {examCategories.map(c => (
-                        <option key={c.id || c.categoryId || c.slug} value={c.id || c.categoryId || c.slug}>{c.name || c.label}</option>
+                      {examCategories.map((c) => (
+                        <option
+                          key={c.id || c.categoryId || c.slug}
+                          value={c.id || c.categoryId || c.slug}
+                        >
+                          {c.name || c.label}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exam</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Exam
+                    </label>
                     <select
                       value={linkingExamId}
                       onChange={(e) => {
-                        setLinkingExamId(e.target.value)
-                        setLinkingSeriesId('')
-                        setLinkingStageId('')
+                        setLinkingExamId(e.target.value);
+                        setLinkingSeriesId("");
+                        setLinkingStageId("");
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingExamId ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold" : "bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
                       disabled={false}
                     >
                       <option value="">All exams</option>
-                      {linkedExams.map(e => (
-                        <option key={e.id || e._id || e.public_id} value={e.id || e._id || e.public_id}>{e.name || e.title}</option>
+                      {linkedExams.map((e) => (
+                        <option
+                          key={e.id || e._id || e.public_id}
+                          value={e.id || e._id || e.public_id}
+                        >
+                          {e.name || e.title}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Test Series</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Test Series
+                    </label>
                     <select
                       value={linkingSeriesId}
                       onChange={(e) => {
-                        setLinkingSeriesId(e.target.value)
-                        setLinkingStageId('')
-                        setLinkSectionPickerOpen(false)
+                        setLinkingSeriesId(e.target.value);
+                        setLinkingStageId("");
+                        setLinkSectionPickerOpen(false);
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingSeriesId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingSeriesId ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold" : "bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
                     >
                       <option value="">All series</option>
-                      {linkedSeriesList.map(s => (
-                        <option key={s.id || s._id || s.public_id} value={s.id || s._id || s.public_id}>{s.title || s.name}</option>
+                      {linkedSeriesList.map((s) => (
+                        <option
+                          key={s.id || s._id || s.public_id}
+                          value={s.id || s._id || s.public_id}
+                        >
+                          {s.title || s.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Stage</label>
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      Stage
+                    </label>
                     <select
                       value={linkingStageId}
                       onChange={(e) => {
-                        setLinkingStageId(e.target.value)
-                        setLinkSectionPickerOpen(false)
+                        setLinkingStageId(e.target.value);
+                        setLinkSectionPickerOpen(false);
                       }}
-                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingStageId ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold' : 'bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}
+                      className={`w-full px-3 py-1.5 text-sm rounded-lg border transition-colors ${linkingStageId ? "bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold" : "bg-gray-50 dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
                       disabled={!linkingSeriesId}
                     >
                       <option value="">All stages</option>
-                      {linkedStages.map(s => (
-                        <option key={s.id || s._id} value={s.id || s._id}>{s.name || s.title}</option>
+                      {linkedStages.map((s) => (
+                        <option key={s.id || s._id} value={s.id || s._id}>
+                          {s.name || s.title}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1025,11 +1322,15 @@ export default function SectionsManager({ testId: propTestId } = {}) {
 
                 {linkingSeriesId && linkingStageId && (
                   <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Link Section:</span>
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                      Link Section:
+                    </span>
                     <div className="relative" data-section-picker>
                       <button
                         type="button"
-                        onClick={() => setLinkSectionPickerOpen(!linkSectionPickerOpen)}
+                        onClick={() =>
+                          setLinkSectionPickerOpen(!linkSectionPickerOpen)
+                        }
                         disabled={saving}
                         className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 disabled:opacity-50"
                       >
@@ -1037,46 +1338,66 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       </button>
                       {linkSectionPickerOpen && (
                         <div className="absolute z-50 mt-1 w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                          {sections.filter(s => !s.test_series_id && !s.stage_id).length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">No template sections available</div>
+                          {sections.filter(
+                            (s) => !s.test_series_id && !s.stage_id,
+                          ).length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">
+                              No template sections available
+                            </div>
                           ) : (
-                            sections.filter(s => !s.test_series_id && !s.stage_id).map(s => {
-                              const canonical = resolveCanonical(s.name)
-                              const alreadyLinked = sections.some(ls =>
-                                String(ls.name).toLowerCase() === canonical.toLowerCase() &&
-                                String(ls.test_series_id || '') === String(linkingSeriesId) &&
-                                String(ls.stage_id || '') === String(linkingStageId)
-                              )
-                              return (
-                                <button
-                                  key={s.id}
-                                  type="button"
-                                  onClick={() => !alreadyLinked && handleLinkSection(s)}
-                                  disabled={alreadyLinked}
-                                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 ${alreadyLinked ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'}`}
-                                >
-                                  <span className="font-medium text-gray-900 dark:text-white">{s.name}</span>
-                                  {alreadyLinked ? (
-                                    <span className="text-xs text-green-600">Linked</span>
-                                  ) : (
-                                    <Plus className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                                  )}
-                                </button>
-                              )
-                            })
+                            sections
+                              .filter((s) => !s.test_series_id && !s.stage_id)
+                              .map((s) => {
+                                const canonical = resolveCanonical(s.name);
+                                const alreadyLinked = sections.some(
+                                  (ls) =>
+                                    String(ls.name).toLowerCase() ===
+                                      canonical.toLowerCase() &&
+                                    String(ls.test_series_id || "") ===
+                                      String(linkingSeriesId) &&
+                                    String(ls.stage_id || "") ===
+                                      String(linkingStageId),
+                                );
+                                return (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() =>
+                                      !alreadyLinked && handleLinkSection(s)
+                                    }
+                                    disabled={alreadyLinked}
+                                    className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 ${alreadyLinked ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                                  >
+                                    <span className="font-medium text-gray-900 dark:text-white">
+                                      {s.name}
+                                    </span>
+                                    {alreadyLinked ? (
+                                      <span className="text-xs text-green-600">
+                                        Linked
+                                      </span>
+                                    ) : (
+                                      <Plus className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                                    )}
+                                  </button>
+                                );
+                              })
                           )}
                         </div>
                       )}
                     </div>
 
-                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ml-2">Apply Scheme:</span>
+                    <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider ml-2">
+                      Apply Scheme:
+                    </span>
                     <select
                       value={selectedPresetId}
                       onChange={(e) => setSelectedPresetId(e.target.value)}
                       className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
                     >
-                      {EXAM_PRESETS.map(p => (
-                        <option key={p.id} value={p.id}>{p.label}</option>
+                      {EXAM_PRESETS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.label}
+                        </option>
                       ))}
                     </select>
                     <button
@@ -1094,13 +1415,16 @@ export default function SectionsManager({ testId: propTestId } = {}) {
               {/* Section Preview - shows existing sections and what preset will create */}
               {linkingSeriesId && linkingStageId && (
                 <SectionPreview
-                  existingSections={sections.filter(s => {
-                    const numSeriesId = getSeriesNumericId(linkingSeriesId)
-                    const numStageId = getStageNumericId(linkingStageId)
-                    return String(s.test_series_id || '') === String(numSeriesId) &&
-                      (String(s.stage_id || '') === String(numStageId) || !s.stage_id)
+                  existingSections={sections.filter((s) => {
+                    const numSeriesId = getSeriesNumericId(linkingSeriesId);
+                    const numStageId = getStageNumericId(linkingStageId);
+                    return (
+                      String(s.test_series_id || "") === String(numSeriesId) &&
+                      (String(s.stage_id || "") === String(numStageId) ||
+                        !s.stage_id)
+                    );
                   })}
-                  preset={EXAM_PRESETS.find(p => p.id === selectedPresetId)}
+                  preset={EXAM_PRESETS.find((p) => p.id === selectedPresetId)}
                   seriesName={getSeriesName(linkingSeriesId)}
                   stageName={getStageName(linkingStageId)}
                 />
@@ -1109,23 +1433,27 @@ export default function SectionsManager({ testId: propTestId } = {}) {
           )}
 
           {/* Preset View */}
-          {activeTab === 'presets' && (
+          {activeTab === "presets" && (
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
               {/* Left Sidebar */}
               <div className="lg:col-span-1 space-y-4">
                 <div className="bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                   <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
-                    <h3 className="text-sm font-bold text-slate-800">Exam Categories</h3>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Exam Categories
+                    </h3>
                   </div>
                   <div className="p-2 space-y-4 max-h-[70vh] overflow-y-auto">
-                    {CATEGORY_GROUPS.map(group => (
+                    {CATEGORY_GROUPS.map((group) => (
                       <div key={group.category} className="space-y-1">
                         <div className="px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                           {group.category}
                         </div>
                         <div className="space-y-0.5">
-                          {group.exams.map(exam => {
-                            const isSelected = selectedPresetCategory === group.category && selectedPresetExam === exam;
+                          {group.exams.map((exam) => {
+                            const isSelected =
+                              selectedPresetCategory === group.category &&
+                              selectedPresetExam === exam;
                             return (
                               <button
                                 key={exam}
@@ -1134,9 +1462,9 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                                   setSelectedPresetExam(exam);
                                 }}
                                 className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-all border-l-4 ${
-                                  isSelected 
-                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-bold shadow-sm' 
-                                    : 'border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                                  isSelected
+                                    ? "bg-indigo-50 border-indigo-500 text-indigo-700 font-bold shadow-sm"
+                                    : "border-transparent text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium"
                                 }`}
                               >
                                 {exam}
@@ -1157,17 +1485,24 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                     <Layers className="w-3.5 h-3.5" />
                     {selectedPresetCategory} Exam Scheme
                   </div>
-                  <h2 className="text-xl font-bold text-slate-900 mt-2">{selectedPresetCategory} {selectedPresetExam} Blueprint</h2>
+                  <h2 className="text-xl font-bold text-slate-900 mt-2">
+                    {selectedPresetCategory} {selectedPresetExam} Blueprint
+                  </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Below are the official exam section configurations, including marking scheme, timing configurations and qualifying structures for each stage of {selectedPresetCategory} {selectedPresetExam}.
+                    Below are the official exam section configurations,
+                    including marking scheme, timing configurations and
+                    qualifying structures for each stage of{" "}
+                    {selectedPresetCategory} {selectedPresetExam}.
                   </p>
                 </div>
 
                 {(() => {
                   const filteredPresets = EXAM_PRESETS.filter(
-                    p => (p.exam_category || 'Other') === selectedPresetCategory && (p.exam || 'Other') === selectedPresetExam
+                    (p) =>
+                      (p.exam_category || "Other") === selectedPresetCategory &&
+                      (p.exam || "Other") === selectedPresetExam,
                   );
-                  return filteredPresets.map(preset => (
+                  return filteredPresets.map((preset) => (
                     <SectionPreview
                       key={preset.id}
                       existingSections={[]}
@@ -1181,34 +1516,54 @@ export default function SectionsManager({ testId: propTestId } = {}) {
             </div>
           )}
 
-          {activeTab !== 'presets' && (
+          {activeTab !== "presets" && (
             <>
               {/* Stats */}
               <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Total Sections</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.total}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Total Sections
+                  </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold text-green-600">{stats.active}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Active</div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {stats.active}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Active
+                  </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold text-blue-600">{stats.withQuestions}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">With Questions</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {stats.withQuestions}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    With Questions
+                  </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.plannedQuestions}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Planned Qs</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.plannedQuestions}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Planned Qs
+                  </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{stats.plannedMarks}</div>
-                  <div className="text-sm text-gray-500 dark:text-gray-400">Planned Marks</div>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {stats.plannedMarks}
+                  </div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Planned Marks
+                  </div>
                 </div>
               </div>
 
               {/* Search */}
-              {activeTab !== 'all sections' && (
+              {activeTab !== "all sections" && (
                 <div className="mb-4">
                   <input
                     type="text"
@@ -1223,250 +1578,434 @@ export default function SectionsManager({ testId: propTestId } = {}) {
               {filteredSections.length === 0 ? (
                 <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
                   <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 dark:text-gray-400">No sections found</p>
-                  <p className="text-sm text-gray-400 dark:text-gray-500">Create your first test section</p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    No sections found
+                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    Create your first test section
+                  </p>
                 </div>
               ) : (
                 <>
                   {selectedIds.length > 0 && (
-                    <div style={{ marginBottom: '0.75rem', display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '8px 12px', backgroundColor: '#f8fafc', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-                      <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 500 }}>Selected: {selectedIds.length}</span>
+                    <div
+                      style={{
+                        marginBottom: "0.75rem",
+                        display: "flex",
+                        gap: "0.5rem",
+                        alignItems: "center",
+                        padding: "8px 12px",
+                        backgroundColor: "#f8fafc",
+                        borderRadius: "10px",
+                        border: "1px solid #e2e8f0",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          color: "#64748b",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Selected: {selectedIds.length}
+                      </span>
                       <button
                         onClick={handleBulkDelete}
-                        style={{ marginLeft: 'auto', padding: '6px 14px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'inherit' }}
+                        style={{
+                          marginLeft: "auto",
+                          padding: "6px 14px",
+                          backgroundColor: "#ef4444",
+                          color: "white",
+                          border: "none",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          fontFamily: "inherit",
+                        }}
                       >
                         Delete Selected ({selectedIds.length})
                       </button>
                       <button
                         onClick={() => setSelectedIds([])}
-                        style={{ padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit', backgroundColor: 'white' }}
+                        style={{
+                          padding: "6px 14px",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          cursor: "pointer",
+                          fontSize: "13px",
+                          fontWeight: 500,
+                          fontFamily: "inherit",
+                          backgroundColor: "white",
+                        }}
                       >
                         Clear Selection
                       </button>
                     </div>
                   )}
-                <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.length === filteredSections.length && filteredSections.length > 0}
-                            onChange={(e) => setSelectedIds(e.target.checked ? filteredSections.map(s => s.id) : [])}
-                            style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
-                          />
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Order</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Alias Name</th>
-                        {activeTab === 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Series / Stage</th>}
-                        {!propTestId && activeTab !== 'linking' && <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Exams Linked</th>}
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Qs</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Plan</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Marks</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Neg</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Locked</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                        <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {filteredSections.map((section) => (
-                        <tr key={section.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <td className="px-4 py-3">
-                            <input
-                              type="checkbox"
-                              checked={selectedIds.includes(section.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelectedIds([...selectedIds, section.id]);
-                                else setSelectedIds(selectedIds.filter(id => id !== section.id));
-                              }}
-                              style={{ width: '16px', height: '16px', accentColor: '#6366f1', cursor: 'pointer' }}
-                            />
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{section.display_order}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-gray-900 dark:text-white">{section.name}</p>
-                              {!section.test_id && !section.test_series_id && (
-                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded" title="Not linked to any test">
-                                  <Link className="w-3 h-3 inline" />
-                                </span>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  selectedIds.length ===
+                                    filteredSections.length &&
+                                  filteredSections.length > 0
+                                }
+                                onChange={(e) =>
+                                  setSelectedIds(
+                                    e.target.checked
+                                      ? filteredSections.map((s) => s.id)
+                                      : [],
+                                  )
+                                }
+                                style={{
+                                  width: "16px",
+                                  height: "16px",
+                                  accentColor: "#6366f1",
+                                  cursor: "pointer",
+                                }}
+                              />
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Order
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Name
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Alias Name
+                            </th>
+                            {activeTab === "linking" && (
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Series / Stage
+                              </th>
+                            )}
+                            {!propTestId && activeTab !== "linking" && (
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                                Exams Linked
+                              </th>
+                            )}
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Qs
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Plan
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Time
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Marks
+                            </th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Neg
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Locked
+                            </th>
+                            <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Status
+                            </th>
+                            <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {filteredSections.map((section) => (
+                            <tr
+                              key={section.id}
+                              className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                            >
+                              <td className="px-4 py-3">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.includes(section.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked)
+                                      setSelectedIds([
+                                        ...selectedIds,
+                                        section.id,
+                                      ]);
+                                    else
+                                      setSelectedIds(
+                                        selectedIds.filter(
+                                          (id) => id !== section.id,
+                                        ),
+                                      );
+                                  }}
+                                  style={{
+                                    width: "16px",
+                                    height: "16px",
+                                    accentColor: "#6366f1",
+                                    cursor: "pointer",
+                                  }}
+                                />
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                {section.display_order}
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {section.name}
+                                  </p>
+                                  {!section.test_id &&
+                                    !section.test_series_id && (
+                                      <span
+                                        className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-xs rounded"
+                                        title="Not linked to any test"
+                                      >
+                                        <Link className="w-3 h-3 inline" />
+                                      </span>
+                                    )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                <div className="font-medium text-gray-900 dark:text-white">
+                                  {section.exam_alias ? (
+                                    section.exam_alias
+                                  ) : section.aliases_list ? (
+                                    (() => {
+                                      const list =
+                                        section.aliases_list.split(", ");
+                                      const count = list.length;
+                                      const isOpen =
+                                        activePopover?.id === section.id &&
+                                        activePopover?.type === "aliases";
+                                      return (
+                                        <div className="relative inline-block">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setActivePopover(
+                                                isOpen
+                                                  ? null
+                                                  : {
+                                                      id: section.id,
+                                                      type: "aliases",
+                                                    },
+                                              );
+                                            }}
+                                            className="inline-flex items-center justify-center font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors w-7 h-7 rounded-full border border-slate-200 shadow-sm"
+                                          >
+                                            {count}
+                                          </button>
+                                          {isOpen && (
+                                            <div
+                                              className="absolute left-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
+                                              <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                  Aliases ({count})
+                                                </span>
+                                                <button
+                                                  onClick={() =>
+                                                    setActivePopover(null)
+                                                  }
+                                                  className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
+                                                >
+                                                  &times;
+                                                </button>
+                                              </div>
+                                              <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
+                                                {list.map((item, idx) => (
+                                                  <li
+                                                    key={idx}
+                                                    className="px-1.5 py-1 bg-slate-50 rounded border border-slate-100"
+                                                  >
+                                                    {item}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-500 italic">
+                                      Same as name
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              {activeTab === "linking" && (
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                  <div className="font-medium text-gray-900 dark:text-white">
+                                    {getSeriesName(section.test_series_id) ||
+                                      "—"}
+                                  </div>
+                                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                                    {getStageName(section.stage_id) ||
+                                      "All stages"}
+                                  </div>
+                                </td>
                               )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                             <div className="font-medium text-gray-900 dark:text-white">
-                               {section.exam_alias ? (
-                                 section.exam_alias
-                               ) : section.aliases_list ? (
-                                 (() => {
-                                   const list = section.aliases_list.split(', ');
-                                   const count = list.length;
-                                   const isOpen = activePopover?.id === section.id && activePopover?.type === 'aliases';
-                                   return (
-                                     <div className="relative inline-block">
-                                       <button
-                                         onClick={(e) => {
-                                           e.stopPropagation();
-                                           setActivePopover(isOpen ? null : { id: section.id, type: 'aliases' });
-                                         }}
-                                         className="inline-flex items-center justify-center font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors w-7 h-7 rounded-full border border-slate-200 shadow-sm"
-                                       >
-                                         {count}
-                                       </button>
-                                       {isOpen && (
-                                         <div 
-                                           className="absolute left-0 mt-2 w-80 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
-                                           onClick={(e) => e.stopPropagation()}
-                                         >
-                                           <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
-                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Aliases ({count})</span>
-                                             <button 
-                                               onClick={() => setActivePopover(null)} 
-                                               className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
-                                             >
-                                               &times;
-                                             </button>
-                                           </div>
-                                           <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
-                                             {list.map((item, idx) => (
-                                               <li key={idx} className="px-1.5 py-1 bg-slate-50 rounded border border-slate-100">{item}</li>
-                                             ))}
-                                           </ul>
-                                         </div>
-                                       )}
-                                     </div>
-                                   );
-                                 })()
-                               ) : (
-                                 <span className="text-gray-400 dark:text-gray-500 italic">Same as name</span>
-                               )}
-                             </div>
-                           </td>
-                           {activeTab === 'linking' && (
-                             <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                               <div className="font-medium text-gray-900 dark:text-white">{getSeriesName(section.test_series_id) || '—'}</div>
-                               <div className="text-xs text-gray-500 dark:text-gray-400">{getStageName(section.stage_id) || 'All stages'}</div>
-                             </td>
-                           )}
-                           {!propTestId && activeTab !== 'linking' && (
-                             <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                               {section.test_id ? (
-                                 getTestName(section.test_id)
-                               ) : section.linked_exams ? (
-                                 (() => {
-                                   const list = section.linked_exams.split(', ');
-                                   const count = list.length;
-                                   const isOpen = activePopover?.id === section.id && activePopover?.type === 'exams';
-                                   return (
-                                     <div className="relative inline-block">
-                                       <button
-                                         onClick={(e) => {
-                                           e.stopPropagation();
-                                           setActivePopover(isOpen ? null : { id: section.id, type: 'exams' });
-                                         }}
-                                         className="inline-flex items-center justify-center font-bold text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors w-7 h-7 rounded-full border border-indigo-100 shadow-sm"
-                                       >
-                                         {count}
-                                       </button>
-                                       {isOpen && (
-                                         <div 
-                                           className="absolute left-0 mt-2 w-96 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
-                                           onClick={(e) => e.stopPropagation()}
-                                         >
-                                           <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
-                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Linked Exams ({count})</span>
-                                             <button 
-                                               onClick={() => setActivePopover(null)} 
-                                               className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
-                                             >
-                                               &times;
-                                             </button>
-                                           </div>
-                                           <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
-                                             {list.map((item, idx) => (
-                                               <li key={idx} className="px-1.5 py-1 bg-indigo-50/40 rounded border border-indigo-100/50 text-indigo-900">{item}</li>
-                                             ))}
-                                           </ul>
-                                         </div>
-                                       )}
-                                     </div>
-                                   );
-                                 })()
-                               ) : (
-                                 <span className="text-gray-400 dark:text-gray-500">—</span>
-                               )}
-                             </td>
-                           )}
-                           <td className="px-4 py-3">
-                            <span className={`text-sm font-medium ${(section.question_count || 0) > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {section.question_count || 0}
-                            </span>
-                            {(section.question_count || 0) === 0 && (
-                              <AlertTriangle className="w-4 h-4 text-amber-500 inline ml-1" title="No questions linked" />
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                            <div>{section.expected_questions || 0} Q</div>
-                            <div className="text-xs text-gray-400 dark:text-gray-500">{section.total_marks || 0} marks</div>
-                            {section.is_qualifying && <div className="text-xs text-amber-700">Qualifying</div>}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                            {Math.floor((section.time_limit || 900) / 60)}m
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                            {section.marks_per_question || 2}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                            {section.negative_marks || 0}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {section.is_locked ? (
-                              <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">Yes</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">No</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            {section.is_active ? (
-                              <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">Active</span>
-                            ) : (
-                              <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">Inactive</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <button
-                                onClick={() => openEditForm(section)}
-                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                                title="Edit"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(section.id)}
-                                disabled={deletingId === section.id}
-                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
-                                title="Delete"
-                              >
-                                {deletingId === section.id ? (
-                                  <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
-                                ) : (
-                                  <Trash2 className="w-4 h-4" />
+                              {!propTestId && activeTab !== "linking" && (
+                                <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                  {section.test_id ? (
+                                    getTestName(section.test_id)
+                                  ) : section.linked_exams ? (
+                                    (() => {
+                                      const list =
+                                        section.linked_exams.split(", ");
+                                      const count = list.length;
+                                      const isOpen =
+                                        activePopover?.id === section.id &&
+                                        activePopover?.type === "exams";
+                                      return (
+                                        <div className="relative inline-block">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setActivePopover(
+                                                isOpen
+                                                  ? null
+                                                  : {
+                                                      id: section.id,
+                                                      type: "exams",
+                                                    },
+                                              );
+                                            }}
+                                            className="inline-flex items-center justify-center font-bold text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 transition-colors w-7 h-7 rounded-full border border-indigo-100 shadow-sm"
+                                          >
+                                            {count}
+                                          </button>
+                                          {isOpen && (
+                                            <div
+                                              className="absolute left-0 mt-2 w-96 bg-white dark:bg-gray-800 border border-slate-200 rounded-xl shadow-xl p-3 z-50 text-left font-normal"
+                                              onClick={(e) =>
+                                                e.stopPropagation()
+                                              }
+                                            >
+                                              <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                  Linked Exams ({count})
+                                                </span>
+                                                <button
+                                                  onClick={() =>
+                                                    setActivePopover(null)
+                                                  }
+                                                  className="text-slate-400 hover:text-slate-600 text-lg font-bold line-height-1"
+                                                >
+                                                  &times;
+                                                </button>
+                                              </div>
+                                              <ul className="space-y-1 max-h-40 overflow-y-auto text-xs text-slate-600">
+                                                {list.map((item, idx) => (
+                                                  <li
+                                                    key={idx}
+                                                    className="px-1.5 py-1 bg-indigo-50/40 rounded border border-indigo-100/50 text-indigo-900"
+                                                  >
+                                                    {item}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-500">
+                                      —
+                                    </span>
+                                  )}
+                                </td>
+                              )}
+                              <td className="px-4 py-3">
+                                <span
+                                  className={`text-sm font-medium ${(section.question_count || 0) > 0 ? "text-green-600" : "text-red-500"}`}
+                                >
+                                  {section.question_count || 0}
+                                </span>
+                                {(section.question_count || 0) === 0 && (
+                                  <AlertTriangle
+                                    className="w-4 h-4 text-amber-500 inline ml-1"
+                                    title="No questions linked"
+                                  />
                                 )}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                <div>{section.expected_questions || 0} Q</div>
+                                <div className="text-xs text-gray-400 dark:text-gray-500">
+                                  {section.total_marks || 0} marks
+                                </div>
+                                {section.is_qualifying && (
+                                  <div className="text-xs text-amber-700">
+                                    Qualifying
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {Math.floor((section.time_limit || 900) / 60)}m
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {section.marks_per_question || 2}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                                {section.negative_marks || 0}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {section.is_locked ? (
+                                  <span className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full">
+                                    Yes
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
+                                    No
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-center">
+                                {section.is_active ? (
+                                  <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-full">
+                                    Active
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full">
+                                    Inactive
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => openEditForm(section)}
+                                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                                    title="Edit"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(section.id)}
+                                    disabled={deletingId === section.id}
+                                    className="p-2 text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
+                                    title="Delete"
+                                  >
+                                    {deletingId === section.id ? (
+                                      <div className="w-4 h-4 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
                 </>
               )}
             </>
@@ -1487,7 +2026,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">
-                      {editingId ? 'Edit Section' : 'Create Section'}
+                      {editingId ? "Edit Section" : "Create Section"}
                     </h2>
                     <p className="text-xs text-indigo-100/90 mt-0.5">
                       Configure section details, scoring, timing and linking
@@ -1508,14 +2047,14 @@ export default function SectionsManager({ testId: propTestId } = {}) {
             <div className="px-6 bg-slate-50 border-b border-slate-200">
               <div className="flex gap-1">
                 {[
-                  { id: 'basic', label: 'Basic Config', icon: Settings },
-                  { id: 'linking', label: 'Linking', icon: GitBranch },
-                ].map(tab => (
+                  { id: "basic", label: "Basic Config", icon: Settings },
+                  { id: "linking", label: "Linking", icon: GitBranch },
+                ].map((tab) => (
                   <button
                     key={tab.id}
                     type="button"
                     onClick={() => setFormTab(tab.id)}
-                    className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${formTab === tab.id ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`relative flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors ${formTab === tab.id ? "text-indigo-600" : "text-slate-500 hover:text-slate-700"}`}
                   >
                     <tab.icon className="w-4 h-4" />
                     <span>{tab.label}</span>
@@ -1527,8 +2066,11 @@ export default function SectionsManager({ testId: propTestId } = {}) {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5">
-              {formTab === 'basic' && (
+            <form
+              onSubmit={handleSubmit}
+              className="flex-1 overflow-y-auto p-6 space-y-5"
+            >
+              {formTab === "basic" && (
                 <>
                   {/* Section Name */}
                   <div>
@@ -1540,10 +2082,10 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       type="text"
                       value={formData.name}
                       onChange={(e) => {
-                        setFormData({ ...formData, name: e.target.value })
-                        if (errors.name) setErrors({ ...errors, name: null })
+                        setFormData({ ...formData, name: e.target.value });
+                        if (errors.name) setErrors({ ...errors, name: null });
                       }}
-                      className={`w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${errors.name ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300 hover:border-slate-400'}`}
+                      className={`w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${errors.name ? "border-rose-400 bg-rose-50/30" : "border-slate-300 hover:border-slate-400"}`}
                       placeholder="e.g., Quant, Reasoning, English"
                     />
                     {errors.name && (
@@ -1560,7 +2102,9 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       <div className="flex items-center justify-center w-6 h-6 rounded-md bg-amber-100">
                         <Clock className="w-3.5 h-3.5 text-amber-600" />
                       </div>
-                      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Scoring & Timing</h3>
+                      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                        Scoring & Timing
+                      </h3>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                       <div>
@@ -1571,15 +2115,22 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="number"
                           value={formData.time_limit}
                           onChange={(e) => {
-                            setFormData({ ...formData, time_limit: e.target.value })
-                            if (errors.time_limit) setErrors({ ...errors, time_limit: null })
+                            setFormData({
+                              ...formData,
+                              time_limit: e.target.value,
+                            });
+                            if (errors.time_limit)
+                              setErrors({ ...errors, time_limit: null });
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.time_limit ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.time_limit ? "border-rose-400 bg-rose-50/30" : "border-slate-300"}`}
                           min={60}
                           step={60}
                         />
                         <p className="mt-1 text-[11px] font-medium text-indigo-600">
-                          {Math.floor((parseInt(formData.time_limit) || 900) / 60)} minutes
+                          {Math.floor(
+                            (parseInt(formData.time_limit) || 900) / 60,
+                          )}{" "}
+                          minutes
                         </p>
                         {errors.time_limit && (
                           <p className="flex items-center gap-1 mt-1 text-xs text-rose-600">
@@ -1595,7 +2146,12 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <input
                           type="number"
                           value={formData.expected_questions}
-                          onChange={(e) => setFormData({ ...formData, expected_questions: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              expected_questions: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           min={0}
                         />
@@ -1607,7 +2163,12 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <input
                           type="number"
                           value={formData.total_marks}
-                          onChange={(e) => setFormData({ ...formData, total_marks: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              total_marks: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           min={0}
                           step={0.5}
@@ -1621,10 +2182,17 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="number"
                           value={formData.marks_per_question}
                           onChange={(e) => {
-                            setFormData({ ...formData, marks_per_question: e.target.value })
-                            if (errors.marks_per_question) setErrors({ ...errors, marks_per_question: null })
+                            setFormData({
+                              ...formData,
+                              marks_per_question: e.target.value,
+                            });
+                            if (errors.marks_per_question)
+                              setErrors({
+                                ...errors,
+                                marks_per_question: null,
+                              });
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.marks_per_question ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.marks_per_question ? "border-rose-400 bg-rose-50/30" : "border-slate-300"}`}
                           min={0}
                           step={0.5}
                         />
@@ -1643,10 +2211,14 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           type="number"
                           value={formData.negative_marks}
                           onChange={(e) => {
-                            setFormData({ ...formData, negative_marks: e.target.value })
-                            if (errors.negative_marks) setErrors({ ...errors, negative_marks: null })
+                            setFormData({
+                              ...formData,
+                              negative_marks: e.target.value,
+                            });
+                            if (errors.negative_marks)
+                              setErrors({ ...errors, negative_marks: null });
                           }}
-                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.negative_marks ? 'border-rose-400 bg-rose-50/30' : 'border-slate-300'}`}
+                          className={`w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors ${errors.negative_marks ? "border-rose-400 bg-rose-50/30" : "border-slate-300"}`}
                           min={0}
                           step={0.25}
                         />
@@ -1667,40 +2239,66 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-rose-100">
                           <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                         </div>
-                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Difficulty</h3>
+                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                          Difficulty
+                        </h3>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { value: 'easy', label: 'Easy', color: 'emerald' },
-                          { value: 'medium', label: 'Medium', color: 'amber' },
-                          { value: 'hard', label: 'Hard', color: 'rose' },
-                        ].map(opt => {
-                          const active = formData.difficulty === opt.value
+                          { value: "easy", label: "Easy", color: "emerald" },
+                          { value: "medium", label: "Medium", color: "amber" },
+                          { value: "hard", label: "Hard", color: "rose" },
+                        ].map((opt) => {
+                          const active = formData.difficulty === opt.value;
                           const colorMap = {
-                            emerald: { active: 'bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/30', idle: 'border-slate-200 hover:border-emerald-300 text-slate-600' },
-                            amber: { active: 'bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/30', idle: 'border-slate-200 hover:border-amber-300 text-slate-600' },
-                            rose: { active: 'bg-rose-500 border-rose-500 text-white shadow-sm shadow-rose-500/30', idle: 'border-slate-200 hover:border-rose-300 text-slate-600' },
-                          }
+                            emerald: {
+                              active:
+                                "bg-emerald-500 border-emerald-500 text-white shadow-sm shadow-emerald-500/30",
+                              idle: "border-slate-200 hover:border-emerald-300 text-slate-600",
+                            },
+                            amber: {
+                              active:
+                                "bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-500/30",
+                              idle: "border-slate-200 hover:border-amber-300 text-slate-600",
+                            },
+                            rose: {
+                              active:
+                                "bg-rose-500 border-rose-500 text-white shadow-sm shadow-rose-500/30",
+                              idle: "border-slate-200 hover:border-rose-300 text-slate-600",
+                            },
+                          };
                           return (
                             <button
                               key={opt.value}
                               type="button"
-                              onClick={() => setFormData({ ...formData, difficulty: opt.value })}
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  difficulty: opt.value,
+                                })
+                              }
                               className={`py-2 text-xs font-semibold rounded-lg border transition-all ${active ? colorMap[opt.color].active : colorMap[opt.color].idle}`}
                             >
                               {opt.label}
                             </button>
-                          )
+                          );
                         })}
                       </div>
 
                       <div className="mt-4 pt-4 border-t border-slate-200/80 space-y-3 flex-1 flex flex-col">
                         <div>
-                          <label className="block text-xs font-medium text-slate-600 mb-1">Display Order</label>
+                          <label className="block text-xs font-medium text-slate-600 mb-1">
+                            Display Order
+                          </label>
                           <input
                             type="number"
                             value={formData.display_order}
-                            onChange={(e) => setFormData({ ...formData, display_order: e.target.value })}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                display_order: e.target.value,
+                              })
+                            }
                             className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                             min={0}
                           />
@@ -1709,18 +2307,29 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                           <div className="flex items-center gap-2.5 min-w-0">
                             <span className="text-base leading-none">✅</span>
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-slate-700 leading-tight">Active</div>
-                              <div className="text-[11px] text-slate-500 leading-tight truncate">Visible to candidates</div>
+                              <div className="text-sm font-medium text-slate-700 leading-tight">
+                                Active
+                              </div>
+                              <div className="text-[11px] text-slate-500 leading-tight truncate">
+                                Visible to candidates
+                              </div>
                             </div>
                           </div>
                           <button
                             type="button"
                             role="switch"
                             aria-checked={formData.is_active}
-                            onClick={() => setFormData({ ...formData, is_active: !formData.is_active })}
-                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${formData.is_active ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                            onClick={() =>
+                              setFormData({
+                                ...formData,
+                                is_active: !formData.is_active,
+                              })
+                            }
+                            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/30 ${formData.is_active ? "bg-emerald-500" : "bg-slate-300"}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData.is_active ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                            <span
+                              className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData.is_active ? "translate-x-[18px]" : "translate-x-0.5"}`}
+                            />
                           </button>
                         </label>
                       </div>
@@ -1731,31 +2340,69 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <div className="flex items-center justify-center w-6 h-6 rounded-md bg-violet-100">
                           <Settings className="w-3.5 h-3.5 text-violet-600" />
                         </div>
-                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Section Controls</h3>
+                        <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                          Section Controls
+                        </h3>
                       </div>
                       <div className="space-y-2.5">
                         {[
-                          { key: 'is_locked', label: 'Lock Section', desc: 'No revisit after submission', icon: '🔒' },
-                          { key: 'shuffle_questions', label: 'Shuffle Questions', desc: 'Randomize question order', icon: '🔀' },
-                          { key: 'shuffle_options', label: 'Shuffle Options', desc: 'Randomize answer choices', icon: '🎲' },
-                          { key: 'is_qualifying', label: 'Qualifying Section', desc: 'Must pass to continue', icon: '⭐' },
-                        ].map(toggle => (
-                          <label key={toggle.key} className="flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-lg hover:bg-white/60 cursor-pointer transition-colors">
+                          {
+                            key: "is_locked",
+                            label: "Lock Section",
+                            desc: "No revisit after submission",
+                            icon: "🔒",
+                          },
+                          {
+                            key: "shuffle_questions",
+                            label: "Shuffle Questions",
+                            desc: "Randomize question order",
+                            icon: "🔀",
+                          },
+                          {
+                            key: "shuffle_options",
+                            label: "Shuffle Options",
+                            desc: "Randomize answer choices",
+                            icon: "🎲",
+                          },
+                          {
+                            key: "is_qualifying",
+                            label: "Qualifying Section",
+                            desc: "Must pass to continue",
+                            icon: "⭐",
+                          },
+                        ].map((toggle) => (
+                          <label
+                            key={toggle.key}
+                            className="flex items-center justify-between gap-3 px-2.5 py-1.5 rounded-lg hover:bg-white/60 cursor-pointer transition-colors"
+                          >
                             <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="text-base leading-none">{toggle.icon}</span>
+                              <span className="text-base leading-none">
+                                {toggle.icon}
+                              </span>
                               <div className="min-w-0">
-                                <div className="text-sm font-medium text-slate-700 leading-tight">{toggle.label}</div>
-                                <div className="text-[11px] text-slate-500 leading-tight">{toggle.desc}</div>
+                                <div className="text-sm font-medium text-slate-700 leading-tight">
+                                  {toggle.label}
+                                </div>
+                                <div className="text-[11px] text-slate-500 leading-tight">
+                                  {toggle.desc}
+                                </div>
                               </div>
                             </div>
                             <button
                               type="button"
                               role="switch"
                               aria-checked={formData[toggle.key]}
-                              onClick={() => setFormData({ ...formData, [toggle.key]: !formData[toggle.key] })}
-                              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${formData[toggle.key] ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                              onClick={() =>
+                                setFormData({
+                                  ...formData,
+                                  [toggle.key]: !formData[toggle.key],
+                                })
+                              }
+                              className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/30 ${formData[toggle.key] ? "bg-indigo-600" : "bg-slate-300"}`}
                             >
-                              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData[toggle.key] ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                              <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white dark:bg-gray-800 shadow-sm transition-transform ${formData[toggle.key] ? "translate-x-[18px]" : "translate-x-0.5"}`}
+                              />
                             </button>
                           </label>
                         ))}
@@ -1767,11 +2414,19 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                   <div>
                     <label className="flex items-center gap-1.5 text-sm font-medium text-slate-700 mb-1.5">
                       <FileText className="w-3.5 h-3.5 text-slate-400" />
-                      Instructions <span className="text-xs font-normal text-slate-500">(shown before section starts)</span>
+                      Instructions{" "}
+                      <span className="text-xs font-normal text-slate-500">
+                        (shown before section starts)
+                      </span>
                     </label>
                     <textarea
                       value={formData.instructions}
-                      onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          instructions: e.target.value,
+                        })
+                      }
                       className="w-full px-3.5 py-2.5 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors resize-none"
                       rows={3}
                       placeholder="e.g., This section contains 25 questions. You have 30 minutes..."
@@ -1780,7 +2435,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                 </>
               )}
 
-              {formTab === 'linking' && (
+              {formTab === "linking" && (
                 <div className="space-y-4">
                   {/* Exam Scheme Card */}
                   <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200/80">
@@ -1788,45 +2443,72 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                       <div className="flex items-center justify-center w-6 h-6 rounded-md bg-indigo-100">
                         <Filter className="w-3.5 h-3.5 text-indigo-600" />
                       </div>
-                      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">Exam Scheme</h3>
+                      <h3 className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                        Exam Scheme
+                      </h3>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Stage</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Stage
+                        </label>
                         <input
                           type="text"
                           value={formData.exam_stage}
-                          onChange={(e) => setFormData({ ...formData, exam_stage: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              exam_stage: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Tier-I"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Paper</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Paper
+                        </label>
                         <input
                           type="text"
                           value={formData.paper}
-                          onChange={(e) => setFormData({ ...formData, paper: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, paper: e.target.value })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Paper-I"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Session</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Session
+                        </label>
                         <input
                           type="text"
                           value={formData.session}
-                          onChange={(e) => setFormData({ ...formData, session: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              session: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="Session-I"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Code</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Code
+                        </label>
                         <input
                           type="text"
                           value={formData.section_code}
-                          onChange={(e) => setFormData({ ...formData, section_code: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              section_code: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                           placeholder="I-A"
                         />
@@ -1841,61 +2523,109 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                         <GitBranch className="w-4 h-4 text-indigo-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-800">Section Linking</h3>
-                        <p className="text-xs text-slate-500">Link to a Test Series + Stage, or override for a specific test.</p>
+                        <h3 className="text-sm font-semibold text-slate-800">
+                          Section Linking
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          Link to a Test Series + Stage, or override for a
+                          specific test.
+                        </p>
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Exam Category</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Exam Category
+                        </label>
                         <select
-                          value={formData.exam_category_id || ''}
-                          onChange={(e) => setFormData({ ...formData, exam_category_id: e.target.value })}
+                          value={formData.exam_category_id || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              exam_category_id: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">Any category</option>
-                          {examCategories.map(c => (
-                            <option key={c.id || c.categoryId || c.slug} value={c.id || c.categoryId || c.slug}>{c.name || c.label}</option>
+                          {examCategories.map((c) => (
+                            <option
+                              key={c.id || c.categoryId || c.slug}
+                              value={c.id || c.categoryId || c.slug}
+                            >
+                              {c.name || c.label}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Test Series</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Test Series
+                        </label>
                         <select
                           value={formData.test_series_id}
-                          onChange={(e) => setFormData({ ...formData, test_series_id: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              test_series_id: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">No series (template)</option>
-                          {formSeriesList.map(s => (
-                            <option key={s.id || s._id || s.public_id} value={s.id || s._id || s.public_id}>{s.title || s.name}</option>
+                          {formSeriesList.map((s) => (
+                            <option
+                              key={s.id || s._id || s.public_id}
+                              value={s.id || s._id || s.public_id}
+                            >
+                              {s.title || s.name}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Stage</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Stage
+                        </label>
                         <select
                           value={formData.stage_id}
-                          onChange={(e) => setFormData({ ...formData, stage_id: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              stage_id: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:cursor-not-allowed disabled:text-slate-400 transition-colors"
                           disabled={!formData.test_series_id}
                         >
                           <option value="">All stages</option>
-                          {linkedStages.map(s => (
-                            <option key={s.id || s._id} value={s.id || s._id}>{s.name || s.title}</option>
+                          {linkedStages.map((s) => (
+                            <option key={s.id || s._id} value={s.id || s._id}>
+                              {s.name || s.title}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1">Specific Test (override)</label>
+                        <label className="block text-xs font-medium text-slate-600 mb-1">
+                          Specific Test (override)
+                        </label>
                         <select
                           value={formData.test_id}
-                          onChange={(e) => setFormData({ ...formData, test_id: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              test_id: e.target.value,
+                            })
+                          }
                           className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-slate-300 rounded-lg shadow-sm hover:border-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-colors"
                         >
                           <option value="">No test</option>
-                          {tests.map(test => (
-                            <option key={test.id || test._id} value={test.id || test._id}>
+                          {tests.map((test) => (
+                            <option
+                              key={test.id || test._id}
+                              value={test.id || test._id}
+                            >
                               {test.title || test.name}
                             </option>
                           ))}
@@ -1928,7 +2658,7 @@ export default function SectionsManager({ testId: propTestId } = {}) {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      {editingId ? 'Update Section' : 'Create Section'}
+                      {editingId ? "Update Section" : "Create Section"}
                     </>
                   )}
                 </button>
@@ -1938,5 +2668,5 @@ export default function SectionsManager({ testId: propTestId } = {}) {
         </div>
       )}
     </div>
-  )
+  );
 }

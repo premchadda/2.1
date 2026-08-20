@@ -2,6 +2,15 @@ import { jest, describe, it, expect, beforeEach } from '@jest/globals'
 
 // Mock the imported dbHelpers to use our globally mocked helper.
 jest.unstable_mockModule('../src/infrastructure/database/postgres-helpers.js', () => ({
+  pool: {
+    query: (...args) => {
+      if (global.dbHelpers && global.dbHelpers.pool && typeof global.dbHelpers.pool.query === 'function') {
+        return global.dbHelpers.pool.query(...args)
+      }
+      return { rows: [] }
+    },
+    connect: jest.fn().mockResolvedValue({ query: jest.fn(), release: jest.fn() })
+  },
   dbHelpers: {
     findById: (...args) => {
       if (global.dbHelpers && typeof global.dbHelpers.findById === 'function') {

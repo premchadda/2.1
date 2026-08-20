@@ -1,566 +1,762 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  Plus, Edit2, Trash2, X, Save, BookOpen, FileText, CheckCircle, Upload, Download,
-  Eye, EyeOff, ChevronLeft, ChevronRight, Hash, Clock, Sparkles, Layers, ArrowLeft,
-  Filter, AlertTriangle, Copy, Check, RefreshCw, Search, BookMarked, HelpCircle,
-  MoreVertical, ArrowRight, Tag, Lightbulb
-} from 'lucide-react'
-import { toast } from 'react-hot-toast'
-import { adminAPI } from '../../../shared/lib/dataService'
-import { useSubjects } from '../../../shared/hooks/useSubjects.js'
-import { BulkImportModal } from './components/BulkImportModal'
-import { StatsCard } from './components/StatsCard'
-import { Badge } from './components/Badge'
-import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
-import EmptyState from '../../../shared/components/ui/EmptyState'
-import { DIFFICULTY_LEVELS } from '../../../shared/config/difficultyConfig.js'
-import { QUESTION_TYPES, STATUS_OPTIONS } from '../../../shared/config/questionConstants.js'
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Save,
+  BookOpen,
+  FileText,
+  CheckCircle,
+  Upload,
+  Download,
+  Eye,
+  EyeOff,
+  ChevronLeft,
+  ChevronRight,
+  Hash,
+  Clock,
+  Sparkles,
+  Layers,
+  ArrowLeft,
+  Filter,
+  AlertTriangle,
+  Copy,
+  Check,
+  RefreshCw,
+  Search,
+  BookMarked,
+  HelpCircle,
+  MoreVertical,
+  ArrowRight,
+  Tag,
+  Lightbulb,
+} from "lucide-react";
+import { toast } from "react-hot-toast";
+import { adminAPI } from "../../../shared/lib/dataService";
+import { useSubjects } from "../../../shared/hooks/useSubjects.js";
+import { BulkImportModal } from "./components/BulkImportModal";
+import { StatsCard } from "./components/StatsCard";
+import { Badge } from "./components/Badge";
+import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
+import EmptyState from "../../../shared/components/ui/EmptyState";
+import { DIFFICULTY_LEVELS } from "../../../shared/config/difficultyConfig.js";
+import {
+  QUESTION_TYPES,
+  STATUS_OPTIONS,
+} from "../../../shared/config/questionConstants.js";
 
 const DEFAULT_FORM_DATA = {
-  questionText: '',
-  questionTextHi: '',
-  type: 'mcq',
-  category: 'practice',
+  questionText: "",
+  questionTextHi: "",
+  type: "mcq",
+  category: "practice",
   isPractice: true,
-  subject: '',
-  chapter: '',
-  topic: '',
-  difficulty: 'medium',
+  subject: "",
+  chapter: "",
+  topic: "",
+  difficulty: "medium",
   marks: 2,
   negativeMarks: 0.5,
-  options: ['', '', '', ''],
-  optionsHi: ['', '', '', ''],
+  options: ["", "", "", ""],
+  optionsHi: ["", "", "", ""],
   correctOption: 0,
-  explanation: '',
-  explanationHi: '',
-  hint: '',
-  status: 'active',
+  explanation: "",
+  explanationHi: "",
+  hint: "",
+  status: "active",
   tags: [],
-  imageUrl: ''
-}
+  imageUrl: "",
+};
 
 export default function PracticeQuestionsManager() {
-  const { subjects, loading: subjectsLoading } = useSubjects()
-  const [questions, setQuestions] = useState([])
-  const [chapters, setChapters] = useState([])
-  const [topics, setTopics] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const { subjects, loading: subjectsLoading } = useSubjects();
+  const [questions, setQuestions] = useState([]);
+  const [chapters, setChapters] = useState([]);
+  const [topics, setTopics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   // Subject Navigation & Hierarchy Filter State
-  const [activeSubjectTab, setActiveSubjectTab] = useState('all') // 'all' or subjectId
-  const [selectedChapter, setSelectedChapter] = useState('all')
-  const [selectedTopic, setSelectedTopic] = useState('all')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [difficultyFilter, setDifficultyFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState('all')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [langFilter, setLangFilter] = useState('all') // 'all', 'en', 'hi', 'bilingual'
+  const [activeSubjectTab, setActiveSubjectTab] = useState("all"); // 'all' or subjectId
+  const [selectedChapter, setSelectedChapter] = useState("all");
+  const [selectedTopic, setSelectedTopic] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [difficultyFilter, setDifficultyFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [langFilter, setLangFilter] = useState("all"); // 'all', 'en', 'hi', 'bilingual'
 
   // Pagination & Selection State
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(25)
-  const [selectedQuestions, setSelectedQuestions] = useState([])
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
 
   // Modal / Drawer State
-  const [showFormModal, setShowFormModal] = useState(false)
-  const [editingQuestion, setEditingQuestion] = useState(null)
-  const [formData, setFormData] = useState(DEFAULT_FORM_DATA)
-  const [previewQuestion, setPreviewQuestion] = useState(null)
-  const [showBulkImport, setShowBulkImport] = useState(false)
-  const [showAiModal, setShowAiModal] = useState(false)
-  const [aiPromptTopic, setAiPromptTopic] = useState('')
-  const [aiGenerating, setAiGenerating] = useState(false)
-  const [activeFormTab, setActiveFormTab] = useState('english') // 'english' | 'hindi' | 'scoring'
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(null);
+  const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
+  const [previewQuestion, setPreviewQuestion] = useState(null);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPromptTopic, setAiPromptTopic] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [activeFormTab, setActiveFormTab] = useState("english"); // 'english' | 'hindi' | 'scoring'
 
   // Fetch Questions, Chapters, and Topics
   const fetchAllData = useCallback(async () => {
     try {
-      setLoading(true)
+      setLoading(true);
       const [qRes, cRes, tRes] = await Promise.all([
-        adminAPI.apiClient.get('/admin/questions/practice').catch(() => adminAPI.apiClient.get('/admin/questions?category=practice')),
-        adminAPI.apiClient.get('/admin/chapters').catch(() => ({ data: { data: [] } })),
-        adminAPI.apiClient.get('/admin/topics').catch(() => ({ data: { data: [] } })),
-      ])
+        adminAPI.apiClient
+          .get("/admin/questions/practice")
+          .catch(() =>
+            adminAPI.apiClient.get("/admin/questions?category=practice"),
+          ),
+        adminAPI.apiClient
+          .get("/admin/chapters")
+          .catch(() => ({ data: { data: [] } })),
+        adminAPI.apiClient
+          .get("/admin/topics")
+          .catch(() => ({ data: { data: [] } })),
+      ]);
 
-      const rawQuestions = qRes.data?.data || qRes.data || []
-      setQuestions(rawQuestions)
+      const rawQuestions = qRes.data?.data || qRes.data || [];
+      setQuestions(rawQuestions);
 
-      const rawChapters = cRes.data?.data?.data || cRes.data?.data || []
-      setChapters(rawChapters)
+      const rawChapters = cRes.data?.data?.data || cRes.data?.data || [];
+      setChapters(rawChapters);
 
-      const rawTopics = tRes.data?.data?.data || tRes.data?.data || []
-      setTopics(rawTopics)
+      const rawTopics = tRes.data?.data?.data || tRes.data?.data || [];
+      setTopics(rawTopics);
     } catch (err) {
-      console.error('Failed to load practice questions data:', err)
-      toast.error('Failed to load practice questions')
+      console.error("Failed to load practice questions data:", err);
+      toast.error("Failed to load practice questions");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    fetchAllData()
-  }, [fetchAllData])
+    fetchAllData();
+  }, [fetchAllData]);
 
   // Normalization Helpers
-  const getSubjectName = useCallback((subjectId) => {
-    if (!subjectId) return 'General'
-    const found = subjects.find(s => String(s.id) === String(subjectId) || String(s._id) === String(subjectId))
-    return found?.label || found?.name || subjectId
-  }, [subjects])
+  const getSubjectName = useCallback(
+    (subjectId) => {
+      if (!subjectId) return "General";
+      const found = subjects.find(
+        (s) =>
+          String(s.id) === String(subjectId) ||
+          String(s._id) === String(subjectId),
+      );
+      return found?.label || found?.name || subjectId;
+    },
+    [subjects],
+  );
 
-  const getChapterName = useCallback((chapterId) => {
-    if (!chapterId) return ''
-    const found = chapters.find(c => String(c.id || c._id) === String(chapterId))
-    return found?.name || found?.title || chapterId
-  }, [chapters])
+  const getChapterName = useCallback(
+    (chapterId) => {
+      if (!chapterId) return "";
+      const found = chapters.find(
+        (c) => String(c.id || c._id) === String(chapterId),
+      );
+      return found?.name || found?.title || chapterId;
+    },
+    [chapters],
+  );
 
-  const getTopicName = useCallback((topicId) => {
-    if (!topicId) return ''
-    const found = topics.find(t => String(t.id || t._id) === String(topicId))
-    return found?.name || found?.title || topicId
-  }, [topics])
+  const getTopicName = useCallback(
+    (topicId) => {
+      if (!topicId) return "";
+      const found = topics.find(
+        (t) => String(t.id || t._id) === String(topicId),
+      );
+      return found?.name || found?.title || topicId;
+    },
+    [topics],
+  );
 
   // Available Chapters for Active Subject
   const availableChapters = useMemo(() => {
-    if (activeSubjectTab === 'all') return chapters
-    return chapters.filter(c => String(c.subjectId || c.subject_id || c.studyMaterialId) === String(activeSubjectTab))
-  }, [chapters, activeSubjectTab])
+    if (activeSubjectTab === "all") return chapters;
+    return chapters.filter(
+      (c) =>
+        String(c.subjectId || c.subject_id || c.studyMaterialId) ===
+        String(activeSubjectTab),
+    );
+  }, [chapters, activeSubjectTab]);
 
   // Available Topics for Selected Chapter
   const availableTopics = useMemo(() => {
-    if (selectedChapter === 'all') {
-      if (activeSubjectTab === 'all') return topics
-      const chapterIds = new Set(availableChapters.map(c => String(c.id || c._id)))
-      return topics.filter(t => chapterIds.has(String(t.chapterId || t.chapter_id)))
+    if (selectedChapter === "all") {
+      if (activeSubjectTab === "all") return topics;
+      const chapterIds = new Set(
+        availableChapters.map((c) => String(c.id || c._id)),
+      );
+      return topics.filter((t) =>
+        chapterIds.has(String(t.chapterId || t.chapter_id)),
+      );
     }
-    return topics.filter(t => String(t.chapterId || t.chapter_id) === String(selectedChapter))
-  }, [topics, selectedChapter, activeSubjectTab, availableChapters])
+    return topics.filter(
+      (t) => String(t.chapterId || t.chapter_id) === String(selectedChapter),
+    );
+  }, [topics, selectedChapter, activeSubjectTab, availableChapters]);
 
   // Statistics Calculation
   const stats = useMemo(() => {
-    const total = questions.length
-    const active = questions.filter(q => q.status === 'active' || q.is_active === true).length
-    const drafts = questions.filter(q => q.status === 'draft' || !q.status).length
-    const subjectSet = new Set(questions.map(q => q.subject || q.subject_id || q.subjectId).filter(Boolean))
-    return { total, active, drafts, subjectsCovered: subjectSet.size }
-  }, [questions])
+    const total = questions.length;
+    const active = questions.filter(
+      (q) => q.status === "active" || q.is_active === true,
+    ).length;
+    const drafts = questions.filter(
+      (q) => q.status === "draft" || !q.status,
+    ).length;
+    const subjectSet = new Set(
+      questions
+        .map((q) => q.subject || q.subject_id || q.subjectId)
+        .filter(Boolean),
+    );
+    return { total, active, drafts, subjectsCovered: subjectSet.size };
+  }, [questions]);
 
   // Subject Question Counts for Tabs
   const subjectCounts = useMemo(() => {
-    const map = { all: questions.length }
-    subjects.forEach(s => {
-      const count = questions.filter(q => {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || '')
-        const sId = String(s.id || s._id || '')
-        const sName = String(s.label || s.name || '').toLowerCase()
-        return qSub === sId || qSub.toLowerCase() === sName
-      }).length
-      map[s.id] = count
-    })
-    return map
-  }, [questions, subjects])
+    const map = { all: questions.length };
+    subjects.forEach((s) => {
+      const count = questions.filter((q) => {
+        const qSub = String(q.subject || q.subject_id || q.subjectId || "");
+        const sId = String(s.id || s._id || "");
+        const sName = String(s.label || s.name || "").toLowerCase();
+        return qSub === sId || qSub.toLowerCase() === sName;
+      }).length;
+      map[s.id] = count;
+    });
+    return map;
+  }, [questions, subjects]);
 
   // Filtered Questions
   const filteredQuestions = useMemo(() => {
-    return questions.filter(q => {
+    return questions.filter((q) => {
       // 1. Subject Tab Filter
-      if (activeSubjectTab !== 'all') {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || '')
-        const activeSubObj = subjects.find(s => String(s.id) === String(activeSubjectTab))
-        const sName = String(activeSubObj?.label || activeSubObj?.name || '').toLowerCase()
-        const matchesSubject = qSub === String(activeSubjectTab) || (sName && qSub.toLowerCase() === sName)
-        if (!matchesSubject) return false
+      if (activeSubjectTab !== "all") {
+        const qSub = String(q.subject || q.subject_id || q.subjectId || "");
+        const activeSubObj = subjects.find(
+          (s) => String(s.id) === String(activeSubjectTab),
+        );
+        const sName = String(
+          activeSubObj?.label || activeSubObj?.name || "",
+        ).toLowerCase();
+        const matchesSubject =
+          qSub === String(activeSubjectTab) ||
+          (sName && qSub.toLowerCase() === sName);
+        if (!matchesSubject) return false;
       }
 
       // 2. Chapter Filter
-      if (selectedChapter !== 'all') {
-        const qChap = String(q.chapter || q.chapter_id || q.chapterId || '')
-        if (qChap !== String(selectedChapter)) return false
+      if (selectedChapter !== "all") {
+        const qChap = String(q.chapter || q.chapter_id || q.chapterId || "");
+        if (qChap !== String(selectedChapter)) return false;
       }
 
       // 3. Topic Filter
-      if (selectedTopic !== 'all') {
-        const qTop = String(q.topic || q.topic_id || q.topicId || '')
-        if (qTop !== String(selectedTopic)) return false
+      if (selectedTopic !== "all") {
+        const qTop = String(q.topic || q.topic_id || q.topicId || "");
+        if (qTop !== String(selectedTopic)) return false;
       }
 
       // 4. Difficulty Filter
-      if (difficultyFilter !== 'all') {
-        const diff = (q.difficulty || 'medium').toLowerCase()
-        if (diff !== difficultyFilter.toLowerCase()) return false
+      if (difficultyFilter !== "all") {
+        const diff = (q.difficulty || "medium").toLowerCase();
+        if (diff !== difficultyFilter.toLowerCase()) return false;
       }
 
       // 5. Type Filter
-      if (typeFilter !== 'all') {
-        const t = (q.type || 'mcq').toLowerCase()
-        if (t !== typeFilter.toLowerCase()) return false
+      if (typeFilter !== "all") {
+        const t = (q.type || "mcq").toLowerCase();
+        if (t !== typeFilter.toLowerCase()) return false;
       }
 
       // 6. Status Filter
-      if (statusFilter !== 'all') {
-        const st = (q.status || (q.is_active ? 'active' : 'draft')).toLowerCase()
-        if (st !== statusFilter.toLowerCase()) return false
+      if (statusFilter !== "all") {
+        const st = (
+          q.status || (q.is_active ? "active" : "draft")
+        ).toLowerCase();
+        if (st !== statusFilter.toLowerCase()) return false;
       }
 
       // 7. Language Filter
-      if (langFilter !== 'all') {
-        const hasEn = !!(q.questionText || q.question_text || q.text)
-        const hasHi = !!(q.questionTextHi || q.question_text_hi)
-        if (langFilter === 'bilingual' && (!hasEn || !hasHi)) return false
-        if (langFilter === 'hi' && !hasHi) return false
-        if (langFilter === 'en' && !hasEn) return false
+      if (langFilter !== "all") {
+        const hasEn = !!(q.questionText || q.question_text || q.text);
+        const hasHi = !!(q.questionTextHi || q.question_text_hi);
+        if (langFilter === "bilingual" && (!hasEn || !hasHi)) return false;
+        if (langFilter === "hi" && !hasHi) return false;
+        if (langFilter === "en" && !hasEn) return false;
       }
 
       // 8. Search Query
       if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase()
-        const enText = (q.questionText || q.question_text || q.text || '').toLowerCase()
-        const hiText = (q.questionTextHi || q.question_text_hi || '').toLowerCase()
-        const exp = (q.explanation || q.explanation_hi || '').toLowerCase()
-        const id = String(q.id || q._id || '')
-        const tagStr = (Array.isArray(q.tags) ? q.tags.join(' ') : (q.tags || '')).toLowerCase()
+        const query = searchQuery.toLowerCase();
+        const enText = (
+          q.questionText ||
+          q.question_text ||
+          q.text ||
+          ""
+        ).toLowerCase();
+        const hiText = (
+          q.questionTextHi ||
+          q.question_text_hi ||
+          ""
+        ).toLowerCase();
+        const exp = (q.explanation || q.explanation_hi || "").toLowerCase();
+        const id = String(q.id || q._id || "");
+        const tagStr = (
+          Array.isArray(q.tags) ? q.tags.join(" ") : q.tags || ""
+        ).toLowerCase();
 
-        return enText.includes(query) || hiText.includes(query) || exp.includes(query) || id.includes(query) || tagStr.includes(query)
+        return (
+          enText.includes(query) ||
+          hiText.includes(query) ||
+          exp.includes(query) ||
+          id.includes(query) ||
+          tagStr.includes(query)
+        );
       }
 
-      return true
-    })
-  }, [questions, activeSubjectTab, selectedChapter, selectedTopic, difficultyFilter, typeFilter, statusFilter, langFilter, searchQuery, subjects])
+      return true;
+    });
+  }, [
+    questions,
+    activeSubjectTab,
+    selectedChapter,
+    selectedTopic,
+    difficultyFilter,
+    typeFilter,
+    statusFilter,
+    langFilter,
+    searchQuery,
+    subjects,
+  ]);
 
   // Paginated Questions
-  const totalPages = Math.ceil(filteredQuestions.length / pageSize) || 1
+  const totalPages = Math.ceil(filteredQuestions.length / pageSize) || 1;
   const paginatedQuestions = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return filteredQuestions.slice(start, start + pageSize)
-  }, [filteredQuestions, currentPage, pageSize])
+    const start = (currentPage - 1) * pageSize;
+    return filteredQuestions.slice(start, start + pageSize);
+  }, [filteredQuestions, currentPage, pageSize]);
 
   // Form Handlers
   const handleOpenCreateModal = () => {
-    setEditingQuestion(null)
+    setEditingQuestion(null);
     setFormData({
       ...DEFAULT_FORM_DATA,
-      subject: activeSubjectTab !== 'all' ? activeSubjectTab : (subjects[0]?.id || ''),
-      chapter: selectedChapter !== 'all' ? selectedChapter : '',
-      topic: selectedTopic !== 'all' ? selectedTopic : ''
-    })
-    setActiveFormTab('english')
-    setShowFormModal(true)
-  }
+      subject:
+        activeSubjectTab !== "all" ? activeSubjectTab : subjects[0]?.id || "",
+      chapter: selectedChapter !== "all" ? selectedChapter : "",
+      topic: selectedTopic !== "all" ? selectedTopic : "",
+    });
+    setActiveFormTab("english");
+    setShowFormModal(true);
+  };
 
   const handleOpenEditModal = (q) => {
-    const rawCorrect = q.correctOption ?? q.correct_option ?? 0
-    setEditingQuestion(q)
+    const rawCorrect = q.correctOption ?? q.correct_option ?? 0;
+    setEditingQuestion(q);
     setFormData({
-      questionText: q.questionText || q.question_text || q.text || '',
-      questionTextHi: q.questionTextHi || q.question_text_hi || '',
-      type: q.type || 'mcq',
-      category: 'practice',
+      questionText: q.questionText || q.question_text || q.text || "",
+      questionTextHi: q.questionTextHi || q.question_text_hi || "",
+      type: q.type || "mcq",
+      category: "practice",
       isPractice: true,
-      subject: q.subject || q.subject_id || q.subjectId || '',
-      chapter: q.chapter || q.chapter_id || q.chapterId || '',
-      topic: q.topic || q.topic_id || q.topicId || '',
-      difficulty: q.difficulty || 'medium',
+      subject: q.subject || q.subject_id || q.subjectId || "",
+      chapter: q.chapter || q.chapter_id || q.chapterId || "",
+      topic: q.topic || q.topic_id || q.topicId || "",
+      difficulty: q.difficulty || "medium",
       marks: q.marks ?? 2,
       negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0.5,
-      options: Array.isArray(q.options) && q.options.length > 0 ? q.options : ['', '', '', ''],
-      optionsHi: Array.isArray(q.optionsHi || q.options_hi) ? (q.optionsHi || q.options_hi) : ['', '', '', ''],
+      options:
+        Array.isArray(q.options) && q.options.length > 0
+          ? q.options
+          : ["", "", "", ""],
+      optionsHi: Array.isArray(q.optionsHi || q.options_hi)
+        ? q.optionsHi || q.options_hi
+        : ["", "", "", ""],
       correctOption: Array.isArray(rawCorrect) ? [...rawCorrect] : rawCorrect,
-      explanation: q.explanation || '',
-      explanationHi: q.explanationHi || q.explanation_hi || '',
-      hint: q.hint || '',
-      status: q.status || (q.is_active ? 'active' : 'draft'),
-      tags: Array.isArray(q.tags) ? q.tags : (typeof q.tags === 'string' ? q.tags.split(',').map(t => t.trim()).filter(Boolean) : []),
-      imageUrl: q.imageUrl || q.image_url || q.image || ''
-    })
-    setActiveFormTab('english')
-    setShowFormModal(true)
-  }
+      explanation: q.explanation || "",
+      explanationHi: q.explanationHi || q.explanation_hi || "",
+      hint: q.hint || "",
+      status: q.status || (q.is_active ? "active" : "draft"),
+      tags: Array.isArray(q.tags)
+        ? q.tags
+        : typeof q.tags === "string"
+          ? q.tags
+              .split(",")
+              .map((t) => t.trim())
+              .filter(Boolean)
+          : [],
+      imageUrl: q.imageUrl || q.image_url || q.image || "",
+    });
+    setActiveFormTab("english");
+    setShowFormModal(true);
+  };
 
   const handleDuplicateQuestion = (q) => {
-    const rawCorrect = q.correctOption ?? q.correct_option ?? 0
-    setEditingQuestion(null)
+    const rawCorrect = q.correctOption ?? q.correct_option ?? 0;
+    setEditingQuestion(null);
     setFormData({
-      questionText: (q.questionText || q.question_text || q.text || '') + ' (Copy)',
-      questionTextHi: q.questionTextHi || q.question_text_hi ? (q.questionTextHi || q.question_text_hi) + ' (प्रतिलिपि)' : '',
-      type: q.type || 'mcq',
-      category: 'practice',
+      questionText:
+        (q.questionText || q.question_text || q.text || "") + " (Copy)",
+      questionTextHi:
+        q.questionTextHi || q.question_text_hi
+          ? (q.questionTextHi || q.question_text_hi) + " (प्रतिलिपि)"
+          : "",
+      type: q.type || "mcq",
+      category: "practice",
       isPractice: true,
-      subject: q.subject || q.subject_id || q.subjectId || '',
-      chapter: q.chapter || q.chapter_id || q.chapterId || '',
-      topic: q.topic || q.topic_id || q.topicId || '',
-      difficulty: q.difficulty || 'medium',
+      subject: q.subject || q.subject_id || q.subjectId || "",
+      chapter: q.chapter || q.chapter_id || q.chapterId || "",
+      topic: q.topic || q.topic_id || q.topicId || "",
+      difficulty: q.difficulty || "medium",
       marks: q.marks ?? 2,
       negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0.5,
-      options: [...(Array.isArray(q.options) ? q.options : ['', '', '', ''])],
-      optionsHi: [...(Array.isArray(q.optionsHi || q.options_hi) ? (q.optionsHi || q.options_hi) : ['', '', '', ''])],
+      options: [...(Array.isArray(q.options) ? q.options : ["", "", "", ""])],
+      optionsHi: [
+        ...(Array.isArray(q.optionsHi || q.options_hi)
+          ? q.optionsHi || q.options_hi
+          : ["", "", "", ""]),
+      ],
       correctOption: Array.isArray(rawCorrect) ? [...rawCorrect] : rawCorrect,
-      explanation: q.explanation || '',
-      explanationHi: q.explanationHi || q.explanation_hi || '',
-      hint: q.hint || '',
-      status: 'draft',
+      explanation: q.explanation || "",
+      explanationHi: q.explanationHi || q.explanation_hi || "",
+      hint: q.hint || "",
+      status: "draft",
       tags: Array.isArray(q.tags) ? [...q.tags] : [],
-      imageUrl: q.imageUrl || q.image_url || q.image || ''
-    })
-    setActiveFormTab('english')
-    setShowFormModal(true)
-    toast.success('Question duplicated to editor')
-  }
+      imageUrl: q.imageUrl || q.image_url || q.image || "",
+    });
+    setActiveFormTab("english");
+    setShowFormModal(true);
+    toast.success("Question duplicated to editor");
+  };
 
   const handleSaveQuestion = async (statusOverride) => {
     if (!formData.questionText.trim()) {
-      toast.error('Question text (English) is required')
-      setActiveFormTab('english')
-      return
+      toast.error("Question text (English) is required");
+      setActiveFormTab("english");
+      return;
     }
 
     if (!formData.subject) {
-      toast.error('Please select a subject')
-      return
+      toast.error("Please select a subject");
+      return;
     }
 
-    if (formData.type === 'mcq' && (!formData.options || formData.options.length < 2)) {
-      toast.error('At least 2 options are required for MCQ questions')
-      return
+    if (
+      formData.type === "mcq" &&
+      (!formData.options || formData.options.length < 2)
+    ) {
+      toast.error("At least 2 options are required for MCQ questions");
+      return;
     }
 
-    if (formData.type === 'msq') {
-      const selected = Array.isArray(formData.correctOption) ? formData.correctOption : [formData.correctOption]
-      if (selected.filter(v => v !== null && v !== undefined && v !== '').length === 0) {
-        toast.error('Select at least one correct option for MSQ questions')
-        return
+    if (formData.type === "msq") {
+      const selected = Array.isArray(formData.correctOption)
+        ? formData.correctOption
+        : [formData.correctOption];
+      if (
+        selected.filter((v) => v !== null && v !== undefined && v !== "")
+          .length === 0
+      ) {
+        toast.error("Select at least one correct option for MSQ questions");
+        return;
       }
     }
 
-    setSaving(true)
-    const rawMarks = Number(formData.marks)
-    const rawNeg = Number(formData.negativeMarks)
+    setSaving(true);
+    const rawMarks = Number(formData.marks);
+    const rawNeg = Number(formData.negativeMarks);
     const payload = {
       ...formData,
-      status: statusOverride || formData.status || 'active',
+      status: statusOverride || formData.status || "active",
       isPractice: true,
-      category: 'practice',
-      correctOption: formData.type === 'msq'
-        ? (Array.isArray(formData.correctOption) ? formData.correctOption : [Number(formData.correctOption)])
-        : Number(formData.correctOption) || 0,
+      category: "practice",
+      correctOption:
+        formData.type === "msq"
+          ? Array.isArray(formData.correctOption)
+            ? formData.correctOption
+            : [Number(formData.correctOption)]
+          : Number(formData.correctOption) || 0,
       marks: Number.isFinite(rawMarks) ? rawMarks : 2,
-      negativeMarks: Number.isFinite(rawNeg) ? rawNeg : 0
-    }
+      negativeMarks: Number.isFinite(rawNeg) ? rawNeg : 0,
+    };
 
     try {
       if (editingQuestion) {
-        const id = editingQuestion.id || editingQuestion._id
-        await adminAPI.apiClient.put(`/admin/questions/${id}`, payload)
-        toast.success('Practice question updated successfully')
+        const id = editingQuestion.id || editingQuestion._id;
+        await adminAPI.apiClient.put(`/admin/questions/${id}`, payload);
+        toast.success("Practice question updated successfully");
       } else {
-        await adminAPI.apiClient.post('/admin/questions', payload)
-        toast.success('Practice question created successfully')
+        await adminAPI.apiClient.post("/admin/questions", payload);
+        toast.success("Practice question created successfully");
       }
-      setShowFormModal(false)
-      fetchAllData()
+      setShowFormModal(false);
+      fetchAllData();
     } catch (err) {
-      console.error('Failed to save practice question:', err)
-      toast.error(err.response?.data?.message || 'Failed to save question')
+      console.error("Failed to save practice question:", err);
+      toast.error(err.response?.data?.message || "Failed to save question");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleDeleteQuestion = async (q) => {
     const ok = await confirmOnce({
-      title: 'Delete Practice Question',
+      title: "Delete Practice Question",
       message: `Are you sure you want to delete this question? This action cannot be undone.`,
-      confirmText: 'Delete Question',
-      confirmVariant: 'danger'
-    })
-    if (!ok) return
+      confirmText: "Delete Question",
+      confirmVariant: "danger",
+    });
+    if (!ok) return;
 
     try {
-      const id = q.id || q._id
-      await adminAPI.apiClient.delete(`/admin/questions/${id}`)
-      toast.success('Practice question deleted')
-      setQuestions(prev => prev.filter(item => (item.id || item._id) !== id))
-      setSelectedQuestions(prev => prev.filter(item => (item.id || item._id) !== id))
+      const id = q.id || q._id;
+      await adminAPI.apiClient.delete(`/admin/questions/${id}`);
+      toast.success("Practice question deleted");
+      setQuestions((prev) =>
+        prev.filter((item) => (item.id || item._id) !== id),
+      );
+      setSelectedQuestions((prev) =>
+        prev.filter((item) => (item.id || item._id) !== id),
+      );
     } catch (err) {
-      console.error('Delete question error:', err)
-      toast.error('Failed to delete question')
+      console.error("Delete question error:", err);
+      toast.error("Failed to delete question");
     }
-  }
+  };
 
   const handleToggleStatus = async (q) => {
-    const id = q.id || q._id
-    const newStatus = (q.status === 'active' || q.is_active) ? 'draft' : 'active'
+    const id = q.id || q._id;
+    const newStatus = q.status === "active" || q.is_active ? "draft" : "active";
     try {
       await adminAPI.apiClient.put(`/admin/questions/${id}`, {
         status: newStatus,
-        is_active: newStatus === 'active'
-      })
-      toast.success(`Question marked as ${newStatus}`)
-      setQuestions(prev => prev.map(item => (item.id || item._id) === id ? { ...item, status: newStatus, is_active: newStatus === 'active' } : item))
+        is_active: newStatus === "active",
+      });
+      toast.success(`Question marked as ${newStatus}`);
+      setQuestions((prev) =>
+        prev.map((item) =>
+          (item.id || item._id) === id
+            ? { ...item, status: newStatus, is_active: newStatus === "active" }
+            : item,
+        ),
+      );
     } catch (err) {
-      toast.error('Failed to update status')
+      toast.error("Failed to update status");
     }
-  }
+  };
 
   // Bulk Selection Handlers
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedQuestions(paginatedQuestions.map(q => q.id || q._id))
+      setSelectedQuestions(paginatedQuestions.map((q) => q.id || q._id));
     } else {
-      setSelectedQuestions([])
+      setSelectedQuestions([]);
     }
-  }
+  };
 
   const handleSelectRow = (id) => {
-    setSelectedQuestions(prev =>
-      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
-    )
-  }
+    setSelectedQuestions((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
 
   const handleBulkStatus = async (newStatus) => {
-    if (selectedQuestions.length === 0) return
+    if (selectedQuestions.length === 0) return;
     const results = await Promise.allSettled(
-      selectedQuestions.map(id =>
-        adminAPI.apiClient.put(`/admin/questions/${id}`, { status: newStatus, is_active: newStatus === 'active' })
-      )
-    )
-    const failed = results.filter(r => r.status === 'rejected').length
+      selectedQuestions.map((id) =>
+        adminAPI.apiClient.put(`/admin/questions/${id}`, {
+          status: newStatus,
+          is_active: newStatus === "active",
+        }),
+      ),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
     if (failed === 0) {
-      toast.success(`${selectedQuestions.length} questions set to ${newStatus}`)
-      setSelectedQuestions([])
-      fetchAllData()
+      toast.success(
+        `${selectedQuestions.length} questions set to ${newStatus}`,
+      );
+      setSelectedQuestions([]);
+      fetchAllData();
     } else if (failed === results.length) {
-      toast.error(`Failed to update ${failed} question(s)`)
+      toast.error(`Failed to update ${failed} question(s)`);
     } else {
-      toast.success(`${results.length - failed} questions updated, ${failed} failed`)
-      setSelectedQuestions([])
-      fetchAllData()
+      toast.success(
+        `${results.length - failed} questions updated, ${failed} failed`,
+      );
+      setSelectedQuestions([]);
+      fetchAllData();
     }
-  }
+  };
 
   const handleBulkDelete = async () => {
-    if (selectedQuestions.length === 0) return
+    if (selectedQuestions.length === 0) return;
     const ok = await confirmOnce({
-      title: 'Delete Selected Questions',
+      title: "Delete Selected Questions",
       message: `Are you sure you want to delete ${selectedQuestions.length} practice questions?`,
-      confirmText: 'Delete All Selected',
-      confirmVariant: 'danger'
-    })
-    if (!ok) return
+      confirmText: "Delete All Selected",
+      confirmVariant: "danger",
+    });
+    if (!ok) return;
 
     try {
       const results = await Promise.allSettled(
-        selectedQuestions.map(id => adminAPI.apiClient.delete(`/admin/questions/${id}`))
-      )
-      const failed = results.filter(r => r.status === 'rejected').length
+        selectedQuestions.map((id) =>
+          adminAPI.apiClient.delete(`/admin/questions/${id}`),
+        ),
+      );
+      const failed = results.filter((r) => r.status === "rejected").length;
       if (failed === 0) {
-        toast.success(`${selectedQuestions.length} questions deleted`)
+        toast.success(`${selectedQuestions.length} questions deleted`);
       } else if (failed === results.length) {
-        toast.error(`Failed to delete ${failed} question(s)`)
+        toast.error(`Failed to delete ${failed} question(s)`);
       } else {
-        toast.success(`${results.length - failed} questions deleted, ${failed} failed`)
+        toast.success(
+          `${results.length - failed} questions deleted, ${failed} failed`,
+        );
       }
       if (failed < results.length) {
-        setSelectedQuestions([])
-        fetchAllData()
+        setSelectedQuestions([]);
+        fetchAllData();
       }
     } catch (err) {
-      toast.error('Failed to delete selected questions')
+      toast.error("Failed to delete selected questions");
     }
-  }
+  };
 
   // Bulk Import Handler
   const handleBulkImport = async (file) => {
     try {
-      const formDataObj = new FormData()
-      formDataObj.append('file', file)
-      formDataObj.append('category', 'practice')
-      formDataObj.append('isPractice', 'true')
-      if (activeSubjectTab !== 'all') formDataObj.append('subject', activeSubjectTab)
+      const formDataObj = new FormData();
+      formDataObj.append("file", file);
+      formDataObj.append("category", "practice");
+      formDataObj.append("isPractice", "true");
+      if (activeSubjectTab !== "all")
+        formDataObj.append("subject", activeSubjectTab);
 
-      await adminAPI.bulkUploadQuestions(formDataObj)
-      toast.success('Practice questions imported successfully!')
-      setShowBulkImport(false)
-      fetchAllData()
+      await adminAPI.bulkUploadQuestions(formDataObj);
+      toast.success("Practice questions imported successfully!");
+      setShowBulkImport(false);
+      fetchAllData();
     } catch (err) {
-      console.error('Failed to bulk import practice questions:', err)
-      toast.error(err.response?.data?.message || 'Failed to import practice questions')
+      console.error("Failed to bulk import practice questions:", err);
+      toast.error(
+        err.response?.data?.message || "Failed to import practice questions",
+      );
     }
-  }
+  };
 
   // AI Question Generator Handler
   const handleAiGenerate = async () => {
     if (!aiPromptTopic.trim()) {
-      toast.error('Please specify a topic or concept for AI generation')
-      return
+      toast.error("Please specify a topic or concept for AI generation");
+      return;
     }
-    setAiGenerating(true)
+    setAiGenerating(true);
     try {
-      const activeSubjectObj = subjects.find(s => String(s.id) === String(activeSubjectTab))
-      const res = await adminAPI.apiClient.post('/admin/ai/generate-questions', {
-        topic: aiPromptTopic,
-        subject: activeSubjectObj?.label || 'General',
-        count: 3,
-        difficulty: 'medium',
-        isPractice: true
-      })
+      const activeSubjectObj = subjects.find(
+        (s) => String(s.id) === String(activeSubjectTab),
+      );
+      const res = await adminAPI.apiClient.post(
+        "/admin/ai/generate-questions",
+        {
+          topic: aiPromptTopic,
+          subject: activeSubjectObj?.label || "General",
+          count: 3,
+          difficulty: "medium",
+          isPractice: true,
+        },
+      );
 
       if (res.data?.success && res.data?.data) {
-        toast.success(`Generated ${res.data.data.length || 1} practice questions!`)
-        setShowAiModal(false)
-        setAiPromptTopic('')
-        fetchAllData()
+        toast.success(
+          `Generated ${res.data.data.length || 1} practice questions!`,
+        );
+        setShowAiModal(false);
+        setAiPromptTopic("");
+        fetchAllData();
       } else {
-        toast.error('AI generation completed without saving questions')
+        toast.error("AI generation completed without saving questions");
       }
     } catch (err) {
-      console.error('AI Question generator error:', err)
-      toast.error(err.response?.data?.message || 'Failed to generate questions with AI')
+      console.error("AI Question generator error:", err);
+      toast.error(
+        err.response?.data?.message || "Failed to generate questions with AI",
+      );
     } finally {
-      setAiGenerating(false)
+      setAiGenerating(false);
     }
-  }
+  };
 
   // Export to CSV
   const handleExportCSV = () => {
     if (filteredQuestions.length === 0) {
-      toast.error('No questions to export')
-      return
+      toast.error("No questions to export");
+      return;
     }
-    const headers = ['ID', 'Subject', 'Chapter', 'Topic', 'Question Text', 'Question Text Hi', 'Type', 'Difficulty', 'Marks', 'Correct Option', 'Option A', 'Option B', 'Option C', 'Option D', 'Explanation', 'Status']
-    const rows = filteredQuestions.map(q => [
+    const headers = [
+      "ID",
+      "Subject",
+      "Chapter",
+      "Topic",
+      "Question Text",
+      "Question Text Hi",
+      "Type",
+      "Difficulty",
+      "Marks",
+      "Correct Option",
+      "Option A",
+      "Option B",
+      "Option C",
+      "Option D",
+      "Explanation",
+      "Status",
+    ];
+    const rows = filteredQuestions.map((q) => [
       q.id || q._id,
       getSubjectName(q.subject || q.subject_id),
       getChapterName(q.chapter || q.chapter_id),
       getTopicName(q.topic || q.topic_id),
-      `"${(q.questionText || q.question_text || q.text || '').replace(/"/g, '""')}"`,
-      `"${(q.questionTextHi || q.question_text_hi || '').replace(/"/g, '""')}"`,
-      q.type || 'mcq',
-      q.difficulty || 'medium',
+      `"${(q.questionText || q.question_text || q.text || "").replace(/"/g, '""')}"`,
+      `"${(q.questionTextHi || q.question_text_hi || "").replace(/"/g, '""')}"`,
+      q.type || "mcq",
+      q.difficulty || "medium",
       q.marks || 2,
       q.correctOption ?? q.correct_option ?? 0,
-      `"${(q.options?.[0] || '').replace(/"/g, '""')}"`,
-      `"${(q.options?.[1] || '').replace(/"/g, '""')}"`,
-      `"${(q.options?.[2] || '').replace(/"/g, '""')}"`,
-      `"${(q.options?.[3] || '').replace(/"/g, '""')}"`,
-      `"${(q.explanation || '').replace(/"/g, '""')}"`,
-      q.status || 'active'
-    ])
+      `"${(q.options?.[0] || "").replace(/"/g, '""')}"`,
+      `"${(q.options?.[1] || "").replace(/"/g, '""')}"`,
+      `"${(q.options?.[2] || "").replace(/"/g, '""')}"`,
+      `"${(q.options?.[3] || "").replace(/"/g, '""')}"`,
+      `"${(q.explanation || "").replace(/"/g, '""')}"`,
+      q.status || "active",
+    ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement('a')
-    link.setAttribute('href', encodedUri)
-    link.setAttribute('download', `practice_questions_${activeSubjectTab}_${Date.now()}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    toast.success('Exported practice questions to CSV')
-  }
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `practice_questions_${activeSubjectTab}_${Date.now()}.csv`,
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Exported practice questions to CSV");
+  };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 max-w-7xl mx-auto space-y-6">
       {/* 1. Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
@@ -569,9 +765,12 @@ export default function PracticeQuestionsManager() {
               <BookMarked className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Practice Question Bank</h1>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                Practice Question Bank
+              </h1>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Manage subject-wise, chapter-wise & topic-wise adaptive questions for Practice Lab
+                Manage subject-wise, chapter-wise & topic-wise adaptive
+                questions for Practice Lab
               </p>
             </div>
           </div>
@@ -607,60 +806,99 @@ export default function PracticeQuestionsManager() {
             onClick={handleOpenCreateModal}
             className="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-sm transition transform active:scale-95 cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            + New Practice Question
+            <Plus className="w-4 h-4" />+ New Practice Question
           </button>
         </div>
       </div>
 
       {/* 2. Top Stats Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatsCard icon={BookOpen} label="Total Practice Questions" value={stats.total} color="indigo" />
-        <StatsCard icon={CheckCircle} label="Active In Practice Lab" value={stats.active} color="green" />
-        <StatsCard icon={AlertTriangle} label="Draft / Incomplete" value={stats.drafts} color="yellow" />
-        <StatsCard icon={Layers} label="Subjects Covered" value={stats.subjectsCovered} color="purple" />
+        <StatsCard
+          icon={BookOpen}
+          label="Total Practice Questions"
+          value={stats.total}
+          color="indigo"
+        />
+        <StatsCard
+          icon={CheckCircle}
+          label="Active In Practice Lab"
+          value={stats.active}
+          color="green"
+        />
+        <StatsCard
+          icon={AlertTriangle}
+          label="Draft / Incomplete"
+          value={stats.drafts}
+          color="yellow"
+        />
+        <StatsCard
+          icon={Layers}
+          label="Subjects Covered"
+          value={stats.subjectsCovered}
+          color="purple"
+        />
       </div>
 
       {/* 3. Subject Navigation Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-2 shadow-sm">
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-1">
           <button
-            onClick={() => { setActiveSubjectTab('all'); setSelectedChapter('all'); setSelectedTopic('all'); setCurrentPage(1); }}
+            onClick={() => {
+              setActiveSubjectTab("all");
+              setSelectedChapter("all");
+              setSelectedTopic("all");
+              setCurrentPage(1);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeSubjectTab === 'all'
-                ? 'bg-amber-500 text-white shadow-sm'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+              activeSubjectTab === "all"
+                ? "bg-amber-500 text-white shadow-sm"
+                : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
             }`}
           >
             <span>📚 All Subjects</span>
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
-              activeSubjectTab === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-            }`}>
+            <span
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                activeSubjectTab === "all"
+                  ? "bg-white/20 text-white"
+                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+              }`}
+            >
               {subjectCounts.all || 0}
             </span>
           </button>
 
-          {subjects.map(sub => {
-            const count = subjectCounts[sub.id] || 0
-            const isActive = String(activeSubjectTab) === String(sub.id)
+          {subjects.map((sub) => {
+            const count = subjectCounts[sub.id] || 0;
+            const isActive = String(activeSubjectTab) === String(sub.id);
             return (
               <button
                 key={sub.id}
-                onClick={() => { setActiveSubjectTab(sub.id); setSelectedChapter('all'); setSelectedTopic('all'); setCurrentPage(1); }}
+                onClick={() => {
+                  setActiveSubjectTab(sub.id);
+                  setSelectedChapter("all");
+                  setSelectedTopic("all");
+                  setCurrentPage(1);
+                }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
                   isActive
-                    ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    ? "bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
                 }`}
               >
-                <span>{sub.icon || '▪'} {sub.label || sub.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
-                }`}>
+                <span>
+                  {sub.icon || "▪"} {sub.label || sub.name}
+                </span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono ${
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+                  }`}
+                >
                   {count}
                 </span>
               </button>
-            )
+            );
           })}
         </div>
       </div>
@@ -675,12 +913,15 @@ export default function PracticeQuestionsManager() {
               type="text"
               placeholder="Search question text, Hindi text, tags, explanation or ID..."
               value={searchQuery}
-              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full pl-9 pr-8 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white placeholder-gray-400 outline-none focus:border-amber-500 transition"
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => setSearchQuery("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
               >
                 ✕
@@ -692,12 +933,19 @@ export default function PracticeQuestionsManager() {
           <div>
             <select
               value={selectedChapter}
-              onChange={(e) => { setSelectedChapter(e.target.value); setSelectedTopic('all'); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSelectedChapter(e.target.value);
+                setSelectedTopic("all");
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500"
             >
               <option value="all">All Chapters</option>
               {availableChapters.map((c, idx) => (
-                <option key={c.id || c._id || c.name || idx} value={c.id || c._id}>
+                <option
+                  key={c.id || c._id || c.name || idx}
+                  value={c.id || c._id}
+                >
                   {c.name || c.title}
                 </option>
               ))}
@@ -708,12 +956,18 @@ export default function PracticeQuestionsManager() {
           <div>
             <select
               value={selectedTopic}
-              onChange={(e) => { setSelectedTopic(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setSelectedTopic(e.target.value);
+                setCurrentPage(1);
+              }}
               className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500"
             >
               <option value="all">All Topics</option>
               {availableTopics.map((t, idx) => (
-                <option key={t.id || t._id || t.name || idx} value={t.id || t._id}>
+                <option
+                  key={t.id || t._id || t.name || idx}
+                  value={t.id || t._id}
+                >
                   {t.name || t.title}
                 </option>
               ))}
@@ -724,24 +978,34 @@ export default function PracticeQuestionsManager() {
         {/* Quick Filter Badges */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100 dark:border-gray-700/60 text-xs">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-gray-400 font-semibold uppercase text-[10px] tracking-wider">Filters:</span>
+            <span className="text-gray-400 font-semibold uppercase text-[10px] tracking-wider">
+              Filters:
+            </span>
 
             {/* Difficulty */}
             <select
               value={difficultyFilter}
-              onChange={(e) => { setDifficultyFilter(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setDifficultyFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-2.5 py-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 outline-none"
             >
               <option value="all">Difficulty: All</option>
-              {DIFFICULTY_LEVELS.map(lvl => (
-                <option key={lvl.value} value={lvl.value}>{lvl.label || lvl.value}</option>
+              {DIFFICULTY_LEVELS.map((lvl) => (
+                <option key={lvl.value} value={lvl.value}>
+                  {lvl.label || lvl.value}
+                </option>
               ))}
             </select>
 
             {/* Type */}
             <select
               value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setTypeFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-2.5 py-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 outline-none"
             >
               <option value="all">Type: All</option>
@@ -754,7 +1018,10 @@ export default function PracticeQuestionsManager() {
             {/* Status */}
             <select
               value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-2.5 py-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 outline-none"
             >
               <option value="all">Status: All</option>
@@ -766,7 +1033,10 @@ export default function PracticeQuestionsManager() {
             {/* Language */}
             <select
               value={langFilter}
-              onChange={(e) => { setLangFilter(e.target.value); setCurrentPage(1); }}
+              onChange={(e) => {
+                setLangFilter(e.target.value);
+                setCurrentPage(1);
+              }}
               className="px-2.5 py-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-700 dark:text-gray-300 outline-none"
             >
               <option value="all">Language: All</option>
@@ -777,17 +1047,23 @@ export default function PracticeQuestionsManager() {
           </div>
 
           <div className="flex items-center gap-2">
-            {(searchQuery || selectedChapter !== 'all' || selectedTopic !== 'all' || difficultyFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'all' || langFilter !== 'all') && (
+            {(searchQuery ||
+              selectedChapter !== "all" ||
+              selectedTopic !== "all" ||
+              difficultyFilter !== "all" ||
+              typeFilter !== "all" ||
+              statusFilter !== "all" ||
+              langFilter !== "all") && (
               <button
                 onClick={() => {
-                  setSearchQuery('')
-                  setSelectedChapter('all')
-                  setSelectedTopic('all')
-                  setDifficultyFilter('all')
-                  setTypeFilter('all')
-                  setStatusFilter('all')
-                  setLangFilter('all')
-                  setCurrentPage(1)
+                  setSearchQuery("");
+                  setSelectedChapter("all");
+                  setSelectedTopic("all");
+                  setDifficultyFilter("all");
+                  setTypeFilter("all");
+                  setStatusFilter("all");
+                  setLangFilter("all");
+                  setCurrentPage(1);
                 }}
                 className="text-xs text-amber-600 hover:text-amber-700 font-semibold cursor-pointer"
               >
@@ -811,13 +1087,13 @@ export default function PracticeQuestionsManager() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => handleBulkStatus('active')}
+              onClick={() => handleBulkStatus("active")}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm transition cursor-pointer"
             >
               Set Active
             </button>
             <button
-              onClick={() => handleBulkStatus('draft')}
+              onClick={() => handleBulkStatus("draft")}
               className="px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-sm transition cursor-pointer"
             >
               Set Draft
@@ -862,14 +1138,19 @@ export default function PracticeQuestionsManager() {
                   <th className="p-3.5 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={selectedQuestions.length > 0 && selectedQuestions.length === paginatedQuestions.length}
+                      checked={
+                        selectedQuestions.length > 0 &&
+                        selectedQuestions.length === paginatedQuestions.length
+                      }
                       onChange={handleSelectAll}
                       className="rounded text-amber-600 focus:ring-amber-500"
                     />
                   </th>
                   <th className="p-3.5 w-12 text-center">#</th>
                   <th className="p-3.5 min-w-[280px]">Question Content</th>
-                  <th className="p-3.5 min-w-[160px]">Hierarchy (Subject &gt; Chapter)</th>
+                  <th className="p-3.5 min-w-[160px]">
+                    Hierarchy (Subject &gt; Chapter)
+                  </th>
                   <th className="p-3.5 w-20 text-center">Type</th>
                   <th className="p-3.5 min-w-[140px]">Options & Answer</th>
                   <th className="p-3.5 w-24 text-center">Difficulty</th>
@@ -879,21 +1160,23 @@ export default function PracticeQuestionsManager() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                 {paginatedQuestions.map((q, idx) => {
-                  const id = q.id || q._id
-                  const isSelected = selectedQuestions.includes(id)
-                  const subjectName = getSubjectName(q.subject || q.subject_id)
-                  const chapterName = getChapterName(q.chapter || q.chapter_id)
-                  const topicName = getTopicName(q.topic || q.topic_id)
-                  const diff = (q.difficulty || 'medium').toLowerCase()
-                  const diffObj = DIFFICULTY_LEVELS.find(d => d.value === diff) || DIFFICULTY_LEVELS[1]
-                  const optList = Array.isArray(q.options) ? q.options : []
-                  const correctIdx = q.correctOption ?? q.correct_option ?? 0
+                  const id = q.id || q._id;
+                  const isSelected = selectedQuestions.includes(id);
+                  const subjectName = getSubjectName(q.subject || q.subject_id);
+                  const chapterName = getChapterName(q.chapter || q.chapter_id);
+                  const topicName = getTopicName(q.topic || q.topic_id);
+                  const diff = (q.difficulty || "medium").toLowerCase();
+                  const diffObj =
+                    DIFFICULTY_LEVELS.find((d) => d.value === diff) ||
+                    DIFFICULTY_LEVELS[1];
+                  const optList = Array.isArray(q.options) ? q.options : [];
+                  const correctIdx = q.correctOption ?? q.correct_option ?? 0;
 
                   return (
                     <tr
                       key={id}
                       className={`hover:bg-gray-50/80 dark:hover:bg-gray-700/40 transition-colors ${
-                        isSelected ? 'bg-amber-50/50 dark:bg-amber-950/20' : ''
+                        isSelected ? "bg-amber-50/50 dark:bg-amber-950/20" : ""
                       }`}
                     >
                       {/* Checkbox */}
@@ -915,7 +1198,10 @@ export default function PracticeQuestionsManager() {
                       <td className="p-3.5">
                         <div className="space-y-1">
                           <p className="font-semibold text-gray-900 dark:text-white line-clamp-2 leading-relaxed">
-                            {q.questionText || q.question_text || q.text || 'Untitled Question'}
+                            {q.questionText ||
+                              q.question_text ||
+                              q.text ||
+                              "Untitled Question"}
                           </p>
 
                           {(q.questionTextHi || q.question_text_hi) && (
@@ -925,9 +1211,19 @@ export default function PracticeQuestionsManager() {
                           )}
 
                           <div className="flex items-center gap-2 pt-0.5">
-                            <span className="text-[10px] font-mono text-gray-400">ID: {id}</span>
-                            {q.imageUrl && <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-semibold">🖼 Image</span>}
-                            {q.hint && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-semibold">💡 Hint</span>}
+                            <span className="text-[10px] font-mono text-gray-400">
+                              ID: {id}
+                            </span>
+                            {q.imageUrl && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-semibold">
+                                🖼 Image
+                              </span>
+                            )}
+                            {q.hint && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 text-[10px] font-semibold">
+                                💡 Hint
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -948,7 +1244,9 @@ export default function PracticeQuestionsManager() {
 
                       {/* Question Type */}
                       <td className="p-3.5 text-center">
-                        <Badge variant="info">{(q.type || 'mcq').toUpperCase()}</Badge>
+                        <Badge variant="info">
+                          {(q.type || "mcq").toUpperCase()}
+                        </Badge>
                       </td>
 
                       {/* Options & Correct Answer */}
@@ -956,31 +1254,49 @@ export default function PracticeQuestionsManager() {
                         <div className="space-y-1">
                           <div className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                             <Check className="w-3 h-3" />
-                            {Array.isArray(correctIdx) && correctIdx.length > 0 ? (
+                            {Array.isArray(correctIdx) &&
+                            correctIdx.length > 0 ? (
                               <>
-                                <span>Opt {correctIdx.map((i, pos) => String.fromCharCode(65 + i)).join(', ')}:</span>
+                                <span>
+                                  Opt{" "}
+                                  {correctIdx
+                                    .map((i, pos) =>
+                                      String.fromCharCode(65 + i),
+                                    )
+                                    .join(", ")}
+                                  :
+                                </span>
                                 <span className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal">
-                                  {correctIdx.map(i => optList[i] || `Option ${i + 1}`).join(' | ')}
+                                  {correctIdx
+                                    .map((i) => optList[i] || `Option ${i + 1}`)
+                                    .join(" | ")}
                                 </span>
                               </>
                             ) : (
                               <>
-                                <span>Opt {String.fromCharCode(65 + (correctIdx || 0))}:</span>
+                                <span>
+                                  Opt{" "}
+                                  {String.fromCharCode(65 + (correctIdx || 0))}:
+                                </span>
                                 <span className="truncate max-w-[120px] text-gray-700 dark:text-gray-300 font-normal">
-                                  {optList[correctIdx] || `Option ${correctIdx + 1}`}
+                                  {optList[correctIdx] ||
+                                    `Option ${correctIdx + 1}`}
                                 </span>
                               </>
                             )}
                           </div>
                           <div className="text-[10px] text-gray-400">
-                            {optList.length} options total • Marks: +{q.marks || 2} / -{q.negativeMarks || 0.5}
+                            {optList.length} options total • Marks: +
+                            {q.marks || 2} / -{q.negativeMarks || 0.5}
                           </div>
                         </div>
                       </td>
 
                       {/* Difficulty Badge */}
                       <td className="p-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${diffObj.color}`}>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${diffObj.color}`}
+                        >
                           {diff}
                         </span>
                       </td>
@@ -990,12 +1306,14 @@ export default function PracticeQuestionsManager() {
                         <button
                           onClick={() => handleToggleStatus(q)}
                           className={`px-2 py-1 rounded-full text-[10px] font-bold transition cursor-pointer ${
-                            (q.status === 'active' || q.is_active)
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400'
-                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                            q.status === "active" || q.is_active
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400"
+                              : "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
                           }`}
                         >
-                          {(q.status === 'active' || q.is_active) ? '● Active' : '○ Draft'}
+                          {q.status === "active" || q.is_active
+                            ? "● Active"
+                            : "○ Draft"}
                         </button>
                       </td>
 
@@ -1033,7 +1351,7 @@ export default function PracticeQuestionsManager() {
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -1044,13 +1362,18 @@ export default function PracticeQuestionsManager() {
         {filteredQuestions.length > 0 && (
           <div className="p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="text-gray-500 dark:text-gray-400">
-              Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong> ({filteredQuestions.length} total questions)
+              Page <strong>{currentPage}</strong> of{" "}
+              <strong>{totalPages}</strong> ({filteredQuestions.length} total
+              questions)
             </div>
 
             <div className="flex items-center gap-2">
               <select
                 value={pageSize}
-                onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
                 className="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs outline-none"
               >
                 <option value={10}>10 per page</option>
@@ -1061,7 +1384,7 @@ export default function PracticeQuestionsManager() {
 
               <button
                 disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(p => p - 1)}
+                onClick={() => setCurrentPage((p) => p - 1)}
                 className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition cursor-pointer"
               >
                 Previous
@@ -1069,7 +1392,7 @@ export default function PracticeQuestionsManager() {
 
               <button
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(p => p + 1)}
+                onClick={() => setCurrentPage((p) => p + 1)}
                 className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100 transition cursor-pointer"
               >
                 Next
@@ -1087,7 +1410,9 @@ export default function PracticeQuestionsManager() {
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                  {editingQuestion ? 'Edit Practice Question' : 'Create Practice Question'}
+                  {editingQuestion
+                    ? "Edit Practice Question"
+                    : "Create Practice Question"}
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                   Subject-specific adaptive question for Practice Lab
@@ -1105,7 +1430,9 @@ export default function PracticeQuestionsManager() {
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
               {/* Classification Grid */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-3">
-                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Hierarchy & Classification</h3>
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">
+                  Hierarchy & Classification
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Subject */}
                   <div>
@@ -1114,12 +1441,24 @@ export default function PracticeQuestionsManager() {
                     </label>
                     <select
                       value={formData.subject}
-                      onChange={(e) => setFormData(prev => ({ ...prev, subject: e.target.value, chapter: '', topic: '' }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          subject: e.target.value,
+                          chapter: "",
+                          topic: "",
+                        }))
+                      }
                       className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-xs outline-none focus:border-amber-500"
                     >
                       <option value="">— Select Subject —</option>
                       {subjects.map((s, idx) => (
-                        <option key={s.id || s.label || s.name || idx} value={s.id}>{s.icon || '▪'} {s.label || s.name}</option>
+                        <option
+                          key={s.id || s.label || s.name || idx}
+                          value={s.id}
+                        >
+                          {s.icon || "▪"} {s.label || s.name}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -1131,14 +1470,31 @@ export default function PracticeQuestionsManager() {
                     </label>
                     <select
                       value={formData.chapter}
-                      onChange={(e) => setFormData(prev => ({ ...prev, chapter: e.target.value, topic: '' }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          chapter: e.target.value,
+                          topic: "",
+                        }))
+                      }
                       className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-xs outline-none focus:border-amber-500"
                     >
                       <option value="">— Select Chapter —</option>
                       {chapters
-                        .filter(c => !formData.subject || String(c.subjectId || c.subject_id || c.studyMaterialId) === String(formData.subject))
+                        .filter(
+                          (c) =>
+                            !formData.subject ||
+                            String(
+                              c.subjectId || c.subject_id || c.studyMaterialId,
+                            ) === String(formData.subject),
+                        )
                         .map((c, idx) => (
-                          <option key={c.id || c._id || c.name || idx} value={c.id || c._id}>{c.name || c.title}</option>
+                          <option
+                            key={c.id || c._id || c.name || idx}
+                            value={c.id || c._id}
+                          >
+                            {c.name || c.title}
+                          </option>
                         ))}
                     </select>
                   </div>
@@ -1150,14 +1506,29 @@ export default function PracticeQuestionsManager() {
                     </label>
                     <select
                       value={formData.topic}
-                      onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          topic: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-xl text-xs outline-none focus:border-amber-500"
                     >
                       <option value="">— Select Topic —</option>
                       {topics
-                        .filter(t => !formData.chapter || String(t.chapterId || t.chapter_id) === String(formData.chapter))
+                        .filter(
+                          (t) =>
+                            !formData.chapter ||
+                            String(t.chapterId || t.chapter_id) ===
+                              String(formData.chapter),
+                        )
                         .map((t, idx) => (
-                          <option key={t.id || t._id || t.name || idx} value={t.id || t._id}>{t.name || t.title}</option>
+                          <option
+                            key={t.id || t._id || t.name || idx}
+                            value={t.id || t._id}
+                          >
+                            {t.name || t.title}
+                          </option>
                         ))}
                     </select>
                   </div>
@@ -1168,33 +1539,33 @@ export default function PracticeQuestionsManager() {
               <div className="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
                 <button
                   type="button"
-                  onClick={() => setActiveFormTab('english')}
+                  onClick={() => setActiveFormTab("english")}
                   className={`px-4 py-2 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeFormTab === 'english'
-                      ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeFormTab === "english"
+                      ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   🇬🇧 English Content
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveFormTab('hindi')}
+                  onClick={() => setActiveFormTab("hindi")}
                   className={`px-4 py-2 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeFormTab === 'hindi'
-                      ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeFormTab === "hindi"
+                      ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   🇮🇳 Hindi Content (हिंदी सामग्री)
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActiveFormTab('scoring')}
+                  onClick={() => setActiveFormTab("scoring")}
                   className={`px-4 py-2 text-xs font-bold border-b-2 transition cursor-pointer ${
-                    activeFormTab === 'scoring'
-                      ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                    activeFormTab === "scoring"
+                      ? "border-amber-500 text-amber-600 dark:text-amber-400"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   ⚙ Scoring & Socratic AI
@@ -1202,17 +1573,23 @@ export default function PracticeQuestionsManager() {
               </div>
 
               {/* Tab 1: English Content */}
-              {activeFormTab === 'english' && (
+              {activeFormTab === "english" && (
                 <div className="space-y-4">
                   {/* Question Text */}
                   <div>
                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                      Question Text (English) <span className="text-red-500">*</span>
+                      Question Text (English){" "}
+                      <span className="text-red-500">*</span>
                     </label>
                     <textarea
                       rows={4}
                       value={formData.questionText}
-                      onChange={(e) => setFormData(prev => ({ ...prev, questionText: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          questionText: e.target.value,
+                        }))
+                      }
                       placeholder="Enter question text in English... (Markdown & LaTeX formulas supported)"
                       className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500 leading-relaxed"
                     />
@@ -1226,7 +1603,12 @@ export default function PracticeQuestionsManager() {
                     <input
                       type="text"
                       value={formData.imageUrl}
-                      onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageUrl: e.target.value,
+                        }))
+                      }
                       placeholder="https://example.com/diagram.png"
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500"
                     />
@@ -1236,16 +1618,20 @@ export default function PracticeQuestionsManager() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <label className="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                        Options &amp; Correct Answer (Click {formData.type === 'msq' ? 'checkbox to mark each correct option' : 'radio to mark correct option'})
+                        Options &amp; Correct Answer (Click{" "}
+                        {formData.type === "msq"
+                          ? "checkbox to mark each correct option"
+                          : "radio to mark correct option"}
+                        )
                       </label>
                       <button
                         type="button"
                         onClick={() => {
-                          setFormData(prev => ({
+                          setFormData((prev) => ({
                             ...prev,
-                            options: [...prev.options, ''],
-                            optionsHi: [...prev.optionsHi, '']
-                          }))
+                            options: [...prev.options, ""],
+                            optionsHi: [...prev.optionsHi, ""],
+                          }));
                         }}
                         className="text-xs text-amber-600 hover:text-amber-700 font-bold cursor-pointer"
                       >
@@ -1255,29 +1641,49 @@ export default function PracticeQuestionsManager() {
 
                     <div className="space-y-2">
                       {formData.options.map((opt, i) => {
-                        const correctArray = Array.isArray(formData.correctOption) ? formData.correctOption : [formData.correctOption]
-                        const isCorrect = formData.type === 'msq'
-                          ? correctArray.includes(i)
-                          : Number(formData.correctOption) === i
+                        const correctArray = Array.isArray(
+                          formData.correctOption,
+                        )
+                          ? formData.correctOption
+                          : [formData.correctOption];
+                        const isCorrect =
+                          formData.type === "msq"
+                            ? correctArray.includes(i)
+                            : Number(formData.correctOption) === i;
                         return (
                           <div key={i} className="flex items-center gap-2">
                             <input
-                              type={formData.type === 'msq' ? 'checkbox' : 'radio'}
+                              type={
+                                formData.type === "msq" ? "checkbox" : "radio"
+                              }
                               name="correctOption"
                               checked={isCorrect}
                               onChange={() => {
-                                if (formData.type === 'msq') {
-                                  const arr = Array.isArray(formData.correctOption) ? [...formData.correctOption] : []
-                                  setFormData(prev => ({
+                                if (formData.type === "msq") {
+                                  const arr = Array.isArray(
+                                    formData.correctOption,
+                                  )
+                                    ? [...formData.correctOption]
+                                    : [];
+                                  setFormData((prev) => ({
                                     ...prev,
-                                    correctOption: arr.includes(i) ? arr.filter(x => x !== i) : [...arr, i]
-                                  }))
+                                    correctOption: arr.includes(i)
+                                      ? arr.filter((x) => x !== i)
+                                      : [...arr, i],
+                                  }));
                                 } else {
-                                  setFormData(prev => ({ ...prev, correctOption: i }))
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    correctOption: i,
+                                  }));
                                 }
                               }}
                               className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                              title={formData.type === 'msq' ? 'Toggle as correct answer' : 'Mark as correct answer'}
+                              title={
+                                formData.type === "msq"
+                                  ? "Toggle as correct answer"
+                                  : "Mark as correct answer"
+                              }
                             />
                             <span className="w-6 text-xs font-bold text-gray-500 font-mono text-center">
                               {String.fromCharCode(65 + i)}
@@ -1286,29 +1692,43 @@ export default function PracticeQuestionsManager() {
                               type="text"
                               value={opt}
                               onChange={(e) => {
-                                const newOpts = [...formData.options]
-                                newOpts[i] = e.target.value
-                                setFormData(prev => ({ ...prev, options: newOpts }))
+                                const newOpts = [...formData.options];
+                                newOpts[i] = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  options: newOpts,
+                                }));
                               }}
                               placeholder={`Option ${String.fromCharCode(65 + i)}`}
                               className={`flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border rounded-xl text-xs text-gray-900 dark:text-white outline-none ${
                                 isCorrect
-                                  ? 'border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20'
-                                  : 'border-gray-300 dark:border-gray-700 focus:border-amber-500'
+                                  ? "border-emerald-500 bg-emerald-50/30 dark:bg-emerald-950/20"
+                                  : "border-gray-300 dark:border-gray-700 focus:border-amber-500"
                               }`}
                             />
                             {formData.options.length > 2 && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  setFormData(prev => ({
+                                  setFormData((prev) => ({
                                     ...prev,
-                                    options: prev.options.filter((_, idx) => idx !== i),
-                                    optionsHi: prev.optionsHi.filter((_, idx) => idx !== i),
-                                    correctOption: Array.isArray(prev.correctOption)
-                                      ? prev.correctOption.filter(x => x !== i).map(x => (x > i ? x - 1 : x))
-                                      : (prev.correctOption >= i && prev.correctOption > 0 ? prev.correctOption - 1 : prev.correctOption)
-                                  }))
+                                    options: prev.options.filter(
+                                      (_, idx) => idx !== i,
+                                    ),
+                                    optionsHi: prev.optionsHi.filter(
+                                      (_, idx) => idx !== i,
+                                    ),
+                                    correctOption: Array.isArray(
+                                      prev.correctOption,
+                                    )
+                                      ? prev.correctOption
+                                          .filter((x) => x !== i)
+                                          .map((x) => (x > i ? x - 1 : x))
+                                      : prev.correctOption >= i &&
+                                          prev.correctOption > 0
+                                        ? prev.correctOption - 1
+                                        : prev.correctOption,
+                                  }));
                                 }}
                                 className="p-1.5 text-gray-400 hover:text-rose-500 rounded-lg"
                               >
@@ -1316,7 +1736,7 @@ export default function PracticeQuestionsManager() {
                               </button>
                             )}
                           </div>
-                        )
+                        );
                       })}
                     </div>
                   </div>
@@ -1329,7 +1749,12 @@ export default function PracticeQuestionsManager() {
                     <textarea
                       rows={3}
                       value={formData.explanation}
-                      onChange={(e) => setFormData(prev => ({ ...prev, explanation: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          explanation: e.target.value,
+                        }))
+                      }
                       placeholder="Step-by-step solution and explanation..."
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500 leading-relaxed"
                     />
@@ -1338,7 +1763,7 @@ export default function PracticeQuestionsManager() {
               )}
 
               {/* Tab 2: Hindi Content */}
-              {activeFormTab === 'hindi' && (
+              {activeFormTab === "hindi" && (
                 <div className="space-y-4">
                   {/* Hindi Question Text */}
                   <div>
@@ -1348,7 +1773,12 @@ export default function PracticeQuestionsManager() {
                     <textarea
                       rows={4}
                       value={formData.questionTextHi}
-                      onChange={(e) => setFormData(prev => ({ ...prev, questionTextHi: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          questionTextHi: e.target.value,
+                        }))
+                      }
                       placeholder="हिंदी में प्रश्न दर्ज करें..."
                       className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500 leading-relaxed"
                     />
@@ -1367,11 +1797,14 @@ export default function PracticeQuestionsManager() {
                           </span>
                           <input
                             type="text"
-                            value={formData.optionsHi[i] || ''}
+                            value={formData.optionsHi[i] || ""}
                             onChange={(e) => {
-                              const newOptsHi = [...formData.optionsHi]
-                              newOptsHi[i] = e.target.value
-                              setFormData(prev => ({ ...prev, optionsHi: newOptsHi }))
+                              const newOptsHi = [...formData.optionsHi];
+                              newOptsHi[i] = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                optionsHi: newOptsHi,
+                              }));
                             }}
                             placeholder={`विकल्प ${String.fromCharCode(65 + i)} (हिंदी)`}
                             className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500"
@@ -1389,7 +1822,12 @@ export default function PracticeQuestionsManager() {
                     <textarea
                       rows={3}
                       value={formData.explanationHi}
-                      onChange={(e) => setFormData(prev => ({ ...prev, explanationHi: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          explanationHi: e.target.value,
+                        }))
+                      }
                       placeholder="विस्तृत व्याख्या एवं हल हिंदी में..."
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white outline-none focus:border-amber-500 leading-relaxed"
                     />
@@ -1398,57 +1836,89 @@ export default function PracticeQuestionsManager() {
               )}
 
               {/* Tab 3: Scoring & Socratic AI */}
-              {activeFormTab === 'scoring' && (
+              {activeFormTab === "scoring" && (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Difficulty */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Difficulty</label>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Difficulty
+                      </label>
                       <select
                         value={formData.difficulty}
-                        onChange={(e) => setFormData(prev => ({ ...prev, difficulty: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            difficulty: e.target.value,
+                          }))
+                        }
                         className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
                       >
-                        {DIFFICULTY_LEVELS.map(lvl => (
-                          <option key={lvl.value} value={lvl.value}>{lvl.label || lvl.value}</option>
+                        {DIFFICULTY_LEVELS.map((lvl) => (
+                          <option key={lvl.value} value={lvl.value}>
+                            {lvl.label || lvl.value}
+                          </option>
                         ))}
                       </select>
                     </div>
 
                     {/* Question Type */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Question Type</label>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Question Type
+                      </label>
                       <select
                         value={formData.type}
-                        onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            type: e.target.value,
+                          }))
+                        }
                         className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
                       >
-                        {QUESTION_TYPES.map(t => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
+                        {QUESTION_TYPES.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
                         ))}
                       </select>
                     </div>
 
                     {/* Marks */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Marks (+)</label>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Marks (+)
+                      </label>
                       <input
                         type="number"
                         step="0.5"
                         value={formData.marks}
-                        onChange={(e) => setFormData(prev => ({ ...prev, marks: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            marks: Number(e.target.value),
+                          }))
+                        }
                         className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
                       />
                     </div>
 
                     {/* Negative Marks */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Negative Marks (-)</label>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Negative Marks (-)
+                      </label>
                       <input
                         type="number"
                         step="0.25"
                         value={formData.negativeMarks}
-                        onChange={(e) => setFormData(prev => ({ ...prev, negativeMarks: Number(e.target.value) }))}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            negativeMarks: Number(e.target.value),
+                          }))
+                        }
                         className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
                       />
                     </div>
@@ -1458,12 +1928,18 @@ export default function PracticeQuestionsManager() {
                   <div>
                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-1">
                       <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-                      Socratic AI Hint (Given to students when stuck in Practice Lab)
+                      Socratic AI Hint (Given to students when stuck in Practice
+                      Lab)
                     </label>
                     <input
                       type="text"
                       value={formData.hint}
-                      onChange={(e) => setFormData(prev => ({ ...prev, hint: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          hint: e.target.value,
+                        }))
+                      }
                       placeholder="e.g. Try applying the formula Speed = Distance / Time..."
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none focus:border-amber-500"
                     />
@@ -1476,8 +1952,20 @@ export default function PracticeQuestionsManager() {
                     </label>
                     <input
                       type="text"
-                      value={Array.isArray(formData.tags) ? formData.tags.join(', ') : formData.tags}
-                      onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value.split(',').map(t => t.trim()).filter(Boolean) }))}
+                      value={
+                        Array.isArray(formData.tags)
+                          ? formData.tags.join(", ")
+                          : formData.tags
+                      }
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          tags: e.target.value
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                        }))
+                      }
                       placeholder="pyq-2024, ssc-cgl, algebra, speed-distance"
                       className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-xs outline-none"
                     />
@@ -1500,7 +1988,7 @@ export default function PracticeQuestionsManager() {
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={() => handleSaveQuestion('draft')}
+                  onClick={() => handleSaveQuestion("draft")}
                   className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 text-xs font-semibold rounded-xl transition cursor-pointer disabled:opacity-50"
                 >
                   Save as Draft
@@ -1508,10 +1996,14 @@ export default function PracticeQuestionsManager() {
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={() => handleSaveQuestion('active')}
+                  onClick={() => handleSaveQuestion("active")}
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-sm transition cursor-pointer disabled:opacity-50"
                 >
-                  {saving ? 'Saving...' : editingQuestion ? 'Update Question' : 'Publish Question'}
+                  {saving
+                    ? "Saving..."
+                    : editingQuestion
+                      ? "Update Question"
+                      : "Publish Question"}
                 </button>
               </div>
             </div>
@@ -1525,8 +2017,12 @@ export default function PracticeQuestionsManager() {
           <div className="w-full max-w-xl bg-white dark:bg-gray-900 h-full shadow-2xl flex flex-col animate-slide-in-right">
             <div className="p-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">Practice Question Preview</h3>
-                <p className="text-[11px] text-gray-400 font-mono">ID: {previewQuestion.id || previewQuestion._id}</p>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                  Practice Question Preview
+                </h3>
+                <p className="text-[11px] text-gray-400 font-mono">
+                  ID: {previewQuestion.id || previewQuestion._id}
+                </p>
               </div>
               <button
                 onClick={() => setPreviewQuestion(null)}
@@ -1540,67 +2036,102 @@ export default function PracticeQuestionsManager() {
               {/* Hierarchy Badges */}
               <div className="flex flex-wrap gap-2">
                 <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold">
-                  {getSubjectName(previewQuestion.subject || previewQuestion.subject_id)}
+                  {getSubjectName(
+                    previewQuestion.subject || previewQuestion.subject_id,
+                  )}
                 </span>
                 <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">
-                  {getChapterName(previewQuestion.chapter || previewQuestion.chapter_id) || 'Chapter N/A'}
+                  {getChapterName(
+                    previewQuestion.chapter || previewQuestion.chapter_id,
+                  ) || "Chapter N/A"}
                 </span>
                 <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">
-                  {previewQuestion.difficulty || 'medium'}
+                  {previewQuestion.difficulty || "medium"}
                 </span>
               </div>
 
               {/* Question Text */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2">
-                <h4 className="font-bold text-gray-400 uppercase text-[10px]">English Question</h4>
+                <h4 className="font-bold text-gray-400 uppercase text-[10px]">
+                  English Question
+                </h4>
                 <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
-                  {previewQuestion.questionText || previewQuestion.question_text || previewQuestion.text}
+                  {previewQuestion.questionText ||
+                    previewQuestion.question_text ||
+                    previewQuestion.text}
                 </p>
                 {previewQuestion.imageUrl && (
-                  <img src={previewQuestion.imageUrl} alt="Graphic" className="mt-2 rounded-lg max-h-48 object-contain border" />
+                  <img
+                    src={previewQuestion.imageUrl}
+                    alt="Graphic"
+                    className="mt-2 rounded-lg max-h-48 object-contain border"
+                  />
                 )}
               </div>
 
               {/* Hindi Question */}
-              {(previewQuestion.questionTextHi || previewQuestion.question_text_hi) && (
+              {(previewQuestion.questionTextHi ||
+                previewQuestion.question_text_hi) && (
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2">
-                  <h4 className="font-bold text-gray-400 uppercase text-[10px]">Hindi Question (हिंदी प्रश्न)</h4>
+                  <h4 className="font-bold text-gray-400 uppercase text-[10px]">
+                    Hindi Question (हिंदी प्रश्न)
+                  </h4>
                   <p className="text-sm font-semibold text-gray-900 dark:text-white leading-relaxed">
-                    {previewQuestion.questionTextHi || previewQuestion.question_text_hi}
+                    {previewQuestion.questionTextHi ||
+                      previewQuestion.question_text_hi}
                   </p>
                 </div>
               )}
 
               {/* Options */}
               <div className="space-y-2">
-                <h4 className="font-bold text-gray-400 uppercase text-[10px]">Options</h4>
-                {(Array.isArray(previewQuestion.options) ? previewQuestion.options : []).map((opt, i) => {
-                  const isCorrect = Number(previewQuestion.correctOption ?? previewQuestion.correct_option) === i
+                <h4 className="font-bold text-gray-400 uppercase text-[10px]">
+                  Options
+                </h4>
+                {(Array.isArray(previewQuestion.options)
+                  ? previewQuestion.options
+                  : []
+                ).map((opt, i) => {
+                  const isCorrect =
+                    Number(
+                      previewQuestion.correctOption ??
+                        previewQuestion.correct_option,
+                    ) === i;
                   return (
                     <div
                       key={i}
                       className={`p-3 rounded-xl border text-xs flex items-center gap-2.5 ${
                         isCorrect
-                          ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 font-bold text-emerald-800 dark:text-emerald-300'
-                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200'
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 font-bold text-emerald-800 dark:text-emerald-300"
+                          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200"
                       }`}
                     >
-                      <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] ${
-                        isCorrect ? 'bg-emerald-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600'
-                      }`}>
+                      <span
+                        className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] ${
+                          isCorrect
+                            ? "bg-emerald-600 text-white"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600"
+                        }`}
+                      >
                         {String.fromCharCode(65 + i)}
                       </span>
                       <span className="flex-1">{opt}</span>
-                      {isCorrect && <span className="text-[10px] font-bold text-emerald-600">✓ Correct</span>}
+                      {isCorrect && (
+                        <span className="text-[10px] font-bold text-emerald-600">
+                          ✓ Correct
+                        </span>
+                      )}
                     </div>
-                  )
+                  );
                 })}
               </div>
 
               {/* Explanation */}
               {previewQuestion.explanation && (
                 <div className="bg-indigo-50/50 dark:bg-indigo-950/30 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900 space-y-1">
-                  <h4 className="font-bold text-indigo-700 dark:text-indigo-400 uppercase text-[10px]">Solution &amp; Explanation</h4>
+                  <h4 className="font-bold text-indigo-700 dark:text-indigo-400 uppercase text-[10px]">
+                    Solution &amp; Explanation
+                  </h4>
                   <p className="text-xs text-gray-800 dark:text-gray-200 leading-relaxed">
                     {previewQuestion.explanation}
                   </p>
@@ -1610,7 +2141,10 @@ export default function PracticeQuestionsManager() {
 
             <div className="p-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
               <button
-                onClick={() => { setPreviewQuestion(null); handleOpenEditModal(previewQuestion); }}
+                onClick={() => {
+                  setPreviewQuestion(null);
+                  handleOpenEditModal(previewQuestion);
+                }}
                 className="px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl"
               >
                 Edit in Form
@@ -1636,14 +2170,26 @@ export default function PracticeQuestionsManager() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-purple-600 animate-pulse" />
-                <h3 className="text-base font-bold text-gray-900 dark:text-white">AI Practice Question Generator</h3>
+                <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                  AI Practice Question Generator
+                </h3>
               </div>
-              <button onClick={() => setShowAiModal(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
 
             <p className="text-xs text-gray-500">
-              Instantly generate high-quality, concept-tested practice questions with step-by-step solutions for your active subject:
-              <strong className="text-purple-600 ml-1">{activeSubjectTab !== 'all' ? getSubjectName(activeSubjectTab) : 'General'}</strong>
+              Instantly generate high-quality, concept-tested practice questions
+              with step-by-step solutions for your active subject:
+              <strong className="text-purple-600 ml-1">
+                {activeSubjectTab !== "all"
+                  ? getSubjectName(activeSubjectTab)
+                  : "General"}
+              </strong>
             </p>
 
             <div>
@@ -1671,13 +2217,17 @@ export default function PracticeQuestionsManager() {
                 onClick={handleAiGenerate}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold rounded-xl shadow-sm flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
               >
-                {aiGenerating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {aiGenerating ? 'Generating...' : 'Generate 3 Questions'}
+                {aiGenerating ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                {aiGenerating ? "Generating..." : "Generate 3 Questions"}
               </button>
             </div>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }

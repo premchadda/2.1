@@ -1,4 +1,5 @@
-import React, { useMemo } from 'react'
+import React, { useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Clock,
   CheckCircle2,
@@ -9,18 +10,18 @@ import {
   ShieldAlert,
   Layers,
   X,
-  Timer
-} from 'lucide-react'
+  Timer,
+} from "lucide-react";
 
 function formatDuration(seconds) {
-  if (!seconds || seconds <= 0) return '00m 00s'
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = Math.floor(seconds % 60)
+  if (!seconds || seconds <= 0) return "00m 00s";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
   if (h > 0) {
-    return `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+    return `${h}h ${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
   }
-  return `${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`
+  return `${String(m).padStart(2, "0")}m ${String(s).padStart(2, "0")}s`;
 }
 
 export default function SubmitSummaryModal({
@@ -28,7 +29,7 @@ export default function SubmitSummaryModal({
   onClose,
   onSubmit,
   isSubmitting,
-  testTitle = 'Test Paper',
+  testTitle = "Test Paper",
   testDuration = 60,
   timeLeft = 0,
   questions = [],
@@ -37,50 +38,57 @@ export default function SubmitSummaryModal({
   markedForReview = new Set(),
   visitedQuestions = new Set(),
   sectionTimers = {},
-  dialogRef
+  dialogRef,
 }) {
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
-  const timeElapsedSeconds = Math.max(0, (Number(testDuration || 60) * 60) - Number(timeLeft || 0))
+  const timeElapsedSeconds = Math.max(
+    0,
+    Number(testDuration || 60) * 60 - Number(timeLeft || 0),
+  );
 
   const sectionStats = useMemo(() => {
-    const secList = sections && sections.length > 0
-      ? sections
-      : [...new Set(questions.map(q => q.section || 'General'))]
+    const secList =
+      sections && sections.length > 0
+        ? sections
+        : [...new Set(questions.map((q) => q.section || "General"))];
 
-    return secList.map(secName => {
+    return secList.map((secName) => {
       const sectionQuestions = questions
         .map((q, idx) => ({ ...q, originalIndex: idx }))
-        .filter(q => (q.section || 'General') === secName)
+        .filter((q) => (q.section || "General") === secName);
 
-      const total = sectionQuestions.length
-      let answered = 0
-      let markedOnly = 0
-      let answeredAndMarked = 0
-      let skipped = 0 // Visited but left blank
-      let notVisited = 0 // Never opened
+      const total = sectionQuestions.length;
+      let answered = 0;
+      let markedOnly = 0;
+      let answeredAndMarked = 0;
+      let skipped = 0; // Visited but left blank
+      let notVisited = 0; // Never opened
 
-      sectionQuestions.forEach(q => {
-        const idx = q.originalIndex
-        const isAns = answers[idx] !== undefined && answers[idx] !== null && answers[idx] !== ''
-        const isMark = markedForReview.has(idx)
-        const isVisit = visitedQuestions.has(idx)
+      sectionQuestions.forEach((q) => {
+        const idx = q.originalIndex;
+        const isAns =
+          answers[idx] !== undefined &&
+          answers[idx] !== null &&
+          answers[idx] !== "";
+        const isMark = markedForReview.has(idx);
+        const isVisit = visitedQuestions.has(idx);
 
         if (isAns && isMark) {
-          answeredAndMarked++
-          answered++
+          answeredAndMarked++;
+          answered++;
         } else if (isAns) {
-          answered++
+          answered++;
         } else if (isMark) {
-          markedOnly++
+          markedOnly++;
         } else if (isVisit) {
-          skipped++
+          skipped++;
         } else {
-          notVisited++
+          notVisited++;
         }
-      })
+      });
 
-      const timeSpent = Number(sectionTimers[secName] || 0)
+      const timeSpent = Number(sectionTimers[secName] || 0);
 
       return {
         name: secName,
@@ -92,40 +100,52 @@ export default function SubmitSummaryModal({
         skipped,
         notVisited,
         timeSpent,
-        attemptPercentage: total > 0 ? Math.round((answered / total) * 100) : 0
-      }
-    })
-  }, [sections, questions, answers, markedForReview, visitedQuestions, sectionTimers])
+        attemptPercentage: total > 0 ? Math.round((answered / total) * 100) : 0,
+      };
+    });
+  }, [
+    sections,
+    questions,
+    answers,
+    markedForReview,
+    visitedQuestions,
+    sectionTimers,
+  ]);
 
   const overallTotals = useMemo(() => {
-    return sectionStats.reduce((acc, sec) => ({
-      total: acc.total + sec.total,
-      answered: acc.answered + sec.answered,
-      markedOnly: acc.markedOnly + sec.markedOnly,
-      answeredAndMarked: acc.answeredAndMarked + sec.answeredAndMarked,
-      totalMarked: acc.totalMarked + sec.totalMarked,
-      skipped: acc.skipped + sec.skipped,
-      notVisited: acc.notVisited + sec.notVisited,
-      timeSpent: acc.timeSpent + sec.timeSpent
-    }), {
-      total: 0,
-      answered: 0,
-      markedOnly: 0,
-      answeredAndMarked: 0,
-      totalMarked: 0,
-      skipped: 0,
-      notVisited: 0,
-      timeSpent: 0
-    })
-  }, [sectionStats])
+    return sectionStats.reduce(
+      (acc, sec) => ({
+        total: acc.total + sec.total,
+        answered: acc.answered + sec.answered,
+        markedOnly: acc.markedOnly + sec.markedOnly,
+        answeredAndMarked: acc.answeredAndMarked + sec.answeredAndMarked,
+        totalMarked: acc.totalMarked + sec.totalMarked,
+        skipped: acc.skipped + sec.skipped,
+        notVisited: acc.notVisited + sec.notVisited,
+        timeSpent: acc.timeSpent + sec.timeSpent,
+      }),
+      {
+        total: 0,
+        answered: 0,
+        markedOnly: 0,
+        answeredAndMarked: 0,
+        totalMarked: 0,
+        skipped: 0,
+        notVisited: 0,
+        timeSpent: 0,
+      },
+    );
+  }, [sectionStats]);
 
-  const totalQuestionsCount = overallTotals.total || questions.length || 0
+  const totalQuestionsCount = overallTotals.total || questions.length || 0;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fade-in"
+      className="fixed inset-0 z-[99999] bg-black/70 backdrop-blur-md flex items-center justify-center p-3 md:p-6 overflow-y-auto animate-fade-in"
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) onClose()
+        if (e.target === e.currentTarget && !isSubmitting) onClose();
       }}
     >
       <div
@@ -170,7 +190,9 @@ export default function SubmitSummaryModal({
                 <Timer className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time Elapsed</div>
+                <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Time Elapsed
+                </div>
                 <div className="text-sm md:text-base font-bold text-gray-900 dark:text-gray-100 font-mono">
                   {formatDuration(timeElapsedSeconds)}
                 </div>
@@ -182,7 +204,9 @@ export default function SubmitSummaryModal({
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time Remaining</div>
+                <div className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Time Remaining
+                </div>
                 <div className="text-sm md:text-base font-bold text-amber-600 dark:text-amber-400 font-mono">
                   {formatDuration(timeLeft)}
                 </div>
@@ -201,7 +225,9 @@ export default function SubmitSummaryModal({
                 {overallTotals.answered}
               </div>
               <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {totalQuestionsCount > 0 ? `${Math.round((overallTotals.answered / totalQuestionsCount) * 100)}% attempted` : '0%'}
+                {totalQuestionsCount > 0
+                  ? `${Math.round((overallTotals.answered / totalQuestionsCount) * 100)}% attempted`
+                  : "0%"}
               </div>
             </div>
 
@@ -240,7 +266,9 @@ export default function SubmitSummaryModal({
                 {overallTotals.totalMarked}
               </div>
               <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
-                {overallTotals.answeredAndMarked > 0 ? `(${overallTotals.answeredAndMarked} with answer)` : 'Pending review'}
+                {overallTotals.answeredAndMarked > 0
+                  ? `(${overallTotals.answeredAndMarked} with answer)`
+                  : "Pending review"}
               </div>
             </div>
           </div>
@@ -252,7 +280,8 @@ export default function SubmitSummaryModal({
                 Section-Wise Status
               </h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">
-                {sectionStats.length} Section{sectionStats.length > 1 ? 's' : ''}
+                {sectionStats.length} Section
+                {sectionStats.length > 1 ? "s" : ""}
               </span>
             </div>
 
@@ -261,18 +290,47 @@ export default function SubmitSummaryModal({
               <table className="w-full text-left text-xs">
                 <thead className="bg-gray-50 dark:bg-gray-800/90 text-gray-600 dark:text-gray-300 font-bold uppercase tracking-wider border-b border-gray-200 dark:border-gray-800">
                   <tr>
-                    <th scope="col" className="py-3 px-4">Section</th>
-                    <th scope="col" className="py-3 px-3 text-center">Total Qs</th>
-                    <th scope="col" className="py-3 px-3 text-center text-emerald-600 dark:text-emerald-400">Attempted</th>
-                    <th scope="col" className="py-3 px-3 text-center text-amber-600 dark:text-amber-400">Skipped</th>
-                    <th scope="col" className="py-3 px-3 text-center text-gray-500 dark:text-gray-400">Not Visited</th>
-                    <th scope="col" className="py-3 px-3 text-center text-purple-600 dark:text-purple-400">Marked</th>
-                    <th scope="col" className="py-3 px-4 text-right">Time Spent</th>
+                    <th scope="col" className="py-3 px-4">
+                      Section
+                    </th>
+                    <th scope="col" className="py-3 px-3 text-center">
+                      Total Qs
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 px-3 text-center text-emerald-600 dark:text-emerald-400"
+                    >
+                      Attempted
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 px-3 text-center text-amber-600 dark:text-amber-400"
+                    >
+                      Skipped
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 px-3 text-center text-gray-500 dark:text-gray-400"
+                    >
+                      Not Visited
+                    </th>
+                    <th
+                      scope="col"
+                      className="py-3 px-3 text-center text-purple-600 dark:text-purple-400"
+                    >
+                      Marked
+                    </th>
+                    <th scope="col" className="py-3 px-4 text-right">
+                      Time Spent
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
                   {sectionStats.map((sec, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                    <tr
+                      key={idx}
+                      className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors"
+                    >
                       <td className="py-3 px-4 font-semibold text-gray-900 dark:text-gray-100 max-w-[200px] truncate">
                         {sec.name}
                       </td>
@@ -302,12 +360,24 @@ export default function SubmitSummaryModal({
                 <tfoot className="bg-gray-100/80 dark:bg-gray-800/80 font-bold border-t-2 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100">
                   <tr>
                     <td className="py-3 px-4">TOTAL</td>
-                    <td className="py-3 px-3 text-center">{overallTotals.total}</td>
-                    <td className="py-3 px-3 text-center text-emerald-600 dark:text-emerald-400">{overallTotals.answered}</td>
-                    <td className="py-3 px-3 text-center text-amber-600 dark:text-amber-400">{overallTotals.skipped}</td>
-                    <td className="py-3 px-3 text-center text-gray-500 dark:text-gray-400">{overallTotals.notVisited}</td>
-                    <td className="py-3 px-3 text-center text-purple-600 dark:text-purple-400">{overallTotals.totalMarked}</td>
-                    <td className="py-3 px-4 text-right font-mono">{formatDuration(timeElapsedSeconds)}</td>
+                    <td className="py-3 px-3 text-center">
+                      {overallTotals.total}
+                    </td>
+                    <td className="py-3 px-3 text-center text-emerald-600 dark:text-emerald-400">
+                      {overallTotals.answered}
+                    </td>
+                    <td className="py-3 px-3 text-center text-amber-600 dark:text-amber-400">
+                      {overallTotals.skipped}
+                    </td>
+                    <td className="py-3 px-3 text-center text-gray-500 dark:text-gray-400">
+                      {overallTotals.notVisited}
+                    </td>
+                    <td className="py-3 px-3 text-center text-purple-600 dark:text-purple-400">
+                      {overallTotals.totalMarked}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono">
+                      {formatDuration(timeElapsedSeconds)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -316,7 +386,10 @@ export default function SubmitSummaryModal({
             {/* Mobile Card List View */}
             <div className="sm:hidden space-y-3">
               {sectionStats.map((sec, idx) => (
-                <div key={idx} className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 shadow-sm space-y-2.5">
+                <div
+                  key={idx}
+                  className="p-3.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800/60 shadow-sm space-y-2.5"
+                >
                   <div className="flex items-center justify-between">
                     <div className="font-bold text-sm text-gray-900 dark:text-white truncate max-w-[180px]">
                       {sec.name}
@@ -330,15 +403,21 @@ export default function SubmitSummaryModal({
                   <div className="w-full bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden flex">
                     <div
                       className="bg-emerald-500 h-full"
-                      style={{ width: `${sec.total > 0 ? (sec.answered / sec.total) * 100 : 0}%` }}
+                      style={{
+                        width: `${sec.total > 0 ? (sec.answered / sec.total) * 100 : 0}%`,
+                      }}
                     />
                     <div
                       className="bg-purple-500 h-full"
-                      style={{ width: `${sec.total > 0 ? (sec.markedOnly / sec.total) * 100 : 0}%` }}
+                      style={{
+                        width: `${sec.total > 0 ? (sec.markedOnly / sec.total) * 100 : 0}%`,
+                      }}
                     />
                     <div
                       className="bg-amber-400 h-full"
-                      style={{ width: `${sec.total > 0 ? (sec.skipped / sec.total) * 100 : 0}%` }}
+                      style={{
+                        width: `${sec.total > 0 ? (sec.skipped / sec.total) * 100 : 0}%`,
+                      }}
                     />
                   </div>
 
@@ -354,7 +433,8 @@ export default function SubmitSummaryModal({
                       Skip: <span className="font-bold">{sec.skipped}</span>
                     </div>
                     <div className="p-1 rounded bg-gray-50 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
-                      Unseen: <span className="font-bold">{sec.notVisited}</span>
+                      Unseen:{" "}
+                      <span className="font-bold">{sec.notVisited}</span>
                     </div>
                   </div>
                 </div>
@@ -367,7 +447,9 @@ export default function SubmitSummaryModal({
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <div>
               <span className="font-bold">Final Submission Notice: </span>
-              Once submitted, your responses will be evaluated and you cannot re-attempt or modify this test attempt. Please ensure you have reviewed all flagged questions.
+              Once submitted, your responses will be evaluated and you cannot
+              re-attempt or modify this test attempt. Please ensure you have
+              reviewed all flagged questions.
             </div>
           </div>
         </div>
@@ -383,8 +465,8 @@ export default function SubmitSummaryModal({
           </button>
           <button
             onClick={() => {
-              onClose()
-              onSubmit()
+              onClose();
+              onSubmit();
             }}
             disabled={isSubmitting}
             className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all disabled:opacity-50 text-sm flex items-center gap-2"
@@ -403,6 +485,7 @@ export default function SubmitSummaryModal({
           </button>
         </div>
       </div>
-    </div>
-  )
+    </div>,
+    document.body,
+  );
 }

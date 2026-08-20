@@ -1,52 +1,54 @@
-import { useState, useEffect } from 'react'
-import { Plus, Trash2, X, Save, Image, Eye, EyeOff } from 'lucide-react'
-import { apiClient } from '../../../shared/lib/dataService.js'
-import { toast } from 'react-hot-toast'
-import { confirmOnce } from '../../../shared/components/common/ConfirmModal'
+import { useState, useEffect } from "react";
+import { Plus, Trash2, X, Save, Image, Eye, EyeOff } from "lucide-react";
+import { apiClient } from "../../../shared/lib/dataService.js";
+import { toast } from "react-hot-toast";
+import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
 export default function BannerManager() {
-  const [banners, setBanners] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [banners, setBanners] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [formData, setFormData] = useState({
-    title: '',
-    imageUrl: '',
-    linkUrl: '',
-    position: 'home',
+    title: "",
+    imageUrl: "",
+    linkUrl: "",
+    position: "home",
     sortOrder: 0,
-    isActive: true
-  })
+    isActive: true,
+  });
 
   useEffect(() => {
-    fetchBanners()
-  }, [])
+    fetchBanners();
+  }, []);
 
   const fetchBanners = async () => {
     try {
-      const response = await apiClient.get('/admin/banners', { params: { includeInactive: 'true' } })
+      const response = await apiClient.get("/admin/banners", {
+        params: { includeInactive: "true" },
+      });
       if (response.data.success) {
-        setBanners(response.data.data || [])
+        setBanners(response.data.data || []);
       } else {
-        toast.error(response.data.message || 'Failed to fetch banners')
-        setBanners([])
+        toast.error(response.data.message || "Failed to fetch banners");
+        setBanners([]);
       }
     } catch (error) {
-      console.error('Failed to fetch banners:', error)
-      toast.error(error.response?.data?.message || 'Failed to fetch banners')
-      setBanners([])
+      console.error("Failed to fetch banners:", error);
+      toast.error(error.response?.data?.message || "Failed to fetch banners");
+      setBanners([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (saving) return
-    setSaving(true)
+    e.preventDefault();
+    if (saving) return;
+    setSaving(true);
 
     try {
       const payload = {
@@ -55,112 +57,123 @@ export default function BannerManager() {
         linkUrl: formData.linkUrl,
         position: formData.position,
         sortOrder: formData.sortOrder,
-        isActive: formData.isActive
-      }
-      let response
+        isActive: formData.isActive,
+      };
+      let response;
       if (editingId) {
-        response = await apiClient.put(`/admin/banners/${editingId}`, payload)
+        response = await apiClient.put(`/admin/banners/${editingId}`, payload);
       } else {
-        response = await apiClient.post('/admin/banners', payload)
+        response = await apiClient.post("/admin/banners", payload);
       }
 
       if (response.data?.success) {
-        await fetchBanners()
-        resetForm()
-        toast.success(editingId ? 'Banner updated!' : 'Banner created!')
+        await fetchBanners();
+        resetForm();
+        toast.success(editingId ? "Banner updated!" : "Banner created!");
       } else {
-        toast.error(response.data?.message || 'Failed to save banner')
+        toast.error(response.data?.message || "Failed to save banner");
       }
     } catch (error) {
-      console.error('Failed to save banner:', error)
-      toast.error(error.response?.data?.message || 'Failed to save banner')
+      console.error("Failed to save banner:", error);
+      toast.error(error.response?.data?.message || "Failed to save banner");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const handleEdit = (banner) => {
     setFormData({
-      title: banner.title || '',
-      imageUrl: banner.imageUrl || '',
-      linkUrl: banner.linkUrl ?? banner.link ?? '',
-      position: banner.position || 'home',
+      title: banner.title || "",
+      imageUrl: banner.imageUrl || "",
+      linkUrl: banner.linkUrl ?? banner.link ?? "",
+      position: banner.position || "home",
       sortOrder: banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0,
-      isActive: banner.isActive !== false
-    })
-    setEditingId(banner.id || banner._id)
-    setShowForm(true)
-  }
+      isActive: banner.isActive !== false,
+    });
+    setEditingId(banner.id || banner._id);
+    setShowForm(true);
+  };
 
   const handleDelete = async (id) => {
     const confirmed = await confirmOnce({
-      title: 'Delete Banner',
-      message: 'Are you sure you want to delete this banner?',
-      confirmLabel: 'Delete',
-      danger: true
-    })
-    if (!confirmed) return
+      title: "Delete Banner",
+      message: "Are you sure you want to delete this banner?",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!confirmed) return;
 
     try {
-      const response = await apiClient.delete(`/admin/banners/${id}`)
+      const response = await apiClient.delete(`/admin/banners/${id}`);
       if (response.data?.success) {
-        toast.success('Banner deleted!')
-        await fetchBanners()
+        toast.success("Banner deleted!");
+        await fetchBanners();
       } else {
-        toast.error(response.data?.message || 'Failed to delete banner')
+        toast.error(response.data?.message || "Failed to delete banner");
       }
     } catch (error) {
-      console.error('Failed to delete banner:', error)
-      toast.error(error.response?.data?.message || 'Failed to delete banner')
+      console.error("Failed to delete banner:", error);
+      toast.error(error.response?.data?.message || "Failed to delete banner");
     }
-  }
+  };
 
   const toggleActive = async (banner) => {
     try {
-      const bannerId = banner.id || banner._id
+      const bannerId = banner.id || banner._id;
       const response = await apiClient.put(`/admin/banners/${bannerId}`, {
-        isActive: !banner.isActive
-      })
+        isActive: !banner.isActive,
+      });
       if (response.data.success) {
-        await fetchBanners()
+        await fetchBanners();
       } else {
-        toast.error(response.data?.message || 'Failed to toggle banner')
+        toast.error(response.data?.message || "Failed to toggle banner");
       }
     } catch (error) {
-      console.error('Failed to toggle banner:', error)
-      toast.error(error.response?.data?.message || 'Failed to toggle banner')
+      console.error("Failed to toggle banner:", error);
+      toast.error(error.response?.data?.message || "Failed to toggle banner");
     }
-  }
+  };
 
   const resetForm = () => {
-    setFormData({ title: '', imageUrl: '', linkUrl: '', position: 'home', sortOrder: 0, isActive: true })
-    setEditingId(null)
-    setShowForm(false)
-  }
+    setFormData({
+      title: "",
+      imageUrl: "",
+      linkUrl: "",
+      position: "home",
+      sortOrder: 0,
+      isActive: true,
+    });
+    setEditingId(null);
+    setShowForm(false);
+  };
 
   const positions = [
-    { value: 'home', label: 'Homepage' },
-    { value: 'test_series', label: 'Test Series' },
-    { value: 'live', label: 'Live Tests' },
-    { value: 'study', label: 'Study Materials' }
-  ]
+    { value: "home", label: "Homepage" },
+    { value: "test_series", label: "Test Series" },
+    { value: "live", label: "Live Tests" },
+    { value: "study", label: "Study Materials" },
+  ];
 
-  const visibleBanners = banners.filter(banner => {
-    if (statusFilter === 'active') return banner.isActive !== false
-    if (statusFilter === 'inactive') return banner.isActive === false
-    return true
-  })
+  const visibleBanners = banners.filter((banner) => {
+    if (statusFilter === "active") return banner.isActive !== false;
+    if (statusFilter === "inactive") return banner.isActive === false;
+    return true;
+  });
 
   if (loading) {
-    return <div className="p-6">Loading...</div>
+    return <div className="p-6">Loading...</div>;
   }
 
   return (
     <div className="p-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Banner Manager</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage homepage and promotional banners</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Banner Manager
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage homepage and promotional banners
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <select
@@ -186,68 +199,100 @@ export default function BannerManager() {
       {/* Banners Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {visibleBanners.map((banner) => {
-          const bannerId = banner.id || banner._id
+          const bannerId = banner.id || banner._id;
           return (
-          <div key={bannerId} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden">
-            {/* Banner Preview */}
-            <div className="h-40 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-              {banner.imageUrl ? (
-                <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Image className="w-12 h-12 text-white/50" />
+            <div
+              key={bannerId}
+              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden"
+            >
+              {/* Banner Preview */}
+              <div className="h-40 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+                {banner.imageUrl ? (
+                  <img
+                    src={banner.imageUrl}
+                    alt={banner.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <Image className="w-12 h-12 text-white/50" />
+                  </div>
+                )}
+                <div className="absolute top-2 right-2 flex gap-1">
+                  <button
+                    onClick={() => toggleActive(banner)}
+                    aria-label={
+                      banner.isActive ? "Deactivate banner" : "Activate banner"
+                    }
+                    className={`p-1 rounded ${banner.isActive ? "bg-green-50 dark:bg-green-900/60" : "bg-gray-500"}`}
+                  >
+                    {banner.isActive ? (
+                      <Eye className="w-4 h-4 text-white" />
+                    ) : (
+                      <EyeOff className="w-4 h-4 text-white" />
+                    )}
+                  </button>
                 </div>
-              )}
-              <div className="absolute top-2 right-2 flex gap-1">
-                <button
-                  onClick={() => toggleActive(banner)}
-                  aria-label={banner.isActive ? 'Deactivate banner' : 'Activate banner'}
-                  className={`p-1 rounded ${banner.isActive ? 'bg-green-50 dark:bg-green-900/60' : 'bg-gray-500'}`}
-                >
-                  {banner.isActive ? <Eye className="w-4 h-4 text-white" /> : <EyeOff className="w-4 h-4 text-white" />}
-                </button>
-              </div>
-              <div className="absolute bottom-2 left-2">
-                <span className={`px-2 py-1 text-xs rounded ${banner.isActive ? 'bg-green-50 dark:bg-green-900/60' : 'bg-gray-500'} text-white`}>
-                  {banner.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </div>
-            
-            <div className="p-4">
-              <h3 className="font-semibold text-gray-900 dark:text-white mb-1">{banner.title}</h3>
-              {(banner.linkUrl ?? banner.link) && (
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 truncate">{banner.linkUrl ?? banner.link}</p>
-              )}
-
-              <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
-                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">{banner.position}</span>
-                <span>Order: {banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0}</span>
+                <div className="absolute bottom-2 left-2">
+                  <span
+                    className={`px-2 py-1 text-xs rounded ${banner.isActive ? "bg-green-50 dark:bg-green-900/60" : "bg-gray-500"} text-white`}
+                  >
+                    {banner.isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(banner)}
-                  className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(bannerId)}
-                  className="py-2 px-3 border border-red-300 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:bg-red-900/20"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+              <div className="p-4">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                  {banner.title}
+                </h3>
+                {(banner.linkUrl ?? banner.link) && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-3 truncate">
+                    {banner.linkUrl ?? banner.link}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded">
+                    {banner.position}
+                  </span>
+                  <span>
+                    Order:{" "}
+                    {banner.sortOrder ??
+                      banner.order ??
+                      banner.displayOrder ??
+                      0}
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(banner)}
+                    className="flex-1 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(bannerId)}
+                    className="py-2 px-3 border border-red-300 text-red-600 dark:text-red-400 rounded-lg text-sm hover:bg-red-50 dark:bg-red-900/20"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )})}
+          );
+        })}
       </div>
 
       {visibleBanners.length === 0 && (
         <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl">
           <Image className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400">{statusFilter === 'all' ? 'No banners found' : `No ${statusFilter} banners found`}</p>
+          <p className="text-gray-500 dark:text-gray-400">
+            {statusFilter === "all"
+              ? "No banners found"
+              : `No ${statusFilter} banners found`}
+          </p>
         </div>
       )}
 
@@ -255,45 +300,60 @@ export default function BannerManager() {
       {showForm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg">
-    <div className="p-3 sm:p-4 md:p-6">
+            <div className="p-3 sm:p-4">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">
-                  {editingId ? 'Edit Banner' : 'Add New Banner'}
+                  {editingId ? "Edit Banner" : "Add New Banner"}
                 </h2>
-                <button onClick={resetForm} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded">
+                <button
+                  onClick={resetForm}
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title *</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Title *
+                  </label>
                   <input
                     type="text"
                     required
                     value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Image URL</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Image URL
+                  </label>
                   <input
                     type="url"
                     value={formData.imageUrl}
-                    onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, imageUrl: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     placeholder="https://example.com/banner.jpg"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Link URL</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Link URL
+                  </label>
                   <input
                     type="url"
                     value={formData.linkUrl}
-                    onChange={(e) => setFormData({...formData, linkUrl: e.target.value})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, linkUrl: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     placeholder="/test-series"
                   />
@@ -301,23 +361,36 @@ export default function BannerManager() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Position</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Position
+                    </label>
                     <select
                       value={formData.position}
-                      onChange={(e) => setFormData({...formData, position: e.target.value})}
+                      onChange={(e) =>
+                        setFormData({ ...formData, position: e.target.value })
+                      }
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     >
-                      {positions.map(pos => (
-                        <option key={pos.value} value={pos.value}>{pos.label}</option>
+                      {positions.map((pos) => (
+                        <option key={pos.value} value={pos.value}>
+                          {pos.label}
+                        </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Display Order</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Display Order
+                    </label>
                     <input
                       type="number"
                       value={formData.sortOrder}
-                      onChange={(e) => setFormData({...formData, sortOrder: parseInt(e.target.value) || 0})}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          sortOrder: parseInt(e.target.value) || 0,
+                        })
+                      }
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                     />
                   </div>
@@ -327,19 +400,31 @@ export default function BannerManager() {
                   <input
                     type="checkbox"
                     checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isActive: e.target.checked })
+                    }
                     className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                   />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Active</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Active
+                  </span>
                 </label>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={resetForm} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                  >
                     Cancel
                   </button>
-                  <button type="submit" disabled={saving} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
                     <Save className="w-4 h-4" />
-                    {saving ? 'Saving...' : (editingId ? 'Update' : 'Create')}
+                    {saving ? "Saving..." : editingId ? "Update" : "Create"}
                   </button>
                 </div>
               </form>
@@ -348,5 +433,5 @@ export default function BannerManager() {
         </div>
       )}
     </div>
-  )
+  );
 }

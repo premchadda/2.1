@@ -6,10 +6,11 @@ import {
   getInternalId,
 } from "../../shared/utils/identifier-utils.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
-import { dbHelpers } from '../../infrastructure/database/postgres-helpers.js'
-import { responseCache } from '../../middleware/responseCache.middleware.js'
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
-import { toPublicTestDTO } from '../../modules/tests/test.routes.js';
+import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { toPublicTestDTO } from "../../modules/tests/test.routes.js";
+import { isPypSlug } from "../../utils/slug-helpers.js";
 
 const router = express.Router();
 
@@ -42,23 +43,30 @@ function categorizeTests(rawTests = []) {
   const otherCounts = {};
 
   rawTests.forEach((t) => {
-    const cat = String(t.category || '');
-    const sub = String(t.sub_category || '');
-    const type = String(t.type || '');
+    const cat = String(t.category || "");
+    const sub = String(t.sub_category || "");
+    const type = String(t.type || "");
     const isLive = Boolean(t.is_live);
 
-    if (cat.toLowerCase() === 'pyps' || /^\d{4}$/.test(sub.trim())) {
+    if (cat.toLowerCase() === "pyps" || /^\d{4}$/.test(sub.trim())) {
       pypCount++;
       const year = parseInt(sub.trim(), 10);
       if (year && !isNaN(year)) pypYears.push(year);
-    } else if (type.toLowerCase() === 'quiz' || sub.toLowerCase().includes('quiz') || cat.toLowerCase().includes('quiz')) {
+    } else if (
+      type.toLowerCase() === "quiz" ||
+      sub.toLowerCase().includes("quiz") ||
+      cat.toLowerCase().includes("quiz")
+    ) {
       quizCount++;
-    } else if (isLive || sub.toLowerCase().includes('live')) {
+    } else if (isLive || sub.toLowerCase().includes("live")) {
       liveCount++;
-    } else if (sub.toLowerCase().includes('full mock') || type.toLowerCase().includes('mock')) {
+    } else if (
+      sub.toLowerCase().includes("full mock") ||
+      type.toLowerCase().includes("mock")
+    ) {
       fullMockCount++;
     } else {
-      const label = sub || cat || type || 'Mock Tests';
+      const label = sub || cat || type || "Mock Tests";
       otherCounts[label] = (otherCounts[label] || 0) + 1;
     }
   });
@@ -68,18 +76,19 @@ function categorizeTests(rawTests = []) {
     if (pypYears.length > 0) {
       const minYear = Math.min(...pypYears);
       const maxYear = Math.max(...pypYears);
-      const label = minYear === maxYear 
-        ? `Previous Year Papers (${minYear})` 
-        : `Previous Year Papers (${minYear} - ${maxYear})`;
+      const label =
+        minYear === maxYear
+          ? `Previous Year Papers (${minYear})`
+          : `Previous Year Papers (${minYear} - ${maxYear})`;
       testTypesMap[label] = pypCount;
     } else {
-      testTypesMap['Previous Year Papers'] = pypCount;
+      testTypesMap["Previous Year Papers"] = pypCount;
     }
   }
 
-  if (liveCount > 0) testTypesMap['Live Tests'] = liveCount;
-  if (fullMockCount > 0) testTypesMap['Full Mock Tests'] = fullMockCount;
-  if (quizCount > 0) testTypesMap['Speed & Topic Quizzes'] = quizCount;
+  if (liveCount > 0) testTypesMap["Live Tests"] = liveCount;
+  if (fullMockCount > 0) testTypesMap["Full Mock Tests"] = fullMockCount;
+  if (quizCount > 0) testTypesMap["Speed & Topic Quizzes"] = quizCount;
   Object.entries(otherCounts).forEach(([k, v]) => {
     testTypesMap[k] = v;
   });
@@ -117,9 +126,15 @@ async function enrichSeriesWithTestCounts(seriesList) {
          GROUP BY series_id`,
         [seriesIds.map(String)],
       );
-      stagesResult = await dbHelpers.pool.query(`SELECT id, name FROM stages WHERE is_active = true`);
-      categoriesResult = await dbHelpers.pool.query(`SELECT id, category_id, label FROM exam_categories WHERE is_active = true`);
-      examsResult = await dbHelpers.pool.query(`SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`);
+      stagesResult = await dbHelpers.pool.query(
+        `SELECT id, name FROM stages WHERE is_active = true`,
+      );
+      categoriesResult = await dbHelpers.pool.query(
+        `SELECT id, category_id, label FROM exam_categories WHERE is_active = true`,
+      );
+      examsResult = await dbHelpers.pool.query(
+        `SELECT id, exam_id, category_id, title FROM exams WHERE is_active = true`,
+      );
     } catch (e) {
       console.error("Error fetching series counts", e);
     }
@@ -130,7 +145,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
     const testRow = testsResult.rows.find((r) => String(r.series_id) === sId);
     const actualTestCount = testRow ? parseInt(testRow.actual_count) : 0;
     const freeTestCount = testRow ? parseInt(testRow.free_count) : 0;
-    const rawTests = testRow ? (testRow.raw_tests || []) : [];
+    const rawTests = testRow ? testRow.raw_tests || [] : [];
     const testTypesMap = categorizeTests(rawTests);
 
     const enrollmentRow = enrollmentsResult.rows.find(
@@ -186,8 +201,15 @@ async function enrichSeriesWithTestCounts(seriesList) {
       return count.toString();
     };
 
-    const baseUsers = parseUserCount(series.active_users || series.users || series.users_count || series.activeUsers || 0);
-    const finalUserCount = enrollmentCount > 0 ? enrollmentCount : Math.min(baseUsers || 0, 5);
+    const baseUsers = parseUserCount(
+      series.active_users ||
+        series.users ||
+        series.users_count ||
+        series.activeUsers ||
+        0,
+    );
+    const finalUserCount =
+      enrollmentCount > 0 ? enrollmentCount : Math.min(baseUsers || 0, 5);
 
     return {
       ...series,
@@ -251,7 +273,7 @@ router.get("/", responseCache("series-list-v2", 120), async (req, res) => {
       if (a.isPinned && b.isPinned) return (a.order || 0) - (b.order || 0);
 
       // Otherwise applies the requested activity-based sorting (or default popular)
-switch (sort) {
+      switch (sort) {
         case "rating":
           return (b.rating || 0) - (a.rating || 0);
         case "tests":
@@ -402,9 +424,18 @@ router.get("/:slug", optionalAuth, async (req, res) => {
     }
 
     const dbTotalTests = parseInt(series.total_tests || series.totalTests) || 0;
-    const finalTotalTests = Math.max(actualTestCount, dbTotalTests, sectionTotalTests);
+    const finalTotalTests = Math.max(
+      actualTestCount,
+      dbTotalTests,
+      sectionTotalTests,
+    );
     const dbFreeTests = parseInt(series.free_tests || series.freeTests) || 0;
-    const finalFreeTests = freeTestCount > 0 ? freeTestCount : (sectionFreeTests > 0 ? sectionFreeTests : dbFreeTests);
+    const finalFreeTests =
+      freeTestCount > 0
+        ? freeTestCount
+        : sectionFreeTests > 0
+          ? sectionFreeTests
+          : dbFreeTests;
 
     // Calculate real user enrollments
     let enrollmentCount = 0;
@@ -420,9 +451,13 @@ router.get("/:slug", optionalAuth, async (req, res) => {
       // Graceful fallback
     }
 
-    const finalUserCount = enrollmentCount > 0
-      ? enrollmentCount
-      : Math.min(parseInt(series.users_count || series.usersCount || 0) || 0, 5);
+    const finalUserCount =
+      enrollmentCount > 0
+        ? enrollmentCount
+        : Math.min(
+            parseInt(series.users_count || series.usersCount || 0) || 0,
+            5,
+          );
 
     const formatUserCount = (count) => {
       if (count >= 1000000) return `${(count / 1000000).toFixed(1)}M`;
@@ -438,8 +473,14 @@ router.get("/:slug", optionalAuth, async (req, res) => {
         total_tests: finalTotalTests,
         freeTests: finalFreeTests,
         free_tests: finalFreeTests,
-        testCounts: Object.keys(testCounts).length > 0 ? testCounts : (series.testCounts || series.test_counts || {}),
-        testTypes: Object.keys(testCounts).length > 0 ? Object.keys(testCounts) : (series.testTypes || series.test_types || []),
+        testCounts:
+          Object.keys(testCounts).length > 0
+            ? testCounts
+            : series.testCounts || series.test_counts || {},
+        testTypes:
+          Object.keys(testCounts).length > 0
+            ? Object.keys(testCounts)
+            : series.testTypes || series.test_types || [],
         activeUsers: formatUserCount(finalUserCount),
         users: formatUserCount(finalUserCount),
         usersCount: finalUserCount,
@@ -542,7 +583,9 @@ router.get("/:slug/tests", optionalAuth, async (req, res) => {
 // @access  Public
 router.get("/category/:category", async (req, res) => {
   try {
-    const categoryQuery = isPypSlug(req.params.category) ? 'PYPs' : req.params.category;
+    const categoryQuery = isPypSlug(req.params.category)
+      ? "PYPs"
+      : req.params.category;
     const series = (
       await dbHelpers.find("testSeries", {
         category: categoryQuery,

@@ -1,14 +1,17 @@
-import express from "express"; // trigger-reload-v4
+import express from "express"; // server-boot-v5
 import dns from "dns";
+
 // Force IPv4-first DNS resolution (Supabase IPv6 often fails to resolve locally)
 dns.setDefaultResultOrder("ipv4first");
 import * as Sentry from "@sentry/node";
 import { createServer } from "http";
 import os from "os";
 import cors from "cors";
+// Node 22+ native WebSocket and crypto support
+import crypto from "crypto";
+import dotenv from "dotenv";
 import helmet from "helmet";
 import morgan from "morgan";
-import dotenv from "dotenv";
 import compressionMiddleware from "./middleware/compression.js";
 import { drainEmailQueue } from "./infrastructure/email/emailService.js";
 import responseCache from "./middleware/responseCache.js";
@@ -20,7 +23,6 @@ import bcrypt from "bcrypt";
 import path from "path";
 import { fileURLToPath } from "url";
 import rateLimit from "express-rate-limit";
-import crypto from "crypto";
 import cookieParser from "cookie-parser";
 import multer from "multer";
 
@@ -35,7 +37,11 @@ import {
   errorHandler,
   notFoundHandler,
 } from "./middleware/error.middleware.js";
-import { protect, admin, requireImageAuth } from "./middleware/auth.middleware.js";
+import {
+  protect,
+  admin,
+  requireImageAuth,
+} from "./middleware/auth.middleware.js";
 import { validateCsrfToken } from "./middleware/csrf.middleware.js";
 import { validateOrigin } from "./middleware/origin.middleware.js";
 import { publicIdResponseMiddleware } from "./middleware/public-id-response.middleware.js";
@@ -77,6 +83,7 @@ import subscriptionService from "./services/SubscriptionService.js";
 import certificateService from "./services/certificateService.js";
 import subscriptionRoutes from "./api/routes/subscriptions.js";
 import subscriptionAdminRoutes from "./api/routes/subscriptions-admin.js";
+import sessionRoutes from "./modules/sessions/session.routes.js";
 import sessionController from "./modules/sessions/session.controller.js";
 import mathRoutes from "./modules/ai/math.routes.js";
 import intelligenceRoutes from "./api/routes/intelligence.js";
@@ -91,6 +98,7 @@ import analyticsRoutes from "./api/routes/analytics.js";
 import auditRoutes from "./api/routes/admin-audit.js";
 import { mountAdminRoutes } from "./api/routes/admin-routes-index.js";
 import { adminIpAllowlist } from "./middleware/adminIpAllowlist.middleware.js";
+import { maintenanceMiddleware } from "./middleware/maintenance.middleware.js";
 import { setupSwagger } from "./api/docs/swagger.js";
 import fortskyRoutes from "./api/routes/fortspy.js";
 import importRoutes from "./modules/import/bulkImport.routes.js";
@@ -132,9 +140,12 @@ import {
   metricsHandler,
   errorTrackingMiddleware,
 } from "./middleware/monitoring.js";
-import { messageBroker } from './infrastructure/events/messageBroker.js'
-import { registerUserEventSubscribers } from './modules/users/userEventSubscribers.js'
-import { startScheduler, stopScheduler } from "./services/core/testScheduler.js";
+import { messageBroker } from "./infrastructure/events/messageBroker.js";
+import { registerUserEventSubscribers } from "./modules/users/userEventSubscribers.js";
+import {
+  startScheduler,
+  stopScheduler,
+} from "./services/core/testScheduler.js";
 import {
   startOutboxPoller,
   stopOutboxPoller,
@@ -144,7 +155,7 @@ import {
 
 import { unlinkSync, existsSync } from "fs";
 import { writeFile } from "fs/promises";
-import { sanitizeErrorMessage } from './utils/sanitizeError.js';
+import { sanitizeErrorMessage } from "./utils/sanitizeError.js";
 
 const READY_FILE = path.join(process.cwd(), ".backend-ready");
 
@@ -154,8 +165,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Provide defaults for optional URLs
-process.env.FRONTEND_URL = process.env.FRONTEND_URL || "https://trstprep.vercel.app";
-process.env.ADMIN_PANEL_URL = process.env.ADMIN_PANEL_URL || "https://trstprep-admin.vercel.app";
+process.env.FRONTEND_URL =
+  process.env.FRONTEND_URL || "https://trstprep.vercel.app";
+process.env.ADMIN_PANEL_URL =
+  process.env.ADMIN_PANEL_URL || "https://trstprep-admin.vercel.app";
 
 // If JWT_REFRESH_SECRET is missing but JWT_SECRET is provided, derive a secure cryptographic fallback
 if (!process.env.JWT_REFRESH_SECRET && process.env.JWT_SECRET) {
@@ -163,7 +176,9 @@ if (!process.env.JWT_REFRESH_SECRET && process.env.JWT_SECRET) {
     .createHmac("sha256", process.env.JWT_SECRET)
     .update("trstprep-refresh-key-salt")
     .digest("hex");
-  console.warn("⚠️ JWT_REFRESH_SECRET not explicitly set. Derived secure HMAC fallback from JWT_SECRET.");
+  console.warn(
+    "⚠️ JWT_REFRESH_SECRET not explicitly set. Derived secure HMAC fallback from JWT_SECRET.",
+  );
 }
 
 const requiredEnvVars = ["DATABASE_URL", "JWT_SECRET"];
@@ -176,8 +191,17 @@ if (missingEnvVars.length > 0) {
 }
 
 const jwtSecret = process.env.JWT_SECRET;
-if (!jwtSecret || jwtSecret.length < 32 || !/[A-Z]/.test(jwtSecret) || !/[a-z]/.test(jwtSecret) || !/[0-9]/.test(jwtSecret) || !/[^a-zA-Z0-9]/.test(jwtSecret)) {
-  throw new Error("❌ JWT_SECRET must be at least 32 chars with mixed case, numbers, and special characters.");
+if (
+  !jwtSecret ||
+  jwtSecret.length < 32 ||
+  !/[A-Z]/.test(jwtSecret) ||
+  !/[a-z]/.test(jwtSecret) ||
+  !/[0-9]/.test(jwtSecret) ||
+  !/[^a-zA-Z0-9]/.test(jwtSecret)
+) {
+  throw new Error(
+    "❌ JWT_SECRET must be at least 32 chars with mixed case, numbers, and special characters.",
+  );
 }
 
 // A02 Cryptographic Failures — Block known-compromised secrets that were leaked in git history.
@@ -189,16 +213,22 @@ const COMPROMISED_SECRET_HASHES = new Set([
 ]);
 const jwtSecretHash = hashSecret(jwtSecret);
 const refreshSecretHash = hashSecret(process.env.JWT_REFRESH_SECRET || "");
-if (COMPROMISED_SECRET_HASHES.has(jwtSecretHash) || COMPROMISED_SECRET_HASHES.has(refreshSecretHash)) {
+if (
+  COMPROMISED_SECRET_HASHES.has(jwtSecretHash) ||
+  COMPROMISED_SECRET_HASHES.has(refreshSecretHash)
+) {
   throw new Error(
     "❌ SECURITY: JWT_SECRET or JWT_REFRESH_SECRET matches a known-compromised value that was leaked in git history. " +
-    "Rotate IMMEDIATELY: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" — " +
-    "See docs/SECURITY.md for the full rotation runbook."
+      "Rotate IMMEDIATELY: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" — " +
+      "See docs/SECURITY.md for the full rotation runbook.",
   );
 }
 
 if (process.env.SENTRY_DSN) {
-  Sentry.init({ dsn: process.env.SENTRY_DSN, environment: process.env.NODE_ENV || "production" });
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "production",
+  });
 }
 
 const app = express();
@@ -207,11 +237,11 @@ const PORT = process.env.PORT || 5001;
 app.use(compressionMiddleware);
 
 // FIX #14: Enable strong ETags for JSON API responses (static mounts already set etag).
-app.set('etag', 'strong');
+app.set("etag", "strong");
 // Trust proxy so req.ip reflects the real client IP when behind nginx/load balancer.
 // 1 = trust one hop (the nginx proxy directly in front of us). Increase if there's
 // a CDN in front (e.g., 2 for Cloudflare -> nginx -> Express).
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 const helmetOptions = {
   crossOriginEmbedderPolicy: false,
@@ -258,10 +288,22 @@ if (process.env.NODE_ENV === "production") {
   helmetOptions.contentSecurityPolicy = {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://checkout.razorpay.com"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "'unsafe-eval'",
+        "https://checkout.razorpay.com",
+      ],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       imgSrc: ["'self'", "data:", "blob:", "https:"],
-      connectSrc: ["'self'", process.env.FRONTEND_URL || "http://localhost:3000", "ws:", "wss:", "http:", "https:"],
+      connectSrc: [
+        "'self'",
+        process.env.FRONTEND_URL || "http://localhost:3000",
+        "ws:",
+        "wss:",
+        "http:",
+        "https:",
+      ],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -270,7 +312,10 @@ if (process.env.NODE_ENV === "production") {
   };
 }
 // HTTPS redirection middleware in production (Issue: Add HTTPS enforcement)
-if (process.env.NODE_ENV === "production" && process.env.ENFORCE_HTTPS === "true") {
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.ENFORCE_HTTPS === "true"
+) {
   app.use((req, res, next) => {
     if (req.headers["x-forwarded-proto"] !== "https") {
       return res.redirect(301, `https://${req.headers.host}${req.url}`);
@@ -284,13 +329,15 @@ const getLocalNetworkIPs = () => {
   const ips = [];
   for (const name in os.networkInterfaces()) {
     for (const iface of os.networkInterfaces()[name]) {
-      if ((iface.family === "IPv4" || iface.family === 4) && !iface.internal) ips.push(iface.address);
+      if ((iface.family === "IPv4" || iface.family === 4) && !iface.internal)
+        ips.push(iface.address);
     }
   }
   return ips;
 };
 const localIPs = getLocalNetworkIPs();
-const PRIVATE_IP_REGEX = /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/;
+const PRIVATE_IP_REGEX =
+  /^(10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3})$/;
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.ADMIN_PANEL_URL,
@@ -313,7 +360,9 @@ const ALLOWED_LAN_HOSTS = (process.env.ALLOWED_LAN_HOSTS || "")
   .map((h) => h.trim())
   .filter(Boolean);
 const allowedLanOrigins = new Set(
-  ALLOWED_LAN_HOSTS.map((host) => host.startsWith("http") ? host : `http://${host}`),
+  ALLOWED_LAN_HOSTS.map((host) =>
+    host.startsWith("http") ? host : `http://${host}`,
+  ),
 );
 
 const isLocalNetworkOrigin = (origin) => {
@@ -324,54 +373,95 @@ const isLocalNetworkOrigin = (origin) => {
   if (isDevelopment) {
     try {
       const hostname = new URL(origin).hostname;
-      if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "0.0.0.0") return true;
-      if (localIPs.includes(hostname) || PRIVATE_IP_REGEX.test(hostname)) return true;
-    } catch { return false; }
+      if (
+        hostname === "localhost" ||
+        hostname === "127.0.0.1" ||
+        hostname === "[::1]" ||
+        hostname === "0.0.0.0"
+      )
+        return true;
+      if (localIPs.includes(hostname) || PRIVATE_IP_REGEX.test(hostname))
+        return true;
+    } catch {
+      return false;
+    }
   }
   return false;
 };
 
-
-const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10);
-const GENERAL_RATE_LIMIT_MAX = parseInt(process.env.GENERAL_RATE_LIMIT_MAX || "1000", 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(
+  process.env.RATE_LIMIT_WINDOW_MS || "900000",
+  10,
+);
+const GENERAL_RATE_LIMIT_MAX = parseInt(
+  process.env.GENERAL_RATE_LIMIT_MAX || "1000",
+  10,
+);
 const generalLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
   max: GENERAL_RATE_LIMIT_MAX,
-  message: { success: false, message: "Too many requests, please try again later." },
+  message: {
+    success: false,
+    message: "Too many requests, please try again later.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip || req.headers['x-forwarded-for'] || 'unknown',
+  keyGenerator: (req) => req.ip || req.headers["x-forwarded-for"] || "unknown",
   // AUDIT-2026-07-01: removed isAdminPanelRequest(req) skip — admin panel
   // requests are subject to the general limiter. /api/admin/* is separately
   // governed by adminLimiter. Bypassing rate limits for any localhost origin
   // is unsafe if admin auth ever breaks.
-  skip: (req) => req.path === "/health" || (process.env.NODE_ENV !== "production" && req.headers["x-load-test"] === "true"),
+  skip: (req) =>
+    req.path === "/health" ||
+    (process.env.NODE_ENV !== "production" &&
+      req.headers["x-load-test"] === "true"),
 });
 
 // DX-05 / NEW-03: All rate-limiter values env-var driven for ops tuning.
-const AUTH_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS || "900000", 10);
-const AUTH_RATE_LIMIT_MAX = parseInt(process.env.AUTH_RATE_LIMIT_MAX || "20", 10);
-const ADMIN_RATE_LIMIT_WINDOW_MS = parseInt(process.env.ADMIN_RATE_LIMIT_WINDOW_MS || "900000", 10);
-const ADMIN_RATE_LIMIT_MAX = parseInt(process.env.ADMIN_RATE_LIMIT_MAX || "500", 10);
+const AUTH_RATE_LIMIT_WINDOW_MS = parseInt(
+  process.env.AUTH_RATE_LIMIT_WINDOW_MS || "900000",
+  10,
+);
+const AUTH_RATE_LIMIT_MAX = parseInt(
+  process.env.AUTH_RATE_LIMIT_MAX || "20",
+  10,
+);
+const ADMIN_RATE_LIMIT_WINDOW_MS = parseInt(
+  process.env.ADMIN_RATE_LIMIT_WINDOW_MS || "900000",
+  10,
+);
+const ADMIN_RATE_LIMIT_MAX = parseInt(
+  process.env.ADMIN_RATE_LIMIT_MAX || "500",
+  10,
+);
 
 const authLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
   max: AUTH_RATE_LIMIT_MAX,
-  message: { success: false, message: "Too many authentication attempts, please try again later." },
+  message: {
+    success: false,
+    message: "Too many authentication attempts, please try again later.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path === "/health" || (req.method === "GET" && (req.path === "/me" || req.path === "/csrf")),
+  skip: (req) =>
+    req.path === "/health" ||
+    (req.method === "GET" && (req.path === "/me" || req.path === "/csrf")),
 });
 
-  const isDev = process.env.NODE_ENV === 'development';
-  const adminLimiter = rateLimit({
-    windowMs: ADMIN_RATE_LIMIT_WINDOW_MS,
-    max: isDev ? ADMIN_RATE_LIMIT_MAX * 100 : ADMIN_RATE_LIMIT_MAX,
-    message: { success: false, message: "Too many admin requests, please try again later." },
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req) => `admin-ip-${req.ip || req.headers['x-forwarded-for'] || 'unknown'}`,
-  });
+const isDev = process.env.NODE_ENV === "development";
+const adminLimiter = rateLimit({
+  windowMs: ADMIN_RATE_LIMIT_WINDOW_MS,
+  max: isDev ? ADMIN_RATE_LIMIT_MAX * 100 : ADMIN_RATE_LIMIT_MAX,
+  message: {
+    success: false,
+    message: "Too many admin requests, please try again later.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) =>
+    `admin-ip-${req.ip || req.headers["x-forwarded-for"] || "unknown"}`,
+});
 
 // OBS-03: Reduced global body limit from 10MB to 1MB; upload routes override to 10MB.
 app.use(express.json({ limit: "1mb" }));
@@ -384,7 +474,17 @@ morgan.token("url-sanitize", (req) => {
     const [path, query] = urlStr.split("?");
     if (!query) return urlStr;
     const searchParams = new URLSearchParams(query);
-    const sensitive = ["token", "email", "phone", "otp", "password", "key", "refresh_token", "code", "secret"];
+    const sensitive = [
+      "token",
+      "email",
+      "phone",
+      "otp",
+      "password",
+      "key",
+      "refresh_token",
+      "code",
+      "secret",
+    ];
     let changed = false;
     for (const key of sensitive) {
       if (searchParams.has(key)) {
@@ -398,9 +498,10 @@ morgan.token("url-sanitize", (req) => {
   }
 });
 
-const morganFormat = process.env.NODE_ENV === "production"
-  ? ":method :url-sanitize :status :response-time ms"
-  : "dev";
+const morganFormat =
+  process.env.NODE_ENV === "production"
+    ? ":method :url-sanitize :status :response-time ms"
+    : "dev";
 app.use(morgan(morganFormat));
 app.use(monitoringMiddleware);
 app.use(publicIdResponseMiddleware);
@@ -409,77 +510,106 @@ app.use(traceMiddleware);
 app.get("/favicon.ico", (req, res) => res.status(204).end());
 
 app.get("/", (req, res) => {
-  res.json({ success: true, message: "Welcome to Trstprep API", version: "2.1.0", status: "online", health: `${req.protocol}://${req.get("host")}/api/health` });
+  res.json({
+    success: true,
+    message: "Welcome to Trstprep API",
+    version: "2.1.0",
+    status: "online",
+    health: `${req.protocol}://${req.get("host")}/api/health`,
+  });
 });
 
-app.get('/health', async (req, res) => {
-  const health = { status: 'ok', timestamp: new Date().toISOString(), uptime: process.uptime() };
+app.get("/health", async (req, res) => {
+  const health = {
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+  };
   try {
-    await pool.query('SELECT 1');
-    health.db = 'connected';
+    await pool.query("SELECT 1");
+    health.db = "connected";
   } catch (e) {
-    health.db = 'disconnected';
-    health.status = 'degraded';
+    health.db = "disconnected";
+    health.status = "degraded";
   }
   // Check Redis if available
   if (global.redis) {
     try {
       await global.redis.ping();
-      health.redis = 'connected';
+      health.redis = "connected";
     } catch (e) {
-      health.redis = 'disconnected';
+      health.redis = "disconnected";
     }
   }
-  if (process.env.NODE_ENV === 'production') {
-    return res.status(health.status === 'ok' ? 200 : 503).json({
+  if (process.env.NODE_ENV === "production") {
+    return res.status(health.status === "ok" ? 200 : 503).json({
       status: health.status,
       timestamp: health.timestamp,
     });
   }
-  const statusCode = health.status === 'ok' ? 200 : 503;
+  const statusCode = health.status === "ok" ? 200 : 503;
   res.status(statusCode).json(health);
 });
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (isDevelopment && origin && process.env.REQUEST_METHOD !== "OPTIONS") logger.debug(`[CORS Check] Origin: ${origin}`);
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    if (isLocalNetworkOrigin(origin)) {
-      logger.debug(`[CORS] Allowed LAN: ${origin}`);
-      return callback(null, true);
-    }
-    // M1: localhost/loopback origins are only permitted in development. A
-    // misconfigured NODE_ENV (e.g. unset, "staging") will NOT fall through to
-    // this dev allowlist.
-    if (isDevelopment) {
-      try {
-        const hostname = new URL(origin).hostname;
-        const devOrigins = ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", ...localIPs];
-        const devPorts = ["3000", "3001", "3002", "5001", "5173"];
-        const url = new URL(origin);
-        const isDevHost = devOrigins.includes(hostname) || PRIVATE_IP_REGEX.test(hostname);
-        if (isDevHost && (devPorts.includes(url.port) || !url.port)) {
-          logger.debug(`[CORS] Allowed Dev Origin: ${origin}`);
-          return callback(null, true);
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isDevelopment && origin && process.env.REQUEST_METHOD !== "OPTIONS")
+        logger.debug(`[CORS Check] Origin: ${origin}`);
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (isLocalNetworkOrigin(origin)) {
+        logger.debug(`[CORS] Allowed LAN: ${origin}`);
+        return callback(null, true);
+      }
+      // M1: localhost/loopback origins are only permitted in development. A
+      // misconfigured NODE_ENV (e.g. unset, "staging") will NOT fall through to
+      // this dev allowlist.
+      if (isDevelopment) {
+        try {
+          const hostname = new URL(origin).hostname;
+          const devOrigins = [
+            "localhost",
+            "127.0.0.1",
+            "0.0.0.0",
+            "[::1]",
+            ...localIPs,
+          ];
+          const devPorts = ["3000", "3001", "3002", "5001", "5173"];
+          const url = new URL(origin);
+          const isDevHost =
+            devOrigins.includes(hostname) || PRIVATE_IP_REGEX.test(hostname);
+          if (isDevHost && (devPorts.includes(url.port) || !url.port)) {
+            logger.debug(`[CORS] Allowed Dev Origin: ${origin}`);
+            return callback(null, true);
+          }
+          if (isDevHost) {
+            logger.debug(`[CORS] Allowed Dev Host: ${origin}`);
+            return callback(null, true);
+          }
+        } catch {
+          /* ignore */
         }
-        if (isDevHost) {
-          logger.debug(`[CORS] Allowed Dev Host: ${origin}`);
-          return callback(null, true);
-        }
-      } catch { /* ignore */ }
-      logger.warn(`[CORS] Blocked unknown origin: ${origin}`);
-      return callback(new Error(`Origin ${origin} not in development allowlist`));
-    }
-    logger.warn(`[CORS] Blocked origin: ${origin}`);
-    callback(new Error("Not allowed by CORS"));
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token", "X-Admin-API-Key"],
-  exposedHeaders: ["X-CSRF-Token"],
-  maxAge: 86400,
-}));
+        logger.warn(`[CORS] Blocked unknown origin: ${origin}`);
+        return callback(
+          new Error(`Origin ${origin} not in development allowlist`),
+        );
+      }
+      logger.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-CSRF-Token",
+      "X-Admin-API-Key",
+    ],
+    exposedHeaders: ["X-CSRF-Token"],
+    maxAge: 86400,
+  }),
+);
 
 // Origin validation — CSRF defense-in-depth for state-changing requests.
 // Applied globally so it also covers /api/auth/refresh (which CSRF token
@@ -489,21 +619,38 @@ app.use(validateOrigin);
 
 app.use("/api", generalLimiter);
 app.use(requestDedup);
-app.use(responseCache({
-  ttl: parseInt(process.env.RESPONSE_CACHE_TTL || "300", 10),
-  excludePaths: ['/api/auth', '/api/users', '/api/me', '/api/sessions', '/api/admin']
-}));
+app.use(
+  responseCache({
+    ttl: parseInt(process.env.RESPONSE_CACHE_TTL || "300", 10),
+    excludePaths: [
+      "/api/auth",
+      "/api/users",
+      "/api/me",
+      "/api/sessions",
+      "/api/admin",
+    ],
+  }),
+);
 app.use(cacheControlMiddleware);
 app.use("/api/auth", authLimiter, authRoutes);
 
 const UPLOAD_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const UPLOAD_RATE_LIMIT_MAX = parseInt(process.env.UPLOAD_RATE_LIMIT_MAX || "10", 10);
-const MAX_UPLOAD_FILE_SIZE = parseInt(process.env.MAX_UPLOAD_FILE_SIZE || String(50 * 1024 * 1024), 10);
+const UPLOAD_RATE_LIMIT_MAX = parseInt(
+  process.env.UPLOAD_RATE_LIMIT_MAX || "10",
+  10,
+);
+const MAX_UPLOAD_FILE_SIZE = parseInt(
+  process.env.MAX_UPLOAD_FILE_SIZE || String(50 * 1024 * 1024),
+  10,
+);
 
 const uploadLimiter = rateLimit({
   windowMs: UPLOAD_RATE_LIMIT_WINDOW_MS,
   max: UPLOAD_RATE_LIMIT_MAX,
-  message: { success: false, message: "Too many uploads from this IP, please try again later." },
+  message: {
+    success: false,
+    message: "Too many uploads from this IP, please try again later.",
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -511,9 +658,24 @@ const uploadLimiter = rateLimit({
 const fileUpload = multer({
   limits: { fileSize: MAX_UPLOAD_FILE_SIZE },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/avi"];
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "video/mp4",
+      "video/webm",
+      "video/avi",
+    ];
     if (allowedTypes.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("Invalid file type. Only images, PDFs, and videos are allowed."), false);
+    else
+      cb(
+        new Error(
+          "Invalid file type. Only images, PDFs, and videos are allowed.",
+        ),
+        false,
+      );
   },
 });
 
@@ -524,50 +686,78 @@ app.use("/api/admin/assets/upload", uploadLimiter);
 // with requireImageAuth (valid session required). Non-image files keep flowing
 // publicly for backward compatibility (study-material PDFs, etc.), and the
 // public avatar/banner route below is intentionally left unguarded.
-const IMAGE_EXT_RE = /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i
+const IMAGE_EXT_RE = /\.(jpg|jpeg|png|gif|webp|avif|svg)$/i;
 
-app.use("/uploads", (req, res, next) => {
-  if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
-  next();
-}, (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
-  next();
-}, express.static(path.join(__dirname, "uploads"), { maxAge: "7d", etag: true }));
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
+    next();
+  },
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
+    next();
+  },
+  express.static(path.join(__dirname, "uploads"), { maxAge: "7d", etag: true }),
+);
 
 // Avatars/banners are public profile assets — left unauthenticated by design.
-app.use("/assets/avatar", (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(__dirname, "..", "uploads", "avatars"), {
-  // Avatar/banner filenames are timestamped and never mutated in place, so
-  // they can be cached aggressively and treated as immutable by the browser.
-  maxAge: "30d",
-  immutable: true,
-  etag: true,
-}));
+app.use(
+  "/assets/avatar",
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "..", "uploads", "avatars"), {
+    // Avatar/banner filenames are timestamped and never mutated in place, so
+    // they can be cached aggressively and treated as immutable by the browser.
+    maxAge: "30d",
+    immutable: true,
+    etag: true,
+  }),
+);
 
-app.use("/storage", (req, res, next) => {
-  if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
-  next();
-}, (req, res, next) => {
-  res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-  next();
-}, express.static(path.join(__dirname, "..", "storage"), { maxAge: "7d", etag: true }));
+app.use(
+  "/storage",
+  (req, res, next) => {
+    if (IMAGE_EXT_RE.test(req.path)) return requireImageAuth(req, res, next);
+    next();
+  },
+  (req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static(path.join(__dirname, "..", "storage"), {
+    maxAge: "7d",
+    etag: true,
+  }),
+);
 
 app.use("/uploads", imageOptimization);
 
 app.get("/api/health", async (req, res) => {
   try {
-    const dbHealth = typeof dbHelpers.healthCheck === "function" ? await dbHelpers.healthCheck() : await (async () => {
-      const startedAt = Date.now();
-      try {
-        await pool.query("SELECT 1");
-        return { healthy: true, latencyMs: Date.now() - startedAt, provider: "postgres" };
-      } catch (err) {
-        return { healthy: false, error: err.message, provider: "postgres" };
-      }
-    })();
+    const dbHealth =
+      typeof dbHelpers.healthCheck === "function"
+        ? await dbHelpers.healthCheck()
+        : await (async () => {
+            const startedAt = Date.now();
+            try {
+              await pool.query("SELECT 1");
+              return {
+                healthy: true,
+                latencyMs: Date.now() - startedAt,
+                provider: "postgres",
+              };
+            } catch (err) {
+              return {
+                healthy: false,
+                error: err.message,
+                provider: "postgres",
+              };
+            }
+          })();
     const redisHealth = getRedisStatus();
     const queueHealth = await getQueueStatus();
 
@@ -577,7 +767,7 @@ app.get("/api/health", async (req, res) => {
     const cleanDbHealth = {
       healthy: dbHealth.healthy,
       latencyMs: dbHealth.latencyMs,
-      provider: dbHealth.provider
+      provider: dbHealth.provider,
     };
     if (!isProd && dbHealth.error) {
       cleanDbHealth.error = dbHealth.error;
@@ -587,7 +777,7 @@ app.get("/api/health", async (req, res) => {
     const cleanRedisHealth = {
       enabled: redisHealth?.enabled,
       connected: redisHealth?.connected,
-      status: redisHealth?.status
+      status: redisHealth?.status,
     };
     if (!isProd && redisHealth?.error) {
       cleanRedisHealth.error = redisHealth.error;
@@ -596,7 +786,7 @@ app.get("/api/health", async (req, res) => {
     // Sanitize queueHealth to prevent info leakage
     const cleanQueueHealth = {
       enabled: queueHealth?.enabled,
-      status: queueHealth?.status
+      status: queueHealth?.status,
     };
     if (!isProd && queueHealth?.error) {
       cleanQueueHealth.error = queueHealth.error;
@@ -605,7 +795,7 @@ app.get("/api/health", async (req, res) => {
     if (isProd) {
       return res.status(cleanDbHealth.healthy ? 200 : 503).json({
         status: cleanDbHealth.healthy ? "ok" : "degraded",
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
@@ -617,29 +807,33 @@ app.get("/api/health", async (req, res) => {
         dbHealth: cleanDbHealth,
         redis: cleanRedisHealth,
         queues: cleanQueueHealth,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
     }
 
     const degraded = cleanRedisHealth.enabled && !cleanRedisHealth.connected;
     res.status(degraded ? 206 : 200).json({
       status: degraded ? "degraded" : "ok",
-      message: degraded ? "API is running, but Redis/queue services are degraded" : "Trstprep API is running with PostgreSQL + Redis queue foundations",
+      message: degraded
+        ? "API is running, but Redis/queue services are degraded"
+        : "Trstprep API is running with PostgreSQL + Redis queue foundations",
       database: "PostgreSQL",
       dbHealth: cleanDbHealth,
       redis: cleanRedisHealth,
       queues: cleanQueueHealth,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
     if (process.env.NODE_ENV === "production") {
-      return res.status(503).json({ status: "error", timestamp: new Date().toISOString() });
+      return res
+        .status(503)
+        .json({ status: "error", timestamp: new Date().toISOString() });
     }
     res.status(503).json({
       status: "error",
       message: "Health check failed",
       error: error.message,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 });
@@ -651,40 +845,49 @@ app.get("/api/health", async (req, res) => {
 //     credentials: <your-token>
 // In development, unauthenticated access is allowed with a warning.
 // ============================================================
-app.get("/metrics", (req, res, next) => {
-  const metricsToken = process.env.METRICS_AUTH_TOKEN;
-  if (metricsToken) {
-    const authHeader = req.headers.authorization || '';
-    const provided = authHeader.startsWith('Bearer ')
-      ? authHeader.slice(7)
-      : authHeader;
-    if (provided !== metricsToken) {
-      return res.status(401).send("Unauthorized: invalid or missing METRICS_AUTH_TOKEN");
+app.get(
+  "/metrics",
+  (req, res, next) => {
+    const metricsToken = process.env.METRICS_AUTH_TOKEN;
+    if (metricsToken) {
+      const authHeader = req.headers.authorization || "";
+      const provided = authHeader.startsWith("Bearer ")
+        ? authHeader.slice(7)
+        : authHeader;
+      if (provided !== metricsToken) {
+        return res
+          .status(401)
+          .send("Unauthorized: invalid or missing METRICS_AUTH_TOKEN");
+      }
+    } else if (process.env.NODE_ENV === "production") {
+      console.error(
+        "[SECURITY] /metrics endpoint blocked: no METRICS_AUTH_TOKEN configured in production!",
+      );
+      return res
+        .status(401)
+        .send("Unauthorized: METRICS_AUTH_TOKEN is not configured");
     }
-  } else if (process.env.NODE_ENV === 'production') {
-    console.error('[SECURITY] /metrics endpoint blocked: no METRICS_AUTH_TOKEN configured in production!');
-    return res.status(401).send("Unauthorized: METRICS_AUTH_TOKEN is not configured");
-  }
-  next();
-}, async (req, res) => {
-  try {
-    const memory = process.memoryUsage();
-    const uptime = process.uptime();
-    const freeMem = os.freemem();
-    const totalMem = os.totalmem();
-
-    let dbLatency = 0;
-    let dbStatus = 1;
+    next();
+  },
+  async (req, res) => {
     try {
-      const start = Date.now();
-      await pool.query("SELECT 1");
-      dbLatency = Date.now() - start;
-    } catch {
-      dbStatus = 0;
-    }
+      const memory = process.memoryUsage();
+      const uptime = process.uptime();
+      const freeMem = os.freemem();
+      const totalMem = os.totalmem();
 
-    res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-    res.send(`# HELP process_uptime_seconds Uptime of the Node.js process in seconds.
+      let dbLatency = 0;
+      let dbStatus = 1;
+      try {
+        const start = Date.now();
+        await pool.query("SELECT 1");
+        dbLatency = Date.now() - start;
+      } catch {
+        dbStatus = 0;
+      }
+
+      res.set("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+      res.send(`# HELP process_uptime_seconds Uptime of the Node.js process in seconds.
 # TYPE process_uptime_seconds gauge
 process_uptime_seconds ${uptime}
 
@@ -716,10 +919,11 @@ db_status ${dbStatus}
 # TYPE db_query_latency_ms gauge
 db_query_latency_ms ${dbLatency}
 `);
-  } catch (error) {
-    res.status(500).send("Error generating metrics");
-  }
-});
+    } catch (error) {
+      res.status(500).send("Error generating metrics");
+    }
+  },
+);
 
 app.get("/api/metrics", protect, admin, (req, res) => metricsHandler(req, res));
 
@@ -731,6 +935,8 @@ app.get("/api/metrics", protect, admin, (req, res) => metricsHandler(req, res));
 app.use(adminIpAllowlist);
 mountAdminRoutes(app, adminLimiter);
 app.use("/api/admin", adminLimiter, adminRoutes);
+
+app.use(maintenanceMiddleware);
 
 app.use("/api/tests", testsRoutes);
 app.use("/api/questions", questionsRoutes);
@@ -760,6 +966,7 @@ app.use("/api/attempt", protect, attemptRoutes);
 app.use("/api/practice", validateCsrfToken, practiceRoutes);
 app.use("/api/notifications-pref", validateCsrfToken, notificationsPrefRoutes);
 app.use("/api/auth/phone", authLimiter, phoneAuthRoutes);
+app.use("/api/sessions", sessionRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/admin/subscriptions", validateCsrfToken, subscriptionAdminRoutes);
 app.use("/api/intelligence", validateCsrfToken, intelligenceRoutes);
@@ -806,11 +1013,17 @@ app.use("/api/study-materials", studyRoutes);
 // Certificate Generation & Verification Engine
 app.get("/api/certificates/:attemptId", protect, async (req, res) => {
   try {
-    const result = await certificateService.generateCertificate(req.params.attemptId, req.user.id);
-    if (!result.success) return res.status(result.statusCode || 400).json(result);
+    const result = await certificateService.generateCertificate(
+      req.params.attemptId,
+      req.user.id,
+    );
+    if (!result.success)
+      return res.status(result.statusCode || 400).json(result);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(err) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(err) });
   }
 });
 app.get("/api/certificates/verify/:hash", async (req, res) => {
@@ -818,14 +1031,26 @@ app.get("/api/certificates/verify/:hash", async (req, res) => {
     const result = await certificateService.verifyCertificate(req.params.hash);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(err) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(err) });
   }
 });
 
 const sessionRouter = express.Router();
-sessionRouter.get('/', protect, sessionController.getMySessions);
-sessionRouter.delete('/:sessionId', protect, validateCsrfToken, sessionController.revokeSession);
-sessionRouter.delete('/', protect, validateCsrfToken, sessionController.revokeAllSessions);
+sessionRouter.get("/", protect, sessionController.getMySessions);
+sessionRouter.delete(
+  "/:sessionId",
+  protect,
+  validateCsrfToken,
+  sessionController.revokeSession,
+);
+sessionRouter.delete(
+  "/",
+  protect,
+  validateCsrfToken,
+  sessionController.revokeAllSessions,
+);
 app.use("/api/sessions", sessionRouter);
 
 mountExtractedRoutes(app);
@@ -841,14 +1066,21 @@ const startServer = async () => {
   try {
     if (!isDevelopment && existsSync(READY_FILE)) unlinkSync(READY_FILE);
     const connected = await testConnection(5, 3000);
-    if (!connected) { logger.error("Failed to connect to database after multiple attempts"); process.exit(1); }
+    if (!connected) {
+      logger.error("Failed to connect to database after multiple attempts");
+      process.exit(1);
+    }
     logger.info("Verifying and applying database migrations...");
-    await runMigrations(pool, { afterMigrations: () => dbHelpers.clearColumnExistsCache() });
+    await runMigrations(pool, {
+      afterMigrations: () => dbHelpers.clearColumnExistsCache(),
+    });
 
     logger.info("Warming database connection pools...");
     try {
       const { writeWarmed, readWarmed } = await warmPools();
-      logger.info(`Connection pools warmed (write: ${writeWarmed}, read: ${readWarmed}).`);
+      logger.info(
+        `Connection pools warmed (write: ${writeWarmed}, read: ${readWarmed}).`,
+      );
     } catch (e) {
       logger.warn(`Pool warming failed (non-fatal): ${e.message}`);
     }
@@ -859,7 +1091,7 @@ const startServer = async () => {
     const redisClient = getRedisClient();
     if (redisClient) global.redis = redisClient;
     initQueues();
-    
+
     logger.info("Initializing Event-Driven Message Broker...");
     await messageBroker.init();
     registerUserEventSubscribers();
@@ -877,19 +1109,23 @@ const startServer = async () => {
       const localIPs = getLocalNetworkIPs();
       const primaryIP = localIPs[0] || "localhost";
       logger.info(`Server running on http://localhost:${PORT}`);
-      localIPs.forEach((ip) => logger.info(`Network access: http://${ip}:${PORT}`));
+      localIPs.forEach((ip) =>
+        logger.info(`Network access: http://${ip}:${PORT}`),
+      );
       logger.info(`Frontend (port 3000) is configured to proxy requests here.`);
       logger.info(`WebSocket enabled: ws://${primaryIP}:${PORT}`);
       logger.info(`API Health: http://${primaryIP}:${PORT}/api/health`);
       if (!isDevelopment) {
         try {
           writeFile(READY_FILE, String(Date.now())).catch((e) =>
-            logger.warn(`Failed to write readiness signal: ${e.message}`)
+            logger.warn(`Failed to write readiness signal: ${e.message}`),
           );
           logger.info(`Readiness signal written to ${READY_FILE}`);
-        } catch (e) { logger.warn(`Failed to write readiness signal: ${e.message}`); }
+        } catch (e) {
+          logger.warn(`Failed to write readiness signal: ${e.message}`);
+        }
       }
-      
+
       if (isQueueEnabled()) {
         // Reliability fix: schedule a BullMQ repeatable job instead of a raw
         // setInterval. BullMQ retries failures with exponential backoff
@@ -903,14 +1139,16 @@ const startServer = async () => {
               name: "scheduled_reminder",
               payload: { inactivityHours: 24 },
             },
-            { repeat: { every: 6 * 60 * 60 * 1000 } }
+            { repeat: { every: 6 * 60 * 60 * 1000 } },
           );
-          logger.info("Scheduled repeating reminder job (every 6h, with retry).");
+          logger.info(
+            "Scheduled repeating reminder job (every 6h, with retry).",
+          );
         } catch (e) {
           logger.warn(`Failed to schedule reminder job: ${e.message}`);
         }
       }
-      
+
       logger.info(`[Redis] ${getRedisStatus().message}`);
       logger.info(`[Queue] ${isQueueEnabled() ? "Enabled" : "Disabled"}`);
       logger.info(`Background initialization complete.`);
@@ -918,22 +1156,48 @@ const startServer = async () => {
         startScheduler();
         startOutboxPoller();
         startAttemptCleaner();
-        subscriptionService.processExpiredSubscriptions().catch((e) => logger.warn(`[SubscriptionExpiry] Startup run failed: ${e.message}`));
-        setInterval(() => {
-          subscriptionService.processExpiredSubscriptions().catch((e) => logger.warn(`[SubscriptionExpiry] Interval run failed: ${e.message}`));
-        }, 60 * 60 * 1000);
-        logger.info("Schedulers, subscription expiry worker, and background cleaners started successfully.");
+        subscriptionService
+          .processExpiredSubscriptions()
+          .catch((e) =>
+            logger.warn(
+              `[SubscriptionExpiry] Startup run failed: ${e.message}`,
+            ),
+          );
+        setInterval(
+          () => {
+            subscriptionService
+              .processExpiredSubscriptions()
+              .catch((e) =>
+                logger.warn(
+                  `[SubscriptionExpiry] Interval run failed: ${e.message}`,
+                ),
+              );
+          },
+          60 * 60 * 1000,
+        );
+        logger.info(
+          "Schedulers, subscription expiry worker, and background cleaners started successfully.",
+        );
       } catch (err) {
         logger.error(`Failed to start schedulers: ${err.message}`);
       }
-      logger.info(`Available endpoints: /api/auth/*, /api/admin/*, /api/tests/*, /api/study/*`);
+      logger.info(
+        `Available endpoints: /api/auth/*, /api/admin/*, /api/tests/*, /api/study/*`,
+      );
     });
-  } catch (error) { logger.error(`Server startup error: ${error.message}`); process.exit(1); }
+  } catch (error) {
+    logger.error(`Server startup error: ${error.message}`);
+    process.exit(1);
+  }
 };
 
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received. Shutting down gracefully...`);
-  try { if (existsSync(READY_FILE)) unlinkSync(READY_FILE); } catch { /* ignore */ }
+  try {
+    if (existsSync(READY_FILE)) unlinkSync(READY_FILE);
+  } catch {
+    /* ignore */
+  }
   try {
     stopScheduler();
     stopOutboxPoller();
@@ -963,16 +1227,20 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // leaves a restart to chance. Route both through gracefulShutdown (which closes
 // connections and lets the process manager — systemd/PM2/Docker — restart the
 // service). `gracefulShutdown` is guarded against double-invocation below.
-let isShuttingDown = false
+let isShuttingDown = false;
 const fatalShutdown = (label, err) => {
-  if (isShuttingDown) return
-  isShuttingDown = true
-  console.error(`[Fatal Error] ${label}:`, err)
-  logger.error({ err }, label)
-  gracefulShutdown(label).finally(() => process.exit(1))
-}
-process.on("uncaughtException", (error) => fatalShutdown("Uncaught Exception", error));
-process.on("unhandledRejection", (reason) => fatalShutdown("Unhandled Rejection", reason));
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  console.error(`[Fatal Error] ${label}:`, err);
+  logger.error({ err }, label);
+  gracefulShutdown(label).finally(() => process.exit(1));
+};
+process.on("uncaughtException", (error) =>
+  fatalShutdown("Uncaught Exception", error),
+);
+process.on("unhandledRejection", (reason) =>
+  fatalShutdown("Unhandled Rejection", reason),
+);
 
 startServer();
 export default app;

@@ -1,10 +1,10 @@
-import { usePublicSettings } from '../../hooks/usePublicSettings'
-import ComingSoon from './ComingSoon'
-import { Clock, Bell, Sparkles, Loader2 } from 'lucide-react'
-import { useState } from 'react'
-import { api } from '../../lib/dataService.js'
-import { useAuth } from '../../providers/AuthContext'
-import { toast } from 'react-hot-toast'
+import { usePublicSettings } from "../../hooks/usePublicSettings";
+import ComingSoon from "./ComingSoon";
+import { Clock, Bell, Sparkles, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { api } from "../../lib/dataService.js";
+import { useAuth } from "../../providers/AuthContext";
+import { toast } from "react-hot-toast";
 
 /**
  * FeatureGate — wraps a page or section and shows "Coming Soon" if the
@@ -24,16 +24,18 @@ import { toast } from 'react-hot-toast'
  */
 export default function FeatureGate({
   pageKey,
+  featureKey,
   sectionKey,
   children,
-  fallbackBackLink = '/',
-  fallbackBackText = 'Go Back',
-  variant = 'card',
-  minHeight = '200px',
+  fallbackBackLink = "/",
+  fallbackBackText = "Go Back",
+  variant = "card",
+  minHeight = "200px",
 }) {
-  const { isComingSoon, getComingSoonConfig, isLoading } = usePublicSettings()
+  const { isComingSoon, getComingSoonConfig, isFeatureEnabled, isLoading } =
+    usePublicSettings();
 
-  const key = sectionKey || pageKey
+  const key = sectionKey || pageKey;
 
   // While settings are loading, show a brief skeleton so we don't flash
   // the real content before the coming-soon check completes.
@@ -43,34 +45,48 @@ export default function FeatureGate({
         <div className="flex items-center justify-center" style={{ minHeight }}>
           <Loader2 className="w-5 h-5 text-gray-300 animate-spin" />
         </div>
-      )
+      );
     }
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-brand-start animate-spin" />
       </div>
-    )
+    );
+  }
+
+  if (featureKey && !isFeatureEnabled(featureKey)) {
+    return (
+      <ComingSoon
+        title="Feature unavailable"
+        message="This feature is currently disabled by the administrator."
+        showNotificationButton={false}
+        backLink={fallbackBackLink}
+        backText={fallbackBackText}
+      />
+    );
   }
 
   if (!isComingSoon(key)) {
-    return children
+    return children;
   }
 
-  const config = getComingSoonConfig(key) || {}
+  const config = getComingSoonConfig(key) || {};
 
   // Page-level: full Coming Soon page
   if (!sectionKey) {
     return (
       <ComingSoon
-        title={config.title || 'Coming Soon'}
-        message={config.message || 'We are working hard to bring this content to you.'}
+        title={config.title || "Coming Soon"}
+        message={
+          config.message || "We are working hard to bring this content to you."
+        }
         estimatedTime={config.estimatedTime || null}
         showNotificationButton={true}
         notificationTopic={`feature:${key}`}
         backLink={fallbackBackLink}
         backText={fallbackBackText}
       />
-    )
+    );
   }
 
   // Section-level: inline placeholder
@@ -81,67 +97,81 @@ export default function FeatureGate({
       variant={variant}
       minHeight={minHeight}
     />
-  )
+  );
 }
 
 /**
  * Compact inline Coming Soon placeholder for sections within a page.
  */
-function SectionComingSoon({ config, _sectionKey, variant = 'card', minHeight = '200px' }) {
-  const { isAuthenticated } = useAuth()
-  const [subscribing, setSubscribing] = useState(false)
-  const [subscribed, setSubscribed] = useState(false)
+function SectionComingSoon({
+  config,
+  _sectionKey,
+  variant = "card",
+  minHeight = "200px",
+}) {
+  const { isAuthenticated } = useAuth();
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
 
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
-      toast.error('Please sign in to receive notifications')
-      return
+      toast.error("Please sign in to receive notifications");
+      return;
     }
-    setSubscribing(true)
+    setSubscribing(true);
     try {
-      await api.post('/api/notifications/subscribe', {
-        type: 'coming_soon',
-      })
-      setSubscribed(true)
-      toast.success('You will be notified when this is available!')
+      await api.post("/api/notifications/subscribe", {
+        type: "coming_soon",
+      });
+      setSubscribed(true);
+      toast.success("You will be notified when this is available!");
     } catch (error) {
       if (error.response?.status === 409 || error.response?.status === 400) {
-        setSubscribed(true)
-        toast.success('You are already subscribed!')
+        setSubscribed(true);
+        toast.success("You are already subscribed!");
       } else {
-        toast.error('Failed to subscribe. Please try again.')
+        toast.error("Failed to subscribe. Please try again.");
       }
     } finally {
-      setSubscribing(false)
+      setSubscribing(false);
     }
-  }
+  };
 
-  if (variant === 'banner') {
+  if (variant === "banner") {
     return (
       <div className="flex items-center gap-3 px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl">
         <Clock className="w-4 h-4 text-indigo-500 flex-shrink-0" />
         <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300 flex-1">
-          {config.message || 'This section is coming soon.'}
+          {config.message || "This section is coming soon."}
         </span>
         {config.estimatedTime && (
-          <span className="text-[10px] text-indigo-400 font-bold flex-shrink-0">{config.estimatedTime}</span>
+          <span className="text-[10px] text-indigo-400 font-bold flex-shrink-0">
+            {config.estimatedTime}
+          </span>
         )}
       </div>
-    )
+    );
   }
 
-  if (variant === 'inline') {
+  if (variant === "inline") {
     return (
-      <div className="flex items-center justify-center gap-2 py-6 text-center" style={{ minHeight }}>
+      <div
+        className="flex items-center justify-center gap-2 py-6 text-center"
+        style={{ minHeight }}
+      >
         <Clock className="w-5 h-5 text-gray-300" />
         <div>
-          <p className="text-sm font-medium text-gray-400">{config.title || 'Coming Soon'}</p>
+          <p className="text-sm font-medium text-gray-400">
+            {config.title || "Coming Soon"}
+          </p>
           {config.estimatedTime && (
-            <p className="text-[10px] text-gray-300 mt-0.5">{config.estimatedTime}</p>
+            <p className="text-[10px] text-gray-300 mt-0.5">
+              {config.estimatedTime}
+            </p>
           )}
         </div>
       </div>
-    )
+    );
   }
 
   // 'card' variant
@@ -158,10 +188,10 @@ function SectionComingSoon({ config, _sectionKey, variant = 'card', minHeight = 
       </div>
 
       <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1">
-        {config.title || 'Coming Soon'}
+        {config.title || "Coming Soon"}
       </h3>
       <p className="text-xs text-gray-500 dark:text-gray-400 max-w-xs mb-3">
-        {config.message || 'We are working on this section.'}
+        {config.message || "We are working on this section."}
       </p>
 
       {config.estimatedTime && (
@@ -183,12 +213,16 @@ function SectionComingSoon({ config, _sectionKey, variant = 'card', minHeight = 
           className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition disabled:opacity-50"
         >
           {subscribing ? (
-            <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Subscribing...</>
+            <>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Subscribing...
+            </>
           ) : (
-            <><Bell className="w-3.5 h-3.5" /> Notify me</>
+            <>
+              <Bell className="w-3.5 h-3.5" /> Notify me
+            </>
           )}
         </button>
       )}
     </div>
-  )
+  );
 }
