@@ -5,9 +5,15 @@
   "main": "index.js",
   "types": "types/index.d.ts",
   "type": "module",
-  "files": ["*.js", "*.jsx", "src/EmptyState.jsx", "types/"],
+  "files": [
+    "*.js",
+    "*.jsx",
+    "src/EmptyState.jsx",
+    "types/"
+  ],
   "exports": {
     ".": "./index.js",
+    "./useDebounce": "./useDebounce.js",
     "./EmptyState": "./src/EmptyState.jsx",
     "./ThemeContext": "./ThemeContext.jsx",
     "./ThemeContext.jsx": "./ThemeContext.jsx"

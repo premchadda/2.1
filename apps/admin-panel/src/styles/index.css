@@ -77,21 +77,94 @@ body {
     background: #94a3b8;
 }
 
-/* ===== Animations ===== */
+/* ===== Animations & Transitions ===== */
 .fade-in {
-    animation: fadeIn 0.4s ease-out;
+    animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(15px);
+        transform: translateY(8px);
     }
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
+
+/* Fluid Page Transition */
+@keyframes pageTransit {
+    0% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.995);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.page-transition {
+    animation: pageTransit 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
+}
+
+/* Modal Pop In */
+@keyframes modalPop {
+    0% {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.animate-modal-pop {
+    animation: modalPop 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mobile Drawer Slide */
+@keyframes drawerSlide {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+.animate-drawer-slide {
+    animation: drawerSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Tactile Tap Feedback */
+.tap-feedback {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
+}
+.tap-feedback:active {
+    transform: scale(0.97);
+}
+
+/* Smooth Horizontal Scroll without scrollbars */
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+
+/* Card hover elevation */
+.card-hover-transitive {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover-transitive:hover {
+    transform: translateY(-1.5px);
+}
+
 
 /* Shake animation for validation feedback */
 @keyframes shake {

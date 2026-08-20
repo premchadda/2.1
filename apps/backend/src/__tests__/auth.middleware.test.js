@@ -10,6 +10,10 @@ const mockRedisGet = jest.fn()
 const mockRedisSet = jest.fn()
 
 jest.unstable_mockModule('../infrastructure/database/postgres-helpers.js', () => ({
+  pool: {
+    query: (...args) => mockPoolQuery(...args),
+    connect: jest.fn().mockResolvedValue({ query: jest.fn(), release: jest.fn() }),
+  },
   dbHelpers: {
     findById: (...args) => mockFindById(...args),
     pool: { query: (...args) => mockPoolQuery(...args) },

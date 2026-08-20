@@ -1,25 +1,26 @@
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/dataService.js'
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../lib/dataService.js";
 
 const FALLBACK_SETTINGS = {
   features: {
     userRegistration: true,
     emailVerification: true,
     smsNotifications: false,
-    paymentGateway: true,
-    analytics: true,
-    seoEnabled: true,
+    paymentGateway: false,
+    analytics: false,
+    seoEnabled: false,
     demoMode: false,
   },
   maintenance: {
     enabled: false,
-    message: "We're performing scheduled maintenance to improve your experience.",
+    message:
+      "We're performing scheduled maintenance to improve your experience.",
     endTime: null,
     allowAdminAccess: true,
-    estimatedDowntime: '30 minutes',
+    estimatedDowntime: "30 minutes",
   },
   comingSoon: {},
-}
+};
 
 /**
  * Fetches public site settings (features, maintenance, coming soon) from the backend.
@@ -29,13 +30,13 @@ const FALLBACK_SETTINGS = {
  */
 export function usePublicSettings() {
   const { data, isLoading } = useQuery({
-    queryKey: ['public-settings'],
+    queryKey: ["public-settings"],
     queryFn: async () => {
       try {
-        const res = await api.get('/api/settings/public', { timeout: 8000 })
-        return res.data?.data || FALLBACK_SETTINGS
+        const res = await api.get("/api/settings/public", { timeout: 8000 });
+        return res.data?.data || FALLBACK_SETTINGS;
       } catch (err) {
-        return FALLBACK_SETTINGS
+        return FALLBACK_SETTINGS;
       }
     },
     placeholderData: FALLBACK_SETTINGS,
@@ -43,9 +44,9 @@ export function usePublicSettings() {
     refetchInterval: 1000 * 60 * 5,
     retry: 1,
     refetchOnMount: false,
-  })
+  });
 
-  const settings = data || FALLBACK_SETTINGS
+  const settings = data || FALLBACK_SETTINGS;
 
   return {
     settings,
@@ -57,5 +58,5 @@ export function usePublicSettings() {
     isFeatureEnabled: (key) => Boolean(settings.features?.[key]),
     isComingSoon: (pageKey) => Boolean(settings.comingSoon?.[pageKey]?.enabled),
     getComingSoonConfig: (pageKey) => settings.comingSoon?.[pageKey] || null,
-  }
+  };
 }

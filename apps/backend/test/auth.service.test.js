@@ -105,4 +105,53 @@ describe('Auth Service', () => {
       expect(CookieOptions.path).toBe('/')
     })
   })
+
+  describe('getCookieOptions and setAuthCookies', () => {
+    it('should omit maxAge for session cookies when rememberMe is false', async () => {
+      const { getCookieOptions } = await import('../src/modules/auth/auth.service.js')
+      const { tokenOptions, refreshOptions } = getCookieOptions(false)
+      expect(tokenOptions.httpOnly).toBe(true)
+      expect(tokenOptions.path).toBe('/')
+      expect(tokenOptions.maxAge).toBeUndefined()
+      expect(refreshOptions.maxAge).toBeUndefined()
+    })
+
+    it('should include maxAge for persistent cookies when rememberMe is true', async () => {
+      const { getCookieOptions } = await import('../src/modules/auth/auth.service.js')
+      const { tokenOptions, refreshOptions } = getCookieOptions(true)
+      expect(tokenOptions.httpOnly).toBe(true)
+      expect(tokenOptions.maxAge).toBe(7 * 24 * 60 * 60 * 1000)
+      expect(refreshOptions.maxAge).toBe(30 * 24 * 60 * 60 * 1000)
+    })
+
+    it('should set session cookies when rememberMe is false in setAuthCookies', async () => {
+      const { setAuthCookies } = await import('../src/modules/auth/auth.service.js')
+      const res = { cookie: jest.fn() }
+      setAuthCookies(res, { token: 'jwt-access', refreshToken: 'jwt-refresh', rememberMe: false })
+
+      expect(res.cookie).toHaveBeenCalledTimes(2)
+      expect(res.cookie).toHaveBeenCalledWith('token', 'jwt-access', expect.objectContaining({
+        httpOnly: true,
+        path: '/'
+      }))
+      const tokenCall = res.cookie.mock.calls.find(call => call[0] === 'token')
+      expect(tokenCall[2].maxAge).toBeUndefined()
+
+      const refreshCall = res.cookie.mock.calls.find(call => call[0] === 'refreshToken')
+      expect(refreshCall[2].maxAge).toBeUndefined()
+    })
+
+    it('should set persistent cookies when rememberMe is true in setAuthCookies', async () => {
+      const { setAuthCookies } = await import('../src/modules/auth/auth.service.js')
+      const res = { cookie: jest.fn() }
+      setAuthCookies(res, { token: 'jwt-access', refreshToken: 'jwt-refresh', rememberMe: true })
+
+      expect(res.cookie).toHaveBeenCalledTimes(2)
+      const tokenCall = res.cookie.mock.calls.find(call => call[0] === 'token')
+      expect(tokenCall[2].maxAge).toBe(7 * 24 * 60 * 60 * 1000)
+
+      const refreshCall = res.cookie.mock.calls.find(call => call[0] === 'refreshToken')
+      expect(refreshCall[2].maxAge).toBe(30 * 24 * 60 * 60 * 1000)
+    })
+  })
 })

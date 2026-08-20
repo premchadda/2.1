@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { AlertTriangle, X, Loader2 } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect } from "react";
+import { AlertTriangle, X, Loader2 } from "lucide-react";
 
 /**
  * Reusable confirm dialog. Replaces the inconsistent mix of `window.confirm`
@@ -13,50 +13,50 @@ import { AlertTriangle, X, Loader2 } from 'lucide-react'
  *   return (<div>…{ConfirmDialog}</div>)
  */
 export function useConfirm() {
-  const [state, setState] = useState(null)
-  const resolverRef = useRef(null)
+  const [state, setState] = useState(null);
+  const resolverRef = useRef(null);
 
   const confirm = useCallback((options) => {
     return new Promise((resolve) => {
-      resolverRef.current = resolve
+      resolverRef.current = resolve;
       setState({
-        title: options.title || 'Are you sure?',
-        message: options.message || '',
-        confirmLabel: options.confirmLabel || 'Confirm',
-        cancelLabel: options.cancelLabel || 'Cancel',
+        title: options.title || "Are you sure?",
+        message: options.message || "",
+        confirmLabel: options.confirmLabel || "Confirm",
+        cancelLabel: options.cancelLabel || "Cancel",
         danger: !!options.danger,
         busy: false,
-      })
-    })
-  }, [])
+      });
+    });
+  }, []);
 
   const close = (result) => {
-    if (resolverRef.current) resolverRef.current(result)
-    resolverRef.current = null
-    setState(null)
-  }
+    if (resolverRef.current) resolverRef.current(result);
+    resolverRef.current = null;
+    setState(null);
+  };
 
   const ConfirmDialog = state ? (
     <ConfirmModal
       {...state}
       onCancel={() => close(false)}
       onConfirm={async () => {
-        setState((s) => s && { ...s, busy: true })
+        setState((s) => s && { ...s, busy: true });
         // Give the page a moment to update its busy state before resolving
-        await new Promise((r) => setTimeout(r, 0))
-        close(true)
+        await new Promise((r) => setTimeout(r, 0));
+        close(true);
       }}
     />
-  ) : null
+  ) : null;
 
-  return { confirm, ConfirmDialog, close }
+  return { confirm, ConfirmDialog, close };
 }
 
 export function ConfirmModal({
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
   danger = false,
   busy = false,
   onConfirm,
@@ -64,42 +64,61 @@ export function ConfirmModal({
 }) {
   // Close on Escape (but not while busy)
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape' && !busy) onCancel() }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [busy, onCancel])
+    const handler = (e) => {
+      if (e.key === "Escape" && !busy) onCancel();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [busy, onCancel]);
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
-      onClick={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !busy) onCancel();
+      }}
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
-        <div className="p-6 text-center">
-          <div className={`w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center ${
-            danger ? 'bg-red-100' : 'bg-indigo-100'
-          }`}>
-            <AlertTriangle className={`w-6 h-6 ${danger ? 'text-red-600' : 'text-indigo-600'}`} />
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 w-full max-w-sm overflow-hidden animate-modal-pop">
+        <div className="p-5 sm:p-6 text-center">
+          <div
+            className={`w-12 h-12 rounded-2xl mx-auto mb-3.5 flex items-center justify-center shadow-xs ${
+              danger
+                ? "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
+                : "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
+            }`}
+          >
+            <AlertTriangle className="w-6 h-6" />
           </div>
-          <h3 id="confirm-title" className="text-lg font-bold text-gray-900 mb-2">{title}</h3>
-          {message && <p className="text-sm text-gray-600 whitespace-pre-line">{message}</p>}
+          <h3
+            id="confirm-title"
+            className="text-base sm:text-lg font-black text-gray-900 dark:text-white mb-1.5"
+          >
+            {title}
+          </h3>
+          {message && (
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 whitespace-pre-line leading-relaxed font-medium">
+              {message}
+            </p>
+          )}
         </div>
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-center gap-3">
+        <div className="px-4 sm:px-6 py-3.5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/40 flex justify-center gap-2.5">
           <button
             onClick={onCancel}
             disabled={busy}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm disabled:opacity-50"
+            className="px-3.5 py-2 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition text-xs sm:text-sm font-bold disabled:opacity-50 tap-feedback"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={busy}
-            className={`px-4 py-2 text-white rounded-lg transition text-sm font-medium flex items-center gap-2 disabled:opacity-60 ${
-              danger ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+            className={`px-4 py-2 text-white rounded-xl transition text-xs sm:text-sm font-bold flex items-center gap-1.5 disabled:opacity-60 shadow-md tap-feedback ${
+              danger
+                ? "bg-red-600 hover:bg-red-700 shadow-red-500/20"
+                : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 shadow-indigo-500/25"
             }`}
           >
             {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -108,7 +127,7 @@ export function ConfirmModal({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 /**
@@ -116,11 +135,11 @@ export function ConfirmModal({
  * mounted — they just call `confirmOnce` to push a confirm onto a global
  * dialog rendered at the app root.
  */
-const listeners = new Set()
-const confirmQueue = []
+const listeners = new Set();
+const confirmQueue = [];
 
 function notifyConfirmListeners() {
-  listeners.forEach((cb) => cb())
+  listeners.forEach((cb) => cb());
 }
 
 export function confirmOnce(options) {
@@ -128,29 +147,35 @@ export function confirmOnce(options) {
     const entry = {
       ...options,
       resolve,
-      onCancel: () => { resolve(false); removeConfirm(entry) },
-      onConfirm: () => { resolve(true); removeConfirm(entry) },
-    }
-    confirmQueue.push(entry)
-    notifyConfirmListeners()
-  })
+      onCancel: () => {
+        resolve(false);
+        removeConfirm(entry);
+      },
+      onConfirm: () => {
+        resolve(true);
+        removeConfirm(entry);
+      },
+    };
+    confirmQueue.push(entry);
+    notifyConfirmListeners();
+  });
 }
 
 function removeConfirm(entry) {
-  const idx = confirmQueue.indexOf(entry)
-  if (idx !== -1) confirmQueue.splice(idx, 1)
-  notifyConfirmListeners()
+  const idx = confirmQueue.indexOf(entry);
+  if (idx !== -1) confirmQueue.splice(idx, 1);
+  notifyConfirmListeners();
 }
 
 export function GlobalConfirmHost() {
-  const [opts, setOpts] = useState(null)
+  const [opts, setOpts] = useState(null);
   useEffect(() => {
-    const cb = () => setOpts(confirmQueue.length ? confirmQueue[0] : null)
-    listeners.add(cb)
-    setOpts(confirmQueue.length ? confirmQueue[0] : null)
-    return () => listeners.delete(cb)
-  }, [])
-  if (!opts) return null
+    const cb = () => setOpts(confirmQueue.length ? confirmQueue[0] : null);
+    listeners.add(cb);
+    setOpts(confirmQueue.length ? confirmQueue[0] : null);
+    return () => listeners.delete(cb);
+  }, []);
+  if (!opts) return null;
   return (
     <ConfirmModal
       title={opts.title}
@@ -161,7 +186,7 @@ export function GlobalConfirmHost() {
       onCancel={opts.onCancel}
       onConfirm={opts.onConfirm}
     />
-  )
+  );
 }
 
-export default ConfirmModal
+export default ConfirmModal;
