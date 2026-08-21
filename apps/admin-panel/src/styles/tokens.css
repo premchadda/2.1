@@ -101,12 +101,22 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
 
-  /* ── Z-Index Scale ───────────────────────────────────────── */
+  /* ── Z-Index Scale ─────────────────────────────────────────
+   * Stacking hierarchy (lowest → highest). All admin modals use
+   * createPortal(document.body). Keep toast & confirm topmost.
+   * See also: ConfirmModal.jsx (z-[999999]), main.jsx Toaster (z: 9999999)
+   */
   --z-dropdown: 10;
   --z-sticky: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-toast: 50;
+  --z-navbar: 50;
+  --z-bottom-nav: 10000;
+  --z-sidebar-overlay: 10001;
+  --z-sidebar-drawer: 10002;
+  --z-overlay: 99990;
+  --z-modal: 99990;
+  --z-popup: 99999;
+  --z-confirm: 999999;
+  --z-toast: 9999999;
 }
 
 /* ── Dark Theme ──────────────────────────────────────────── */

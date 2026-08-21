@@ -594,7 +594,6 @@ export default function StagesManager() {
   const handleBulkLinkStages = useCallback(async () => {
     if (!activeExamId || selectedStages.size === 0) return;
 
-    // Normalize the exam ID to number if possible
     let examIdToLink = activeExamId;
     const numVal = Number(activeExamId);
     if (!Number.isNaN(numVal)) {
@@ -604,38 +603,32 @@ export default function StagesManager() {
     try {
       setBulkLinking(true);
       setBulkOperationType("link");
-      let successCount = 0;
-      let failedCount = 0;
-
-      for (const stageId of selectedStages) {
-        try {
+      const stageIds = [...selectedStages];
+      const results = await Promise.allSettled(
+        stageIds.map(async (stageId) => {
           const stage = allStages.find(
             (s) => String(s._id || s.id) === String(stageId),
           );
-          if (!stage) {
-            failedCount++;
-            continue;
-          }
-
+          if (!stage) throw new Error("Stage not found");
           const currentExamIds = parseIdsArray(stage.examIds);
           const alreadyLinked = currentExamIds.some((id) => {
             if (typeof id === "number" && typeof examIdToLink === "number")
               return id === examIdToLink;
             return String(id) === String(examIdToLink);
           });
-          if (alreadyLinked) {
-            successCount++;
-            continue;
-          }
-
+          if (alreadyLinked) return "already";
           const updatedExamIds = [...currentExamIds, examIdToLink];
           await adminAPI.updateStage(stageId, { examIds: updatedExamIds });
-          successCount++;
-        } catch (e) {
-          failedCount++;
-          console.error("Failed to link stage:", String(stageId), e);
-        }
-      }
+          return "linked";
+        }),
+      );
+      const successCount = results.filter(
+        (r) => r.status === "fulfilled",
+      ).length;
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      results
+        .filter((r) => r.status === "rejected")
+        .forEach((r) => console.error("Failed to link stage:", r.reason));
 
       setSelectedStages(new Set());
       await fetchStages();
@@ -663,33 +656,30 @@ export default function StagesManager() {
     try {
       setBulkLinking(true);
       setBulkOperationType("unlink");
-      let successCount = 0;
-      let failedCount = 0;
-
-      for (const stageId of selectedStages) {
-        try {
+      const stageIds = [...selectedStages];
+      const results = await Promise.allSettled(
+        stageIds.map(async (stageId) => {
           const stage = allStages.find(
             (s) => String(s._id || s.id) === String(stageId),
           );
-          if (!stage) {
-            failedCount++;
-            continue;
-          }
-
+          if (!stage) throw new Error("Stage not found");
           const currentExamIds = parseIdsArray(stage.examIds);
           const updatedExamIds = currentExamIds.filter((id) => {
             if (typeof id === "number" && typeof examIdToUnlink === "number")
               return id !== examIdToUnlink;
             return String(id) !== String(examIdToUnlink);
           });
-
           await adminAPI.updateStage(stageId, { examIds: updatedExamIds });
-          successCount++;
-        } catch (e) {
-          failedCount++;
-          console.error("Failed to unlink stage:", String(stageId), e);
-        }
-      }
+          return "unlinked";
+        }),
+      );
+      const successCount = results.filter(
+        (r) => r.status === "fulfilled",
+      ).length;
+      const failedCount = results.filter((r) => r.status === "rejected").length;
+      results
+        .filter((r) => r.status === "rejected")
+        .forEach((r) => console.error("Failed to unlink stage:", r.reason));
 
       setSelectedStages(new Set());
       await fetchStages();
@@ -853,31 +843,34 @@ export default function StagesManager() {
   return (
     <div className="p-3 sm:p-4 max-w-7xl mx-auto relative">
       {/* FIXED BUG [S-LOW-2]: Bulk Operation Overlay for better UX feedback */}
-      {bulkLinking && (
-        <div className="fixed inset-0 bg-white dark:bg-gray-800/60 backdrop-blur-[2px] z-[200] flex items-center justify-center transition-all duration-300">
-          <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100 flex flex-col items-center max-w-xs text-center">
-            <div className="relative mb-4">
-              <div className="w-16 h-16 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                {bulkOperationType === "link" ? (
-                  <Link className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                ) : (
-                  <Unlink className="w-6 h-6 text-red-500 animate-pulse" />
-                )}
+      {bulkLinking &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[99999] flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col items-center max-w-xs text-center">
+              <div className="relative mb-4">
+                <div className="w-16 h-16 border-4 border-indigo-100 dark:border-indigo-900 border-t-indigo-600 rounded-full animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  {bulkOperationType === "link" ? (
+                    <Link className="w-6 h-6 text-indigo-600 dark:text-indigo-400 animate-pulse" />
+                  ) : (
+                    <Unlink className="w-6 h-6 text-red-500 animate-pulse" />
+                  )}
+                </div>
               </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                {bulkOperationType === "link"
+                  ? "Linking Stages..."
+                  : "Unlinking Stages..."}
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                Please wait while we process the selected stages. This may take
+                a few moments.
+              </p>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-              {bulkOperationType === "link"
-                ? "Linking Stages..."
-                : "Unlinking Stages..."}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-              Please wait while we process the selected stages. This may take a
-              few moments.
-            </p>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* 1. Single-Row Unified Top Navigation Bar with URL sync */}
       <div className="flex items-center justify-between gap-2 p-1 bg-white dark:bg-gray-800/90 rounded-2xl shadow-xs border border-gray-100 dark:border-gray-700/80 mb-3.5 overflow-x-auto scrollbar-none">

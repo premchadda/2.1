@@ -18,6 +18,9 @@ const apiClient = axios.create({
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
+    // Identifies this app to the backend's session fingerprinting so the
+    // admin panel and student frontend never share/overwrite each other's session.
+    "X-Client-App": "admin-web",
   },
   withCredentials: true, // Enable cookies for httpOnly token storage (Issue #21)
 });
@@ -34,22 +37,9 @@ apiClient.interceptors.request.use(
     // Add CSRF token for mutation requests (POST, PUT, DELETE, PATCH)
     const method = config.method?.toUpperCase();
     if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
-      // SEC-07: Get CSRF token from closure-based getter (no window global)
       const csrfToken = getCsrfToken();
       if (csrfToken) {
         config.headers["X-CSRF-Token"] = csrfToken;
-      }
-    }
-
-    // Attach Bearer token if available (supports cross-domain fallback alongside httpOnly cookies)
-    if (!config.headers["Authorization"]) {
-      const token =
-        typeof window !== "undefined"
-          ? sessionStorage.getItem("trstprep_auth_token") ||
-            localStorage.getItem("trstprep_token")
-          : null;
-      if (token) {
-        config.headers["Authorization"] = `Bearer ${token}`;
       }
     }
 

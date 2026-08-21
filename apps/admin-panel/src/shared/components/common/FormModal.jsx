@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { X, Save, Loader2 } from "lucide-react";
 
 const FormModal = ({
@@ -24,8 +25,8 @@ const FormModal = ({
     onSubmit?.(e);
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9990] p-2 sm:p-4 animate-fade-in">
       <div
         className={`bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 w-full ${sizeClasses[size] || sizeClasses.md} max-h-[92vh] overflow-hidden flex flex-col shadow-2xl animate-modal-pop`}
       >
@@ -59,7 +60,6 @@ const FormModal = ({
           <button
             type="submit"
             disabled={saving}
-            onClick={handleSubmit}
             className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition text-xs sm:text-sm font-bold shadow-md shadow-indigo-500/25 tap-feedback"
           >
             {saving ? (
@@ -73,6 +73,10 @@ const FormModal = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default FormModal;

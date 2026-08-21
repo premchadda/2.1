@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import {
   CreditCard,
   Search,
@@ -397,87 +398,95 @@ export default function PaymentsManager() {
         )}
       </div>
 
-      {refundTarget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <RefreshCw className="w-5 h-5 text-red-600" />
-                  Confirm Refund
-                </h2>
-                <button
-                  onClick={() => setRefundTarget(null)}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {refundTarget &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-5 border-b border-gray-100 dark:border-gray-700 pb-3">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5 text-red-600" />
+                    Confirm Refund
+                  </h2>
+                  <button
+                    onClick={() => setRefundTarget(null)}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Are you sure you want to refund this payment? This action will
-                mark the payment as refunded and cannot be undone from this
-                panel.
-              </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+                  Are you sure you want to refund this payment? This action will
+                  mark the payment as refunded and cannot be undone from this
+                  panel.
+                </p>
 
-              <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2 mb-6">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">User</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {refundTarget.userName || "Unknown"}
-                  </span>
+                <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-4 space-y-2.5 mb-6 border border-gray-100 dark:border-gray-800 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      User
+                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {refundTarget.userName || "Unknown"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Amount
+                    </span>
+                    <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                      {formatCurrency(
+                        refundTarget.amount,
+                        refundTarget.currency,
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Gateway
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300">
+                      {refundTarget.gateway || "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Reference
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">
+                      {refundTarget.gatewayPaymentId || "—"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Amount
-                  </span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(refundTarget.amount, refundTarget.currency)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Gateway
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300">
-                    {refundTarget.gateway || "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Reference
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-mono text-xs">
-                    {refundTarget.gatewayPaymentId || "—"}
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => setRefundTarget(null)}
-                  disabled={refunding}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRefund}
-                  disabled={refunding}
-                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                >
-                  {refunding ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  {refunding ? "Processing..." : "Refund Payment"}
-                </button>
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    onClick={() => setRefundTarget(null)}
+                    disabled={refunding}
+                    className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleRefund}
+                    disabled={refunding}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 text-sm font-semibold shadow-md shadow-red-500/20 transition"
+                  >
+                    {refunding ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <RefreshCw className="w-4 h-4" />
+                    )}
+                    {refunding ? "Processing..." : "Refund Payment"}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

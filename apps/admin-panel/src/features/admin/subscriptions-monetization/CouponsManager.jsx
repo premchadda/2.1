@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Search,
@@ -160,17 +161,30 @@ export default function CouponsManager() {
     setShowForm(false);
   };
 
-  const copyToClipboard = (code) => {
-    navigator.clipboard.writeText(code);
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
+  const copyToClipboard = async (code) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(null), 2000);
+    } catch (err) {
+      console.warn("Clipboard write failed:", err);
+      toast.error("Clipboard not available in this context (requires HTTPS)");
+    }
   };
 
   const generateRandomCode = () => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     let code = "";
-    for (let i = 0; i < 8; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    try {
+      const arr = new Uint32Array(8);
+      crypto.getRandomValues(arr);
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(arr[i] % chars.length);
+      }
+    } catch {
+      for (let i = 0; i < 8; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
     }
     setFormData((prev) => ({ ...prev, code }));
   };
@@ -403,361 +417,377 @@ export default function CouponsManager() {
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">
-                  {editingCoupon ? "Edit Coupon" : "Create New Coupon"}
-                </h2>
-                <button
-                  onClick={resetForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingCoupon ? "Edit Coupon" : "Create New Coupon"}
+                  </h2>
+                  <button
+                    onClick={resetForm}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Coupon Code *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.code}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            code: e.target.value.toUpperCase(),
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono"
+                        placeholder="e.g., SSC50"
+                      />
+                    </div>
+                    <div className="pt-6">
+                      <button
+                        type="button"
+                        onClick={generateRandomCode}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition"
+                      >
+                        Generate
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Coupon Code *
+                      Description
                     </label>
                     <input
                       type="text"
-                      required
-                      value={formData.code}
+                      value={formData.description}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          code: e.target.value.toUpperCase(),
+                          description: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono"
-                      placeholder="e.g., SSC50"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      placeholder="e.g., 50% off on all SSC test series"
                     />
                   </div>
-                  <div className="pt-6">
-                    <button
-                      type="button"
-                      onClick={generateRandomCode}
-                      className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 rounded-lg transition"
-                    >
-                      Generate
-                    </button>
-                  </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., 50% off on all SSC test series"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Discount Type *
-                    </label>
-                    <select
-                      required
-                      value={formData.discountType}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          discountType: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {DISCOUNT_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Discount Value *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      min="0"
-                      value={formData.discountValue}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          discountValue: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Max Discount (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.maxDiscount || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          maxDiscount: e.target.value
-                            ? parseFloat(e.target.value)
-                            : null,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="No limit"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Min Order Value (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={formData.minOrderValue}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          minOrderValue: parseFloat(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Valid From *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.validFrom}
-                      onChange={(e) =>
-                        setFormData({ ...formData, validFrom: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Valid Until *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.validUntil}
-                      onChange={(e) =>
-                        setFormData({ ...formData, validUntil: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Total Usage Limit
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.usageLimit || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          usageLimit: e.target.value
-                            ? parseInt(e.target.value)
-                            : null,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Unlimited"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Per User Limit
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.userUsageLimit}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          userUsageLimit: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Applicable Plans
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {APPLICABLE_PLANS.map((plan) => (
-                      <label
-                        key={plan.value}
-                        className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Discount Type *
+                      </label>
+                      <select
+                        required
+                        value={formData.discountType}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discountType: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
                       >
+                        {DISCOUNT_TYPES.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Discount Value *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={formData.discountValue}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            discountValue: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Max Discount (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.maxDiscount || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            maxDiscount: e.target.value
+                              ? parseFloat(e.target.value)
+                              : null,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="No limit"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Min Order Value (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.minOrderValue}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            minOrderValue: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valid From *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.validFrom}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            validFrom: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Valid Until *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={formData.validUntil}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            validUntil: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Total Usage Limit
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.usageLimit || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            usageLimit: e.target.value
+                              ? parseInt(e.target.value)
+                              : null,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Unlimited"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Per User Limit
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={formData.userUsageLimit}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            userUsageLimit: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Applicable Plans
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {APPLICABLE_PLANS.map((plan) => (
+                        <label
+                          key={plan.value}
+                          className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.applicablePlans.includes(
+                              plan.value,
+                            )}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  applicablePlans: [
+                                    ...formData.applicablePlans,
+                                    plan.value,
+                                  ],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  applicablePlans:
+                                    formData.applicablePlans.filter(
+                                      (p) => p !== plan.value,
+                                    ),
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                          />
+                          <span className="text-sm">{plan.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Applicable Categories
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
                         <input
                           type="checkbox"
-                          checked={formData.applicablePlans.includes(
-                            plan.value,
+                          checked={formData.applicableCategories.includes(
+                            "All",
                           )}
                           onChange={(e) => {
                             if (e.target.checked) {
                               setFormData({
                                 ...formData,
-                                applicablePlans: [
-                                  ...formData.applicablePlans,
-                                  plan.value,
-                                ],
+                                applicableCategories: ["All"],
                               });
                             } else {
                               setFormData({
                                 ...formData,
-                                applicablePlans:
-                                  formData.applicablePlans.filter(
-                                    (p) => p !== plan.value,
-                                  ),
+                                applicableCategories: [],
                               });
                             }
                           }}
                           className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
                         />
-                        <span className="text-sm">{plan.label}</span>
+                        <span className="text-sm">All Categories</span>
                       </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Applicable Categories
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <label className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900">
-                      <input
-                        type="checkbox"
-                        checked={formData.applicableCategories.includes("All")}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              applicableCategories: ["All"],
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              applicableCategories: [],
-                            });
-                          }
-                        }}
-                        className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                      />
-                      <span className="text-sm">All Categories</span>
-                    </label>
-                    {getRootCategoryNames().map((cat) => (
-                      <label
-                        key={cat}
-                        className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.applicableCategories.includes(cat)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              const newCategories =
-                                formData.applicableCategories.filter(
-                                  (c) => c !== "All",
-                                );
-                              setFormData({
-                                ...formData,
-                                applicableCategories: [...newCategories, cat],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                applicableCategories:
+                      {getRootCategoryNames().map((cat) => (
+                        <label
+                          key={cat}
+                          className="flex items-center gap-2 px-3 py-2 border rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.applicableCategories.includes(
+                              cat,
+                            )}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const newCategories =
                                   formData.applicableCategories.filter(
-                                    (c) => c !== cat,
-                                  ),
-                              });
-                            }
-                          }}
-                          className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                        />
-                        <span className="text-sm">{cat}</span>
-                      </label>
-                    ))}
+                                    (c) => c !== "All",
+                                  );
+                                setFormData({
+                                  ...formData,
+                                  applicableCategories: [...newCategories, cat],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  applicableCategories:
+                                    formData.applicableCategories.filter(
+                                      (c) => c !== cat,
+                                    ),
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                          />
+                          <span className="text-sm">{cat}</span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
-                    className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                  />
-                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Active
-                  </label>
-                </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={formData.isActive}
+                      onChange={(e) =>
+                        setFormData({ ...formData, isActive: e.target.checked })
+                      }
+                      className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
+                    />
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Active
+                    </label>
+                  </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingCoupon ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
+                  <div className="flex justify-end gap-3 pt-4 border-t">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    >
+                      <Save className="w-4 h-4" />
+                      {editingCoupon ? "Update" : "Create"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

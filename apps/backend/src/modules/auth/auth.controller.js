@@ -324,9 +324,9 @@ export const authController = {
 
       const rememberMe = Boolean(req.body.rememberMe);
 
-      // Generate tokens — embed sessionId so middleware can validate session is active
+      // Generate tokens — embed sessionId + rememberMe so middleware can enforce 3d vs 7d idle.
       const token = generateToken(userId, user.role, {
-        claims: sessionId ? { sessionId } : {},
+        claims: { ...(sessionId ? { sessionId } : {}), rememberMe },
       });
       const refreshToken = generateToken(userId, user.role, {
         secret: getRefreshSecret(),
@@ -542,13 +542,14 @@ export const authController = {
       const sessionId = await captureSession(req, userId, "web");
 
       const token = generateToken(userId, newUser.role, {
-        claims: sessionId ? { sessionId } : {},
+        claims: { ...(sessionId ? { sessionId } : {}), rememberMe: false },
       });
       const refreshToken = generateToken(userId, newUser.role, {
         secret: getRefreshSecret(),
         expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "30d",
         claims: {
           refreshTokenVersion: 0, // New users start at 0
+          rememberMe: false,
           ...(sessionId ? { sessionId } : {}),
         },
       });
@@ -556,7 +557,7 @@ export const authController = {
       // Bind this device's refresh token to its session (per-device revocation)
       if (sessionId) await setSessionRefreshHash(sessionId, refreshToken);
 
-      setAuthCookies(res, { token, refreshToken });
+      setAuthCookies(res, { token, refreshToken, rememberMe: false });
 
       // Emit WebSocket event for new user registration (admin notification)
       try {
@@ -650,12 +651,10 @@ export const authController = {
 
       if (user) {
         if (user.isActive === false || user.isDeactivated === true) {
-          return res
-            .status(403)
-            .json({
-              success: false,
-              message: "Your account has been deactivated.",
-            });
+          return res.status(403).json({
+            success: false,
+            message: "Your account has been deactivated.",
+          });
         }
       } else {
         // Create new user since they don't exist
@@ -704,7 +703,7 @@ export const authController = {
       const rememberMe = Boolean(req.body.rememberMe !== false);
 
       const token = generateToken(userId, user.role, {
-        claims: sessionId ? { sessionId } : {},
+        claims: { ...(sessionId ? { sessionId } : {}), rememberMe },
       });
       const refreshToken = generateToken(userId, user.role, {
         secret: getRefreshSecret(),
@@ -774,8 +773,14 @@ export const authController = {
           );
         }
       }
-      // Invalidate refresh token version to revoke all refresh tokens from this session
-      if (req.user?.id) {
+      // Per-device revocation: invalidateSession() above already deactivated
+      // this device's session row, and verifyRefreshTokenForSession() rejects
+      // refresh tokens bound to inactive sessions — so this device's refresh
+      // token is dead without touching other devices. Only fall back to the
+      // global refresh_token_version bump for legacy tokens with no sessionId;
+      // bumping globally signs out EVERY device (phone, other browser, other
+      // app) and was why logging out anywhere forced re-login everywhere.
+      if (req.user?.id && !sessionId) {
         await dbHelpers.query(
           "UPDATE users SET refresh_token_version = refresh_token_version + 1 WHERE id = $1",
           [req.user.id],
@@ -783,7 +788,7 @@ export const authController = {
       }
       auditAuth(req, {
         action: AUDIT_ACTIONS.LOGOUT,
-        detail: { sessionId, revokedAllDevices: true },
+        detail: { sessionId, revokedAllDevices: !sessionId },
         userId: req.user?.id || null,
         sessionId,
       });
@@ -928,10 +933,29 @@ export const authController = {
 
         // SESSION-SEC: enforce idle + absolute session expiry on refresh too, so
         // an idle/old session cannot be silently kept alive by refreshing.
+        // Honor the runtime sessionTimeout setting with the SAME precedence as
+        // protect() (auth.middleware.js) — previously this endpoint used only
+        // the env default, so the two layers disagreed about when a session died.
+        const securitySettings = await getRuntimeSecuritySettings().catch(
+          () => null,
+        );
+        const rememberMeRefresh =
+          decoded.rememberMe === true || decoded.remember_me === true;
+        let envIdleThreshold;
+        if (rememberMeRefresh) {
+          envIdleThreshold = (
+            await import("../../middleware/auth.middleware.js")
+          ).SESSION_IDLE_REMEMBER_ME_TIMEOUT_MS;
+        } else {
+          envIdleThreshold =
+            decoded.role === ROLES.ADMIN || decoded.role === ROLES.SUPER_ADMIN
+              ? ADMIN_IDLE_TIMEOUT_MS
+              : SESSION_IDLE_TIMEOUT_MS;
+        }
         const idleThreshold =
-          decoded.role === ROLES.ADMIN || decoded.role === ROLES.SUPER_ADMIN
-            ? ADMIN_IDLE_TIMEOUT_MS
-            : SESSION_IDLE_TIMEOUT_MS;
+          securitySettings?.sessionTimeout > 0
+            ? securitySettings.sessionTimeout * 1000
+            : envIdleThreshold;
         const expiry = isSessionExpired(
           session,
           idleThreshold,
@@ -976,7 +1000,7 @@ export const authController = {
       // 401 when only the access token had a sessionId and the refresh issued
       // a new one without it).
       const token = generateToken(decoded.id, decoded.role, {
-        claims: { sessionId: decoded.sessionId || null },
+        claims: { sessionId: decoded.sessionId || null, rememberMe },
       });
       const newRefreshToken = generateToken(decoded.id, decoded.role, {
         secret: getRefreshSecret(),
@@ -1553,12 +1577,10 @@ export const authController = {
       );
       const row = result.rows[0];
       if (!row || !row.enabled) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Two-factor authentication is not enabled",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Two-factor authentication is not enabled",
+        });
       }
       const backupCodes = twoFactorService.generateBackupCodes();
       const hashed = await twoFactorService.hashBackupCodes(backupCodes);
@@ -1605,12 +1627,10 @@ export const authController = {
           .json({ success: false, message: "Temporary token is required" });
       }
       if (!totpCode && !backupCode) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "TOTP code or backup code is required",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "TOTP code or backup code is required",
+        });
       }
 
       // Verify the temp token — use dedicated 2FA secret (falls back to JWT_SECRET)
@@ -1621,12 +1641,10 @@ export const authController = {
           process.env.JWT_2FA_SECRET || process.env.JWT_SECRET,
         );
       } catch (jwtErr) {
-        return res
-          .status(401)
-          .json({
-            success: false,
-            message: "Temporary token expired or invalid",
-          });
+        return res.status(401).json({
+          success: false,
+          message: "Temporary token expired or invalid",
+        });
       }
 
       if (decoded.type !== "2fa-pending") {
@@ -1645,12 +1663,10 @@ export const authController = {
         [String(userId)],
       );
       if (tfRow.rows.length === 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "2FA is not enabled for this user",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "2FA is not enabled for this user",
+        });
       }
 
       const { secret, backup_codes: storedBackupCodes } = tfRow.rows[0];
@@ -1733,7 +1749,7 @@ export const authController = {
       const sessionId = await captureSession(req, userId, "web");
 
       const accessToken = generateToken(userId, user.role, {
-        claims: sessionId ? { sessionId } : {},
+        claims: { ...(sessionId ? { sessionId } : {}), rememberMe },
       });
       const refreshToken = generateToken(userId, user.role, {
         secret: getRefreshSecret(),

@@ -41,6 +41,7 @@ import {
   protect,
   admin,
   requireImageAuth,
+  isUserAdminRequest,
 } from "./middleware/auth.middleware.js";
 import { validateCsrfToken } from "./middleware/csrf.middleware.js";
 import { validateOrigin } from "./middleware/origin.middleware.js";
@@ -397,6 +398,9 @@ const GENERAL_RATE_LIMIT_MAX = parseInt(
   process.env.GENERAL_RATE_LIMIT_MAX || "1000",
   10,
 );
+const isDev = process.env.NODE_ENV === "development";
+const isProduction = process.env.NODE_ENV === "production";
+
 const generalLimiter = rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
   max: GENERAL_RATE_LIMIT_MAX,
@@ -407,14 +411,10 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => req.ip || req.headers["x-forwarded-for"] || "unknown",
-  // AUDIT-2026-07-01: removed isAdminPanelRequest(req) skip — admin panel
-  // requests are subject to the general limiter. /api/admin/* is separately
-  // governed by adminLimiter. Bypassing rate limits for any localhost origin
-  // is unsafe if admin auth ever breaks.
   skip: (req) =>
+    isUserAdminRequest(req) ||
     req.path === "/health" ||
-    (process.env.NODE_ENV !== "production" &&
-      req.headers["x-load-test"] === "true"),
+    (!isProduction && req.headers["x-load-test"] === "true"),
 });
 
 // DX-05 / NEW-03: All rate-limiter values env-var driven for ops tuning.
@@ -423,7 +423,7 @@ const AUTH_RATE_LIMIT_WINDOW_MS = parseInt(
   10,
 );
 const AUTH_RATE_LIMIT_MAX = parseInt(
-  process.env.AUTH_RATE_LIMIT_MAX || "20",
+  process.env.AUTH_RATE_LIMIT_MAX || (isProduction ? "20" : "10000"),
   10,
 );
 const ADMIN_RATE_LIMIT_WINDOW_MS = parseInt(
@@ -445,11 +445,11 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) =>
+    isUserAdminRequest(req) ||
     req.path === "/health" ||
     (req.method === "GET" && (req.path === "/me" || req.path === "/csrf")),
 });
 
-const isDev = process.env.NODE_ENV === "development";
 const adminLimiter = rateLimit({
   windowMs: ADMIN_RATE_LIMIT_WINDOW_MS,
   max: isDev ? ADMIN_RATE_LIMIT_MAX * 100 : ADMIN_RATE_LIMIT_MAX,
@@ -459,6 +459,7 @@ const adminLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => isUserAdminRequest(req) || isDev,
   keyGenerator: (req) =>
     `admin-ip-${req.ip || req.headers["x-forwarded-for"] || "unknown"}`,
 });
@@ -605,6 +606,10 @@ app.use(
       "Authorization",
       "X-CSRF-Token",
       "X-Admin-API-Key",
+      // Sent by frontend/admin-panel for per-app session fingerprinting
+      // (SessionCaptureService). Required in preflight when clients call the
+      // API cross-origin (direct API_BASE_URL, not through the dev proxy).
+      "X-Client-App",
     ],
     exposedHeaders: ["X-CSRF-Token"],
     maxAge: 86400,
@@ -653,6 +658,7 @@ const uploadLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => isUserAdminRequest(req),
 });
 
 const fileUpload = multer({

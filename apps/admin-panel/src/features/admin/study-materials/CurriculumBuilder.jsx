@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Folder,
   Layers,
@@ -31,10 +32,14 @@ import {
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { useNavigate } from "react-router-dom";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
-import { toast as hotToast } from 'react-hot-toast';
+import { toast as hotToast } from "react-hot-toast";
 
 const HIERARCHY_TABS = [
-  { id: "subjects", label: "Subjects", desc: "Root subjects for curriculum hierarchy" },
+  {
+    id: "subjects",
+    label: "Subjects",
+    desc: "Root subjects for curriculum hierarchy",
+  },
   {
     id: "units",
     label: "Units",
@@ -59,7 +64,8 @@ const isSameId = (a, b) =>
 const entityMatchesParentId = (entity, parentId) => {
   if (!entity || !parentId) return false;
   const strParentId = normalizeId(parentId);
-  return normalizeId(entity.id) === strParentId ||
+  return (
+    normalizeId(entity.id) === strParentId ||
     normalizeId(entity._id) === strParentId ||
     normalizeId(entity.public_id) === strParentId ||
     normalizeId(entity.subjectId) === strParentId ||
@@ -71,25 +77,38 @@ const entityMatchesParentId = (entity, parentId) => {
     normalizeId(entity.chapterId) === strParentId ||
     normalizeId(entity.chapter_id) === strParentId ||
     normalizeId(entity.topicId) === strParentId ||
-    normalizeId(entity.topic_id) === strParentId;
+    normalizeId(entity.topic_id) === strParentId
+  );
 };
 const toSet = (items, mapper) => new Set(items.map(mapper).filter(Boolean));
 
 const getPartSubjectId = (part) => part?.subjectId ?? part?.subject_id;
 const getUnitPartId = (unit) => unit?.partId ?? unit?.part_id;
-const getUnitSubjectId = (unit) => unit?.subjectId ?? unit?.subject_id ?? unit?.subject;
+const getUnitSubjectId = (unit) =>
+  unit?.subjectId ?? unit?.subject_id ?? unit?.subject;
 const getChapterUnitId = (chapter) => chapter?.unitId ?? chapter?.unit_id;
 const getChapterSubjectId = (chapter) =>
-  chapter?.subjectId ?? chapter?.subject_id ?? chapter?.studyMaterialId ?? chapter?.study_material_id;
+  chapter?.subjectId ??
+  chapter?.subject_id ??
+  chapter?.studyMaterialId ??
+  chapter?.study_material_id;
 const getTopicChapterId = (topic) => topic?.chapterId ?? topic?.chapter_id;
 const getSubtopicTopicId = (subtopic) =>
   subtopic?.topicId ?? subtopic?.topic_id;
 const getOrderIndex = (item) =>
-  item?.orderIndex ?? item?.order_index ?? item?.order ?? item?.sortOrder ?? item?.sort_order ?? 0;
+  item?.orderIndex ??
+  item?.order_index ??
+  item?.order ??
+  item?.sortOrder ??
+  item?.sort_order ??
+  0;
 
 // Natural sort comparator: handles embedded numbers correctly ("Unit 2" < "Unit 10")
 const naturalCompare = (a, b) =>
-  String(a ?? "").localeCompare(String(b ?? ""), undefined, { numeric: true, sensitivity: "base" });
+  String(a ?? "").localeCompare(String(b ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
 
 const getItemName = (item) => item?.name || item?.title || "";
 
@@ -204,7 +223,7 @@ export default function CurriculumBuilder() {
   // FIX BUG [CURR-LOW]: Persist expanded/collapsed state across re-renders using localStorage
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     try {
-      const saved = localStorage.getItem('curriculum-collapsed-groups');
+      const saved = localStorage.getItem("curriculum-collapsed-groups");
       return saved ? JSON.parse(saved) : {};
     } catch {
       return {};
@@ -214,7 +233,10 @@ export default function CurriculumBuilder() {
   // Persist collapsed state to localStorage whenever it changes
   useEffect(() => {
     try {
-      localStorage.setItem('curriculum-collapsed-groups', JSON.stringify(collapsedGroups));
+      localStorage.setItem(
+        "curriculum-collapsed-groups",
+        JSON.stringify(collapsedGroups),
+      );
     } catch {
       // Ignore storage errors
     }
@@ -286,8 +308,8 @@ export default function CurriculumBuilder() {
     () =>
       selectedSubjectId
         ? data.subjects.filter((s) =>
-          entityMatchesParentId(s, selectedSubjectId),
-        )
+            entityMatchesParentId(s, selectedSubjectId),
+          )
         : data.subjects,
     [data.subjects, selectedSubjectId],
   );
@@ -319,8 +341,8 @@ export default function CurriculumBuilder() {
     () =>
       selectedSubjectId
         ? data.parts.filter((p) =>
-          selectedSubjectIdSet.has(normalizeId(getPartSubjectId(p))),
-        )
+            selectedSubjectIdSet.has(normalizeId(getPartSubjectId(p))),
+          )
         : data.parts,
     [data.parts, selectedSubjectId, selectedSubjectIdSet],
   );
@@ -330,7 +352,9 @@ export default function CurriculumBuilder() {
     return data.units.filter((u) => {
       const subId = normalizeId(getUnitSubjectId(u));
       const partId = normalizeId(getUnitPartId(u));
-      return selectedSubjectIdSet.has(subId) || selectedSubjectIdSet.has(partId);
+      return (
+        selectedSubjectIdSet.has(subId) || selectedSubjectIdSet.has(partId)
+      );
     });
   }, [data.units, selectedSubjectId, selectedSubjectIdSet]);
 
@@ -338,11 +362,15 @@ export default function CurriculumBuilder() {
     if (!selectedSubjectId) return data.chapters;
     const unitIdSet = new Set();
     filteredUnits.forEach((u) => {
-      [u.id, u._id, u.public_id].filter(Boolean).forEach((v) => unitIdSet.add(normalizeId(v)));
+      [u.id, u._id, u.public_id]
+        .filter(Boolean)
+        .forEach((v) => unitIdSet.add(normalizeId(v)));
     });
     return data.chapters.filter((c) => {
       const byUnit = unitIdSet.has(normalizeId(getChapterUnitId(c)));
-      const byDirectSubject = selectedSubjectIdSet.has(normalizeId(getChapterSubjectId(c)));
+      const byDirectSubject = selectedSubjectIdSet.has(
+        normalizeId(getChapterSubjectId(c)),
+      );
       return byUnit || byDirectSubject;
     });
   }, [data.chapters, filteredUnits, selectedSubjectId, selectedSubjectIdSet]);
@@ -351,7 +379,9 @@ export default function CurriculumBuilder() {
     if (!selectedSubjectId) return data.topics;
     const chapterIdSet = new Set();
     filteredChapters.forEach((c) => {
-      [c.id, c._id, c.public_id].filter(Boolean).forEach((v) => chapterIdSet.add(normalizeId(v)));
+      [c.id, c._id, c.public_id]
+        .filter(Boolean)
+        .forEach((v) => chapterIdSet.add(normalizeId(v)));
     });
     return data.topics.filter((t) =>
       chapterIdSet.has(normalizeId(getTopicChapterId(t))),
@@ -362,7 +392,9 @@ export default function CurriculumBuilder() {
     if (!selectedSubjectId) return data.subtopics;
     const topicIdSet = new Set();
     filteredTopics.forEach((t) => {
-      [t.id, t._id, t.public_id].filter(Boolean).forEach((v) => topicIdSet.add(normalizeId(v)));
+      [t.id, t._id, t.public_id]
+        .filter(Boolean)
+        .forEach((v) => topicIdSet.add(normalizeId(v)));
     });
     return data.subtopics.filter((s) =>
       topicIdSet.has(normalizeId(getSubtopicTopicId(s))),
@@ -560,7 +592,12 @@ export default function CurriculumBuilder() {
     ];
     const notes = pdfs.filter((pdf) => {
       // Check for explicit type field first (preferred method)
-      const pdfType = (pdf.type || pdf.pdfType || pdf.fileType || "").toLowerCase();
+      const pdfType = (
+        pdf.type ||
+        pdf.pdfType ||
+        pdf.fileType ||
+        ""
+      ).toLowerCase();
       if (pdfType === "note" || pdfType === "notes" || pdfType === "handout") {
         return true;
       }
@@ -598,7 +635,7 @@ export default function CurriculumBuilder() {
       videos: "videos",
       pdfs: "pdfs",
       notes: "pdfs",
-      tests: "topicTests"
+      tests: "topicTests",
     };
 
     // Quizzes are not reorderable via this endpoint
@@ -611,7 +648,7 @@ export default function CurriculumBuilder() {
     const fullItems = [...chapterView.resources[resourceKey]];
 
     // Find absolute index in the full list
-    const actualIndex = fullItems.findIndex(i => {
+    const actualIndex = fullItems.findIndex((i) => {
       const id1 = getEntityId(i) || i.testId || i.test_id;
       const id2 = getEntityId(item) || item.testId || item.test_id;
       return id1 === id2;
@@ -624,14 +661,21 @@ export default function CurriculumBuilder() {
     // User expectation is usually to swap with the item above/below in the current view.
     const visibleIndex = index;
     if (direction === "up" && visibleIndex === 0) return;
-    if (direction === "down" && visibleIndex === chapterActiveItems.length - 1) return;
+    if (direction === "down" && visibleIndex === chapterActiveItems.length - 1)
+      return;
 
-    const neighborVisibleItem = chapterActiveItems[direction === "up" ? visibleIndex - 1 : visibleIndex + 1];
+    const neighborVisibleItem =
+      chapterActiveItems[
+        direction === "up" ? visibleIndex - 1 : visibleIndex + 1
+      ];
     if (!neighborVisibleItem) return;
 
-    const neighborActualIndex = fullItems.findIndex(i => {
+    const neighborActualIndex = fullItems.findIndex((i) => {
       const id1 = getEntityId(i) || i.testId || i.test_id;
-      const id2 = getEntityId(neighborVisibleItem) || neighborVisibleItem.testId || neighborVisibleItem.test_id;
+      const id2 =
+        getEntityId(neighborVisibleItem) ||
+        neighborVisibleItem.testId ||
+        neighborVisibleItem.test_id;
       return id1 === id2;
     });
 
@@ -639,27 +683,44 @@ export default function CurriculumBuilder() {
 
     // Optimistic Swap in fullItems
     const newFullItems = [...fullItems];
-    [newFullItems[actualIndex], newFullItems[neighborActualIndex]] = [newFullItems[neighborActualIndex], newFullItems[actualIndex]];
+    [newFullItems[actualIndex], newFullItems[neighborActualIndex]] = [
+      newFullItems[neighborActualIndex],
+      newFullItems[actualIndex],
+    ];
 
     // Recalculate derived notes if needed
     let newNotes = chapterView.resources.notes;
     if (resourceKey === "pdfs") {
-      const noteKeywords = ["note", "notes", "handout", "class note", "lecture note"];
-      newNotes = newFullItems.filter(pdf => {
-        const pdfType = (pdf.type || pdf.pdfType || pdf.fileType || "").toLowerCase();
-        if (pdfType === "note" || pdfType === "notes" || pdfType === "handout") return true;
-        const hay = normalizeText(`${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`);
+      const noteKeywords = [
+        "note",
+        "notes",
+        "handout",
+        "class note",
+        "lecture note",
+      ];
+      newNotes = newFullItems.filter((pdf) => {
+        const pdfType = (
+          pdf.type ||
+          pdf.pdfType ||
+          pdf.fileType ||
+          ""
+        ).toLowerCase();
+        if (pdfType === "note" || pdfType === "notes" || pdfType === "handout")
+          return true;
+        const hay = normalizeText(
+          `${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`,
+        );
         return includesAny(hay, noteKeywords);
       });
     }
 
-    setChapterView(prev => ({
+    setChapterView((prev) => ({
       ...prev,
       resources: {
         ...prev.resources,
         [resourceKey]: newFullItems,
-        notes: newNotes
-      }
+        notes: newNotes,
+      },
     }));
 
     try {
@@ -667,17 +728,24 @@ export default function CurriculumBuilder() {
         videos: "subject-videos",
         pdfs: "subject-pdfs",
         notes: "subject-pdfs",
-        tests: "topic-tests"
+        tests: "topic-tests",
       };
       const endpoint = endpointMapping[tabId];
       const movedItemId = getEntityId(item) || item.id || item._id;
-      const neighborItemId = getEntityId(neighborVisibleItem) || neighborVisibleItem.id || neighborVisibleItem.id;
+      const neighborItemId =
+        getEntityId(neighborVisibleItem) ||
+        neighborVisibleItem.id ||
+        neighborVisibleItem.id;
 
       // Swap their display_order values in backend
       // Note: Backend handles the conversion from camelCase displayOrder to snake_case display_order
       await Promise.all([
-        apiClient.put(`/admin/${endpoint}/${movedItemId}/reorder`, { order: neighborActualIndex }),
-        apiClient.put(`/admin/${endpoint}/${neighborItemId}/reorder`, { order: actualIndex })
+        apiClient.put(`/admin/${endpoint}/${movedItemId}/reorder`, {
+          order: neighborActualIndex,
+        }),
+        apiClient.put(`/admin/${endpoint}/${neighborItemId}/reorder`, {
+          order: actualIndex,
+        }),
       ]);
 
       showToast("Order saved");
@@ -768,8 +836,8 @@ export default function CurriculumBuilder() {
       const targetSubId = parentSub?.id
         ? Number(parentSub.id)
         : !isNaN(formData.parentId) && formData.parentId !== ""
-        ? Number(formData.parentId)
-        : null;
+          ? Number(formData.parentId)
+          : null;
 
       if (!targetSubId) {
         showToast("Please select a Subject.", "error");
@@ -795,7 +863,10 @@ export default function CurriculumBuilder() {
         payload.studyMaterialId =
           getPartSubjectId(parentPart) || selectedSubjectId || null;
         if (!payload.studyMaterialId) {
-          showToast("The unit's parent part is not linked to a subject.", "error");
+          showToast(
+            "The unit's parent part is not linked to a subject.",
+            "error",
+          );
           return;
         }
       } else {
@@ -851,9 +922,13 @@ export default function CurriculumBuilder() {
     if (tabId === "subjects") {
       const parts = data.parts.filter((p) => isSameId(getPartSubjectId(p), id));
       const partIdSet = new Set(parts.map((p) => String(getEntityId(p))));
-      const units = data.units.filter((u) => partIdSet.has(String(getUnitPartId(u))));
+      const units = data.units.filter((u) =>
+        partIdSet.has(String(getUnitPartId(u))),
+      );
       const unitIdSet = new Set(units.map((u) => String(getEntityId(u))));
-      const directChapters = data.chapters.filter((ch) => isSameId(getChapterSubjectId(ch), id));
+      const directChapters = data.chapters.filter((ch) =>
+        isSameId(getChapterSubjectId(ch), id),
+      );
       const unitChapters = data.chapters.filter((ch) => {
         const uid = getChapterUnitId(ch);
         return uid != null && unitIdSet.has(String(uid));
@@ -921,10 +996,10 @@ export default function CurriculumBuilder() {
       ? `Move "${label}" to recycle bin?\n\nLoaded data shows dependents: ${summary}\n\nContinue?`
       : `Move "${label}" to recycle bin? You can restore it later.`;
     const confirmed = await confirmOnce({
-      title: 'Move to Recycle Bin',
+      title: "Move to Recycle Bin",
       message: msg,
-      danger: true
-    })
+      danger: true,
+    });
     if (!confirmed) return;
 
     let url = "";
@@ -950,9 +1025,9 @@ export default function CurriculumBuilder() {
     if (count === 0) return;
 
     const confirmed = await confirmOnce({
-      title: 'Move Selected Items to Recycle Bin',
+      title: "Move Selected Items to Recycle Bin",
       message: `Are you sure you want to move the ${count} selected ${activeTab} to the recycle bin?`,
-      danger: true
+      danger: true,
     });
     if (!confirmed) return;
 
@@ -965,9 +1040,9 @@ export default function CurriculumBuilder() {
     try {
       // Execute all delete requests in parallel
       await Promise.all(
-        Array.from(selectedItemIds).map(id =>
-          apiClient.delete(`${url}/${id}`)
-        )
+        Array.from(selectedItemIds).map((id) =>
+          apiClient.delete(`${url}/${id}`),
+        ),
       );
       showToast(`Successfully moved ${count} items to the recycle bin.`);
       setSelectedItemIds(new Set());
@@ -1091,7 +1166,8 @@ export default function CurriculumBuilder() {
   if (activeTab === "units") activeData = sortByOrderAndId(filteredUnits);
   if (activeTab === "chapters") activeData = sortByOrderAndId(filteredChapters);
   if (activeTab === "topics") activeData = sortByOrderAndId(filteredTopics);
-  if (activeTab === "subtopics") activeData = sortByOrderAndId(filteredSubtopics);
+  if (activeTab === "subtopics")
+    activeData = sortByOrderAndId(filteredSubtopics);
 
   const currentTabConfig = HIERARCHY_TABS.find((t) => t.id === activeTab);
 
@@ -1102,13 +1178,16 @@ export default function CurriculumBuilder() {
     // Helper: resolve parent entity and its orderIndex for a given tab + parentId
     const resolveParentOrder = (tab, pid) => {
       let entity = null;
-      if (tab === "parts" || tab === "units") entity = data.subjects.find((s) => entityMatchesParentId(s, pid));
+      if (tab === "parts" || tab === "units")
+        entity = data.subjects.find((s) => entityMatchesParentId(s, pid));
       else if (tab === "chapters") {
         entity = data.units.find((u) => entityMatchesParentId(u, pid));
-        if (!entity) entity = data.subjects.find((s) => entityMatchesParentId(s, pid));
-      }
-      else if (tab === "topics") entity = data.chapters.find((c) => entityMatchesParentId(c, pid));
-      else if (tab === "subtopics") entity = data.topics.find((t) => entityMatchesParentId(t, pid));
+        if (!entity)
+          entity = data.subjects.find((s) => entityMatchesParentId(s, pid));
+      } else if (tab === "topics")
+        entity = data.chapters.find((c) => entityMatchesParentId(c, pid));
+      else if (tab === "subtopics")
+        entity = data.topics.find((t) => entityMatchesParentId(t, pid));
       return {
         parentOrder: Number(getOrderIndex(entity)),
         parentNumericId: Number(getEntityId(entity) ?? 0),
@@ -1126,39 +1205,63 @@ export default function CurriculumBuilder() {
       } else if (activeTab === "parts" && getPartSubjectId(item)) {
         parentId = getPartSubjectId(item);
         parentName =
-          data.subjects.find((s) => entityMatchesParentId(s, parentId))?.name || "Unknown Subject";
+          data.subjects.find((s) => entityMatchesParentId(s, parentId))?.name ||
+          "Unknown Subject";
       } else if (activeTab === "units") {
         const uSubId = getUnitSubjectId(item) || getUnitPartId(item);
         if (uSubId) {
           parentId = uSubId;
-          const foundSubject = data.subjects.find((s) => entityMatchesParentId(s, parentId));
-          const foundPart = data.parts.find((p) => entityMatchesParentId(p, parentId));
-          parentName = foundSubject?.name || foundPart?.name || item.subjectName || "Unknown Subject";
+          const foundSubject = data.subjects.find((s) =>
+            entityMatchesParentId(s, parentId),
+          );
+          const foundPart = data.parts.find((p) =>
+            entityMatchesParentId(p, parentId),
+          );
+          parentName =
+            foundSubject?.name ||
+            foundPart?.name ||
+            item.subjectName ||
+            "Unknown Subject";
         }
       } else if (activeTab === "chapters") {
         if (getChapterUnitId(item)) {
           parentId = getChapterUnitId(item);
-          const foundUnit = data.units.find((u) => entityMatchesParentId(u, parentId));
+          const foundUnit = data.units.find((u) =>
+            entityMatchesParentId(u, parentId),
+          );
           parentName = foundUnit?.name || item.unitName || "Unknown Unit";
         } else if (getChapterSubjectId(item)) {
           parentId = getChapterSubjectId(item);
-          const foundSubject = data.subjects.find((s) => entityMatchesParentId(s, parentId));
-          parentName = foundSubject?.name || item.subjectName || "Directly under Subject";
+          const foundSubject = data.subjects.find((s) =>
+            entityMatchesParentId(s, parentId),
+          );
+          parentName =
+            foundSubject?.name || item.subjectName || "Directly under Subject";
         }
       } else if (activeTab === "topics" && getTopicChapterId(item)) {
         parentId = getTopicChapterId(item);
         parentName =
-          data.chapters.find((c) => entityMatchesParentId(c, parentId))?.title || "Unknown Chapter";
+          data.chapters.find((c) => entityMatchesParentId(c, parentId))
+            ?.title || "Unknown Chapter";
       } else if (activeTab === "subtopics" && getSubtopicTopicId(item)) {
         parentId = getSubtopicTopicId(item);
         parentName =
-          data.topics.find((t) => entityMatchesParentId(t, parentId))?.name || "Unknown Topic";
+          data.topics.find((t) => entityMatchesParentId(t, parentId))?.name ||
+          "Unknown Topic";
       }
 
       const groupKey = `${parentName}-${parentId}`;
       if (!groups[groupKey]) {
-        const { parentOrder, parentNumericId, parentEntityName } = resolveParentOrder(activeTab, parentId);
-        groups[groupKey] = { id: groupKey, name: parentName, items: [], parentOrder, parentNumericId, parentEntityName };
+        const { parentOrder, parentNumericId, parentEntityName } =
+          resolveParentOrder(activeTab, parentId);
+        groups[groupKey] = {
+          id: groupKey,
+          name: parentName,
+          items: [],
+          parentOrder,
+          parentNumericId,
+          parentEntityName,
+        };
       }
       groups[groupKey].items.push(item);
     });
@@ -1188,9 +1291,9 @@ export default function CurriculumBuilder() {
   const resourceHasTopicContext = (item) => {
     const topicId = normalizeId(
       item?.topicId ??
-      item?.topic_id ??
-      item?.parentTopicId ??
-      item?.parent_topic_id,
+        item?.topic_id ??
+        item?.parentTopicId ??
+        item?.parent_topic_id,
     );
     const subtopicId = normalizeId(item?.subtopicId ?? item?.subtopic_id);
     const topicText = normalizeText(
@@ -1208,9 +1311,9 @@ export default function CurriculumBuilder() {
 
     const topicId = normalizeId(
       item?.topicId ??
-      item?.topic_id ??
-      item?.parentTopicId ??
-      item?.parent_topic_id,
+        item?.topic_id ??
+        item?.parentTopicId ??
+        item?.parent_topic_id,
     );
     const subtopicId = normalizeId(item?.subtopicId ?? item?.subtopic_id);
     const topicText = normalizeText(
@@ -1377,51 +1480,51 @@ export default function CurriculumBuilder() {
                         <p>Hierarchy Export | Generated: ${new Date().toLocaleString()}</p>
                     </div>
                     ${hierarchyTree.units
-          .map((u) =>
-            renderNode(
-              "Unit",
-              u,
-              u.chapters
-                .map((c) =>
-                  renderNode(
-                    "Chapter",
-                    c,
-                    c.topics
-                      .map((t) =>
+                      .map((u) =>
                         renderNode(
-                          "Topic",
-                          t,
-                          t.subtopics
-                            .map((st) => renderNode("Subtopic", st))
+                          "Unit",
+                          u,
+                          u.chapters
+                            .map((c) =>
+                              renderNode(
+                                "Chapter",
+                                c,
+                                c.topics
+                                  .map((t) =>
+                                    renderNode(
+                                      "Topic",
+                                      t,
+                                      t.subtopics
+                                        .map((st) => renderNode("Subtopic", st))
+                                        .join(""),
+                                    ),
+                                  )
+                                  .join(""),
+                              ),
+                            )
                             .join(""),
                         ),
                       )
-                      .join(""),
-                  ),
-                )
-                .join(""),
-            ),
-          )
-          .join("")}
+                      .join("")}
                     ${hierarchyTree.directChapters
-          .map((c) =>
-            renderNode(
-              "Chapter",
-              c,
-              c.topics
-                .map((t) =>
-                  renderNode(
-                    "Topic",
-                    t,
-                    t.subtopics
-                      .map((st) => renderNode("Subtopic", st))
-                      .join(""),
-                  ),
-                )
-                .join(""),
-            ),
-          )
-          .join("")}
+                      .map((c) =>
+                        renderNode(
+                          "Chapter",
+                          c,
+                          c.topics
+                            .map((t) =>
+                              renderNode(
+                                "Topic",
+                                t,
+                                t.subtopics
+                                  .map((st) => renderNode("Subtopic", st))
+                                  .join(""),
+                              ),
+                            )
+                            .join(""),
+                        ),
+                      )
+                      .join("")}
                 </body>
                 </html>
             `;
@@ -1441,7 +1544,9 @@ export default function CurriculumBuilder() {
       return (
         <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
           <ListTree className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-          <h4 className="text-gray-700 dark:text-gray-300 font-medium">Select Target Subject</h4>
+          <h4 className="text-gray-700 dark:text-gray-300 font-medium">
+            Select Target Subject
+          </h4>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             Choose a subject from the filter above to visualize parts, units,
             chapters, topics, and subtopics.
@@ -1451,7 +1556,8 @@ export default function CurriculumBuilder() {
     }
 
     const hasHierarchy =
-      (hierarchyTree.units?.length || 0) > 0 || (hierarchyTree.directChapters?.length || 0) > 0;
+      (hierarchyTree.units?.length || 0) > 0 ||
+      (hierarchyTree.directChapters?.length || 0) > 0;
 
     return (
       <div className="space-y-4">
@@ -1529,7 +1635,9 @@ export default function CurriculumBuilder() {
         {!hasHierarchy ? (
           <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 rounded-lg border border-dashed border-gray-200 dark:border-gray-700">
             <Folder className="w-10 h-10 mx-auto text-gray-300 mb-3" />
-            <h4 className="text-gray-700 dark:text-gray-300 font-medium">No Hierarchy Data</h4>
+            <h4 className="text-gray-700 dark:text-gray-300 font-medium">
+              No Hierarchy Data
+            </h4>
             <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
               No linked parts/units/chapters/topics/subtopics were found for{" "}
               <span className="font-semibold">
@@ -1551,12 +1659,26 @@ export default function CurriculumBuilder() {
                 >
                   <div
                     className="cursor-pointer px-4 py-3 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-100 flex items-center justify-between"
-                    onClick={() => setCollapsedGroups(p => ({ ...p, [`unit-${unitId}`]: isUnitOpen }))}
+                    onClick={() =>
+                      setCollapsedGroups((p) => ({
+                        ...p,
+                        [`unit-${unitId}`]: isUnitOpen,
+                      }))
+                    }
                   >
                     <div className="font-semibold text-blue-900 dark:text-blue-200 flex items-center gap-2">
-                      {isUnitOpen ? <ChevronDown className="w-4 h-4 text-blue-500" /> : <ChevronRight className="w-4 h-4 text-blue-500" />}
+                      {isUnitOpen ? (
+                        <ChevronDown className="w-4 h-4 text-blue-500" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 text-blue-500" />
+                      )}
                       <span>{getLevelEmoji("units")}</span>
-                      <span><strong className="text-blue-700 dark:text-blue-300">Unit {unitOrder}:</strong> {unit.name || unit.title}</span>
+                      <span>
+                        <strong className="text-blue-700 dark:text-blue-300">
+                          Unit {unitOrder}:
+                        </strong>{" "}
+                        {unit.name || unit.title}
+                      </span>
                     </div>
                     <div className="text-xs text-blue-700 dark:text-blue-400 bg-white dark:bg-gray-800 border border-blue-100 rounded-full px-2 py-0.5">
                       {unit.chapters.length} chapters
@@ -1573,7 +1695,8 @@ export default function CurriculumBuilder() {
                       {unit.chapters.map((chapter, cIdx) => {
                         const chapId = getEntityId(chapter);
                         const isChapOpen = !collapsedGroups[`chap-${chapId}`];
-                        const chapOrder = chapter.orderIndex || chapter.order_index || cIdx + 1;
+                        const chapOrder =
+                          chapter.orderIndex || chapter.order_index || cIdx + 1;
                         return (
                           <div
                             key={chapId}
@@ -1581,12 +1704,26 @@ export default function CurriculumBuilder() {
                           >
                             <div
                               className="cursor-pointer px-3 py-2 bg-emerald-50 border-b border-emerald-100 flex items-center justify-between"
-                              onClick={() => setCollapsedGroups(p => ({ ...p, [`chap-${chapId}`]: isChapOpen }))}
+                              onClick={() =>
+                                setCollapsedGroups((p) => ({
+                                  ...p,
+                                  [`chap-${chapId}`]: isChapOpen,
+                                }))
+                              }
                             >
                               <div className="font-medium text-emerald-900 flex items-center gap-2">
-                                {isChapOpen ? <ChevronDown className="w-4 h-4 text-emerald-500" /> : <ChevronRight className="w-4 h-4 text-emerald-500" />}
+                                {isChapOpen ? (
+                                  <ChevronDown className="w-4 h-4 text-emerald-500" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-emerald-500" />
+                                )}
                                 <span>{getLevelEmoji("chapters")}</span>
-                                <span><strong className="text-emerald-700 dark:text-emerald-300">Chapter {chapOrder}:</strong> {chapter.title || chapter.name}</span>
+                                <span>
+                                  <strong className="text-emerald-700 dark:text-emerald-300">
+                                    Chapter {chapOrder}:
+                                  </strong>{" "}
+                                  {chapter.title || chapter.name}
+                                </span>
                               </div>
                               <div className="text-xs text-emerald-700 dark:text-emerald-400 bg-white dark:bg-gray-800 border border-emerald-100 rounded-full px-2 py-0.5">
                                 {chapter.topics.length} topics
@@ -1602,8 +1739,12 @@ export default function CurriculumBuilder() {
 
                                 {chapter.topics.map((topic, tIdx) => {
                                   const topicId = getEntityId(topic);
-                                  const isTopicOpen = !collapsedGroups[`topic-${topicId}`];
-                                  const topicOrder = topic.orderIndex || topic.order_index || tIdx + 1;
+                                  const isTopicOpen =
+                                    !collapsedGroups[`topic-${topicId}`];
+                                  const topicOrder =
+                                    topic.orderIndex ||
+                                    topic.order_index ||
+                                    tIdx + 1;
                                   return (
                                     <div
                                       key={topicId}
@@ -1611,12 +1752,26 @@ export default function CurriculumBuilder() {
                                     >
                                       <div
                                         className="cursor-pointer px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 flex items-center justify-between"
-                                        onClick={() => setCollapsedGroups(p => ({ ...p, [`topic-${topicId}`]: isTopicOpen }))}
+                                        onClick={() =>
+                                          setCollapsedGroups((p) => ({
+                                            ...p,
+                                            [`topic-${topicId}`]: isTopicOpen,
+                                          }))
+                                        }
                                       >
                                         <div className="font-medium text-amber-900 flex items-center gap-2">
-                                          {isTopicOpen ? <ChevronDown className="w-4 h-4 text-amber-500" /> : <ChevronRight className="w-4 h-4 text-amber-500" />}
+                                          {isTopicOpen ? (
+                                            <ChevronDown className="w-4 h-4 text-amber-500" />
+                                          ) : (
+                                            <ChevronRight className="w-4 h-4 text-amber-500" />
+                                          )}
                                           <span>{getLevelEmoji("topics")}</span>
-                                          <span><strong className="text-amber-700 dark:text-amber-300">Topic {topicOrder}:</strong> {topic.name || topic.title}</span>
+                                          <span>
+                                            <strong className="text-amber-700 dark:text-amber-300">
+                                              Topic {topicOrder}:
+                                            </strong>{" "}
+                                            {topic.name || topic.title}
+                                          </span>
                                         </div>
                                         <div className="text-xs text-amber-700 dark:text-amber-400 bg-white dark:bg-gray-800 border border-amber-100 rounded-full px-2 py-0.5">
                                           {topic.subtopics.length} subtopics
@@ -1629,22 +1784,31 @@ export default function CurriculumBuilder() {
                                               No subtopics inside this topic.
                                             </div>
                                           )}
-                                          {topic.subtopics.map((subtopic, stIdx) => {
-                                            const subtopicOrder = subtopic.orderIndex || subtopic.order_index || stIdx + 1;
-                                            return (
-                                              <div
-                                                key={getEntityId(subtopic)}
-                                                className="px-3 py-2 rounded-md bg-purple-50 border border-purple-100 text-sm text-purple-900 flex items-center gap-2"
-                                              >
-                                                <span>
-                                                  {getLevelEmoji("subtopics")}
-                                                </span>
-                                                <span>
-                                                  <strong className="text-purple-700 dark:text-purple-300">Subtopic {subtopicOrder}:</strong> {subtopic.name || subtopic.title}
-                                                </span>
-                                              </div>
-                                            );
-                                          })}
+                                          {topic.subtopics.map(
+                                            (subtopic, stIdx) => {
+                                              const subtopicOrder =
+                                                subtopic.orderIndex ||
+                                                subtopic.order_index ||
+                                                stIdx + 1;
+                                              return (
+                                                <div
+                                                  key={getEntityId(subtopic)}
+                                                  className="px-3 py-2 rounded-md bg-purple-50 border border-purple-100 text-sm text-purple-900 flex items-center gap-2"
+                                                >
+                                                  <span>
+                                                    {getLevelEmoji("subtopics")}
+                                                  </span>
+                                                  <span>
+                                                    <strong className="text-purple-700 dark:text-purple-300">
+                                                      Subtopic {subtopicOrder}:
+                                                    </strong>{" "}
+                                                    {subtopic.name ||
+                                                      subtopic.title}
+                                                  </span>
+                                                </div>
+                                              );
+                                            },
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -1661,49 +1825,57 @@ export default function CurriculumBuilder() {
               );
             })}
 
-            {hierarchyTree.directChapters.length > 0 && (() => {
-              const directId = "direct-chapters";
-              const isDirectOpen = !collapsedGroups[directId];
-              return (
-                <div
-                  className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800"
-                >
-                  <div
-                    className="cursor-pointer px-4 py-3 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
-                    onClick={() => setCollapsedGroups(p => ({ ...p, [directId]: isDirectOpen }))}
-                  >
-                    <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      {isDirectOpen ? <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />}
-                      <span>{getLevelEmoji("chapters")}</span>
-                      <span>Direct / Unlinked Chapters</span>
+            {hierarchyTree.directChapters.length > 0 &&
+              (() => {
+                const directId = "direct-chapters";
+                const isDirectOpen = !collapsedGroups[directId];
+                return (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
+                    <div
+                      className="cursor-pointer px-4 py-3 bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between"
+                      onClick={() =>
+                        setCollapsedGroups((p) => ({
+                          ...p,
+                          [directId]: isDirectOpen,
+                        }))
+                      }
+                    >
+                      <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                        {isDirectOpen ? (
+                          <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        )}
+                        <span>{getLevelEmoji("chapters")}</span>
+                        <span>Direct / Unlinked Chapters</span>
+                      </div>
+                      <div className="text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-2 py-0.5">
+                        {hierarchyTree.directChapters.length} chapters
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full px-2 py-0.5">
-                      {hierarchyTree.directChapters.length} chapters
-                    </div>
-                  </div>
-                  {isDirectOpen && (
-                    <div className="p-3 space-y-2">
-                      {hierarchyTree.directChapters.map((chapter) => (
-                        <div
-                          key={getEntityId(chapter)}
-                          className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900"
-                        >
-                          <div className="font-medium text-gray-900 dark:text-white flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span>{getLevelEmoji("chapters")}</span>
-                              <span>{chapter.title || chapter.name}</span>
+                    {isDirectOpen && (
+                      <div className="p-3 space-y-2">
+                        {hierarchyTree.directChapters.map((chapter) => (
+                          <div
+                            key={getEntityId(chapter)}
+                            className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900"
+                          >
+                            <div className="font-medium text-gray-900 dark:text-white flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span>{getLevelEmoji("chapters")}</span>
+                                <span>{chapter.title || chapter.name}</span>
+                              </div>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {chapter.topics.length} topics
                             </div>
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {chapter.topics.length} topics
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
           </div>
         )}
       </div>
@@ -1751,10 +1923,11 @@ export default function CurriculumBuilder() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${activeTab === tab.id
-              ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
-              : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-              }`}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+              activeTab === tab.id
+                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
+                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
+            }`}
           >
             {tab.label}
           </button>
@@ -1767,7 +1940,9 @@ export default function CurriculumBuilder() {
             <h3 className="text-lg font-bold text-gray-800">
               {currentTabConfig.label}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{currentTabConfig.desc}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {currentTabConfig.desc}
+            </p>
           </div>
           <div className="flex gap-2">
             {activeTab === "subjects" && (
@@ -1779,14 +1954,16 @@ export default function CurriculumBuilder() {
                 <ExternalLink className="w-4 h-4" /> Full Manager
               </button>
             )}
-            {['chapters', 'topics', 'subtopics'].includes(activeTab) && selectedItemIds.size > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
-              >
-                <Trash2 className="w-4 h-4" /> Trash Selected ({selectedItemIds.size})
-              </button>
-            )}
+            {["chapters", "topics", "subtopics"].includes(activeTab) &&
+              selectedItemIds.size > 0 && (
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                >
+                  <Trash2 className="w-4 h-4" /> Trash Selected (
+                  {selectedItemIds.size})
+                </button>
+              )}
             {!["hierarchy"].includes(activeTab) && (
               <button
                 onClick={() => handleAction(activeTab)}
@@ -1818,580 +1995,578 @@ export default function CurriculumBuilder() {
             {Object.values(groupedData)
               .sort((a, b) => {
                 // Sort groups by the parent entity's own orderIndex
-                if (a.parentOrder !== b.parentOrder) return a.parentOrder - b.parentOrder;
+                if (a.parentOrder !== b.parentOrder)
+                  return a.parentOrder - b.parentOrder;
                 // Tiebreak 1: natural sort by parent entity name ("Unit 1" < "Unit 2" < "Unit 10")
-                const nameCmp = naturalCompare(a.parentEntityName, b.parentEntityName);
+                const nameCmp = naturalCompare(
+                  a.parentEntityName,
+                  b.parentEntityName,
+                );
                 if (nameCmp !== 0) return nameCmp;
                 // Tiebreak 2: numeric DB id
                 return a.parentNumericId - b.parentNumericId;
               })
               .map((group) => {
-              const isCollapsed = collapsedGroups[group.id];
-              return (
-                <div
-                  key={group.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm"
-                >
-                  {/* Group Header Toggle */}
+                const isCollapsed = collapsedGroups[group.id];
+                return (
                   <div
-                    className="bg-gray-50 dark:bg-gray-900 px-4 py-3 font-semibold text-gray-800 text-sm flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors"
-                    onClick={() => toggleGroup(group.id)}
+                    key={group.id}
+                    className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm"
                   >
-                    <div className="flex items-center gap-2">
-                      {isCollapsed ? (
-                        <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      )}
-                      {['chapters', 'topics', 'subtopics'].includes(activeTab) && (
-                        <input
-                          type="checkbox"
-                          checked={group.items.length > 0 && group.items.every(item => selectedItemIds.has(getEntityId(item)))}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            const next = new Set(selectedItemIds);
-                            group.items.forEach(item => {
-                              const itemId = getEntityId(item);
-                              if (e.target.checked) {
-                                next.add(itemId);
-                              } else {
-                                next.delete(itemId);
-                              }
-                            });
-                            setSelectedItemIds(next);
-                          }}
-                          className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer mr-1"
-                        />
-                      )}
-                      <span className="text-base leading-none">
-                        {getLevelEmoji(activeTab)}
+                    {/* Group Header Toggle */}
+                    <div
+                      className="bg-gray-50 dark:bg-gray-900 px-4 py-3 font-semibold text-gray-800 text-sm flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors"
+                      onClick={() => toggleGroup(group.id)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {isCollapsed ? (
+                          <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        )}
+                        {["chapters", "topics", "subtopics"].includes(
+                          activeTab,
+                        ) && (
+                          <input
+                            type="checkbox"
+                            checked={
+                              group.items.length > 0 &&
+                              group.items.every((item) =>
+                                selectedItemIds.has(getEntityId(item)),
+                              )
+                            }
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              const next = new Set(selectedItemIds);
+                              group.items.forEach((item) => {
+                                const itemId = getEntityId(item);
+                                if (e.target.checked) {
+                                  next.add(itemId);
+                                } else {
+                                  next.delete(itemId);
+                                }
+                              });
+                              setSelectedItemIds(next);
+                            }}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer mr-1"
+                          />
+                        )}
+                        <span className="text-base leading-none">
+                          {getLevelEmoji(activeTab)}
+                        </span>
+                        {group.name}
+                      </div>
+                      <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                        {group.items.length} items
                       </span>
-                      {group.name}
                     </div>
-                    <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
-                      {group.items.length} items
-                    </span>
-                  </div>
 
-                  {/* Group Content (Rows) */}
-                  {!isCollapsed && (
-                    <div className="p-2 space-y-2 bg-white dark:bg-gray-800 flex flex-col">
-                      {group.items.map((item) => (
-                        <div
-                          key={getEntityId(item)}
-                          className="border border-gray-100 rounded-lg p-3 hover:shadow-md transition group/item flex justify-between items-center w-full bg-gray-50 dark:bg-gray-900/50"
-                        >
-                          <div className="flex items-center gap-4">
-                            {['chapters', 'topics', 'subtopics'].includes(activeTab) && (
-                              <input
-                                type="checkbox"
-                                checked={selectedItemIds.has(getEntityId(item))}
-                                onChange={(e) => {
-                                  e.stopPropagation();
-                                  const next = new Set(selectedItemIds);
-                                  const itemId = getEntityId(item);
-                                  if (e.target.checked) {
-                                    next.add(itemId);
-                                  } else {
-                                    next.delete(itemId);
+                    {/* Group Content (Rows) */}
+                    {!isCollapsed && (
+                      <div className="p-2 space-y-2 bg-white dark:bg-gray-800 flex flex-col">
+                        {group.items.map((item) => (
+                          <div
+                            key={getEntityId(item)}
+                            className="border border-gray-100 rounded-lg p-3 hover:shadow-md transition group/item flex justify-between items-center w-full bg-gray-50 dark:bg-gray-900/50"
+                          >
+                            <div className="flex items-center gap-4">
+                              {["chapters", "topics", "subtopics"].includes(
+                                activeTab,
+                              ) && (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedItemIds.has(
+                                    getEntityId(item),
+                                  )}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    const next = new Set(selectedItemIds);
+                                    const itemId = getEntityId(item);
+                                    if (e.target.checked) {
+                                      next.add(itemId);
+                                    } else {
+                                      next.delete(itemId);
+                                    }
+                                    setSelectedItemIds(next);
+                                  }}
+                                  className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer shrink-0"
+                                />
+                              )}
+                              <div className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-100 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 overflow-hidden">
+                                {(() => {
+                                  const iconValue = String(
+                                    item.icon || item.thumbnail || "",
+                                  ).trim();
+                                  if (!iconValue) {
+                                    return (
+                                      <span className="text-xl">
+                                        {getLevelEmoji(activeTab)}
+                                      </span>
+                                    );
                                   }
-                                  setSelectedItemIds(next);
-                                }}
-                                className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer shrink-0"
-                              />
-                            )}
-                            <div className="w-10 h-10 rounded-lg bg-white dark:bg-gray-800 shadow-sm border border-gray-100 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 overflow-hidden">
-                              {(() => {
-                                const iconValue = String(
-                                  item.icon || item.thumbnail || "",
-                                ).trim();
-                                if (!iconValue) {
+                                  if (
+                                    iconValue.startsWith("http") ||
+                                    iconValue.startsWith("/") ||
+                                    iconValue.startsWith("data:")
+                                  ) {
+                                    return (
+                                      <img
+                                        src={iconValue}
+                                        alt="icon"
+                                        className="w-full h-full object-cover"
+                                      />
+                                    );
+                                  }
+                                  const iconKey = iconValue.toLowerCase();
+                                  const mappedEmoji =
+                                    ICON_NAME_TO_EMOJI[iconKey];
+                                  const looksLikeKeyword =
+                                    /^[a-z0-9\-_ ]+$/i.test(iconValue);
                                   return (
                                     <span className="text-xl">
-                                      {getLevelEmoji(activeTab)}
+                                      {mappedEmoji ||
+                                        (looksLikeKeyword
+                                          ? getLevelEmoji(activeTab)
+                                          : iconValue)}
                                     </span>
                                   );
-                                }
-                                if (
-                                  iconValue.startsWith("http") ||
-                                  iconValue.startsWith("/") ||
-                                  iconValue.startsWith("data:")
-                                ) {
-                                  return (
-                                    <img
-                                      src={iconValue}
-                                      alt="icon"
-                                      className="w-full h-full object-cover"
-                                    />
-                                  );
-                                }
-                                const iconKey = iconValue.toLowerCase();
-                                const mappedEmoji = ICON_NAME_TO_EMOJI[iconKey];
-                                const looksLikeKeyword =
-                                  /^[a-z0-9\-_ ]+$/i.test(iconValue);
-                                return (
-                                  <span className="text-xl">
-                                    {mappedEmoji ||
-                                      (looksLikeKeyword
-                                        ? getLevelEmoji(activeTab)
-                                        : iconValue)}
-                                  </span>
-                                );
-                              })()}
+                                })()}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-gray-900 dark:text-white text-base leading-tight">
+                                  {item.name || item.title}
+                                </h4>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
+                                  {item.slug}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <h4 className="font-bold text-gray-900 dark:text-white text-base leading-tight">
-                                {item.name || item.title}
-                              </h4>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 font-mono mt-0.5">
-                                {item.slug}
-                              </p>
-                            </div>
-                          </div>
 
-                          {/* Actions */}
-                          {!["hierarchy"].includes(activeTab) && (
-                            <div className="flex gap-2 opacity-0 group-hover/item:opacity-100 transition px-2">
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleAction(activeTab, item);
-                                }}
-                                className="p-2 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:text-indigo-400 rounded-lg"
-                              >
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDelete(activeTab, item);
-                                }}
-                                className="p-2 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:text-red-400 rounded-lg"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                            {/* Actions */}
+                            {!["hierarchy"].includes(activeTab) && (
+                              <div className="flex gap-2 opacity-0 group-hover/item:opacity-100 transition px-2">
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleAction(activeTab, item);
+                                  }}
+                                  className="p-2 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:text-indigo-400 rounded-lg"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleDelete(activeTab, item);
+                                  }}
+                                  className="p-2 bg-white dark:bg-gray-800 shadow-sm border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:text-red-400 rounded-lg"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>
 
       {/* Chapter Page Modal */}
-      {chapterView.open && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4"
-          onClick={closeChapterView}
-        >
+      {chapterView.open &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col"
-            onClick={(event) => event.stopPropagation()}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in"
+            onClick={closeChapterView}
           >
-            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-emerald-50 to-indigo-50 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">
-                  {chapterView.subject?.name || "Subject"}
-                </p>
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mt-1 flex items-center gap-2">
-                  <span>{getLevelEmoji("chapters")}</span>
-                  <span>
-                    {chapterView.chapter?.title ||
-                      chapterView.chapter?.name ||
-                      "Chapter"}
-                  </span>
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  {(chapterView.topics || []).length} topics and{" "}
-                  {(chapterView.topics || []).reduce(
-                    (sum, topic) => sum + (topic.subtopics || []).length,
-                    0,
-                  )}{" "}
-                  subtopics
-                </p>
-              </div>
-              <button
-                onClick={closeChapterView}
-                className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-white dark:bg-gray-800 border border-transparent hover:border-gray-200 dark:border-gray-700 transition"
-                aria-label="Close chapter page"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
-              <aside className="border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/70 p-4 overflow-y-auto">
-                <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
-                  Topics
-                </h4>
-
-                {chapterView.topics.length === 0 ? (
-                  <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2">
-                    No topics linked to this chapter yet.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {chapterView.topics.map((topic) => {
-                      const topicId = String(getEntityId(topic));
-                      const isTopicSelected =
-                        chapterView.selectedTopicId === topicId;
-                      const subtopics = topic.subtopics || [];
-
-                      return (
-                        <div
-                          key={getEntityId(topic)}
-                          className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 p-2"
-                        >
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setChapterView((prev) => ({
-                                ...prev,
-                                selectedTopicId: topicId,
-                                selectedSubtopicId: "",
-                              }))
-                            }
-                            className={`w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center justify-between gap-2 ${isTopicSelected ? "bg-amber-50 text-amber-900 font-semibold" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
-                          >
-                            <span className="flex items-center gap-2 min-w-0">
-                              <span>{getLevelEmoji("topics")}</span>
-                              <span className="truncate">
-                                {topic.name || topic.title}
-                              </span>
-                            </span>
-                            <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
-                              {subtopics.length}
-                            </span>
-                          </button>
-
-                          {isTopicSelected && (
-                            <div className="mt-2 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
-                              {subtopics.length === 0 ? (
-                                <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
-                                  No subtopics
-                                </div>
-                              ) : (
-                                subtopics.map((subtopic) => {
-                                  const subtopicId = String(
-                                    getEntityId(subtopic),
-                                  );
-                                  const isSubtopicSelected =
-                                    chapterView.selectedSubtopicId ===
-                                    subtopicId;
-                                  return (
-                                    <button
-                                      key={getEntityId(subtopic)}
-                                      type="button"
-                                      onClick={() =>
-                                        setChapterView((prev) => ({
-                                          ...prev,
-                                          selectedTopicId: topicId,
-                                          selectedSubtopicId: isSubtopicSelected
-                                            ? ""
-                                            : subtopicId,
-                                        }))
-                                      }
-                                      className={`w-full text-left px-2 py-1 rounded-md text-xs flex items-center gap-2 ${isSubtopicSelected ? "bg-purple-50 text-purple-900 font-semibold" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
-                                    >
-                                      <span>{getLevelEmoji("subtopics")}</span>
-                                      <span className="truncate">
-                                        {subtopic.name || subtopic.title}
-                                      </span>
-                                    </button>
-                                  );
-                                })
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </aside>
-
-              <section className="flex flex-col min-h-0">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                  <div className="flex flex-wrap gap-2 text-xs mb-3">
-                    <span className="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800">
-                      Chapter:{" "}
+            <div
+              className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-emerald-50 to-indigo-50 flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold">
+                    {chapterView.subject?.name || "Subject"}
+                  </p>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mt-1 flex items-center gap-2">
+                    <span>{getLevelEmoji("chapters")}</span>
+                    <span>
                       {chapterView.chapter?.title ||
                         chapterView.chapter?.name ||
-                        "N/A"}
+                        "Chapter"}
                     </span>
-                    {selectedChapterTopic && (
-                      <span className="px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-100 text-amber-800">
-                        Topic:{" "}
-                        {selectedChapterTopic.name ||
-                          selectedChapterTopic.title}
-                      </span>
-                    )}
-                    {selectedChapterSubtopic && (
-                      <span className="px-2 py-1 rounded-full bg-purple-50 border border-purple-100 text-purple-800">
-                        Subtopic:{" "}
-                        {selectedChapterSubtopic.name ||
-                          selectedChapterSubtopic.title}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 overflow-x-auto">
-                    {CHAPTER_CONTENT_TABS.map((tab) => {
-                      const Icon = tab.icon;
-                      const isActive = chapterView.activeTab === tab.id;
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() =>
-                            setChapterView((prev) => ({
-                              ...prev,
-                              activeTab: tab.id,
-                            }))
-                          }
-                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border transition ${isActive ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
-                        >
-                          <Icon className="w-4 h-4" />
-                          {tab.label}
-                          <span
-                            className={`text-[11px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-white dark:bg-gray-800/20 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"}`}
-                          >
-                            {getChapterTabCount(tab.id)}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    {(chapterView.topics || []).length} topics and{" "}
+                    {(chapterView.topics || []).reduce(
+                      (sum, topic) => sum + (topic.subtopics || []).length,
+                      0,
+                    )}{" "}
+                    subtopics
+                  </p>
                 </div>
+                <button
+                  onClick={closeChapterView}
+                  className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-white dark:bg-gray-800 border border-transparent hover:border-gray-200 dark:border-gray-700 transition"
+                  aria-label="Close chapter page"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-                <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900/50">
-                  {chapterView.loading ? (
-                    <div className="h-full min-h-52 flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                    </div>
-                  ) : chapterActiveItems.length === 0 ? (
-                    <div className="h-full min-h-52 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-3xl mb-2">
-                          {getLevelEmoji("chapters")}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {chapterActiveTabConfig.emptyText}
-                        </p>
-                      </div>
+              <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
+                <aside className="border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/70 p-4 overflow-y-auto">
+                  <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">
+                    Topics
+                  </h4>
+
+                  {chapterView.topics.length === 0 ? (
+                    <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2">
+                      No topics linked to this chapter yet.
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {chapterActiveItems.map((item, index) => {
-                        const tabId = chapterView.activeTab;
-                        const url = getResourceUrl(item, tabId);
-                        const metaTags = getResourceMeta(item, tabId);
-                        const title = getResourceTitle(item, tabId);
-                        const itemId =
-                          getEntityId(item) ||
-                          item.testId ||
-                          item.test_id ||
-                          `${tabId}-${index}`;
-                        const createdAt = item.createdAt || item.created_at;
+                    <div className="space-y-2">
+                      {chapterView.topics.map((topic) => {
+                        const topicId = String(getEntityId(topic));
+                        const isTopicSelected =
+                          chapterView.selectedTopicId === topicId;
+                        const subtopics = topic.subtopics || [];
 
                         return (
                           <div
-                            key={`${tabId}-${item.__type || "resource"}-${itemId}-${index}`}
-                            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex gap-4"
+                            key={getEntityId(topic)}
+                            className="border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 p-2"
                           >
-                            {/* Reorder Controls */}
-                            {["videos", "pdfs", "tests", "notes"].includes(tabId) && (item.__type !== "quiz") && (
-                              <div className="flex flex-col gap-1 justify-center shrink-0 border-r border-gray-100 pr-3">
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleReorderResource("up", item, index); }}
-                                  disabled={index === 0}
-                                  className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors ${index === 0 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400"}`}
-                                  title="Move Up"
-                                >
-                                  <ArrowUp className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); handleReorderResource("down", item, index); }}
-                                  disabled={index === chapterActiveItems.length - 1}
-                                  className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors ${index === chapterActiveItems.length - 1 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400"}`}
-                                  title="Move Down"
-                                >
-                                  <ArrowDown className="w-4 h-4" />
-                                </button>
-                              </div>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setChapterView((prev) => ({
+                                  ...prev,
+                                  selectedTopicId: topicId,
+                                  selectedSubtopicId: "",
+                                }))
+                              }
+                              className={`w-full text-left px-2 py-1.5 rounded-md text-sm flex items-center justify-between gap-2 ${isTopicSelected ? "bg-amber-50 text-amber-900 font-semibold" : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
+                            >
+                              <span className="flex items-center gap-2 min-w-0">
+                                <span>{getLevelEmoji("topics")}</span>
+                                <span className="truncate">
+                                  {topic.name || topic.title}
+                                </span>
+                              </span>
+                              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                                {subtopics.length}
+                              </span>
+                            </button>
 
-                            <div className="flex-1 flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <h5 className="font-semibold text-gray-900 dark:text-white truncate">
-                                  {title}
-                                </h5>
-                                {item.description && (
-                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                    {item.description}
-                                  </p>
+                            {isTopicSelected && (
+                              <div className="mt-2 pl-3 border-l border-gray-200 dark:border-gray-700 space-y-1">
+                                {subtopics.length === 0 ? (
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                                    No subtopics
+                                  </div>
+                                ) : (
+                                  subtopics.map((subtopic) => {
+                                    const subtopicId = String(
+                                      getEntityId(subtopic),
+                                    );
+                                    const isSubtopicSelected =
+                                      chapterView.selectedSubtopicId ===
+                                      subtopicId;
+                                    return (
+                                      <button
+                                        key={getEntityId(subtopic)}
+                                        type="button"
+                                        onClick={() =>
+                                          setChapterView((prev) => ({
+                                            ...prev,
+                                            selectedTopicId: topicId,
+                                            selectedSubtopicId:
+                                              isSubtopicSelected
+                                                ? ""
+                                                : subtopicId,
+                                          }))
+                                        }
+                                        className={`w-full text-left px-2 py-1 rounded-md text-xs flex items-center gap-2 ${isSubtopicSelected ? "bg-purple-50 text-purple-900 font-semibold" : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
+                                      >
+                                        <span>
+                                          {getLevelEmoji("subtopics")}
+                                        </span>
+                                        <span className="truncate">
+                                          {subtopic.name || subtopic.title}
+                                        </span>
+                                      </button>
+                                    );
+                                  })
                                 )}
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  {tabId === "tests" && (
-                                    <span
-                                      className={`text-xs px-2 py-0.5 rounded-full border ${item.__type === "quiz" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 text-indigo-700 dark:text-indigo-400" : "bg-green-50 dark:bg-green-900/20 border-green-100 text-green-700 dark:text-green-400"}`}
-                                    >
-                                      {item.__type === "quiz"
-                                        ? "Quiz"
-                                        : "Topic Test"}
-                                    </span>
-                                  )}
-                                  {metaTags.map((tag, tagIndex) => (
-                                    <span
-                                      key={`${itemId}-tag-${tagIndex}`}
-                                      className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                                    >
-                                      {tag}
-                                    </span>
-                                  ))}
-                                </div>
                               </div>
-
-                              {url && (
-                                <a
-                                  href={url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:bg-indigo-900/30"
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  Open
-                                </a>
-                              )}
-                              {tabId === "tests" && (
-                                <button
-                                  onClick={() => {
-                                    const tId = item.testId || item.test_id || getEntityId(item);
-                                    if (item.__type === "quiz") {
-                                      navigate(`/admin/practice?testId=${tId}`);
-                                    } else {
-                                      navigate(`/admin/tests?testId=${tId}`);
-                                    }
-                                  }}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:bg-indigo-900/30"
-                                >
-                                  <ExternalLink className="w-3.5 h-3.5" />
-                                  Manage Test
-                                </button>
-                              )}
-                            </div>
-
-                            {createdAt && (
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
-                                Added: {new Date(createdAt).toLocaleString()}
-                              </p>
                             )}
                           </div>
                         );
                       })}
                     </div>
                   )}
-                </div>
-              </section>
+                </aside>
+
+                <section className="flex flex-col min-h-0">
+                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                    <div className="flex flex-wrap gap-2 text-xs mb-3">
+                      <span className="px-2 py-1 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800">
+                        Chapter:{" "}
+                        {chapterView.chapter?.title ||
+                          chapterView.chapter?.name ||
+                          "N/A"}
+                      </span>
+                      {selectedChapterTopic && (
+                        <span className="px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 border border-amber-100 text-amber-800">
+                          Topic:{" "}
+                          {selectedChapterTopic.name ||
+                            selectedChapterTopic.title}
+                        </span>
+                      )}
+                      {selectedChapterSubtopic && (
+                        <span className="px-2 py-1 rounded-full bg-purple-50 border border-purple-100 text-purple-800">
+                          Subtopic:{" "}
+                          {selectedChapterSubtopic.name ||
+                            selectedChapterSubtopic.title}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2 overflow-x-auto">
+                      {CHAPTER_CONTENT_TABS.map((tab) => {
+                        const Icon = tab.icon;
+                        const isActive = chapterView.activeTab === tab.id;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() =>
+                              setChapterView((prev) => ({
+                                ...prev,
+                                activeTab: tab.id,
+                              }))
+                            }
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border transition ${isActive ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"}`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                            <span
+                              className={`text-[11px] px-1.5 py-0.5 rounded-full ${isActive ? "bg-white dark:bg-gray-800/20 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"}`}
+                            >
+                              {getChapterTabCount(tab.id)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900/50">
+                    {chapterView.loading ? (
+                      <div className="h-full min-h-52 flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                      </div>
+                    ) : chapterActiveItems.length === 0 ? (
+                      <div className="h-full min-h-52 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="text-3xl mb-2">
+                            {getLevelEmoji("chapters")}
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {chapterActiveTabConfig.emptyText}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {chapterActiveItems.map((item, index) => {
+                          const tabId = chapterView.activeTab;
+                          const url = getResourceUrl(item, tabId);
+                          const metaTags = getResourceMeta(item, tabId);
+                          const title = getResourceTitle(item, tabId);
+                          const itemId =
+                            getEntityId(item) ||
+                            item.testId ||
+                            item.test_id ||
+                            `${tabId}-${index}`;
+                          const createdAt = item.createdAt || item.created_at;
+
+                          return (
+                            <div
+                              key={`${tabId}-${item.__type || "resource"}-${itemId}-${index}`}
+                              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex gap-4"
+                            >
+                              {/* Reorder Controls */}
+                              {["videos", "pdfs", "tests", "notes"].includes(
+                                tabId,
+                              ) &&
+                                item.__type !== "quiz" && (
+                                  <div className="flex flex-col gap-1 justify-center shrink-0 border-r border-gray-100 pr-3">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReorderResource(
+                                          "up",
+                                          item,
+                                          index,
+                                        );
+                                      }}
+                                      disabled={index === 0}
+                                      className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors ${index === 0 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400"}`}
+                                      title="Move Up"
+                                    >
+                                      <ArrowUp className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleReorderResource(
+                                          "down",
+                                          item,
+                                          index,
+                                        );
+                                      }}
+                                      disabled={
+                                        index === chapterActiveItems.length - 1
+                                      }
+                                      className={`p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors ${index === chapterActiveItems.length - 1 ? "text-gray-200 cursor-not-allowed" : "text-gray-400 dark:text-gray-500 hover:text-indigo-600 dark:text-indigo-400"}`}
+                                      title="Move Down"
+                                    >
+                                      <ArrowDown className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                )}
+
+                              <div className="flex-1 flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <h5 className="font-semibold text-gray-900 dark:text-white truncate">
+                                    {title}
+                                  </h5>
+                                  {item.description && (
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                      {item.description}
+                                    </p>
+                                  )}
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    {tabId === "tests" && (
+                                      <span
+                                        className={`text-xs px-2 py-0.5 rounded-full border ${item.__type === "quiz" ? "bg-indigo-50 dark:bg-indigo-900/20 border-indigo-100 text-indigo-700 dark:text-indigo-400" : "bg-green-50 dark:bg-green-900/20 border-green-100 text-green-700 dark:text-green-400"}`}
+                                      >
+                                        {item.__type === "quiz"
+                                          ? "Quiz"
+                                          : "Topic Test"}
+                                      </span>
+                                    )}
+                                    {metaTags.map((tag, tagIndex) => (
+                                      <span
+                                        key={`${itemId}-tag-${tagIndex}`}
+                                        className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {url && (
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:bg-indigo-900/30"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Open
+                                  </a>
+                                )}
+                                {tabId === "tests" && (
+                                  <button
+                                    onClick={() => {
+                                      const tId =
+                                        item.testId ||
+                                        item.test_id ||
+                                        getEntityId(item);
+                                      if (item.__type === "quiz") {
+                                        navigate(
+                                          `/admin/practice?testId=${tId}`,
+                                        );
+                                      } else {
+                                        navigate(`/admin/tests?testId=${tId}`);
+                                      }
+                                    }}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 text-indigo-700 dark:text-indigo-400 rounded-lg hover:bg-indigo-100 dark:bg-indigo-900/30"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    Manage Test
+                                  </button>
+                                )}
+                              </div>
+
+                              {createdAt && (
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
+                                  Added: {new Date(createdAt).toLocaleString()}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* General Modal */}
-      {modalConfig && !["subjects", "hierarchy"].includes(activeTab) && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
-              <h3 className="font-bold text-gray-900 dark:text-white capitalize flex items-center gap-2">
-                <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                {modalConfig.item ? "Edit" : "Add"}{" "}
-                {HIERARCHY_TABS.find(
-                  (t) => t.id === modalConfig.tabId,
-                )?.label.slice(0, -1)}
-              </h3>
-              <button
-                onClick={() => setModalConfig(null)}
-                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <form onSubmit={handleSave} className="p-5 space-y-4">
-              {/* Parent Dropdowns based on activeTab */}
+      {modalConfig &&
+        !["subjects", "hierarchy"].includes(activeTab) &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+              <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 dark:bg-gray-900">
+                <h3 className="font-bold text-gray-900 dark:text-white capitalize flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                  {modalConfig.item ? "Edit" : "Add"}{" "}
+                  {HIERARCHY_TABS.find(
+                    (t) => t.id === modalConfig.tabId,
+                  )?.label.slice(0, -1)}
+                </h3>
+                <button
+                  onClick={() => setModalConfig(null)}
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:text-gray-400"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <form onSubmit={handleSave} className="p-5 space-y-4">
+                {/* Parent Dropdowns based on activeTab */}
 
-              {modalConfig.tabId === "parts" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assign to Subject *
-                  </label>
-                  <select
-                    required
-                    value={formData.parentId}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, parentId: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
-                  >
-                    <option value="">-- Select Subject --</option>
-                    {(selectedSubjectId ? filteredSubjects : data.subjects).map(
-                      (s) => (
-                        <option key={getEntityId(s)} value={getEntityId(s)}>
-                          {s.name}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </div>
-              )}
-
-              {modalConfig.tabId === "units" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assign to Subject *
-                  </label>
-                  <select
-                    required
-                    value={formData.parentId}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, parentId: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
-                  >
-                    <option value="">-- Select Subject --</option>
-                    {(selectedSubjectId ? filteredSubjects : data.subjects).map(
-                      (s) => (
-                        <option key={getEntityId(s)} value={getEntityId(s)}>
-                          {s.name}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </div>
-              )}
-
-              {modalConfig.tabId === "chapters" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assign to (Subject or Unit) *
-                  </label>
-                  <select
-                    required
-                    value={formData.parentId}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, parentId: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
-                  >
-                    <option value="">-- Select Parent --</option>
-                    <optgroup label="Directly under Subject">
+                {modalConfig.tabId === "parts" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Assign to Subject *
+                    </label>
+                    <select
+                      required
+                      value={formData.parentId}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    >
+                      <option value="">-- Select Subject --</option>
                       {(selectedSubjectId
                         ? filteredSubjects
                         : data.subjects
@@ -2400,159 +2575,217 @@ export default function CurriculumBuilder() {
                           {s.name}
                         </option>
                       ))}
-                    </optgroup>
-                    <optgroup label="Inside a Unit">
-                      {(selectedSubjectId ? filteredUnits : data.units).map(
-                        (u) => (
-                          <option key={getEntityId(u)} value={getEntityId(u)}>
-                            {u.name}
-                          </option>
-                        ),
-                      )}
-                    </optgroup>
-                  </select>
-                </div>
-              )}
+                    </select>
+                  </div>
+                )}
 
-              {modalConfig.tabId === "topics" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assign to Chapter *
-                  </label>
-                  <select
-                    required
-                    value={formData.parentId}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, parentId: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
-                  >
-                    <option value="">-- Select Chapter --</option>
-                    {(selectedSubjectId ? filteredChapters : data.chapters).map(
-                      (c) => (
+                {modalConfig.tabId === "units" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Assign to Subject *
+                    </label>
+                    <select
+                      required
+                      value={formData.parentId}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    >
+                      <option value="">-- Select Subject --</option>
+                      {(selectedSubjectId
+                        ? filteredSubjects
+                        : data.subjects
+                      ).map((s) => (
+                        <option key={getEntityId(s)} value={getEntityId(s)}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {modalConfig.tabId === "chapters" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Assign to (Subject or Unit) *
+                    </label>
+                    <select
+                      required
+                      value={formData.parentId}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    >
+                      <option value="">-- Select Parent --</option>
+                      <optgroup label="Directly under Subject">
+                        {(selectedSubjectId
+                          ? filteredSubjects
+                          : data.subjects
+                        ).map((s) => (
+                          <option key={getEntityId(s)} value={getEntityId(s)}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Inside a Unit">
+                        {(selectedSubjectId ? filteredUnits : data.units).map(
+                          (u) => (
+                            <option key={getEntityId(u)} value={getEntityId(u)}>
+                              {u.name}
+                            </option>
+                          ),
+                        )}
+                      </optgroup>
+                    </select>
+                  </div>
+                )}
+
+                {modalConfig.tabId === "topics" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Assign to Chapter *
+                    </label>
+                    <select
+                      required
+                      value={formData.parentId}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    >
+                      <option value="">-- Select Chapter --</option>
+                      {(selectedSubjectId
+                        ? filteredChapters
+                        : data.chapters
+                      ).map((c) => (
                         <option key={getEntityId(c)} value={getEntityId(c)}>
                           {c.title || c.name}
                         </option>
-                      ),
-                    )}
-                  </select>
-                </div>
-              )}
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-              {modalConfig.tabId === "subtopics" && (
+                {modalConfig.tabId === "subtopics" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Assign to Topic *
+                    </label>
+                    <select
+                      required
+                      value={formData.parentId}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    >
+                      <option value="">-- Select Topic --</option>
+                      {(selectedSubjectId ? filteredTopics : data.topics).map(
+                        (t) => (
+                          <option key={getEntityId(t)} value={getEntityId(t)}>
+                            {t.name || t.title}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Assign to Topic *
+                    Name / Title *
                   </label>
-                  <select
+                  <input
                     required
-                    value={formData.parentId}
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData((f) => ({
+                        ...f,
+                        name: e.target.value,
+                        slug:
+                          f.slug ||
+                          e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, "-"),
+                      }));
+                    }}
+                    className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="e.g., Fundamentals of Physics"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Slug *
+                    </label>
+                    <input
+                      required
+                      type="text"
+                      value={formData.slug}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, slug: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Icon / Thumbnail URL
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.icon}
+                      onChange={(e) =>
+                        setFormData((f) => ({ ...f, icon: e.target.value }))
+                      }
+                      className="w-full border rounded-lg px-3 py-2 text-center text-sm"
+                      placeholder="icon keyword or https://"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
                     onChange={(e) =>
-                      setFormData((f) => ({ ...f, parentId: e.target.value }))
+                      setFormData((f) => ({
+                        ...f,
+                        description: e.target.value,
+                      }))
                     }
-                    className="w-full border rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
+                    className="w-full border rounded-lg px-3 py-2 text-sm"
+                    rows={2}
+                    placeholder="Optional description..."
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setModalConfig(null)}
+                    className="px-5 py-2 text-gray-600 dark:text-gray-400 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition"
                   >
-                    <option value="">-- Select Topic --</option>
-                    {(selectedSubjectId ? filteredTopics : data.topics).map(
-                      (t) => (
-                        <option key={getEntityId(t)} value={getEntityId(t)}>
-                          {t.name || t.title}
-                        </option>
-                      ),
-                    )}
-                  </select>
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"
+                  >
+                    Save
+                  </button>
                 </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Name / Title *
-                </label>
-                <input
-                  required
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => {
-                    setFormData((f) => ({
-                      ...f,
-                      name: e.target.value,
-                      slug:
-                        f.slug ||
-                        e.target.value
-                          .toLowerCase()
-                          .replace(/[^a-z0-9]+/g, "-"),
-                    }));
-                  }}
-                  className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="e.g., Fundamentals of Physics"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Slug *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.slug}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, slug: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-900 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Icon / Thumbnail URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.icon}
-                    onChange={(e) =>
-                      setFormData((f) => ({ ...f, icon: e.target.value }))
-                    }
-                    className="w-full border rounded-lg px-3 py-2 text-center text-sm"
-                    placeholder="icon keyword or https://"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((f) => ({ ...f, description: e.target.value }))
-                  }
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                  rows={2}
-                  placeholder="Optional description..."
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setModalConfig(null)}
-                  className="px-5 py-2 text-gray-600 dark:text-gray-400 border rounded-lg font-medium hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition"
-                >
-                  Save
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -1,11 +1,22 @@
 import { parseAssetId } from "../../shared/utils/parseAssetId.js";
 import express from "express";
 import multer from "multer";
-import { restrictAdminOrigin, validateAdminApiKey } from "../../middleware/origin.middleware.js";
-import { protect, admin, superAdmin, ROLES } from "../../middleware/auth.middleware.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import {
+  protect,
+  admin,
+  superAdmin,
+  ROLES,
+} from "../../middleware/auth.middleware.js";
 import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
-import { loadAdminPermissions, requireAdminPermission } from "../../middleware/admin-permission.middleware.js";
+import {
+  loadAdminPermissions,
+  requireAdminPermission,
+} from "../../middleware/admin-permission.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { upload } from "../../infrastructure/storage/upload.js";
 import {
@@ -63,8 +74,9 @@ import leaderboardRoutes from "./leaderboards-admin.js";
 import adminBackupsRoutes from "./admin-backups.js";
 import paymentAdminRoutes from "./admin-payments.js";
 import moderationAdminRoutes from "./admin-moderation.js";
+import adminLogsRoutes from "./admin-logs.js";
 import sessionController from "../../modules/sessions/session.controller.js";
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
@@ -80,7 +92,7 @@ const rejectOnServerless = (req, res, next) => {
     return res.status(501).json({
       success: false,
       message: "Backups are not supported on serverless platforms",
-      code: "BACKUPS_UNSUPPORTED"
+      code: "BACKUPS_UNSUPPORTED",
     });
   }
   next();
@@ -93,7 +105,7 @@ async function getProPassPrice() {
     const result = await pool.query(
       `SELECT price FROM subscription_plans
        WHERE plan_id LIKE 'pro_pass%' OR plan_id LIKE 'pro-%'
-       ORDER BY price ASC LIMIT 1`
+       ORDER BY price ASC LIMIT 1`,
     );
     if (result.rows.length > 0) {
       return parseFloat(result.rows[0].price) || 999;
@@ -104,77 +116,82 @@ async function getProPassPrice() {
   return 999;
 }
 
- // Apply field name normalization to all admin routes (POST/PUT/PATCH)
- // This converts all camelCase fields to snake_case consistently
- router.use(normalizeFields({ methods: ["POST", "PUT", "PATCH"] }));
+// Apply field name normalization to all admin routes (POST/PUT/PATCH)
+// This converts all camelCase fields to snake_case consistently
+router.use(normalizeFields({ methods: ["POST", "PUT", "PATCH"] }));
 
- // ============================================================
- // ADMIN SECURITY LAYERS (applied in order for defense-in-depth)
- // ============================================================
- // Layer 1: Origin restriction - Block requests from non-admin origins
- router.use(restrictAdminOrigin);
- // Layer 2: API Key validation (mandatory in production)
- router.use(validateAdminApiKey);
- // Layer 3: Authentication - Verify valid JWT token
- router.use(protect);
- // Layer 4: Authorization - Verify user has admin role
- router.use(admin);
- // Layer 4b: CSRF validation — runs AFTER auth so session exists
- router.use(validateCsrfToken);
- // Layer 4c: Load RBAC permissions
- router.use(loadAdminPermissions);
- router.use(requireAdminPermission);
- // Layer 5: Audit logging for all admin actions
-  router.use(auditMiddleware({
+// ============================================================
+// ADMIN SECURITY LAYERS (applied in order for defense-in-depth)
+// ============================================================
+// Layer 1: Origin restriction - Block requests from non-admin origins
+router.use(restrictAdminOrigin);
+// Layer 2: API Key validation (mandatory in production)
+router.use(validateAdminApiKey);
+// Layer 3: Authentication - Verify valid JWT token
+router.use(protect);
+// Layer 4: Authorization - Verify user has admin role
+router.use(admin);
+// Layer 4b: CSRF validation — runs AFTER auth so session exists
+router.use(validateCsrfToken);
+// Layer 4c: Load RBAC permissions
+router.use(loadAdminPermissions);
+router.use(requireAdminPermission);
+// Layer 5: Audit logging for all admin actions
+router.use(
+  auditMiddleware({
     // M37: removed /api/admin/exams and /api/admin/navigation from skipPaths —
     // POST/PUT/DELETE on those paths perform data mutations and must be audited.
-    skipPaths: ['/api/admin/stats'],
+    skipPaths: ["/api/admin/stats"],
     includeBody: true,
-  }));
+  }),
+);
 
- // Register split route modules for better maintainability
- // These modules handle test series, tests, and questions CRUD operations
- router.use(testSeriesRoutes);
- router.use(testsRoutes);
- router.use(questionsRoutes);
- router.use(categoriesRoutes);
- router.use(usersRoutes);
- router.use(adminStagesRoutes);
- router.use('/trash', recycleBinRoutes);
- router.use('/stages', stagesRoutes);
- router.use('/sections', sectionsRoutes);
+// Register split route modules for better maintainability
+// These modules handle test series, tests, and questions CRUD operations
+router.use(testSeriesRoutes);
+router.use(testsRoutes);
+router.use(questionsRoutes);
+router.use(categoriesRoutes);
+router.use(usersRoutes);
+router.use(adminStagesRoutes);
+router.use("/trash", recycleBinRoutes);
+router.use("/stages", stagesRoutes);
+router.use("/sections", sectionsRoutes);
 
- // Register P0 analytics and RBAC routes
- router.use('/admin/analytics', analyticsRoutes);
- router.use(rolesRoutes);
- 
+// Register P0 analytics and RBAC routes
+router.use("/admin/analytics", analyticsRoutes);
+router.use(rolesRoutes);
 
- // Register P1 admin feature routes
- router.use('/admin/audit-logs', auditRoutes);
- router.use('/admin/email-templates', email_templatesRoutes);
+// Register P1 admin feature routes
+router.use("/admin/audit-logs", auditRoutes);
+router.use("/admin/email-templates", email_templatesRoutes);
 
- // Register P2 admin feature routes (Navigation Manager, Coming Soon)
- // NOTE: Navigation CRUD routes are defined directly in admin.js (lines 215, 2356-2390)
- // The admin-navigation.js module is mounted separately with its own middleware stack
- router.use('/admin/coming-soon', comingSoonRoutes);
+// Register P2 admin feature routes (Navigation Manager, Coming Soon)
+// NOTE: Navigation CRUD routes are defined directly in admin.js (lines 215, 2356-2390)
+// The admin-navigation.js module is mounted separately with its own middleware stack
+router.use("/admin/coming-soon", comingSoonRoutes);
 
- // Register leaderboard admin routes
- router.use('/leaderboards', leaderboardRoutes);
- router.use('/payments', paymentAdminRoutes);
- router.use('/moderation', moderationAdminRoutes);
+// Register leaderboard admin routes
+router.use("/leaderboards", leaderboardRoutes);
+router.use("/payments", paymentAdminRoutes);
+router.use("/moderation", moderationAdminRoutes);
 
- // Backup management — uses safer execFile (no shell interpolation)
- router.use('/backups', adminBackupsRoutes);
+// Backup management — uses safer execFile (no shell interpolation)
+router.use("/backups", adminBackupsRoutes);
+router.use("/logs", adminLogsRoutes);
 
- // Register session management routes (modular controller from V2.2)
- router.get('/sessions', sessionController.getAllSessions);
- router.get('/sessions/stats', sessionController.getSessionStats);
- router.delete('/sessions/:sessionId', sessionController.revokeAnySession);
- router.get('/users/:userId/sessions', sessionController.getUserSessionsById);
- router.delete('/users/:userId/sessions', sessionController.revokeUserSessions);
- router.put('/users/:userId/session-limit', sessionController.updateSessionLimit);
+// Register session management routes (modular controller from V2.2)
+router.get("/sessions", sessionController.getAllSessions);
+router.get("/sessions/stats", sessionController.getSessionStats);
+router.delete("/sessions/:sessionId", sessionController.revokeAnySession);
+router.get("/users/:userId/sessions", sessionController.getUserSessionsById);
+router.delete("/users/:userId/sessions", sessionController.revokeUserSessions);
+router.put(
+  "/users/:userId/session-limit",
+  sessionController.updateSessionLimit,
+);
 
- // ===== INPUT VALIDATION SCHEMAS (Issue #29, #31) =====
+// ===== INPUT VALIDATION SCHEMAS (Issue #29, #31) =====
 // NOTE: Field names are now snake_case because normalizeFields middleware
 // converts all camelCase to snake_case before validation runs.
 // FIX BUG-002: Add stages field and all frontend fields to testSeriesSchema
@@ -212,7 +229,9 @@ router.get("/exams", async (req, res) => {
 
     res.json({ success: true, data: subcategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -273,7 +292,9 @@ router.get("/analytics/export", async (req, res) => {
     res.send(csv);
   } catch (error) {
     if (!res.headersSent) {
-      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
   }
 });
@@ -325,10 +346,14 @@ async function calculateStudyMaterialCounts(materialId) {
 // ===== FAST SUBJECTS LIST (for dropdowns — no count calculation) =====
 router.get("/subjects-list", async (req, res) => {
   try {
-    const materials = await dbHelpers.find("studyMaterials", { isActive: true });
+    const materials = await dbHelpers.find("studyMaterials", {
+      isActive: true,
+    });
     res.json({ success: true, data: materials });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -345,7 +370,13 @@ router.get("/study-materials", async (req, res) => {
           const counts = await calculateStudyMaterialCounts(
             material._id || material.id,
           );
-          return { ...material, topics: counts.topics, videos: counts.videos, pdf: counts.pdf, tests: counts.tests };
+          return {
+            ...material,
+            topics: counts.topics,
+            videos: counts.videos,
+            pdf: counts.pdf,
+            tests: counts.tests,
+          };
         } catch {
           return { ...material, topics: 0, videos: 0, pdf: 0, tests: 0 };
         }
@@ -354,7 +385,9 @@ router.get("/study-materials", async (req, res) => {
 
     res.json({ success: true, data: materialsWithCounts });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -372,7 +405,9 @@ router.post("/study-materials", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newMaterial });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -453,7 +488,9 @@ router.put("/study-materials/:id", async (req, res) => {
       data: { ...updated, ...counts },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -471,7 +508,9 @@ router.delete("/study-materials/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Material moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -490,7 +529,9 @@ router.put("/study-materials/:id/restore", async (req, res) => {
       data: restored,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -508,7 +549,9 @@ router.get("/study-materials/:id", async (req, res) => {
     const counts = await calculateStudyMaterialCounts(req.params.id);
     res.json({ success: true, data: { ...material, ...counts } });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -540,7 +583,9 @@ router.get("/chapters", async (req, res) => {
     });
     res.json({ success: true, data: chapters });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -551,10 +596,14 @@ router.get("/topics", async (req, res) => {
     const query = { isActive: true };
     if (chapterId) query.chapterId = chapterId;
     const topics = await dbHelpers.find("topics", query);
-    topics.sort((a, b) => (a.orderIndex || a.order || 0) - (b.orderIndex || b.order || 0));
+    topics.sort(
+      (a, b) => (a.orderIndex || a.order || 0) - (b.orderIndex || b.order || 0),
+    );
     res.json({ success: true, data: topics });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -590,7 +639,9 @@ router.post("/chapters", async (req, res) => {
 
     res.status(201).json({ success: true, data: newChapter });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -614,7 +665,9 @@ router.put("/chapters/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -645,7 +698,9 @@ router.delete("/chapters/:id", async (req, res) => {
 
     res.json({ success: true, message: "Chapter moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -661,7 +716,9 @@ router.get("/subject-videos", async (req, res) => {
     videos.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: videos });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -670,15 +727,15 @@ router.post("/subject-videos", async (req, res) => {
     const body = req.body;
     // Accept both camelCase and snake_case field names
     const studyMaterialId = body.studyMaterialId || body.study_material_id;
-    const chapterId       = body.chapterId       || body.chapter_id       || null;
-    const topicId         = body.topicId         || body.topic_id         || null;
-    const title           = body.title;
-    const slug            = body.slug;
-    const description     = body.description;
-    const videoUrl        = body.videoUrl        || body.video_url;
-    const thumbnail       = body.thumbnail        || body.thumbnail_url   || '';
-    const duration        = body.duration;
-    const isPro           = body.isPro           ?? body.is_pro           ?? false;
+    const chapterId = body.chapterId || body.chapter_id || null;
+    const topicId = body.topicId || body.topic_id || null;
+    const title = body.title;
+    const slug = body.slug;
+    const description = body.description;
+    const videoUrl = body.videoUrl || body.video_url;
+    const thumbnail = body.thumbnail || body.thumbnail_url || "";
+    const duration = body.duration;
+    const isPro = body.isPro ?? body.is_pro ?? false;
 
     if (!studyMaterialId || !title || !slug || !videoUrl) {
       return res.status(400).json({
@@ -708,7 +765,9 @@ router.post("/subject-videos", async (req, res) => {
 
     res.status(201).json({ success: true, data: newVideo });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -732,7 +791,9 @@ router.put("/subject-videos/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -763,7 +824,9 @@ router.delete("/subject-videos/:id", async (req, res) => {
 
     res.json({ success: true, message: "Video moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -775,7 +838,9 @@ router.put("/subject-videos/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -791,7 +856,9 @@ router.get("/subject-pdfs", async (req, res) => {
     pdfs.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: pdfs });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -800,15 +867,15 @@ router.post("/subject-pdfs", async (req, res) => {
     const body = req.body;
     // Accept both camelCase and snake_case field names
     const studyMaterialId = body.studyMaterialId || body.study_material_id;
-    const chapterId       = body.chapterId       || body.chapter_id       || null;
-    const topicId         = body.topicId         || body.topic_id         || null;
-    const title           = body.title;
-    const slug            = body.slug;
-    const description     = body.description;
-    const pdfUrl          = body.pdfUrl          || body.pdf_url;
-    const fileSize        = body.fileSize        ?? body.file_size        ?? 0;
-    const pages           = body.pages;
-    const isPro           = body.isPro           ?? body.is_pro           ?? false;
+    const chapterId = body.chapterId || body.chapter_id || null;
+    const topicId = body.topicId || body.topic_id || null;
+    const title = body.title;
+    const slug = body.slug;
+    const description = body.description;
+    const pdfUrl = body.pdfUrl || body.pdf_url;
+    const fileSize = body.fileSize ?? body.file_size ?? 0;
+    const pages = body.pages;
+    const isPro = body.isPro ?? body.is_pro ?? false;
 
     if (!studyMaterialId || !title || !slug || !pdfUrl) {
       return res.status(400).json({
@@ -838,7 +905,9 @@ router.post("/subject-pdfs", async (req, res) => {
 
     res.status(201).json({ success: true, data: newPdf });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -860,7 +929,9 @@ router.put("/subject-pdfs/:id", async (req, res) => {
 
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -887,7 +958,9 @@ router.delete("/subject-pdfs/:id", async (req, res) => {
 
     res.json({ success: true, message: "PDF moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -899,7 +972,9 @@ router.put("/subject-pdfs/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -915,7 +990,9 @@ router.get("/topic-tests", async (req, res) => {
     topicTests.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
     res.json({ success: true, data: topicTests });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -924,10 +1001,10 @@ router.post("/topic-tests", async (req, res) => {
     const body = req.body;
     // Accept both camelCase and snake_case field names
     const studyMaterialId = body.studyMaterialId || body.study_material_id;
-    const chapterId       = body.chapterId       || body.chapter_id || null;
-    const topicId         = body.topicId         || body.topic_id   || null;
-    const testId          = body.testId          || body.test_id;
-    const testType        = body.testType        || body.test_type  || "practice";
+    const chapterId = body.chapterId || body.chapter_id || null;
+    const topicId = body.topicId || body.topic_id || null;
+    const testId = body.testId || body.test_id;
+    const testType = body.testType || body.test_type || "practice";
 
     if (!studyMaterialId || !testId) {
       return res.status(400).json({
@@ -952,7 +1029,9 @@ router.post("/topic-tests", async (req, res) => {
 
     res.status(201).json({ success: true, data: newTopicTest });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -983,7 +1062,9 @@ router.delete("/topic-tests/:id", async (req, res) => {
 
     res.json({ success: true, message: "Topic test moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -995,7 +1076,9 @@ router.put("/topic-tests/:id/reorder", async (req, res) => {
     });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1233,7 +1316,9 @@ router.get("/results", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1364,7 +1449,9 @@ const listAssets = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -1385,7 +1472,9 @@ router.get("/assets/:id", async (req, res) => {
     }
     res.json({ success: true, data: normalizeAssetRecord(asset) });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1400,7 +1489,9 @@ router.get("/media/:id", async (req, res) => {
     }
     res.json({ success: true, data: normalizeAssetRecord(asset) });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1434,7 +1525,9 @@ router.patch("/assets/:id", async (req, res) => {
 
     res.json({ success: true, data: normalizeAssetRecord(updated) });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1466,7 +1559,9 @@ router.delete("/assets/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Asset deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1498,7 +1593,9 @@ router.delete("/media/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Media deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1517,7 +1614,9 @@ const handleAssetUpload = async (req, res) => {
     // assets/series/<id>/tests/<id>/) so all images for one test share a
     // single prefix. Matches admin-assets.js behavior.
     const testId = parseAssetId(req.body.testId ?? req.body.test_id);
-    const testSeriesId = parseAssetId(req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId);
+    const testSeriesId = parseAssetId(
+      req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId,
+    );
 
     const category =
       typeof req.body.category === "string" && req.body.category.trim()
@@ -1529,7 +1628,11 @@ const handleAssetUpload = async (req, res) => {
       typeof req.body.name === "string" && req.body.name.trim()
         ? req.body.name.trim().slice(0, 255)
         : req.file.originalname;
-    const storedFile = await storeUploadedAssetFile(req.file, { category, testId, testSeriesId });
+    const storedFile = await storeUploadedAssetFile(req.file, {
+      category,
+      testId,
+      testSeriesId,
+    });
 
     const assetRecord = await dbHelpers.insertOne("assets", {
       name: assetName,
@@ -1556,30 +1659,42 @@ const handleAssetUpload = async (req, res) => {
       data: normalizeAssetRecord(assetRecord),
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
 // ===== APP SETTINGS =====
-router.get("/settings", responseCache("admin-settings", 60), async (req, res) => {
-  try {
-    const { getFullSettings } = await import("../../services/SettingsService.js");
-    const settings = await getFullSettings();
-    res.json({ success: true, data: settings });
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.get(
+  "/settings",
+  responseCache("admin-settings", 60),
+  async (req, res) => {
+    try {
+      const { getFullSettings } =
+        await import("../../services/SettingsService.js");
+      const settings = await getFullSettings();
+      res.json({ success: true, data: settings });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.put("/settings", async (req, res) => {
   try {
     const { saveSettings } = await import("../../services/SettingsService.js");
     const updated = await saveSettings(req.body);
-    const { invalidateResponseCache } = await import("../../middleware/responseCache.middleware.js");
+    const { invalidateResponseCache } =
+      await import("../../middleware/responseCache.middleware.js");
     invalidateResponseCache("admin-settings");
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1596,7 +1711,9 @@ router.get("/exam-categories-list", async (req, res) => {
     );
     res.json({ success: true, data: sortedCategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1639,7 +1756,9 @@ router.get("/exam-categories", async (req, res) => {
 
     res.json({ success: true, data: categoriesWithExams });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1648,7 +1767,9 @@ router.post("/exam-categories", async (req, res) => {
     const newCategory = await dbHelpers.insertOne("examCategories", req.body);
     res.status(201).json({ success: true, data: newCategory });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1673,7 +1794,9 @@ router.put("/exam-categories/:id", async (req, res) => {
       `[ADMIN] PUT /exam-categories/${req.params.id} - Error:`,
       error.message,
     );
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1681,7 +1804,7 @@ router.put("/exam-categories/:id", async (req, res) => {
 router.delete("/exam-categories/:id", async (req, res) => {
   try {
     const categoryId = req.params.id;
-    
+
     // FIX BUG [TS-LOW]: Find all test series linked to this exam category
     try {
       const allSeries = await dbHelpers.find("testSeries", {
@@ -1718,7 +1841,9 @@ router.delete("/exam-categories/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Category moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1806,7 +1931,9 @@ router.post("/exams", async (req, res) => {
     });
   } catch (error) {
     console.error("Error creating subcategory (exam):", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1882,7 +2009,9 @@ router.put("/exams/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating subcategory (exam):", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1913,7 +2042,9 @@ router.delete("/exams/:id", async (req, res) => {
     });
   } catch (error) {
     console.error("Error deleting subcategory (exam):", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -1965,7 +2096,9 @@ router.get("/exam-info", async (req, res) => {
 
     res.json({ success: true, data: examInfoWithCategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2011,7 +2144,9 @@ router.post("/exam-info", async (req, res) => {
     res.status(201).json({ success: true, data: newExam });
   } catch (error) {
     console.error("POST /exam-info error:", error.message);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2069,7 +2204,9 @@ router.put("/exam-info/:id", async (req, res) => {
     res.json({ success: true, data: updated });
   } catch (error) {
     console.error("PUT /exam-info error:", error.message);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2087,7 +2224,9 @@ router.delete("/exam-info/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Exam info moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2118,7 +2257,9 @@ router.get("/exam-seasons", async (req, res) => {
 
     res.json({ success: true, data: seasonsWithExams });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2176,7 +2317,9 @@ router.post("/exam-seasons", async (req, res) => {
     res.status(201).json({ success: true, data: newSeason });
   } catch (error) {
     console.error("Error creating exam season:", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2197,7 +2340,9 @@ router.put("/exam-seasons/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2218,7 +2363,9 @@ router.delete("/exam-seasons/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Exam season deleted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2230,7 +2377,9 @@ router.get("/tag-configs", async (req, res) => {
     const tags = await dbHelpers.find("tagConfigs", {});
     res.json({ success: true, data: tags });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2239,7 +2388,9 @@ router.post("/tag-configs", async (req, res) => {
     const newTag = await dbHelpers.insertOne("tagConfigs", req.body);
     res.status(201).json({ success: true, data: newTag });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2257,7 +2408,9 @@ router.put("/tag-configs/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2275,7 +2428,9 @@ router.delete("/tag-configs/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Tag config moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2472,7 +2627,9 @@ router.get("/analytics", async (req, res) => {
     res.json({ success: true, data: analytics });
   } catch (error) {
     console.error("Analytics error:", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2493,7 +2650,9 @@ router.get("/question-analytics", async (req, res) => {
       count: data.length,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2507,14 +2666,15 @@ router.get("/question-analytics", async (req, res) => {
 // FIX ISSUE CU-03: Add admin endpoint to detect and report orphaned curriculum entities
 router.get("/curriculum/orphans", async (req, res) => {
   try {
-    const [subjects, parts, units, chapters, topics, subtopics] = await Promise.all([
-      dbHelpers.find("studyMaterials", { isActive: true }),
-      dbHelpers.find("subjectParts", { isActive: true }),
-      dbHelpers.find("units", { isActive: true }),
-      dbHelpers.find("chapters", { isActive: true }),
-      dbHelpers.find("topics", { isActive: true }),
-      dbHelpers.find("subtopics", { isActive: true }),
-    ]);
+    const [subjects, parts, units, chapters, topics, subtopics] =
+      await Promise.all([
+        dbHelpers.find("studyMaterials", { isActive: true }),
+        dbHelpers.find("subjectParts", { isActive: true }),
+        dbHelpers.find("units", { isActive: true }),
+        dbHelpers.find("chapters", { isActive: true }),
+        dbHelpers.find("topics", { isActive: true }),
+        dbHelpers.find("subtopics", { isActive: true }),
+      ]);
 
     const subjectIds = new Set(subjects.map((s) => String(s.id || s._id)));
     const partIds = new Set(parts.map((p) => String(p.id || p._id)));
@@ -2558,7 +2718,9 @@ router.get("/curriculum/orphans", async (req, res) => {
 
     // Orphaned chapters: studyMaterialId or unitId doesn't exist
     chapters.forEach((chapter) => {
-      const studyMaterialId = String(chapter.studyMaterialId || chapter.study_material_id || "");
+      const studyMaterialId = String(
+        chapter.studyMaterialId || chapter.study_material_id || "",
+      );
       const unitId = String(chapter.unitId || chapter.unit_id || "");
       let orphanedReason = null;
 
@@ -2605,7 +2767,10 @@ router.get("/curriculum/orphans", async (req, res) => {
       }
     });
 
-    const totalOrphans = Object.values(orphans).reduce((sum, arr) => sum + arr.length, 0);
+    const totalOrphans = Object.values(orphans).reduce(
+      (sum, arr) => sum + arr.length,
+      0,
+    );
 
     res.json({
       success: true,
@@ -2622,7 +2787,9 @@ router.get("/curriculum/orphans", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2632,7 +2799,9 @@ router.get("/topics", async (req, res) => {
     const topics = await dbHelpers.find("topics", { isActive: true });
     res.json({ success: true, data: topics });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2644,7 +2813,9 @@ router.post("/topics", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newTopic });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2661,7 +2832,9 @@ router.put("/topics/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2679,21 +2852,29 @@ router.delete("/topics/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Topic moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== PASSAGES MANAGEMENT =====
 // Note: Uses 'questions' table with passage_id field for passage grouping
 // Passages are logical groupings, not a separate table
-router.get("/passages", responseCache("admin-passages", 120), async (req, res) => {
-  try {
-    const passages = await dbHelpers.find("passages", {});
-    res.json({ success: true, data: passages });
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.get(
+  "/passages",
+  responseCache("admin-passages", 120),
+  async (req, res) => {
+    try {
+      const passages = await dbHelpers.find("passages", {});
+      res.json({ success: true, data: passages });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // ===== COUPONS MANAGEMENT =====
 router.get("/coupons", responseCache("admin-coupons", 30), async (req, res) => {
@@ -2701,7 +2882,9 @@ router.get("/coupons", responseCache("admin-coupons", 30), async (req, res) => {
     const coupons = await dbHelpers.find("coupons", { isActive: true });
     res.json({ success: true, data: coupons });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2713,7 +2896,9 @@ router.post("/coupons", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newCoupon });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2730,7 +2915,9 @@ router.put("/coupons/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2748,19 +2935,27 @@ router.delete("/coupons/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Coupon moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== NOTIFICATIONS MANAGEMENT =====
-router.get("/notifications", responseCache("admin-notifications", 30), async (req, res) => {
-  try {
-    const notifications = await dbHelpers.find("notifications", {});
-    res.json({ success: true, data: notifications });
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.get(
+  "/notifications",
+  responseCache("admin-notifications", 30),
+  async (req, res) => {
+    try {
+      const notifications = await dbHelpers.find("notifications", {});
+      res.json({ success: true, data: notifications });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.post("/notifications", async (req, res) => {
   try {
@@ -2770,7 +2965,9 @@ router.post("/notifications", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newNotification });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2787,7 +2984,9 @@ router.post("/notifications/bulk", async (req, res) => {
       .status(201)
       .json({ success: true, data: inserted, count: inserted.length });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2804,7 +3003,9 @@ router.put("/notifications/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2822,19 +3023,29 @@ router.delete("/notifications/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Notification moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== SUBSCRIPTION PLANS MANAGEMENT =====
-router.get("/subscription-plans", responseCache("admin-plans", 30), async (req, res) => {
-  try {
-    const plans = await dbHelpers.find("subscriptionPlans", { isActive: true });
-    res.json({ success: true, data: plans });
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+router.get(
+  "/subscription-plans",
+  responseCache("admin-plans", 30),
+  async (req, res) => {
+    try {
+      const plans = await dbHelpers.find("subscriptionPlans", {
+        isActive: true,
+      });
+      res.json({ success: true, data: plans });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.post("/subscription-plans", async (req, res) => {
   try {
@@ -2844,7 +3055,9 @@ router.post("/subscription-plans", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newPlan });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2865,7 +3078,9 @@ router.put("/subscription-plans/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2883,7 +3098,9 @@ router.delete("/subscription-plans/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Plan moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2893,7 +3110,9 @@ router.get("/videos", async (req, res) => {
     const videos = await dbHelpers.find("videos", { isActive: true });
     res.json({ success: true, data: videos });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2905,7 +3124,9 @@ router.post("/videos", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newVideo });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2922,7 +3143,9 @@ router.put("/videos/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2940,7 +3163,9 @@ router.delete("/videos/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Video moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2950,7 +3175,9 @@ router.get("/subjects", async (req, res) => {
     const subjects = await dbHelpers.find("subjects", { isActive: true });
     res.json({ success: true, data: subjects });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2962,7 +3189,9 @@ router.post("/subjects", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newSubject });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2979,7 +3208,9 @@ router.put("/subjects/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -2997,7 +3228,9 @@ router.delete("/subjects/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Subject moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3049,7 +3282,9 @@ router.get("/activity-order", async (req, res) => {
       count: activities.length,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3123,7 +3358,9 @@ router.get("/realtime/active-users", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3201,7 +3438,9 @@ router.get("/realtime/test-activity", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3295,7 +3534,9 @@ router.get("/realtime/revenue", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3374,7 +3615,9 @@ router.get("/realtime/system-health", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3487,7 +3730,9 @@ router.get("/realtime/live-feed", async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3506,11 +3751,17 @@ const getSystemHealth = async (req, res) => {
 
     res.json({ success: true, data: health });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
-router.get("/system-health", responseCache("admin-health", 15), getSystemHealth);
+router.get(
+  "/system-health",
+  responseCache("admin-health", 15),
+  getSystemHealth,
+);
 router.get("/health", responseCache("admin-health", 15), getSystemHealth);
 
 // ===== TEST EMAIL ENDPOINT =====
@@ -3580,7 +3831,9 @@ router.get("/banners", responseCache("admin-banners", 30), async (req, res) => {
     const banners = await dbHelpers.find("banners", { isActive: true });
     res.json({ success: true, data: banners });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3592,7 +3845,9 @@ router.post("/banners", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newBanner });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3609,7 +3864,9 @@ router.put("/banners/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3627,7 +3884,9 @@ router.delete("/banners/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Banner moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3637,7 +3896,9 @@ router.get("/faqs", responseCache("admin-faqs", 30), async (req, res) => {
     const faqs = await dbHelpers.find("faqs", { isActive: true });
     res.json({ success: true, data: faqs });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3649,7 +3910,9 @@ router.post("/faqs", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newFaq });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3664,7 +3927,9 @@ router.put("/faqs/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3680,40 +3945,48 @@ router.delete("/faqs/:id", async (req, res) => {
     }
     res.json({ success: true, message: "FAQ moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 // ===== PROMOTIONS MANAGEMENT =====
-router.get("/promotions", responseCache("admin-promotions", 30), async (req, res) => {
-  try {
-    const promotions = await dbHelpers.find("promotions", { isActive: true });
-    const assetMap = await buildAssetUrlMap(
-      promotions.map(
-        (promotion) => promotion.bannerAssetId || promotion.banner_asset_id,
-      ),
-    );
-    const enrichedPromotions = promotions.map((promotion) => {
-      const bannerAssetId = parseAssetId(
-        promotion.bannerAssetId || promotion.banner_asset_id,
+router.get(
+  "/promotions",
+  responseCache("admin-promotions", 30),
+  async (req, res) => {
+    try {
+      const promotions = await dbHelpers.find("promotions", { isActive: true });
+      const assetMap = await buildAssetUrlMap(
+        promotions.map(
+          (promotion) => promotion.bannerAssetId || promotion.banner_asset_id,
+        ),
       );
-      return {
-        ...promotion,
-        bannerAssetId,
-        bannerUrl: bannerAssetId
-          ? assetMap.get(bannerAssetId) || null
-          : promotion.bannerUrl ||
-            promotion.banner_url ||
-            promotion.imageUrl ||
-            promotion.image_url ||
-            null,
-      };
-    });
-    res.json({ success: true, data: enrichedPromotions });
-  } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+      const enrichedPromotions = promotions.map((promotion) => {
+        const bannerAssetId = parseAssetId(
+          promotion.bannerAssetId || promotion.banner_asset_id,
+        );
+        return {
+          ...promotion,
+          bannerAssetId,
+          bannerUrl: bannerAssetId
+            ? assetMap.get(bannerAssetId) || null
+            : promotion.bannerUrl ||
+              promotion.banner_url ||
+              promotion.imageUrl ||
+              promotion.image_url ||
+              null,
+        };
+      });
+      res.json({ success: true, data: enrichedPromotions });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 router.post("/promotions", async (req, res) => {
   try {
@@ -3727,7 +4000,9 @@ router.post("/promotions", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newPromotion });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3748,7 +4023,9 @@ router.put("/promotions/:id", async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3766,7 +4043,9 @@ router.delete("/promotions/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Promotion moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3776,7 +4055,9 @@ router.get("/quizzes", responseCache("admin-quizzes", 30), async (req, res) => {
     const quizzes = await dbHelpers.find("quizzes", { isActive: true });
     res.json({ success: true, data: quizzes });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3788,7 +4069,9 @@ router.post("/quizzes", async (req, res) => {
     });
     res.status(201).json({ success: true, data: newQuiz });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3805,7 +4088,9 @@ const updateQuizAdminHandler = async (req, res) => {
     }
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 };
 
@@ -3826,7 +4111,9 @@ router.delete("/quizzes/:id", async (req, res) => {
     }
     res.json({ success: true, message: "Quiz moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3854,7 +4141,9 @@ router.get("/activity-logs", async (req, res) => {
 
     res.json({ success: true, data: logs, count: logs.length });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3872,7 +4161,9 @@ router.post("/activity-logs", async (req, res) => {
 
     res.status(201).json({ success: true, data: log });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -3940,7 +4231,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
           data: fallbackItems,
         });
       } catch (err) {
-        res.status(500).json({ success: false, message: sanitizeErrorMessage(err) });
+        res
+          .status(500)
+          .json({ success: false, message: sanitizeErrorMessage(err) });
       }
     }
   });
@@ -3950,7 +4243,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
       const item = await dbHelpers.insertOne(collection, req.body);
       res.status(201).json({ success: true, data: item });
     } catch (error) {
-      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
 
@@ -3965,7 +4260,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
         return res.status(404).json({ success: false, message: "Not found" });
       res.json({ success: true, data: item });
     } catch (error) {
-      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
 
@@ -3980,7 +4277,9 @@ curriculumCrudRoutes.forEach(({ path, collection }) => {
         return res.status(404).json({ success: false, message: "Not found" });
       res.json({ success: true, message: "Deleted" });
     } catch (error) {
-      res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
     }
   });
 });
@@ -4006,14 +4305,22 @@ router.post("/test-series/bulk-operation", async (req, res) => {
     switch (operation) {
       case "bulk-update":
         for (const id of seriesIds) {
-          const updateResult = await dbHelpers.updateById("testSeries", id, payload);
+          const updateResult = await dbHelpers.updateById(
+            "testSeries",
+            id,
+            payload,
+          );
           if (updateResult) updatedCount++;
         }
         break;
 
       case "bulk-delete":
         for (const id of seriesIds) {
-          const deleted = await dbHelpers.softDelete("testSeries", id, req.user?.id);
+          const deleted = await dbHelpers.softDelete(
+            "testSeries",
+            id,
+            req.user?.id,
+          );
           if (deleted) updatedCount++;
         }
         break;
@@ -4022,7 +4329,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            await dbHelpers.updateById("testSeries", id, { isActive: !series.isActive });
+            await dbHelpers.updateById("testSeries", id, {
+              isActive: !series.isActive,
+            });
             updatedCount++;
           }
         }
@@ -4032,7 +4341,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            await dbHelpers.updateById("testSeries", id, { isPro: !series.isPro });
+            await dbHelpers.updateById("testSeries", id, {
+              isPro: !series.isPro,
+            });
             updatedCount++;
           }
         }
@@ -4043,7 +4354,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            const existingStages = Array.isArray(series.stages) ? series.stages : [];
+            const existingStages = Array.isArray(series.stages)
+              ? series.stages
+              : [];
             const newStages = [...new Set([...existingStages, ...stagesToAdd])];
             await dbHelpers.updateById("testSeries", id, { stages: newStages });
             updatedCount++;
@@ -4057,8 +4370,12 @@ router.post("/test-series/bulk-operation", async (req, res) => {
         for (const id of seriesIds) {
           const series = await dbHelpers.findById("testSeries", id);
           if (series) {
-            const existingStages = Array.isArray(series.stages) ? series.stages : [];
-            const newStages = existingStages.filter((s) => !stagesToRemove.includes(s));
+            const existingStages = Array.isArray(series.stages)
+              ? series.stages
+              : [];
+            const newStages = existingStages.filter(
+              (s) => !stagesToRemove.includes(s),
+            );
             await dbHelpers.updateById("testSeries", id, { stages: newStages });
             updatedCount++;
           }
@@ -4080,7 +4397,9 @@ router.post("/test-series/bulk-operation", async (req, res) => {
     });
   } catch (error) {
     console.error("Test series bulk operation error:", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4088,8 +4407,13 @@ router.post("/test-series/bulk-operation", async (req, res) => {
 // FIX MISSING: Bulk reassign tests to different series/stage/category
 router.post("/tests/bulk-reassign", async (req, res) => {
   try {
-    const { testIds, stageId, testCategoryId, categoryId, subCategory } = req.body;
-    const testSeriesId = req.body.testSeriesId ?? req.body.test_series_id ?? req.body.seriesId ?? req.body.series_id;
+    const { testIds, stageId, testCategoryId, categoryId, subCategory } =
+      req.body;
+    const testSeriesId =
+      req.body.testSeriesId ??
+      req.body.test_series_id ??
+      req.body.seriesId ??
+      req.body.series_id;
 
     if (!Array.isArray(testIds) || testIds.length === 0) {
       return res.status(400).json({
@@ -4100,7 +4424,10 @@ router.post("/tests/bulk-reassign", async (req, res) => {
 
     // Validate target references if provided
     if (testSeriesId) {
-      const existingSeries = await dbHelpers.findById("testSeries", testSeriesId);
+      const existingSeries = await dbHelpers.findById(
+        "testSeries",
+        testSeriesId,
+      );
       if (!existingSeries) {
         return res.status(400).json({
           success: false,
@@ -4120,7 +4447,10 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     }
 
     if (testCategoryId) {
-      const existingCat = await dbHelpers.findById("testCategories", testCategoryId);
+      const existingCat = await dbHelpers.findById(
+        "testCategories",
+        testCategoryId,
+      );
       if (!existingCat) {
         return res.status(400).json({
           success: false,
@@ -4132,7 +4462,8 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     const updateData = {};
     if (testSeriesId !== undefined) updateData.seriesId = testSeriesId;
     if (stageId !== undefined) updateData.stageId = stageId;
-    if (testCategoryId !== undefined) updateData.testCategoryId = testCategoryId;
+    if (testCategoryId !== undefined)
+      updateData.testCategoryId = testCategoryId;
     if (categoryId !== undefined) updateData.category = categoryId;
     if (subCategory !== undefined) updateData.subCategory = subCategory;
 
@@ -4149,7 +4480,9 @@ router.post("/tests/bulk-reassign", async (req, res) => {
     });
   } catch (error) {
     console.error("Tests bulk reassign error:", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4174,7 +4507,7 @@ router.post("/questions/bulk-reorder", async (req, res) => {
     if (testId) {
       const validResult = await pool.query(
         `SELECT id FROM questions WHERE id IN (${placeholders}) AND test_id = $${placeholders.length + 1} AND is_active = true`,
-        [...questionIds, testId]
+        [...questionIds, testId],
       );
       const validIds = new Set(validResult.rows.map((r) => String(r.id)));
       const invalidIds = questionIds.filter((id) => !validIds.has(String(id)));
@@ -4195,7 +4528,7 @@ router.post("/questions/bulk-reorder", async (req, res) => {
 
       return pool.query(
         `UPDATE questions SET question_number = $1, order_index = $2 WHERE id = $3`,
-        [questionNumber, orderIndex, questionId]
+        [questionNumber, orderIndex, questionId],
       );
     });
 
@@ -4208,7 +4541,9 @@ router.post("/questions/bulk-reorder", async (req, res) => {
     });
   } catch (error) {
     console.error("Questions bulk reorder error:", error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -4241,25 +4576,27 @@ router.post("/questions/:id/convert", async (req, res) => {
 
     await dbHelpers.pool.query(
       "UPDATE questions SET is_practice = $1, is_practice = $1 WHERE id = $2",
-      [shouldBePractice, id]
+      [shouldBePractice, id],
     );
 
     // Also update test_id if provided
     if (testId !== undefined) {
       await dbHelpers.pool.query(
         "UPDATE questions SET test_id = $1 WHERE id = $2",
-        [shouldBePractice ? null : testId, id]
+        [shouldBePractice ? null : testId, id],
       );
     }
 
     // Fetch updated question
     const result = await dbHelpers.pool.query(
       "SELECT id, test_id, question_number, question_text, question_text_hi, options, options_hi, correct_option, marks, negative_marks, section, explanation, difficulty, image, is_active, created_at, updated_at, subject, chapter_id, topic, image_asset_id, series_id, category_id, sub_category_id, study_material_id, topic_id, quiz_id, public_id_uuid, public_id, category, type, status, tags, passage_id, chapter, is_practice, is_deleted, deleted_by, deleted_at, _orphaned, orphaned_at, _deleted_test_id, moderation_status, reviewed_by, reviewed_at, review_notes, submitted_for_review_at, submitted_by, external_question_id, language, solution_image_url, source, imported_from, section_id, subtopic_id, subject_id, estimated_time, explanation_hi, source_config, exam_category_ids, exam_ids, question_stage_ids, concept_ids, skill_ids, ai_generated, _deleted_series_id, created_by, correct_answer, question_type FROM questions WHERE id = $1",
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Question not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Question not found" });
     }
 
     res.json({
@@ -4291,7 +4628,7 @@ router.post("/questions/bulk-convert", async (req, res) => {
 
     await dbHelpers.pool.query(
       `UPDATE questions SET is_practice = $${questionIds.length + 1} WHERE id IN (${placeholders})`,
-      [...questionIds, isPractice]
+      [...questionIds, isPractice],
     );
 
     res.json({
@@ -4316,46 +4653,61 @@ router.get("/chapters/:id/resources", async (req, res) => {
     // Fetch chapter
     const chapterResult = await dbHelpers.pool.query(
       "SELECT id, study_material_id, title, slug, description, icon, video_count, pdf_count, test_count, duration, order_index, is_active, created_at, updated_at, unit_id, stage_ids, public_id_uuid, public_id, is_deleted, deleted_by, deleted_at, subject_id, _orphaned FROM chapters WHERE id = $1",
-      [id]
+      [id],
     );
 
     if (chapterResult.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "Chapter not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Chapter not found" });
     }
 
     const chapter = chapterResult.rows[0];
-    const studyMaterialId = chapter.study_material_id || chapter.studyMaterialId;
+    const studyMaterialId =
+      chapter.study_material_id || chapter.studyMaterialId;
 
     // Fetch videos for this chapter/study material
     const videosResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, title, slug, description, video_url, thumbnail, duration, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, public_id_uuid, public_id FROM subject_videos WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
-      [studyMaterialId || id]
+      [studyMaterialId || id],
     );
 
     // Fetch PDFs for this chapter/study material
     const pdfsResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, title, slug, description, pdf_url, file_size, pages, order_index, is_pro, is_active, created_at, updated_at, display_order, topic_id, is_deleted, deleted_at, deleted_by, thumbnail FROM subject_pdfs WHERE study_material_id = $1 OR chapter_id = $1 ORDER BY created_at DESC`,
-      [studyMaterialId || id]
+      [studyMaterialId || id],
     );
 
     // Fetch tests for this chapter
     const testsResult = await dbHelpers.pool.query(
       `SELECT id, study_material_id, chapter_id, test_id, test_type, order_index, is_active, created_at, display_order, topic_id, updated_at, is_deleted, deleted_at, deleted_by FROM topic_tests WHERE chapter_id = $1 ORDER BY created_at DESC`,
-      [id]
+      [id],
     );
 
     // Fetch quizzes related to this chapter's topic
     const quizzesResult = await dbHelpers.pool.query(
       `SELECT id, title, description, subject, topic, difficulty, question_ids, duration, passing_score, is_pro, is_active, "order", instructions, is_public, shuffle_questions, show_answers, created_by, deleted_at, created_at, updated_at, public_id_uuid, public_id, slug, category, total_questions, total_marks, status, metadata, question_count, is_deleted, deleted_by FROM quizzes WHERE topic = (SELECT name FROM subject_topics WHERE chapter_id = $1 LIMIT 1) LIMIT 50`,
-      [id]
+      [id],
     );
 
     // Notes are PDFs with type='note' or keywords match
-    const noteKeywords = ["note", "notes", "handout", "class note", "lecture note"];
+    const noteKeywords = [
+      "note",
+      "notes",
+      "handout",
+      "class note",
+      "lecture note",
+    ];
     const notesResult = pdfsResult.rows.filter((pdf) => {
-      const pdfType = (pdf.type || pdf.pdf_type || pdf.file_type || "").toLowerCase();
+      const pdfType = (
+        pdf.type ||
+        pdf.pdf_type ||
+        pdf.file_type ||
+        ""
+      ).toLowerCase();
       if (["note", "notes", "handout"].includes(pdfType)) return true;
-      const hay = `${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`.toLowerCase();
+      const hay =
+        `${pdf.title || ""} ${pdf.description || ""} ${pdf.slug || ""}`.toLowerCase();
       return noteKeywords.some((kw) => hay.includes(kw));
     });
 

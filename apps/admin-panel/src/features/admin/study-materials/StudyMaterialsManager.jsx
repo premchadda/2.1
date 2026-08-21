@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
   BookOpen,
@@ -444,156 +445,165 @@ function SubjectsPanel() {
         )}
       </div>
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-indigo-600" />
-                  {editingSubject ? "Edit Subject" : "Add New Subject"}
-                </h3>
-                <button
-                  onClick={resetForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Subject Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={handleNameChange}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                    placeholder="e.g., Quantitative Aptitude"
-                  />
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden border border-gray-100 dark:border-gray-700">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                    {editingSubject ? "Edit Subject" : "Add New Subject"}
+                  </h3>
+                  <button
+                    onClick={resetForm}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Slug *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.slug}
-                    onChange={(e) =>
-                      setFormData({ ...formData, slug: e.target.value })
-                    }
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Icon Emoji
+                      Subject Name *
                     </label>
                     <input
                       type="text"
-                      value={formData.icon}
-                      onChange={(e) =>
-                        setFormData({ ...formData, icon: e.target.value })
-                      }
-                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center text-xl"
+                      required
+                      value={formData.name}
+                      onChange={handleNameChange}
+                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="e.g., Quantitative Aptitude"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Theme Color
+                      Slug *
                     </label>
                     <input
-                      type="color"
-                      value={formData.color}
+                      type="text"
+                      required
+                      value={formData.slug}
                       onChange={(e) =>
-                        setFormData({ ...formData, color: e.target.value })
-                      }
-                      className="w-full h-11 px-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={2}
-                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                    placeholder="Brief description of this subject..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Display Order #
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.order}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          order: parseInt(e.target.value) || 0,
-                        })
+                        setFormData({ ...formData, slug: e.target.value })
                       }
                       className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono"
                     />
                   </div>
 
-                  <div className="flex items-center pt-6">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) =>
-                        setFormData({ ...formData, isActive: e.target.checked })
-                      }
-                      className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
-                      id="isActive"
-                    />
-                    <label
-                      htmlFor="isActive"
-                      className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-                    >
-                      Active Status
-                    </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Icon Emoji
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.icon}
+                        onChange={(e) =>
+                          setFormData({ ...formData, icon: e.target.value })
+                        }
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-center text-xl"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Theme Color
+                      </label>
+                      <input
+                        type="color"
+                        value={formData.color}
+                        onChange={(e) =>
+                          setFormData({ ...formData, color: e.target.value })
+                        }
+                        className="w-full h-11 px-1 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl cursor-pointer"
+                      />
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Subject
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          description: e.target.value,
+                        })
+                      }
+                      rows={2}
+                      className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                      placeholder="Brief description of this subject..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Display Order #
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.order}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            order: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono"
+                      />
+                    </div>
+
+                    <div className="flex items-center pt-6">
+                      <input
+                        type="checkbox"
+                        checked={formData.isActive}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            isActive: e.target.checked,
+                          })
+                        }
+                        className="w-4 h-4 text-indigo-600 rounded cursor-pointer"
+                        id="isActive"
+                      />
+                      <label
+                        htmlFor="isActive"
+                        className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
+                      >
+                        Active Status
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Subject
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

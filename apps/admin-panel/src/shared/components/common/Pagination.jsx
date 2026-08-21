@@ -1,27 +1,41 @@
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 
-function Pagination({ page, limit, total, onPageChange, onLimitChange, className = '' }) {
-  const totalPages = Math.ceil(total / limit) || 1
+function Pagination({
+  page,
+  limit,
+  total,
+  onPageChange,
+  onLimitChange,
+  className = "",
+}) {
+  const totalPages = Math.ceil(total / limit) || 1;
 
   const getPageNumbers = () => {
-    const pages = []
-    const delta = 2
-    const start = Math.max(1, page - delta)
-    const end = Math.min(totalPages, page + delta)
+    const pages = [];
+    const delta = 2;
+    const start = Math.max(1, page - delta);
+    const end = Math.min(totalPages, page + delta);
 
-    if (start > 1) pages.push(1)
-    if (start > 2) pages.push('...')
+    if (start > 1) pages.push(1);
+    if (start > 2) pages.push("...");
 
-    for (let i = start; i <= end; i++) pages.push(i)
+    for (let i = start; i <= end; i++) pages.push(i);
 
-    if (end < totalPages - 1) pages.push('...')
-    if (end < totalPages) pages.push(totalPages)
+    if (end < totalPages - 1) pages.push("...");
+    if (end < totalPages) pages.push(totalPages);
 
-    return pages
-  }
+    return pages;
+  };
 
   return (
-    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 ${className}`}>
+    <div
+      className={`flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 ${className}`}
+    >
       <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
         <span>Rows per page:</span>
         <select
@@ -30,11 +44,15 @@ function Pagination({ page, limit, total, onPageChange, onLimitChange, className
           className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
         >
           {[10, 20, 50, 100].map((v) => (
-            <option key={v} value={v}>{v}</option>
+            <option key={v} value={v}>
+              {v}
+            </option>
           ))}
         </select>
         <span>
-          {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+          {total === 0
+            ? `0 of 0`
+            : `${(page - 1) * limit + 1}–${Math.min(page * limit, total)} of ${total}`}
         </span>
       </div>
 
@@ -57,23 +75,25 @@ function Pagination({ page, limit, total, onPageChange, onLimitChange, className
         </button>
 
         {getPageNumbers().map((p, i) =>
-          p === '...' ? (
-            <span key={`ellipsis-${i}`} className="px-2 text-gray-400">...</span>
+          p === "..." ? (
+            <span key={`ellipsis-${i}`} className="px-2 text-gray-400">
+              ...
+            </span>
           ) : (
             <button
               key={p}
               onClick={() => onPageChange(p)}
               className={`min-w-[2rem] h-8 rounded text-sm font-medium transition-colors ${
                 p === page
-                  ? 'bg-indigo-600 text-white'
-                  : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  ? "bg-indigo-600 text-white"
+                  : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
               }`}
               aria-label={`Page ${p}`}
-              aria-current={p === page ? 'page' : undefined}
+              aria-current={p === page ? "page" : undefined}
             >
               {p}
             </button>
-          )
+          ),
         )}
 
         <button
@@ -94,7 +114,7 @@ function Pagination({ page, limit, total, onPageChange, onLimitChange, className
         </button>
       </div>
     </div>
-  )
+  );
 }
 
-export default Pagination
+export default Pagination;

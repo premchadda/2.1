@@ -154,4 +154,25 @@ describe('Auth Middleware', () => {
       expect(isHigherRole(ROLES.USER, ROLES.SUPER_ADMIN)).toBe(false)
     })
   })
+
+  describe('isUserAdminRequest', () => {
+    it('should return true for attached admin user', async () => {
+      const { isUserAdminRequest } = await import('../src/middleware/auth.middleware.js')
+      expect(isUserAdminRequest({ user: { isAdmin: true } })).toBe(true)
+      expect(isUserAdminRequest({ user: { role: 'admin' } })).toBe(true)
+      expect(isUserAdminRequest({ user: { role: 'super_admin' } })).toBe(true)
+    })
+
+    it('should return true for admin origin', async () => {
+      const { isUserAdminRequest } = await import('../src/middleware/auth.middleware.js')
+      expect(isUserAdminRequest({ headers: { origin: 'http://localhost:3002' } })).toBe(true)
+    })
+
+    it('should return false for regular user or empty request', async () => {
+      const { isUserAdminRequest } = await import('../src/middleware/auth.middleware.js')
+      expect(isUserAdminRequest(null)).toBe(false)
+      expect(isUserAdminRequest({})).toBe(false)
+      expect(isUserAdminRequest({ user: { role: 'user', isAdmin: false } })).toBe(false)
+    })
+  })
 })

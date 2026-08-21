@@ -1,13 +1,21 @@
 import express from "express";
-import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
+import {
+  protect,
+  admin,
+  superAdmin,
+} from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
+import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
 
 router.get("/exams", async (req, res) => {
   try {
@@ -43,7 +51,9 @@ router.get("/exams", async (req, res) => {
 
     res.json({ success: true, data: subcategories });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -56,36 +66,60 @@ router.get("/banners", async (req, res) => {
     const banners = await dbHelpers.find("banners", { isActive: true });
     res.json({ success: true, data: banners });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.post("/banners", async (req, res) => {
   try {
-    const banner = await dbHelpers.insertOne("banners", { ...req.body, createdAt: new Date().toISOString() });
+    const banner = await dbHelpers.insertOne("banners", {
+      ...req.body,
+      createdAt: new Date().toISOString(),
+    });
     res.status(201).json({ success: true, data: banner });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.put("/banners/:id", async (req, res) => {
   try {
-    const updated = await dbHelpers.updateById("banners", req.params.id, { ...req.body, updatedAt: new Date().toISOString() });
-    if (!updated) return res.status(404).json({ success: false, message: "Banner not found" });
+    const updated = await dbHelpers.updateById("banners", req.params.id, {
+      ...req.body,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!updated)
+      return res
+        .status(404)
+        .json({ success: false, message: "Banner not found" });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.delete("/banners/:id", async (req, res) => {
   try {
-    const deleted = await dbHelpers.softDelete("banners", req.params.id, req.user.id);
-    if (!deleted) return res.status(404).json({ success: false, message: "Banner not found" });
+    const deleted = await dbHelpers.softDelete(
+      "banners",
+      req.params.id,
+      req.user.id,
+    );
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ success: false, message: "Banner not found" });
     res.json({ success: true, message: "Banner moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -95,36 +129,56 @@ router.get("/faqs", async (req, res) => {
     const faqs = await dbHelpers.find("faqs", { isActive: true });
     res.json({ success: true, data: faqs });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.post("/faqs", async (req, res) => {
   try {
-    const faq = await dbHelpers.insertOne("faqs", { ...req.body, createdAt: new Date().toISOString() });
+    const faq = await dbHelpers.insertOne("faqs", {
+      ...req.body,
+      createdAt: new Date().toISOString(),
+    });
     res.status(201).json({ success: true, data: faq });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.put("/faqs/:id", async (req, res) => {
   try {
-    const updated = await dbHelpers.updateById("faqs", req.params.id, { ...req.body, updatedAt: new Date().toISOString() });
-    if (!updated) return res.status(404).json({ success: false, message: "FAQ not found" });
+    const updated = await dbHelpers.updateById("faqs", req.params.id, {
+      ...req.body,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!updated)
+      return res.status(404).json({ success: false, message: "FAQ not found" });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.delete("/faqs/:id", async (req, res) => {
   try {
-    const deleted = await dbHelpers.softDelete("faqs", req.params.id, req.user.id);
-    if (!deleted) return res.status(404).json({ success: false, message: "FAQ not found" });
+    const deleted = await dbHelpers.softDelete(
+      "faqs",
+      req.params.id,
+      req.user.id,
+    );
+    if (!deleted)
+      return res.status(404).json({ success: false, message: "FAQ not found" });
     res.json({ success: true, message: "FAQ moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -134,36 +188,61 @@ router.get("/current-affairs", async (req, res) => {
     const articles = await dbHelpers.find("currentAffairs", { isActive: true });
     res.json({ success: true, data: articles });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.post("/current-affairs", async (req, res) => {
   try {
-    const article = await dbHelpers.insertOne("currentAffairs", { ...req.body, createdAt: new Date().toISOString() });
+    const article = await dbHelpers.insertOne("currentAffairs", {
+      ...req.body,
+      createdAt: new Date().toISOString(),
+    });
     res.status(201).json({ success: true, data: article });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.put("/current-affairs/:id", async (req, res) => {
   try {
-    const updated = await dbHelpers.updateById("currentAffairs", req.params.id, { ...req.body, updatedAt: new Date().toISOString() });
-    if (!updated) return res.status(404).json({ success: false, message: "Article not found" });
+    const updated = await dbHelpers.updateById(
+      "currentAffairs",
+      req.params.id,
+      { ...req.body, updatedAt: new Date().toISOString() },
+    );
+    if (!updated)
+      return res
+        .status(404)
+        .json({ success: false, message: "Article not found" });
     res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
 router.delete("/current-affairs/:id", async (req, res) => {
   try {
-    const deleted = await dbHelpers.softDelete("currentAffairs", req.params.id, req.user.id);
-    if (!deleted) return res.status(404).json({ success: false, message: "Article not found" });
+    const deleted = await dbHelpers.softDelete(
+      "currentAffairs",
+      req.params.id,
+      req.user.id,
+    );
+    if (!deleted)
+      return res
+        .status(404)
+        .json({ success: false, message: "Article not found" });
     res.json({ success: true, message: "Article moved to trash" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -174,7 +253,9 @@ router.delete("/current-affairs/:id", async (req, res) => {
 // 068); there is no `type` column.
 router.get("/coming-soon-config", async (req, res) => {
   try {
-    const configs = await dbHelpers.find("appSettings", { key: "coming_soon_config" });
+    const configs = await dbHelpers.find("appSettings", {
+      key: "coming_soon_config",
+    });
     const stored = configs[0]?.value;
     const value = stored && typeof stored === "object" ? stored : {};
     res.json({
@@ -186,7 +267,9 @@ router.get("/coming-soon-config", async (req, res) => {
     });
   } catch (error) {
     // Surface the error — never silently return success with empty data.
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
@@ -195,7 +278,9 @@ router.put("/coming-soon-config", async (req, res) => {
     const { siteConfig, pages } = req.body;
     if (
       siteConfig !== undefined &&
-      (siteConfig === null || typeof siteConfig !== "object" || Array.isArray(siteConfig))
+      (siteConfig === null ||
+        typeof siteConfig !== "object" ||
+        Array.isArray(siteConfig))
     ) {
       return res.status(400).json({
         success: false,
@@ -205,18 +290,27 @@ router.put("/coming-soon-config", async (req, res) => {
 
     // Merge instead of full-replace: PUTting only `pages` must not wipe a
     // previously stored siteConfig (and vice versa).
-    const existing = await dbHelpers.find("appSettings", { key: "coming_soon_config" });
+    const existing = await dbHelpers.find("appSettings", {
+      key: "coming_soon_config",
+    });
     const existingValue =
-      existing[0]?.value && typeof existing[0].value === "object" ? existing[0].value : {};
+      existing[0]?.value && typeof existing[0].value === "object"
+        ? existing[0].value
+        : {};
 
     const value = {
       siteConfig: {
-        ...(existingValue.siteConfig && typeof existingValue.siteConfig === "object" ? existingValue.siteConfig : {}),
+        ...(existingValue.siteConfig &&
+        typeof existingValue.siteConfig === "object"
+          ? existingValue.siteConfig
+          : {}),
         ...(siteConfig ?? {}),
       },
       pages: Array.isArray(pages)
         ? pages
-        : Array.isArray(existingValue.pages) ? existingValue.pages : [],
+        : Array.isArray(existingValue.pages)
+          ? existingValue.pages
+          : [],
       updatedAt: new Date().toISOString(),
     };
     await pool.query(
@@ -227,9 +321,29 @@ router.put("/coming-soon-config", async (req, res) => {
              updated_at = NOW()`,
       ["coming_soon_config", JSON.stringify(value)],
     );
+    // Bidirectional sync: keep site_config.maintenance/comingSoon in lockstep
+    // so GET /api/settings/public and GET /admin/settings both reflect the same
+    // values regardless of which UI wrote last.
+    try {
+      const { syncComingSoonConfigToSiteConfig } =
+        await import("../../services/SettingsService.js");
+      await syncComingSoonConfigToSiteConfig();
+    } catch (syncErr) {
+      logger.warn(
+        "[admin-extras] sync coming_soon_config→site_config failed:",
+        syncErr.message,
+      );
+    }
+    await Promise.all([
+      invalidateResponseCache("public-settings"),
+      invalidateResponseCache("site-settings"),
+      invalidateResponseCache("admin-settings"),
+    ]);
     res.json({ success: true, message: "Configuration saved successfully" });
   } catch (error) {
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 

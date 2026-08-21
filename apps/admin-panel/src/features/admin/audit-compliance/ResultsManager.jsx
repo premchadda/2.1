@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { FileText, Search, Download, Eye, BarChart2, X } from "lucide-react";
 import { adminAPI } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
@@ -365,173 +366,166 @@ export default function ResultsManager() {
       )}
 
       {/* FIX C6: View Details Modal */}
-      {selectedResult && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Result Details
-              </h2>
-              <button
-                onClick={() => setSelectedResult(null)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">
-                  User
-                </label>
-                <p className="font-medium">{selectedResult.userName}</p>
+      {selectedResult &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Result Details
+                </h2>
+                <button
+                  onClick={() => setSelectedResult(null)}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">
-                  Test
-                </label>
-                <p className="font-medium">{selectedResult.testName}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="p-6 space-y-4">
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">
-                    Score
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    User
                   </label>
-                  <p className="font-medium">
-                    {selectedResult.score} / {selectedResult.totalMarks}
+                  <p className="font-semibold text-gray-900 dark:text-white text-base">
+                    {selectedResult.userName}
                   </p>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">
-                    Percentage
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    Test
                   </label>
-                  <p
-                    className={`font-medium ${getScoreColor(selectedResult.percentage)}`}
-                  >
-                    {selectedResult.percentage}%
+                  <p className="font-semibold text-gray-900 dark:text-white text-base">
+                    {selectedResult.testName}
                   </p>
                 </div>
-                <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">
-                    Rank
-                  </label>
-                  <p className="font-medium">#{selectedResult.rank}</p>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600">
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Score
+                    </label>
+                    <p className="font-bold text-gray-900 dark:text-white text-lg">
+                      {selectedResult.score} / {selectedResult.totalMarks}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Percentage
+                    </label>
+                    <p
+                      className={`font-bold text-lg ${getScoreColor(selectedResult.percentage)}`}
+                    >
+                      {selectedResult.percentage}%
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Rank
+                    </label>
+                    <p className="font-bold text-indigo-600 dark:text-indigo-400 text-lg">
+                      #{selectedResult.rank}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                      Time Taken
+                    </label>
+                    <p className="font-bold text-gray-900 dark:text-white text-lg">
+                      {selectedResult.timeTaken} min
+                    </p>
+                  </div>
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">
-                    Time Taken
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                    Date
                   </label>
-                  <p className="font-medium">{selectedResult.timeTaken} min</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {selectedResult.attemptedAt
+                      ? new Date(selectedResult.attemptedAt).toLocaleString()
+                      : "-"}
+                  </p>
                 </div>
               </div>
-              <div>
-                <label className="text-sm text-gray-500 dark:text-gray-400">
-                  Date
-                </label>
-                <p>
-                  {selectedResult.attemptedAt
-                    ? new Date(selectedResult.attemptedAt).toLocaleString()
-                    : "-"}
-                </p>
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50">
+                <button
+                  onClick={() => setSelectedResult(null)}
+                  className="px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-sm rounded-xl transition"
+                >
+                  Close
+                </button>
               </div>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-              <button
-                onClick={() => setSelectedResult(null)}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* FIX C6: Analytics Modal */}
-      {showAnalytics && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Result Analytics
-              </h2>
-              <button
-                onClick={() => setShowAnalytics(null)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="text-center">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-                  {showAnalytics.userName}
-                </p>
-                <p className="text-lg font-bold mb-4">
-                  {showAnalytics.testName}
-                </p>
+      {showAnalytics &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Result Analytics
+                </h2>
+                <button
+                  onClick={() => setShowAnalytics(null)}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {showAnalytics.score}
+              <div className="p-6 space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                    {showAnalytics.userName}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Marks Obtained
+                  <p className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                    {showAnalytics.testName}
                   </p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-3xl font-black mb-2 shadow-inner">
+                    {showAnalytics.percentage}%
+                  </div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Overall Score: {showAnalytics.score} /{" "}
                     {showAnalytics.totalMarks}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Total Marks
-                  </p>
                 </div>
-                <div
-                  className={`p-4 rounded-lg ${showAnalytics.percentage >= 50 ? "bg-green-50 dark:bg-green-900/20" : "bg-red-50 dark:bg-red-900/20"}`}
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl border border-gray-100 dark:border-gray-600 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Time Taken
+                    </span>
+                    <span className="font-semibold text-gray-900 dark:text-white">
+                      {showAnalytics.timeTaken} min
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Rank
+                    </span>
+                    <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                      #{showAnalytics.rank}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
+                  Detailed question-wise analytics coming soon.
+                </p>
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end bg-gray-50/50 dark:bg-gray-800/50">
+                <button
+                  onClick={() => setShowAnalytics(null)}
+                  className="px-5 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold text-sm rounded-xl transition"
                 >
-                  <p
-                    className={`text-2xl font-bold ${showAnalytics.percentage >= 50 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                  >
-                    {showAnalytics.percentage}%
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Score
-                  </p>
-                </div>
+                  Close
+                </button>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Time Taken
-                  </span>
-                  <span className="font-medium">
-                    {showAnalytics.timeTaken} min
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    Rank
-                  </span>
-                  <span className="font-medium">#{showAnalytics.rank}</span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 dark:text-gray-500 text-center">
-                Detailed question-wise analytics coming soon.
-              </p>
             </div>
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end">
-              <button
-                onClick={() => setShowAnalytics(null)}
-                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

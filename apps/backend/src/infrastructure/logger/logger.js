@@ -11,45 +11,103 @@
  *   logger.error({ err: error }, 'failure')
  */
 
-import pino from 'pino'
+import pino from "pino";
+import logBuffer from "./logBuffer.js";
 
-const isProduction = process.env.NODE_ENV === 'production'
+const isProduction = process.env.NODE_ENV === "production";
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug'),
+const pinoInstance = pino({
+  level: process.env.LOG_LEVEL || (isProduction ? "info" : "debug"),
   // Redact sensitive fields automatically
   redact: [
-    'password', 'passwordHash', 'token', 'accessToken', 'refreshToken',
-    'authorization', 'apiKey', 'api_key', 'secret', 'jwt', 'jwtSecret',
-    'sessionId', 'cookie', 'csrfToken',
-    '*.password', '*.token', '*.secret', '*.apiKey',
-    'req.headers.authorization', 'req.headers.cookie',
+    "password",
+    "passwordHash",
+    "token",
+    "accessToken",
+    "refreshToken",
+    "authorization",
+    "apiKey",
+    "api_key",
+    "secret",
+    "jwt",
+    "jwtSecret",
+    "sessionId",
+    "cookie",
+    "csrfToken",
+    "*.password",
+    "*.token",
+    "*.secret",
+    "*.apiKey",
+    "req.headers.authorization",
+    "req.headers.cookie",
   ],
   // In production, use JSON transport; in dev, pretty-print
   ...(isProduction
     ? {}
     : {
         transport: {
-          target: 'pino-pretty',
+          target: "pino-pretty",
           options: {
             colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname',
+            translateTime: "SYS:standard",
+            ignore: "pid,hostname",
           },
         },
       }),
   base: {
     pid: process.pid,
-    service: 'trstprep-backend',
+    service: "trstprep-backend",
   },
   timestamp: pino.stdTimeFunctions.isoTime,
-})
+});
+
+// Proxy pinoInstance so logBuffer captures all structured log calls
+const createLogProxy = (instance) => {
+  return new Proxy(instance, {
+    get(target, prop) {
+      const orig = target[prop];
+      if (
+        typeof orig === "function" &&
+        ["info", "warn", "error", "debug", "trace", "fatal"].includes(prop)
+      ) {
+        return function (...args) {
+          try {
+            let msg = "";
+            let details = null;
+            if (typeof args[0] === "object" && args[0] !== null) {
+              details = args[0];
+              msg =
+                args.slice(1).join(" ") ||
+                details.err?.message ||
+                details.message ||
+                "";
+            } else {
+              msg = args.join(" ");
+            }
+            logBuffer.push({
+              level:
+                prop === "fatal" ? "error" : prop === "trace" ? "debug" : prop,
+              source: "pino",
+              message: msg,
+              details: details,
+            });
+          } catch {}
+          return orig.apply(target, args);
+        };
+      }
+      return orig;
+    },
+  });
+};
+
+const logger = createLogProxy(pinoInstance);
 
 /**
  * Create a child logger with request context (requestId, userId).
  * @param {object} context - { requestId, userId, ... }
  * @returns {pino.Logger}
  */
-export const createRequestLogger = (context = {}) => logger.child(context)
+export const createRequestLogger = (context = {}) =>
+  createLogProxy(pinoInstance.child(context));
 
-export default logger
+export default logger;

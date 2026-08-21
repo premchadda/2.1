@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   BookOpen,
   Video,
@@ -873,98 +874,339 @@ export default function ContentManagement() {
       </div>
 
       {/* ── Edit Modal ── */}
-      {showEditModal && editingItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 pt-14 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg shadow-xl my-4">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Link2 className="w-5 h-5 text-indigo-500" />
-                  Edit {tabs.find((t) => t.id === activeTab)?.label}
-                </h2>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                  Update content details and curriculum linking
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingItem(null);
-                }}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-              {/* ── Content Details ── */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
-                  Content Details
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.title}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          title: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={editForm.description}
-                      onChange={(e) =>
-                        setEditForm((prev) => ({
-                          ...prev,
-                          description: e.target.value,
-                        }))
-                      }
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* ── Curriculum Linking (not for study-material notes tab) ── */}
-              {activeTab !== "notes" && (
+      {showEditModal &&
+        editingItem &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-start justify-center z-[9999] p-4 pt-14 overflow-y-auto animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl my-4 border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75">
                 <div>
-                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
-                    <Link2 className="w-3.5 h-3.5" /> Curriculum Link
+                  <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Link2 className="w-5 h-5 text-indigo-500" />
+                    Edit {tabs.find((t) => t.id === activeTab)?.label}
+                  </h2>
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                    Update content details and curriculum linking
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingItem(null);
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* ── Content Details ── */}
+                <div>
+                  <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
+                    Content Details
                   </h3>
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 rounded-xl p-4 space-y-3">
-                    {/* Subject */}
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        Subject
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Title
                       </label>
-                      <select
-                        value={editForm.studyMaterialId || ""}
+                      <input
+                        type="text"
+                        value={editForm.title}
                         onChange={(e) =>
                           setEditForm((prev) => ({
                             ...prev,
-                            studyMaterialId: e.target.value,
-                            chapterId: "",
-                            topicId: "",
+                            title: e.target.value,
                           }))
                         }
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Description
+                      </label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={(e) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            description: e.target.value,
+                          }))
+                        }
+                        rows={2}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Curriculum Linking (not for study-material notes tab) ── */}
+                {activeTab !== "notes" && (
+                  <div>
+                    <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                      <Link2 className="w-3.5 h-3.5" /> Curriculum Link
+                    </h3>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 rounded-xl p-4 space-y-3">
+                      {/* Subject */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          Subject
+                        </label>
+                        <select
+                          value={editForm.studyMaterialId || ""}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              studyMaterialId: e.target.value,
+                              chapterId: "",
+                              topicId: "",
+                            }))
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">— Unlinked —</option>
+                          {studyMaterials.map((m) => (
+                            <option
+                              key={m._id || m.id}
+                              value={String(m._id || m.id)}
+                            >
+                              {m.title || m.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Chapter */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          Chapter
+                          {editChaptersLoading && (
+                            <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
+                              Loading…
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={editForm.chapterId || ""}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              chapterId: e.target.value,
+                              topicId: "",
+                            }))
+                          }
+                          disabled={
+                            !editForm.studyMaterialId || editChaptersLoading
+                          }
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">— No Chapter —</option>
+                          {editChapters.map((c) => (
+                            <option
+                              key={c._id || c.id}
+                              value={String(c._id || c.id)}
+                            >
+                              {c.title || c.name}
+                            </option>
+                          ))}
+                        </select>
+                        {editForm.studyMaterialId &&
+                          !editChaptersLoading &&
+                          editChapters.length === 0 && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              No chapters for this subject.
+                            </p>
+                          )}
+                      </div>
+
+                      {/* Topic */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
+                          Topic
+                          {editTopicsLoading && (
+                            <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
+                              Loading…
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={editForm.topicId || ""}
+                          onChange={(e) =>
+                            setEditForm((prev) => ({
+                              ...prev,
+                              topicId: e.target.value,
+                            }))
+                          }
+                          disabled={!editForm.chapterId || editTopicsLoading}
+                          className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">— No Topic —</option>
+                          {editTopics.map((t) => (
+                            <option
+                              key={t._id || t.id}
+                              value={String(t._id || t.id)}
+                            >
+                              {t.title || t.name}
+                            </option>
+                          ))}
+                        </select>
+                        {editForm.chapterId &&
+                          !editTopicsLoading &&
+                          editTopics.length === 0 && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              No topics in this chapter.
+                            </p>
+                          )}
+                      </div>
+
+                      {/* Current link breadcrumb */}
+                      <div className="pt-1 flex items-center gap-1 text-xs text-indigo-500 flex-wrap">
+                        <span>
+                          {studyMaterials.find(
+                            (m) =>
+                              String(m._id || m.id) ===
+                              editForm.studyMaterialId,
+                          )?.title || "—"}
+                        </span>
+                        {editForm.chapterId && (
+                          <>
+                            <ChevronRight className="w-3 h-3 opacity-50" />
+                            <span>
+                              {editChapters.find(
+                                (c) =>
+                                  String(c._id || c.id) === editForm.chapterId,
+                              )?.title || "…"}
+                            </span>
+                          </>
+                        )}
+                        {editForm.topicId && (
+                          <>
+                            <ChevronRight className="w-3 h-3 opacity-50" />
+                            <span className="text-indigo-400 dark:text-indigo-500">
+                              {editTopics.find(
+                                (t) =>
+                                  String(t._id || t.id) === editForm.topicId,
+                              )?.title || "…"}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingItem(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition text-sm"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditSubmit}
+                  disabled={saving}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-60 text-sm font-medium"
+                >
+                  {saving ? "Saving…" : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Delete Confirmation Modal ── */}
+      {showDeleteModal &&
+        deletingItem &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700">
+              <div className="p-6 text-center">
+                <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                  Delete Content?
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  <strong>
+                    {deletingItem.title || deletingItem.name || "Untitled"}
+                  </strong>
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  This action cannot be undone.
+                </p>
+              </div>
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeletingItem(null);
+                  }}
+                  disabled={saving}
+                  className="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={saving}
+                  className="px-5 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition disabled:opacity-60 text-sm font-semibold shadow-md shadow-red-500/20"
+                >
+                  {saving ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* ── Add Content Modal ── */}
+      {showAddModal &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 overflow-y-auto animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg shadow-2xl my-4 border border-gray-200 dark:border-gray-700 overflow-hidden">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Add {tabs.find((t) => t.id === activeTab)?.label}
+                </h2>
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+                {/* ── Shared: Study Material picker (always shown) ── */}
+                {activeTab !== "notes" && (
+                  <div className="space-y-3">
+                    {/* Row 1: Study Material */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Study Material <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={addForm.studyMaterialId || ""}
+                        onChange={(e) =>
+                          setAdd("studyMaterialId", e.target.value)
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                       >
-                        <option value="">— Unlinked —</option>
+                        <option value="">— Select —</option>
                         {studyMaterials.map((m) => (
                           <option
                             key={m._id || m.id}
@@ -976,718 +1218,490 @@ export default function ContentManagement() {
                       </select>
                     </div>
 
-                    {/* Chapter */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        Chapter
-                        {editChaptersLoading && (
-                          <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
-                            Loading…
-                          </span>
-                        )}
-                      </label>
-                      <select
-                        value={editForm.chapterId || ""}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            chapterId: e.target.value,
-                            topicId: "",
-                          }))
-                        }
-                        disabled={
-                          !editForm.studyMaterialId || editChaptersLoading
-                        }
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">— No Chapter —</option>
-                        {editChapters.map((c) => (
-                          <option
-                            key={c._id || c.id}
-                            value={String(c._id || c.id)}
-                          >
-                            {c.title || c.name}
-                          </option>
-                        ))}
-                      </select>
-                      {editForm.studyMaterialId &&
-                        !editChaptersLoading &&
-                        editChapters.length === 0 && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            No chapters for this subject.
-                          </p>
-                        )}
-                    </div>
-
-                    {/* Topic */}
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1">
-                        Topic
-                        {editTopicsLoading && (
-                          <span className="ml-1 text-indigo-400 dark:text-indigo-500 font-normal">
-                            Loading…
-                          </span>
-                        )}
-                      </label>
-                      <select
-                        value={editForm.topicId || ""}
-                        onChange={(e) =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            topicId: e.target.value,
-                          }))
-                        }
-                        disabled={!editForm.chapterId || editTopicsLoading}
-                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-sm disabled:opacity-40 focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">— No Topic —</option>
-                        {editTopics.map((t) => (
-                          <option
-                            key={t._id || t.id}
-                            value={String(t._id || t.id)}
-                          >
-                            {t.title || t.name}
-                          </option>
-                        ))}
-                      </select>
-                      {editForm.chapterId &&
-                        !editTopicsLoading &&
-                        editTopics.length === 0 && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            No topics in this chapter.
-                          </p>
-                        )}
-                    </div>
-
-                    {/* Current link breadcrumb */}
-                    <div className="pt-1 flex items-center gap-1 text-xs text-indigo-500 flex-wrap">
-                      <span>
-                        {studyMaterials.find(
-                          (m) =>
-                            String(m._id || m.id) === editForm.studyMaterialId,
-                        )?.title || "—"}
-                      </span>
-                      {editForm.chapterId && (
-                        <>
-                          <ChevronRight className="w-3 h-3 opacity-50" />
-                          <span>
-                            {editChapters.find(
-                              (c) =>
-                                String(c._id || c.id) === editForm.chapterId,
-                            )?.title || "…"}
-                          </span>
-                        </>
-                      )}
-                      {editForm.topicId && (
-                        <>
-                          <ChevronRight className="w-3 h-3 opacity-50" />
-                          <span className="text-indigo-400 dark:text-indigo-500">
-                            {editTopics.find(
-                              (t) => String(t._id || t.id) === editForm.topicId,
-                            )?.title || "…"}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingItem(null);
-                }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition text-sm"
-                disabled={saving}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleEditSubmit}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-60 text-sm font-medium"
-              >
-                {saving ? "Saving…" : "Save Changes"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Delete Confirmation Modal ── */}
-      {showDeleteModal && deletingItem && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm overflow-hidden shadow-xl">
-            <div className="p-6 text-center">
-              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                Delete Content?
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <strong>
-                  {deletingItem.title || deletingItem.name || "Untitled"}
-                </strong>
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                This action cannot be undone.
-              </p>
-            </div>
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-center gap-3">
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeletingItem(null);
-                }}
-                disabled={saving}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={saving}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-60"
-              >
-                {saving ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Add Content Modal ── */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg shadow-xl my-4">
-            {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Add {tabs.find((t) => t.id === activeTab)?.label}
-              </h2>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* ── Shared: Study Material picker (always shown) ── */}
-              {activeTab !== "notes" && (
-                <div className="space-y-3">
-                  {/* Row 1: Study Material */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Study Material <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={addForm.studyMaterialId || ""}
-                      onChange={(e) =>
-                        setAdd("studyMaterialId", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">— Select —</option>
-                      {studyMaterials.map((m) => (
-                        <option
-                          key={m._id || m.id}
-                          value={String(m._id || m.id)}
+                    {/* Row 2: Chapter + Topic */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Chapter
+                          {modalChaptersLoading && (
+                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                              Loading…
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={addForm.chapterId || ""}
+                          onChange={(e) => setAdd("chapterId", e.target.value)}
+                          disabled={
+                            !addForm.studyMaterialId || modalChaptersLoading
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 focus:ring-2 focus:ring-indigo-500"
                         >
-                          {m.title || m.name}
-                        </option>
-                      ))}
-                    </select>
+                          <option value="">— None —</option>
+                          {modalChapters.map((c) => (
+                            <option
+                              key={c._id || c.id}
+                              value={String(c._id || c.id)}
+                            >
+                              {c.title || c.name}
+                            </option>
+                          ))}
+                        </select>
+                        {addForm.studyMaterialId &&
+                          !modalChaptersLoading &&
+                          modalChapters.length === 0 && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              No chapters found.
+                            </p>
+                          )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Topic
+                          {modalTopicsLoading && (
+                            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
+                              Loading…
+                            </span>
+                          )}
+                        </label>
+                        <select
+                          value={addForm.topicId || ""}
+                          onChange={(e) => setAdd("topicId", e.target.value)}
+                          disabled={!addForm.chapterId || modalTopicsLoading}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">— None —</option>
+                          {modalTopics.map((t) => (
+                            <option
+                              key={t._id || t.id}
+                              value={String(t._id || t.id)}
+                            >
+                              {t.title || t.name}
+                            </option>
+                          ))}
+                        </select>
+                        {addForm.chapterId &&
+                          !modalTopicsLoading &&
+                          modalTopics.length === 0 && (
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              No topics in this chapter.
+                            </p>
+                          )}
+                      </div>
+                    </div>
                   </div>
+                )}
 
-                  {/* Row 2: Chapter + Topic */}
-                  <div className="grid grid-cols-2 gap-3">
+                {/* ── Videos & PDFs: title / slug / description ── */}
+                {(activeTab === "videos" ||
+                  activeTab === "pdfs" ||
+                  activeTab === "notes") && (
+                  <>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Chapter
-                        {modalChaptersLoading && (
-                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                            Loading…
-                          </span>
-                        )}
+                        Title <span className="text-red-500">*</span>
                       </label>
-                      <select
-                        value={addForm.chapterId || ""}
-                        onChange={(e) => setAdd("chapterId", e.target.value)}
-                        disabled={
-                          !addForm.studyMaterialId || modalChaptersLoading
-                        }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">— None —</option>
-                        {modalChapters.map((c) => (
-                          <option
-                            key={c._id || c.id}
-                            value={String(c._id || c.id)}
-                          >
-                            {c.title || c.name}
-                          </option>
-                        ))}
-                      </select>
-                      {addForm.studyMaterialId &&
-                        !modalChaptersLoading &&
-                        modalChapters.length === 0 && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            No chapters found.
-                          </p>
-                        )}
+                      <input
+                        type="text"
+                        value={addForm.title}
+                        onChange={(e) => {
+                          setAdd("title", e.target.value);
+                          setAdd("slug", toSlug(e.target.value));
+                        }}
+                        placeholder="e.g. Introduction to Algebra"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Topic
-                        {modalTopicsLoading && (
-                          <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">
-                            Loading…
-                          </span>
-                        )}
+                        Slug (auto-filled)
                       </label>
-                      <select
-                        value={addForm.topicId || ""}
-                        onChange={(e) => setAdd("topicId", e.target.value)}
-                        disabled={!addForm.chapterId || modalTopicsLoading}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">— None —</option>
-                        {modalTopics.map((t) => (
-                          <option
-                            key={t._id || t.id}
-                            value={String(t._id || t.id)}
-                          >
-                            {t.title || t.name}
-                          </option>
-                        ))}
-                      </select>
-                      {addForm.chapterId &&
-                        !modalTopicsLoading &&
-                        modalTopics.length === 0 && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            No topics in this chapter.
-                          </p>
-                        )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Videos & PDFs: title / slug / description ── */}
-              {(activeTab === "videos" ||
-                activeTab === "pdfs" ||
-                activeTab === "notes") && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.title}
-                      onChange={(e) => {
-                        setAdd("title", e.target.value);
-                        setAdd("slug", toSlug(e.target.value));
-                      }}
-                      placeholder="e.g. Introduction to Algebra"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Slug (auto-filled)
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.slug}
-                      onChange={(e) => setAdd("slug", e.target.value)}
-                      placeholder="url-safe-slug"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={addForm.description}
-                      onChange={(e) => setAdd("description", e.target.value)}
-                      rows={2}
-                      placeholder="Optional description…"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* ── Videos specific ── */}
-              {activeTab === "videos" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Video File / URL <span className="text-red-500">*</span>
-                    </label>
-                    {/* Drop zone */}
-                    <label
-                      className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-indigo-300 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:bg-indigo-900/30 cursor-pointer transition mb-2"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleFileUpload(
-                          e.dataTransfer.files[0],
-                          "videoUrl",
-                          "video",
-                        );
-                      }}
-                    >
                       <input
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleFileUpload(
-                            e.target.files[0],
-                            "videoUrl",
-                            "video",
-                          )
-                        }
-                      />
-                      {uploadingField === "videoUrl" ? (
-                        <>
-                          <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
-                          <span className="text-xs text-indigo-600 dark:text-indigo-400">
-                            Uploading…
-                          </span>
-                        </>
-                      ) : addForm.videoUrl ? (
-                        <>
-                          <CheckCircle2 className="w-6 h-6 text-green-500" />
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                            File uploaded — or paste a new URL below
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <FolderOpen className="w-6 h-6 text-indigo-400 dark:text-indigo-500" />
-                          <span className="text-xs text-indigo-500">
-                            Click or drag &amp; drop a video file
-                          </span>
-                        </>
-                      )}
-                    </label>
-                    {/* URL fallback */}
-                    <div className="relative">
-                      <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      <input
-                        type="url"
-                        value={addForm.videoUrl}
-                        onChange={(e) => setAdd("videoUrl", e.target.value)}
-                        placeholder="…or paste a YouTube / direct URL"
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        type="text"
+                        value={addForm.slug}
+                        onChange={(e) => setAdd("slug", e.target.value)}
+                        placeholder="url-safe-slug"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="col-span-2">
+                    <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Thumbnail File / URL
+                        Description
                       </label>
+                      <textarea
+                        value={addForm.description}
+                        onChange={(e) => setAdd("description", e.target.value)}
+                        rows={2}
+                        placeholder="Optional description…"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {/* ── Videos specific ── */}
+                {activeTab === "videos" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Video File / URL <span className="text-red-500">*</span>
+                      </label>
+                      {/* Drop zone */}
                       <label
-                        className="flex flex-col items-center justify-center gap-2 w-full h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 cursor-pointer transition mb-2"
+                        className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-indigo-300 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:bg-indigo-900/30 cursor-pointer transition mb-2"
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => {
                           e.preventDefault();
                           handleFileUpload(
                             e.dataTransfer.files[0],
-                            "thumbnail",
-                            "image",
+                            "videoUrl",
+                            "video",
                           );
                         }}
                       >
                         <input
                           type="file"
-                          accept="image/*"
+                          accept="video/*"
                           className="hidden"
                           onChange={(e) =>
                             handleFileUpload(
                               e.target.files[0],
-                              "thumbnail",
-                              "image",
+                              "videoUrl",
+                              "video",
                             )
                           }
                         />
-                        {uploadingField === "thumbnail" ? (
+                        {uploadingField === "videoUrl" ? (
                           <>
-                            <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-                            <span className="text-xs text-gray-600 dark:text-gray-400">
+                            <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                            <span className="text-xs text-indigo-600 dark:text-indigo-400">
                               Uploading…
                             </span>
                           </>
-                        ) : addForm.thumbnail ? (
+                        ) : addForm.videoUrl ? (
                           <>
                             <CheckCircle2 className="w-6 h-6 text-green-500" />
                             <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                              Thumbnail ready
+                              File uploaded — or paste a new URL below
                             </span>
                           </>
                         ) : (
                           <>
-                            <FolderOpen className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
-                              Drop thumbnail image
+                            <FolderOpen className="w-6 h-6 text-indigo-400 dark:text-indigo-500" />
+                            <span className="text-xs text-indigo-500">
+                              Click or drag &amp; drop a video file
                             </span>
                           </>
                         )}
                       </label>
-                      <input
-                        type="url"
-                        value={addForm.thumbnail}
-                        onChange={(e) => setAdd("thumbnail", e.target.value)}
-                        placeholder="…or paste image URL"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      />
+                      {/* URL fallback */}
+                      <div className="relative">
+                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="url"
+                          value={addForm.videoUrl}
+                          onChange={(e) => setAdd("videoUrl", e.target.value)}
+                          placeholder="…or paste a YouTube / direct URL"
+                          className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Duration (seconds)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={addForm.duration}
-                        onChange={(e) => setAdd("duration", e.target.value)}
-                        placeholder="e.g. 600"
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Thumbnail File / URL
+                        </label>
+                        <label
+                          className="flex flex-col items-center justify-center gap-2 w-full h-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 cursor-pointer transition mb-2"
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            handleFileUpload(
+                              e.dataTransfer.files[0],
+                              "thumbnail",
+                              "image",
+                            );
+                          }}
+                        >
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) =>
+                              handleFileUpload(
+                                e.target.files[0],
+                                "thumbnail",
+                                "image",
+                              )
+                            }
+                          />
+                          {uploadingField === "thumbnail" ? (
+                            <>
+                              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
+                                Uploading…
+                              </span>
+                            </>
+                          ) : addForm.thumbnail ? (
+                            <>
+                              <CheckCircle2 className="w-6 h-6 text-green-500" />
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                                Thumbnail ready
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <FolderOpen className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                Drop thumbnail image
+                              </span>
+                            </>
+                          )}
+                        </label>
+                        <input
+                          type="url"
+                          value={addForm.thumbnail}
+                          onChange={(e) => setAdd("thumbnail", e.target.value)}
+                          placeholder="…or paste image URL"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Duration (seconds)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={addForm.duration}
+                          onChange={(e) => setAdd("duration", e.target.value)}
+                          placeholder="e.g. 600"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
-                  </div>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={addForm.isPro}
-                      onChange={(e) => setAdd("isPro", e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Pro content only
-                    </span>
-                  </label>
-                </>
-              )}
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={addForm.isPro}
+                        onChange={(e) => setAdd("isPro", e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Pro content only
+                      </span>
+                    </label>
+                  </>
+                )}
 
-              {/* ── PDFs specific ── */}
-              {activeTab === "pdfs" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      PDF File / URL <span className="text-red-500">*</span>
-                    </label>
-                    {/* Drop zone */}
-                    <label
-                      className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 cursor-pointer transition mb-2"
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleFileUpload(
-                          e.dataTransfer.files[0],
-                          "pdfUrl",
-                          "pdf",
-                        );
-                      }}
-                    >
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleFileUpload(e.target.files[0], "pdfUrl", "pdf")
-                        }
-                      />
-                      {uploadingField === "pdfUrl" ? (
-                        <>
-                          <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
-                          <span className="text-xs text-blue-600 dark:text-blue-400">
-                            Uploading…
-                          </span>
-                        </>
-                      ) : addForm.pdfUrl ? (
-                        <>
-                          <CheckCircle2 className="w-6 h-6 text-green-500" />
-                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
-                            File uploaded — or paste a new URL below
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <FolderOpen className="w-6 h-6 text-blue-400 dark:text-blue-500" />
-                          <span className="text-xs text-blue-500">
-                            Click or drag &amp; drop a PDF file
-                          </span>
-                        </>
-                      )}
-                    </label>
-                    {/* URL fallback */}
-                    <div className="relative">
-                      <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                      <input
-                        type="url"
-                        value={addForm.pdfUrl}
-                        onChange={(e) => setAdd("pdfUrl", e.target.value)}
-                        placeholder="…or paste a direct PDF URL"
-                        className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      />
+                {/* ── PDFs specific ── */}
+                {activeTab === "pdfs" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        PDF File / URL <span className="text-red-500">*</span>
+                      </label>
+                      {/* Drop zone */}
+                      <label
+                        className="flex flex-col items-center justify-center gap-2 w-full h-24 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 cursor-pointer transition mb-2"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleFileUpload(
+                            e.dataTransfer.files[0],
+                            "pdfUrl",
+                            "pdf",
+                          );
+                        }}
+                      >
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          className="hidden"
+                          onChange={(e) =>
+                            handleFileUpload(e.target.files[0], "pdfUrl", "pdf")
+                          }
+                        />
+                        {uploadingField === "pdfUrl" ? (
+                          <>
+                            <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                            <span className="text-xs text-blue-600 dark:text-blue-400">
+                              Uploading…
+                            </span>
+                          </>
+                        ) : addForm.pdfUrl ? (
+                          <>
+                            <CheckCircle2 className="w-6 h-6 text-green-500" />
+                            <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                              File uploaded — or paste a new URL below
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <FolderOpen className="w-6 h-6 text-blue-400 dark:text-blue-500" />
+                            <span className="text-xs text-blue-500">
+                              Click or drag &amp; drop a PDF file
+                            </span>
+                          </>
+                        )}
+                      </label>
+                      {/* URL fallback */}
+                      <div className="relative">
+                        <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
+                        <input
+                          type="url"
+                          value={addForm.pdfUrl}
+                          onChange={(e) => setAdd("pdfUrl", e.target.value)}
+                          placeholder="…or paste a direct PDF URL"
+                          className="w-full pl-9 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
-                  </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          File Size (KB)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={addForm.fileSize}
+                          onChange={(e) => setAdd("fileSize", e.target.value)}
+                          placeholder="e.g. 2048"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Pages
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={addForm.pages}
+                          onChange={(e) => setAdd("pages", e.target.value)}
+                          placeholder="e.g. 24"
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={addForm.isPro}
+                        onChange={(e) => setAdd("isPro", e.target.checked)}
+                        className="rounded"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Pro content only
+                      </span>
+                    </label>
+                  </>
+                )}
+
+                {/* ── Tests specific ── */}
+                {activeTab === "tests" && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Link Test <span className="text-red-500">*</span>
+                      </label>
+                      {testsLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500" />
+                          Loading tests…
+                        </div>
+                      ) : (
+                        <select
+                          value={addForm.testId}
+                          onChange={(e) => setAdd("testId", e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">— Select a test —</option>
+                          {availableTests.map((t) => (
+                            <option
+                              key={t._id || t.id}
+                              value={String(t._id || t.id)}
+                            >
+                              {t.title} {t.seriesId ? "" : "(unlinked)"}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Test Type
+                      </label>
+                      <select
+                        value={addForm.testType}
+                        onChange={(e) => setAdd("testType", e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="practice">Practice</option>
+                        <option value="mock">Mock</option>
+                        <option value="quiz">Quiz</option>
+                        <option value="pyq">Previous Year</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {/* ── Study Materials (notes tab) specific ── */}
+                {activeTab === "notes" && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        File Size (KB)
+                        Icon
                       </label>
                       <input
-                        type="number"
-                        min="0"
-                        value={addForm.fileSize}
-                        onChange={(e) => setAdd("fileSize", e.target.value)}
-                        placeholder="e.g. 2048"
+                        type="text"
+                        value={addForm.icon}
+                        onChange={(e) => setAdd("icon", e.target.value)}
+                        placeholder="book-open"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Pages
+                        Display Order
                       </label>
                       <input
                         type="number"
                         min="0"
-                        value={addForm.pages}
-                        onChange={(e) => setAdd("pages", e.target.value)}
-                        placeholder="e.g. 24"
+                        value={addForm.order}
+                        onChange={(e) => setAdd("order", e.target.value)}
+                        placeholder="0"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                       />
                     </div>
                   </div>
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={addForm.isPro}
-                      onChange={(e) => setAdd("isPro", e.target.checked)}
-                      className="rounded"
-                    />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">
-                      Pro content only
-                    </span>
-                  </label>
-                </>
-              )}
+                )}
+              </div>
 
-              {/* ── Tests specific ── */}
-              {activeTab === "tests" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Link Test <span className="text-red-500">*</span>
-                    </label>
-                    {testsLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 py-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-500" />
-                        Loading tests…
-                      </div>
-                    ) : (
-                      <select
-                        value={addForm.testId}
-                        onChange={(e) => setAdd("testId", e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                      >
-                        <option value="">— Select a test —</option>
-                        {availableTests.map((t) => (
-                          <option
-                            key={t._id || t.id}
-                            value={String(t._id || t.id)}
-                          >
-                            {t.title} {t.seriesId ? "" : "(unlinked)"}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Test Type
-                    </label>
-                    <select
-                      value={addForm.testType}
-                      onChange={(e) => setAdd("testType", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="practice">Practice</option>
-                      <option value="mock">Mock</option>
-                      <option value="quiz">Quiz</option>
-                      <option value="pyq">Previous Year</option>
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {/* ── Study Materials (notes tab) specific ── */}
-              {activeTab === "notes" && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Icon
-                    </label>
-                    <input
-                      type="text"
-                      value={addForm.icon}
-                      onChange={(e) => setAdd("icon", e.target.value)}
-                      placeholder="book-open"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Display Order
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={addForm.order}
-                      onChange={(e) => setAdd("order", e.target.value)}
-                      placeholder="0"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                </div>
-              )}
+              {/* Footer */}
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  disabled={saving}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddSubmit}
+                  disabled={saving}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-60 text-sm font-medium"
+                >
+                  {saving
+                    ? "Saving…"
+                    : `Add ${tabs.find((t) => t.id === activeTab)?.label}`}
+                </button>
+              </div>
             </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                disabled={saving}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 transition text-sm"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddSubmit}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-60 text-sm font-medium"
-              >
-                {saving
-                  ? "Saving…"
-                  : `Add ${tabs.find((t) => t.id === activeTab)?.label}`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

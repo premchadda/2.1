@@ -99,12 +99,26 @@
   --transition-base: 200ms ease;
   --transition-slow: 300ms ease;
 
-  /* ── Z-Index Scale ───────────────────────────────────────── */
+  /* ── Z-Index Scale ─────────────────────────────────────────
+   * Stacking hierarchy (lowest → highest). All modals/portals use
+   * fixed positioning + createPortal(document.body) so global z matters.
+   * - Toast must ALWAYS be topmost (over confirm + any popup)
+   * - Confirm dialog must be over every modal/popup
+   * - Modals must be over navbar / bottom-nav / sidebar
+   * See also: Modal.jsx (z-[99990]), ConfirmModal.jsx (z-[999999]),
+   *          main.jsx Toaster (z: 9999999)
+   */
   --z-dropdown: 10;
   --z-sticky: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-toast: 50;
+  --z-navbar: 50;
+  --z-bottom-nav: 10000;
+  --z-sidebar-overlay: 10001;
+  --z-sidebar-drawer: 10002;
+  --z-overlay: 99990;
+  --z-modal: 99990;          /* generic Modal.jsx + most popups use 99999 */
+  --z-popup: 99999;          /* legacy high modals (Pass, PracticeLab, etc.) */
+  --z-confirm: 999999;       /* ConfirmModal — must beat every popup */
+  --z-toast: 9999999;        /* react-hot-toast Toaster — absolute top */
 }
 
 /* ── Dark Theme ──────────────────────────────────────────── */

@@ -28,7 +28,10 @@ const DEFAULT_SETTINGS = {
     passwordComplexity: true,
     twoFactorAuth: false,
     maxLoginAttempts: 5,
-    sessionTimeout: 3600,
+    // 0 = use server default (SESSION_IDLE_TIMEOUT_MIN env, 3 days).
+    // A previous default of 3600 silently cut every session to 1 hour of
+    // inactivity despite the documented 3-day idle window.
+    sessionTimeout: 0,
     allowedEmailDomains:
       "gmail.com, outlook.com, hotmail.com, yahoo.com, yahoo.co.in, icloud.com, proton.me, protonmail.com, zoho.com, rediffmail.com, *.edu, *.ac.in, *.edu.in, *.res.in, *.gov.in",
   },
@@ -155,6 +158,29 @@ const DEFAULT_SETTINGS = {
       icon: "PieChart",
       type: "section",
     },
+  },
+  appearance: {
+    primaryColor: "#667eea",
+    secondaryColor: "#764ba2",
+    theme: "light",
+    fontFamily: "Inter, sans-serif",
+    logoPosition: "left",
+  },
+  email: {
+    smtpHost: "",
+    smtpPort: 587,
+    smtpUsername: "",
+    smtpPassword: "",
+    fromEmail: "noreply@trstprep.com",
+    fromName: "Trstprep",
+    encryption: "tls",
+  },
+  notifications: {
+    emailOnRegistration: true,
+    emailOnPayment: true,
+    smsOnOrder: false,
+    pushNotifications: true,
+    notificationFrequency: "instant",
   },
 };
 
@@ -322,31 +348,87 @@ async function getFullSettings() {
       ),
     },
     comingSoon: normalizeComingSoon(stored.comingSoon),
+    appearance: {
+      ...DEFAULT_SETTINGS.appearance,
+      ...normalizeSection(stored.appearance || {}),
+    },
+    email: {
+      ...DEFAULT_SETTINGS.email,
+      ...normalizeSection(stored.email || {}),
+    },
+    notifications: {
+      ...DEFAULT_SETTINGS.notifications,
+      ...normalizeSection(stored.notifications || {}),
+    },
   };
 }
 
 /**
- * Read the ComingSoonManager's maintenance config (app_settings key/value
+ * Convert AdminSettings `comingSoon` object → ComingSoonManager `pages` array.
+ */
+function comingSoonObjectToPages(comingSoonObj) {
+  if (!comingSoonObj || typeof comingSoonObj !== "object") return [];
+  return Object.entries(comingSoonObj).map(([key, cfg]) => ({
+    key,
+    comingSoon: Boolean(cfg.enabled),
+    enabled: Boolean(cfg.enabled),
+    title: cfg.title || key,
+    message: cfg.message || "",
+    estimatedTime: cfg.estimatedTime || cfg.estimated_time || "",
+    icon: cfg.icon || "Clock",
+    type: cfg.type || (key.includes(":") ? "section" : "page"),
+  }));
+}
+
+/**
+ * Convert ComingSoonManager `pages` array → AdminSettings `comingSoon` object.
+ */
+function pagesToComingSoonObject(pages) {
+  if (!Array.isArray(pages)) return {};
+  const obj = {};
+  for (const p of pages) {
+    if (!p || !p.key) continue;
+    obj[p.key] = {
+      enabled: Boolean(p.comingSoon ?? p.enabled),
+      title: p.title || p.key,
+      message: p.message || "",
+      estimatedTime: p.estimatedTime || p.estimated_time || "",
+      icon: p.icon || "Clock",
+      type: p.type || (p.key.includes(":") ? "section" : "page"),
+    };
+  }
+  return obj;
+}
+
+/**
+ * Read the ComingSoonManager's persisted config (app_settings key/value
  * row `coming_soon_config`, written by PUT /admin/coming-soon-config).
- * Returns the siteConfig subset relevant to maintenance gating.
+ * Returns maintenance subset + pages array + raw updatedAt for merge decisions.
  */
 async function getComingSoonConfig() {
   try {
     const result = await pool.query(
-      `SELECT value FROM app_settings WHERE key = 'coming_soon_config' LIMIT 1`,
+      `SELECT value, updated_at FROM app_settings WHERE key = 'coming_soon_config' LIMIT 1`,
     );
-    const value = result.rows[0]?.value;
+    const row = result.rows[0];
+    const value = row?.value;
+    const updatedAt = row?.updated_at || null;
     if (value && typeof value === "object") {
       const siteConfig =
         value.siteConfig && typeof value.siteConfig === "object"
           ? value.siteConfig
           : {};
+      const pages = Array.isArray(value.pages) ? value.pages : [];
       return {
         maintenanceMode: siteConfig.maintenanceMode,
         maintenanceMessage: siteConfig.maintenanceMessage,
         maintenanceEndTime: siteConfig.maintenanceEndTime,
         estimatedDowntime: siteConfig.estimatedDowntime,
         allowAdminAccess: siteConfig.allowAdminAccess,
+        pages,
+        pagesObject: pagesToComingSoonObject(pages),
+        updatedAt,
+        rawValue: value,
       };
     }
   } catch (err) {
@@ -356,16 +438,16 @@ async function getComingSoonConfig() {
       err.message,
     );
   }
-  return {};
+  return { pages: [], pagesObject: {} };
 }
 
 /**
  * Get only the public-facing subset of settings.
- * The maintenance gate is merged from the ComingSoonManager's
- * coming_soon_config row (maintenanceMode/maintenanceMessage/
- * maintenanceEndTime/estimatedDowntime/allowAdminAccess) so an admin toggle
- * actually gates the public site, and persisted contact/site identity fields
- * are included instead of always falling back to hardcoded defaults.
+ * The maintenance gate and comingSoon pages are unified across TWO storage
+ * locations: `site_config.maintenance|comingSoon` (AdminSettings) and
+ * `coming_soon_config` (ComingSoonManager). After the sync fix below both
+ * stores are kept identical, but getPublicSettings also merges them at read
+ * time for backwards compatibility with rows written before the fix.
  */
 async function getPublicSettings() {
   const settings = await getFullSettings();
@@ -382,32 +464,100 @@ async function getPublicSettings() {
       DEFAULT_SETTINGS.maintenance.estimatedDowntime,
   };
 
-  // ComingSoonManager's stored config wins — it is the toggle the admin uses
-  // to gate the whole site.
-  if (comingSoonConfig.maintenanceMode !== undefined) {
+  // Sync-aware merge: coming_soon_config is the ComingSoonManager's store.
+  // After the fix both stores are kept in sync (see sync helpers below), so
+  // either value is correct. For pre-fix rows we prefer the most recently
+  // updated value — if coming_soon_config is newer than site_config, let it
+  // win; otherwise site_config wins. Fallback to old "coming_soon wins" only
+  // when timestamps are unavailable.
+  let siteConfigUpdatedAt = null;
+  try {
+    const r = await pool.query(
+      `SELECT updated_at FROM app_settings WHERE is_active = true ORDER BY id ASC LIMIT 1`,
+    );
+    siteConfigUpdatedAt = r.rows[0]?.updated_at || null;
+  } catch {}
+  const comingSoonUpdatedAt = comingSoonConfig.updatedAt || null;
+  const comingSoonIsNewer =
+    comingSoonUpdatedAt &&
+    siteConfigUpdatedAt &&
+    new Date(comingSoonUpdatedAt) > new Date(siteConfigUpdatedAt);
+
+  const shouldUseComingSoon =
+    comingSoonIsNewer ||
+    (!siteConfigUpdatedAt && comingSoonConfig.maintenanceMode !== undefined);
+
+  if (shouldUseComingSoon) {
+    if (comingSoonConfig.maintenanceMode !== undefined) {
+      maintenance.enabled = Boolean(comingSoonConfig.maintenanceMode);
+    }
+    if (comingSoonConfig.maintenanceMessage !== undefined) {
+      maintenance.message = comingSoonConfig.maintenanceMessage;
+    }
+    if (comingSoonConfig.maintenanceEndTime !== undefined) {
+      maintenance.endTime = comingSoonConfig.maintenanceEndTime;
+    }
+    if (comingSoonConfig.estimatedDowntime !== undefined) {
+      maintenance.estimatedDowntime = comingSoonConfig.estimatedDowntime;
+    }
+    if (comingSoonConfig.allowAdminAccess !== undefined) {
+      maintenance.allowAdminAccess = Boolean(comingSoonConfig.allowAdminAccess);
+    }
+  } else if (
+    comingSoonConfig.maintenanceMode !== undefined &&
+    !settings.maintenance
+  ) {
+    // Fallback: no site_config maintenance at all, use coming_soon value
     maintenance.enabled = Boolean(comingSoonConfig.maintenanceMode);
   }
-  if (comingSoonConfig.maintenanceMessage !== undefined) {
-    maintenance.message = comingSoonConfig.maintenanceMessage;
+
+  // Merge comingSoon: start from site_config, overlay pages from coming_soon_config
+  // where that store is newer or defines keys site_config doesn't have.
+  let comingSoon = settings.comingSoon || { ...DEFAULT_SETTINGS.comingSoon };
+  if (comingSoonConfig.pages && comingSoonConfig.pages.length > 0) {
+    const pagesObj = comingSoonConfig.pagesObject || {};
+    if (shouldUseComingSoon) {
+      comingSoon = { ...comingSoon, ...pagesObj };
+    } else {
+      // Only add keys that site_config doesn't already define, to avoid
+      // clobbering an AdminSettings save with stale ComingSoonManager data.
+      for (const [k, v] of Object.entries(pagesObj)) {
+        if (!(k in comingSoon)) comingSoon[k] = v;
+      }
+    }
   }
-  if (comingSoonConfig.maintenanceEndTime !== undefined) {
-    maintenance.endTime = comingSoonConfig.maintenanceEndTime;
-  }
-  if (comingSoonConfig.estimatedDowntime !== undefined) {
-    maintenance.estimatedDowntime = comingSoonConfig.estimatedDowntime;
-  }
-  if (comingSoonConfig.allowAdminAccess !== undefined) {
-    maintenance.allowAdminAccess = Boolean(comingSoonConfig.allowAdminAccess);
-  }
+
+  // Appearance and SEO are public and safe to expose for theming/sitemap
+  const appearance = settings.appearance || DEFAULT_SETTINGS.appearance || {};
+  const seo = {
+    title: settings.seoTitle || settings.metaTitle || "",
+    description: settings.seoDescription || settings.metaDescription || "",
+    keywords: settings.seoKeywords || settings.keywords || "",
+  };
+
+  // Only expose analytics IDs when the feature toggle is on
+  const analyticsEnabled = Boolean(settings.features?.analytics);
+  const analytics = analyticsEnabled
+    ? {
+        trackingId: settings.analyticsTrackingId || null,
+        facebookPixelId: settings.facebookPixelId || null,
+      }
+    : { trackingId: null, facebookPixelId: null };
 
   return {
     siteName: settings.siteName || "Trstprep",
     contactEmail: settings.contactEmail || "support@trstprep.com",
     contactPhone: settings.contactPhone || "+91 98765 43210",
     supportUrl: settings.supportUrl || "",
+    address: settings.address || "New Delhi, India",
     features: settings.features,
     maintenance,
-    comingSoon: settings.comingSoon || DEFAULT_SETTINGS.comingSoon,
+    comingSoon,
+    appearance,
+    seo,
+    analytics,
+    notifications:
+      settings.notifications || DEFAULT_SETTINGS.notifications || null,
   };
 }
 
@@ -426,12 +576,35 @@ async function getMaintenanceStatus() {
 
 async function getComingSoonStatus(pageKey) {
   const settings = await getFullSettings();
-  const pageConfig = settings.comingSoon?.[pageKey];
+  // Check unified comingSoon first (site_config), then fallback to coming_soon_config pages
+  let pageConfig = settings.comingSoon?.[pageKey];
+  if (!pageConfig) {
+    try {
+      const coming = await getComingSoonConfig();
+      pageConfig = coming.pagesObject?.[pageKey];
+    } catch {}
+  }
   if (!pageConfig) return { enabled: false, config: {} };
   return {
     enabled: Boolean(pageConfig.enabled),
     config: pageConfig,
   };
+}
+
+async function isNotificationEnabled(notificationKey) {
+  const settings = await getFullSettings();
+  const notifications =
+    settings.notifications || DEFAULT_SETTINGS.notifications;
+  return Boolean(notifications[notificationKey]);
+}
+
+async function getAppearanceSettings() {
+  const settings = await getFullSettings();
+  return { ...DEFAULT_SETTINGS.appearance, ...(settings.appearance || {}) };
+}
+
+async function isAnalyticsEnabled() {
+  return isFeatureEnabled("analytics");
 }
 
 /**
@@ -513,6 +686,15 @@ const BOOLEAN_SETTING_KEYS = new Set([
   "maintenanceMode",
   "allowRegistrations",
   "requireEmailVerification",
+]);
+
+// Sections merged structurally (camelized) above — the generic whitelist loop
+// must NOT re-store their raw (normalizeFields-snake-cased) bodies on top.
+const SECTION_SETTING_KEYS = new Set([
+  "appearance",
+  "security",
+  "email",
+  "notifications",
 ]);
 
 /**
@@ -607,13 +789,41 @@ async function saveSettings(newSettings) {
   // Persist settings sections edited by the admin form as structured JSON.
   // These sections are intentionally merged so a partial update cannot erase
   // unrelated values in the same section.
+  // NOTE: bodies arrive camelCase from the live modular router
+  // (admin-routes-index.js → admin-settings.js), but snake_case when the
+  // legacy admin.js monolith router (which runs normalizeFields recursively)
+  // serves the same path. normalizeSection() camelize is identity on camel
+  // keys, so merging through it tolerates both formats — persisted keys always
+  // match the camelCase readers (getRuntimeSecuritySettings, the 2FA gate,
+  // lockout middleware).
   for (const section of ["appearance", "security", "email", "notifications"]) {
     if (newSettings[section] && typeof newSettings[section] === "object") {
       toStore[section] = {
         ...(current[section] || {}),
-        ...newSettings[section],
+        ...normalizeSection(newSettings[section]),
       };
     }
+  }
+
+  // Legacy flat security toggles (sent top-level by older clients) must land
+  // in the nested security section — every reader consumes settings.security.*
+  if (!toStore.security || typeof toStore.security !== "object") {
+    toStore.security = {};
+  }
+  for (const key of [
+    "maxLoginAttempts",
+    "lockoutDuration",
+    "sessionTimeout",
+    "twoFactorAuth",
+    "passwordMinLength",
+    "passwordComplexity",
+    "allowedEmailDomains",
+  ]) {
+    if (toStore.security[key] !== undefined) continue;
+    const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+    const value =
+      newSettings[key] !== undefined ? newSettings[key] : newSettings[snakeKey];
+    if (value !== undefined) toStore.security[key] = value;
   }
 
   // Purge any legacy stray top-level maintenance toggle that may have leaked
@@ -625,6 +835,10 @@ async function saveSettings(newSettings) {
   // payment/oauth credentials, etc.). Check both snake_case
   // (post-normalizeFields) and camelCase variants.
   for (const key of PERSISTABLE_SETTING_KEYS) {
+    // Structured sections were already merged (and camelized) above; storing
+    // their raw bodies here would clobber that merge with whichever format
+    // the caller used.
+    if (SECTION_SETTING_KEYS.has(key)) continue;
     const snakeKey = key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
     let value =
       newSettings[snakeKey] !== undefined
@@ -652,7 +866,120 @@ async function saveSettings(newSettings) {
   await saveSiteConfig(toStore);
   runtimeSecurityCache = null;
   runtimeSecurityCacheExpiresAt = 0;
+
+  // --- BIDIRECTIONAL SYNC: keep coming_soon_config in lockstep with site_config ---
+  // AdminSettings writes to site_config; ComingSoonManager writes to coming_soon_config.
+  // Without sync the two UIs diverge and getPublicSettings overlay becomes lossy.
+  // Best-effort fire-and-forget — failures are logged but never block the save.
+  try {
+    const siteConfigForSync = {
+      maintenanceMode: toStore.maintenance?.enabled ?? false,
+      maintenanceMessage:
+        toStore.maintenance?.message || DEFAULT_SETTINGS.maintenance.message,
+      maintenanceEndTime: toStore.maintenance?.endTime || null,
+      estimatedDowntime:
+        toStore.maintenance?.estimatedDowntime ||
+        DEFAULT_SETTINGS.maintenance.estimatedDowntime,
+      allowAdminAccess: toStore.maintenance?.allowAdminAccess ?? true,
+    };
+    const pagesForSync = comingSoonObjectToPages(toStore.comingSoon);
+    // Read existing coming_soon_config to preserve any extra fields callers may have added
+    const existingRes = await pool.query(
+      `SELECT value FROM app_settings WHERE key = 'coming_soon_config' LIMIT 1`,
+    );
+    const existingVal =
+      existingRes.rows[0]?.value &&
+      typeof existingRes.rows[0].value === "object"
+        ? existingRes.rows[0].value
+        : {};
+    const mergedSyncValue = {
+      siteConfig: { ...(existingVal.siteConfig || {}), ...siteConfigForSync },
+      pages: pagesForSync.length ? pagesForSync : existingVal.pages || [],
+      updatedAt: new Date().toISOString(),
+    };
+    await pool.query(
+      `INSERT INTO app_settings (key, value, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+      ["coming_soon_config", JSON.stringify(mergedSyncValue)],
+    );
+  } catch (e) {
+    logger.warn(
+      "[SettingsService] sync site_config → coming_soon_config failed:",
+      e.message,
+    );
+  }
+
   return getFullSettings();
+}
+
+/**
+ * Sync coming_soon_config → site_config.
+ * Called by admin-extras PUT handler after it writes coming_soon_config.
+ * Keeps site_config maintenance/comingSoon identical so AdminSettings shows
+ * the ComingSoonManager's values and getPublicSettings sees a consistent view.
+ */
+async function syncComingSoonConfigToSiteConfig() {
+  try {
+    const coming = await getComingSoonConfig();
+    const site = (await getSiteConfig()) || {};
+    const patches = {};
+    let needsSave = false;
+
+    // Maintenance sync
+    if (
+      coming.maintenanceMode !== undefined ||
+      coming.maintenanceMessage !== undefined
+    ) {
+      const currentMaint = site.maintenance || {
+        ...DEFAULT_SETTINGS.maintenance,
+      };
+      const nextMaint = { ...currentMaint };
+      if (coming.maintenanceMode !== undefined) {
+        nextMaint.enabled = Boolean(coming.maintenanceMode);
+        needsSave = true;
+      }
+      if (coming.maintenanceMessage !== undefined) {
+        nextMaint.message = coming.maintenanceMessage;
+        needsSave = true;
+      }
+      if (coming.maintenanceEndTime !== undefined) {
+        nextMaint.endTime = coming.maintenanceEndTime;
+        needsSave = true;
+      }
+      if (coming.estimatedDowntime !== undefined) {
+        nextMaint.estimatedDowntime = coming.estimatedDowntime;
+        needsSave = true;
+      }
+      if (coming.allowAdminAccess !== undefined) {
+        nextMaint.allowAdminAccess = Boolean(coming.allowAdminAccess);
+        needsSave = true;
+      }
+      patches.maintenance = nextMaint;
+    }
+
+    // Pages → comingSoon object sync (only if pages array non-empty)
+    if (coming.pages && coming.pages.length > 0) {
+      const pagesObj =
+        coming.pagesObject || pagesToComingSoonObject(coming.pages);
+      const mergedComingSoon = { ...(site.comingSoon || {}), ...pagesObj };
+      // Normalize to ensure type fields etc. are consistent
+      patches.comingSoon = normalizeComingSoon(mergedComingSoon);
+      needsSave = true;
+    }
+
+    if (needsSave) {
+      const mergedSite = { ...site, ...patches };
+      await saveSiteConfig(mergedSite);
+      runtimeSecurityCache = null;
+      runtimeSecurityCacheExpiresAt = 0;
+    }
+  } catch (e) {
+    logger.warn(
+      "[SettingsService] sync coming_soon_config → site_config failed:",
+      e.message,
+    );
+  }
 }
 
 export {
@@ -663,7 +990,13 @@ export {
   isFeatureEnabled,
   getMaintenanceStatus,
   getComingSoonStatus,
+  isNotificationEnabled,
+  getAppearanceSettings,
+  isAnalyticsEnabled,
   saveSettings,
+  syncComingSoonConfigToSiteConfig,
+  comingSoonObjectToPages,
+  pagesToComingSoonObject,
 };
 
 async function getRuntimeSecuritySettings() {

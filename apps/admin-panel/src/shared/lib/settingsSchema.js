@@ -90,7 +90,8 @@ export const settingsSchema = z.object({
         )
         .optional(),
       maxLoginAttempts: z.number().int().min(1).max(50),
-      sessionTimeout: z.number().int().min(60).max(86400),
+      // 0 = use server default idle window (SESSION_IDLE_TIMEOUT_MIN, 3 days)
+      sessionTimeout: z.number().int().min(0).max(86400),
       allowedEmailDomains: z.string().max(2000).optional().or(z.literal("")),
     })
     .optional(),

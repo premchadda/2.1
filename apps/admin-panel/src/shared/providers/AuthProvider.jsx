@@ -12,11 +12,12 @@ import {
 } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore.js";
 
-// Session configuration - 3 days default inactivity timeout
+// Session configuration - 3 days default, 7 days when rememberMe checked
 const SESSION_CONFIG = {
   defaultExpiry: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeExpiry: 30 * 24 * 60 * 60 * 1000, // 30 days
+  rememberMeExpiry: 7 * 24 * 60 * 60 * 1000, // 7 days
   inactivityTimeout: 3 * 24 * 60 * 60 * 1000, // 3 days
+  rememberMeInactivityTimeout: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 export const applyAuthSession = ({

@@ -1,44 +1,62 @@
-import { useState, useEffect } from 'react'
-import { 
-  Trash2, RotateCcw, Search, 
-  Calendar, User, Package, FileText, 
-  BookOpen, FolderTree, Tag, Navigation, Info,
-  MoreVertical, X,
-  AlertTriangle 
-} from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
-import { adminAPI } from '../../../shared/lib/dataService.js'
-import { toast } from 'react-hot-toast'
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import {
+  Trash2,
+  RotateCcw,
+  Search,
+  Calendar,
+  User,
+  Package,
+  FileText,
+  BookOpen,
+  FolderTree,
+  Tag,
+  Navigation,
+  Info,
+  MoreVertical,
+  X,
+  AlertTriangle,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { adminAPI } from "../../../shared/lib/dataService.js";
+import { toast } from "react-hot-toast";
 
 // Collection type icons mapping
 const collectionIcons = {
-  'testSeries': FileText,
-  'tests': BookOpen,
-  'questions': Package,
-  'studyMaterials': BookOpen,
-  'examCategories': FolderTree,
-  'examInfo': Info,
-  'navigationMenu': Navigation,
-  'tagConfigs': Tag,
-  'testCategories': FolderTree,
-  'users': User,
-  'media': Trash2,
-  'trash': Trash2 // fallback
+  testSeries: FileText,
+  tests: BookOpen,
+  questions: Package,
+  studyMaterials: BookOpen,
+  examCategories: FolderTree,
+  examInfo: Info,
+  navigationMenu: Navigation,
+  tagConfigs: Tag,
+  testCategories: FolderTree,
+  users: User,
+  media: Trash2,
+  trash: Trash2, // fallback
 };
 
 export default function RecycleBin() {
   const [trashItems, setTrashItems] = useState([]);
   const [filteredItems, setFilteredItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState('all');
-  const [dateFilter, setDateFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [dateFilter, setDateFilter] = useState("");
   const [showActions, setShowActions] = useState({});
   const [stats, setStats] = useState({
     total: 0,
-    byType: {}
+    byType: {},
   });
-  const [confirmModal, setConfirmModal] = useState({ open: false, action: null, title: '', message: '', confirmLabel: '', danger: false });
+  const [confirmModal, setConfirmModal] = useState({
+    open: false,
+    action: null,
+    title: "",
+    message: "",
+    confirmLabel: "",
+    danger: false,
+  });
 
   const navigate = useNavigate();
 
@@ -46,14 +64,14 @@ export default function RecycleBin() {
   useEffect(() => {
     const fetchTrashItems = async () => {
       try {
-        const response = await adminAPI.getTrash()
-        
+        const response = await adminAPI.getTrash();
+
         if (response.data.success) {
           setTrashItems(response.data.data || []);
           calculateStats(response.data.data || []);
         }
       } catch (error) {
-        console.error('Error fetching trash items:', error);
+        console.error("Error fetching trash items:", error);
       } finally {
         setLoading(false);
       }
@@ -65,14 +83,14 @@ export default function RecycleBin() {
   // Calculate statistics
   const calculateStats = (items) => {
     const byType = {};
-    items.forEach(item => {
-      const type = item.table || item.originalCollection || 'unknown';
+    items.forEach((item) => {
+      const type = item.table || item.originalCollection || "unknown";
       byType[type] = (byType[type] || 0) + 1;
     });
 
     setStats({
       total: items.length,
-      byType
+      byType,
     });
   };
 
@@ -82,21 +100,26 @@ export default function RecycleBin() {
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(item =>
-        item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.table || item.originalCollection || '').toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (item) =>
+          item.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.table || item.originalCollection || "")
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()),
       );
     }
 
     // Apply type filter
-    if (selectedType !== 'all') {
-      filtered = filtered.filter(item => (item.table || item.originalCollection) === selectedType);
+    if (selectedType !== "all") {
+      filtered = filtered.filter(
+        (item) => (item.table || item.originalCollection) === selectedType,
+      );
     }
 
     // Apply date filter
     if (dateFilter) {
-      filtered = filtered.filter(item => {
+      filtered = filtered.filter((item) => {
         const itemDate = new Date(item.deletedAt);
         const filterDate = new Date(dateFilter);
         return itemDate.toDateString() === filterDate.toDateString();
@@ -110,20 +133,25 @@ export default function RecycleBin() {
   const restoreItem = async (item) => {
     try {
       const tableName = item.table || item.originalCollection;
-      const response = await adminAPI.restoreTrashItem(item._id || item.id, tableName)
+      const response = await adminAPI.restoreTrashItem(
+        item._id || item.id,
+        tableName,
+      );
 
       if (response.data.success) {
         // Remove item from trash list
         const itemId = item._id || item.id;
-        setTrashItems(prev => prev.filter(i => (i._id || i.id) !== itemId));
-        setShowActions(prev => ({ ...prev, [itemId]: false }));
+        setTrashItems((prev) => prev.filter((i) => (i._id || i.id) !== itemId));
+        setShowActions((prev) => ({ ...prev, [itemId]: false }));
 
         // Recalculate stats
-        const updatedItems = trashItems.filter(i => (i._id || i.id) !== itemId);
+        const updatedItems = trashItems.filter(
+          (i) => (i._id || i.id) !== itemId,
+        );
         calculateStats(updatedItems);
       }
     } catch (error) {
-      console.error('Error restoring item:', error);
+      console.error("Error restoring item:", error);
     }
   };
 
@@ -132,9 +160,10 @@ export default function RecycleBin() {
     setConfirmModal({
       open: true,
       action: () => performDeletePermanently(item),
-      title: 'Delete Permanently',
-      message: 'Are you sure you want to permanently delete this item? This action cannot be undone.',
-      confirmLabel: 'Delete',
+      title: "Delete Permanently",
+      message:
+        "Are you sure you want to permanently delete this item? This action cannot be undone.",
+      confirmLabel: "Delete",
       danger: true,
     });
   };
@@ -142,20 +171,25 @@ export default function RecycleBin() {
   const performDeletePermanently = async (item) => {
     try {
       const tableName = item.table || item.originalCollection;
-      const response = await adminAPI.deleteTrashItem(item._id || item.id, tableName)
+      const response = await adminAPI.deleteTrashItem(
+        item._id || item.id,
+        tableName,
+      );
 
       if (response.data.success) {
         const itemId = item._id || item.id;
         // Remove item from trash list
-        setTrashItems(prev => prev.filter(i => (i._id || i.id) !== itemId));
-        setShowActions(prev => ({ ...prev, [itemId]: false }));
+        setTrashItems((prev) => prev.filter((i) => (i._id || i.id) !== itemId));
+        setShowActions((prev) => ({ ...prev, [itemId]: false }));
 
         // Recalculate stats
-        const updatedItems = trashItems.filter(i => (i._id || i.id) !== itemId);
+        const updatedItems = trashItems.filter(
+          (i) => (i._id || i.id) !== itemId,
+        );
         calculateStats(updatedItems);
       }
     } catch (error) {
-      console.error('Error permanently deleting item:', error);
+      console.error("Error permanently deleting item:", error);
     }
   };
 
@@ -164,77 +198,84 @@ export default function RecycleBin() {
     setConfirmModal({
       open: true,
       action: performEmptyTrash,
-      title: 'Empty Trash',
-      message: 'Are you sure you want to empty the entire trash? This action cannot be undone.',
-      confirmLabel: 'Empty Trash',
+      title: "Empty Trash",
+      message:
+        "Are you sure you want to empty the entire trash? This action cannot be undone.",
+      confirmLabel: "Empty Trash",
       danger: true,
     });
   };
 
   const performEmptyTrash = async () => {
     try {
-      const response = await adminAPI.emptyTrash()
+      const response = await adminAPI.emptyTrash();
 
       if (response.data?.success) {
         setTrashItems([]);
         setFilteredItems([]);
         setStats({ total: 0, byType: {} });
-        toast.success(response.data.message || 'Trash emptied successfully');
+        toast.success(response.data.message || "Trash emptied successfully");
       }
     } catch (error) {
-      console.error('Error emptying trash:', error);
-      toast.error(error?.response?.data?.message || error?.message || 'Failed to empty trash');
+      console.error("Error emptying trash:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to empty trash",
+      );
     }
   };
 
   // Format date
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
   // Get item title based on type
   const getItemTitle = (item) => {
-    return item.title || item.name || item.originalName || item._id || 'Untitled'
+    return (
+      item.title || item.name || item.originalName || item._id || "Untitled"
+    );
   };
 
   // Get item description based on type
   const getItemDescription = (item) => {
     const coll = item.table || item.originalCollection;
     switch (coll) {
-      case 'testSeries':
+      case "testSeries":
         return `Test series with ${item.tests?.length || 0} tests`;
-      case 'tests':
+      case "tests":
         return `Test with ${item.questions?.length || 0} questions`;
-      case 'questions':
+      case "questions":
         return `Question from test: ${item.testId}`;
-      case 'studyMaterials':
-        return `Subject: ${item.subject || 'Unknown'}`;
-      case 'units':
-        return `Unit in subject #${item.subjectId || '?'}`;
-      case 'chapters':
-        return `Chapter in unit #${item.unitId || '?'}`;
-      case 'topics':
-        return `Topic in chapter #${item.chapterId || '?'}`;
-      case 'subtopics':
-        return `Subtopic in topic #${item.topicId || '?'}`;
-      case 'examCategories':
-        return `Category for: ${item.examType || 'All exams'}`;
-      case 'examInfo':
-        return `Details for ${item.category || 'exam'}`;
-      case 'navigationMenu':
-        return `Navigation item: ${item.label || 'Unknown'}`;
-      case 'tagConfigs':
-        return `Tag configuration for: ${item.tag || 'Unknown'}`;
-      case 'testCategories':
-        return `Category in ${item.parentId ? 'sub-category' : 'main category'}`;
+      case "studyMaterials":
+        return `Subject: ${item.subject || "Unknown"}`;
+      case "units":
+        return `Unit in subject #${item.subjectId || "?"}`;
+      case "chapters":
+        return `Chapter in unit #${item.unitId || "?"}`;
+      case "topics":
+        return `Topic in chapter #${item.chapterId || "?"}`;
+      case "subtopics":
+        return `Subtopic in topic #${item.topicId || "?"}`;
+      case "examCategories":
+        return `Category for: ${item.examType || "All exams"}`;
+      case "examInfo":
+        return `Details for ${item.category || "exam"}`;
+      case "navigationMenu":
+        return `Navigation item: ${item.label || "Unknown"}`;
+      case "tagConfigs":
+        return `Tag configuration for: ${item.tag || "Unknown"}`;
+      case "testCategories":
+        return `Category in ${item.parentId ? "sub-category" : "main category"}`;
       default:
-        return `Deleted item from ${item.table || item.originalCollection || 'unknown'}`;
+        return `Deleted item from ${item.table || item.originalCollection || "unknown"}`;
     }
   };
 
@@ -244,14 +285,17 @@ export default function RecycleBin() {
     return <IconComponent className="w-5 h-5" />;
   };
 
-  const getCollectionType = (item) => item.table || item.originalCollection || 'unknown';
+  const getCollectionType = (item) =>
+    item.table || item.originalCollection || "unknown";
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-brand-start border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading trash items...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            Loading trash items...
+          </p>
         </div>
       </div>
     );
@@ -269,8 +313,12 @@ export default function RecycleBin() {
                   <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Recycle Bin</h1>
-                  <p className="text-gray-600 dark:text-gray-400">Manage deleted content and restore items</p>
+                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Recycle Bin
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400">
+                    Manage deleted content and restore items
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -293,8 +341,12 @@ export default function RecycleBin() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Items</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Total Items
+                </p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats.total}
+                </p>
               </div>
               <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
                 <Trash2 className="w-6 h-6 text-gray-600 dark:text-gray-400" />
@@ -302,19 +354,28 @@ export default function RecycleBin() {
             </div>
           </div>
 
-          {Object.entries(stats.byType).slice(0, 3).map(([type, count]) => (
-            <div key={type} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">{(type || 'unknown').replace(/([A-Z])/g, ' $1')}</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{count}</p>
-                </div>
-                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
-                  {getIcon(type)}
+          {Object.entries(stats.byType)
+            .slice(0, 3)
+            .map(([type, count]) => (
+              <div
+                key={type}
+                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
+                      {(type || "unknown").replace(/([A-Z])/g, " $1")}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {count}
+                    </p>
+                  </div>
+                  <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full">
+                    {getIcon(type)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* Filters */}
@@ -330,18 +391,20 @@ export default function RecycleBin() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
-            
+
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="all">All Types</option>
-              {Object.keys(stats.byType).map(type => (
-                <option key={type} value={type}>{type.replace(/([A-Z])/g, ' $1')}</option>
+              {Object.keys(stats.byType).map((type) => (
+                <option key={type} value={type}>
+                  {type.replace(/([A-Z])/g, " $1")}
+                </option>
               ))}
             </select>
-            
+
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
               <input
@@ -351,7 +414,7 @@ export default function RecycleBin() {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
-            
+
             <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center">
               Showing {filteredItems.length} of {trashItems.length} items
             </div>
@@ -362,139 +425,166 @@ export default function RecycleBin() {
         {filteredItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center border">
             <Trash2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No items in trash</h3>
-            <p className="text-gray-600 dark:text-gray-400">Deleted items will appear here and can be restored if needed.</p>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No items in trash
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              Deleted items will appear here and can be restored if needed.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
             {filteredItems.map((item) => {
-              const itemId = item.id || item._id
+              const itemId = item.id || item._id;
               return (
-              <div key={itemId} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                      {getIcon(getCollectionType(item))}
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
-                          {getItemTitle(item)}
-                        </h3>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/20 text-red-800">
-                          {getCollectionType(item).replace(/([A-Z])/g, ' $1')}
-                        </span>
+                <div
+                  key={itemId}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                        {getIcon(getCollectionType(item))}
                       </div>
-                      
-                      <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
-                        {getItemDescription(item)}
-                      </p>
-                      
-                      <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4" />
-                          <span>Deleted {formatDate(item.deletedAt)}</span>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-medium text-gray-900 dark:text-white truncate">
+                            {getItemTitle(item)}
+                          </h3>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/20 text-red-800">
+                            {getCollectionType(item).replace(/([A-Z])/g, " $1")}
+                          </span>
                         </div>
-                        
-                        <div className="flex items-center gap-1">
-                          <User className="w-4 h-4" />
-                          <span>by {item.deletedBy || 'System'}</span>
+
+                        <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
+                          {getItemDescription(item)}
+                        </p>
+
+                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="w-4 h-4" />
+                            <span>Deleted {formatDate(item.deletedAt)}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1">
+                            <User className="w-4 h-4" />
+                            <span>by {item.deletedBy || "System"}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowActions(prev => ({
-                        ...prev,
-                        [itemId]: !prev[itemId]
-                      }))}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg transition-colors"
-                    >
-                      <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                    </button>
-                    
-                    {showActions[itemId] && (
-                      <div className="absolute right-0 top-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 w-48">
-                        <button
-                          onClick={() => restoreItem(item)}
-                          className="w-full px-4 py-2 text-left hover:bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 flex items-center gap-2"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          Restore Item
-                        </button>
-                        
-                        <hr className="my-1" />
-                        
-                        <button
-                          onClick={() => deletePermanently(item)}
-                          className="w-full px-4 py-2 text-left hover:bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 flex items-center gap-2"
-                        >
-                          <X className="w-4 h-4" />
-                          Delete Permanently
-                        </button>
-                      </div>
-                    )}
+
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setShowActions((prev) => ({
+                            ...prev,
+                            [itemId]: !prev[itemId],
+                          }))
+                        }
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                      </button>
+
+                      {showActions[itemId] && (
+                        <div className="absolute right-0 top-10 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 w-48">
+                          <button
+                            onClick={() => restoreItem(item)}
+                            className="w-full px-4 py-2 text-left hover:bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 flex items-center gap-2"
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                            Restore Item
+                          </button>
+
+                          <hr className="my-1" />
+
+                          <button
+                            onClick={() => deletePermanently(item)}
+                            className="w-full px-4 py-2 text-left hover:bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 flex items-center gap-2"
+                          >
+                            <X className="w-4 h-4" />
+                            Delete Permanently
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )})}
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Confirmation Modal */}
-      {confirmModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
-          />
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-start gap-4 mb-5">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${confirmModal.danger ? 'bg-red-100 dark:bg-red-900/20' : 'bg-amber-100 dark:bg-amber-900/20'}`}>
-                <AlertTriangle className={`w-6 h-6 ${confirmModal.danger ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`} />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{confirmModal.title}</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{confirmModal.message}</p>
-              </div>
-              <button
-                onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
-                className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 hover:text-gray-600 dark:text-gray-400 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button
-                onClick={() => setConfirmModal(prev => ({ ...prev, open: false }))}
-                className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  setConfirmModal(prev => ({ ...prev, open: false }));
-                  if (confirmModal.action) {
-                    try {
-                      await confirmModal.action();
-                    } catch (err) {
-                      console.error('Recycle bin action failed:', err);
-                      toast.error('Action failed. Please try again.');
-                    }
+      {confirmModal.open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() =>
+                setConfirmModal((prev) => ({ ...prev, open: false }))
+              }
+            />
+            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-6 animate-in fade-in zoom-in duration-200">
+              <div className="flex items-start gap-4 mb-5">
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${confirmModal.danger ? "bg-red-100 dark:bg-red-900/20" : "bg-amber-100 dark:bg-amber-900/20"}`}
+                >
+                  <AlertTriangle
+                    className={`w-6 h-6 ${confirmModal.danger ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"}`}
+                  />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                    {confirmModal.title}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {confirmModal.message}
+                  </p>
+                </div>
+                <button
+                  onClick={() =>
+                    setConfirmModal((prev) => ({ ...prev, open: false }))
                   }
-                }}
-                className={`px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-lg transition-all ${confirmModal.danger ? 'bg-red-600 hover:bg-red-700 shadow-red-200' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200'}`}
-              >
-                {confirmModal.confirmLabel}
-              </button>
+                  className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 hover:text-gray-600 dark:text-gray-400 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex items-center justify-end gap-3 mt-6">
+                <button
+                  onClick={() =>
+                    setConfirmModal((prev) => ({ ...prev, open: false }))
+                  }
+                  className="px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setConfirmModal((prev) => ({ ...prev, open: false }));
+                    if (confirmModal.action) {
+                      try {
+                        await confirmModal.action();
+                      } catch (err) {
+                        console.error("Recycle bin action failed:", err);
+                        toast.error("Action failed. Please try again.");
+                      }
+                    }
+                  }}
+                  className={`px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-lg transition-all ${confirmModal.danger ? "bg-red-600 hover:bg-red-700 shadow-red-200" : "bg-indigo-600 hover:bg-indigo-700 shadow-indigo-200"}`}
+                >
+                  {confirmModal.confirmLabel}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

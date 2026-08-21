@@ -52,6 +52,7 @@ import { apiClient, adminAPI } from "../../../shared/lib/dataService";
 import { useAuth } from "../../../shared/providers/AuthContext";
 import { toast } from "react-hot-toast";
 import SearchInput from "../../../shared/components/ui/SearchInput";
+import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
 const TYPE_COLORS = {
   test: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800",
@@ -261,12 +262,14 @@ export default function LeaderboardResultsUnified() {
   };
 
   const handleReset = async (id) => {
-    if (
-      !window.confirm(
+    const ok = await confirmOnce({
+      title: "Clear rankings?",
+      message:
         "This will clear all calculated rankings for this leaderboard. Continue?",
-      )
-    )
-      return;
+      danger: true,
+      confirmLabel: "Clear",
+    });
+    if (!ok) return;
     setActioning(id + "_reset");
     try {
       await adminAPI.resetLeaderboard(id);

@@ -36,6 +36,12 @@ export const apiClient = createApiClient({
   // ~15s. A shorter timeout surfaces as a network error and falsely logs the
   // user out, so keep this comfortably above observed cold-start latency.
   timeout: 30000,
+  // Identifies this app to the backend's session fingerprinting so the
+  // student app and admin panel never share/overwrite each other's session.
+  headers: {
+    "Content-Type": "application/json",
+    "X-Client-App": "student-web",
+  },
   authEndpoints: ["/api/auth/login", "/api/auth/register", "/api/auth/refresh"],
   refreshUrl: "/api/auth/refresh",
   authUrlMatch: "includes",

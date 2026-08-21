@@ -1,18 +1,24 @@
 // Environment variable validation for admin panel
 // Called during app initialization to ensure required env vars are set
 
-const REQUIRED_ENV_VARS = [
-  "VITE_API_URL",
-  "VITE_ADMIN_SITE_URL",
-  "VITE_BACKEND_URL",
-  "VITE_SOCKET_URL",
-];
+const REQUIRED_ENV_VARS = ["VITE_API_URL", "VITE_ADMIN_SITE_URL"];
+const OPTIONAL_ENV_VARS_WITH_FALLBACK = ["VITE_BACKEND_URL", "VITE_SOCKET_URL"];
 
 export function validateEnvVars() {
   const missing = REQUIRED_ENV_VARS.filter((key) => {
     const value = import.meta.env[key];
     return !value || value === "undefined";
   });
+  const missingOptional = OPTIONAL_ENV_VARS_WITH_FALLBACK.filter((key) => {
+    const value = import.meta.env[key];
+    return !value || value === "undefined";
+  });
+  if (missingOptional.length > 0) {
+    console.warn(
+      "[Admin Env Validation] Optional (fallback exists):",
+      missingOptional.join(", "),
+    );
+  }
 
   if (missing.length > 0) {
     console.error("[Admin Env Validation] Missing:", missing.join(", "));

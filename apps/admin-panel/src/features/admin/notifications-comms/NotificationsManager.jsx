@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Search,
@@ -538,288 +539,320 @@ export default function NotificationsManager() {
       )}
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Send Notification</h2>
-                <button
-                  onClick={resetForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                  aria-label="Close"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    Send Notification
+                  </h2>
+                  <button
+                    onClick={resetForm}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
 
-              {/* Send Mode Toggle */}
-              <div className="flex gap-4 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                <button
-                  onClick={() => setSendMode("single")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
-                    sendMode === "single"
-                      ? "bg-white dark:bg-gray-800 shadow text-indigo-600"
-                      : "text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  <User className="w-4 h-4" />
-                  Single User
-                </button>
-                <button
-                  onClick={() => setSendMode("bulk")}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
-                    sendMode === "bulk"
-                      ? "bg-white dark:bg-gray-800 shadow text-indigo-600"
-                      : "text-gray-600 dark:text-gray-400"
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  Bulk ({selectedUsers.length} selected)
-                </button>
-              </div>
+                {/* Send Mode Toggle */}
+                <div className="flex gap-4 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  <button
+                    onClick={() => setSendMode("single")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
+                      sendMode === "single"
+                        ? "bg-white dark:bg-gray-800 shadow text-indigo-600 font-semibold"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    Single User
+                  </button>
+                  <button
+                    onClick={() => setSendMode("bulk")}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition ${
+                      sendMode === "bulk"
+                        ? "bg-white dark:bg-gray-800 shadow text-indigo-600 font-semibold"
+                        : "text-gray-600 dark:text-gray-400"
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    Bulk Users
+                  </button>
+                </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {sendMode === "single" ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Select User *
-                    </label>
-                    <select
-                      required
-                      value={formData.userId}
-                      onChange={(e) =>
-                        setFormData({ ...formData, userId: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">Select a user</option>
-                      {users.map((user) => {
-                        const userId = user.id || user._id;
-                        return (
-                          <option key={userId} value={userId}>
-                            {user.name || user.email} ({user.email})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="border rounded-lg p-4 max-h-48 overflow-y-auto">
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b">
-                      <input
-                        type="checkbox"
-                        checked={
-                          selectedUsers.length === users.length &&
-                          users.length > 0
-                        }
-                        onChange={selectAllUsers}
-                        className="w-4 h-4 text-indigo-600 rounded"
-                      />
-                      <span className="text-sm font-medium">
-                        Select All Users
-                      </span>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {sendMode === "single" ? (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Recipient User *
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={formData.userId}
+                          onChange={(e) => {
+                            setFormData({
+                              ...formData,
+                              userId: e.target.value,
+                            });
+                            searchUsers(e.target.value);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                          placeholder="Search by name or email, or enter user ID"
+                        />
+                        {users.length > 0 && formData.userId && (
+                          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {users.map((user) => (
+                              <button
+                                key={user.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    userId: user.id.toString(),
+                                  });
+                                  setUsers([]);
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
+                              >
+                                <span className="font-medium">{user.name}</span>
+                                <span className="text-sm text-gray-500">
+                                  {user.email}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {users.map((user) => {
-                      const userId = user.id || user._id;
-                      return (
-                        <div
-                          key={userId}
-                          className="flex items-center gap-2 py-1"
+                  ) : (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Recipient Group *
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                        <button
+                          type="button"
+                          onClick={() => selectUserGroup("all")}
+                          className={`p-2 border rounded-lg text-sm transition ${
+                            formData.recipientGroup === "all"
+                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-semibold"
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
                         >
-                          <input
-                            type="checkbox"
-                            checked={selectedUsers.includes(userId)}
-                            onChange={() => toggleUserSelection(userId)}
-                            className="w-4 h-4 text-indigo-600 rounded"
-                          />
-                          <span className="text-sm">
-                            {user.name || user.email}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          All Users
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectUserGroup("active")}
+                          className={`p-2 border rounded-lg text-sm transition ${
+                            formData.recipientGroup === "active"
+                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-semibold"
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          Active Users
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectUserGroup("inactive")}
+                          className={`p-2 border rounded-lg text-sm transition ${
+                            formData.recipientGroup === "inactive"
+                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-semibold"
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          Inactive Users
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => selectUserGroup("premium")}
+                          className={`p-2 border rounded-lg text-sm transition ${
+                            formData.recipientGroup === "premium"
+                              ? "border-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-semibold"
+                              : "border-gray-200 dark:border-gray-700"
+                          }`}
+                        >
+                          Premium Users
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Notification Type *
+                      Notification Type
                     </label>
                     <select
-                      required
                       value={formData.type}
                       onChange={(e) =>
                         setFormData({ ...formData, type: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
                     >
-                      {NOTIFICATION_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
+                      <option value="system">System Notification</option>
+                      <option value="alert">Alert</option>
+                      <option value="success">Success</option>
+                      <option value="warning">Warning</option>
+                      <option value="info">Info</option>
+                      <option value="achievement">Achievement</option>
+                      <option value="test_reminder">Test Reminder</option>
                     </select>
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Priority
-                    </label>
-                    <select
-                      value={formData.priority}
-                      onChange={(e) =>
-                        setFormData({ ...formData, priority: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      {PRIORITY_LEVELS.map((level) => (
-                        <option key={level.value} value={level.value}>
-                          {level.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.title}
-                    onChange={(e) =>
-                      setFormData({ ...formData, title: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., Your test starts in 30 minutes"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Message *
-                  </label>
-                  <textarea
-                    required
-                    value={formData.message}
-                    onChange={(e) =>
-                      setFormData({ ...formData, message: e.target.value })
-                    }
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Notification message..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Action URL
-                    </label>
-                    <input
-                      type="url"
-                      value={formData.actionUrl}
-                      onChange={(e) =>
-                        setFormData({ ...formData, actionUrl: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="https://..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Action Button Text
+                      Title *
                     </label>
                     <input
                       type="text"
-                      value={formData.actionText}
+                      required
+                      value={formData.title}
                       onChange={(e) =>
-                        setFormData({ ...formData, actionText: e.target.value })
+                        setFormData({ ...formData, title: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="View"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="Enter notification title"
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Send Via
-                  </label>
-                  <div className="flex gap-4">
-                    {["in_app", "email", "push", "sms"].map((channel) => (
-                      <label
-                        key={channel}
-                        className="flex items-center gap-2 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={formData.sentVia.includes(channel)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData({
-                                ...formData,
-                                sentVia: [...formData.sentVia, channel],
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                sentVia: formData.sentVia.filter(
-                                  (c) => c !== channel,
-                                ),
-                              });
-                            }
-                          }}
-                          className="w-4 h-4 text-indigo-600 rounded"
-                        />
-                        <span className="text-sm capitalize">
-                          {channel.replace("_", " ")}
-                        </span>
-                      </label>
-                    ))}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Message *
+                    </label>
+                    <textarea
+                      required
+                      rows={4}
+                      value={formData.message}
+                      onChange={(e) =>
+                        setFormData({ ...formData, message: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="Enter notification message"
+                    />
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Schedule (Optional)
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={formData.scheduledAt}
-                    onChange={(e) =>
-                      setFormData({ ...formData, scheduledAt: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Action URL (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.actionUrl}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            actionUrl: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="e.g., /tests/ssc-cgl-mock-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Action Button Text
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.actionText}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            actionText: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="View"
+                      />
+                    </div>
+                  </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Send className="w-4 h-4" />
-                    {sendMode === "bulk"
-                      ? `Send to ${selectedUsers.length} Users`
-                      : "Send Notification"}
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Send Via
+                    </label>
+                    <div className="flex flex-wrap gap-4">
+                      {["in_app", "email", "push", "sms"].map((channel) => (
+                        <label
+                          key={channel}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={formData.sentVia.includes(channel)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  sentVia: [...formData.sentVia, channel],
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  sentVia: formData.sentVia.filter(
+                                    (c) => c !== channel,
+                                  ),
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 rounded"
+                          />
+                          <span className="text-sm capitalize">
+                            {channel.replace("_", " ")}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Schedule (Optional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={formData.scheduledAt}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          scheduledAt: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold shadow-md shadow-indigo-500/20 transition"
+                    >
+                      <Send className="w-4 h-4" />
+                      {sendMode === "bulk"
+                        ? `Send to ${selectedUsers.length} Users`
+                        : "Send Notification"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

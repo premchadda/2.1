@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { Link } from "react-router-dom";
 import Breadcrumb from "../../../shared/components/common/Breadcrumb";
 import { toast } from "react-hot-toast";
 import {
@@ -14,6 +15,7 @@ import {
   Wifi,
   Shield,
   Clock3,
+  Terminal,
 } from "lucide-react";
 import { apiClient as api } from "../../../shared/lib/dataService";
 
@@ -219,6 +221,13 @@ function SystemHealthMonitor() {
             </p>
           </div>
           <div className="flex items-center gap-3 mt-4 sm:mt-0">
+            <Link
+              to="/admin/logs"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-slate-800 text-emerald-400 border border-slate-700 rounded-lg hover:bg-slate-800 transition font-medium text-sm shadow-sm"
+            >
+              <Terminal className="w-4 h-4 text-emerald-400" />
+              Terminal Logs
+            </Link>
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${

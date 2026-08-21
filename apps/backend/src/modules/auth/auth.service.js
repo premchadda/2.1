@@ -103,11 +103,25 @@ export const setAuthCookies = (
   }
 };
 
-// Clear auth cookies helper — use each cookie's own maxAge so the browser
-// actually clears the cookie (some browsers ignore clearCookie without matching options).
+// Clear auth cookies helper — must match the cookie's path/domain/sameSite/secure
+// regardless of whether it was a session (no maxAge) or persistent (maxAge) cookie.
+// Clearing with a maxAge doesn't reliably clear a session cookie and vice versa,
+// so we clear both variants.
 export const clearAuthCookies = (res) => {
-  res.clearCookie("token", CookieOptions);
-  res.clearCookie("refreshToken", RefreshCookieOptions);
+  const baseOpts = {
+    httpOnly: true,
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
+    path: "/",
+    ...(cookieDomain ? { domain: cookieDomain } : {}),
+  };
+  // Session cookies (no maxAge) and persistent cookies (with maxAge) share the same
+  // base attributes — clearing with baseOpts covers both. Also clear with the
+  // persistent maxAge variant for browsers that are strict about option matching.
+  res.clearCookie("token", baseOpts);
+  res.clearCookie("refreshToken", baseOpts);
+  res.clearCookie("token", { ...baseOpts, maxAge: 0 });
+  res.clearCookie("refreshToken", { ...baseOpts, maxAge: 0 });
 };
 
 // ===== PASSWORD STRENGTH VALIDATION (Issue #13) =====

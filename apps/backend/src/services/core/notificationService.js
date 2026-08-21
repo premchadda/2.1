@@ -1,6 +1,7 @@
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import emailService from "../EmailService.js";
 import { idsMatch } from "./common.js";
+import { isNotificationEnabled, getFullSettings } from "../SettingsService.js";
 
 export const createInAppNotification = async (
   userId,
@@ -67,6 +68,29 @@ export const sendPushNotification = async (
   };
 };
 
+async function shouldDeliverNow(userId, frequency) {
+  if (!frequency || frequency === "instant") return true;
+  const intervalDays =
+    frequency === "daily"
+      ? 1
+      : frequency === "weekly"
+        ? 7
+        : frequency === "monthly"
+          ? 30
+          : 1;
+  try {
+    const { rows } = await dbHelpers.pool.query(
+      `SELECT created_at FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`,
+      [userId],
+    );
+    if (!rows[0]?.created_at) return true;
+    const last = new Date(rows[0].created_at).getTime();
+    return Date.now() - last >= intervalDays * 86400000;
+  } catch {
+    return true;
+  }
+}
+
 export const dispatchNotification = async (
   userId,
   {
@@ -83,6 +107,70 @@ export const dispatchNotification = async (
   const user = preloadedUser || (await dbHelpers.findById("users", userId));
   if (!user) return { success: false, reason: "user_not_found" };
 
+  // Respect admin notification toggles — previously these settings were persisted
+  // but never read, so toggling them had no effect. Also respect
+  // notifications.notificationFrequency (instant/daily/weekly/monthly).
+  let effectiveSendEmail = sendEmail;
+  let effectiveSendPush = sendPush;
+  let notificationFrequency = "instant";
+  try {
+    notificationFrequency =
+      (await getFullSettings()).notifications?.notificationFrequency ||
+      "instant";
+  } catch {}
+  try {
+    if (sendEmail) {
+      // Map notification types to the corresponding admin toggle
+      if (
+        type === "subscription" ||
+        type === "purchase" ||
+        type === "payment"
+      ) {
+        if (!(await isNotificationEnabled("emailOnPayment")))
+          effectiveSendEmail = false;
+      } else if (type === "registration" || type === "verification") {
+        if (!(await isNotificationEnabled("emailOnRegistration")))
+          effectiveSendEmail = false;
+      } else {
+        // Generic email: require at least one email toggle to be on
+        const emailOnReg = await isNotificationEnabled("emailOnRegistration");
+        const emailOnPay = await isNotificationEnabled("emailOnPayment");
+        if (!emailOnReg && !emailOnPay) effectiveSendEmail = false;
+      }
+      // smsOnOrder gates order-related notifications; fall back to push toggle for others
+      if (type === "order" && !(await isNotificationEnabled("smsOnOrder"))) {
+        // smsOnOrder disabled does not block email, but keep as signal
+      }
+    }
+    if (sendPush && !(await isNotificationEnabled("pushNotifications"))) {
+      effectiveSendPush = false;
+    }
+    // Frequency gate: non-critical types (reminder/result/info) are batched
+    // according to the admin frequency. Critical subscription/payment still
+    // deliver instantly regardless of frequency.
+    const isCritical = [
+      "subscription",
+      "payment",
+      "purchase",
+      "security",
+      "verification",
+      "registration",
+    ].includes(type);
+    if (
+      !isCritical &&
+      notificationFrequency !== "instant" &&
+      (effectiveSendEmail || effectiveSendPush)
+    ) {
+      const deliverNow = await shouldDeliverNow(userId, notificationFrequency);
+      if (!deliverNow) {
+        effectiveSendEmail = false;
+        effectiveSendPush = false;
+      }
+    }
+  } catch {
+    // If settings lookup fails, fail open for notifications to avoid dropping critical alerts
+  }
+
   const inApp = await createInAppNotification(userId, {
     title,
     message,
@@ -90,12 +178,22 @@ export const dispatchNotification = async (
     metadata,
     actionUrl,
   });
-  const email = sendEmail
-    ? await sendEmailNotification(user, { title, message, actionUrl })
-    : { success: false, skipped: true };
-  const push = sendPush
-    ? await sendPushNotification(user, { title, message, metadata })
-    : { success: false, skipped: true };
+  let email = { success: false, skipped: true, reason: "disabled_by_settings" };
+  if (effectiveSendEmail) {
+    try {
+      email = await sendEmailNotification(user, { title, message, actionUrl });
+    } catch (e) {
+      email = { success: false, reason: e.message };
+    }
+  }
+  let push = { success: false, skipped: true, reason: "disabled_by_settings" };
+  if (effectiveSendPush) {
+    try {
+      push = await sendPushNotification(user, { title, message, metadata });
+    } catch (e) {
+      push = { success: false, reason: e.message };
+    }
+  }
 
   return {
     inApp,
