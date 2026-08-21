@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Edit2, Trash2, Check, X, Save, Star } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { toast } from "react-hot-toast";
@@ -270,228 +271,248 @@ export default function SubscriptionPlansManager() {
           </p>
         </div>
       )}
-
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-h-[90vh] max-w-2xl overflow-y-auto">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">
-                  {editingPlan ? "Edit Plan" : "Add New Plan"}
-                </h2>
-                <button
-                  onClick={resetForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Plan ID *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.id}
-                      onChange={(e) =>
-                        setFormData({ ...formData, id: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="e.g., pro-yearly"
-                      disabled={!!editingPlan}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Plan Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={(e) =>
-                        setFormData({ ...formData, name: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="e.g., Pro Yearly"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Price (₹) *
-                    </label>
-                    <input
-                      type="number"
-                      required
-                      value={formData.price}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          price: parseInt(e.target.value) || 0,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Original Price (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.originalPrice || ""}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          originalPrice: parseInt(e.target.value) || null,
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Period *
-                    </label>
-                    <select
-                      required
-                      value={formData.period}
-                      onChange={(e) =>
-                        setFormData({ ...formData, period: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="/month">/month</option>
-                      <option value="/year">/year</option>
-                      <option value="forever">forever</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Button Text
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.buttonText}
-                      onChange={(e) =>
-                        setFormData({ ...formData, buttonText: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Savings Label
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.savings}
-                      onChange={(e) =>
-                        setFormData({ ...formData, savings: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="e.g., Save 58%"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.popular}
-                    onChange={(e) =>
-                      setFormData({ ...formData, popular: e.target.checked })
-                    }
-                    className="w-4 h-4 text-indigo-600 dark:text-indigo-400 rounded"
-                    id="popular"
-                  />
-                  <label
-                    htmlFor="popular"
-                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-h-[90vh] max-w-2xl overflow-y-auto border border-gray-200 dark:border-gray-700">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingPlan ? "Edit Plan" : "Add New Plan"}
+                  </h2>
+                  <button
+                    onClick={resetForm}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                   >
-                    Mark as Popular Plan
-                  </label>
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Features */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Features
-                  </label>
-                  <div className="space-y-2 mb-3">
-                    {(formData.features || []).map((feature, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        {feature.included ? (
-                          <Check className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <X className="w-4 h-4 text-gray-300" />
-                        )}
-                        <span className="flex-1 text-sm">{feature.text}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeFeature(index)}
-                          className="p-1 text-red-500 hover:bg-red-50 dark:bg-red-900/20 rounded"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Plan ID *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.id}
+                        onChange={(e) =>
+                          setFormData({ ...formData, id: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="pro-monthly"
+                        disabled={editingPlan}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Plan Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="Pro Monthly"
+                      />
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={newFeature.text}
-                      onChange={(e) =>
-                        setNewFeature({ ...newFeature, text: e.target.value })
-                      }
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Add feature text..."
-                      onKeyDown={(e) =>
-                        e.key === "Enter" && (e.preventDefault(), addFeature())
-                      }
-                    />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        value={formData.price}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            price: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Original Price (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={formData.originalPrice || ""}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            originalPrice: e.target.value
+                              ? parseFloat(e.target.value)
+                              : null,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="Optional strikethrough"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Billing Period
+                      </label>
+                      <select
+                        value={formData.period}
+                        onChange={(e) =>
+                          setFormData({ ...formData, period: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      >
+                        <option value="/month">Monthly</option>
+                        <option value="/quarter">Quarterly</option>
+                        <option value="/year">Yearly</option>
+                        <option value="/lifetime">Lifetime</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Badge Text (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.badge || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, badge: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="Most Popular"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Savings Text (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.savings || ""}
+                        onChange={(e) =>
+                          setFormData({ ...formData, savings: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="Save 20%"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.popular || false}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            popular: e.target.checked,
+                          })
+                        }
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Highlight as Popular
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.active !== false}
+                        onChange={(e) =>
+                          setFormData({ ...formData, active: e.target.checked })
+                        }
+                        className="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                      />
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Active
+                      </span>
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Features
+                    </label>
+                    <div className="space-y-2 mb-3">
+                      {formData.features?.map((feature, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg"
+                        >
+                          <span className="text-sm">{feature}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeFeature(idx)}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newFeature}
+                        onChange={(e) => setNewFeature(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            addFeature();
+                          }
+                        }}
+                        placeholder="Add a feature..."
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={addFeature}
+                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                     <button
                       type="button"
-                      onClick={addFeature}
-                      className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-200"
+                      onClick={resetForm}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-300"
                     >
-                      Add
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                    >
+                      <Save className="w-4 h-4" />
+                      {editingPlan ? "Update" : "Create"}
                     </button>
                   </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingPlan ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

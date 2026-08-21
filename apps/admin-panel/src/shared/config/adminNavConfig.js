@@ -47,6 +47,7 @@ import {
   TrendingUp,
   Monitor,
   Radio,
+  Terminal,
 } from "lucide-react";
 
 /**
@@ -454,6 +455,14 @@ export const adminNavConfig = {
           icon: Activity,
           description: "Backend status, DB health",
           badge: null,
+        },
+        {
+          id: "logs",
+          name: "Terminal Logs",
+          path: "/admin/logs",
+          icon: Terminal,
+          description: "Live real-time backend console and terminal logs",
+          badge: "LIVE",
         },
         {
           id: "backups",

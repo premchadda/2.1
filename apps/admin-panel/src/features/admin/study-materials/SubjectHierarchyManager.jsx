@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Edit2,
@@ -654,128 +655,188 @@ export default function SubjectHierarchyManager() {
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">
-                  {editingItem
-                    ? `Edit ${LEVEL_LABELS[formLevel]}`
-                    : `Add ${LEVEL_LABELS[formLevel]}`}
-                </h2>
-                <button
-                  onClick={closeForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => {
-                      const name = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        name,
-                        slug: editingItem ? prev.slug : generateSlug(name),
-                      }));
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder={`e.g., ${formLevel === "subject" ? "Mathematics" : formLevel === "topic" ? "Algebra" : "Quadratic Equations"}`}
-                  />
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingItem
+                      ? `Edit ${LEVEL_LABELS[formLevel]}`
+                      : `Add ${LEVEL_LABELS[formLevel]}`}
+                  </h2>
+                  <button
+                    onClick={closeForm}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Slug
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.slug}
-                    onChange={(e) =>
-                      setFormData({ ...formData, slug: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Icon
+                      Name *
                     </label>
                     <input
                       type="text"
-                      value={formData.icon}
-                      onChange={(e) =>
-                        setFormData({ ...formData, icon: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-center text-xl"
-                      placeholder="📖"
+                      required
+                      value={formData.name}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          name,
+                          slug: editingItem ? prev.slug : generateSlug(name),
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder={`e.g., ${formLevel === "subject" ? "Mathematics" : formLevel === "topic" ? "Algebra" : "Quadratic Equations"}`}
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Order
+                      Slug
                     </label>
                     <input
-                      type="number"
-                      value={formData.order}
+                      type="text"
+                      value={formData.slug}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          order: parseInt(e.target.value) || 0,
-                        })
+                        setFormData((prev) => ({
+                          ...prev,
+                          slug: e.target.value,
+                        }))
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 font-mono text-sm bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="auto-generated-from-name"
                     />
                   </div>
-                </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t flex-wrap">
-                  <button
-                    type="button"
-                    onClick={closeForm}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingItem ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
+                  {formLevel !== "subject" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Parent {formLevel === "subtopic" ? "Topic" : "Subject"}
+                      </label>
+                      <select
+                        value={formData.parentId}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            parentId: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      >
+                        <option value="">None (Top Level)</option>
+                        {parentOptions.map((opt) => (
+                          <option key={opt.id} value={opt.id}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="Brief description..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Icon (Lucide name)
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.icon}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            icon: e.target.value,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        placeholder="e.g., BookOpen"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Display Order
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.displayOrder}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            displayOrder: parseInt(e.target.value) || 0,
+                          }))
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      checked={formData.isActive}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          isActive: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 text-indigo-600 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500"
+                    />
+                    <label
+                      htmlFor="isActive"
+                      className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      Active
+                    </label>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={closeForm}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold shadow-md shadow-indigo-500/20 transition"
+                    >
+                      <Save className="w-4 h-4" />
+                      {editingItem ? "Update" : "Create"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

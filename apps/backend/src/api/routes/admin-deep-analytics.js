@@ -1,12 +1,31 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
+import {
+  protect,
+  admin,
+  superAdmin,
+} from "../../middleware/auth.middleware.js";
 import logger from "../../infrastructure/logger/logger.js";
+import { isFeatureEnabled } from "../../services/SettingsService.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
+
+const requireAnalyticsEnabled = async (req, res, next) => {
+  try {
+    if (!(await isFeatureEnabled("analytics"))) {
+      return res.status(503).json({
+        success: false,
+        code: "ANALYTICS_DISABLED",
+        message: "Analytics is disabled by admin settings",
+      });
+    }
+  } catch {}
+  next();
+};
+router.use(requireAnalyticsEnabled);
 
 // ============================================
 // DEEP ANALYTICS - Cohort, Funnel, Engagement

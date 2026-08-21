@@ -4,6 +4,7 @@ import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
 import { getRedisClient } from "../infrastructure/cache/redisClient.js";
 import { isTransientDbError } from "../shared/utils/db-errors.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
+import { decryptUserPii } from "../shared/utils/user-utils.js";
 
 export const ROLES = {
   USER: "user",
@@ -153,7 +154,8 @@ export function clearAuthCaches(includeRedis = false) {
 // FAIL-OPEN: any DB/lookup error is logged and the request is allowed, so a
 // transient DB blip or a missing column can never lock out legitimate traffic.
 // A definitive expiry signal, however, is NOT fail-open — it returns 401.
-const defaultUserIdleMin = "4320"; // 3 days (3 * 24 * 60 minutes) default inactivity timeout
+const defaultUserIdleMin = "4320"; // 3 days default inactivity timeout
+const defaultUserRememberMeIdleMin = "10080"; // 7 days when rememberMe is checked
 const defaultAdminIdleMin =
   process.env.NODE_ENV === "development" ? "10080" : "4320";
 export const ADMIN_IDLE_TIMEOUT_MS =
@@ -162,6 +164,12 @@ export const ADMIN_IDLE_TIMEOUT_MS =
 export const SESSION_IDLE_TIMEOUT_MS =
   parseInt(process.env.SESSION_IDLE_TIMEOUT_MIN || defaultUserIdleMin, 10) *
   60_000;
+export const SESSION_IDLE_REMEMBER_ME_TIMEOUT_MS =
+  parseInt(
+    process.env.SESSION_IDLE_REMEMBER_ME_TIMEOUT_MIN ||
+      defaultUserRememberMeIdleMin,
+    10,
+  ) * 60_000;
 export const SESSION_ABSOLUTE_TIMEOUT_MS =
   parseInt(process.env.SESSION_ABSOLUTE_TIMEOUT_DAYS || "30", 10) *
   24 *
@@ -207,10 +215,19 @@ async function enforceSessionExpiry(decoded, user) {
   const sessionId = decoded.sessionId;
   if (!sessionId) return;
 
-  const defaultIdleThreshold = IDLE_ENFORCED_ROLES.has(user.role)
-    ? ADMIN_IDLE_TIMEOUT_MS
-    : SESSION_IDLE_TIMEOUT_MS;
+  // 3 days default, 7 days when rememberMe was checked. Admin roles keep their tighter window unless rememberMe overrides.
+  const rememberMe =
+    decoded.rememberMe === true || decoded.remember_me === true;
+  let defaultIdleThreshold;
+  if (rememberMe) {
+    defaultIdleThreshold = SESSION_IDLE_REMEMBER_ME_TIMEOUT_MS;
+  } else {
+    defaultIdleThreshold = IDLE_ENFORCED_ROLES.has(user.role)
+      ? ADMIN_IDLE_TIMEOUT_MS
+      : SESSION_IDLE_TIMEOUT_MS;
+  }
   const securitySettings = await getRuntimeSecuritySettings().catch(() => null);
+  // securitySettings.sessionTimeout >0 is an explicit admin override and takes precedence for all.
   const idleThreshold =
     securitySettings?.sessionTimeout > 0
       ? securitySettings.sessionTimeout * 1000
@@ -308,6 +325,75 @@ const AUTH_RATE_LIMIT_MAX = parseInt(
   10,
 );
 
+/**
+ * Helper to check if a request comes from an authenticated Admin or Admin client.
+ * Used to bypass rate limiters and lockout for admin users.
+ */
+export const isUserAdminRequest = (req) => {
+  if (!req) return false;
+  try {
+    // 1. Check if user is already attached to req
+    if (
+      req.user &&
+      (req.user.isAdmin ||
+        req.user.role === ROLES.ADMIN ||
+        req.user.role === ROLES.SUPER_ADMIN ||
+        req.user.role === "admin" ||
+        req.user.role === "super_admin")
+    ) {
+      return true;
+    }
+    // 2. Check admin API key header
+    const adminKey =
+      req.headers?.["x-admin-api-key"] || req.headers?.["x-api-key"];
+    if (
+      adminKey &&
+      process.env.ADMIN_API_KEY &&
+      adminKey === process.env.ADMIN_API_KEY
+    ) {
+      return true;
+    }
+    // 3. Check admin origin / referer (admin panel ports :3002, :5173, or configured ADMIN_PANEL_URL)
+    const origin = req.headers?.origin || req.headers?.referer;
+    if (
+      origin &&
+      (origin.includes(":3002") ||
+        origin.includes(":5173") ||
+        (process.env.ADMIN_PANEL_URL &&
+          origin.startsWith(process.env.ADMIN_PANEL_URL)) ||
+        (process.env.ADMIN_ALLOWED_ORIGINS &&
+          process.env.ADMIN_ALLOWED_ORIGINS.split(",").some((o) =>
+            origin.startsWith(o.trim()),
+          )))
+    ) {
+      return true;
+    }
+    // 4. Inspect JWT token in Authorization header or cookie
+    let token = null;
+    if (req.headers?.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+    if (token) {
+      const decoded = jwt.decode(token);
+      if (
+        decoded &&
+        (decoded.role === ROLES.ADMIN ||
+          decoded.role === ROLES.SUPER_ADMIN ||
+          decoded.role === "admin" ||
+          decoded.role === "super_admin" ||
+          decoded.isAdmin)
+      ) {
+        return true;
+      }
+    }
+  } catch (_) {
+    // fail closed / continue with standard checks
+  }
+  return false;
+};
+
 export const authRateLimiter = rateLimit({
   windowMs: AUTH_RATE_LIMIT_WINDOW_MS,
   max: AUTH_RATE_LIMIT_MAX,
@@ -317,6 +403,7 @@ export const authRateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => isUserAdminRequest(req),
 });
 
 export const isHigherRole = (userRole, requiredRole) => {
@@ -482,13 +569,14 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    const { password, ...userWithoutPassword } = user;
-    const isAdmin = user.role === ROLES.ADMIN;
+    const decryptedUser = decryptUserPii(user);
+    const { password, ...userWithoutPassword } = decryptedUser;
+    const isAdmin = decryptedUser.role === ROLES.ADMIN;
 
     req.user = {
       ...userWithoutPassword,
       isAdmin,
-      role: user.role,
+      role: decryptedUser.role,
       sessionId: decoded.sessionId || null,
     };
     req.authToken = token;
@@ -577,12 +665,10 @@ export const requireImageAuth = async (req, res, next) => {
     }
 
     if (!token) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Authentication required to view this asset",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required to view this asset",
+      });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -590,12 +676,10 @@ export const requireImageAuth = async (req, res, next) => {
       decoded.type &&
       !["session", "web", "phone", undefined, null].includes(decoded.type)
     ) {
-      return res
-        .status(401)
-        .json({
-          success: false,
-          message: "Not authorized, invalid token type",
-        });
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, invalid token type",
+      });
     }
 
     // Validate the session is still active when one is attached to the token.
@@ -644,12 +728,10 @@ export const requireImageAuth = async (req, res, next) => {
 
     next();
   } catch (error) {
-    return res
-      .status(401)
-      .json({
-        success: false,
-        message: "Authentication required to view this asset",
-      });
+    return res.status(401).json({
+      success: false,
+      message: "Authentication required to view this asset",
+    });
   }
 };
 

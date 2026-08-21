@@ -143,6 +143,7 @@ router.put(
     await Promise.all([
       invalidateResponseCache("public-settings"),
       invalidateResponseCache("site-settings"),
+      invalidateResponseCache("admin-settings"),
     ]);
     if (updated && updated.smtpPassword) {
       updated.smtpPassword = "••••••••";
@@ -159,20 +160,35 @@ router.put(
 router.post(
   "/settings/test-email",
   asyncHandler(async (req, res) => {
-    const { testTo } = req.body;
+    const {
+      testTo,
+      smtpHost: bodyHost,
+      smtpPort: bodyPort,
+      smtpUsername: bodyUser,
+      smtpPassword: bodyPass,
+      fromEmail: bodyFrom,
+      fromName: bodyFromName,
+    } = req.body;
 
     const { getFullSettings } =
       await import("../../services/SettingsService.js");
     const currentSettings = await getFullSettings();
 
     const emailConfig = currentSettings.email || {};
-    const smtpHost = process.env.SMTP_HOST || emailConfig.smtpHost;
-    const smtpPort = process.env.SMTP_PORT || emailConfig.smtpPort;
-    const smtpUsername = process.env.SMTP_USER || emailConfig.smtpUsername;
-    const smtpPassword = process.env.SMTP_PASS || emailConfig.smtpPassword;
-    const fromEmail = process.env.SMTP_FROM_EMAIL || emailConfig.fromEmail;
+    // Body fields act as override (legacy admin.js shape) but stored settings + env remain fallback
+    const smtpHost = bodyHost || process.env.SMTP_HOST || emailConfig.smtpHost;
+    const smtpPort = bodyPort || process.env.SMTP_PORT || emailConfig.smtpPort;
+    const smtpUsername =
+      bodyUser || process.env.SMTP_USER || emailConfig.smtpUsername;
+    const smtpPassword =
+      bodyPass || process.env.SMTP_PASS || emailConfig.smtpPassword;
+    const fromEmail =
+      bodyFrom || process.env.SMTP_FROM_EMAIL || emailConfig.fromEmail;
     const fromName =
-      process.env.SMTP_FROM_NAME || emailConfig.fromName || "Trstprep";
+      bodyFromName ||
+      process.env.SMTP_FROM_NAME ||
+      emailConfig.fromName ||
+      "Trstprep";
 
     if (
       !smtpHost ||

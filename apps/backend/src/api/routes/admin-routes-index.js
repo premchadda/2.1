@@ -21,6 +21,7 @@ import adminEnrollmentsRoutes from "./admin-enrollments.js";
 import adminExamsRoutes from "./admin-exams.js";
 import adminExtrasRoutes from "./admin-extras.js";
 import adminImportRoutes from "./admin-import.js";
+import adminLogsRoutes from "./admin-logs.js";
 import adminModerationRoutes from "./admin-moderation.js";
 import adminNavigationTagsRoutes from "./admin-navigation-tags.js";
 import adminNavigationRoutes from "./admin-navigation.js";
@@ -38,8 +39,14 @@ import adminTestsRoutes from "./admin-tests.js";
 import adminUsersRoutes from "./admin-users.js";
 import { auditMiddleware } from "../../middleware/audit.middleware.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
-import { restrictAdminOrigin, validateAdminApiKey } from "../../middleware/origin.middleware.js";
-import { loadAdminPermissions, requireAdminPermission } from "../../middleware/admin-permission.middleware.js";
+import {
+  restrictAdminOrigin,
+  validateAdminApiKey,
+} from "../../middleware/origin.middleware.js";
+import {
+  loadAdminPermissions,
+  requireAdminPermission,
+} from "../../middleware/admin-permission.middleware.js";
 import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
 
 /**
@@ -55,7 +62,7 @@ export function mountAdminRoutes(app, adminLimiter) {
   app.use("/api/admin", (req, res, next) => {
     // Skip GET list endpoints (no :id param) to avoid log flood on browse/list.
     // Detail reads (e.g. /users/123, /payments/transactions/456) are audited.
-    if (req.method === 'GET' && !req.path.match(/\/[^/]+\/[^/]+$/)) {
+    if (req.method === "GET" && !req.path.match(/\/[^/]+\/[^/]+$/)) {
       return next();
     }
     return auditMiddleware({ includeBody: true })(req, res, next);
@@ -66,7 +73,13 @@ export function mountAdminRoutes(app, adminLimiter) {
   app.use("/api/admin", restrictAdminOrigin);
   app.use("/api/admin", validateAdminApiKey);
   app.use("/api/admin", validateCsrfToken);
-  app.use("/api/admin", protect, admin, loadAdminPermissions, requireAdminPermission);
+  app.use(
+    "/api/admin",
+    protect,
+    admin,
+    loadAdminPermissions,
+    requireAdminPermission,
+  );
 
   // Routes mounted at /api/admin
   app.use("/api/admin", adminLimiter, adminActivityRoutes);
@@ -113,9 +126,14 @@ export function mountAdminRoutes(app, adminLimiter) {
   // (/deep/*) so its handlers stay reachable instead of being shadowed.
   app.use("/api/admin/analytics", adminLimiter, adminAnalyticsRoutes);
   app.use("/api/admin/analytics/deep", adminLimiter, adminDeepAnalyticsRoutes);
-  app.use("/api/admin/email-templates", adminLimiter, adminEmailTemplatesRoutes);
+  app.use(
+    "/api/admin/email-templates",
+    adminLimiter,
+    adminEmailTemplatesRoutes,
+  );
   app.use("/api/admin/coming-soon", adminLimiter, adminComingSoonRoutes);
   app.use("/api/admin/payments", adminLimiter, adminPaymentsRoutes);
   app.use("/api/admin/moderation", adminLimiter, adminModerationRoutes);
   app.use("/api/admin/backups", adminLimiter, adminBackupsRoutes);
+  app.use("/api/admin/logs", adminLogsRoutes);
 }

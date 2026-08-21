@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   Search,
@@ -302,145 +303,151 @@ export default function TopicsManager() {
       </div>
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-3 sm:p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">
-                  {editingTopic ? "Edit Topic" : "Add New Topic"}
-                </h2>
-                <button
-                  onClick={resetForm}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Topic Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="e.g., Number System"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Chapter *
-                  </label>
-                  <select
-                    required
-                    value={formData.chapterId}
-                    onChange={(e) =>
-                      setFormData({ ...formData, chapterId: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+      {showForm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-3 sm:p-4 animate-fade-in">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
+              <div className="p-5 sm:p-6">
+                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingTopic ? "Edit Topic" : "Add New Topic"}
+                  </h2>
+                  <button
+                    onClick={resetForm}
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
                   >
-                    <option value="">Select chapter...</option>
-                    {chapters.map((chapter) => {
-                      const id = chapter.id || chapter._id;
-                      return (
-                        <option key={id} value={id}>
-                          {chapter.title || chapter.name}
-                        </option>
-                      );
-                    })}
-                  </select>
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) =>
-                      setFormData({ ...formData, description: e.target.value })
-                    }
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    placeholder="Brief description of this topic..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Icon
+                      Topic Name *
                     </label>
                     <input
                       type="text"
-                      value={formData.icon}
+                      required
+                      value={formData.name}
                       onChange={(e) =>
-                        setFormData({ ...formData, icon: e.target.value })
+                        setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-center text-xl"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="e.g., Number System"
                     />
                   </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Order
+                      Chapter *
                     </label>
-                    <input
-                      type="number"
-                      value={formData.order}
+                    <select
+                      required
+                      value={formData.chapterId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, chapterId: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                    >
+                      <option value="">Select chapter...</option>
+                      {chapters.map((chapter) => {
+                        const id = chapter.id || chapter._id;
+                        return (
+                          <option key={id} value={id}>
+                            {chapter.title || chapter.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={formData.description}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          order: parseInt(e.target.value) || 0,
+                          description: e.target.value,
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      placeholder="Brief description of this topic..."
                     />
                   </div>
-                </div>
 
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isActive: e.target.checked })
-                    }
-                    className="w-4 h-4 text-indigo-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Active
-                  </span>
-                </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Icon
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.icon}
+                        onChange={(e) =>
+                          setFormData({ ...formData, icon: e.target.value })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-center text-xl bg-white dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Order
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.order}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            order: parseInt(e.target.value) || 0,
+                          })
+                        }
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t flex-wrap">
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                  >
-                    <Save className="w-4 h-4" />
-                    {editingTopic ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isActive}
+                      onChange={(e) =>
+                        setFormData({ ...formData, isActive: e.target.checked })
+                      }
+                      className="w-4 h-4 text-indigo-600 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Active
+                    </span>
+                  </label>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold shadow-md shadow-indigo-500/20 transition"
+                    >
+                      <Save className="w-4 h-4" />
+                      {editingTopic ? "Update" : "Create"}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { AlertTriangle, X, Loader2 } from "lucide-react";
 
 /**
@@ -71,9 +72,9 @@ export function ConfirmModal({
     return () => document.removeEventListener("keydown", handler);
   }, [busy, onCancel]);
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4 animate-fade-in"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[999999] flex items-center justify-center p-3 sm:p-4 animate-fade-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
@@ -128,6 +129,10 @@ export function ConfirmModal({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 }
 
 /**

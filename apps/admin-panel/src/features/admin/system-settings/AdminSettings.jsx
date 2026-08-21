@@ -195,7 +195,8 @@ export default function SiteSettingsManager() {
       twoFactorAuth: false,
       ipWhitelist: [],
       maxLoginAttempts: 5,
-      sessionTimeout: 3600,
+      // 0 = use server default (3-day idle timeout)
+      sessionTimeout: 0,
       allowedEmailDomains:
         "gmail.com, outlook.com, hotmail.com, yahoo.com, yahoo.co.in, icloud.com, proton.me, protonmail.com, zoho.com, rediffmail.com, *.edu, *.ac.in, *.edu.in, *.res.in, *.gov.in",
     },
@@ -346,6 +347,12 @@ export default function SiteSettingsManager() {
         setSettings((prev) => ({
           ...prev,
           ...maskedSettings,
+          // Reverse of the save mapping: backend persists seoTitle/
+          // seoDescription/seoKeywords; form binds metaTitle/metaDescription/keywords
+          metaTitle: maskedSettings.seoTitle ?? prev.metaTitle,
+          metaDescription:
+            maskedSettings.seoDescription ?? prev.metaDescription,
+          keywords: maskedSettings.seoKeywords ?? prev.keywords,
           socialLinks: {
             ...prev.socialLinks,
             ...(maskedSettings.socialLinks || {}),
@@ -479,6 +486,46 @@ export default function SiteSettingsManager() {
       current[keys[keys.length - 1]] = value;
       return newSettings;
     });
+  };
+
+  // Boolean toggles auto-save immediately (optimistic update, revert on
+  // failure) so admins don't need to press Save for switches. Save/Discard
+  // remain for text/number/select inputs only.
+  const handleToggleChange = async (path, value) => {
+    const parts = path.split(".");
+    let patch;
+    if (parts[0] === "features") {
+      // Backend's normalizeFeatures resets omitted flags to defaults — always
+      // send the full feature map with only this key changed.
+      patch = { features: { ...settings.features, [parts[1]]: value } };
+    } else if (parts[0] === "comingSoon") {
+      // Backend replaces the whole comingSoon section when provided — send it
+      // complete with only this entry's enabled flag mutated.
+      const key = parts[1];
+      patch = {
+        comingSoon: {
+          ...settings.comingSoon,
+          [key]: { ...settings.comingSoon?.[key], enabled: value },
+        },
+      };
+    } else {
+      // security/maintenance/payment/notifications sections merge partially
+      // on the backend — a single-key fragment is safe.
+      const [section, key] = parts;
+      patch = { [section]: { [key]: value } };
+    }
+
+    handleInputChange(path, value); // optimistic
+    try {
+      await apiClient.put("/admin/settings", patch);
+      toast.success("Saved");
+    } catch (err) {
+      console.error(`Auto-save failed for ${path}:`, err);
+      toast.error(
+        err.response?.data?.message || "Could not save setting — reverted",
+      );
+      handleInputChange(path, !value); // revert
+    }
   };
 
   const handleSocialLinkChange = (platform, value) => {
@@ -769,7 +816,7 @@ export default function SiteSettingsManager() {
                       <ToggleSwitch
                         checked={value}
                         onChange={(val) =>
-                          handleInputChange(`features.${key}`, val)
+                          handleToggleChange(`features.${key}`, val)
                         }
                       />
                     </div>
@@ -801,7 +848,7 @@ export default function SiteSettingsManager() {
                   <ToggleSwitch
                     checked={settings.maintenance.enabled}
                     onChange={(val) =>
-                      handleInputChange("maintenance.enabled", val)
+                      handleToggleChange("maintenance.enabled", val)
                     }
                   />
                 </div>
@@ -873,7 +920,7 @@ export default function SiteSettingsManager() {
                   <ToggleSwitch
                     checked={settings.maintenance.allowAdminAccess}
                     onChange={(val) =>
-                      handleInputChange("maintenance.allowAdminAccess", val)
+                      handleToggleChange("maintenance.allowAdminAccess", val)
                     }
                   />
                 </div>
@@ -899,7 +946,7 @@ export default function SiteSettingsManager() {
                       keyName={key}
                       config={config}
                       onToggle={(val) =>
-                        handleInputChange(`comingSoon.${key}.enabled`, val)
+                        handleToggleChange(`comingSoon.${key}.enabled`, val)
                       }
                       onChange={(field, val) =>
                         handleInputChange(`comingSoon.${key}.${field}`, val)
@@ -928,7 +975,7 @@ export default function SiteSettingsManager() {
                       keyName={key}
                       config={config}
                       onToggle={(val) =>
-                        handleInputChange(`comingSoon.${key}.enabled`, val)
+                        handleToggleChange(`comingSoon.${key}.enabled`, val)
                       }
                       onChange={(field, val) =>
                         handleInputChange(`comingSoon.${key}.${field}`, val)
@@ -1084,7 +1131,7 @@ export default function SiteSettingsManager() {
                       type="checkbox"
                       checked={settings.security.passwordComplexity}
                       onChange={(e) =>
-                        handleInputChange(
+                        handleToggleChange(
                           "security.passwordComplexity",
                           e.target.checked,
                         )
@@ -1132,6 +1179,9 @@ export default function SiteSettingsManager() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Session Timeout (seconds)
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      0 = server default (3 days)
+                    </span>
                   </label>
                   <input
                     type="number"
@@ -1142,8 +1192,8 @@ export default function SiteSettingsManager() {
                         parseInt(e.target.value) || 0,
                       )
                     }
-                    min="300"
-                    max="36000"
+                    min="0"
+                    max="86400"
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
@@ -1160,7 +1210,7 @@ export default function SiteSettingsManager() {
                     type="checkbox"
                     checked={settings.security.twoFactorAuth}
                     onChange={(e) =>
-                      handleInputChange(
+                      handleToggleChange(
                         "security.twoFactorAuth",
                         e.target.checked,
                       )
@@ -1574,7 +1624,7 @@ export default function SiteSettingsManager() {
                       type="checkbox"
                       checked={settings.payment.taxEnabled}
                       onChange={(e) =>
-                        handleInputChange(
+                        handleToggleChange(
                           "payment.taxEnabled",
                           e.target.checked,
                         )
@@ -1643,7 +1693,7 @@ export default function SiteSettingsManager() {
                         type="checkbox"
                         checked={value}
                         onChange={(e) =>
-                          handleInputChange(
+                          handleToggleChange(
                             `notifications.${key}`,
                             e.target.checked,
                           )

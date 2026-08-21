@@ -2,6 +2,7 @@ import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
 import { logAuditEvent } from "./audit.middleware.js";
 import logger from "../infrastructure/logger/logger.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
+import { isUserAdminRequest } from "./auth.middleware.js";
 
 export const LOCKOUT_CONFIG = {
   MAX_ATTEMPTS: 5,
@@ -51,11 +52,26 @@ export const checkAccountLockout = async (email, ipAddress) => {
 
   let lockoutMinutes = 0;
 
-  if (LOCKOUT_CONFIG.PROGRESSIVE_LOCKOUT) {
+  // Respect admin-configured maxLoginAttempts as the minimum threshold.
+  // Previously progressive factors locked at 3 attempts even if admin set
+  // maxLoginAttempts=10, making the toggle effectively useless.
+  if (attemptCount < maxAttempts) {
+    // Not yet at threshold — no lockout regardless of progressive factors.
+    lockoutMinutes = 0;
+  } else if (LOCKOUT_CONFIG.PROGRESSIVE_LOCKOUT) {
     for (const factor of LOCKOUT_CONFIG.PROGRESSIVE_FACTORS) {
-      if (attemptCount >= factor.attempts) {
+      // Factor only applies if its threshold is >= admin maxAttempts, or
+      // attemptCount already exceeds both.
+      // We treat maxAttempts as overriding any lower factor threshold.
+      const effectiveAttempts = Math.max(factor.attempts, maxAttempts);
+      if (attemptCount >= effectiveAttempts) {
         lockoutMinutes = factor.lockoutMinutes;
       }
+    }
+    // Fallback: if no progressive factor matched but we are at/above maxAttempts,
+    // apply base duration so the toggle still enforces *some* lockout.
+    if (lockoutMinutes === 0) {
+      lockoutMinutes = LOCKOUT_CONFIG.LOCKOUT_DURATION_MINUTES;
     }
   } else if (attemptCount >= maxAttempts) {
     lockoutMinutes = LOCKOUT_CONFIG.LOCKOUT_DURATION_MINUTES;
@@ -166,6 +182,11 @@ const isLockoutPath = (path) => {
 };
 
 export const lockoutMiddleware = async (req, res, next) => {
+  // Never lock out admin requests
+  if (isUserAdminRequest(req)) {
+    return next();
+  }
+
   // Apply brute-force protection to login, password reset, OTP, and 2FA verification
   if (!isLockoutPath(req.path)) {
     return next();

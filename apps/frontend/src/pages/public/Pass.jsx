@@ -362,6 +362,7 @@ function Pass() {
           name: user?.name || "",
           email: user?.email || "",
           contact: user?.phone || "",
+          method: paymentMethod || "upi",
         },
         theme: {
           color: "#f59e0b",
@@ -1386,9 +1387,10 @@ function Pass() {
                   </div>
 
                   {/* Payment Method Selector - Clean Buttons Only */}
+                  {/* Payment Method Selector */}
                   <div>
                     <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
-                      Payment Method
+                      Select Preferred Payment Mode
                     </label>
                     <div className="grid grid-cols-3 gap-2">
                       <button
@@ -1424,6 +1426,108 @@ function Pass() {
                       >
                         <Building className="w-3.5 h-3.5" /> NetBank
                       </button>
+                    </div>
+
+                    {/* Dynamic Method Helper / Supported Channels */}
+                    <div className="mt-2.5 p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs">
+                      {paymentMethod === "upi" && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                            <span>Supported UPI Apps & QR:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              Zero Convenience Fee
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                              Google Pay
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                              PhonePe
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                              Paytm
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                              BHIM / Any App
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-purple-700 dark:text-purple-300 font-semibold">
+                              Dynamic QR Code
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
+                            Click &quot;Pay &amp; Activate&quot; below to scan
+                            the live dynamic UPI QR code or pay directly from
+                            any installed UPI app.
+                          </p>
+                        </div>
+                      )}
+
+                      {paymentMethod === "card" && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                            <span>Debit &amp; Credit Cards:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              256-Bit SSL Secured
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              Visa
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              MasterCard
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              RuPay
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              Corporate Cards
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
+                            Click &quot;Pay &amp; Activate&quot; below to
+                            securely enter your card details and complete
+                            instant bank OTP verification.
+                          </p>
+                        </div>
+                      )}
+
+                      {paymentMethod === "netbanking" && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                            <span>Popular Indian Banks:</span>
+                            <span className="text-emerald-600 dark:text-emerald-400 font-bold">
+                              50+ Banks Supported
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              SBI
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              HDFC
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              ICICI
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              Axis
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              Kotak
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              PNB
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
+                            Click &quot;Pay &amp; Activate&quot; below to select
+                            your bank from the full list and approve the payment
+                            on your bank&apos;s portal.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

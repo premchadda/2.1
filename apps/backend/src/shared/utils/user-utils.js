@@ -1,6 +1,7 @@
 import { idsMatch } from "./db-utils.js";
 import { buildPublicIdLookup, mapLookupId } from "./public-id-response.js";
-import { getSubjectIcon as emojiGetSubjectIcon } from '../config/emojiConfig.js';
+import { getSubjectIcon as emojiGetSubjectIcon } from "../config/emojiConfig.js";
+import { decryptPii, isPiiEncryptionEnabled } from "./piiCrypto.js";
 
 /**
  * Populates enrolled series data for a user
@@ -27,68 +28,119 @@ export const populateEnrolledSeries = async (user, dbHelpers) => {
   );
 };
 
-/**
- * Sanitizes user object for public/API response
- * @param {object} user
- * @returns {object|null}
- */
-// Sensitive credential/secret/PII fields that must NEVER be returned to clients.
-// Covers both camelCase and snake_case variants (dbHelpers returns snake_case keys).
-// M7: extends beyond auth secrets to direct PII (phone, DOB, location, education,
-// bio, government ids) that should not be shared in generic user payloads.
-const SENSITIVE_USER_FIELDS = new Set([
-  'password',
-  'password_hash',
-  'salt',
-  'refresh_token_version',
-  'email_verification_token',
-  'emailVerificationToken',
-  'email_verification_expires',
-  'emailVerificationExpires',
-  'reset_password_token',
-  'resetPasswordToken',
-  'reset_password_expires',
-  'resetPasswordExpires',
-  'two_factor_secret',
-  'two_factor_secret_encrypted',
-  'otp_secret',
-  'phone_auth_secret',
-  'razorpay_customer_id',
-  'device_fingerprint',
-  'login_secret',
-  // PII (M7)
-  'phone',
-  'phone_number',
-  'dob',
-  'date_of_birth',
-  'location',
-  'city',
-  'state',
-  'country',
-  'pincode',
-  'pin_code',
-  'postal_code',
-  'education',
-  'bio',
-  'aadhaar',
-  'pan_number',
-  'government_id'
+// Credentials, hashes, salts, reset tokens, and internal secrets that must NEVER be returned in any API response.
+const CREDENTIAL_SECRET_FIELDS = new Set([
+  "password",
+  "password_hash",
+  "salt",
+  "refresh_token_version",
+  "refreshTokenVersion",
+  "email_verification_token",
+  "emailVerificationToken",
+  "email_verification_expires",
+  "emailVerificationExpires",
+  "reset_password_token",
+  "resetPasswordToken",
+  "reset_password_expires",
+  "resetPasswordExpires",
+  "two_factor_secret",
+  "twoFactorSecret",
+  "two_factor_secret_encrypted",
+  "otp_secret",
+  "otpSecret",
+  "phone_auth_secret",
+  "phoneAuthSecret",
+  "razorpay_customer_id",
+  "razorpayCustomerId",
+  "device_fingerprint",
+  "deviceFingerprint",
+  "login_secret",
+  "loginSecret",
+  "phone_enc",
+  "dob_enc",
+  "location_enc",
+  "education_enc",
+  "bio_enc",
+  "aadhaar",
+  "pan_number",
+  "panNumber",
+  "government_id",
+  "governmentId",
+]);
+
+// Extra PII fields stripped when exposing user records to OTHER/ANONYMOUS users (e.g. leaderboard, comments)
+const PUBLIC_ANONYMOUS_PII_FIELDS = new Set([
+  "phone",
+  "phone_number",
+  "dob",
+  "date_of_birth",
+  "dateOfBirth",
+  "location",
+  "city",
+  "state",
+  "country",
+  "pincode",
+  "pin_code",
+  "postal_code",
+  "education",
+  "bio",
 ]);
 
 /**
- * Sanitizes a user record for public/API responses.
- * Strips credential, secret, and sensitive-PII fields regardless of key casing.
+ * Decrypts any encrypted shadow columns back into readable properties on the user object.
  * @param {object|null} user
  * @returns {object|null}
  */
-export const sanitizeUser = (user) => {
+export const decryptUserPii = (user) => {
+  if (!user || !isPiiEncryptionEnabled()) return user;
+  const out = { ...user };
+  const map = [
+    ["phone_enc", "phone"],
+    ["phone_enc", "mobile"],
+    ["dob_enc", "dateOfBirth"],
+    ["dob_enc", "dob"],
+    ["location_enc", "location"],
+    ["education_enc", "education"],
+    ["bio_enc", "bio"],
+  ];
+  for (const [encKey, plainKey] of map) {
+    const enc = user[encKey];
+    if (enc && !out[plainKey]) {
+      try {
+        out[plainKey] = decryptPii(enc);
+      } catch {
+        // preserve existing if decryption fails
+      }
+    }
+  }
+  return out;
+};
+
+/**
+ * Sanitizes a user record for API responses.
+ * - Strips credentials, hashes, 2FA secrets, and internal auth secrets unconditionally.
+ * - If `options.isPublicList` is true, also strips contact/location PII for other users.
+ * - By default preserves user profile attributes (name, email, phone, mobile, dob, location, education, bio) for the authenticated user and admin endpoints.
+ * @param {object|null} user
+ * @param {object} [options]
+ * @param {boolean} [options.isPublicList=false]
+ * @returns {object|null}
+ */
+export const sanitizeUser = (user, options = {}) => {
   if (!user) return null;
 
+  // Decrypt any PII columns if present
+  const decrypted = decryptUserPii(user);
+
   const safeUser = {};
-  for (const key of Object.keys(user)) {
-    if (!SENSITIVE_USER_FIELDS.has(key)) {
-      safeUser[key] = user[key];
+  for (const key of Object.keys(decrypted)) {
+    if (CREDENTIAL_SECRET_FIELDS.has(key)) {
+      continue;
     }
+    if (options.isPublicList && PUBLIC_ANONYMOUS_PII_FIELDS.has(key)) {
+      continue;
+    }
+    safeUser[key] = decrypted[key];
   }
   return safeUser;
 };
@@ -153,10 +205,15 @@ export const mapEnrolledSeriesIdsForResponse = async (
  */
 export const isProUser = (user) => {
   if (!user) return false;
-  if (user.role === 'admin') return true;
-  const passType = String(user.passType || user.pass_type || '').toLowerCase();
-  if (passType && passType !== 'free' && passType !== 'none') return true;
-  if (user.isProUser === true || user.is_pro_user === true || user.isPro === true || user.is_pro === true) {
+  if (user.role === "admin") return true;
+  const passType = String(user.passType || user.pass_type || "").toLowerCase();
+  if (passType && passType !== "free" && passType !== "none") return true;
+  if (
+    user.isProUser === true ||
+    user.is_pro_user === true ||
+    user.isPro === true ||
+    user.is_pro === true
+  ) {
     if (user.proExpiry || user.pro_expiry) {
       return new Date(user.proExpiry || user.pro_expiry) > new Date();
     }
@@ -173,7 +230,7 @@ export const isProUser = (user) => {
 export const isProRestrictedTest = (test) => {
   if (!test) return false;
   if (test.isFree === true || test.is_free === true) return false;
-  if (String(test.type || '').toLowerCase() === 'free') return false;
+  if (String(test.type || "").toLowerCase() === "free") return false;
   return test.isPro === true || test.is_pro === true;
 };
 

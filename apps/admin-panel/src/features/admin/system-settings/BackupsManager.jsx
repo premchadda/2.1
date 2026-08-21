@@ -72,7 +72,9 @@ export default function BackupsManager() {
     e.preventDefault();
     try {
       setCreating(true);
-      const response = await api.post("/admin/backups", formData);
+      const response = await api.post("/admin/backups", formData, {
+        timeout: 300000,
+      });
       if (response.data?.success) {
         setShowCreateForm(false);
         setFormData({ name: "", type: "manual" });
@@ -104,15 +106,31 @@ export default function BackupsManager() {
     try {
       const response = await api.get(`/admin/backups/${id}/download`, {
         responseType: "blob",
+        timeout: 300000,
       });
+      // Handle JSON error masquerading as blob
+      const contentType = response.headers?.["content-type"] || "";
+      if (
+        contentType.includes("application/json") &&
+        response.data instanceof Blob
+      ) {
+        const text = await response.data.text();
+        try {
+          const json = JSON.parse(text);
+          throw { response: { data: json } };
+        } catch {}
+      }
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", fileName);
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
+      // Defer revoke to allow Firefox to start download
+      setTimeout(() => {
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      }, 1000);
       toast.success("Backup downloaded successfully");
     } catch (error) {
       console.error("Failed to download backup:", error);

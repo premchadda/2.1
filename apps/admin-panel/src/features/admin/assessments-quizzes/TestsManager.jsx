@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams, Link } from "react-router-dom";
 import {
   Check,
@@ -1522,13 +1523,11 @@ const CascadingCategorySelect = ({
   };
 
   const selectCls =
-    "w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white";
-  const rowCls = (indent) =>
-    `flex items-center gap-2${indent ? ` ml-${indent}` : ""}`;
+    "w-full px-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white min-h-[40px] sm:min-h-0";
 
   if (opts1.length === 0) {
     return (
-      <p className="text-sm text-gray-400 italic py-1">
+      <p className="text-xs sm:text-sm text-gray-400 italic py-1">
         No subcategories available for this test type.
       </p>
     );
@@ -1537,8 +1536,8 @@ const CascadingCategorySelect = ({
   return (
     <div className="space-y-2">
       {/* Level 1 — always visible */}
-      <div className={rowCls(0)}>
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider w-6 shrink-0">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider w-6 shrink-0 text-center">
           L1
         </span>
         <select
@@ -1560,8 +1559,8 @@ const CascadingCategorySelect = ({
 
       {/* Level 2 — revealed when L1 selected and has children */}
       {levels[0] && opts2.length > 0 && (
-        <div className={rowCls(4)}>
-          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0">
+        <div className="flex items-center gap-2 pl-2 sm:pl-3">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0 text-center">
             L2
           </span>
           <select
@@ -1584,8 +1583,8 @@ const CascadingCategorySelect = ({
 
       {/* Level 3 — revealed when L2 selected and has children */}
       {levels[1] && opts3.length > 0 && (
-        <div className={rowCls(8)}>
-          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0">
+        <div className="flex items-center gap-2 pl-4 sm:pl-6">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0 text-center">
             L3
           </span>
           <select
@@ -1608,8 +1607,8 @@ const CascadingCategorySelect = ({
 
       {/* Level 4 — revealed when L3 selected and has children */}
       {levels[2] && opts4.length > 0 && (
-        <div className={rowCls(12)}>
-          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0">
+        <div className="flex items-center gap-2 pl-6 sm:pl-9">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-6 shrink-0 text-center">
             L4
           </span>
           <select
@@ -1632,7 +1631,7 @@ const CascadingCategorySelect = ({
 
       {/* Selected path breadcrumb */}
       {value && (
-        <p className="text-[11px] text-indigo-600 font-medium pl-8 truncate">
+        <p className="text-[11px] text-indigo-600 font-medium pl-8 break-words">
           ✓ {getCategoryPathLabel(String(value), flatTestCategories)}
         </p>
       )}
@@ -1804,10 +1803,10 @@ const CompactSectionPicker = ({
   return (
     <div className="space-y-2">
       {/* Header with Title & Quick Actions */}
-      <div className="flex items-center justify-between">
-        <label className="block text-sm font-medium text-gray-700">
+      <div className="flex items-center justify-between flex-wrap gap-1.5">
+        <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
           Test Sections
-          <span className="ml-1.5 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+          <span className="ml-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-full border border-indigo-100 dark:border-indigo-800">
             {selectedIds.length} selected
           </span>
         </label>
@@ -1815,15 +1814,15 @@ const CompactSectionPicker = ({
           <button
             type="button"
             onClick={selectAllDisplayed}
-            className="text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer"
+            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-semibold cursor-pointer p-1"
           >
             Select All
           </button>
-          <span className="text-gray-300">|</span>
+          <span className="text-gray-300 dark:text-gray-600">|</span>
           <button
             type="button"
             onClick={deselectAll}
-            className="text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+            className="text-red-500 hover:text-red-700 dark:hover:text-red-400 font-semibold cursor-pointer p-1"
           >
             Clear
           </button>
@@ -1831,7 +1830,7 @@ const CompactSectionPicker = ({
       </div>
 
       {/* Filter & Search Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
         <div className="flex-1 relative">
           <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           <input
@@ -1839,7 +1838,7 @@ const CompactSectionPicker = ({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Filter sections by name..."
-            className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+            className="w-full pl-8 pr-3 py-2 sm:py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-800 dark:text-white min-h-[38px] sm:min-h-0"
           />
         </div>
 
@@ -1847,10 +1846,10 @@ const CompactSectionPicker = ({
           <button
             type="button"
             onClick={() => setShowAll((prev) => !prev)}
-            className={`px-2.5 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            className={`px-3 py-2 sm:py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer whitespace-nowrap shrink-0 text-center ${
               showAll
-                ? "bg-indigo-50 text-indigo-700 border-indigo-300"
-                : "bg-gray-50 text-gray-600 border-gray-300 hover:bg-gray-100"
+                ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700"
+                : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-100"
             }`}
           >
             {showAll
@@ -1861,25 +1860,25 @@ const CompactSectionPicker = ({
       </div>
 
       {/* Compact Interactive Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1.5 border border-gray-200 rounded-xl bg-gray-50/50 scrollbar-thin">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-900/30 scrollbar-thin">
         {displayedList.map((sec) => {
           const isSelected = selectedIds.includes(String(sec.id));
           return (
             <div
               key={sec.id}
               onClick={() => toggleSection(sec.id)}
-              className={`p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+              className={`p-2.5 sm:p-2 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 min-h-[44px] ${
                 isSelected
-                  ? "bg-indigo-50/90 border-indigo-500 text-indigo-950 shadow-sm"
-                  : "bg-white hover:bg-gray-100/70 border-gray-200 text-gray-700"
+                  ? "bg-indigo-50/90 dark:bg-indigo-950/50 border-indigo-500 text-indigo-950 dark:text-indigo-200 shadow-sm"
+                  : "bg-white dark:bg-gray-800 hover:bg-gray-100/70 dark:hover:bg-gray-700/60 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
               }`}
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <div
                   className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-all ${
                     isSelected
                       ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "border-gray-300 bg-white"
+                      : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
                   }`}
                 >
                   {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
@@ -1888,13 +1887,13 @@ const CompactSectionPicker = ({
                   <p className="text-xs font-bold truncate leading-tight">
                     {sec.name}
                   </p>
-                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500">
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-gray-500 dark:text-gray-400 flex-wrap">
                     <span>⏱️ {sec.duration} min</span>
                     {sec.expected_questions > 0 && (
                       <span>• ❓ {sec.expected_questions} Qs</span>
                     )}
                     {sec.exam_stage && (
-                      <span className="px-1 py-0.2 rounded bg-gray-100 text-gray-600 font-medium">
+                      <span className="px-1 py-0.2 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium">
                         {sec.exam_stage}
                       </span>
                     )}
@@ -1902,12 +1901,12 @@ const CompactSectionPicker = ({
                 </div>
               </div>
               {sec.source === "series_stage" && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 text-green-700 font-bold shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-300 font-bold shrink-0">
                   Stage
                 </span>
               )}
               {sec.source === "test" && (
-                <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 text-indigo-700 font-bold shrink-0">
+                <span className="px-1.5 py-0.5 rounded text-[10px] bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold shrink-0">
                   Test
                 </span>
               )}
@@ -1938,52 +1937,72 @@ const TestFormModal = ({
   seriesList = [],
   selectedSeries = null,
 }) => {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
   const handleSubmit = (event) => {
     event.preventDefault();
     onSubmit(formData);
   };
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in">
+  const modalContent = (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto animate-fade-in"
+    >
       <div
-        className={`bg-white rounded-xl w-full ${editingId && relationshipSummary ? "max-w-5xl" : "max-w-3xl"} max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl`}
+        className={`bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full ${editingId && relationshipSummary ? "max-w-5xl" : "max-w-3xl"} max-h-[94vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700`}
       >
-        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50/50">
+        {/* Header */}
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
               {editingId ? "Edit Test" : "Create Test"}
             </h2>
-            <p className="text-xs text-gray-500 mt-1">{contextLabel}</p>
+            {contextLabel && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs sm:max-w-md">
+                {contextLabel}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400 min-w-[40px] min-h-[40px] flex items-center justify-center"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5" />
           </button>
         </div>
+
         <form
           onSubmit={handleSubmit}
           className="flex-1 flex flex-col min-h-0 overflow-hidden"
         >
           {/* Scrollable Form Body */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 min-h-0">
             <div
               className={
                 editingId && relationshipSummary
-                  ? "grid grid-cols-1 md:grid-cols-3 gap-6 items-start"
-                  : "space-y-5"
+                  ? "grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-start"
+                  : "space-y-4 sm:space-y-5"
               }
             >
               {/* LEFT COLUMN: Form Inputs & Configurations (Spans 2 columns if editing) */}
               <div
-                className={`${editingId && relationshipSummary ? "md:col-span-2" : ""} space-y-5`}
+                className={`${editingId && relationshipSummary ? "md:col-span-2" : ""} space-y-4 sm:space-y-5`}
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {seriesList.length > 0 && (
                     <div className="sm:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Test Series *
                       </label>
                       <select
@@ -2000,7 +2019,7 @@ const TestFormModal = ({
                             testSeriesId: e.target.value,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm bg-white"
+                        className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       >
                         <option value="">Select Test Series...</option>
                         {seriesList.map((s) => (
@@ -2011,8 +2030,53 @@ const TestFormModal = ({
                       </select>
                     </div>
                   )}
+
+                  {/* Test Category (Type) Selector */}
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Test Category *
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {TEST_CATEGORY_TABS.map((tab) => {
+                        const isSelected =
+                          formData.type === tab.id ||
+                          (tab.id === "live-tests" && formData.isLive) ||
+                          (!formData.type &&
+                            tab.id === "mock-tests" &&
+                            !formData.isLive);
+                        const TabIcon = tab.icon;
+                        return (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => {
+                              const isLive = tab.id === "live-tests";
+                              setFormData((prev) => ({
+                                ...prev,
+                                type: tab.id,
+                                isLive,
+                                testCategoryId: "",
+                                subCategoryLevel1: "",
+                                subCategoryLevel2: "",
+                                subCategoryLevel3: "",
+                                subCategoryLevel4: "",
+                              }));
+                            }}
+                            className={`px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all text-center ${
+                              isSelected
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/20"
+                                : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600"
+                            }`}
+                          >
+                            <TabIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">{tab.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Title *
                     </label>
                     <input
@@ -2033,12 +2097,12 @@ const TestFormModal = ({
                           };
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       placeholder="e.g. SSC CGL Tier-I Full Mock Test 1"
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Slug (URL)
                     </label>
                     <input
@@ -2053,12 +2117,12 @@ const TestFormModal = ({
                           isCustomSlug: true,
                         }));
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-sm"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       placeholder="auto-generated-from-title"
                     />
-                    <p className="text-[11px] text-gray-500 mt-1">
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 break-all">
                       URL Slug:{" "}
-                      <span className="font-mono font-semibold text-indigo-600">
+                      <span className="font-mono font-semibold text-indigo-600 dark:text-indigo-400">
                         {formData.slug ||
                           normalizeKey(formData.title) ||
                           "auto-generated-slug"}
@@ -2066,7 +2130,7 @@ const TestFormModal = ({
                     </p>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Test Subcategory
                     </label>
                     <CascadingCategorySelect
@@ -2125,8 +2189,8 @@ const TestFormModal = ({
                       contextLabel={contextLabel}
                     />
                     {editingId && (
-                      <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                        <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                      <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-200 dark:border-gray-700">
+                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                           Exam Scheme:
                         </label>
                         <div className="flex flex-col sm:flex-row gap-2">
@@ -2135,7 +2199,7 @@ const TestFormModal = ({
                             onChange={(e) =>
                               setSelectedPresetId(e.target.value)
                             }
-                            className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-left whitespace-normal break-words"
+                            className="flex-1 px-2.5 py-2 sm:py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-left whitespace-normal break-words bg-white dark:bg-gray-800 dark:text-white"
                             style={{
                               textOverflow: "unset",
                               whiteSpace: "normal",
@@ -2151,7 +2215,7 @@ const TestFormModal = ({
                             type="button"
                             onClick={applySectionPreset}
                             disabled={saving}
-                            className="px-3 py-1.5 bg-gray-900 text-white rounded text-sm hover:bg-gray-800 disabled:opacity-50 whitespace-nowrap transition-colors shrink-0"
+                            className="px-3.5 py-2 sm:py-1.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg text-xs sm:text-sm hover:bg-gray-800 dark:hover:bg-white disabled:opacity-50 transition-colors w-full sm:w-auto text-center font-medium shrink-0"
                           >
                             Apply to Test
                           </button>
@@ -2164,7 +2228,7 @@ const TestFormModal = ({
                     ["negativeMarking", "Negative Marking", 0, "0.25"],
                   ].map(([key, label, min, step]) => (
                     <div key={key}>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         {label}
                       </label>
                       <input
@@ -2175,36 +2239,36 @@ const TestFormModal = ({
                         onChange={(e) =>
                           setFormData({ ...formData, [key]: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                        className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       />
                     </div>
                   ))}
                   {editingId && (
                     <>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">
                           Total Questions (Auto)
                         </label>
                         <input
                           readOnly
                           value={formData.totalQuestions || 0}
-                          className="w-full px-3 py-2 border border-gray-300 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg outline-none text-gray-500 cursor-not-allowed text-xs sm:text-sm min-h-[40px] sm:min-h-0"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">
+                        <label className="block text-xs sm:text-sm font-medium text-gray-400 dark:text-gray-500 mb-1">
                           Total Marks (Auto)
                         </label>
                         <input
                           readOnly
                           value={formData.totalMarks || 0}
-                          className="w-full px-3 py-2 border border-gray-300 bg-gray-50/80 rounded-lg outline-none text-gray-500 cursor-not-allowed"
+                          className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-900/60 rounded-lg outline-none text-gray-500 cursor-not-allowed text-xs sm:text-sm min-h-[40px] sm:min-h-0"
                         />
                       </div>
                     </>
                   )}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Difficulty
                     </label>
                     <select
@@ -2212,7 +2276,7 @@ const TestFormModal = ({
                       onChange={(e) =>
                         setFormData({ ...formData, difficulty: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                     >
                       <option value="easy">Easy</option>
                       <option value="medium">Medium</option>
@@ -2220,17 +2284,17 @@ const TestFormModal = ({
                     </select>
                   </div>
                   {formData.isLive && (
-                    <div className="sm:col-span-2 p-4 bg-red-50/60 border border-red-200 rounded-xl space-y-3">
+                    <div className="sm:col-span-2 p-3.5 sm:p-4 bg-red-50/60 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 rounded-xl space-y-3">
                       <div className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
-                        <h4 className="text-xs font-bold text-red-900 uppercase tracking-wider">
+                        <h4 className="text-xs font-bold text-red-900 dark:text-red-300 uppercase tracking-wider">
                           Live Test Schedule & Availability Window
                         </h4>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                             Live Start Time (Available From) *
                           </label>
                           <input
@@ -2246,14 +2310,14 @@ const TestFormModal = ({
                                 scheduledAt: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                           />
-                          <p className="text-[10px] text-gray-500 mt-1">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                             Exact date & time when the live test becomes active
                           </p>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-gray-700 mb-1">
+                          <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                             Live End Time (Available Until) *
                           </label>
                           <input
@@ -2269,9 +2333,9 @@ const TestFormModal = ({
                                 scheduledEnd: e.target.value,
                               })
                             }
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-xs bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                           />
-                          <p className="text-[10px] text-gray-500 mt-1">
+                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
                             When the live contest window closes
                           </p>
                         </div>
@@ -2279,7 +2343,7 @@ const TestFormModal = ({
                     </div>
                   )}
                   <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Tags
                     </label>
                     <input
@@ -2287,26 +2351,26 @@ const TestFormModal = ({
                       onChange={(e) =>
                         setFormData({ ...formData, tags: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                      className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
                       placeholder="comma, separated, tags"
                     />
                   </div>
                 </div>
 
-                <div className="pt-4 border-t border-gray-200">
-                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                <div className="pt-3 sm:pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2.5">
                     Timer Mode & Visibility Access
                   </h4>
-                  <div className="flex flex-wrap gap-4">
+                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
                     {[
-                      ["hasSectionalTiming", "⏱️ Sectional Timing (On / Off)"],
-                      ["isPro", "Pro Pass Required"],
-                      ["isComingSoon", "Coming Soon"],
-                      ["isLive", "Live Test"],
+                      ["hasSectionalTiming", "⏱️ Sectional Timing"],
+                      ["isPro", "⭐ Pro Pass Required"],
+                      ["isComingSoon", "🚀 Coming Soon"],
+                      ["isLive", "🔴 Live Test"],
                     ].map(([key, label]) => (
                       <label
                         key={key}
-                        className="flex items-center gap-2 cursor-pointer group bg-gray-50 hover:bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 transition-all"
+                        className="flex items-center gap-2.5 cursor-pointer group bg-gray-50 hover:bg-gray-100 dark:bg-gray-750 dark:hover:bg-gray-700 p-2.5 sm:px-3 sm:py-2 rounded-xl border border-gray-200 dark:border-gray-700 transition-all min-h-[42px]"
                       >
                         <input
                           type="checkbox"
@@ -2321,9 +2385,9 @@ const TestFormModal = ({
                             }
                             setFormData({ ...formData, ...updates });
                           }}
-                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                          className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer shrink-0"
                         />
-                        <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-gray-900 dark:group-hover:text-white transition-colors select-none">
                           {label}
                         </span>
                       </label>
@@ -2332,17 +2396,17 @@ const TestFormModal = ({
                 </div>
               </div>
 
-              {/* RIGHT COLUMN: Linked Relationships (Sticky sidebar) */}
+              {/* RIGHT COLUMN: Linked Relationships (Sticky sidebar on desktop, card on mobile) */}
               {editingId && relationshipSummary && (
                 <div className="md:col-span-1 md:sticky md:top-0">
-                  <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 shadow-sm">
-                    <div className="flex items-center gap-2 mb-4 border-b border-indigo-100/55 pb-2.5">
-                      <Layers className="w-4.5 h-4.5 text-indigo-600" />
-                      <h3 className="text-sm font-bold text-indigo-900">
+                  <div className="rounded-xl border border-indigo-100 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 p-3.5 sm:p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3 sm:mb-4 border-b border-indigo-100/55 dark:border-indigo-900/30 pb-2.5">
+                      <Layers className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="text-xs sm:text-sm font-bold text-indigo-900 dark:text-indigo-300">
                         Linked Relationships
                       </h3>
                     </div>
-                    <div className="space-y-3.5">
+                    <div className="space-y-2.5 sm:space-y-3.5">
                       {[
                         ["Test Series", relationshipSummary.series],
                         ["Stage", relationshipSummary.stage],
@@ -2355,12 +2419,12 @@ const TestFormModal = ({
                       ].map(([label, value]) => (
                         <div
                           key={label}
-                          className="rounded-lg border border-white/90 bg-white px-3.5 py-3 shadow-sm"
+                          className="rounded-lg border border-white/90 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 sm:px-3.5 sm:py-3 shadow-sm"
                         >
-                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
                             {label}
                           </div>
-                          <div className="mt-1 text-xs font-bold text-gray-800 break-words leading-relaxed">
+                          <div className="mt-0.5 sm:mt-1 text-xs font-bold text-gray-800 dark:text-gray-200 break-words leading-relaxed">
                             {value || "Not linked"}
                           </div>
                         </div>
@@ -2372,19 +2436,19 @@ const TestFormModal = ({
             </div>
           </div>
 
-          {/* ACTION BUTTONS (Fixed Footer) */}
-          <div className="px-4 py-3 sm:px-6 bg-gray-50/50 border-t border-gray-100 flex justify-end gap-3 shrink-0">
+          {/* ACTION BUTTONS (Sticky Footer) */}
+          <div className="px-4 py-3 sm:px-6 bg-gray-50/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 shrink-0 sticky bottom-0 z-10">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300 text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all text-sm font-semibold shadow-sm"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all text-xs sm:text-sm font-semibold shadow-sm text-center"
             >
               <Save className="w-4 h-4" />
               {saving ? "Saving..." : `${editingId ? "Update" : "Create"} Test`}
@@ -2394,6 +2458,10 @@ const TestFormModal = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 const BulkUploadModal = ({
@@ -2408,6 +2476,15 @@ const BulkUploadModal = ({
   const [uploading, setUploading] = useState(false);
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -2451,114 +2528,131 @@ const BulkUploadModal = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl w-full max-w-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+  const modalContent = (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !uploading) onClose();
+      }}
+      className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
+    >
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-lg max-h-[94vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-200 dark:border-gray-700">
+        <div className="px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gray-50/75 dark:bg-gray-800/75 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
               Bulk Create Tests
             </h2>
-            <p className="text-xs text-gray-500 mt-1">{contextLabel}</p>
+            {contextLabel && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-xs">
+                {contextLabel}
+              </p>
+            )}
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg min-w-[40px] min-h-[40px] flex items-center justify-center text-gray-500 dark:text-gray-400"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {linkingInfo && (
-            <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-lg p-4">
-              <p className="text-sm font-medium text-indigo-800 dark:text-indigo-200 mb-2">
-                Tests will be linked to:
-              </p>
-              <div className="space-y-1 text-xs text-indigo-700 dark:text-indigo-300">
-                {linkingInfo.seriesName && (
-                  <p>
-                    <span className="font-medium">Series:</span>{" "}
-                    {linkingInfo.seriesName}
-                  </p>
-                )}
-                {linkingInfo.examName && (
-                  <p>
-                    <span className="font-medium">Exam:</span>{" "}
-                    {linkingInfo.examName}
-                  </p>
-                )}
-                {linkingInfo.stageName && (
-                  <p>
-                    <span className="font-medium">Stage:</span>{" "}
-                    {linkingInfo.stageName}
-                  </p>
-                )}
-                {linkingInfo.categoryName && (
-                  <p>
-                    <span className="font-medium">Category:</span>{" "}
-                    {linkingInfo.categoryName}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload File
-            </label>
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xls,.json"
-              onChange={handleFileChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              Supported columns include title, duration, totalQuestions,
-              totalMarks, difficulty, type, and tags.
-            </p>
-          </div>
-
-          {validationResult && (
-            <div
-              className={`p-4 rounded-lg ${validationResult.isValid ? "bg-green-50 border border-green-200" : "bg-amber-50 border border-amber-200"}`}
-            >
-              <p
-                className={`font-medium ${validationResult.isValid ? "text-green-800" : "text-amber-800"}`}
-              >
-                {validationResult.isValid
-                  ? "✓ Validation passed"
-                  : "⚠ Validation found issues"}
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                {validationResult.validRows} valid rows out of{" "}
-                {validationResult.totalRows}
-              </p>
-              {!validationResult.isValid && (
-                <div className="mt-2 max-h-32 overflow-y-auto">
-                  {validationResult.errors.slice(0, 5).map((err, idx) => (
-                    <p key={idx} className="text-xs text-amber-700">
-                      Row {err.row}: {err.reason}{" "}
-                      {err.title ? `("${err.title}")` : ""}
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 flex flex-col min-h-0 overflow-hidden"
+        >
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+            {linkingInfo && (
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl p-3.5 sm:p-4">
+                <p className="text-xs sm:text-sm font-semibold text-indigo-800 dark:text-indigo-200 mb-2">
+                  Tests will be linked to:
+                </p>
+                <div className="space-y-1 text-xs text-indigo-700 dark:text-indigo-300">
+                  {linkingInfo.seriesName && (
+                    <p>
+                      <span className="font-medium">Series:</span>{" "}
+                      {linkingInfo.seriesName}
                     </p>
-                  ))}
-                  {validationResult.errors.length > 5 && (
-                    <p className="text-xs text-amber-600">
-                      ...and {validationResult.errors.length - 5} more
+                  )}
+                  {linkingInfo.examName && (
+                    <p>
+                      <span className="font-medium">Exam:</span>{" "}
+                      {linkingInfo.examName}
+                    </p>
+                  )}
+                  {linkingInfo.stageName && (
+                    <p>
+                      <span className="font-medium">Stage:</span>{" "}
+                      {linkingInfo.stageName}
+                    </p>
+                  )}
+                  {linkingInfo.categoryName && (
+                    <p>
+                      <span className="font-medium">Category:</span>{" "}
+                      {linkingInfo.categoryName}
                     </p>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Upload File
+              </label>
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls,.json"
+                onChange={handleFileChange}
+                className="w-full px-3 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-xs sm:text-sm bg-white dark:bg-gray-900 dark:text-white min-h-[40px] sm:min-h-0"
+              />
+              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 leading-relaxed">
+                Supported columns include title, duration, totalQuestions,
+                totalMarks, difficulty, type, and tags.
+              </p>
+            </div>
+
+            {validationResult && (
+              <div
+                className={`p-3.5 sm:p-4 rounded-xl ${validationResult.isValid ? "bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800" : "bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800"}`}
+              >
+                <p
+                  className={`font-semibold text-xs sm:text-sm ${validationResult.isValid ? "text-green-800 dark:text-green-300" : "text-amber-800 dark:text-amber-300"}`}
+                >
+                  {validationResult.isValid
+                    ? "✓ Validation passed"
+                    : "⚠ Validation found issues"}
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  {validationResult.validRows} valid rows out of{" "}
+                  {validationResult.totalRows}
+                </p>
+                {!validationResult.isValid && (
+                  <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                    {validationResult.errors.slice(0, 5).map((err, idx) => (
+                      <p
+                        key={idx}
+                        className="text-[11px] text-amber-700 dark:text-amber-400"
+                      >
+                        Row {err.row}: {err.reason}{" "}
+                        {err.title ? `("${err.title}")` : ""}
+                      </p>
+                    ))}
+                    {validationResult.errors.length > 5 && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                        ...and {validationResult.errors.length - 5} more
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="px-4 py-3 sm:px-6 bg-gray-50/90 dark:bg-gray-800/90 border-t border-gray-200 dark:border-gray-700 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 shrink-0">
             <button
               type="button"
               onClick={onClose}
               disabled={uploading}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm font-semibold text-center text-gray-700 dark:text-gray-300"
             >
               Cancel
             </button>
@@ -2566,14 +2660,14 @@ const BulkUploadModal = ({
               type="button"
               onClick={handleValidate}
               disabled={uploading || !file || validating}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 text-xs sm:text-sm font-semibold text-gray-700 dark:text-gray-300"
             >
               {validating ? "Validating..." : "Validate"}
             </button>
             <button
               type="submit"
               disabled={uploading || !file}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 sm:py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-xs sm:text-sm font-semibold shadow-sm"
             >
               <Upload className="w-4 h-4" />
               {uploading ? "Uploading..." : "Upload"}
@@ -2583,6 +2677,10 @@ const BulkUploadModal = ({
       </div>
     </div>
   );
+
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : modalContent;
 };
 
 export default function TestsManager() {
@@ -3792,18 +3890,33 @@ export default function TestsManager() {
       const defaultLiveId = liveCatRecord
         ? getEntityId(liveCatRecord)
         : "live-tests";
-      const chosenTestCategoryId = data.isLive
-        ? data.testCategoryId ||
-          (editingTest
-            ? editingTest.testCategoryId || editingTest.test_category_id
-            : defaultLiveId)
-        : data.testCategoryId ||
-          (editingTest
-            ? editingTest.testCategoryId ||
-              editingTest.test_category_id ||
-              editingTest.subCategory ||
-              editingTest.sub_category
-            : getLinkedTestCategoryId());
+      const oldType =
+        editingTest?.type ||
+        (editingTest?.isLive || editingTest?.is_live
+          ? "live-tests"
+          : "mock-tests");
+      const currentType = data.isLive
+        ? "live-tests"
+        : data.type || "mock-tests";
+      const typeChanged = Boolean(editingTest && oldType !== currentType);
+
+      const chosenTestCategoryId =
+        data.testCategoryId !== undefined && data.testCategoryId !== ""
+          ? data.testCategoryId
+          : typeChanged
+            ? data.isLive
+              ? defaultLiveId
+              : null
+            : data.isLive
+              ? editingTest
+                ? editingTest.testCategoryId || editingTest.test_category_id
+                : defaultLiveId
+              : editingTest
+                ? editingTest.testCategoryId ||
+                  editingTest.test_category_id ||
+                  editingTest.subCategory ||
+                  editingTest.sub_category
+                : getLinkedTestCategoryId();
 
       const parsedDuration = Number(data.duration);
       const payload = {
@@ -3816,7 +3929,7 @@ export default function TestsManager() {
           getSeriesExamCategoryId(currentSeries) || activeExamCategoryId || "",
         testCategoryId: chosenTestCategoryId,
         subCategory: chosenTestCategoryId,
-        type: data.isLive ? "live-tests" : data.type,
+        type: data.isLive ? "live-tests" : data.type || "mock-tests",
         duration:
           Number.isFinite(parsedDuration) && parsedDuration > 0
             ? parsedDuration
@@ -4569,118 +4682,91 @@ export default function TestsManager() {
         )}
       </div>
 
-      {selectedSeries && (
-        <div
-          className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setSelectedSeries(null);
-              setSelectedTestSubCategoryId("all");
-              closeForm();
-            }
-          }}
-        >
-          <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50">
-              <div className="min-w-0">
-                <h2 className="text-lg font-bold text-gray-900 truncate">
-                  {selectedSeries.title || selectedSeries.name || "Test Series"}
-                </h2>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                  {[
-                    selectedExamCategoryLabel,
-                    selectedExamLabel,
-                    selectedStageLabel,
-                    activeCatLabel,
-                  ].map((label, index) => (
-                    <span
-                      key={`${label}-${index}`}
-                      className="inline-flex items-center gap-2"
-                    >
-                      {index > 0 && (
-                        <ChevronRight className="w-3 h-3 text-gray-300" />
-                      )}
+      {selectedSeries &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/60 p-4 animate-fade-in"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedSeries(null);
+                setSelectedTestSubCategoryId("all");
+                closeForm();
+              }
+            }}
+          >
+            <div className="bg-white w-full max-w-6xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-200 flex items-start justify-between gap-4 bg-gray-50">
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold text-gray-900 truncate">
+                    {selectedSeries.title ||
+                      selectedSeries.name ||
+                      "Test Series"}
+                  </h2>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                    {[
+                      selectedExamCategoryLabel,
+                      selectedExamLabel,
+                      selectedStageLabel,
+                      activeCatLabel,
+                    ].map((label, index) => (
                       <span
-                        className={`px-2 py-1 border rounded ${index === 3 ? "bg-indigo-50 border-indigo-100 text-indigo-700 font-semibold" : "bg-white border-gray-200"}`}
+                        key={`${label}-${index}`}
+                        className="inline-flex items-center gap-2"
                       >
-                        {label}
-                      </span>
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedSeries(null);
-                  setSelectedTestSubCategoryId("all");
-                  closeForm();
-                }}
-                className="p-2 hover:bg-gray-200 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="border-b border-gray-200 p-3 flex flex-col gap-2">
-              {activeStageId ? (
-                <>
-                  {/* Level 1 - Top level row (Year Based, Exam Based) */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">
-                      Test Subcategory
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSubCategoryLevel1("");
-                        setSubCategoryLevel2("");
-                        setSubCategoryLevel3("");
-                        setSubCategoryLevel4("");
-                        setSelectedTestSubCategoryId("all");
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                        !subCategoryLevel1
-                          ? "bg-gray-900 text-white border-gray-900"
-                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      All ({seriesTests.length})
-                    </button>
-                    {subCategoryOptionsLevel1.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel1 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel1(newVal);
-                            setSubCategoryLevel2("");
-                            setSubCategoryLevel3("");
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(newVal || "all");
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                            isSelected
-                              ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                          }`}
+                        {index > 0 && (
+                          <ChevronRight className="w-3 h-3 text-gray-300" />
+                        )}
+                        <span
+                          className={`px-2 py-1 border rounded ${index === 3 ? "bg-indigo-50 border-indigo-100 text-indigo-700 font-semibold" : "bg-white border-gray-200"}`}
                         >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
+                          {label}
+                        </span>
+                      </span>
+                    ))}
                   </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSeries(null);
+                    setSelectedTestSubCategoryId("all");
+                    closeForm();
+                  }}
+                  className="p-2 hover:bg-gray-200 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-                  {/* Level 2 - Second row (2025, 2024, etc.) */}
-                  {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-4">
-                      {subCategoryOptionsLevel2.map((cat) => {
+              <div className="border-b border-gray-200 p-3 flex flex-col gap-2">
+                {activeStageId ? (
+                  <>
+                    {/* Level 1 - Top level row (Year Based, Exam Based) */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">
+                        Test Subcategory
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubCategoryLevel1("");
+                          setSubCategoryLevel2("");
+                          setSubCategoryLevel3("");
+                          setSubCategoryLevel4("");
+                          setSelectedTestSubCategoryId("all");
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                          !subCategoryLevel1
+                            ? "bg-gray-900 text-white border-gray-900"
+                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        All ({seriesTests.length})
+                      </button>
+                      {subCategoryOptionsLevel1.map((cat) => {
                         const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel2 === catId;
+                        const isSelected = subCategoryLevel1 === catId;
                         const count = getCategoryTestCount(catId);
                         return (
                           <button
@@ -4688,12 +4774,11 @@ export default function TestsManager() {
                             type="button"
                             onClick={() => {
                               const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel2(newVal);
+                              setSubCategoryLevel1(newVal);
+                              setSubCategoryLevel2("");
                               setSubCategoryLevel3("");
                               setSubCategoryLevel4("");
-                              setSelectedTestSubCategoryId(
-                                newVal || subCategoryLevel1 || "all",
-                              );
+                              setSelectedTestSubCategoryId(newVal || "all");
                             }}
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
                               isSelected
@@ -4706,493 +4791,530 @@ export default function TestsManager() {
                         );
                       })}
                     </div>
-                  )}
 
-                  {/* Level 3 - Third row */}
-                  {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-8">
-                      {subCategoryOptionsLevel3.map((cat) => {
-                        const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel3 === catId;
-                        const count = getCategoryTestCount(catId);
-                        return (
-                          <button
-                            key={catId}
-                            type="button"
-                            onClick={() => {
-                              const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel3(newVal);
-                              setSubCategoryLevel4("");
-                              setSelectedTestSubCategoryId(
-                                newVal ||
-                                  subCategoryLevel2 ||
-                                  subCategoryLevel1 ||
-                                  "all",
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                              isSelected
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            {getCategoryLabel(cat)} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Level 4 - Fourth row */}
-                  {subCategoryLevel3 && subCategoryOptionsLevel4.length > 0 && (
-                    <div className="flex items-center gap-2 flex-wrap ml-12">
-                      {subCategoryOptionsLevel4.map((cat) => {
-                        const catId = getEntityId(cat) || "";
-                        const isSelected = subCategoryLevel4 === catId;
-                        const count = getCategoryTestCount(catId);
-                        return (
-                          <button
-                            key={catId}
-                            type="button"
-                            onClick={() => {
-                              const newVal = isSelected ? "" : catId;
-                              setSubCategoryLevel4(newVal);
-                              setSelectedTestSubCategoryId(
-                                newVal ||
-                                  subCategoryLevel3 ||
-                                  subCategoryLevel2 ||
-                                  subCategoryLevel1 ||
-                                  "all",
-                              );
-                            }}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                              isSelected
-                                ? "bg-gray-900 text-white border-gray-900"
-                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            {getCategoryLabel(cat)} ({count})
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {subCategoryOptionsLevel1.length === 0 && (
-                    <span className="text-sm text-gray-400 px-2">
-                      No child categories under {activeCatLabel}
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className="text-sm font-medium text-amber-600 px-2">
-                  Please select a stage to view subcategories
-                </span>
-              )}
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-bold text-gray-900">Tests</h3>
-                  <p className="text-sm text-gray-500">
-                    {workspaceTests.length} tests linked to the selected test
-                    subcategory.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {/* Bulk Select Dropdown Button */}
-                  <div className="relative inline-block text-left">
-                    <div className="inline-flex rounded-lg shadow-sm">
-                      <button
-                        type="button"
-                        onClick={toggleSelectMode}
-                        className={`px-3 py-2 border rounded-l-lg text-sm font-medium flex items-center gap-2 transition-colors ${
-                          isSelectMode || selectedTestIds.length > 0
-                            ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold"
-                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                        }`}
-                      >
-                        <CheckSquare className="w-4 h-4 text-indigo-600" />
-                        <span>
-                          {isSelectMode
-                            ? `Select Mode (${selectedTestIds.length})`
-                            : "Select"}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowSelectDropdown((prev) => !prev)}
-                        className={`px-2 py-2 border-y border-r rounded-r-lg text-sm transition-colors ${
-                          isSelectMode || selectedTestIds.length > 0
-                            ? "bg-indigo-50 border-indigo-300 text-indigo-700"
-                            : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-                        }`}
-                        title="Selection options"
-                      >
-                        <ChevronDown className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {showSelectDropdown && (
-                      <div className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-xl bg-white ring-1 ring-black/10 z-30 py-1 text-xs divide-y divide-gray-100 animate-fade-in">
-                        <div className="py-1">
-                          <button
-                            type="button"
-                            onClick={handleSelectAll}
-                            className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
-                          >
-                            <span className="font-bold">Select All</span>
-                            <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-black text-[10px]">
-                              {workspaceTests.length}
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSelectPublished}
-                            className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
-                          >
-                            <span>Select Published</span>
-                            <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              {
-                                workspaceTests.filter(
-                                  (t) =>
-                                    t.status === "published" ||
-                                    t.status === "active",
-                                ).length
-                              }
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleSelectDrafts}
-                            className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
-                          >
-                            <span>Select Drafts</span>
-                            <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                              {
-                                workspaceTests.filter(
-                                  (t) =>
-                                    t.status !== "published" &&
-                                    t.status !== "active",
-                                ).length
-                              }
-                            </span>
-                          </button>
+                    {/* Level 2 - Second row (2025, 2024, etc.) */}
+                    {subCategoryLevel1 &&
+                      subCategoryOptionsLevel2.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap ml-4">
+                          {subCategoryOptionsLevel2.map((cat) => {
+                            const catId = getEntityId(cat) || "";
+                            const isSelected = subCategoryLevel2 === catId;
+                            const count = getCategoryTestCount(catId);
+                            return (
+                              <button
+                                key={catId}
+                                type="button"
+                                onClick={() => {
+                                  const newVal = isSelected ? "" : catId;
+                                  setSubCategoryLevel2(newVal);
+                                  setSubCategoryLevel3("");
+                                  setSubCategoryLevel4("");
+                                  setSelectedTestSubCategoryId(
+                                    newVal || subCategoryLevel1 || "all",
+                                  );
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                                  isSelected
+                                    ? "bg-gray-900 text-white border-gray-900"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                }`}
+                              >
+                                {getCategoryLabel(cat)} ({count})
+                              </button>
+                            );
+                          })}
                         </div>
-                        {selectedTestIds.length > 0 && (
+                      )}
+
+                    {/* Level 3 - Third row */}
+                    {subCategoryLevel2 &&
+                      subCategoryOptionsLevel3.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap ml-8">
+                          {subCategoryOptionsLevel3.map((cat) => {
+                            const catId = getEntityId(cat) || "";
+                            const isSelected = subCategoryLevel3 === catId;
+                            const count = getCategoryTestCount(catId);
+                            return (
+                              <button
+                                key={catId}
+                                type="button"
+                                onClick={() => {
+                                  const newVal = isSelected ? "" : catId;
+                                  setSubCategoryLevel3(newVal);
+                                  setSubCategoryLevel4("");
+                                  setSelectedTestSubCategoryId(
+                                    newVal ||
+                                      subCategoryLevel2 ||
+                                      subCategoryLevel1 ||
+                                      "all",
+                                  );
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                                  isSelected
+                                    ? "bg-gray-900 text-white border-gray-900"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                }`}
+                              >
+                                {getCategoryLabel(cat)} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                    {/* Level 4 - Fourth row */}
+                    {subCategoryLevel3 &&
+                      subCategoryOptionsLevel4.length > 0 && (
+                        <div className="flex items-center gap-2 flex-wrap ml-12">
+                          {subCategoryOptionsLevel4.map((cat) => {
+                            const catId = getEntityId(cat) || "";
+                            const isSelected = subCategoryLevel4 === catId;
+                            const count = getCategoryTestCount(catId);
+                            return (
+                              <button
+                                key={catId}
+                                type="button"
+                                onClick={() => {
+                                  const newVal = isSelected ? "" : catId;
+                                  setSubCategoryLevel4(newVal);
+                                  setSelectedTestSubCategoryId(
+                                    newVal ||
+                                      subCategoryLevel3 ||
+                                      subCategoryLevel2 ||
+                                      subCategoryLevel1 ||
+                                      "all",
+                                  );
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                                  isSelected
+                                    ? "bg-gray-900 text-white border-gray-900"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                }`}
+                              >
+                                {getCategoryLabel(cat)} ({count})
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                    {subCategoryOptionsLevel1.length === 0 && (
+                      <span className="text-sm text-gray-400 px-2">
+                        No child categories under {activeCatLabel}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-sm font-medium text-amber-600 px-2">
+                    Please select a stage to view subcategories
+                  </span>
+                )}
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-gray-900">Tests</h3>
+                    <p className="text-sm text-gray-500">
+                      {workspaceTests.length} tests linked to the selected test
+                      subcategory.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Bulk Select Dropdown Button */}
+                    <div className="relative inline-block text-left">
+                      <div className="inline-flex rounded-lg shadow-sm">
+                        <button
+                          type="button"
+                          onClick={toggleSelectMode}
+                          className={`px-3 py-2 border rounded-l-lg text-sm font-medium flex items-center gap-2 transition-colors ${
+                            isSelectMode || selectedTestIds.length > 0
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700 font-semibold"
+                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          <CheckSquare className="w-4 h-4 text-indigo-600" />
+                          <span>
+                            {isSelectMode
+                              ? `Select Mode (${selectedTestIds.length})`
+                              : "Select"}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowSelectDropdown((prev) => !prev)}
+                          className={`px-2 py-2 border-y border-r rounded-r-lg text-sm transition-colors ${
+                            isSelectMode || selectedTestIds.length > 0
+                              ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                              : "bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
+                          }`}
+                          title="Selection options"
+                        >
+                          <ChevronDown className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {showSelectDropdown && (
+                        <div className="origin-top-right absolute right-0 mt-2 w-52 rounded-xl shadow-xl bg-white ring-1 ring-black/10 z-30 py-1 text-xs divide-y divide-gray-100 animate-fade-in">
                           <div className="py-1">
                             <button
                               type="button"
-                              onClick={handleDeselectAll}
-                              className="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 font-semibold transition-colors"
+                              onClick={handleSelectAll}
+                              className="w-full text-left px-4 py-2.5 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
                             >
-                              Deselect All
+                              <span className="font-bold">Select All</span>
+                              <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-black text-[10px]">
+                                {workspaceTests.length}
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectPublished}
+                              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
+                            >
+                              <span>Select Published</span>
+                              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                {
+                                  workspaceTests.filter(
+                                    (t) =>
+                                      t.status === "published" ||
+                                      t.status === "active",
+                                  ).length
+                                }
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleSelectDrafts}
+                              className="w-full text-left px-4 py-2 text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 flex items-center justify-between transition-colors"
+                            >
+                              <span>Select Drafts</span>
+                              <span className="text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                {
+                                  workspaceTests.filter(
+                                    (t) =>
+                                      t.status !== "published" &&
+                                      t.status !== "active",
+                                  ).length
+                                }
+                              </span>
                             </button>
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {selectedTestIds.length > 0 && (
+                            <div className="py-1">
+                              <button
+                                type="button"
+                                onClick={handleDeselectAll}
+                                className="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50 font-semibold transition-colors"
+                              >
+                                Deselect All
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowFullTestImport(true)}
+                      className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" /> Import JSON
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkUpload(true)}
+                      className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" /> Bulk Create
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openCreateForm}
+                      className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2 shadow-sm"
+                    >
+                      <Plus className="w-4 h-4" /> Create Test
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setShowFullTestImport(true)}
-                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" /> Import JSON
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowBulkUpload(true)}
-                    className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                  >
-                    <Upload className="w-4 h-4" /> Bulk Create
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openCreateForm}
-                    className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2 shadow-sm"
-                  >
-                    <Plus className="w-4 h-4" /> Create Test
-                  </button>
                 </div>
-              </div>
 
-              {/* Bulk Actions Floating Bar */}
-              {(isSelectMode || selectedTestIds.length > 0) &&
-                workspaceTests.length > 0 && (
-                  <div className="mb-4 bg-indigo-50/95 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm animate-fade-in">
-                    <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-                      <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-950 select-none">
-                        <input
-                          type="checkbox"
-                          checked={
-                            selectedTestIds.length > 0 &&
-                            selectedTestIds.length === workspaceTests.length
-                          }
-                          ref={(el) => {
-                            if (el) {
-                              el.indeterminate =
-                                selectedTestIds.length > 0 &&
-                                selectedTestIds.length < workspaceTests.length;
+                {/* Bulk Actions Floating Bar */}
+                {(isSelectMode || selectedTestIds.length > 0) &&
+                  workspaceTests.length > 0 && (
+                    <div className="mb-4 bg-indigo-50/95 border border-indigo-200 rounded-xl p-3 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-sm animate-fade-in">
+                      <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                        <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-950 select-none">
+                          <input
+                            type="checkbox"
+                            checked={
+                              selectedTestIds.length > 0 &&
+                              selectedTestIds.length === workspaceTests.length
                             }
-                          }}
-                          onChange={handleSelectAll}
-                          className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                        />
-                        <span>
-                          {selectedTestIds.length} of {workspaceTests.length}{" "}
-                          tests selected
-                        </span>
-                      </label>
+                            ref={(el) => {
+                              if (el) {
+                                el.indeterminate =
+                                  selectedTestIds.length > 0 &&
+                                  selectedTestIds.length <
+                                    workspaceTests.length;
+                              }
+                            }}
+                            onChange={handleSelectAll}
+                            className="rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                          />
+                          <span>
+                            {selectedTestIds.length} of {workspaceTests.length}{" "}
+                            tests selected
+                          </span>
+                        </label>
 
-                      <div className="flex items-center gap-2 border-l border-indigo-200 pl-3">
+                        <div className="flex items-center gap-2 border-l border-indigo-200 pl-3">
+                          <button
+                            type="button"
+                            onClick={handleSelectAll}
+                            className="text-indigo-600 hover:text-indigo-900 font-semibold underline underline-offset-2"
+                          >
+                            {selectedTestIds.length === workspaceTests.length
+                              ? "Deselect All"
+                              : "Select All"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                         <button
                           type="button"
-                          onClick={handleSelectAll}
-                          className="text-indigo-600 hover:text-indigo-900 font-semibold underline underline-offset-2"
+                          disabled={
+                            bulkProcessing || selectedTestIds.length === 0
+                          }
+                          onClick={handleBulkPublishSelected}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
                         >
-                          {selectedTestIds.length === workspaceTests.length
-                            ? "Deselect All"
-                            : "Select All"}
+                          <span>Publish ({selectedTestIds.length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            bulkProcessing || selectedTestIds.length === 0
+                          }
+                          onClick={handleBulkUnpublishSelected}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          <span>Set Draft ({selectedTestIds.length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            bulkProcessing || selectedTestIds.length === 0
+                          }
+                          onClick={() => setShowBulkDeleteConfirm(true)}
+                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete ({selectedTestIds.length})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleSelectMode}
+                          className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 rounded-lg font-medium"
+                        >
+                          Done
                         </button>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-                      <button
-                        type="button"
-                        disabled={
-                          bulkProcessing || selectedTestIds.length === 0
-                        }
-                        onClick={handleBulkPublishSelected}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <span>Publish ({selectedTestIds.length})</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={
-                          bulkProcessing || selectedTestIds.length === 0
-                        }
-                        onClick={handleBulkUnpublishSelected}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <span>Set Draft ({selectedTestIds.length})</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={
-                          bulkProcessing || selectedTestIds.length === 0
-                        }
-                        onClick={() => setShowBulkDeleteConfirm(true)}
-                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center gap-1.5"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete ({selectedTestIds.length})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={toggleSelectMode}
-                        className="px-2.5 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-200/60 rounded-lg font-medium"
-                      >
-                        Done
-                      </button>
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center p-8 my-6 animate-fade-in text-center space-y-4 max-w-lg mx-auto">
+                    <div className="relative flex items-center justify-center">
+                      <div className="w-14 h-14 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 animate-spin"></div>
+                      <div className="absolute w-8 h-8 rounded-full bg-indigo-500/20 animate-ping"></div>
+                      <div className="absolute w-3.5 h-3.5 rounded-full bg-indigo-600"></div>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-wide">
+                        Loading Tests & Categories...
+                      </h4>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Synchronizing test structures, categories & exam schemes
+                      </p>
                     </div>
                   </div>
-                )}
+                ) : workspaceTests.length === 0 ? (
+                  <EmptyState
+                    icon={FileText}
+                    title="No Tests Linked"
+                    description="Create a test or bulk upload tests for this series and selected test subcategory."
+                  />
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {workspaceTests.map((test) => {
+                      const testId = getTestId(test);
+                      const qCount = getTestQuestionsCount(test);
+                      const expectedQuestions =
+                        test.totalQuestions || test.total_questions || 0;
+                      const isQuestionCountBalanced =
+                        expectedQuestions > 0
+                          ? qCount >= expectedQuestions
+                          : qCount > 0;
+                      const isSelected = selectedTestIds.some((id) =>
+                        idsEqual(id, testId),
+                      );
 
-              {isLoading ? (
-                <div className="flex flex-col items-center justify-center p-8 my-6 animate-fade-in text-center space-y-4 max-w-lg mx-auto">
-                  <div className="relative flex items-center justify-center">
-                    <div className="w-14 h-14 rounded-full border-4 border-indigo-500/20 border-t-indigo-600 animate-spin"></div>
-                    <div className="absolute w-8 h-8 rounded-full bg-indigo-500/20 animate-ping"></div>
-                    <div className="absolute w-3.5 h-3.5 rounded-full bg-indigo-600"></div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100 tracking-wide">
-                      Loading Tests & Categories...
-                    </h4>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Synchronizing test structures, categories & exam schemes
-                    </p>
-                  </div>
-                </div>
-              ) : workspaceTests.length === 0 ? (
-                <EmptyState
-                  icon={FileText}
-                  title="No Tests Linked"
-                  description="Create a test or bulk upload tests for this series and selected test subcategory."
-                />
-              ) : (
-                <div className="flex flex-col gap-3">
-                  {workspaceTests.map((test) => {
-                    const testId = getTestId(test);
-                    const qCount = getTestQuestionsCount(test);
-                    const expectedQuestions =
-                      test.totalQuestions || test.total_questions || 0;
-                    const isQuestionCountBalanced =
-                      expectedQuestions > 0
-                        ? qCount >= expectedQuestions
-                        : qCount > 0;
-                    const isSelected = selectedTestIds.some((id) =>
-                      idsEqual(id, testId),
-                    );
-
-                    return (
-                      <div
-                        key={testId}
-                        onClick={(e) => {
-                          if (isSelectMode) {
-                            if (
-                              e.target.closest("button") ||
-                              e.target.closest("a")
-                            )
-                              return;
-                            toggleSelectTest(testId);
-                          }
-                        }}
-                        className={`w-full bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                          isSelected
-                            ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-400/40 shadow-sm"
-                            : "border-gray-200 hover:border-indigo-200 hover:shadow-sm"
-                        } ${isSelectMode ? "cursor-pointer" : ""}`}
-                      >
-                        <div className="flex items-start gap-3 min-w-0 flex-1">
-                          {/* Checkbox for Card */}
-                          <div
-                            className="pt-0.5 shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelectTest(testId)}
-                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
-                            />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2 mb-2">
-                              <Badge
-                                tone={
-                                  test.status === "active" ||
-                                  test.status === "published"
-                                    ? "green"
-                                    : "gray"
-                                }
-                              >
-                                {test.status === "published"
-                                  ? "● Published"
-                                  : test.status === "active"
-                                    ? "● Active"
-                                    : "○ Draft"}
-                              </Badge>
-                              <Badge tone="indigo">
-                                {test.type || activeTestCategory}
-                              </Badge>
-                              {test.difficulty && (
-                                <Badge tone="blue">{test.difficulty}</Badge>
-                              )}
-                            </div>
-                            <h4 className="font-bold text-gray-900 truncate">
-                              {test.title || test.name || "Untitled Test"}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-1 truncate">
-                              {test.description || "No description"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0 flex-wrap pl-7 md:pl-0">
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
-                            <Clock className="w-3.5 h-3.5" />
-                            {test.duration || test.time_limit || "--"} min
-                          </span>
-                          <span
-                            className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${isQuestionCountBalanced ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}
-                          >
-                            <FileText className="w-3.5 h-3.5" />
-                            {expectedQuestions > 0
-                              ? `${qCount}/${expectedQuestions} Qs`
-                              : `${qCount} Qs`}
-                          </span>
-                          {(test.totalMarks || test.total_marks) && (
-                            <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
-                              {test.totalMarks || test.total_marks} Marks
-                            </span>
-                          )}
-                          <Link
-                            to={`/admin/questions?testId=${testId}`}
-                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors"
-                            title="Open Question Bank for this Test"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                            <span>Questions</span>
-                          </Link>
-                          {(test.isLive ||
-                            activeTestCategory === "live-tests") && (
-                            <Link
-                              to={`/admin/live-monitor?testId=${testId}`}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200 transition-colors"
-                              title="Monitor live candidates for this test"
-                            >
-                              <Radio className="w-3.5 h-3.5 text-cyan-600" />
-                              <span>Monitor</span>
-                            </Link>
-                          )}
-                          {test.status === "published" ? (
-                            <button
-                              type="button"
-                              onClick={() => handleUnpublish(test)}
-                              className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-semibold"
-                              title="Unpublish"
-                            >
-                              Unpublish
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handlePublish(test)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-sm"
-                              title="Publish"
-                            >
-                              Publish
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => openEditForm(test)}
-                            className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setDeleteTarget({
-                                id: testId,
-                                title:
-                                  test.title || test.name || "Untitled Test",
-                              })
+                      return (
+                        <div
+                          key={testId}
+                          onClick={(e) => {
+                            if (isSelectMode) {
+                              if (
+                                e.target.closest("button") ||
+                                e.target.closest("a")
+                              )
+                                return;
+                              toggleSelectTest(testId);
                             }
-                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          }}
+                          className={`w-full bg-white border rounded-xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                            isSelected
+                              ? "border-indigo-500 bg-indigo-50/20 ring-2 ring-indigo-400/40 shadow-sm"
+                              : "border-gray-200 hover:border-indigo-200 hover:shadow-sm"
+                          } ${isSelectMode ? "cursor-pointer" : ""}`}
+                        >
+                          <div className="flex items-start gap-3 min-w-0 flex-1">
+                            {/* Checkbox for Card */}
+                            <div
+                              className="pt-0.5 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectTest(testId)}
+                                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                              />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <Badge
+                                  tone={
+                                    test.status === "active" ||
+                                    test.status === "published"
+                                      ? "green"
+                                      : "gray"
+                                  }
+                                >
+                                  {test.status === "published"
+                                    ? "● Published"
+                                    : test.status === "active"
+                                      ? "● Active"
+                                      : "○ Draft"}
+                                </Badge>
+                                <Badge tone="indigo">
+                                  {test.type || activeTestCategory}
+                                </Badge>
+                                {test.difficulty && (
+                                  <Badge tone="blue">{test.difficulty}</Badge>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-gray-900 truncate">
+                                {test.title || test.name || "Untitled Test"}
+                              </h4>
+                              <p className="text-xs text-gray-500 mt-1 truncate">
+                                {test.description || "No description"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0 flex-wrap pl-7 md:pl-0">
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                              <Clock className="w-3.5 h-3.5" />
+                              {test.duration || test.time_limit || "--"} min
+                            </span>
+                            <span
+                              className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md border ${isQuestionCountBalanced ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}
+                            >
+                              <FileText className="w-3.5 h-3.5" />
+                              {expectedQuestions > 0
+                                ? `${qCount}/${expectedQuestions} Qs`
+                                : `${qCount} Qs`}
+                            </span>
+                            {(test.totalMarks || test.total_marks) && (
+                              <span className="text-xs font-bold text-gray-700 bg-gray-100 px-2 py-0.5 rounded-md">
+                                {test.totalMarks || test.total_marks} Marks
+                              </span>
+                            )}
+                            <Link
+                              to={`/admin/questions?testId=${testId}`}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors"
+                              title="Open Question Bank for this Test"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              <span>Questions</span>
+                            </Link>
+                            {(test.isLive ||
+                              activeTestCategory === "live-tests") && (
+                              <Link
+                                to={`/admin/live-monitor?testId=${testId}`}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-700 text-xs font-semibold border border-cyan-200 transition-colors"
+                                title="Monitor live candidates for this test"
+                              >
+                                <Radio className="w-3.5 h-3.5 text-cyan-600" />
+                                <span>Monitor</span>
+                              </Link>
+                            )}
+                            {test.status === "published" ? (
+                              <button
+                                type="button"
+                                onClick={() => handleUnpublish(test)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-xs font-semibold"
+                                title="Unpublish"
+                              >
+                                Unpublish
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handlePublish(test)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold shadow-sm"
+                                title="Publish"
+                              >
+                                Publish
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openEditForm(test)}
+                              className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
+                              title="Edit"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: testId,
+                                  title:
+                                    test.title || test.name || "Untitled Test",
+                                })
+                              }
+                              className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       <TestFormModal
         key={
@@ -5231,91 +5353,109 @@ export default function TestsManager() {
         onImported={fetchData}
       />
 
-      {/* Single Delete Modal */}
-      {deleteTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Delete Test
-            </h3>
-            <p className="text-gray-600 mb-6">
-              Are you sure you want to delete "
-              <strong>{deleteTarget.title}</strong>"?
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-              >
-                Delete
-              </button>
+      {deleteTarget &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setDeleteTarget(null);
+            }}
+            className="fixed inset-0 z-[10050] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl border border-gray-200 dark:border-gray-700 space-y-4">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                Delete Test
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                Are you sure you want to delete "
+                <strong className="text-gray-900 dark:text-white">
+                  {deleteTarget.title}
+                </strong>
+                "?
+              </p>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xs sm:text-sm font-semibold text-center text-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs sm:text-sm font-bold shadow-sm text-center"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
-      {/* Bulk Delete Modal */}
-      {showBulkDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-6 shadow-2xl animate-scale-in">
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              Bulk Delete Tests
-            </h3>
-            <p className="text-gray-600 text-sm mb-4">
-              Are you sure you want to delete{" "}
-              <strong className="text-rose-600 font-bold">
-                {selectedTestIds.length} selected tests
-              </strong>
-              ? This will move them to trash.
-            </p>
-            <div className="bg-gray-50 rounded-lg p-3 max-h-36 overflow-y-auto mb-6 text-xs text-gray-600 space-y-1.5 border border-gray-200">
-              {workspaceTests
-                .filter((t) =>
-                  selectedTestIds.some((id) => idsEqual(id, getTestId(t))),
-                )
-                .slice(0, 6)
-                .map((t, idx) => (
-                  <p key={idx} className="truncate">
-                    • {t.title || t.name}
+      {showBulkDeleteConfirm &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !bulkProcessing)
+                setShowBulkDeleteConfirm(false);
+            }}
+            className="fixed inset-0 z-[10050] bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 sm:p-6 shadow-2xl border border-gray-200 dark:border-gray-700 space-y-4">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                Bulk Delete Tests
+              </h3>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                Are you sure you want to delete{" "}
+                <strong className="text-rose-600 font-bold">
+                  {selectedTestIds.length} selected tests
+                </strong>
+                ? This will move them to trash.
+              </p>
+              <div className="bg-gray-50 dark:bg-gray-900/60 rounded-xl p-3 max-h-36 overflow-y-auto text-xs text-gray-600 dark:text-gray-300 space-y-1.5 border border-gray-200 dark:border-gray-700">
+                {workspaceTests
+                  .filter((t) =>
+                    selectedTestIds.some((id) => idsEqual(id, getTestId(t))),
+                  )
+                  .slice(0, 6)
+                  .map((t, idx) => (
+                    <p key={idx} className="truncate">
+                      • {t.title || t.name}
+                    </p>
+                  ))}
+                {selectedTestIds.length > 6 && (
+                  <p className="text-gray-400 font-semibold pl-2">
+                    ...and {selectedTestIds.length - 6} more tests
                   </p>
-                ))}
-              {selectedTestIds.length > 6 && (
-                <p className="text-gray-400 font-semibold pl-2">
-                  ...and {selectedTestIds.length - 6} more tests
-                </p>
-              )}
+                )}
+              </div>
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  disabled={bulkProcessing}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-xs sm:text-sm font-semibold text-center text-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteConfirm}
+                  disabled={bulkProcessing}
+                  className="w-full sm:w-auto px-4 py-2.5 sm:py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs sm:text-sm font-bold shadow-sm text-center"
+                >
+                  {bulkProcessing
+                    ? "Deleting..."
+                    : `Delete ${selectedTestIds.length} Tests`}
+                </button>
+              </div>
             </div>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowBulkDeleteConfirm(false)}
-                disabled={bulkProcessing}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkDeleteConfirm}
-                disabled={bulkProcessing}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-bold shadow-sm"
-              >
-                {bulkProcessing
-                  ? "Deleting..."
-                  : `Delete ${selectedTestIds.length} Tests`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

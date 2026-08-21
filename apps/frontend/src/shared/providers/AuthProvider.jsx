@@ -26,11 +26,12 @@ import {
 } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore";
 
-// Session configuration - 3 days default inactivity timeout
+// Session configuration - 3 days default, 7 days when rememberMe checked
 const SESSION_CONFIG = {
   defaultExpiry: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeExpiry: 30 * 24 * 60 * 60 * 1000, // 30 days
+  rememberMeExpiry: 7 * 24 * 60 * 60 * 1000, // 7 days
   inactivityTimeout: 3 * 24 * 60 * 60 * 1000, // 3 days
+  rememberMeInactivityTimeout: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
 const USER_CACHE_KEY = "trstprep_user_profile";
@@ -217,27 +218,11 @@ export function AuthProvider({ children }) {
           return;
         }
         if (isAuthError || status === 401) {
-          // If we have a refresh token or cookies, attempt one silent refresh before wiping
-          const storedRefreshToken =
-            typeof window !== "undefined"
-              ? localStorage.getItem("trstprep_refresh_token") ||
-                sessionStorage.getItem("trstprep_refresh_token")
-              : null;
-
-          if (
-            attempt === 0 &&
-            (storedRefreshToken ||
-              (typeof document !== "undefined" &&
-                document.cookie.includes("refreshToken")))
-          ) {
-            try {
-              const refreshRes = await refreshToken();
-              if (refreshRes?.success && !cancelled) {
-                return checkAuth(attempt + 1);
-              }
-            } catch {}
-          }
-
+          // 401 here means apiClient's automatic refresh (withCredentials +
+          // httpOnly cookie) already failed — no need for a second manual
+          // refresh that would race and risk replay-detected. The previous
+          // `document.cookie.includes("refreshToken")` check was always false
+          // for httpOnly cookies and blocked legitimate revisits.
           clearAuthTokens();
           setUser(null);
           saveUserCache(null);
