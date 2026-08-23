@@ -13,9 +13,9 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tests_pyq_category
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tests_pyp_year_active
   ON tests (year DESC) WHERE is_active = true AND year IS NOT NULL;
 
--- 3) Practice answers: user_id + topic + time (hot for practice-questions-public)
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_practice_answers_user_topic
-  ON practice_answers (user_id, topic_id, created_at DESC);
+-- 3) Practice answers: user_id + session_id + time (hot for practice-questions-public)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_practice_answers_user_session
+  ON practice_answers (user_id, session_id, created_at DESC);
 
 -- 4) Live tests: is_live filter (live-tests-public hot)
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tests_live_active
@@ -33,13 +33,5 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_exam_updates_exam_created
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tests_active_status_concurrent
   ON tests (is_active, status, is_deleted) WHERE is_active = true;
 
--- 8) Community / search: tests tags GIN already exists (035), ensure practice fallback
--- No new index needed if GIN exists; this is idempotent check
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_indexes WHERE indexname = 'idx_tests_tags_gin'
-  ) THEN
-    CREATE INDEX CONCURRENTLY idx_tests_tags_gin ON tests USING GIN (tags);
-  END IF;
-END $$;
+-- 8) Community / search: tests tags GIN (idempotent native concurrent index)
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tests_tags_gin ON tests USING GIN (tags);

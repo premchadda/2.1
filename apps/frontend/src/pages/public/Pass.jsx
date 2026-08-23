@@ -588,10 +588,10 @@ function Pass() {
 
       {/* Hero Section with Animated Background */}
       <AnimatedHero pageType="pass">
-        <div className="text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full mb-6 animate-shimmer">
-            <Crown className="w-5 h-5 text-amber-300" />
-            <span className="font-semibold text-white">
+        <div className="text-center px-2 sm:px-4 py-2 sm:py-4">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 bg-white/20 backdrop-blur-sm rounded-full mb-3 sm:mb-4 animate-shimmer">
+            <Crown className="w-4 h-4 text-amber-300" />
+            <span className="font-semibold text-xs sm:text-sm text-white">
               {proPass.isAdmin
                 ? "Admin Unlimited Access Active"
                 : isYearlyUser && proPass.isActive
@@ -602,7 +602,7 @@ function Pass() {
             </span>
           </div>
 
-          <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 animate-slide-up text-white">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2.5 sm:mb-4 animate-slide-up text-white tracking-tight">
             {proPass.isAdmin
               ? "Welcome, Administrator"
               : isTopTierUser
@@ -613,7 +613,7 @@ function Pass() {
           </h1>
 
           <p
-            className="text-white/80 text-lg max-w-[95vw] sm:max-w-2xl mx-auto animate-slide-up"
+            className="text-white/80 text-xs sm:text-sm md:text-base max-w-xl mx-auto mb-4 sm:mb-6 animate-slide-up leading-relaxed"
             style={{ animationDelay: "0.1s" }}
           >
             {proPass.isAdmin
@@ -625,20 +625,20 @@ function Pass() {
                   : "Get unlimited access to all tests, study materials, and premium features to crack your dream exam."}
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+          <div className="mt-4 sm:mt-6 flex flex-row items-center justify-center gap-2 sm:gap-4 w-full max-w-sm sm:max-w-none mx-auto">
             {isTopTierUser ? (
               <>
                 <Link
                   to="/tests"
-                  className="px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-base rounded-2xl shadow-xl shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                  className="flex-1 sm:flex-initial px-3.5 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
                 >
-                  <Crown className="w-5 h-5" />
-                  Explore All Tests
-                  <ArrowRight className="w-4 h-4" />
+                  <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                  <span>Explore All Tests</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0 hidden sm:inline" />
                 </Link>
                 <Link
                   to="/practice"
-                  className="px-6 py-3.5 bg-white/15 hover:bg-white/25 text-white font-bold text-base rounded-2xl border border-white/20 backdrop-blur-md transition-all"
+                  className="flex-1 sm:flex-initial px-3.5 sm:px-5 py-2.5 sm:py-3 bg-white/15 hover:bg-white/25 text-white font-bold text-xs sm:text-sm rounded-xl sm:rounded-2xl border border-white/20 backdrop-blur-md transition-all flex items-center justify-center whitespace-nowrap"
                 >
                   Practice Lab
                 </Link>
@@ -646,17 +646,17 @@ function Pass() {
             ) : isMonthlyUser && proPass.isActive ? (
               <button
                 onClick={() => openUpgradeModal("pro-yearly")}
-                className="px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-base rounded-2xl shadow-xl shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Crown className="w-5 h-5" />
+                <Crown className="w-4 h-4" />
                 Upgrade to Pro Yearly (Save 80%)
               </button>
             ) : (
               <button
                 onClick={() => openUpgradeModal("pro-yearly")}
-                className="px-8 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-base rounded-2xl shadow-xl shadow-amber-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                className="w-full sm:w-auto px-6 py-2.5 sm:py-3 bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-500 hover:to-orange-600 text-gray-900 font-extrabold text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
               >
-                <Crown className="w-5 h-5" />
+                <Crown className="w-4 h-4" />
                 Upgrade to Pro Pass
               </button>
             )}
@@ -665,17 +665,17 @@ function Pass() {
       </AnimatedHero>
 
       {/* Benefits */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 -mt-4 sm:-mt-6 lg:-mt-8 relative z-10">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-lg border border-gray-100 dark:border-gray-800 p-3.5 sm:p-5 lg:p-6 grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-6">
           {benefits.map((b, i) => (
-            <div key={i} className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
-                <b.icon className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <div key={i} className="text-center p-1 sm:p-2">
+              <div className="w-9 h-9 sm:w-11 sm:h-11 mx-auto mb-2 rounded-lg sm:rounded-xl bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
+                <b.icon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="font-bold text-gray-900 dark:text-white text-sm mb-1">
+              <h3 className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm mb-0.5 sm:mb-1">
                 {b.title}
               </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-[10.5px] sm:text-xs text-gray-500 dark:text-gray-400 line-clamp-2 sm:line-clamp-none">
                 {b.desc}
               </p>
             </div>
@@ -685,38 +685,37 @@ function Pass() {
 
       {/* Current Pass Status Section - Show for logged in users */}
       {isAuthenticated && (
-        <div className="max-w-4xl mx-auto px-4 py-8 relative">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6 relative">
           {/* Ambient Glow Background Effect */}
           <div className="absolute -inset-1 bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-cyan-500/20 rounded-3xl blur-xl opacity-80 pointer-events-none animate-pulse transition-opacity duration-1000" />
 
           <div
-            className={`relative rounded-3xl border-2 ${urgencyColors.border} ${urgencyColors.bg} p-6 md:p-8 backdrop-blur-xl shadow-2xl overflow-hidden transition-all duration-500 hover:shadow-purple-500/10`}
+            className={`relative rounded-2xl sm:rounded-3xl border-2 ${urgencyColors.border} ${urgencyColors.bg} p-4 sm:p-6 md:p-8 backdrop-blur-xl shadow-xl overflow-hidden transition-all duration-500 hover:shadow-purple-500/10`}
           >
             {/* Shimmering Top Accent Line */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent animate-shimmer opacity-80" />
 
             {/* Header with status badge */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 relative z-10">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 relative z-10">
+              <div className="flex items-center gap-3 sm:gap-4">
                 <div
-                  className={`w-16 h-16 rounded-2xl flex items-center justify-center relative group shadow-lg ${
+                  className={`w-11 h-11 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center relative group shadow-md flex-shrink-0 ${
                     proPass.isActive || proPass.isAdmin
                       ? "bg-gradient-to-br from-amber-400 via-orange-500 to-amber-600 shadow-amber-500/30"
                       : "bg-gray-200 dark:bg-gray-700"
                   }`}
                 >
-                  <div className="absolute inset-0 rounded-2xl bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
                   <Crown
-                    className={`w-8 h-8 transition-transform duration-300 group-hover:scale-110 ${
+                    className={`w-6 h-6 sm:w-7 sm:h-7 transition-transform duration-300 group-hover:scale-110 ${
                       proPass.isActive || proPass.isAdmin
-                        ? "text-white drop-shadow-md animate-bounce-subtle"
+                        ? "text-white drop-shadow-md"
                         : "text-gray-500 dark:text-gray-400"
                     }`}
                   />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                    <h2 className="text-base sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
                       {proPass.isAdmin
                         ? "Admin Access"
                         : proPass.isActive
@@ -726,12 +725,12 @@ function Pass() {
                             : "Free Plan"}
                     </h2>
                     {proPass.isAdmin && (
-                      <span className="px-2 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/40 text-amber-600 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider animate-pulse">
+                      <span className="px-2 py-0.5 rounded-md bg-amber-400/20 border border-amber-400/40 text-amber-600 dark:text-amber-300 text-[10px] font-black uppercase tracking-wider">
                         Super User
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 font-medium mt-0.5">
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-medium">
                     {user?.name || user?.email}
                   </p>
                 </div>
@@ -739,13 +738,13 @@ function Pass() {
 
               {/* Status Pill with Animated Pulse Radar */}
               <div
-                className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2.5 shadow-md border ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold flex items-center gap-2 shadow-sm border self-start sm:self-auto ${
                   proPass.isAdmin
-                    ? "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400/50 shadow-amber-500/20"
+                    ? "bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white border-amber-400/50"
                     : `${urgencyColors.badge} border-white/20`
                 }`}
               >
-                <span className="relative flex h-2.5 w-2.5">
+                <span className="relative flex h-2 w-2 sm:h-2.5 sm:w-2.5">
                   <span
                     className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                       proPass.isAdmin || proPass.isActive
@@ -754,7 +753,7 @@ function Pass() {
                     }`}
                   />
                   <span
-                    className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                    className={`relative inline-flex rounded-full h-2 w-2 sm:h-2.5 sm:w-2.5 ${
                       proPass.isAdmin || proPass.isActive
                         ? "bg-emerald-500"
                         : "bg-red-500"
@@ -762,23 +761,23 @@ function Pass() {
                   />
                 </span>
                 {proPass.isAdmin ? (
-                  <span className="flex items-center gap-1.5 font-extrabold tracking-wide">
-                    <Sparkles className="w-4 h-4 text-yellow-200 animate-spin-slow" />
+                  <span className="flex items-center gap-1 font-extrabold tracking-wide text-xs sm:text-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-200" />
                     Unlimited Admin Access
                   </span>
                 ) : proPass.isActive ? (
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-emerald-300" />
+                  <span className="flex items-center gap-1 text-xs sm:text-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
                     {proPass.statusText}
                   </span>
                 ) : proPass.isExpired ? (
-                  <span className="flex items-center gap-1.5 text-red-600 dark:text-red-400">
-                    <AlertTriangle className="w-4 h-4" />
+                  <span className="flex items-center gap-1 text-xs sm:text-sm text-red-600 dark:text-red-400">
+                    <AlertTriangle className="w-3.5 h-3.5" />
                     Expired
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1.5">
-                    <Target className="w-4 h-4" />
+                  <span className="flex items-center gap-1 text-xs sm:text-sm">
+                    <Target className="w-3.5 h-3.5" />
                     Free Plan
                   </span>
                 )}
@@ -786,20 +785,20 @@ function Pass() {
             </div>
 
             {/* Pass details interactive grid with hover elevation & smooth animation */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 relative z-10">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4 mb-4 sm:mb-6 relative z-10">
               {proPass.isActive || proPass.isAdmin ? (
                 <>
                   {/* Tile 1: Valid Until */}
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:border-amber-400/40 group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-300 transition-transform group-hover:rotate-12">
-                        <Calendar className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-300">
+                        <Calendar className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Valid Until
                       </span>
                     </div>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
+                    <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white tracking-tight">
                       {proPass.isAdmin ? (
                         <span className="bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent">
                           Unlimited (Lifetime)
@@ -811,22 +810,22 @@ function Pass() {
                   </div>
 
                   {/* Tile 2: Days Remaining */}
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:border-amber-400/40 group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-300 transition-transform group-hover:rotate-12">
-                        <Clock className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center text-amber-600 dark:text-amber-300">
+                        <Clock className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Days Remaining
                       </span>
                     </div>
                     <p
-                      className={`text-lg font-black tracking-tight ${proPass.isAdmin ? "text-amber-500 dark:text-amber-400" : urgencyColors.text}`}
+                      className={`text-sm sm:text-base font-black tracking-tight ${proPass.isAdmin ? "text-amber-500 dark:text-amber-400" : urgencyColors.text}`}
                     >
                       {proPass.isAdmin ? (
                         <span className="inline-flex items-center gap-1.5">
                           <span>Unlimited</span>
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold border border-emerald-500/20">
                             No Expiry
                           </span>
                         </span>
@@ -839,16 +838,16 @@ function Pass() {
                   </div>
 
                   {/* Tile 3: Plan Type */}
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg hover:border-amber-400/40 group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300 transition-transform group-hover:rotate-12">
-                        <Award className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+                        <Award className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Plan Type
                       </span>
                     </div>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-1.5">
+                    <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white tracking-tight flex items-center gap-1.5">
                       {proPass.isAdmin ? (
                         <span className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 bg-clip-text text-transparent font-black">
                           Admin Unlimited 👑
@@ -863,42 +862,42 @@ function Pass() {
                 </>
               ) : (
                 <>
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 transition-transform group-hover:rotate-12">
-                        <FileText className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                        <FileText className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Free Tests
                       </span>
                     </div>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
+                    <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white tracking-tight">
                       3 Free Attempts
                     </p>
                   </div>
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-300 transition-transform group-hover:rotate-12">
-                        <BookOpen className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-600 dark:text-purple-300">
+                        <BookOpen className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Study Materials
                       </span>
                     </div>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
+                    <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white tracking-tight">
                       Limited Access
                     </p>
                   </div>
-                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-2xl p-4 sm:p-5 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-lg group">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
-                      <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300 transition-transform group-hover:rotate-12">
-                        <TrendingUp className="w-4 h-4" />
+                  <div className="bg-white/75 dark:bg-gray-800/80 backdrop-blur-md rounded-xl sm:rounded-2xl p-3 sm:p-4 border border-white/40 dark:border-gray-700/50 shadow-sm transition-all duration-300 group">
+                    <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <div className="w-6 h-6 rounded-md sm:rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-300">
+                        <TrendingUp className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-xs font-bold uppercase tracking-wider">
+                      <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">
                         Analytics
                       </span>
                     </div>
-                    <p className="text-lg font-black text-gray-900 dark:text-white tracking-tight">
+                    <p className="text-sm sm:text-base font-black text-gray-900 dark:text-white tracking-tight">
                       Basic Only
                     </p>
                   </div>
@@ -908,38 +907,36 @@ function Pass() {
 
             {/* Suggestions & Upgrade CTA - only show if user is on lower plan */}
             {!isTopTierUser && (
-              <div className="bg-gradient-to-r from-purple-50 to-amber-50 dark:from-purple-950/40 dark:to-amber-950/40 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-amber-500 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="w-5 h-5 text-white" />
+              <div className="bg-gradient-to-r from-purple-50 to-amber-50 dark:from-purple-950/40 dark:to-amber-950/40 rounded-xl p-3 sm:p-4 border border-purple-200 dark:border-purple-800">
+                <div className="flex items-start gap-2.5 sm:gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-purple-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                   </div>
                   <div className="flex-1">
-                    <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                    <h4 className="font-bold text-gray-900 dark:text-white text-xs sm:text-sm mb-1">
                       {isMonthlyUser
                         ? "Upgrade to Pro Yearly"
                         : "Upgrade to Pro Pass"}
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mb-2.5 leading-relaxed">
                       {isMonthlyUser
                         ? "Save 80% on annual subscription and get uninterrupted test practice all year."
                         : "Unlock unlimited tests, detailed solutions, previous year papers, and premium study materials. Get ahead of the competition with Pro features!"}
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-row gap-2 w-full sm:w-auto">
                       <button
                         onClick={() => openUpgradeModal("pro-yearly")}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-bold text-sm hover:shadow-lg transition-all hover:scale-105 active:scale-95"
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3.5 sm:px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg sm:rounded-xl font-bold text-[11px] sm:text-sm hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
                       >
-                        <Crown className="w-4 h-4" />
-                        {isMonthlyUser
-                          ? "Upgrade to Yearly (80% OFF)"
-                          : "Upgrade to Pro (80% OFF)"}
+                        <Crown className="w-3.5 h-3.5" />
+                        {isMonthlyUser ? "Upgrade (80% OFF)" : "Upgrade to Pro"}
                       </button>
                       <Link
                         to="/tests"
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl font-semibold text-sm hover:bg-gray-50 transition border border-gray-200 dark:border-gray-700"
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 px-3 sm:px-3.5 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg sm:rounded-xl font-semibold text-[11px] sm:text-sm hover:bg-gray-50 transition border border-gray-200 dark:border-gray-700 whitespace-nowrap"
                       >
-                        Explore Free Tests
-                        <ChevronRight className="w-4 h-4" />
+                        Explore Free
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </Link>
                     </div>
                   </div>
@@ -951,78 +948,78 @@ function Pass() {
       )}
 
       {/* Pricing Cards Section */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-2xl md:text-xl sm:text-2xl lg:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-1.5 sm:mb-2">
           Choose Your Plan
         </h2>
-        <p className="text-center text-gray-500 dark:text-gray-400 text-sm max-w-[95vw] sm:max-w-xl mx-auto mb-10">
+        <p className="text-center text-gray-500 dark:text-gray-400 text-xs sm:text-sm max-w-lg mx-auto mb-6 sm:mb-8">
           Select the perfect plan to elevate your test preparation and unlock
           unlimited mock tests and full solutions.
         </p>
 
-        <div className="grid md:grid-cols-3 gap-6 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
           {plans.map((plan) => {
             const btnState = getPlanButtonState(plan.id);
             return (
               <div
                 key={plan.id}
-                className={`relative bg-white dark:bg-gray-900 rounded-2xl border-2 p-6 flex flex-col h-full transition-all ${
+                className={`relative bg-white dark:bg-gray-900 rounded-2xl border-2 p-4 sm:p-5 lg:p-6 flex flex-col h-full transition-all ${
                   plan.popular
-                    ? "border-amber-400 dark:border-amber-500 shadow-xl md:scale-105 z-10 ring-4 ring-amber-400/20"
-                    : "border-gray-200 dark:border-gray-800 hover:border-purple-500 hover:shadow-lg"
+                    ? "border-amber-400 dark:border-amber-500 shadow-lg ring-2 ring-amber-400/20"
+                    : "border-gray-200 dark:border-gray-800 hover:border-purple-500 hover:shadow-md"
                 }`}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-xs font-black tracking-wider uppercase rounded-full shadow-md">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] sm:text-xs font-black tracking-wider uppercase rounded-full shadow-md whitespace-nowrap">
                     MOST POPULAR • 80% OFF
                   </div>
                 )}
 
                 {/* Savings Badge */}
                 {plan.savings && !plan.popular && (
-                  <div className="absolute top-4 right-4 px-2.5 py-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-xs font-bold rounded-lg">
+                  <div className="absolute top-3.5 right-3.5 px-2 py-0.5 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 text-[10px] sm:text-xs font-bold rounded-lg">
                     {plan.savings}
                   </div>
                 )}
 
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-1.5 sm:mb-2">
                   {plan.name}
                 </h3>
 
-                <div className="mb-4">
+                <div className="mb-3 sm:mb-4">
                   {plan.originalPrice && (
-                    <span className="text-gray-400 line-through text-sm mr-2 font-medium">
+                    <span className="text-gray-400 line-through text-xs sm:text-sm mr-1.5 font-medium">
                       ₹{plan.originalPrice}
                     </span>
                   )}
-                  <span className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 dark:text-white">
+                  <span className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">
                     ₹{plan.price}
                   </span>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm ml-1 font-medium">
+                  <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm ml-1 font-medium">
                     {plan.period}
                   </span>
                 </div>
 
-                <div className="mb-5 py-2 px-3 bg-purple-50 dark:bg-purple-950/40 rounded-xl border border-purple-100 dark:border-purple-900/50 flex items-center gap-2">
-                  <Target className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
-                  <span className="text-xs font-bold text-purple-900 dark:text-purple-300">
+                <div className="mb-4 py-1.5 px-2.5 bg-purple-50 dark:bg-purple-950/40 rounded-lg sm:rounded-xl border border-purple-100 dark:border-purple-900/50 flex items-center gap-2">
+                  <Target className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+                  <span className="text-[11px] sm:text-xs font-bold text-purple-900 dark:text-purple-300">
                     {plan.id === "free"
                       ? "3 Free Test Attempts Allowed"
                       : "Unlimited Test Attempts Allowed"}
                   </span>
                 </div>
 
-                <ul className="space-y-2.5 mb-6 flex-1">
+                <ul className="space-y-2 mb-4 sm:mb-6 flex-1">
                   {(expandedPlans[plan.id]
                     ? plan.features
                     : plan.features.slice(0, 6)
                   ).map((f, i) => (
-                    <li key={i} className="flex items-start gap-2">
+                    <li key={i} className="flex items-start gap-1.5 sm:gap-2">
                       {f.included ? (
-                        <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
                       ) : (
-                        <X className="w-4 h-4 text-gray-300 dark:text-gray-600 flex-shrink-0 mt-0.5" />
+                        <X className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0 mt-0.5" />
                       )}
                       <span
                         className={`text-xs ${f.included ? "text-gray-700 dark:text-gray-300 font-medium" : "text-gray-400 dark:text-gray-600"}`}
@@ -1039,7 +1036,7 @@ function Pass() {
                           [plan.id]: !prev[plan.id],
                         }))
                       }
-                      className="text-purple-600 dark:text-purple-400 text-xs font-bold mt-2 hover:underline inline-block text-left"
+                      className="text-purple-600 dark:text-purple-400 text-xs font-bold mt-1 hover:underline inline-block text-left"
                     >
                       {expandedPlans[plan.id]
                         ? "Show less"
@@ -1049,12 +1046,12 @@ function Pass() {
                 </ul>
 
                 <button
-                  className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 mt-auto shadow-md ${btnState.className}`}
+                  className={`w-full py-2.5 sm:py-3 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 mt-auto shadow-sm ${btnState.className}`}
                   disabled={btnState.disabled}
                   onClick={btnState.onClick}
                 >
                   {btnState.text}
-                  {!btnState.disabled && <ArrowRight className="w-4 h-4" />}
+                  {!btnState.disabled && <ArrowRight className="w-3.5 h-3.5" />}
                 </button>
               </div>
             );
@@ -1063,11 +1060,11 @@ function Pass() {
       </div>
 
       {/* FAQ Section */}
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        <h2 className="text-xl font-bold text-center text-gray-900 dark:text-white mb-6">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+        <h2 className="text-lg sm:text-xl font-bold text-center text-gray-900 dark:text-white mb-4 sm:mb-6">
           Frequently Asked Questions
         </h2>
-        <div className="space-y-4">
+        <div className="space-y-2.5 sm:space-y-3.5">
           {[
             {
               q: "What happens after I subscribe?",
@@ -1084,13 +1081,13 @@ function Pass() {
           ].map((faq, i) => (
             <details
               key={i}
-              className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 group"
+              className="bg-white dark:bg-gray-900 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-800 p-3.5 sm:p-4 group"
             >
-              <summary className="font-semibold text-gray-900 dark:text-white cursor-pointer list-none flex items-center justify-between text-sm">
+              <summary className="font-semibold text-gray-900 dark:text-white cursor-pointer list-none flex items-center justify-between text-xs sm:text-sm">
                 {faq.q}
-                <ArrowRight className="w-4 h-4 text-gray-400 group-open:rotate-90 transition-transform" />
+                <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400 group-open:rotate-90 transition-transform flex-shrink-0" />
               </summary>
-              <p className="mt-3 text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
+              <p className="mt-2 sm:mt-3 text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
                 {faq.a}
               </p>
             </details>
@@ -1104,22 +1101,22 @@ function Pass() {
       {planModalOpen &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-fade-in">
-            <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[92vh] max-h-[92dvh] animate-scale-up">
+          <div className="fixed inset-0 z-[99999] flex items-center justify-center p-2.5 sm:p-4 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-2xl sm:rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[94vh] max-h-[94dvh] animate-scale-up">
               {/* Modal Top Header */}
-              <div className="px-6 py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner">
-                    <Crown className="w-5 h-5 text-amber-300" />
+              <div className="px-4 py-3 sm:px-6 sm:py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white/20 flex items-center justify-center backdrop-blur-sm shadow-inner flex-shrink-0">
+                    <Crown className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
                   </div>
                   <div>
-                    <h3 className="font-extrabold text-lg flex items-center gap-2">
+                    <h3 className="font-extrabold text-sm sm:text-lg flex items-center gap-1.5 sm:gap-2">
                       Choose Your Plan
-                      <span className="px-2.5 py-0.5 text-[10px] font-black bg-amber-400 text-gray-900 rounded-full uppercase tracking-wider">
+                      <span className="px-2 py-0.5 text-[9px] sm:text-[10px] font-black bg-amber-400 text-gray-900 rounded-full uppercase tracking-wider">
                         Up to 80% OFF
                       </span>
                     </h3>
-                    <p className="text-xs text-purple-100">
+                    <p className="text-[11px] sm:text-xs text-purple-100 line-clamp-1 sm:line-clamp-none">
                       Unlock all 500+ mock tests, live series, AI analytics &
                       solutions
                     </p>
@@ -1127,66 +1124,67 @@ function Pass() {
                 </div>
                 <button
                   onClick={() => setPlanModalOpen(false)}
-                  className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white"
+                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white flex-shrink-0"
                   title="Close"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
 
               {/* Modal Body: Scrollable Plan Selection Grid */}
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-6">
+              <div className="p-3.5 sm:p-5 md:p-6 overflow-y-auto space-y-3.5 sm:space-y-5">
                 {/* 3 Plan Cards Comparison */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                   {/* 1. Free Plan Card */}
-                  <div className="p-4 rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex flex-col justify-between opacity-80">
+                  <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex flex-col justify-between opacity-80">
                     <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-gray-900 dark:text-white text-base">
+                      <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                        <span className="font-bold text-gray-900 dark:text-white text-sm sm:text-base">
                           Free
                         </span>
                         <span className="px-2 py-0.5 text-[10px] font-bold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
                           Current Plan
                         </span>
                       </div>
-                      <div className="mb-3">
-                        <span className="text-2xl font-black text-gray-900 dark:text-white">
+                      <div className="mb-2 sm:mb-3">
+                        <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
                           ₹0
                         </span>
                         <span className="text-xs text-gray-500 ml-1">
                           forever
                         </span>
                       </div>
-                      <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-3 flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-gray-500" />3 Free
-                        Test Attempts Allowed
+                      <div className="p-1.5 sm:p-2 bg-gray-100 dark:bg-gray-800 rounded-lg text-[10px] sm:text-[11px] font-semibold text-gray-600 dark:text-gray-400 mb-2.5 sm:mb-3 flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                        3 Free Test Attempts Allowed
                       </div>
-                      <ul className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400">
+                      <ul className="space-y-1 text-[11px] sm:text-xs text-gray-600 dark:text-gray-400">
                         <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500" />{" "}
+                          <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />{" "}
                           Access to free tests
                         </li>
                         <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500" /> Basic
-                          analytics
+                          <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />{" "}
+                          Basic analytics
                         </li>
                         <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500" />{" "}
+                          <Check className="w-3.5 h-3.5 text-green-500 shrink-0" />{" "}
                           Limited study materials
                         </li>
                         <li className="flex items-center gap-1.5 text-gray-400">
-                          <X className="w-3.5 h-3.5" /> All mock tests
+                          <X className="w-3.5 h-3.5 shrink-0" /> All mock tests
                         </li>
                         <li className="flex items-center gap-1.5 text-gray-400">
-                          <X className="w-3.5 h-3.5" /> Live tests
+                          <X className="w-3.5 h-3.5 shrink-0" /> Live tests
                         </li>
                         <li className="flex items-center gap-1.5 text-gray-400">
-                          <X className="w-3.5 h-3.5" /> Previous year papers
+                          <X className="w-3.5 h-3.5 shrink-0" /> Previous year
+                          papers
                         </li>
                       </ul>
                     </div>
-                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-center">
-                      <span className="text-xs font-semibold text-gray-400">
+                    <div className="mt-3 pt-2.5 border-t border-gray-200 dark:border-gray-700 text-center">
+                      <span className="text-[11px] font-semibold text-gray-400">
                         Current Plan
                       </span>
                     </div>
@@ -1204,9 +1202,9 @@ function Pass() {
                       (plan.features || []).slice(0, limit).map((f, i) => (
                         <li key={i} className="flex items-center gap-1.5">
                           {f.included === false ? (
-                            <X className="w-3.5 h-3.5 text-gray-300" />
+                            <X className="w-3.5 h-3.5 text-gray-300 shrink-0" />
                           ) : (
-                            <Check className="w-3.5 h-3.5 text-green-500 font-bold" />
+                            <Check className="w-3.5 h-3.5 text-green-500 font-bold shrink-0" />
                           )}{" "}
                           {typeof f === "string" ? f : f.text}
                         </li>
@@ -1216,20 +1214,20 @@ function Pass() {
                         {/* 2. Pro Monthly Plan Card */}
                         <div
                           onClick={() => setSelectedPlanId("pro-monthly")}
-                          className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                          className={`relative p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
                             selectedPlanId === "pro-monthly"
-                              ? "border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 shadow-lg ring-2 ring-purple-500/30"
+                              ? "border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 shadow-md ring-2 ring-purple-500/30"
                               : "border-gray-200 dark:border-gray-800 hover:border-purple-300"
                           }`}
                         >
                           {monthlyPlan.savings && (
-                            <div className="absolute -top-3 right-3 px-2 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">
+                            <div className="absolute -top-2.5 right-2.5 px-2 py-0.5 bg-purple-600 text-white text-[9px] sm:text-[10px] font-bold rounded-full">
                               {monthlyPlan.savings}
                             </div>
                           )}
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-extrabold text-gray-900 dark:text-white text-base">
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <span className="font-extrabold text-gray-900 dark:text-white text-sm sm:text-base">
                                 {monthlyPlan.name}
                               </span>
                               <input
@@ -1242,33 +1240,33 @@ function Pass() {
                                 className="w-4 h-4 text-purple-600 focus:ring-purple-500"
                               />
                             </div>
-                            <div className="mb-3">
+                            <div className="mb-2 sm:mb-3">
                               {monthlyPlan.originalPrice && (
-                                <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
+                                <span className="text-gray-400 line-through text-xs mr-1 font-medium">
                                   ₹{monthlyPlan.originalPrice}
                                 </span>
                               )}
-                              <span className="text-2xl font-black text-gray-900 dark:text-white">
+                              <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
                                 ₹{monthlyPlan.price}
                               </span>
                               <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
                                 {monthlyPlan.period}
                               </span>
                             </div>
-                            <div className="p-2 bg-purple-100/60 dark:bg-purple-900/40 rounded-lg text-[11px] font-bold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-1.5">
-                              <Target className="w-3.5 h-3.5 text-purple-600" />
+                            <div className="p-1.5 sm:p-2 bg-purple-100/60 dark:bg-purple-900/40 rounded-lg text-[10px] sm:text-[11px] font-bold text-purple-900 dark:text-purple-300 mb-2.5 sm:mb-3 flex items-center gap-1.5">
+                              <Target className="w-3.5 h-3.5 text-purple-600 shrink-0" />
                               {monthlyPlan.attemptsInfo ||
                                 "Unlimited Test Attempts Allowed"}
                             </div>
-                            <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
+                            <ul className="space-y-1 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300">
                               {renderFeatures(monthlyPlan, 4)}
                             </ul>
                           </div>
-                          <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-800">
+                          <div className="mt-3 pt-2.5 border-t border-purple-200 dark:border-purple-800">
                             <button
                               type="button"
                               onClick={() => setSelectedPlanId("pro-monthly")}
-                              className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${selectedPlanId === "pro-monthly" ? "bg-purple-600 text-white shadow-md" : "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"}`}
+                              className={`w-full py-1.5 sm:py-2 text-xs font-bold rounded-lg sm:rounded-xl transition-all ${selectedPlanId === "pro-monthly" ? "bg-purple-600 text-white shadow-sm" : "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"}`}
                             >
                               {selectedPlanId === "pro-monthly"
                                 ? "Selected Plan"
@@ -1280,21 +1278,21 @@ function Pass() {
                         {/* 3. Pro Yearly Plan Card (Highlighted Most Popular) */}
                         <div
                           onClick={() => setSelectedPlanId("pro-yearly")}
-                          className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                          className={`relative p-3 sm:p-4 rounded-xl sm:rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
                             selectedPlanId === "pro-yearly"
-                              ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 shadow-lg ring-2 ring-amber-400/30"
+                              ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 shadow-md ring-2 ring-amber-400/30"
                               : "border-gray-200 dark:border-gray-800 hover:border-amber-300"
                           }`}
                         >
-                          <div className="absolute -top-3 right-3 px-2.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-black tracking-wider uppercase rounded-full shadow-sm">
+                          <div className="absolute -top-2.5 right-2.5 px-2 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[9px] sm:text-[10px] font-black tracking-wider uppercase rounded-full shadow-sm">
                             {yearlyPlan.badge ||
                               yearlyPlan.savings ||
                               "MOST POPULAR • 80% OFF"}
                           </div>
                           <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <span className="font-extrabold text-gray-900 dark:text-white text-base flex items-center gap-1.5">
-                                <Crown className="w-4 h-4 text-amber-500" />
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                              <span className="font-extrabold text-gray-900 dark:text-white text-sm sm:text-base flex items-center gap-1">
+                                <Crown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
                                 {yearlyPlan.name}
                               </span>
                               <input
@@ -1305,33 +1303,33 @@ function Pass() {
                                 className="w-4 h-4 text-amber-500 focus:ring-amber-400"
                               />
                             </div>
-                            <div className="mb-3">
+                            <div className="mb-2 sm:mb-3">
                               {yearlyPlan.originalPrice && (
-                                <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
+                                <span className="text-gray-400 line-through text-xs mr-1 font-medium">
                                   ₹{yearlyPlan.originalPrice}
                                 </span>
                               )}
-                              <span className="text-2xl font-black text-gray-900 dark:text-white">
+                              <span className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
                                 ₹{yearlyPlan.price}
                               </span>
                               <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
                                 {yearlyPlan.period}
                               </span>
                             </div>
-                            <div className="p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-lg text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-3 flex items-center gap-1.5">
-                              <Flame className="w-3.5 h-3.5 text-amber-600" />
+                            <div className="p-1.5 sm:p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-lg text-[10px] sm:text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-2.5 sm:mb-3 flex items-center gap-1.5">
+                              <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                               {yearlyPlan.attemptsInfo ||
                                 "Unlimited Test Attempts Allowed"}
                             </div>
-                            <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
+                            <ul className="space-y-1 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300">
                               {renderFeatures(yearlyPlan, 6)}
                             </ul>
                           </div>
-                          <div className="mt-4 pt-3 border-t border-amber-200 dark:border-amber-800">
+                          <div className="mt-3 pt-2.5 border-t border-amber-200 dark:border-amber-800">
                             <button
                               type="button"
                               onClick={() => setSelectedPlanId("pro-yearly")}
-                              className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${selectedPlanId === "pro-yearly" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"}`}
+                              className={`w-full py-1.5 sm:py-2 text-xs font-bold rounded-lg sm:rounded-xl transition-all ${selectedPlanId === "pro-yearly" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"}`}
                             >
                               {selectedPlanId === "pro-yearly"
                                 ? "Selected Plan"
@@ -1345,10 +1343,10 @@ function Pass() {
                 </div>
 
                 {/* Coupon & Payment Details Bar */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-200 dark:border-gray-700/60 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200 dark:border-gray-700/60 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 items-center">
                   {/* Coupon Code Input */}
                   <div>
-                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
+                    <label className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">
                       Have a Discount Coupon?
                     </label>
                     <div className="flex gap-2">
@@ -1359,7 +1357,7 @@ function Pass() {
                         onChange={(e) =>
                           setCouponInput(e.target.value.toUpperCase())
                         }
-                        className="flex-1 px-3 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase font-mono tracking-wider focus:ring-2 focus:ring-purple-500 outline-none"
+                        className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white uppercase font-mono tracking-wider focus:ring-2 focus:ring-purple-500 outline-none"
                       />
                       <button
                         type="button"
@@ -1375,7 +1373,7 @@ function Pass() {
                       </button>
                     </div>
                     {appliedCoupon && (
-                      <div className="text-[11px] text-green-600 dark:text-green-400 flex items-center gap-1 font-medium mt-1">
+                      <div className="text-[10.5px] text-green-600 dark:text-green-400 flex items-center gap-1 font-medium mt-1">
                         <CheckCircle2 className="w-3.5 h-3.5" /> Coupon{" "}
                         <strong>{appliedCoupon.code}</strong> applied (-₹
                         {appliedCoupon.discount})
@@ -1383,17 +1381,16 @@ function Pass() {
                     )}
                   </div>
 
-                  {/* Payment Method Selector - Clean Buttons Only */}
                   {/* Payment Method Selector */}
                   <div>
-                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-1.5 block">
+                    <label className="text-[11px] sm:text-xs font-bold text-gray-700 dark:text-gray-300 mb-1 block">
                       Select Preferred Payment Mode
                     </label>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("upi")}
-                        className={`py-2 px-2.5 rounded-xl border text-center transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
+                        className={`py-1.5 sm:py-2 px-2 rounded-lg sm:rounded-xl border text-center transition-all flex items-center justify-center gap-1 text-[11px] sm:text-xs font-bold ${
                           paymentMethod === "upi"
                             ? "border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-500/20"
                             : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
@@ -1404,7 +1401,7 @@ function Pass() {
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("card")}
-                        className={`py-2 px-2.5 rounded-xl border text-center transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
+                        className={`py-1.5 sm:py-2 px-2 rounded-lg sm:rounded-xl border text-center transition-all flex items-center justify-center gap-1 text-[11px] sm:text-xs font-bold ${
                           paymentMethod === "card"
                             ? "border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-500/20"
                             : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
@@ -1415,7 +1412,7 @@ function Pass() {
                       <button
                         type="button"
                         onClick={() => setPaymentMethod("netbanking")}
-                        className={`py-2 px-2.5 rounded-xl border text-center transition-all flex items-center justify-center gap-1.5 text-xs font-bold ${
+                        className={`py-1.5 sm:py-2 px-2 rounded-lg sm:rounded-xl border text-center transition-all flex items-center justify-center gap-1 text-[11px] sm:text-xs font-bold ${
                           paymentMethod === "netbanking"
                             ? "border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 shadow-xs ring-1 ring-purple-500/20"
                             : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800"
@@ -1426,103 +1423,76 @@ function Pass() {
                     </div>
 
                     {/* Dynamic Method Helper / Supported Channels */}
-                    <div className="mt-2.5 p-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-xl text-xs">
+                    <div className="mt-2 p-2 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 rounded-lg text-xs">
                       {paymentMethod === "upi" && (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10.5px] font-semibold text-gray-700 dark:text-gray-300">
                             <span>Supported UPI Apps & QR:</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                              Zero Convenience Fee
+                              Zero Fee
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
-                              Google Pay
+                          <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                              GPay
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               PhonePe
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               Paytm
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-800 dark:text-gray-200 font-semibold">
-                              BHIM / Any App
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-purple-700 dark:text-purple-300 font-semibold">
-                              Dynamic QR Code
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-purple-700 dark:text-purple-300 font-semibold">
+                              UPI QR
                             </span>
                           </div>
-                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
-                            Click &quot;Pay &amp; Activate&quot; below to scan
-                            the live dynamic UPI QR code or pay directly from
-                            any installed UPI app.
-                          </p>
                         </div>
                       )}
 
                       {paymentMethod === "card" && (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10.5px] font-semibold text-gray-700 dark:text-gray-300">
                             <span>Debit &amp; Credit Cards:</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                              256-Bit SSL Secured
+                              256-Bit SSL
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                          <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               Visa
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               MasterCard
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               RuPay
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
-                              Corporate Cards
-                            </span>
                           </div>
-                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
-                            Click &quot;Pay &amp; Activate&quot; below to
-                            securely enter your card details and complete
-                            instant bank OTP verification.
-                          </p>
                         </div>
                       )}
 
                       {paymentMethod === "netbanking" && (
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] font-semibold text-gray-700 dark:text-gray-300">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-[10.5px] font-semibold text-gray-700 dark:text-gray-300">
                             <span>Popular Indian Banks:</span>
                             <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                              50+ Banks Supported
+                              50+ Banks
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-medium text-gray-600 dark:text-gray-400">
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                          <div className="flex flex-wrap items-center gap-1 text-[10px] font-medium text-gray-600 dark:text-gray-400">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               SBI
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               HDFC
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               ICICI
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
+                            <span className="px-1.5 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
                               Axis
                             </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
-                              Kotak
-                            </span>
-                            <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 font-semibold">
-                              PNB
-                            </span>
                           </div>
-                          <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
-                            Click &quot;Pay &amp; Activate&quot; below to select
-                            your bank from the full list and approve the payment
-                            on your bank&apos;s portal.
-                          </p>
                         </div>
                       )}
                     </div>
@@ -1531,17 +1501,15 @@ function Pass() {
               </div>
 
               {/* Modal Bottom Action Footer */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
+              <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-800/80 border-t border-gray-200 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3">
+                <div className="flex items-center justify-between w-full sm:w-auto gap-3">
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <Shield className="w-4 h-4 text-green-500" />
+                    <Shield className="w-3.5 h-3.5 text-green-500" />
                     <span>256-Bit SSL Encrypted</span>
                   </div>
                   <div className="text-right sm:text-left">
-                    <span className="text-xs text-gray-500">
-                      Total to Pay:{" "}
-                    </span>
-                    <span className="text-lg font-black text-purple-700 dark:text-purple-400">
+                    <span className="text-xs text-gray-500">Total: </span>
+                    <span className="text-base sm:text-lg font-black text-purple-700 dark:text-purple-400">
                       ₹{finalPrice}
                     </span>
                     {currentSelectedPlan.originalPrice && (
@@ -1552,11 +1520,11 @@ function Pass() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                <div className="flex items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setPlanModalOpen(false)}
-                    className="px-4 py-2.5 text-xs font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
+                    className="px-3 py-2 text-xs font-semibold text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white"
                   >
                     Cancel
                   </button>
@@ -1564,17 +1532,17 @@ function Pass() {
                     type="button"
                     onClick={handleConfirmUpgrade}
                     disabled={verifying}
-                    className="flex-1 sm:flex-initial px-7 py-2.5 text-sm font-extrabold text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 rounded-xl shadow-lg shadow-orange-500/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="flex-1 sm:flex-initial px-5 sm:px-7 py-2.5 text-xs sm:text-sm font-extrabold text-white bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                   >
                     {verifying ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         <span>Activating Pro Pass...</span>
                       </>
                     ) : (
                       <>
                         <span>Pay ₹{finalPrice} & Activate Pro</span>
-                        <ArrowRight className="w-4 h-4" />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </>
                     )}
                   </button>

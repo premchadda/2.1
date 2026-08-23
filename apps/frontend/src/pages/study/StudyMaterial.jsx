@@ -368,14 +368,18 @@ function StudyMaterial() {
       </div>
 
       {/* Header with Animated Background */}
-      <AnimatedHero pageType="studyMaterial" compact>
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-          <div className="flex-1">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-3 animate-slide-up leading-tight">
+      <AnimatedHero
+        pageType="studyMaterial"
+        compact
+        className="py-3 sm:py-4 md:py-5"
+      >
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 lg:gap-8">
+          <div className="flex-1 max-w-2xl">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white mb-1.5 animate-slide-up leading-tight tracking-tight">
               Master Your Subjects 📖
             </h1>
             <p
-              className="text-white/80 text-lg mb-6 animate-slide-up font-medium"
+              className="text-white/90 text-xs sm:text-sm md:text-base mb-3.5 animate-slide-up font-medium leading-snug"
               style={{ animationDelay: "0.1s" }}
             >
               Access {subjects.length}+ subjects with expert video lectures,
@@ -392,7 +396,7 @@ function StudyMaterial() {
             />
           </div>
 
-          <div className="hidden md:grid grid-cols-2 gap-3 lg:w-full max-w-[400px] sm:w-[400px] animate-slide-in-right">
+          <div className="hidden md:grid grid-cols-2 gap-2 lg:gap-2.5 lg:w-auto shrink-0 animate-slide-in-right">
             {[
               { icon: Video, label: "1k+ Videos", color: "bg-emerald-500" },
               { icon: FileText, label: "Topic PDFs", color: "bg-teal-500" },
@@ -405,12 +409,14 @@ function StudyMaterial() {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-2xl flex items-center gap-3"
+                className="bg-white/15 hover:bg-white/20 backdrop-blur-md border border-white/20 px-3 py-2 rounded-xl flex items-center gap-2.5 transition-all shadow-xs"
               >
-                <div className={`${feature.color} p-2 rounded-xl shadow-lg`}>
-                  <feature.icon className="w-4 h-4 text-white" />
+                <div
+                  className={`${feature.color} p-1.5 rounded-lg shadow-sm flex items-center justify-center shrink-0`}
+                >
+                  <feature.icon className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-white font-bold text-sm">
+                <span className="text-white font-bold text-xs sm:text-sm whitespace-nowrap">
                   {feature.label}
                 </span>
               </div>
@@ -706,7 +712,7 @@ function StudyMaterial() {
               Expert Study Tips
             </h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[
               {
                 title: "Weak Subjects First",

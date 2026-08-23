@@ -126,10 +126,19 @@ export default function QuizzesManager() {
       setTopics(tRes.data?.data?.data || tRes.data?.data || []);
       setAllQuestions(quesRes.data?.data || quesRes.data || []);
     } catch (error) {
+      if (
+        error?.name === "CanceledError" ||
+        error?.name === "AbortError" ||
+        error?.code === "ERR_CANCELED"
+      ) {
+        return;
+      }
       console.error("Error fetching quizzes:", error);
       toast.error("Failed to load quizzes");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -199,15 +208,15 @@ export default function QuizzesManager() {
     return quizzes.filter((q) => {
       // 1. Subject Tab (uses lookup map to avoid O(S*Q) find per row)
       if (activeSubjectTab !== "all") {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || "").toLowerCase();
+        const qSub = String(
+          q.subject || q.subject_id || q.subjectId || "",
+        ).toLowerCase();
         const activeKey = String(activeSubjectTab).toLowerCase();
         const activeSubObj = subjectLookup.get(activeKey);
         const sName = String(
           activeSubObj?.label || activeSubObj?.name || "",
         ).toLowerCase();
-        const matchesSubject =
-          qSub === activeKey ||
-          (sName && qSub === sName);
+        const matchesSubject = qSub === activeKey || (sName && qSub === sName);
         if (!matchesSubject) return false;
       }
 
@@ -450,9 +459,15 @@ export default function QuizzesManager() {
   };
   const isAllQuizzesSelected = (() => {
     if (filteredQuizzes.length <= 100) {
-      return filteredQuizzes.length > 0 && filteredQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id));
+      return (
+        filteredQuizzes.length > 0 &&
+        filteredQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id))
+      );
     }
-    return paginatedQuizzes.length > 0 && paginatedQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id));
+    return (
+      paginatedQuizzes.length > 0 &&
+      paginatedQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id))
+    );
   })();
 
   const handleSelectRow = (id) => {

@@ -24,26 +24,8 @@
     transform: translateX(0);
 }
 
-/* Desktop Left Sidebar Navigation */
-.desktop-left-nav-mode .mobile-drawer {
-    width: 260px;
-    left: 0;
-    right: auto;
-    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.1);
-}
-
 .desktop-left-nav-mode #navbar .hidden.md\:flex {
     display: none !important;
-}
-
-/* Keep mobile behavior on small screens */
-@media (max-width: 767px) {
-    .mobile-overlay,
-    .mobile-drawer {
-        left: auto;
-        right: 0;
-        transform: translateX(100%);
-    }
 }
 
 /* ===== Breadcrumb Styles ===== */
@@ -562,9 +544,6 @@
 .dark .mobile-drawer {
     background: #1f2937;
 }
-
-/* Smooth dark mode transition */
-html, body, .card, .test-series-card, #navbar, aside, .mobile-drawer,
 
 /* Dark Mode Navigation - Material Design 3 */
 .dark .bottom-nav {

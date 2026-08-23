@@ -61,7 +61,7 @@ export default function StaticContent({ exam, yearlyData }) {
               <h4 className="font-semibold text-gray-900 mb-2">
                 {tier.name || `Tier ${tier.tier}`}
               </h4>
-              <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                 {tier.subjects && (
                   <div>
                     <span className="text-gray-500">Subjects:</span>

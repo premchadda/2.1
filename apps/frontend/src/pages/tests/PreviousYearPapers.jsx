@@ -318,7 +318,7 @@ export default function PreviousYearPapers() {
         {/* Global Stats Footer */}
         <div className="mt-20 bg-gray-900 rounded-[3rem] p-10 md:p-4 sm:p-6 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px]" />
-          <div className="relative z-10 grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center">
+          <div className="relative z-10 grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8 text-center">
             <div>
               <p className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-black mb-1">
                 {platformStats.mockTests}

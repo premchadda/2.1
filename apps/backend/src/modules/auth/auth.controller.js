@@ -69,6 +69,67 @@ if (!googleClientId) {
   console.warn("Google OAuth disabled: GOOGLE_CLIENT_ID not set");
 }
 
+const resolveUserPermissions = async (user) => {
+  if (!user) return [];
+  if (user.role === "super_admin") return ["*"];
+  if (user.role === "admin" || user.isAdmin || user.is_admin) {
+    try {
+      const { rows: permRows } = await dbHelpers.pool.query(
+        `SELECT DISTINCT p.name
+         FROM user_roles ur
+         JOIN role_permissions rp ON rp.role_id = ur.role_id
+         JOIN permissions p ON p.id = rp.permission_id
+         WHERE ur.user_id = $1`,
+        [user.id],
+      );
+      if (permRows.length > 0) {
+        return permRows.map((r) => r.name);
+      }
+    } catch {
+      // Ignore fallback to standard admin permissions
+    }
+    return [
+      "users:view",
+      "users:create",
+      "users:edit",
+      "users:delete",
+      "tests:view",
+      "tests:create",
+      "tests:edit",
+      "tests:delete",
+      "content:view",
+      "content:create",
+      "content:edit",
+      "content:delete",
+      "settings:view",
+      "settings:create",
+      "settings:edit",
+      "settings:delete",
+      "monetization:view",
+      "monetization:create",
+      "monetization:edit",
+      "monetization:delete",
+      "communications:view",
+      "communications:create",
+      "communications:edit",
+      "communications:delete",
+      "moderation:view",
+      "moderation:create",
+      "moderation:edit",
+      "moderation:delete",
+      "audit:view",
+      "audit:create",
+      "audit:edit",
+      "audit:delete",
+      "analytics:view",
+      "analytics:create",
+      "analytics:edit",
+      "analytics:delete",
+    ];
+  }
+  return [];
+};
+
 const getClientIp = (req) => {
   if (req?.ip) {
     let ip = String(req.ip).trim();
@@ -383,6 +444,14 @@ export const authController = {
 
       // Remove password from response
       const userWithoutPassword = sanitizeUser(user);
+      if (
+        user.role === "admin" ||
+        user.role === "super_admin" ||
+        user.is_admin ||
+        user.isAdmin
+      ) {
+        userWithoutPassword.permissions = await resolveUserPermissions(user);
+      }
 
       res.status(200).json({
         success: true,
@@ -834,6 +903,14 @@ export const authController = {
       });
 
       const userWithoutPassword = sanitizeUser(user);
+      if (
+        user.role === "admin" ||
+        user.role === "super_admin" ||
+        user.is_admin ||
+        user.isAdmin
+      ) {
+        userWithoutPassword.permissions = await resolveUserPermissions(user);
+      }
 
       res.status(200).json({
         success: true,

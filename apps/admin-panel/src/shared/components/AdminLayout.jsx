@@ -177,7 +177,12 @@ export default function AdminLayout() {
       const isSuper =
         user?.role === "super_admin" ||
         user?.isSuperAdmin === true ||
-        user?.is_super_admin === true;
+        user?.is_super_admin === true ||
+        (user?.role === "admin" &&
+          (!Array.isArray(user?.permissions) ||
+            user.permissions.length === 0)) ||
+        (user?.isAdmin === true &&
+          (!Array.isArray(user?.permissions) || user.permissions.length === 0));
       if (isSuper) return true;
       const permissions =
         Array.isArray(user?.permissions) && user.permissions.length > 0

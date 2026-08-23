@@ -159,8 +159,6 @@ export default function NavbarNotifications() {
     }
   };
 
-  if (!user) return null;
-
   return (
     <div className="relative" ref={notifRef}>
       <button
@@ -169,7 +167,7 @@ export default function NavbarNotifications() {
           e.stopPropagation();
           setIsNotifOpen(!isNotifOpen);
         }}
-        className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md relative dark:text-gray-300 dark:hover:bg-gray-800"
+        className="p-2 text-slate-600 hover:text-brand-start hover:bg-purple-50 dark:text-gray-300 dark:hover:text-brand-start dark:hover:bg-gray-800 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 relative cursor-pointer"
         aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`}
         aria-expanded={isNotifOpen}
         aria-haspopup="true"
@@ -185,13 +183,22 @@ export default function NavbarNotifications() {
         )}
       </button>
 
+      {/* Backdrop overlay for mobile to tap-outside and close */}
       {isNotifOpen && (
-        <div className="absolute right-0 mt-2 w-[calc(100vw-1.5rem)] max-w-80 sm:w-96 sm:max-w-none bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 dark:bg-gray-800 dark:border-gray-700">
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-xs sm:hidden z-40"
+          onClick={() => setIsNotifOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {isNotifOpen && (
+        <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-none bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 dark:bg-gray-800 dark:border-gray-700 animate-fade-in">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 dark:border-gray-700">
             <h3 className="font-bold text-gray-900 dark:text-white">
               Notifications
             </h3>
-            {unreadCount > 0 && (
+            {user && unreadCount > 0 && (
               <button
                 type="button"
                 onClick={markAllAsRead}
@@ -203,7 +210,30 @@ export default function NavbarNotifications() {
           </div>
 
           <div className="max-h-80 overflow-y-auto">
-            {notifications.length > 0 ? (
+            {!user ? (
+              <div className="py-8 px-4 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-brand-start flex items-center justify-center mx-auto mb-3">
+                  <Bell className="w-6 h-6" aria-hidden="true" />
+                </div>
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                  Stay Updated
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-4 max-w-xs mx-auto">
+                  Sign in to receive alerts about upcoming tests, live events,
+                  and results.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    navigate("/login");
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white text-xs font-semibold rounded-xl shadow-md hover:shadow-glow transition active:scale-95"
+                >
+                  Sign In
+                </button>
+              </div>
+            ) : notifications.length > 0 ? (
               notifications.map((notif) => (
                 <div
                   key={notif.id || notif._id}
@@ -260,7 +290,7 @@ export default function NavbarNotifications() {
             )}
           </div>
 
-          {notifications.length > 0 && (
+          {user && notifications.length > 0 && (
             <div className="border-t border-gray-100 dark:border-gray-700">
               <button
                 type="button"

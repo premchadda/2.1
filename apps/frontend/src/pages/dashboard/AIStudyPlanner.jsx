@@ -419,7 +419,7 @@ function AIStudyPlanner() {
         </ScrollReveal>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
           {[
             {
               icon: Brain,
@@ -642,7 +642,7 @@ function AIStudyPlanner() {
 
         {/* Quick Actions */}
         <ScrollReveal delay={0.25}>
-          <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {[
               {
                 icon: BarChart3,

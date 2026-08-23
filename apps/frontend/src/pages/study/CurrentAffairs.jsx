@@ -214,7 +214,7 @@ export default function CurrentAffairs() {
             <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : filteredArticles.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredArticles.map((article, idx) => (
               <div
                 key={article.id || article._id || idx}

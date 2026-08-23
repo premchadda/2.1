@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useCallback,
   useRef,
+  memo,
 } from "react";
 import { createPortal } from "react-dom";
 import {

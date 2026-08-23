@@ -384,9 +384,13 @@ export const validateCsrfToken = async (req, res, next) => {
     return next();
   }
 
-  // Skip CSRF for stateless auth routes and payment endpoints (handled with signature verification & session auth)
+  // Skip CSRF for stateless auth routes, logout, sessions, and payment endpoints (handled with signature verification & session auth)
   const csrfExemptPaths = [
     "/api/auth/login",
+    "/api/auth/logout",
+    "/auth/logout",
+    "/api/sessions",
+    "/sessions",
     "/api/auth/register",
     "/api/auth/forgot-password",
     "/api/auth/reset-password",

@@ -739,7 +739,7 @@ export default function LiveTests() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl sm:rounded-3xl p-2.5 sm:p-4 border border-slate-200/80 dark:border-slate-800/80 shadow-xs mb-6">
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 sm:gap-3">
             {/* Format Selector Pills (Live Tests vs Live Quizzes) with Animated Sliding Glider */}
-            <div className="relative w-full sm:w-full max-w-[260px] sm:w-[260px] grid grid-cols-2 p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shrink-0 select-none">
+            <div className="relative w-full sm:w-[290px] grid grid-cols-2 p-1 bg-slate-100/90 dark:bg-slate-800/80 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 shrink-0 select-none">
               {/* Sliding Active Background Indicator */}
               <div
                 className={`absolute top-1 bottom-1 rounded-lg sm:rounded-xl bg-white dark:bg-slate-900 shadow-xs ring-1 ring-black/5 dark:ring-white/10 transition-all duration-300 ease-out pointer-events-none ${
@@ -753,18 +753,18 @@ export default function LiveTests() {
               <button
                 type="button"
                 onClick={() => setFormatFilter("tests")}
-                className={`relative z-10 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition-colors duration-200 ${
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-colors duration-200 ${
                   formatFilter === "tests"
                     ? "text-indigo-600 dark:text-indigo-400 font-black"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <Target
-                  className={`w-3.5 h-3.5 text-rose-500 transition-transform duration-200 ${formatFilter === "tests" ? "scale-110" : ""}`}
+                  className={`w-3.5 h-3.5 text-rose-500 shrink-0 transition-transform duration-200 ${formatFilter === "tests" ? "scale-110" : ""}`}
                 />
-                <span>Live Tests</span>
+                <span className="whitespace-nowrap">Live Tests</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-black transition-colors duration-200 ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black shrink-0 transition-colors duration-200 ${
                     formatFilter === "tests"
                       ? "bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300"
                       : "bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-400"
@@ -778,18 +778,18 @@ export default function LiveTests() {
               <button
                 type="button"
                 onClick={() => setFormatFilter("quizzes")}
-                className={`relative z-10 flex items-center justify-center gap-1.5 px-3 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-xs font-bold transition-colors duration-200 ${
+                className={`relative z-10 flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-2 sm:py-1.5 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-colors duration-200 ${
                   formatFilter === "quizzes"
                     ? "text-indigo-600 dark:text-indigo-400 font-black"
                     : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 }`}
               >
                 <Zap
-                  className={`w-3.5 h-3.5 text-amber-500 transition-transform duration-200 ${formatFilter === "quizzes" ? "scale-110" : ""}`}
+                  className={`w-3.5 h-3.5 text-amber-500 shrink-0 transition-transform duration-200 ${formatFilter === "quizzes" ? "scale-110" : ""}`}
                 />
-                <span>Live Quizzes</span>
+                <span className="whitespace-nowrap">Live Quizzes</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-black transition-colors duration-200 ${
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-black shrink-0 transition-colors duration-200 ${
                     formatFilter === "quizzes"
                       ? "bg-indigo-50 dark:bg-indigo-950/80 text-indigo-700 dark:text-indigo-300"
                       : "bg-slate-200/70 dark:bg-slate-700/60 text-slate-600 dark:text-slate-400"

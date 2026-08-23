@@ -349,7 +349,7 @@ export default function ExamDetails() {
                 {examData.fullName || examData.title}
               </p>
 
-              <div className="grid grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 group hover:bg-white/10 transition-all">
                   <Users className="w-6 h-6 text-indigo-400 mb-3 group-hover:scale-110 transition-transform" />
                   <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">

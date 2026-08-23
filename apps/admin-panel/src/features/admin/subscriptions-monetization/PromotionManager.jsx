@@ -39,10 +39,12 @@ export default function PromotionManager() {
   });
 
   useEffect(() => {
-    fetchPromotions();
+    const controller = new AbortController();
+    fetchPromotions(controller.signal);
+    return () => controller.abort();
   }, [pagination.page, searchQuery, selectedType, selectedStatus]);
 
-  const fetchPromotions = async () => {
+  const fetchPromotions = async (signal) => {
     try {
       setLoading(true);
       const params = {
@@ -50,20 +52,43 @@ export default function PromotionManager() {
         limit: pagination.limit,
         search: searchQuery || undefined,
         type: selectedType || undefined,
+        status: selectedStatus || undefined,
       };
-      const response = await adminApi.get("/admin/promotions", { params });
-      setPromotions(response.data.data || []);
+      const response = await adminApi.get("/admin/promotions", {
+        params,
+        signal,
+      });
+      const rawData =
+        response.data?.data ||
+        (Array.isArray(response.data) ? response.data : []);
+      setPromotions(Array.isArray(rawData) ? rawData : []);
       setPagination((prev) => ({
         ...prev,
-        total: response.data.pagination?.total || 0,
-        pages: response.data.pagination?.pages || 0,
+        total:
+          response.data?.pagination?.total ||
+          (Array.isArray(rawData) ? rawData.length : 0),
+        pages:
+          response.data?.pagination?.pages ||
+          (Array.isArray(rawData)
+            ? Math.ceil(rawData.length / pagination.limit)
+            : 0),
       }));
     } catch (error) {
+      if (
+        signal?.aborted ||
+        error?.name === "CanceledError" ||
+        error?.name === "AbortError" ||
+        error?.code === "ERR_CANCELED"
+      ) {
+        return;
+      }
       console.error("Error fetching promotions:", error);
       toast.error("Failed to load promotions");
       setPromotions([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   };
 

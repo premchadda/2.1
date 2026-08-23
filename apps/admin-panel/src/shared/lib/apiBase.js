@@ -7,11 +7,17 @@ export const API_BASE_URL = (() => {
     (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL) || "";
 
   if (!url && typeof window !== "undefined") {
-    const devPorts = ["3000", "3002"];
+    const devPorts = ["3000", "3002", "5173", "5174"];
+    const host = window.location.hostname;
+    const isLocalhost =
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "::1" ||
+      host === "[::1]";
     if (
       devPorts.includes(window.location.port) ||
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1"
+      isLocalhost ||
+      import.meta.env?.DEV
     ) {
       return "";
     }

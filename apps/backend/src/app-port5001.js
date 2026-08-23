@@ -85,7 +85,6 @@ import certificateService from "./services/certificateService.js";
 import subscriptionRoutes from "./api/routes/subscriptions.js";
 import subscriptionAdminRoutes from "./api/routes/subscriptions-admin.js";
 import sessionRoutes from "./modules/sessions/session.routes.js";
-import sessionController from "./modules/sessions/session.controller.js";
 import mathRoutes from "./modules/ai/math.routes.js";
 import intelligenceRoutes from "./api/routes/intelligence.js";
 import discussionsRoutes from "./api/routes/discussions.js";
@@ -1048,22 +1047,6 @@ app.get("/api/certificates/verify/:hash", async (req, res) => {
       .json({ success: false, message: sanitizeErrorMessage(err) });
   }
 });
-
-const sessionRouter = express.Router();
-sessionRouter.get("/", protect, sessionController.getMySessions);
-sessionRouter.delete(
-  "/:sessionId",
-  protect,
-  validateCsrfToken,
-  sessionController.revokeSession,
-);
-sessionRouter.delete(
-  "/",
-  protect,
-  validateCsrfToken,
-  sessionController.revokeAllSessions,
-);
-app.use("/api/sessions", sessionRouter);
 
 mountExtractedRoutes(app);
 

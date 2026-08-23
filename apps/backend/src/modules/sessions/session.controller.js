@@ -190,8 +190,26 @@ const ensureUserSessionsTable = async () => {
     // Unique partial index to serialize device fingerprint and prevent TOCTOU duplicates.
     // Fingerprint = (user_id, device_type, browser, os, session_type) lowercased, active only.
     // Use COALESCE to match captureSession's lower(COALESCE(...)) fingerprint and to treat null as ''.
-    // If duplicates already exist, creation will fail — warn but don't crash startup.
     try {
+      // 1. Deactivate older duplicate active sessions for the same fingerprint, keeping only the latest active one
+      await pool.query(`
+        WITH ranked_sessions AS (
+          SELECT id,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY user_id, lower(COALESCE(device_type,'')), lower(COALESCE(browser,'')), lower(COALESCE(os,'')), lower(COALESCE(session_type,''))
+                   ORDER BY last_activity DESC NULLS LAST, created_at DESC NULLS LAST, id DESC
+                 ) as rn
+          FROM user_sessions
+          WHERE is_active = true
+        )
+        UPDATE user_sessions
+        SET is_active = false
+        WHERE id IN (
+          SELECT id FROM ranked_sessions WHERE rn > 1
+        );
+      `);
+
+      // 2. Create the unique partial index
       await pool.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS ux_user_sessions_active_fingerprint
           ON user_sessions (user_id, lower(COALESCE(device_type,'')), lower(COALESCE(browser,'')), lower(COALESCE(os,'')), lower(COALESCE(session_type,'')))
@@ -199,7 +217,7 @@ const ensureUserSessionsTable = async () => {
       `);
     } catch (uxErr) {
       console.warn(
-        "[Sessions] ux_user_sessions_active_fingerprint not created (likely existing duplicates):",
+        "[Sessions] ux_user_sessions_active_fingerprint not created:",
         uxErr.message,
       );
     }
