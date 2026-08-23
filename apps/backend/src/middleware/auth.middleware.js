@@ -398,6 +398,11 @@ export const isHigherRole = (userRole, requiredRole) => {
  * @returns {Promise<void>}
  */
 export const protect = async (req, res, next) => {
+  // FAST-PATH / IDEMPOTENT: If already authenticated upstream (e.g. by parent admin router), pass through
+  if (req.user && req.authToken) {
+    return next();
+  }
+
   let token;
   try {
     if (req.headers.authorization?.startsWith("Bearer")) {
@@ -546,7 +551,11 @@ export const protect = async (req, res, next) => {
 
     const decryptedUser = decryptUserPii(user);
     const { password, ...userWithoutPassword } = decryptedUser;
-    const isAdmin = decryptedUser.role === ROLES.ADMIN;
+    const isAdmin =
+      decryptedUser.role === ROLES.ADMIN ||
+      decryptedUser.role === ROLES.SUPER_ADMIN ||
+      decryptedUser.role === "admin" ||
+      decryptedUser.role === "super_admin";
 
     req.user = {
       ...userWithoutPassword,
@@ -789,7 +798,11 @@ export const optionalAuth = async (req, res, next) => {
         const { password, ...userWithoutPassword } = user;
         req.user = {
           ...userWithoutPassword,
-          isAdmin: user.role === ROLES.ADMIN,
+          isAdmin:
+            user.role === ROLES.ADMIN ||
+            user.role === ROLES.SUPER_ADMIN ||
+            user.role === "admin" ||
+            user.role === "super_admin",
           role: user.role,
           sessionId: decoded.sessionId || null,
         };

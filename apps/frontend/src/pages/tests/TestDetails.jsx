@@ -1495,14 +1495,15 @@ function TestDetails() {
     const enrolledSeries = user?.enrolledSeries || [];
     const isEnrolled = isSeriesEnrolled(enrolledSeries, series);
     if (user && isEnrolled) {
-      const catSlug = (
-        series.examId ||
-        series.exam_id ||
+      const rawExamSlug =
+        examSlug ||
+        series.examSlug ||
+        series.exam_slug ||
+        series.examCategory ||
         series.category ||
-        "ssc-cgl"
-      )
-        .toLowerCase()
-        .replace(/\s+/g, "-");
+        (series.examId ? String(series.examId) : "") ||
+        "ssc-cgl";
+      const catSlug = String(rawExamSlug).toLowerCase().replace(/\s+/g, "-");
       const expectedPath = `/${catSlug}/test-series/my`;
       if (
         location.pathname !== expectedPath &&

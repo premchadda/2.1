@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Navigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { useAuth } from "../../../shared/providers/AuthContext";
 import { useTheme } from "../../../shared/context/ThemeContext";
@@ -92,7 +92,13 @@ function Login() {
   const [honeypot, setHoneypot] = useState("");
   const formRenderedAt = useRef(Date.now());
 
-  const { login, revokeOtherSessions } = useAuth();
+  const {
+    user,
+    loading: authLoading,
+    authResolved,
+    login,
+    revokeOtherSessions,
+  } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -128,6 +134,17 @@ function Login() {
     rawFrom && rawFrom.startsWith("/") && !rawFrom.startsWith("//")
       ? rawFrom
       : "/admin";
+
+  // If already authenticated and state resolved, redirect to dashboard/from target
+  if (
+    authResolved &&
+    !authLoading &&
+    !loading &&
+    user &&
+    !showSessionConflict
+  ) {
+    return <Navigate to={from} replace />;
+  }
 
   const mainSiteUrl =
     import.meta.env.VITE_FRONTEND_URL ||

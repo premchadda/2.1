@@ -183,12 +183,10 @@ router.post("/users/:id/2fa/disable", async (req, res) => {
         .status(404)
         .json({ success: false, message: "User not found" });
     if (String(userId) === String(req.user.id)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Use personal Disable 2FA for your own account",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Use personal Disable 2FA for your own account",
+      });
     }
     const del = await pool.query(
       "DELETE FROM two_factor_secrets WHERE user_id = $1",
@@ -642,12 +640,10 @@ router.delete("/users/:userId/sessions/:sessionId", async (req, res) => {
     }
 
     if (String(session.user_id) !== String(userId)) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: "Session does not belong to this user",
-        });
+      return res.status(403).json({
+        success: false,
+        message: "Session does not belong to this user",
+      });
     }
 
     // Use service to invalidate and emit WebSocket event
@@ -661,6 +657,49 @@ router.delete("/users/:userId/sessions/:sessionId", async (req, res) => {
     res.json({ success: true, message: "Session revoked" });
   } catch (error) {
     logger.error("Failed to revoke user session", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// Update session limit for a user (admin)
+router.put("/users/:userId/session-limit", async (req, res) => {
+  try {
+    const { userId: userIdParam } = req.params;
+    let userId;
+    const user = await findEntityByIdentifier(dbHelpers, "users", userIdParam);
+    if (user) {
+      userId = user.id || user._id;
+    } else {
+      userId = parseInt(userIdParam, 10);
+    }
+
+    if (!userId || isNaN(userId)) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    const { sessionLimit, session_limit } = req.body;
+    const rawLimit = sessionLimit !== undefined ? sessionLimit : session_limit;
+    const limit =
+      rawLimit !== undefined && rawLimit !== null && rawLimit !== ""
+        ? parseInt(rawLimit, 10)
+        : null;
+
+    await pool.query(`UPDATE users SET session_limit = $1 WHERE id = $2`, [
+      limit,
+      userId,
+    ]);
+
+    invalidateUserCache(Number(userId));
+
+    res.json({
+      success: true,
+      message: "Session limit updated",
+      data: { sessionLimit: limit },
+    });
+  } catch (error) {
+    logger.error("Failed to update session limit", error);
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });

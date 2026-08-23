@@ -258,6 +258,17 @@ function normalizeComingSoon(raw) {
   return { ...DEFAULT_SETTINGS.comingSoon, ...normalized };
 }
 
+let cachedSiteConfig = null;
+let cachedSiteConfigExpiresAt = 0;
+const SITE_CONFIG_CACHE_TTL_MS = 15_000;
+
+const invalidateSettingsCache = () => {
+  cachedSiteConfig = null;
+  cachedSiteConfigExpiresAt = 0;
+  runtimeSecurityCache = null;
+  runtimeSecurityCacheExpiresAt = 0;
+};
+
 /**
  * Read the site_config JSONB column from the app_settings singleton row.
  * Uses raw SQL to bypass ORM column mapping issues.
@@ -265,6 +276,13 @@ function normalizeComingSoon(raw) {
  * concurrent saveSettings cannot lose updates between the read and write.
  */
 async function getSiteConfig({ forUpdate = false } = {}) {
+  if (
+    !forUpdate &&
+    cachedSiteConfig &&
+    Date.now() < cachedSiteConfigExpiresAt
+  ) {
+    return cachedSiteConfig;
+  }
   try {
     const result = await pool.query(
       `SELECT site_config FROM app_settings
@@ -272,7 +290,13 @@ async function getSiteConfig({ forUpdate = false } = {}) {
     );
     if (result.rows.length > 0) {
       const config = result.rows[0].site_config;
-      if (config && typeof config === "object") return config;
+      if (config && typeof config === "object") {
+        if (!forUpdate) {
+          cachedSiteConfig = config;
+          cachedSiteConfigExpiresAt = Date.now() + SITE_CONFIG_CACHE_TTL_MS;
+        }
+        return config;
+      }
     }
   } catch (err) {
     logger.error("[SettingsService] getSiteConfig query failed:", err.message);
@@ -285,6 +309,7 @@ async function getSiteConfig({ forUpdate = false } = {}) {
  * Uses raw SQL to bypass ORM and normalizeFields middleware.
  */
 async function saveSiteConfig(config) {
+  invalidateSettingsCache();
   try {
     const updateResult = await pool.query(
       `UPDATE app_settings
@@ -306,6 +331,7 @@ async function saveSiteConfig(config) {
         [JSON.stringify(config)],
       );
     }
+    invalidateSettingsCache();
     return true;
   } catch (error) {
     logger.error("[SettingsService] saveSiteConfig failed:", error.message);
@@ -1001,6 +1027,7 @@ export {
   syncComingSoonConfigToSiteConfig,
   comingSoonObjectToPages,
   pagesToComingSoonObject,
+  invalidateSettingsCache,
 };
 
 async function getRuntimeSecuritySettings() {

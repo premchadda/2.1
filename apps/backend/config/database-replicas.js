@@ -159,17 +159,31 @@ export const checkPoolsHealth = async () => {
  * the cold-connection establishment latency.
  */
 export const warmPools = async () => {
+  let writeWarmed = false;
+  let readWarmed = false;
   try {
-    const promises = [writePool.query("SELECT 1")];
+    const promises = [
+      writePool.query("SELECT 1").then(() => {
+        writeWarmed = true;
+      }),
+    ];
     if (readPool !== writePool) {
-      promises.push(readPool.query("SELECT 1"));
+      promises.push(
+        readPool.query("SELECT 1").then(() => {
+          readWarmed = true;
+        }),
+      );
+    } else {
+      readWarmed = true;
     }
     await Promise.all(promises);
     console.log("[DB] Connection pools warmed successfully.");
+    return { writeWarmed, readWarmed };
   } catch (err) {
     console.warn(
       "[DB] Pool pre-warming encountered an issue (non-fatal):",
       err.message,
     );
+    return { writeWarmed, readWarmed };
   }
 };

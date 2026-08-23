@@ -37,6 +37,7 @@ import { OAuth2Client } from "google-auth-library";
 import {
   generateCsrfToken,
   storeCsrfToken,
+  setCsrfCookie,
 } from "../../middleware/csrf.middleware.js";
 import { isTransientDbError } from "../../shared/utils/db-errors.js";
 import { sendVerificationEmail } from "../../infrastructure/email/emailService.js";
@@ -441,6 +442,7 @@ export const authController = {
       // Generate and store initial CSRF token for the session
       const csrfToken = generateCsrfToken();
       await storeCsrfToken(token, csrfToken);
+      setCsrfCookie(res, csrfToken);
 
       auditAuth(req, {
         action: AUDIT_ACTIONS.LOGIN,
@@ -695,6 +697,7 @@ export const authController = {
       // Generate and store initial CSRF token for the session
       const csrfToken = generateCsrfToken();
       await storeCsrfToken(token, csrfToken);
+      setCsrfCookie(res, csrfToken);
 
       // Remove password from response
       const userWithoutPassword = sanitizeUser(newUser);
@@ -901,6 +904,7 @@ export const authController = {
       // Generate and store initial CSRF token for the session
       const csrfToken = generateCsrfToken();
       await storeCsrfToken(token, csrfToken);
+      setCsrfCookie(res, csrfToken);
 
       auditAuth(req, {
         action: AUDIT_ACTIONS.LOGIN,
@@ -1210,6 +1214,7 @@ export const authController = {
       // Generate and store new CSRF token
       const csrfToken = generateCsrfToken();
       await storeCsrfToken(token, csrfToken);
+      setCsrfCookie(res, csrfToken);
 
       auditAuth(req, {
         action: "refresh",
@@ -1982,6 +1987,7 @@ export const authController = {
 
       const csrfToken = generateCsrfToken();
       await storeCsrfToken(accessToken, csrfToken);
+      setCsrfCookie(res, csrfToken);
 
       const userWithoutPassword = sanitizeUser(user);
 

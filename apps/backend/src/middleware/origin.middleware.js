@@ -262,14 +262,30 @@ export const restrictAdminOrigin = (req, res, next) => {
 
   if (sameOriginHost(originHost, requestHost)) return next();
 
-  const lanOrigins = new Set(
-    (process.env.ALLOWED_LAN_HOSTS || "")
-      .split(",")
-      .map((h) => h.trim())
-      .filter(Boolean)
-      .map((h) => (h.startsWith("http") ? h : `http://${h}`)),
+  const envOrigins = (
+    process.env.ALLOWED_ORIGINS ||
+    process.env.CORS_ORIGIN ||
+    ""
+  )
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  const trustedOrigins = new Set(
+    [
+      ...envOrigins,
+      ...(process.env.ALLOWED_LAN_HOSTS || "")
+        .split(",")
+        .map((h) => h.trim())
+        .filter(Boolean)
+        .map((h) => (h.startsWith("http") ? h : `http://${h}`)),
+      process.env.FRONTEND_URL,
+      process.env.ADMIN_PANEL_URL,
+      ...VERCEL_ALLOWLIST,
+    ].filter(Boolean),
   );
-  if (lanOrigins.has(origin)) return next();
+
+  if (trustedOrigins.has(origin) || VERCEL_ALLOWLIST.has(origin)) return next();
 
   if (ADMIN_PANEL_URL) {
     try {
@@ -278,9 +294,6 @@ export const restrictAdminOrigin = (req, res, next) => {
       // malformed ADMIN_PANEL_URL → fall through to rejection
     }
   }
-
-  // Explicit allowlist for admin panel vercel deployment
-  if (VERCEL_ALLOWLIST.has(origin)) return next();
 
   if (
     process.env.NODE_ENV !== "production" &&
@@ -312,16 +325,43 @@ export const validateAdminApiKey = (req, res, next) => {
   const origin = req.headers.origin || req.headers.referer || "";
   if (origin) {
     try {
-      const originHost = new URL(origin).host;
-      const allowedAdminHost = process.env.ADMIN_PANEL_URL
-        ? new URL(process.env.ADMIN_PANEL_URL).host
-        : "trstprep-admin.vercel.app";
-      if (allowedAdminHost && originHost === allowedAdminHost) {
-        return next();
+      const parsedOrigin = new URL(origin);
+      const originHost = parsedOrigin.host;
+      const originHostname = parsedOrigin.hostname;
+      const requestHost =
+        req.headers["x-forwarded-host"] || req.headers.host || null;
+
+      if (sameOriginHost(originHost, requestHost)) return next();
+      if (VERCEL_ALLOWLIST.has(origin)) return next();
+
+      if (ADMIN_PANEL_URL) {
+        try {
+          if (new URL(ADMIN_PANEL_URL).host === originHost) return next();
+        } catch {
+          // ignore
+        }
       }
+
+      const envOrigins = (
+        process.env.ALLOWED_ORIGINS ||
+        process.env.CORS_ORIGIN ||
+        ""
+      )
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (envOrigins.includes(origin)) return next();
+
+      const lanOrigins = (process.env.ALLOWED_LAN_HOSTS || "")
+        .split(",")
+        .map((h) => h.trim())
+        .filter(Boolean)
+        .map((h) => (h.startsWith("http") ? h : `http://${h}`));
+      if (lanOrigins.includes(origin)) return next();
+
       if (
         process.env.NODE_ENV !== "production" &&
-        (originHost.includes("localhost") || originHost.includes("127.0.0.1"))
+        (isLoopback(originHostname) || isPrivateIP(originHostname))
       ) {
         return next();
       }
@@ -330,6 +370,9 @@ export const validateAdminApiKey = (req, res, next) => {
     }
   }
 
+  console.warn(
+    `[ADMIN] Rejected state-changing request with invalid/missing admin API key from ${origin || "unknown origin"}`,
+  );
   return res.status(403).json({
     success: false,
     code: "ADMIN_API_KEY",

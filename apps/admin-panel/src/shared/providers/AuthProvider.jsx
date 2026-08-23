@@ -11,38 +11,50 @@ import {
   clearCsrfToken,
 } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore.js";
-import { applyAuthSession, clearAuthTokens } from "./authSession.js";
+import {
+  applyAuthSession,
+  clearAuthTokens,
+  getInitialUser,
+  saveUserCache,
+} from "./authSession.js";
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialCachedUser = getInitialUser();
+  const [user, setUser] = useState(initialCachedUser);
+  const [loading, setLoading] = useState(!initialCachedUser);
   const [error, setError] = useState(null);
+  const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser));
+  const authSequenceRef = useRef(0);
   const currentSessionIdRef = useRef(null);
 
   // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
   useEffect(() => {
     let cancelled = false;
-    const MAX_RETRIES = 12;
-    const BASE_RETRY_DELAY = 1500; // ms
-    const MAX_RETRY_DELAY = 5000; // ms cap for backoff
+    const sequenceAtStart = authSequenceRef.current;
+    const MAX_RETRIES = 3;
+    const BASE_RETRY_DELAY = 1000; // ms
+    const MAX_RETRY_DELAY = 3000; // ms cap for backoff
 
     const checkAuth = async (attempt = 0) => {
-      if (cancelled) return;
+      if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
       try {
         const response = await authAPI.getMe();
-        if (cancelled) return;
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
         const userData = response.data.data;
 
         if (userData) {
           const frontendUser = mapUserToFrontend(userData);
           setUser(frontendUser);
+          saveUserCache(frontendUser);
         } else {
           clearAuthTokens();
+          saveUserCache(null);
           setUser(null);
         }
         setLoading(false);
+        setAuthResolved(true);
       } catch (err) {
-        if (cancelled) return;
+        if (cancelled || authSequenceRef.current !== sequenceAtStart) return;
         const isAuthError =
           err?.name === "AuthenticationError" ||
           err?.code === "AUTHENTICATION_ERROR" ||
@@ -58,26 +70,31 @@ export function AuthProvider({ children }) {
           setTimeout(() => checkAuth(attempt + 1), delay);
           return;
         }
-        if (!isAuthError && status !== 401) {
+        if (isAuthError || status === 401) {
+          clearAuthTokens();
+          saveUserCache(null);
+          setUser(null);
+        } else {
           logger.error("Auth check failed:", err);
         }
-        clearAuthTokens();
-        setUser(null);
         setLoading(false);
+        setAuthResolved(true);
       }
     };
-    const timer = setTimeout(() => checkAuth(), 300);
+    checkAuth();
     return () => {
       cancelled = true;
-      clearTimeout(timer);
     };
   }, []);
 
   // Listen for unauthorized events
   useEffect(() => {
     const handleUnauthorized = () => {
+      authSequenceRef.current += 1;
       clearAuthTokens();
+      saveUserCache(null);
       setUser(null);
+      setAuthResolved(true);
       try {
         clearWebSocket?.();
       } catch (_e) {
@@ -100,7 +117,9 @@ export function AuthProvider({ children }) {
       return { success: true };
     } catch (err) {
       logger.error("Token refresh failed:", err);
+      authSequenceRef.current += 1;
       clearAuthTokens();
+      saveUserCache(null);
       setUser(null);
       return { success: false, error: "Session expired" };
     }
@@ -114,6 +133,7 @@ export function AuthProvider({ children }) {
 
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
+      saveUserCache(frontendUser);
 
       return { success: true, user: frontendUser };
     } catch (err) {
@@ -129,6 +149,7 @@ export function AuthProvider({ children }) {
     rememberMe = false,
     botContext = {},
   ) => {
+    authSequenceRef.current += 1;
     setError(null);
     setLoading(true);
 
@@ -154,7 +175,10 @@ export function AuthProvider({ children }) {
       });
 
       const frontendUser = mapUserToFrontend(userData);
+      saveUserCache(frontendUser);
       setUser(frontendUser);
+      setAuthResolved(true);
+      setLoading(false);
 
       return {
         success: true,
@@ -200,12 +224,15 @@ export function AuthProvider({ children }) {
       }
 
       if (userData) {
+        authSequenceRef.current += 1;
         applyAuthSession({
           csrfToken: payload.csrfToken,
         });
 
         const frontendUser = mapUserToFrontend(userData);
+        saveUserCache(frontendUser);
         setUser(frontendUser);
+        setAuthResolved(true);
 
         return {
           success: true,
@@ -233,14 +260,17 @@ export function AuthProvider({ children }) {
 
   // Logout function
   const logout = async () => {
+    authSequenceRef.current += 1;
     try {
       await authAPI.logout();
     } catch (err) {
       logger.error("Logout API call failed:", err);
     } finally {
       clearAuthTokens();
+      saveUserCache(null);
       setUser(null);
       setError(null);
+      setAuthResolved(true);
       try {
         clearWebSocket?.();
       } catch (_e) {
@@ -354,6 +384,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     loading,
+    authResolved,
     error,
     isConnected,
     socket,
