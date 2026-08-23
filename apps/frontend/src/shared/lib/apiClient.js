@@ -92,24 +92,35 @@ apiClient.get = (url, config = {}) => {
 };
 
 export const fetchFromAPI = async (endpoint, options = {}) => {
+  // Validate endpoint to prevent SSRF-like internal caller misuse
+  if (typeof endpoint !== "string" || !endpoint.startsWith("/")) {
+    throw new ValidationError(`Invalid API endpoint: ${endpoint}`, {
+      endpoint,
+    });
+  }
   try {
+    const { body, headers, method, params, signal, timeout, dedup, ...rest } =
+      options;
+    // Explicit allowlist for passthrough config — prevents arbitrary axios option injection
+    if (Object.keys(rest).length > 0) {
+      // Silently ignore unknown keys rather than spreading them into axios config
+    }
     const config = {
       url: endpoint,
-      method: options.method || "GET",
-      headers: options.headers || {},
-      ...options,
+      method: method || "GET",
+      headers: headers || {},
+      params,
+      signal,
+      timeout,
+      dedup,
     };
 
-    if (options.body) {
+    if (body !== undefined) {
       try {
-        config.data =
-          typeof options.body === "string"
-            ? JSON.parse(options.body)
-            : options.body;
+        config.data = typeof body === "string" ? JSON.parse(body) : body;
       } catch {
-        config.data = options.body;
+        config.data = body;
       }
-      delete config.body;
     }
 
     const response = await apiClient(config);
@@ -130,13 +141,18 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
     const data = error?.details ?? error?.response?.data;
     const message =
       data?.message || error?.message || `API Error (${endpoint})`;
-    if (status === 400) throw new ValidationError(message, data);
-    if (status === 401 || status === 403)
-      throw new AuthenticationError(message, data);
-    if (status === 404) throw new NotFoundError(message, data);
-    if (status >= 500) throw new DataError(message, `HTTP_${status}`, data);
-    if (!error?.response) throw new NetworkError(message, error);
-    throw new ValidationError(message, data);
+    let mapped;
+    if (status === 400) mapped = new ValidationError(message, data);
+    else if (status === 401 || status === 403)
+      mapped = new AuthenticationError(message, data);
+    else if (status === 404) mapped = new NotFoundError(message, data);
+    else if (status >= 500)
+      mapped = new DataError(message, `HTTP_${status}`, data);
+    else if (!error?.response) mapped = new NetworkError(message, error);
+    else mapped = new ValidationError(message, data);
+    if (status !== undefined) mapped.status = status;
+    mapped.details = data;
+    throw mapped;
   }
 };
 

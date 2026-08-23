@@ -33,8 +33,13 @@ export default function PwaUpdatePrompt() {
   ];
   const updateServiceWorker = swHookResult.updateServiceWorker || (() => {});
 
-  // Guard: NEVER prompt or reload if the student is currently inside an active test session
+  // Guard: NEVER prompt or reload if the student is currently inside an active test session.
+  // Matches any test-related route per a11y/PWA spec: /tests/, /live-tests/, /test/
+  // plus legacy interfaces, so an in-progress attempt is never interrupted by a reload prompt.
   const isInActiveTest =
+    location.pathname.includes("/tests/") ||
+    location.pathname.includes("/live-tests/") ||
+    location.pathname.includes("/test/") ||
     location.pathname.includes("/test-interface") ||
     location.pathname.includes("/live-test-interface") ||
     location.pathname.match(/^\/test\/[^/]+\/take$/i) ||
