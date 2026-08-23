@@ -1,40 +1,31 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  X,
-  Home,
-  BookOpen,
-  Radio,
-  FileText,
-  Target,
-  HelpCircle,
-  ClipboardCheck,
-  GraduationCap,
-  Library,
-  Video,
-  BarChart2,
-  Crown,
-  LogOut,
-  Settings,
-  Trophy,
-  Users,
-  Bookmark,
-} from "lucide-react";
+import { X, LogOut, Settings } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
 import { Logo } from "../index";
+import {
+  userNavSections,
+  premiumNavItem,
+  getDashboardLink,
+} from "../../config/userNavConfig";
 
 function Sidebar({ isOpen, onClose }) {
   const location = useLocation();
   const { user, logout } = useAuth();
 
-  const handleNavClick = () => {
-    onClose();
+  const handleNavClick = () => onClose();
+
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/";
+    return location.pathname.startsWith(path);
   };
+
+  const dashboard = getDashboardLink(!!user);
 
   return (
     <>
-      {/* Overlay */}
       <div
         onClick={onClose}
+        aria-hidden={!isOpen}
         className={`mobile-overlay fixed inset-0 bg-black/50 z-[10001] transition-opacity ${isOpen ? "open" : ""}`}
         style={{
           opacity: isOpen ? 1 : 0,
@@ -42,12 +33,14 @@ function Sidebar({ isOpen, onClose }) {
         }}
       />
 
-      {/* Drawer */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Navigation menu"
+        aria-hidden={!isOpen}
         className={`mobile-drawer fixed top-0 right-0 h-full w-60 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "open" : ""}`}
         style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
           <Logo
             iconSize="w-4 h-4"
@@ -56,189 +49,99 @@ function Sidebar({ isOpen, onClose }) {
             onClick={handleNavClick}
           />
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close menu"
             className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full border border-gray-100"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Menu Content (Scrollable) */}
-        <div className="p-3 space-y-3 flex-1 overflow-y-auto">
-          {/* Home/Dashboard Link */}
+        <nav
+          aria-label="Primary"
+          className="p-3 space-y-3 flex-1 overflow-y-auto"
+        >
           <div>
             <Link
-              to={user ? "/dashboard" : "/"}
+              to={dashboard.path}
               onClick={handleNavClick}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
+              aria-current={isActive(dashboard.path) ? "page" : undefined}
+              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700 ${isActive(dashboard.path) ? "bg-gray-50 font-semibold" : ""}`}
             >
-              <Home className="w-4 h-4 text-brand-start" />
-              <span className="text-sm font-medium">
-                {user ? "Dashboard" : "Home"}
-              </span>
+              <dashboard.Icon
+                className={`w-4 h-4 ${dashboard.path === "/dashboard" ? "text-brand-start" : "text-brand-start"}`}
+                aria-hidden="true"
+              />
+              <span className="text-sm font-medium">{dashboard.label}</span>
             </Link>
           </div>
 
-          {/* Learning & Tests */}
-          <div>
-            <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">
-              Learning & Tests
-            </h3>
-            <div className="space-y-0.5">
-              <Link
-                to="/test-series"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <BookOpen className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium">Test Series</span>
-              </Link>
-              <Link
-                to="/live-tests"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Radio className="w-4 h-4 text-red-500" />
-                <span className="text-sm font-medium">Live Tests</span>
-              </Link>
-              <Link
-                to="/pyps"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <FileText className="w-4 h-4 text-green-500" />
-                <span className="text-sm font-medium">PYQ Papers</span>
-              </Link>
-              <Link
-                to="/practice"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Target className="w-4 h-4 text-purple-500" />
-                <span className="text-sm font-medium">Practice</span>
-              </Link>
-              <Link
-                to="/quizzes"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <HelpCircle className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm font-medium">Quizzes</span>
-              </Link>
-              <Link
-                to="/attempted-tests"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <ClipboardCheck className="w-4 h-4 text-sky-500" />
-                <span className="text-sm font-medium">Attempted Tests</span>
-              </Link>
+          {userNavSections.map((section) => (
+            <div key={section.title}>
+              <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">
+                {section.title}
+              </h3>
+              <div className="space-y-0.5">
+                {section.items.map(({ label, path, Icon, color }) => (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={handleNavClick}
+                    aria-current={isActive(path) ? "page" : undefined}
+                    className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700 ${isActive(path) ? "bg-gray-50 font-semibold" : ""}`}
+                  >
+                    <Icon className={`w-4 h-4 ${color}`} aria-hidden="true" />
+                    <span className="text-sm font-medium">{label}</span>
+                  </Link>
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
 
-          {/* Resources */}
-          <div>
-            <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">
-              Resources
-            </h3>
-            <div className="space-y-0.5">
-              <Link
-                to="/exams"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <GraduationCap className="w-4 h-4 text-indigo-500" />
-                <span className="text-sm font-medium">All Exams</span>
-              </Link>
-              <Link
-                to="/study"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Library className="w-4 h-4 text-teal-500" />
-                <span className="text-sm font-medium">Study Materials</span>
-              </Link>
-              <Link
-                to="/videos"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Video className="w-4 h-4 text-pink-500" />
-                <span className="text-sm font-medium">Videos</span>
-              </Link>
-              <Link
-                to="/bookmarks"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Bookmark className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium">Saved Questions</span>
-              </Link>
-              <Link
-                to="/analysis"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <BarChart2 className="w-4 h-4 text-orange-500" />
-                <span className="text-sm font-medium">Analysis</span>
-              </Link>
-              <Link
-                to="/leaderboard"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm font-medium">Leaderboard</span>
-              </Link>
-              <Link
-                to="/community"
-                onClick={handleNavClick}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700"
-              >
-                <Users className="w-4 h-4 text-violet-500" />
-                <span className="text-sm font-medium">Community</span>
-              </Link>
-            </div>
-          </div>
-
-          {/* Premium */}
           <div>
             <Link
-              to="/pass"
+              to={premiumNavItem.path}
               onClick={handleNavClick}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-amber-50 text-gray-700"
+              aria-current={isActive(premiumNavItem.path) ? "page" : undefined}
+              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-amber-50 text-gray-700 ${isActive(premiumNavItem.path) ? "bg-amber-50" : ""}`}
             >
-              <Crown className="w-4 h-4 text-amber-500" />
+              <premiumNavItem.Icon
+                className={`w-4 h-4 ${premiumNavItem.color}`}
+                aria-hidden="true"
+              />
               <span className="text-sm font-medium text-amber-600">
-                Pass Pro
+                {premiumNavItem.label}
               </span>
               <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">
                 PRO
               </span>
             </Link>
           </div>
-        </div>
+        </nav>
 
-        {/* Auth Section (Sticky at Bottom) */}
         <div className="p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
           {user ? (
             <div className="flex gap-2">
               <Link
                 to="/profile"
                 onClick={handleNavClick}
+                aria-current={isActive("/profile") ? "page" : undefined}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-200 text-sm font-medium transition"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-4 h-4" aria-hidden="true" />
                 Settings
               </Link>
               <button
+                type="button"
                 onClick={() => {
                   logout();
                   handleNavClick();
                 }}
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg text-red-600 dark:text-red-400 text-sm font-medium transition"
+                aria-label="Logout"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4" aria-hidden="true" />
                 Logout
               </button>
             </div>

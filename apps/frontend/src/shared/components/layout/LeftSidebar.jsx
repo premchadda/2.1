@@ -1,28 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  Home,
-  BookOpen,
-  Radio,
-  FileText,
-  Target,
-  HelpCircle,
-  ClipboardCheck,
-  GraduationCap,
-  Library,
-  Video,
-  BarChart2,
-  Crown,
-  LayoutDashboard,
-  Shield,
-  Users,
-  Trophy,
-  Bookmark,
-  Smartphone,
-  Download,
-} from "lucide-react";
+import { Smartphone, Download, Home, LayoutDashboard } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
 import { usePwaInstall } from "@trstprep/shared-hooks";
 import { Logo } from "../index";
+import {
+  userNavSections,
+  premiumNavItem,
+  getDashboardLink,
+} from "../../config/userNavConfig";
 
 function LeftSidebar() {
   const location = useLocation();
@@ -48,27 +33,34 @@ function LeftSidebar() {
     return `w-5 h-5 transition-colors ${active ? "text-brand-start" : colorClass}`;
   };
 
+  const dashboard = getDashboardLink(!!user);
+
   return (
-    <aside className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-full max-w-[260px] sm:w-[260px] bg-white border-r border-gray-200 z-30 animate-fade-in">
-      {/* Header - Same height as top navbar (h-14) */}
+    <aside
+      aria-label="Desktop sidebar"
+      className="hidden lg:flex flex-col fixed left-0 top-0 h-full w-full max-w-[260px] sm:w-[260px] bg-white border-r border-gray-200 z-30 animate-fade-in"
+    >
       <div className="px-4 h-14 border-b border-gray-100 flex items-center flex-shrink-0">
         <Logo containerSize="w-8 h-8" iconSize="w-5 h-5" textSize="text-xl" />
       </div>
 
-      {/* Menu Content (Scrollable) */}
-      <div className="flex-1 overflow-y-auto py-4 pl-3 space-y-1">
-        {/* Main Navigation */}
+      <nav
+        aria-label="Primary"
+        className="flex-1 overflow-y-auto py-4 pl-3 space-y-1"
+      >
         <div className="mb-2">
           <Link
-            to={user ? "/dashboard" : "/"}
-            className={navItemClass(user ? "/dashboard" : "/")}
+            to={dashboard.path}
+            className={navItemClass(dashboard.path)}
+            aria-current={isActive(dashboard.path) ? "page" : undefined}
           >
-            {user ? (
+            {dashboard.Icon === LayoutDashboard ? (
               <LayoutDashboard
                 className={iconClass(
                   "/dashboard",
                   "text-gray-400 group-hover:text-gray-600",
                 )}
+                aria-hidden="true"
               />
             ) : (
               <Home
@@ -76,142 +68,82 @@ function LeftSidebar() {
                   "/",
                   "text-gray-400 group-hover:text-gray-600",
                 )}
+                aria-hidden="true"
               />
             )}
-            <span className="text-sm">{user ? "Dashboard" : "Home"}</span>
+            <span className="text-sm">{dashboard.label}</span>
           </Link>
         </div>
 
-        {/* Section: Learning & Tests */}
-        <div className="pt-2">
-          <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
-            Learning & Tests
-          </h3>
-          <div className="space-y-0.5">
-            <Link to="/test-series" className={navItemClass("/test-series")}>
-              <BookOpen
-                className={iconClass("/test-series", "text-blue-500")}
-              />
-              <span className="text-sm">Test Series</span>
-            </Link>
-
-            <Link to="/live-tests" className={navItemClass("/live-tests")}>
-              <Radio className={iconClass("/live-tests", "text-red-500")} />
-              <span className="text-sm">Live Tests</span>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-              </span>
-            </Link>
-
-            <Link to="/pyps" className={navItemClass("/pyps")}>
-              <FileText className={iconClass("/pyps", "text-green-500")} />
-              <span className="text-sm">PYQ Papers</span>
-            </Link>
-
-            <Link to="/practice" className={navItemClass("/practice")}>
-              <Target className={iconClass("/practice", "text-purple-500")} />
-              <span className="text-sm">Practice</span>
-            </Link>
-
-            <Link to="/quizzes" className={navItemClass("/quizzes")}>
-              <HelpCircle
-                className={iconClass("/quizzes", "text-yellow-500")}
-              />
-              <span className="text-sm">Quizzes</span>
-            </Link>
-
-            <Link
-              to="/attempted-tests"
-              className={navItemClass("/attempted-tests")}
-            >
-              <ClipboardCheck
-                className={iconClass("/attempted-tests", "text-sky-500")}
-              />
-              <span className="text-sm">Attempted Tests</span>
-            </Link>
+        {userNavSections.map((section) => (
+          <div key={section.title} className="pt-2">
+            <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
+              {section.title}
+            </h3>
+            <div className="space-y-0.5">
+              {section.items.map(({ label, path, Icon, color, hasLiveDot }) => (
+                <Link
+                  key={path}
+                  to={path}
+                  className={navItemClass(path)}
+                  aria-current={isActive(path) ? "page" : undefined}
+                >
+                  <Icon className={iconClass(path, color)} aria-hidden="true" />
+                  <span className="text-sm">{label}</span>
+                  {hasLiveDot && (
+                    <span className="flex h-2 w-2 relative" aria-hidden="true">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
           </div>
-        </div>
+        ))}
 
-        {/* Section: Resources */}
-        <div className="pt-4">
-          <h3 className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 px-3">
-            Resources
-          </h3>
-          <div className="space-y-0.5">
-            <Link to="/exams" className={navItemClass("/exams")}>
-              <GraduationCap
-                className={iconClass("/exams", "text-indigo-500")}
-              />
-              <span className="text-sm">All Exams</span>
-            </Link>
-
-            <Link to="/study" className={navItemClass("/study")}>
-              <Library className={iconClass("/study", "text-teal-500")} />
-              <span className="text-sm">Study Materials</span>
-            </Link>
-
-            <Link to="/videos" className={navItemClass("/videos")}>
-              <Video className={iconClass("/videos", "text-pink-500")} />
-              <span className="text-sm">Videos</span>
-            </Link>
-
-            <Link to="/bookmarks" className={navItemClass("/bookmarks")}>
-              <Bookmark className={iconClass("/bookmarks", "text-amber-500")} />
-              <span className="text-sm">Saved Questions</span>
-            </Link>
-
-            <Link to="/analysis" className={navItemClass("/analysis")}>
-              <BarChart2
-                className={iconClass("/analysis", "text-orange-500")}
-              />
-              <span className="text-sm">Analysis</span>
-            </Link>
-
-            <Link to="/leaderboard" className={navItemClass("/leaderboard")}>
-              <Trophy
-                className={iconClass("/leaderboard", "text-yellow-500")}
-              />
-              <span className="text-sm">Leaderboard</span>
-            </Link>
-
-            <Link to="/community" className={navItemClass("/community")}>
-              <Users className={iconClass("/community", "text-violet-500")} />
-              <span className="text-sm">Community</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Section: Premium */}
         <div className="pt-4">
           <Link
-            to="/pass"
-            className={`${navItemClass("/pass")} hover:bg-amber-50/50`}
+            to={premiumNavItem.path}
+            className={`${navItemClass(premiumNavItem.path)} hover:bg-amber-50/50`}
+            aria-current={isActive(premiumNavItem.path) ? "page" : undefined}
           >
-            <Crown className={iconClass("/pass", "text-amber-500")} />
-            <span className="text-sm text-amber-700">Pass Pro</span>
+            <premiumNavItem.Icon
+              className={iconClass(premiumNavItem.path, premiumNavItem.color)}
+              aria-hidden="true"
+            />
+            <span className="text-sm text-amber-700">
+              {premiumNavItem.label}
+            </span>
             <span className="text-[10px] bg-gradient-to-r from-amber-100 to-amber-200 text-amber-700 px-2 py-0.5 rounded-full font-bold">
               PRO
             </span>
           </Link>
         </div>
 
-        {/* Section: App Install */}
         {!isStandalone && (
           <div className="pt-4 pb-2">
             <button
+              type="button"
               onClick={installApp}
+              aria-label="Install app"
               className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 transition-colors group text-left"
             >
               <div className="flex items-center gap-2.5">
-                <Smartphone className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform" />
+                <Smartphone
+                  className="w-4 h-4 text-indigo-600 group-hover:scale-110 transition-transform"
+                  aria-hidden="true"
+                />
                 <span className="text-xs font-semibold">Install App</span>
               </div>
-              <Download className="w-3.5 h-3.5 text-indigo-500" />
+              <Download
+                className="w-3.5 h-3.5 text-indigo-500"
+                aria-hidden="true"
+              />
             </button>
           </div>
         )}
-      </div>
+      </nav>
     </aside>
   );
 }

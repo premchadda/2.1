@@ -121,7 +121,7 @@ export function TableRowSkeleton({ columns = 4, className = "" }) {
   return (
     <tr className={className}>
       {Array.from({ length: columns }).map((_, i) => (
-        <td key={i} className="py-3 px-4">
+        <td key={`col-${i}`} className="py-3 px-4">
           <Skeleton className="h-4" />
         </td>
       ))}
@@ -194,7 +194,7 @@ export function DashboardSkeleton() {
       {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[1, 2, 3, 4].map((i) => (
-          <StatsCardSkeleton key={i} />
+          <StatsCardSkeleton key={`stat-${i}`} />
         ))}
       </div>
 
@@ -210,7 +210,7 @@ export function DashboardSkeleton() {
             <div className="grid grid-cols-2 gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <div
-                  key={i}
+                  key={`test-series-${i}`}
                   className="p-4 bg-gray-50 dark:bg-gray-700 rounded-xl"
                 >
                   <div className="flex items-center gap-3 mb-3">
@@ -231,7 +231,7 @@ export function DashboardSkeleton() {
             <Skeleton className="h-6 w-32 mb-4" />
             <div className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <ListItemSkeleton key={i} />
+                <ListItemSkeleton key={`activity-${i}`} />
               ))}
             </div>
           </div>
@@ -253,7 +253,7 @@ export function HomepageSkeleton() {
         <div className="bg-white dark:bg-gray-800 rounded-xl p-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 md:grid-cols-8 gap-3">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="text-center p-2">
+              <div key={`quick-${i}`} className="text-center p-2">
                 <Skeleton
                   variant="circular"
                   width={40}
@@ -275,7 +275,10 @@ export function HomepageSkeleton() {
         </div>
         <div className="flex gap-4 overflow-hidden">
           {[1, 2, 3, 4].map((i) => (
-            <TestSeriesCardSkeleton key={i} className="w-64 flex-shrink-0" />
+            <TestSeriesCardSkeleton
+              key={`home-series-${i}`}
+              className="w-64 flex-shrink-0"
+            />
           ))}
         </div>
       </div>
@@ -365,12 +368,12 @@ export function PageSkeleton({ type = "default" }) {
         </div>
         <div className="grid grid-cols-3 gap-4 mb-6">
           {[1, 2, 3].map((i) => (
-            <StatsCardSkeleton key={i} />
+            <StatsCardSkeleton key={`profile-stat-${i}`} />
           ))}
         </div>
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <ListItemSkeleton key={i} />
+            <ListItemSkeleton key={`profile-item-${i}`} />
           ))}
         </div>
       </div>
@@ -380,20 +383,24 @@ export function PageSkeleton({ type = "default" }) {
   return skeletons[type] || skeletons.default;
 }
 
-export default {
-  Skeleton,
-  CardSkeleton,
-  TestSeriesCardSkeleton,
-  StatsCardSkeleton,
-  ListItemSkeleton,
-  TableRowSkeleton,
-  ContentPlaceholder,
-  LoadingSpinner,
-  LoadingDots,
-  FullPageLoading,
-  DashboardSkeleton,
-  HomepageSkeleton,
-  ProgressBarSkeleton,
-  AnimatedCounter,
-  PageSkeleton,
-};
+// Default export as a valid React component function for Vite Fast Refresh compatibility
+export default function LoadingSkeleton(props) {
+  return <Skeleton {...props} />;
+}
+
+// Attach subcomponents for backward compatibility with default import member access
+LoadingSkeleton.Skeleton = Skeleton;
+LoadingSkeleton.CardSkeleton = CardSkeleton;
+LoadingSkeleton.TestSeriesCardSkeleton = TestSeriesCardSkeleton;
+LoadingSkeleton.StatsCardSkeleton = StatsCardSkeleton;
+LoadingSkeleton.ListItemSkeleton = ListItemSkeleton;
+LoadingSkeleton.TableRowSkeleton = TableRowSkeleton;
+LoadingSkeleton.ContentPlaceholder = ContentPlaceholder;
+LoadingSkeleton.LoadingSpinner = LoadingSpinner;
+LoadingSkeleton.LoadingDots = LoadingDots;
+LoadingSkeleton.FullPageLoading = FullPageLoading;
+LoadingSkeleton.DashboardSkeleton = DashboardSkeleton;
+LoadingSkeleton.HomepageSkeleton = HomepageSkeleton;
+LoadingSkeleton.ProgressBarSkeleton = ProgressBarSkeleton;
+LoadingSkeleton.AnimatedCounter = AnimatedCounter;
+LoadingSkeleton.PageSkeleton = PageSkeleton;

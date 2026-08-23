@@ -6,7 +6,6 @@ import {
   BookMarked,
   User,
   LayoutDashboard,
-  Shield,
   LogIn,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -143,6 +142,8 @@ function BottomNav() {
                     ? { backgroundLocation: location }
                     : undefined
                 }
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
                 className="relative flex flex-col items-center justify-center py-1 px-1.5 min-w-0 flex-1 max-w-[72px] transition-all duration-300 ease-out"
               >
                 {active && (
