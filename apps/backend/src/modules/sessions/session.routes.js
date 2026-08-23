@@ -1,7 +1,6 @@
 import express from "express";
 import sessionController from "./session.controller.js";
 import { protect } from "../../middleware/auth.middleware.js";
-import { validateCsrfToken } from "../../middleware/csrf.middleware.js";
 
 const router = express.Router();
 
@@ -12,13 +11,9 @@ router.use(protect);
 router.get("/", sessionController.getMySessions);
 
 // DELETE /api/sessions — revoke all other sessions for current user (except current session)
-router.delete("/", validateCsrfToken, sessionController.revokeAllSessions);
+router.delete("/", sessionController.revokeAllSessions);
 
 // DELETE /api/sessions/:sessionId — revoke specific session
-router.delete(
-  "/:sessionId",
-  validateCsrfToken,
-  sessionController.revokeSession,
-);
+router.delete("/:sessionId", sessionController.revokeSession);
 
 export default router;

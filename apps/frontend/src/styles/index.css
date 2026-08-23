@@ -12,6 +12,7 @@ html {
 
 body {
     background-color: #f8f9fa;
+    color: #111827;
     max-width: 100%;
     width: 100%;
     overflow-x: hidden;
@@ -20,6 +21,13 @@ body {
     position: relative;
     font-family: 'Segoe UI', 'Inter', sans-serif;
     -webkit-overflow-scrolling: touch;
+}
+
+html.dark,
+html.dark body,
+.dark body {
+    background-color: #111827;
+    color: #f3f4f6;
 }
 
 #root {
@@ -251,4 +259,16 @@ table {
 }
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+}
+.dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* ===== Instant Theme Switching Guard ===== */
+.disable-transitions,
+.disable-transitions * {
+    transition: none !important;
 }

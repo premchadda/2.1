@@ -6,7 +6,11 @@ import {
 } from "../../middleware/csrf.middleware.js";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import { authController } from "./auth.controller.js";
-import { authRateLimiter, protect } from "../../middleware/auth.middleware.js";
+import {
+  authRateLimiter,
+  protect,
+  optionalAuth,
+} from "../../middleware/auth.middleware.js";
 import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
 import { botProtectionMiddleware } from "../../middleware/botProtection.middleware.js";
 import EnrollmentService from "../../services/EnrollmentService.js";
@@ -78,7 +82,7 @@ router.post(
   authRateLimiter,
   authController.register,
 );
-router.post("/logout", protect, validateCsrfToken, authController.logout);
+router.post("/logout", optionalAuth, authController.logout);
 router.post("/refresh", authRateLimiter, authController.refreshToken);
 router.post(
   "/forgot-password",

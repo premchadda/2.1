@@ -192,7 +192,7 @@ export function DashboardSkeleton() {
   return (
     <div className="space-y-6 p-6">
       {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {[1, 2, 3, 4].map((i) => (
           <StatsCardSkeleton key={`stat-${i}`} />
         ))}

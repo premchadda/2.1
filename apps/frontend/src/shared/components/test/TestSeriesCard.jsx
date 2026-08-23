@@ -13,6 +13,7 @@ function TestSeriesCard({
   showProgress = false,
   onEnroll,
   showCategories = true,
+  className = "",
 }) {
   const {
     _id,
@@ -184,7 +185,9 @@ function TestSeriesCard({
       : stageName || "";
 
   return (
-    <div className="test-series-card flex-shrink-0 w-[280px] sm:w-[310px] md:w-[320px] h-full flex flex-col self-stretch">
+    <div
+      className={`test-series-card h-full flex flex-col self-stretch ${className || "flex-shrink-0 w-[280px] sm:w-[310px] md:w-[320px] max-w-full"}`}
+    >
       <Card
         variant="default"
         padding="p-0"

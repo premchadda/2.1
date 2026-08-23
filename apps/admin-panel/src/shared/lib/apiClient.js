@@ -11,7 +11,6 @@ import {
 } from "@trstprep/shared-config";
 
 const apiUrl = `${API_BASE_URL}/api`;
-const ADMIN_API_KEY = ""; // FIX 2.13: Removed VITE_ADMIN_API_KEY from client bundle
 
 const apiClient = axios.create({
   baseURL: apiUrl,

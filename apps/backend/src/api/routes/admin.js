@@ -4363,8 +4363,8 @@ router.delete("/promotions/:id", async (req, res) => {
 // ===== QUIZZES MANAGEMENT =====
 router.get("/quizzes", responseCache("admin-quizzes", 30), async (req, res) => {
   try {
-    const quizzes = await dbHelpers.find("quizzes", { isActive: true });
-    res.json({ success: true, data: quizzes });
+    const quizzes = await dbHelpers.find("quizzes", { include_inactive: true });
+    res.json({ success: true, data: quizzes || [] });
   } catch (error) {
     res
       .status(500)

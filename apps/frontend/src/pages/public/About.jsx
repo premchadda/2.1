@@ -108,7 +108,7 @@ export default function About() {
       {/* Stats */}
       <div className="py-12 bg-white shadow-md">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
             {stats.map((stat, idx) => (
               <div key={idx} className="text-center">
                 <div className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-indigo-600">

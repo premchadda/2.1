@@ -273,7 +273,7 @@ function PerformanceInsights() {
         </ScrollReveal>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4 mb-6">
           {overviewStats.map((stat, i) => (
             <ScrollReveal key={stat.label} delay={i * 0.03}>
               <Card variant="elevated" size="md" hover>
@@ -447,7 +447,7 @@ function PerformanceInsights() {
             {loadingRecs ? (
               <LoadingPlaceholder />
             ) : recs.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {recs.map((rec) => (
                   <div
                     key={rec.title}

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { X, LogOut, Settings } from "lucide-react";
 import { useAuth } from "../../providers/AuthContext";
@@ -14,6 +15,21 @@ function Sidebar({ isOpen, onClose }) {
 
   const handleNavClick = () => onClose();
 
+  // Close on Escape key press and lock body scrolling when open
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen, onClose]);
+
   const isActive = (path) => {
     if (path === "/") return location.pathname === "/";
     return location.pathname.startsWith(path);
@@ -23,36 +39,39 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
+      {/* Background overlay with blur effect - clicking outside closes sidebar */}
       <div
         onClick={onClose}
         aria-hidden={!isOpen}
-        className={`mobile-overlay fixed inset-0 bg-black/50 z-[10001] transition-opacity ${isOpen ? "open" : ""}`}
-        style={{
-          opacity: isOpen ? 1 : 0,
-          visibility: isOpen ? "visible" : "hidden",
-        }}
+        className={`fixed inset-0 bg-black/60 backdrop-blur-md z-[10001] transition-all duration-300 ${
+          isOpen
+            ? "opacity-100 visible pointer-events-auto"
+            : "opacity-0 invisible pointer-events-none"
+        }`}
       />
 
+      {/* Right Slide-over Drawer */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Navigation menu"
         aria-hidden={!isOpen}
-        className={`mobile-drawer fixed top-0 right-0 h-full w-60 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? "open" : ""}`}
-        style={{ transform: isOpen ? "translateX(0)" : "translateX(100%)" }}
+        className={`fixed inset-y-0 top-0 bottom-0 right-0 h-screen h-[100dvh] min-h-[100dvh] max-h-[100dvh] w-64 max-w-[85vw] bg-white dark:bg-gray-900 shadow-2xl z-[10002] flex flex-col overflow-hidden transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full"
+        }`}
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
+        <div className="flex h-14 min-h-14 items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
           <Logo
-            iconSize="w-4 h-4"
-            containerSize="w-7 h-7"
-            textSize="text-base"
+            iconSize="w-5 h-5"
+            containerSize="w-8 h-8"
+            textSize="text-xl"
             onClick={handleNavClick}
           />
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="p-1.5 text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-full border border-gray-100"
+            className="inline-flex h-8 w-8 items-center justify-center p-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full border border-gray-100 dark:border-gray-700"
           >
             <X className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -60,14 +79,14 @@ function Sidebar({ isOpen, onClose }) {
 
         <nav
           aria-label="Primary"
-          className="p-3 space-y-3 flex-1 overflow-y-auto"
+          className="p-3 space-y-3 flex-1 overflow-y-auto min-h-0 overscroll-contain"
         >
           <div>
             <Link
               to={dashboard.path}
               onClick={handleNavClick}
               aria-current={isActive(dashboard.path) ? "page" : undefined}
-              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700 ${isActive(dashboard.path) ? "bg-gray-50 font-semibold" : ""}`}
+              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 text-gray-700 dark:text-gray-200 transition ${isActive(dashboard.path) ? "bg-gray-50 dark:bg-gray-800 font-semibold" : ""}`}
             >
               <dashboard.Icon
                 className={`w-4 h-4 ${dashboard.path === "/dashboard" ? "text-brand-start" : "text-brand-start"}`}
@@ -79,7 +98,7 @@ function Sidebar({ isOpen, onClose }) {
 
           {userNavSections.map((section) => (
             <div key={section.title}>
-              <h3 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5 px-2">
+              <h3 className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2">
                 {section.title}
               </h3>
               <div className="space-y-0.5">
@@ -89,7 +108,7 @@ function Sidebar({ isOpen, onClose }) {
                     to={path}
                     onClick={handleNavClick}
                     aria-current={isActive(path) ? "page" : undefined}
-                    className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 text-gray-700 ${isActive(path) ? "bg-gray-50 font-semibold" : ""}`}
+                    className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 text-gray-700 dark:text-gray-200 transition ${isActive(path) ? "bg-gray-50 dark:bg-gray-800 font-semibold" : ""}`}
                   >
                     <Icon className={`w-4 h-4 ${color}`} aria-hidden="true" />
                     <span className="text-sm font-medium">{label}</span>
@@ -104,23 +123,23 @@ function Sidebar({ isOpen, onClose }) {
               to={premiumNavItem.path}
               onClick={handleNavClick}
               aria-current={isActive(premiumNavItem.path) ? "page" : undefined}
-              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-amber-50 text-gray-700 ${isActive(premiumNavItem.path) ? "bg-amber-50" : ""}`}
+              className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-950/40 text-gray-700 dark:text-gray-200 transition ${isActive(premiumNavItem.path) ? "bg-amber-50 dark:bg-amber-950/50" : ""}`}
             >
               <premiumNavItem.Icon
                 className={`w-4 h-4 ${premiumNavItem.color}`}
                 aria-hidden="true"
               />
-              <span className="text-sm font-medium text-amber-600">
+              <span className="text-sm font-medium text-amber-600 dark:text-amber-400">
                 {premiumNavItem.label}
               </span>
-              <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">
+              <span className="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 px-1.5 py-0.5 rounded-full font-bold">
                 PRO
               </span>
             </Link>
           </div>
         </nav>
 
-        <div className="p-3 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 flex-shrink-0">
+        <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 mt-auto flex-shrink-0">
           {user ? (
             <div className="flex gap-2">
               <Link

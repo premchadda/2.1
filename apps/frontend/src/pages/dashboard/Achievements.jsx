@@ -182,7 +182,7 @@ export default function Achievements() {
 
         {/* Stats Overview */}
         {user && !loading && (
-          <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 sm:mb-12">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl text-center">
               <Target className="w-8 h-8 text-brand-start mx-auto mb-2" />
               <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-white">
@@ -269,7 +269,7 @@ export default function Achievements() {
                   <Medal className="w-6 h-6 text-yellow-500" />
                   Earned Badges ({earnedBadges.length})
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {earnedBadges.map((badge) => (
                     <div
                       key={badge.id}
@@ -316,7 +316,7 @@ export default function Achievements() {
                   <Star className="w-6 h-6 text-gray-400" />
                   Locked Badges ({lockedBadges.length})
                 </h2>
-                <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
                   {lockedBadges.map((badge) => (
                     <div
                       key={badge.id}

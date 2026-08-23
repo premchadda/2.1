@@ -570,6 +570,9 @@ export default function CategoriesManager() {
     return categoryCountsMap.get(id) || { seriesCount: 0, testsCount: 0 };
   };
 
+  const normParentId = (p) =>
+    p === undefined || p === null || p === "" ? null : String(p);
+
   const childrenByParent = useMemo(() => {
     const m = new Map();
     for (const c of categories) {
@@ -824,9 +827,6 @@ export default function CategoriesManager() {
       return next;
     });
   };
-
-  const normParentId = (p) =>
-    p === undefined || p === null || p === "" ? null : String(p);
 
   const handleReorderCategory = async (cat, direction) => {
     const pid = normParentId(cat.parentId);

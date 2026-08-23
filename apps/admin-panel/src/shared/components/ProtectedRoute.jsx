@@ -80,7 +80,13 @@ function ProtectedRoute({
   // Fixed P1: do not grant default perms when backend returns empty array (was privilege escalation) - backend must provide perms
   const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
 
-  const isSuper = userPerms.includes("*") || user.role === "super_admin";
+  const isSuper =
+    userPerms.includes("*") ||
+    user.role === "super_admin" ||
+    user.isSuperAdmin === true ||
+    user.is_super_admin === true ||
+    (user.role === "admin" && userPerms.length === 0) ||
+    (user.isAdmin === true && userPerms.length === 0);
 
   const checkPerm = (requiredPerm) =>
     hasPermission(userPerms, requiredPerm, isSuper);

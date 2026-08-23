@@ -76,11 +76,15 @@ export default function NavbarProfile() {
       </button>
 
       <div className={`profile-dropdown-menu ${isProfileOpen ? "" : "hidden"}`}>
-        <div className="p-4 border-b border-gray-100">
-          <div className="font-semibold text-gray-900">{user.name}</div>
-          <div className="text-sm text-gray-500">{user.email}</div>
+        <div className="min-w-0 p-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="min-w-0 break-words font-semibold text-gray-900 dark:text-white">
+            {user.name || "User"}
+          </div>
+          <div className="mt-0.5 min-w-0 break-all text-sm text-gray-500 dark:text-gray-400">
+            {user.email}
+          </div>
           {user.hasProPass && (
-            <span className="inline-flex items-center gap-1 mt-2 px-2 py-0.5 bg-gradient-to-r from-amber-100 to-amber-200 text-amber-700 text-xs font-bold rounded-full">
+            <span className="inline-flex max-w-full items-center gap-1 mt-2 px-2 py-0.5 bg-gradient-to-r from-amber-100 to-amber-200 dark:from-amber-900/40 dark:to-amber-800/40 text-amber-700 dark:text-amber-300 text-xs font-bold rounded-full">
               <Crown className="w-3 h-3" aria-hidden="true" /> PRO Member
             </span>
           )}
@@ -93,7 +97,7 @@ export default function NavbarProfile() {
             onClick={() => setIsProfileOpen(false)}
           >
             <User className="w-4 h-4" aria-hidden="true" />
-            My Profile
+            <span className="min-w-0 break-words">My Profile</span>
           </Link>
           <Link
             to="/analysis"
@@ -101,7 +105,7 @@ export default function NavbarProfile() {
             onClick={() => setIsProfileOpen(false)}
           >
             <BarChart2 className="w-4 h-4" aria-hidden="true" />
-            My Analytics
+            <span className="min-w-0 break-words">My Analytics</span>
           </Link>
           <Link
             to="/settings"
@@ -109,7 +113,7 @@ export default function NavbarProfile() {
             onClick={() => setIsProfileOpen(false)}
           >
             <Settings className="w-4 h-4" aria-hidden="true" />
-            Settings
+            <span className="min-w-0 break-words">Settings</span>
           </Link>
           {!isStandalone && (
             <button
@@ -124,7 +128,7 @@ export default function NavbarProfile() {
                 className="w-4 h-4 text-indigo-600 dark:text-indigo-400"
                 aria-hidden="true"
               />
-              Install App
+              <span className="min-w-0 break-words">Install App</span>
             </button>
           )}
         </div>
@@ -141,7 +145,7 @@ export default function NavbarProfile() {
             className="profile-dropdown-item danger w-full text-left"
           >
             <LogOut className="w-4 h-4" aria-hidden="true" />
-            Logout
+            <span className="min-w-0 break-words">Logout</span>
           </button>
         </div>
       </div>

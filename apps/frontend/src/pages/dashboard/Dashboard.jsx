@@ -345,64 +345,64 @@ function Dashboard() {
   const quickAccessItems = [
     {
       icon: RotateCcw,
-      color: "text-amber-600",
-      bg: "bg-amber-50",
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-950/60 border-amber-200/60 dark:border-amber-800/60",
       title: "Mistakes",
       desc: "Re-practice",
       route: "/practice?mode=mistakes",
     },
     {
       icon: Radio,
-      color: "text-red-500",
-      bg: "bg-red-50",
+      color: "text-rose-600 dark:text-rose-400",
+      bg: "bg-rose-50 dark:bg-rose-950/60 border-rose-200/60 dark:border-rose-800/60",
       title: "Live Tests",
       desc: "Real-time",
       route: "/live-tests",
     },
     {
       icon: HelpCircle,
-      color: "text-blue-500",
-      bg: "bg-blue-50",
+      color: "text-blue-600 dark:text-blue-400",
+      bg: "bg-blue-50 dark:bg-blue-950/60 border-blue-200/60 dark:border-blue-800/60",
       title: "Quizzes",
       desc: "Practice",
       route: "/quizzes",
     },
     {
       icon: BookOpen,
-      color: "text-green-500",
-      bg: "bg-green-50",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200/60 dark:border-emerald-800/60",
       title: "PYQ",
       desc: "Past Papers",
       route: "/pyps",
     },
     {
       icon: Target,
-      color: "text-purple-500",
-      bg: "bg-purple-50",
+      color: "text-purple-600 dark:text-purple-400",
+      bg: "bg-purple-50 dark:bg-purple-950/60 border-purple-200/60 dark:border-purple-800/60",
       title: "Practice",
       desc: "Skills",
       route: "/practice",
     },
     {
       icon: Brain,
-      color: "text-indigo-500",
-      bg: "bg-indigo-50",
+      color: "text-indigo-600 dark:text-indigo-400",
+      bg: "bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200/60 dark:border-indigo-800/60",
       title: "Review",
       desc: "Flashcards",
       route: "/spaced-repetition",
     },
     {
       icon: BarChartBig,
-      color: "text-orange-500",
-      bg: "bg-orange-50",
+      color: "text-orange-600 dark:text-orange-400",
+      bg: "bg-orange-50 dark:bg-orange-950/60 border-orange-200/60 dark:border-orange-800/60",
       title: "Analysis",
       desc: "Reports",
       route: "/analysis",
     },
     {
       icon: ClipboardCheck,
-      color: "text-sky-500",
-      bg: "bg-sky-50",
+      color: "text-sky-600 dark:text-sky-400",
+      bg: "bg-sky-50 dark:bg-sky-950/60 border-sky-200/60 dark:border-sky-800/60",
       title: "Attempted",
       desc: "History",
       route: "/attempted-tests",
@@ -957,15 +957,15 @@ function Dashboard() {
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Welcome Banner with Animated Background */}
-      <AnimatedHero pageType="dashboard" className="pb-9 sm:pb-10 md:pb-11">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-          <div className="flex items-center gap-4">
+      <AnimatedHero pageType="dashboard" className="pb-8 sm:pb-10 md:pb-11">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-5">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link
               to="/profile"
               className="relative group block shrink-0"
               title="View Profile"
             >
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
                 {user?.avatar || user?.avatarUrl || user?.photoURL ? (
                   <img
                     loading="lazy"
@@ -984,20 +984,20 @@ function Dashboard() {
                 <div
                   className={`${user?.avatar || user?.avatarUrl || user?.photoURL ? "hidden" : "flex"} w-full h-full items-center justify-center bg-white/20 backdrop-blur-sm`}
                 >
-                  <User className="w-7 h-7 sm:w-8 sm:h-8 text-white/90" />
+                  <User className="w-6 h-6 sm:w-8 sm:h-8 text-white/90" />
                 </div>
               </div>
             </Link>
             <div className="text-white min-w-0 flex-1">
               <h1
-                className="text-xl sm:text-2xl md:text-3xl font-bold animate-slide-in-right truncate"
+                className="text-lg sm:text-2xl md:text-3xl font-bold animate-slide-in-right truncate"
                 title={`Welcome ${userName.trim().split(/\s+/)[0] || "Student"}`}
                 style={{ animationDelay: "0.1s" }}
               >
                 Welcome {userName.trim().split(/\s+/)[0] || "Student"} 👋
               </h1>
               <p
-                className="text-purple-100 text-xs sm:text-sm md:text-base mt-1 animate-slide-in-right truncate"
+                className="text-purple-100 text-xs sm:text-sm md:text-base mt-0.5 sm:mt-1 animate-slide-in-right truncate"
                 style={{ animationDelay: "0.2s" }}
               >
                 Continue your preparation journey
@@ -1010,50 +1010,50 @@ function Dashboard() {
             className="bg-white/15 backdrop-blur-md rounded-2xl border border-white/20 p-3 sm:p-4 w-full md:w-auto max-w-full md:max-w-[360px] lg:min-w-[360px] shadow-lg animate-slide-in-right shrink-0"
             style={{ animationDelay: "0.3s" }}
           >
-            <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex items-center gap-1.5 min-w-0">
-                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-300 shrink-0" />
-                <span className="text-white font-bold text-xs sm:text-sm truncate">
+                <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300 shrink-0" />
+                <span className="text-white font-extrabold text-xs sm:text-sm truncate">
                   Your Progress
                 </span>
               </div>
-              <span className="px-2 py-0.5 bg-white/20 rounded-full text-[10px] sm:text-xs text-white font-medium shrink-0">
+              <span className="px-2.5 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] sm:text-xs text-white font-bold shrink-0 border border-white/20">
                 {userStats.streak} Day Streak
               </span>
             </div>
-            <p className="text-purple-100 text-[10px] sm:text-xs mb-2 sm:mb-2.5">
+            <p className="text-purple-100 text-[10px] sm:text-xs mb-2 sm:mb-3">
               Keep up the great work!
             </p>
             <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-1 sm:p-2 rounded-xl bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 min-h-[48px] sm:min-h-[64px] flex flex-col justify-center items-center transition-colors">
+                <p className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white leading-none truncate w-full">
                   {userStats.testsTaken}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[8px] xs:text-[9px] sm:text-[10px] mt-1 font-bold tracking-tight uppercase truncate w-full">
                   Tests
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-1 sm:p-2 rounded-xl bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 min-h-[48px] sm:min-h-[64px] flex flex-col justify-center items-center transition-colors">
+                <p className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white leading-none truncate w-full">
                   {userStats.accuracy}%
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[8px] xs:text-[9px] sm:text-[10px] mt-1 font-bold tracking-tight uppercase truncate w-full">
                   Accuracy
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-1 sm:p-2 rounded-xl bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 min-h-[48px] sm:min-h-[64px] flex flex-col justify-center items-center transition-colors">
+                <p className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white leading-none truncate w-full">
                   {userStats.rank}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[8px] xs:text-[9px] sm:text-[10px] mt-1 font-bold tracking-tight uppercase truncate w-full">
                   Rank
                 </p>
               </div>
-              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
-                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+              <div className="text-center p-1 sm:p-2 rounded-xl bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 min-h-[48px] sm:min-h-[64px] flex flex-col justify-center items-center transition-colors">
+                <p className="text-xs xs:text-sm sm:text-lg md:text-xl font-black text-white leading-none truncate w-full">
                   {userStats.timeSpent}
                 </p>
-                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                <p className="text-purple-100 text-[8px] xs:text-[9px] sm:text-[10px] mt-1 font-bold tracking-tight uppercase truncate w-full">
                   Time
                 </p>
               </div>
@@ -1063,36 +1063,35 @@ function Dashboard() {
       </AnimatedHero>
 
       {/* Quick Access - Floats slightly over hero section with title height */}
-      <section className="max-w-7xl mb-5 sm:mb-6 mx-auto px-3.5 sm:px-6 lg:px-8 -mt-5 sm:-mt-6 md:-mt-7 relative z-20">
+      <section className="max-w-7xl mb-4 sm:mb-6 mx-auto px-3 sm:px-6 lg:px-8 -mt-4 sm:-mt-6 md:-mt-7 relative z-20">
         <div
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700 p-3 sm:p-4 md:p-6 animate-slide-in-up"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft border border-gray-100 dark:border-gray-700/80 p-2.5 sm:p-4 md:p-6 animate-slide-in-up"
           style={{ animationDelay: "0.15s" }}
         >
-          <div className="flex items-center justify-between gap-2 mb-3 sm:mb-4">
+          <div className="flex items-center justify-between gap-2 mb-2.5 sm:mb-4">
             <h2 className="text-[11px] sm:text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider truncate">
               Quick Access
             </h2>
             <Link
               to="/practice?mode=mistakes"
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition border border-amber-200 dark:border-amber-800/50 shrink-0"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 rounded-lg text-[11px] sm:text-xs font-bold hover:bg-amber-100 dark:hover:bg-amber-900/50 transition border border-amber-200/80 dark:border-amber-800/60 shrink-0"
             >
               <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
-              <span>Mistakes</span>
-              <span className="hidden xs:inline">Practice</span> →
+              <span>Mistakes Practice</span> →
             </Link>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-1.5 sm:gap-2.5">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 sm:gap-2.5">
             {quickAccessItems.map((item, _index) => (
               <Link
                 key={item.title}
                 to={item.route}
-                className="bg-gray-50 dark:bg-gray-700/60 hover:bg-white dark:hover:bg-gray-700 rounded-xl sm:rounded-2xl border border-gray-100/80 dark:border-gray-600/60 p-1.5 sm:p-2.5 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,background-color,border-color] duration-150 group flex flex-col items-center justify-center min-h-[74px] sm:min-h-[90px] active:scale-[0.97]"
+                className="bg-gray-50/80 dark:bg-gray-750/70 hover:bg-white dark:hover:bg-gray-700 rounded-xl sm:rounded-2xl border border-gray-100 dark:border-gray-600/50 p-1.5 sm:p-2.5 text-center cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-indigo-200 dark:hover:border-indigo-700/60 transition-all duration-150 group flex flex-col items-center justify-center min-h-[68px] sm:min-h-[90px] active:scale-[0.97]"
               >
                 <div
-                  className={`w-8 h-8 sm:w-10 sm:h-10 ${item.bg} dark:bg-opacity-20 rounded-xl sm:rounded-2xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform duration-150 shrink-0`}
+                  className={`w-7 h-7 sm:w-10 sm:h-10 ${item.bg} border rounded-lg sm:rounded-xl flex items-center justify-center mb-1 group-hover:scale-110 transition-transform duration-150 shrink-0 shadow-xs`}
                 >
                   <item.icon
-                    className={`${item.color} w-4 h-4 sm:w-5 sm:h-5`}
+                    className={`${item.color} w-3.5 h-3.5 sm:w-5 sm:h-5`}
                   />
                 </div>
                 <h3 className="font-bold text-gray-800 dark:text-gray-200 text-[10px] sm:text-xs leading-tight truncate w-full px-0.5">
@@ -1107,16 +1106,16 @@ function Dashboard() {
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-4 pb-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 pb-6">
         {/* MAIN CONTENT GRID */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
           {/* LEFT COLUMN - MAIN CONTENT */}
-          <div className="lg:col-span-8 space-y-6">
+          <div className="lg:col-span-8 space-y-4 sm:space-y-6">
             {/* RECENT TEST SERIES */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
               <div className="flex justify-between items-center mb-3 md:mb-4">
                 <div className="flex items-center gap-1.5 md:gap-2">
-                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
                     Recent Test Series
                   </h2>
                   <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-[10px] md:text-xs font-bold px-2 py-0.5 rounded-full">
@@ -1132,18 +1131,18 @@ function Dashboard() {
               </div>
 
               {loading ? (
-                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-1 px-1 snap-x">
+                <div className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-3 -mx-3.5 px-3.5 sm:mx-0 sm:px-0 snap-x">
                   {[1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-36 w-[85vw] max-w-[300px] min-w-[260px] sm:w-[300px] shrink-0 snap-start"
+                      className="animate-pulse bg-gray-100 dark:bg-gray-700/60 rounded-2xl h-36 w-[85vw] max-w-[300px] min-w-[240px] sm:w-[300px] shrink-0 snap-start"
                     />
                   ))}
                 </div>
               ) : enrolledTestSeries.length > 0 ? (
                 <div
                   ref={scrollContainerRef}
-                  className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 -mx-1 px-1 scroll-smooth snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing hover:shadow-inner rounded-xl"
+                  className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-3 -mx-3.5 px-3.5 sm:mx-0 sm:px-0 scroll-smooth snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing hover:shadow-inner rounded-xl"
                   style={{ WebkitOverflowScrolling: "touch" }}
                 >
                   {enrolledTestSeries.slice(0, 10).map((series) => {
@@ -1248,14 +1247,14 @@ function Dashboard() {
             </div>
 
             {/* LIVE TESTS & QUIZZES - Two Column Layout */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
               <div className="flex justify-between items-center mb-3 md:mb-4">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 md:gap-2">
                   <div className="relative">
-                    <span className="text-lg md:text-xl">🔴</span>
+                    <span className="text-base sm:text-lg md:text-xl">🔴</span>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full animate-ping" />
                   </div>
-                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
                     Live Tests & Quizzes
                   </h2>
                 </div>
@@ -1267,7 +1266,7 @@ function Dashboard() {
                 </Link>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 {/* Live Tests Column */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
@@ -1461,10 +1460,10 @@ function Dashboard() {
             </div>
 
             {/* MY EXAMS */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-5">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-3.5 sm:p-4 md:p-5">
               <div className="flex justify-between items-center mb-3 md:mb-4">
                 <div className="flex items-center gap-1.5 md:gap-2">
-                  <h2 className="text-base md:text-lg font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 dark:text-white">
                     My Exams
                   </h2>
                   {enrolledExams.length > 0 && (
@@ -1484,20 +1483,20 @@ function Dashboard() {
               {enrolledExams.length > 0 ? (
                 <div
                   ref={examsScrollRef}
-                  className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                  className="flex gap-2.5 sm:gap-4 overflow-x-auto pb-2 -mx-3.5 px-3.5 sm:mx-0 sm:px-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 >
                   {enrolledExams.map((exam) => (
                     <Link
                       key={exam.examId || exam.id}
                       to={`/exam/${exam.examId || exam.id}`}
-                      className="p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group flex-shrink-0 w-[260px] sm:w-[290px] snap-start"
+                      className="p-3.5 sm:p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group flex-shrink-0 w-[240px] sm:w-[290px] snap-start"
                     >
                       <div className="flex items-center gap-3 mb-3">
                         <div className="text-2xl group-hover:scale-110 transition-transform">
                           {exam.icon}
                         </div>
                         <div>
-                          <h3 className="font-bold text-gray-800 dark:text-white">
+                          <h3 className="font-bold text-gray-800 dark:text-white text-sm">
                             {exam.name}
                           </h3>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -1531,7 +1530,7 @@ function Dashboard() {
             </div>
 
             {/* AI STUDY ASSISTANT & DUE FOR REVIEW (2-COLUMN GRID IN LEFT COLUMN) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 sm:gap-5">
               {/* AI STUDY ASSISTANT CARD */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col justify-between">
                 <div>
@@ -1709,7 +1708,7 @@ function Dashboard() {
           </div>
 
           {/* RIGHT COLUMN - SIDEBAR */}
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-4 space-y-4 sm:space-y-6">
             {/* RECENT ACTIVITY */}
             <RecentActivity recentActivity={recentActivity} />
 
@@ -1749,7 +1748,7 @@ function Dashboard() {
               </div>
 
               {/* Enhanced Cards List */}
-              <div className="p-3.5 space-y-2.5">
+              <div className="p-3 sm:p-3.5 space-y-2 sm:space-y-2.5">
                 {testSeries.slice(0, 4).map((series) => {
                   const seriesId = series.slug || series.id || series._id;
                   const emoji = getCategoryEmojiForDashboard(
@@ -1774,10 +1773,10 @@ function Dashboard() {
                     <Link
                       key={series._id || series.id}
                       to={`/test-series/${seriesId}`}
-                      className="group relative flex items-center gap-3 p-3 bg-gray-50/90 dark:bg-gray-700/40 hover:bg-white dark:hover:bg-gray-700/80 rounded-xl border border-gray-100 dark:border-gray-600/70 hover:border-indigo-300 dark:hover:border-indigo-500/50 shadow-xs hover:shadow-md transition-[border-color,box-shadow,background-color,transform] duration-150"
+                      className="group relative flex items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 bg-gray-50/90 dark:bg-gray-700/40 hover:bg-white dark:hover:bg-gray-700/80 rounded-xl border border-gray-100 dark:border-gray-600/70 hover:border-indigo-300 dark:hover:border-indigo-500/50 shadow-xs hover:shadow-md transition-[border-color,box-shadow,background-color,transform] duration-150"
                     >
                       {/* Icon container */}
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-300/40 dark:border-amber-700/30 flex items-center justify-center text-xl shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-xs">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-300/40 dark:border-amber-700/30 flex items-center justify-center text-lg sm:text-xl shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-transform shadow-xs">
                         {series.icon || emoji}
                       </div>
 

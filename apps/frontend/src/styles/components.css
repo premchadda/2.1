@@ -98,7 +98,7 @@ img, video {
 
 /* Ensure modal inner scroll */
 [role="dialog"] .overflow-y-auto, [role="dialog"] .overflow-y-scroll {
-    max-height: min(70vh, calc(100dvh - 8rem));
+    max-height: min(80vh, calc(100dvh - 8rem));
     -webkit-overflow-scrolling: touch;
 }
 
@@ -786,18 +786,24 @@ img, video {
     top: 100%;
     right: 0;
     margin-top: 8px;
-    width: 240px;
+    box-sizing: border-box;
+    width: min(240px, calc(100vw - 1rem));
+    max-width: calc(100vw - 1rem);
+    max-height: min(80vh, 28rem);
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
     z-index: 100;
     animation: fadeIn 0.2s ease-out;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .profile-dropdown-item {
     display: flex;
     align-items: center;
+    min-width: 0;
     gap: 10px;
     padding: 10px 16px;
     color: #374151;
@@ -984,7 +990,6 @@ input:focus, button:focus, select:focus, textarea:focus {
 
 /* ===== Dark Mode Styles ===== */
 .dark body,
-
 html.dark body {
     background-color: #111827;
     color: #e5e7eb;
@@ -992,51 +997,6 @@ html.dark body {
 
 html.dark {
     color-scheme: dark;
-}
-
-/* Dark mode base elements */
-.dark .bg-white {
-    background-color: #1f2937 !important;
-}
-
-.dark .bg-gray-50 {
-    background-color: #111827 !important;
-}
-
-.dark .bg-gray-100 {
-    background-color: #1f2937 !important;
-}
-
-.dark .bg-gray-200 {
-    background-color: #374151 !important;
-}
-
-.dark .text-gray-900,
-
-.dark .text-gray-800,
-
-.dark .text-gray-700 {
-    color: #f3f4f6 !important;
-}
-
-.dark .text-gray-600,
-
-.dark .text-gray-500 {
-    color: #d1d5db !important;
-}
-
-.dark .text-gray-400 {
-    color: #9ca3af !important;
-}
-
-.dark .border-gray-100,
-
-.dark .border-gray-200 {
-    border-color: #374151 !important;
-}
-
-.dark .border-gray-300 {
-    border-color: #4b5563 !important;
 }
 
 /* Dark mode scrollbar */
@@ -1185,6 +1145,14 @@ html.dark {
 .dark .profile-dropdown-menu {
     background: #1f2937;
     border-color: #374151;
+}
+
+.dark .profile-dropdown-item {
+    color: #e5e7eb;
+}
+
+.dark .profile-dropdown-item:hover {
+    background: #374151;
 }
 
 /* Dark mode left sidebar */
@@ -1997,25 +1965,6 @@ button, input, textarea, select {
     .dark button {
         border-width: 2px;
     }
-}
-
-/* ========================================
-   DARK MODE TRANSITIONS & ANIMATIONS
-
-   ======================================== */
-
-/* Smooth Color Transitions for Dark Mode */
-.dark-transition {
-    transition: 
-        background-color 0.3s ease,
-        color 0.3s ease,
-        border-color 0.3s ease,
-        box-shadow 0.3s ease;
-}
-
-/* Dark Mode Fade In */
-.dark .fade-in {
-    animation: darkFadeIn 0.4s ease-out;
 }
 
 /* ========================================

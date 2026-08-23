@@ -88,7 +88,7 @@ function Layout() {
 
   return (
     <div
-      className={`min-h-screen bg-gray-50 w-full max-w-full ${isLeftNavMode ? "desktop-left-nav-mode" : ""}`}
+      className={`min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 w-full max-w-full ${isLeftNavMode ? "desktop-left-nav-mode" : ""}`}
     >
       {/* Skip to main content */}
       <a
@@ -114,14 +114,6 @@ function Layout() {
       {/* Desktop Left Sidebar */}
       {isLeftNavMode && <LeftSidebar />}
 
-      {/* Mobile Overlay */}
-      {sidebarOpen && isMobile && (
-        <div
-          className="fixed inset-0 bg-black/50 z-[10001] transition-opacity"
-          onClick={closeSidebar}
-        />
-      )}
-
       {/* Mobile Sidebar (Right Side) */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -134,12 +126,11 @@ function Layout() {
         id="main-content"
         tabIndex={-1}
         className={`
-           transition-all duration-300 ease-in-out
            pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-0
            ${isLeftNavMode ? "lg:ml-[260px]" : ""}
          `}
       >
-        <PageTransition className="min-h-screen bg-gray-50">
+        <PageTransition className="min-h-screen bg-gray-50 dark:bg-gray-900">
           <Outlet />
         </PageTransition>
       </main>

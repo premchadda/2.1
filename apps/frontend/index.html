@@ -45,11 +45,13 @@
       (function () {
         try {
           var t = localStorage.getItem('trstprep_theme');
-          if (!t && window.matchMedia) {
-            t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          if (t === 'dark') {
+            document.documentElement.classList.add('dark');
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.setAttribute('data-theme', 'light');
           }
-          if (t === 'dark') document.documentElement.classList.add('dark');
-          document.documentElement.setAttribute('data-theme', t || 'light');
         } catch (e) {}
       })();
     </script>

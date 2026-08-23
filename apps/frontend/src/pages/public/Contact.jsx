@@ -115,7 +115,7 @@ export default function Contact() {
           We'd love to hear from you. Send us a message!
         </p>
 
-        <div className="grid md:grid-cols-1 sm:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Contact Info */}
           <div className="bg-white rounded-xl shadow-lg p-8">
             <h2 className="text-xl font-semibold text-gray-900 mb-6">

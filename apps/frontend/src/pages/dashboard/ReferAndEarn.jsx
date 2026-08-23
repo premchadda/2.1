@@ -129,7 +129,7 @@ export default function ReferAndEarn() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8">
           <div className="bg-white p-4 rounded-xl shadow-sm border">
             <Users className="w-8 h-8 text-indigo-600 mb-2" />
             <p className="text-2xl font-bold text-gray-900">

@@ -35,8 +35,12 @@ function TopPerformers({
               </div>
               <div className="text-right">
                 <p className="font-bold text-indigo-600 dark:text-indigo-400">
-                  {userStats.rank && userStats.rank !== "-"
-                    ? "#" + userStats.rank
+                  {userStats.rank &&
+                  userStats.rank !== "-" &&
+                  userStats.rank !== "—"
+                    ? String(userStats.rank).startsWith("#")
+                      ? userStats.rank
+                      : `#${userStats.rank}`
                     : "—"}
                 </p>
                 {userStats.improvement ? (

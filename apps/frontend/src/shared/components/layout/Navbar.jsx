@@ -69,29 +69,12 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
       className={`bg-white/95 backdrop-blur-md shadow-soft sticky top-0 z-50 border-b border-white/50 transition-all duration-300 dark:bg-gray-900/95 dark:border-gray-700/50 ${isLeftNavMode ? "lg:ml-[260px]" : ""}`}
     >
       <div className="mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-14 items-center">
+        <div className="flex h-14 min-h-14 items-center justify-between">
           {!isLeftNavMode && <Logo />}
 
-          {/* Mobile Search Bar - Visible on mobile/tablet in Top Nav mode */}
-          {!isLeftNavMode && (
-            <div className="flex-1 max-w-xs mx-4 lg:hidden">
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(true)}
-                aria-label="Open search"
-                className="relative flex w-full items-center h-9 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 text-gray-400 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
-              >
-                <Search className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="ml-2 text-xs font-medium truncate">
-                  Search...
-                </span>
-              </button>
-            </div>
-          )}
-
-          {/* Big Search Bar - Only when left sidebar mode is active */}
+          {/* Desktop Search Bar - Only when left sidebar mode is active */}
           {isLeftNavMode && (
-            <div className="flex-1 max-w-[95vw] sm:max-w-2xl mx-8">
+            <div className="flex-1 max-w-[95vw] sm:max-w-2xl mx-4 sm:mx-8">
               <div className="relative">
                 <Search
                   className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
@@ -135,8 +118,8 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
             </div>
           )}
 
-          {/* Right Icons */}
-          <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+          {/* Right Icons / Actions */}
+          <div className="flex items-center space-x-1 sm:space-x-2.5 flex-shrink-0">
             {user && (
               <button
                 type="button"
@@ -167,11 +150,12 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
               </button>
             )}
 
+            {/* Search Trigger Button - Clean Icon Button on mobile and top-nav desktop */}
             {!isLeftNavMode && (
               <button
                 type="button"
                 onClick={() => setIsSearchOpen(true)}
-                className="hidden sm:block p-2 text-brand-start hover:bg-purple-50 dark:hover:bg-gray-800 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md"
+                className="p-2 text-slate-600 hover:text-brand-start hover:bg-purple-50 dark:text-gray-300 dark:hover:text-brand-start dark:hover:bg-gray-800 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer"
                 title="Search (Ctrl+K)"
                 aria-label="Open search"
               >
@@ -179,10 +163,11 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
               </button>
             )}
 
+            {/* Dark Mode Toggle */}
             <button
               type="button"
               onClick={toggleDarkMode}
-              className={`${isLeftNavMode && user ? "block" : "hidden sm:block"} p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-110 hover:shadow-md dark:text-gray-300 dark:hover:bg-gray-800`}
+              className="flex items-center justify-center p-2 text-gray-500 hover:text-brand-start hover:bg-gray-100 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 dark:text-gray-300 dark:hover:bg-gray-800 cursor-pointer"
               title={
                 isDarkMode ? "Switch to light mode" : "Switch to dark mode"
               }
@@ -197,29 +182,29 @@ function Navbar({ onMenuClick, isLeftNavMode, onNavModeToggle }) {
               )}
             </button>
 
-            <div
-              className={`${isLeftNavMode && user ? "flex" : "hidden md:flex"} items-center space-x-3`}
-            >
+            {/* Notification Bell - Always visible (mobile + desktop) */}
+            <NavbarNotifications />
+
+            {/* Desktop User Profile / Sign In */}
+            <div className="hidden md:flex items-center space-x-2">
               {user ? (
-                <>
-                  <NavbarNotifications />
-                  <NavbarProfile />
-                </>
+                <NavbarProfile />
               ) : (
                 <Link
                   to="/login"
                   state={{ backgroundLocation: location }}
-                  className="px-4 py-2 bg-gradient-to-r from-brand-start to-brand-end text-white font-semibold rounded-lg hover:shadow-glow transition-all duration-300 hover:-translate-y-0.5 btn-animated"
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-brand-start to-brand-end text-white text-xs font-semibold rounded-lg hover:shadow-glow transition-all duration-300 hover:-translate-y-0.5 btn-animated"
                 >
                   Sign In
                 </Link>
               )}
             </div>
 
+            {/* Mobile Drawer Menu Button */}
             <button
               type="button"
               onClick={onMenuClick}
-              className="md:hidden p-2 text-slate-600 hover:text-brand-start hover:bg-purple-50 rounded-lg transition"
+              className="md:hidden p-2 text-slate-600 hover:text-brand-start hover:bg-purple-50 dark:text-gray-300 dark:hover:text-brand-start dark:hover:bg-gray-800 rounded-lg transition active:scale-95"
               aria-label="Open menu"
               aria-expanded="false"
             >

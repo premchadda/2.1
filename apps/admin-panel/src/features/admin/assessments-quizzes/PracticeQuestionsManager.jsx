@@ -124,33 +124,60 @@ export default function PracticeQuestionsManager() {
       const [qRes, cRes, tRes] = await Promise.all([
         adminAPI.apiClient
           .get("/admin/questions/practice", { params: { limit: 200 }, signal })
-          .catch(() =>
-            adminAPI.apiClient.get("/admin/questions", {
-              params: { category: "practice", limit: 200 },
-              signal,
-            }),
-          ),
+          .catch((err) => {
+            if (
+              signal?.aborted ||
+              err?.name === "CanceledError" ||
+              err?.name === "AbortError" ||
+              err?.code === "ERR_CANCELED"
+            ) {
+              return { data: { data: [] } };
+            }
+            return adminAPI.apiClient
+              .get("/admin/questions", {
+                params: { category: "practice", limit: 200 },
+                signal,
+              })
+              .catch(() => ({ data: { data: [] } }));
+          }),
         adminAPI.apiClient
-          .get("/admin/chapters")
+          .get("/admin/chapters", { signal })
           .catch(() => ({ data: { data: [] } })),
         adminAPI.apiClient
-          .get("/admin/topics")
+          .get("/admin/topics", { signal })
           .catch(() => ({ data: { data: [] } })),
       ]);
 
-      const rawQuestions = qRes.data?.data || qRes.data || [];
-      setQuestions(rawQuestions);
+      const rawQuestions =
+        qRes.data?.data || (Array.isArray(qRes.data) ? qRes.data : []);
+      setQuestions(Array.isArray(rawQuestions) ? rawQuestions : []);
 
-      const rawChapters = cRes.data?.data?.data || cRes.data?.data || [];
-      setChapters(rawChapters);
+      const rawChapters =
+        cRes.data?.data?.data ||
+        cRes.data?.data ||
+        (Array.isArray(cRes.data) ? cRes.data : []);
+      setChapters(Array.isArray(rawChapters) ? rawChapters : []);
 
-      const rawTopics = tRes.data?.data?.data || tRes.data?.data || [];
-      setTopics(rawTopics);
+      const rawTopics =
+        tRes.data?.data?.data ||
+        tRes.data?.data ||
+        (Array.isArray(tRes.data) ? tRes.data : []);
+      setTopics(Array.isArray(rawTopics) ? rawTopics : []);
     } catch (err) {
+      if (
+        signal?.aborted ||
+        err?.name === "CanceledError" ||
+        err?.name === "AbortError" ||
+        err?.code === "ERR_CANCELED"
+      ) {
+        return;
+      }
       console.error("Failed to load practice questions data:", err);
       toast.error("Failed to load practice questions");
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -600,7 +627,9 @@ export default function PracticeQuestionsManager() {
     if (filteredQuestions.length <= 100) {
       return (
         filteredQuestions.length > 0 &&
-        filteredQuestions.every((q) => selectedQuestions.includes(q.id || q._id))
+        filteredQuestions.every((q) =>
+          selectedQuestions.includes(q.id || q._id),
+        )
       );
     }
     return (
