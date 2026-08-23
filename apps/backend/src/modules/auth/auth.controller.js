@@ -353,18 +353,6 @@ export const authController = {
             [String(userId)],
           );
           const activeRows = activeResult.rows;
-          previousSession = activeRows.length > 1; // >1 because the current session is included
-          otherSessions = activeRows
-            .filter((s) => s.session_id !== sessionId)
-            .slice(0, 5)
-            .map((s) => ({
-              deviceType: s.device_type,
-              browser: s.browser,
-              os: s.os,
-              country: s.country,
-              city: s.city,
-              lastActive: s.last_active,
-            }));
 
           const limitNum = Number(sessionLimit);
           if (Number.isFinite(limitNum) && activeRows.length > limitNum) {
@@ -396,6 +384,25 @@ export const authController = {
           } else {
             await client.query("COMMIT");
           }
+
+          // Re-query active other sessions AFTER limit enforcement to ensure accuracy
+          const remainingResult = await client.query(
+            `SELECT session_id, device_type, browser, os, country, city, last_active
+              FROM user_sessions
+              WHERE user_id = $1 AND is_active = true
+                AND ($2::text = '' OR session_id != $2)
+              ORDER BY last_active DESC`,
+            [String(userId), sessionId || ""],
+          );
+          otherSessions = remainingResult.rows.slice(0, 5).map((s) => ({
+            deviceType: s.device_type,
+            browser: s.browser,
+            os: s.os,
+            country: s.country,
+            city: s.city,
+            lastActive: s.last_active,
+          }));
+          previousSession = remainingResult.rows.length > 0;
         } catch (err) {
           await client.query("ROLLBACK");
           throw err;

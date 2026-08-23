@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
   getTestSeries,
@@ -100,6 +100,7 @@ const getCategoryTheme = (id) => {
 function Home() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { ref: popularSeriesScrollRef } = useDraggableScroll();
   const { ref: studyMaterialsScrollRef } = useDraggableScroll();
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -130,8 +131,10 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/dashboard", { replace: true });
-  }, [navigate, isAuthenticated]);
+    if (isAuthenticated && location.pathname === "/") {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [navigate, isAuthenticated, location.pathname]);
 
   // Merged catalog query — 5 APIs in parallel, cached 5m (was 3 separate waterfalls)
   const { data: catalogData } = useQuery({

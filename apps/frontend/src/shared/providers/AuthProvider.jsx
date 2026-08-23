@@ -25,84 +25,12 @@ import {
   logger,
 } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore";
-
-// Session configuration - 3 days default, 7 days when rememberMe checked
-const SESSION_CONFIG = {
-  defaultExpiry: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeExpiry: 7 * 24 * 60 * 60 * 1000, // 7 days
-  inactivityTimeout: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeInactivityTimeout: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-
-const USER_CACHE_KEY = "trstprep_user_profile";
-
-const getInitialUser = () => {
-  try {
-    const cached = sessionStorage.getItem(USER_CACHE_KEY);
-    return cached ? JSON.parse(cached) : null;
-  } catch {
-    return null;
-  }
-};
-
-const saveUserCache = (frontendUser) => {
-  try {
-    // Use sessionStorage only - localStorage persistence contradicts httpOnly security model
-    // Legacy localStorage cache is purged on every write for migration hygiene
-    try {
-      localStorage.removeItem(USER_CACHE_KEY);
-    } catch {}
-    if (frontendUser) {
-      sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(frontendUser));
-    } else {
-      sessionStorage.removeItem(USER_CACHE_KEY);
-    }
-  } catch {
-    // storage may throw in private mode
-  }
-};
-
-export const applyAuthSession = ({ csrfToken } = {}) => {
-  // httpOnly cookie authentication: tokens are never stored in JS-accessible storage.
-  // Only the CSRF token (non-secret, needed for mutating requests) is kept in memory.
-  if (csrfToken) {
-    setCsrfToken(csrfToken);
-  }
-  // Migration: purge any legacy tokens that may remain from pre-httpOnly builds
-  try {
-    sessionStorage.removeItem("trstprep_auth_token");
-    sessionStorage.removeItem("trstprep_token");
-    sessionStorage.removeItem("trstprep_refresh_token");
-    localStorage.removeItem("trstprep_token");
-    localStorage.removeItem("trstprep_auth_token");
-    localStorage.removeItem("trstprep_refresh_token");
-  } catch {}
-};
-
-// Backward-compatible alias for existing imports
-export const saveAuthTokens = applyAuthSession;
-
-export const clearAuthTokens = () => {
-  try {
-    // Purge legacy token keys (migration hygiene) + CSRF
-    sessionStorage.removeItem("trstprep_auth_token");
-    sessionStorage.removeItem("trstprep_token");
-    sessionStorage.removeItem("trstprep_refresh_token");
-    localStorage.removeItem("trstprep_token");
-    localStorage.removeItem("trstprep_auth_token");
-    localStorage.removeItem("trstprep_refresh_token");
-    localStorage.removeItem(USER_CACHE_KEY);
-    clearCsrfToken();
-    // Clear encrypted offline answer buffers and other sensitive localStorage
-    try {
-      Object.keys(localStorage).forEach((k) => {
-        if (k.startsWith("trstprep_answers_")) localStorage.removeItem(k);
-      });
-    } catch {}
-  } catch {
-    // storage may throw in private mode
-  }
-};
+import {
+  getInitialUser,
+  saveUserCache,
+  applyAuthSession,
+  clearAuthTokens,
+} from "./authSession";
 
 export function AuthProvider({ children }) {
   const initialCachedUser = getInitialUser();
@@ -111,6 +39,7 @@ export function AuthProvider({ children }) {
   const [error, setError] = useState(null);
   const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser));
   const authSequenceRef = useRef(0);
+  const currentSessionIdRef = useRef(null);
 
   // Refresh token function - httpOnly cookie only (no refreshToken in body)
   const refreshToken = useCallback(async () => {
@@ -262,7 +191,15 @@ export function AuthProvider({ children }) {
         };
       }
 
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        sessionId: serverSessionId,
+      } = response.data.data || {};
+
+      if (serverSessionId) {
+        currentSessionIdRef.current = serverSessionId;
+      }
 
       applyAuthSession({ csrfToken: newCsrfToken });
 
@@ -461,7 +398,10 @@ export function AuthProvider({ children }) {
   // Revoke all other active sessions
   const revokeOtherSessions = async () => {
     try {
-      const response = await api.delete("/api/sessions");
+      const headers = currentSessionIdRef.current
+        ? { "x-session-id": currentSessionIdRef.current }
+        : {};
+      const response = await api.delete("/api/sessions", { headers });
       return { success: true, data: response.data };
     } catch (err) {
       logger.error("Failed to revoke other sessions:", err);
@@ -504,7 +444,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!socket) return;
 
-    const cleanup = on("notification:new", (data) => {
+    const cleanupNotification = on("notification:new", (data) => {
       logger.debug("🔔 New Real-time Notification:", data);
       toast(data.message, {
         icon: data.type === "test:result_ready" ? "✅" : "🔔",
@@ -516,7 +456,27 @@ export function AuthProvider({ children }) {
       }
     });
 
-    return cleanup;
+    const cleanupRevocation = on("session:revoked", (data) => {
+      if (
+        data?.sessionId &&
+        currentSessionIdRef.current &&
+        data.sessionId === currentSessionIdRef.current
+      ) {
+        clearAuthTokens();
+        setUser(null);
+        saveUserCache(null);
+        toast.error("Your session was logged out from another device.", {
+          duration: 6000,
+          id: "session-revoked-toast",
+        });
+        window.dispatchEvent(new CustomEvent("trstprep:session-revoked"));
+      }
+    });
+
+    return () => {
+      if (cleanupNotification) cleanupNotification();
+      if (cleanupRevocation) cleanupRevocation();
+    };
   }, [socket, on, fetchCurrentUser]);
 
   const value = {
@@ -546,3 +506,5 @@ export function AuthProvider({ children }) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+
+export default AuthProvider;

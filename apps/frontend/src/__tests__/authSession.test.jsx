@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   applyAuthSession,
   clearAuthTokens,
-} from "../shared/providers/AuthProvider";
+} from "../shared/providers/AuthContext";
 
 describe("applyAuthSession storage isolation (httpOnly)", () => {
   beforeEach(() => {
@@ -48,8 +48,14 @@ describe("applyAuthSession storage isolation (httpOnly)", () => {
     sessionStorage.setItem("trstprep_refresh_token", "s-refresh");
     localStorage.setItem("trstprep_token", "l-token");
     localStorage.setItem("trstprep_refresh_token", "l-refresh");
-    localStorage.setItem("trstprep_answers_123", JSON.stringify({ answers: { 0: 1 } }));
-    localStorage.setItem("trstprep_user_profile", JSON.stringify({ name: "Test" }));
+    localStorage.setItem(
+      "trstprep_answers_123",
+      JSON.stringify({ answers: { 0: 1 } }),
+    );
+    localStorage.setItem(
+      "trstprep_user_profile",
+      JSON.stringify({ name: "Test" }),
+    );
 
     clearAuthTokens();
 

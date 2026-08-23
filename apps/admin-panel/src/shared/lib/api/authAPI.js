@@ -82,7 +82,10 @@ export const authAPI = {
     return apiClient.post("/auth/register", clean);
   },
   logout: () => apiClient.post("/auth/logout"),
-  revokeOtherSessions: () => apiClient.delete("/sessions"),
+  revokeOtherSessions: (sessionId = null) =>
+    apiClient.delete("/sessions", {
+      headers: sessionId ? { "x-session-id": sessionId } : {},
+    }),
   getMe: () => apiClient.get("/auth/me"),
   refreshToken: () => apiClient.post("/auth/refresh"),
   // Two-factor authentication (TOTP) management
