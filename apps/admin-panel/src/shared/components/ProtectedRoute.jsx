@@ -1,10 +1,12 @@
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../providers/AuthContext";
+import { getResourceFromPath, hasPermission } from "../lib/rbac";
 
 function Forbidden({
   message = "Access denied. You do not have permission to view this page.",
 }) {
   const { logout } = useAuth();
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
@@ -29,9 +31,10 @@ function Forbidden({
           <button
             onClick={async () => {
               await logout();
-              window.location.href = "/login";
+              navigate("/login", { replace: true });
             }}
             className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
+            aria-label="Sign in with admin account"
           >
             Sign in with Admin Account
           </button>
@@ -74,141 +77,16 @@ function ProtectedRoute({
     return <Forbidden />;
   }
 
-  const defaultAdminPerms =
-    user.role === "super_admin"
-      ? ["*"]
-      : [
-          "users:view",
-          "users:create",
-          "users:edit",
-          "users:delete",
-          "tests:view",
-          "tests:create",
-          "tests:edit",
-          "tests:delete",
-          "content:view",
-          "content:create",
-          "content:edit",
-          "content:delete",
-          "settings:view",
-          "settings:create",
-          "settings:edit",
-          "settings:delete",
-          "monetization:view",
-          "monetization:create",
-          "monetization:edit",
-          "monetization:delete",
-          "communications:view",
-          "communications:create",
-          "communications:edit",
-          "communications:delete",
-          "moderation:view",
-          "moderation:create",
-          "moderation:edit",
-          "moderation:delete",
-          "audit:view",
-          "audit:create",
-          "audit:edit",
-          "audit:delete",
-          "analytics:view",
-          "analytics:create",
-          "analytics:edit",
-          "analytics:delete",
-        ];
-
-  const userPerms =
-    Array.isArray(user.permissions) && user.permissions.length > 0
-      ? user.permissions
-      : isAdminRole
-        ? defaultAdminPerms
-        : [];
+  // Fixed P1: do not grant default perms when backend returns empty array (was privilege escalation) - backend must provide perms
+  const userPerms = Array.isArray(user.permissions) ? user.permissions : [];
 
   const isSuper = userPerms.includes("*") || user.role === "super_admin";
 
-  const checkPerm = (requiredPerm) => {
-    if (isSuper || userPerms.includes(requiredPerm)) return true;
-    const [resource, action] = requiredPerm.split(":");
-    if (resource && action) {
-      const aliasActions =
-        action === "view"
-          ? ["read"]
-          : action === "read"
-            ? ["view"]
-            : action === "create" || action === "edit"
-              ? ["write"]
-              : action === "write"
-                ? ["create", "edit"]
-                : [];
-      if (aliasActions.some((act) => userPerms.includes(`${resource}:${act}`)))
-        return true;
-      if (userPerms.includes(`${resource}:*`)) return true;
-      if (resource === "system" || resource === "settings") {
-        const altRes = resource === "system" ? "settings" : "system";
-        if (
-          userPerms.includes(`${altRes}:${action}`) ||
-          aliasActions.some((act) => userPerms.includes(`${altRes}:${act}`)) ||
-          userPerms.includes(`${altRes}:*`)
-        )
-          return true;
-      }
-    }
-    return false;
-  };
+  const checkPerm = (requiredPerm) =>
+    hasPermission(userPerms, requiredPerm, isSuper);
 
   if (adminOnly && !isSuper) {
-    const segment =
-      location.pathname.split("/").filter(Boolean)[1] || "content";
-    const resource = [
-      "users",
-      "enrollments",
-      "sessions",
-      "roles-permissions",
-      "user-activity-log",
-    ].includes(segment)
-      ? "users"
-      : [
-            "tests",
-            "test-series",
-            "questions",
-            "quizzes",
-            "sections",
-            "stages",
-            "exam-categories",
-            "exam-info",
-          ].includes(segment)
-        ? "tests"
-        : [
-              "settings",
-              "system",
-              "backups",
-              "navigation",
-              "two-factor",
-              "coming-soon",
-              "recycle-bin",
-              "system-health",
-            ].includes(segment)
-          ? "settings"
-          : [
-                "payments",
-                "subscription-plans",
-                "plans",
-                "coupons",
-                "promotions",
-              ].includes(segment)
-            ? "monetization"
-            : ["banners", "faqs", "notifications", "email-templates"].includes(
-                  segment,
-                )
-              ? "communications"
-              : ["moderation"].includes(segment)
-                ? "moderation"
-                : ["audit", "audit-trail", "results"].includes(segment)
-                  ? "audit"
-                  : ["analytics", "deep-analytics", "leaderboards"].includes(
-                        segment,
-                      )
-                    ? "analytics"
-                    : "content";
+    const resource = getResourceFromPath(location.pathname);
 
     const hasAccess =
       checkPerm(`${resource}:view`) ||

@@ -1,6 +1,23 @@
 import { ValidationError } from "@trstprep/shared-config";
 import { apiClient } from "../apiClient.js";
 
+const ALLOWED_LOGIN_CONTEXT_KEYS = new Set([
+  "captchaToken",
+  "clientNonce",
+  "deviceId",
+  "rememberMe",
+  "botScore",
+  "hCaptchaToken",
+]);
+const sanitizeContext = (ctx) => {
+  if (!ctx || typeof ctx !== "object") return {};
+  const clean = {};
+  for (const k of Object.keys(ctx)) {
+    if (ALLOWED_LOGIN_CONTEXT_KEYS.has(k)) clean[k] = ctx[k];
+  }
+  return clean;
+};
+
 export const authAPI = {
   login: (emailOrData, password, rememberMe = false, botContext = {}) => {
     let email, pass, remember, context;
@@ -8,44 +25,61 @@ export const authAPI = {
       email = emailOrData.email;
       pass = emailOrData.password;
       remember = emailOrData.rememberMe ?? rememberMe;
-      context = emailOrData;
+      context = sanitizeContext(emailOrData);
     } else {
       email = emailOrData;
       pass = password;
       remember = rememberMe;
-      context = botContext;
+      context = sanitizeContext(botContext);
     }
 
     if (!email || !pass) {
       throw new ValidationError("Email and password are required");
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
+    const cleanEmail = String(email).trim().toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(cleanEmail)) {
       throw new ValidationError("Please enter a valid email address");
     }
-    if (pass.length < 6) {
-      throw new ValidationError("Password must be at least 6 characters");
+    if (pass.length < 8) {
+      throw new ValidationError("Password must be at least 8 characters");
     }
     return apiClient.post("/auth/login", {
       ...context,
-      email,
+      email: cleanEmail,
       password: pass,
-      rememberMe: Boolean(remember),
+      rememberMe: remember === true || remember === "true",
     });
   },
   register: (data) => {
+    const allowed = [
+      "name",
+      "email",
+      "password",
+      "mobile",
+      "phone",
+      "rememberMe",
+    ];
+    const clean = {};
+    for (const k of allowed)
+      if (data[k] !== undefined)
+        clean[k] = typeof data[k] === "string" ? data[k].trim() : data[k];
     const required = ["name", "email", "password"];
     for (const field of required) {
-      if (!data[field]) {
+      if (!clean[field]) {
         throw new ValidationError(`${field} is required`);
       }
     }
-    if (!/^\S+@\S+\.\S+$/.test(data.email)) {
+    clean.email = String(clean.email).toLowerCase();
+    if (!/^\S+@\S+\.\S+$/.test(clean.email)) {
       throw new ValidationError("Please enter a valid email address");
     }
-    if (data.password.length < 8) {
+    if (String(clean.password).length < 8) {
       throw new ValidationError("Password must be at least 8 characters");
     }
-    return apiClient.post("/auth/register", data);
+    if (clean.name && String(clean.name).trim().length < 2) {
+      throw new ValidationError("Name must be at least 2 characters");
+    }
+    return apiClient.post("/auth/register", clean);
   },
   logout: () => apiClient.post("/auth/logout"),
   revokeOtherSessions: () => apiClient.delete("/sessions"),
@@ -54,7 +88,12 @@ export const authAPI = {
   // Two-factor authentication (TOTP) management
   twoFactorStatus: () => apiClient.get("/auth/2fa/status"),
   twoFactorEnroll: () => apiClient.post("/auth/2fa/enroll"),
-  twoFactorVerify: (token) => apiClient.post("/auth/2fa/verify", { token }),
+  twoFactorVerify: (token) => {
+    const t = String(token ?? "").trim();
+    if (!/^\d{6}$/.test(t))
+      throw new ValidationError("2FA code must be 6 digits");
+    return apiClient.post("/auth/2fa/verify", { token: t });
+  },
   twoFactorRegenerateBackupCodes: () =>
     apiClient.post("/auth/2fa/backup-codes/regenerate"),
   twoFactorDisable: () => apiClient.post("/auth/2fa/disable"),

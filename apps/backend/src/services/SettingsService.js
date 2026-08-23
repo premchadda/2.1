@@ -476,7 +476,9 @@ async function getPublicSettings() {
       `SELECT updated_at FROM app_settings WHERE is_active = true ORDER BY id ASC LIMIT 1`,
     );
     siteConfigUpdatedAt = r.rows[0]?.updated_at || null;
-  } catch {}
+  } catch {
+    // intentionally empty - timestamp lookup is best-effort for merge logic
+  }
   const comingSoonUpdatedAt = comingSoonConfig.updatedAt || null;
   const comingSoonIsNewer =
     comingSoonUpdatedAt &&
@@ -582,7 +584,9 @@ async function getComingSoonStatus(pageKey) {
     try {
       const coming = await getComingSoonConfig();
       pageConfig = coming.pagesObject?.[pageKey];
-    } catch {}
+    } catch {
+      // intentionally empty - fallback to default disabled status
+    }
   }
   if (!pageConfig) return { enabled: false, config: {} };
   return {

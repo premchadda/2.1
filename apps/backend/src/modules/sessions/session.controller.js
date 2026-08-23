@@ -12,6 +12,7 @@ import {
   invalidateSession,
   getUserSessions,
   updateSessionActivity,
+  parseUserAgent as parseUA,
 } from "../../services/SessionCaptureService.js";
 import {
   logAuditEvent,
@@ -20,60 +21,35 @@ import {
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const getClientIp = (req) => {
-  const f = req.headers["x-forwarded-for"];
-  if (f) return f.split(",")[0].trim();
-  return req.socket?.remoteAddress || req.ip || "unknown";
+  // Prefer trust-proxy aware req.ip; fallback only for dev without proxy
+  if (req?.ip) {
+    let ip = String(req.ip).trim();
+    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+    if (ip === "::1") return "127.0.0.1";
+    if (ip) return ip;
+  }
+  const f = req?.headers?.["x-forwarded-for"];
+  if (f) {
+    const first = String(f).split(",")[0].trim();
+    if (first.startsWith("::ffff:")) return first.slice(7);
+    return first;
+  }
+  const sock = req?.socket?.remoteAddress || req?.connection?.remoteAddress;
+  if (sock) {
+    if (sock.startsWith("::ffff:")) return sock.slice(7);
+    if (sock === "::1") return "127.0.0.1";
+    return sock;
+  }
+  return "unknown";
 };
 
 // ─── User-Agent Parser ────────────────────────────────────────────────────────
-// No external deps – inline detection for browser, OS, and device type
+// Delegates to canonical implementation in SessionCaptureService to avoid drift.
+// Keeps legacy {browser, os, type} shape for backward compat (type = Desktop/Mobile/Tablet).
 export const parseUserAgent = (ua = "") => {
-  const info = { browser: "Unknown", os: "Unknown", type: "Desktop", raw: ua };
-  if (!ua) return info;
-
-  // Browser
-  if (ua.includes("Edg/") || ua.includes("Edge/")) info.browser = "Edge";
-  else if (ua.includes("OPR/") || ua.includes("Opera")) info.browser = "Opera";
-  else if (ua.includes("SamsungBrowser")) info.browser = "Samsung Browser";
-  else if (ua.includes("Chrome/")) info.browser = "Chrome";
-  else if (ua.includes("Firefox/")) info.browser = "Firefox";
-  else if (ua.includes("Safari/") && !ua.includes("Chrome"))
-    info.browser = "Safari";
-  else if (ua.includes("MSIE") || ua.includes("Trident/"))
-    info.browser = "Internet Explorer";
-
-  // OS
-  if (ua.includes("Windows NT 10")) info.os = "Windows 10/11";
-  else if (ua.includes("Windows NT 6.3")) info.os = "Windows 8.1";
-  else if (ua.includes("Windows NT 6.1")) info.os = "Windows 7";
-  else if (ua.includes("Windows")) info.os = "Windows";
-  else if (ua.includes("Mac OS X")) info.os = "macOS";
-  else if (ua.includes("Android")) {
-    const m = ua.match(/Android ([\d.]+)/);
-    info.os = m ? `Android ${m[1]}` : "Android";
-  } else if (ua.includes("iPhone OS") || ua.includes("CPU OS")) {
-    const m = ua.match(/OS ([\d_]+)/);
-    info.os = m ? `iOS ${m[1].replace(/_/g, ".")}` : "iOS";
-  } else if (ua.includes("Linux")) info.os = "Linux";
-  else if (ua.includes("CrOS")) info.os = "ChromeOS";
-
-  // Device type
-  if (
-    ua.includes("iPad") ||
-    (ua.includes("Android") && ua.includes("Tablet"))
-  ) {
-    info.type = "Tablet";
-  } else if (
-    ua.includes("Mobile") ||
-    ua.includes("iPhone") ||
-    (ua.includes("Android") && !ua.includes("Tablet"))
-  ) {
-    info.type = "Mobile";
-  } else {
-    info.type = "Desktop";
-  }
-
-  return info;
+  const { device, browser, os } = parseUA(ua);
+  const typeMap = { desktop: "Desktop", mobile: "Mobile", tablet: "Tablet" };
+  return { browser, os, type: typeMap[device] || "Desktop", device, raw: ua };
 };
 
 // ─── Auto-Schema Ensure ───────────────────────────────────────────────────────
@@ -210,6 +186,34 @@ const ensureUserSessionsTable = async () => {
       CREATE INDEX IF NOT EXISTS idx_us_created    ON user_sessions(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_us_session_id ON user_sessions(session_id);
     `);
+
+    // Unique partial index to serialize device fingerprint and prevent TOCTOU duplicates.
+    // Fingerprint = (user_id, device_type, browser, os, session_type) lowercased, active only.
+    // Use COALESCE to match captureSession's lower(COALESCE(...)) fingerprint and to treat null as ''.
+    // If duplicates already exist, creation will fail — warn but don't crash startup.
+    try {
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS ux_user_sessions_active_fingerprint
+          ON user_sessions (user_id, lower(COALESCE(device_type,'')), lower(COALESCE(browser,'')), lower(COALESCE(os,'')), lower(COALESCE(session_type,'')))
+          WHERE is_active = true
+      `);
+    } catch (uxErr) {
+      console.warn(
+        "[Sessions] ux_user_sessions_active_fingerprint not created (likely existing duplicates):",
+        uxErr.message,
+      );
+    }
+
+    // Normalize legacy capitalized device_type values to lowercase for consistent stats
+    try {
+      await pool.query(`
+        UPDATE user_sessions
+           SET device_type = lower(device_type)
+         WHERE device_type IN ('Desktop','Mobile','Tablet')
+      `);
+    } catch {
+      // intentionally empty - legacy data normalization is best-effort
+    }
 
     // Note: id column is VARCHAR (created by dbHelpers), not SERIAL.
     // captureSession generates explicit string ids like 'sess_<timestamp>_<random>'.

@@ -35,6 +35,8 @@ export default function ImageZoomModal({
       aria-label="Zoomed question image"
     >
       <img
+        loading="lazy"
+        decoding="async"
         src={imageUrl}
         alt={`Question ${questionNumber || ""} (zoomed)`}
         className="max-w-full max-h-full object-contain"

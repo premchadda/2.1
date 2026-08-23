@@ -10,6 +10,7 @@ const RATE_LIMITS = Object.freeze({
 
 export const createRateLimiter = (tier = "generous") => {
   const config = RATE_LIMITS[tier] || RATE_LIMITS.generous;
+  // Dev multiplier ONLY when NODE_ENV=development (not test/staging/production)
   const isDev = process.env.NODE_ENV === "development";
   return rateLimit({
     windowMs: config.windowMs,
@@ -20,6 +21,7 @@ export const createRateLimiter = (tier = "generous") => {
     },
     standardHeaders: true,
     legacyHeaders: false,
+    // Skip only for verified admin (req.user set by protect) — unverified origin/jwt.decode bypass removed
     skip: (req) =>
       process.env.DISABLE_RATE_LIMITER === "true" || isUserAdminRequest(req),
   });

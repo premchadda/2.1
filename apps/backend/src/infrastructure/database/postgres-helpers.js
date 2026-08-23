@@ -10,9 +10,15 @@ import {
   TIMESTAMP_COLUMNS,
 } from "./db/constants.js";
 import { RELATIONSHIP_DEFINITIONS } from "./db/relationships.js";
-import { getReadPool, getWritePool } from "../../../config/database-replicas.js";
+import {
+  getReadPool,
+  getWritePool,
+} from "../../../config/database-replicas.js";
+import { ValidationError } from "../../middleware/error.middleware.js";
 
-const ENCRYPTION_ALGORITHM = 'aes-256-cbc';
+const ENCRYPTION_ALGORITHM = "aes-256-gcm";
+const GCM_IV_LENGTH = 12;
+const GCM_AUTH_TAG_LENGTH = 16;
 
 // Configurable default row limit for query helpers. Override via the
 // DEFAULT_QUERY_LIMIT env var (falls back to 1000 to avoid loading whole
@@ -21,42 +27,78 @@ const DEFAULT_QUERY_LIMIT = process.env.DEFAULT_QUERY_LIMIT
   ? Number(process.env.DEFAULT_QUERY_LIMIT)
   : 1000;
 const getEncryptionKey = () => {
-  const secret = process.env.DB_ENCRYPTION_KEY || process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error('FATAL: DB_ENCRYPTION_KEY or JWT_SECRET must be configured with at least 32 characters');
+  const secret = process.env.DB_ENCRYPTION_KEY;
+  if (!secret) {
+    throw new ValidationError(
+      "DB_ENCRYPTION_KEY must be configured (32+ characters, never reuse JWT_SECRET)",
+    );
   }
-  return crypto.createHash('sha256').update(secret).digest();
+  if (secret.length < 32) {
+    throw new ValidationError(
+      "DB_ENCRYPTION_KEY must be at least 32 characters",
+    );
+  }
+  return crypto.createHash("sha256").update(secret).digest();
 };
 
 export const encryptValue = (text) => {
   if (text === null || text === undefined) return text;
-  if (typeof text !== 'string') text = String(text);
-  
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  return `${iv.toString('hex')}:${encrypted}`;
+  if (typeof text !== "string") text = String(text);
+
+  const iv = crypto.randomBytes(GCM_IV_LENGTH);
+  const cipher = crypto.createCipheriv(
+    ENCRYPTION_ALGORITHM,
+    getEncryptionKey(),
+    iv,
+  );
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${authTag}:${encrypted}`;
 };
 
 export const decryptValue = (encryptedText) => {
-  if (!encryptedText || typeof encryptedText !== 'string') return encryptedText;
-  if (!encryptedText.includes(':')) return encryptedText;
+  if (!encryptedText || typeof encryptedText !== "string") return encryptedText;
+  if (!encryptedText.includes(":")) return encryptedText;
 
+  const parts = encryptedText.split(":");
+  if (parts.length < 2) return encryptedText;
   try {
-    const [ivHex, encryptedHex] = encryptedText.split(':');
-    if (!ivHex || !encryptedHex) return encryptedText;
-    
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
-    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+    // GCM format: iv:authTag:encrypted (3 parts) — preferred
+    if (parts.length === 3) {
+      const [ivHex, authTagHex, encryptedHex] = parts;
+      if (!ivHex || !authTagHex || !encryptedHex) return encryptedText;
+      const iv = Buffer.from(ivHex, "hex");
+      const authTag = Buffer.from(authTagHex, "hex");
+      const decipher = crypto.createDecipheriv(
+        ENCRYPTION_ALGORITHM,
+        getEncryptionKey(),
+        iv,
+      );
+      decipher.setAuthTag(authTag);
+      let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    }
+    // Legacy CBC format: iv:encrypted (2 parts) — backward compat during key rotation
+    if (parts.length === 2) {
+      const [ivHex, encryptedHex] = parts;
+      if (!ivHex || !encryptedHex) return encryptedText;
+      const iv = Buffer.from(ivHex, "hex");
+      const decipher = crypto.createDecipheriv(
+        "aes-256-cbc",
+        getEncryptionKey(),
+        iv,
+      );
+      let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+      decrypted += decipher.final("utf8");
+      return decrypted;
+    }
+    return encryptedText;
   } catch (err) {
     return encryptedText;
   }
 };
-
 
 dotenv.config();
 
@@ -70,21 +112,17 @@ const quoteIdentifier = (value) => `"${String(value).replace(/"/g, '""')}"`;
 // PHASE 1: Columns that must NEVER be returned by generic reads (auth secrets / PII).
 // Used by getSelectColumns() to build a safe allowlist for the `users` table.
 const SENSITIVE_USER_COLUMNS = [
-  'password',
-  'refresh_token',
-  'refresh_token_version',
-  'otp',
-  'otp_secret',
-  'email_verification_token',
-  'reset_token',
+  "password",
+  "refresh_token",
+  "refresh_token_version",
+  "otp",
+  "otp_secret",
+  "email_verification_token",
+  "reset_token",
 ];
 
 // Column cache per table - populated once per table at startup
 const tableColumnsCache = new Map();
-
-
-
-
 
 // Helper to stringify JSONB values (objects and arrays) for PostgreSQL
 const stringifyJsonbValue = (value) => {
@@ -115,8 +153,6 @@ const prepareDbValues = (table, dbData) => {
   return result;
 };
 
-
-
 // Use environment-provided DATABASE_URL for credentials (safer for secrets)
 // Always require SSL for Supabase connections
 // CRIT-01 FIX: SSL certificate validation enabled in production
@@ -124,11 +160,13 @@ const prepareDbValues = (table, dbData) => {
 const isDev =
   process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
-if (process.env.PG_SSL_REJECT_UNAUTHORIZED === 'false') {
-  if (process.env.NODE_ENV === 'production') {
-    console.error('WARNING: SSL certificate validation disabled in production — this is a security risk');
+if (process.env.PG_SSL_REJECT_UNAUTHORIZED === "false") {
+  if (process.env.NODE_ENV === "production") {
+    console.error(
+      "WARNING: SSL certificate validation disabled in production — this is a security risk",
+    );
   } else {
-    console.warn('SSL certificate validation disabled (development only)');
+    console.warn("SSL certificate validation disabled (development only)");
   }
 }
 
@@ -366,7 +404,7 @@ class PostgresHelpers {
 
       this.metadataPrefetched = true;
     } catch (error) {
-      console.error('[DB] Prefetch Metadata Error:', error.message);
+      console.error("[DB] Prefetch Metadata Error:", error.message);
     }
   }
 
@@ -404,9 +442,15 @@ class PostgresHelpers {
           [table],
         );
         if (colResult.rows.length === 0) return prepared; // view/unknown table — leave untouched
-        tableColumnsCache.set(table, new Set(colResult.rows.map((r) => r.column_name)));
+        tableColumnsCache.set(
+          table,
+          new Set(colResult.rows.map((r) => r.column_name)),
+        );
       } catch (error) {
-        console.error(`[DB] filterToExistingColumns fallback for "${table}":`, error.message);
+        console.error(
+          `[DB] filterToExistingColumns fallback for "${table}":`,
+          error.message,
+        );
         return prepared;
       }
     }
@@ -595,7 +639,9 @@ class PostgresHelpers {
     await this.prefetchMetadata();
 
     const results = await Promise.all(
-      RELATIONSHIP_DEFINITIONS.map((definition) => this.ensureForeignKey(definition))
+      RELATIONSHIP_DEFINITIONS.map((definition) =>
+        this.ensureForeignKey(definition),
+      ),
     );
 
     const changes = results.filter((applied) => applied).length;
@@ -611,7 +657,9 @@ class PostgresHelpers {
   // no-op kept for backward-compat only. Calling it does NOT create any tables. Any new
   // DDL MUST go through a migration file, never here. See migrations/048 + README.md.
   async initTables() {
-    console.log("[DB] Skip runtime table creation (DDL): Database schema is managed via SQL migrations.");
+    console.log(
+      "[DB] Skip runtime table creation (DDL): Database schema is managed via SQL migrations.",
+    );
     return true;
   }
 
@@ -622,38 +670,81 @@ class PostgresHelpers {
   toCamel(row) {
     if (!row) return null;
     const newRow = {};
-    const sensitiveColumns = ['phone', 'date_of_birth', 'location', 'education', 'bio'];
+    // PII columns: handle both `phone` and legacy `mobile` alias — both map to phoneEnc
+    const sensitiveColumns = [
+      "phone",
+      "mobile",
+      "date_of_birth",
+      "location",
+      "education",
+      "bio",
+    ];
     for (const key in row) {
       const camelKey = key.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
       let val = row[key];
       if (sensitiveColumns.includes(key) && val) {
+        // *_enc columns hold ciphertext; plaintext columns must also be decrypted if they were written with encryptValue (backward compat)
+        val = decryptValue(val);
+      }
+      // Decrypt *_enc shadow columns as well (phone_enc, dob_enc, etc.)
+      if (key.endsWith("_enc") && val) {
         val = decryptValue(val);
       }
       newRow[camelKey] = val;
       if (key === "id") newRow._id = row[key];
     }
+    // Alias mobile → phone for backward compat
+    if (newRow.mobile && !newRow.phone) newRow.phone = newRow.mobile;
+    if (newRow.phone && !newRow.mobile) newRow.mobile = newRow.phone;
     return newRow;
   }
 
   toSnake(obj, collection = null) {
     if (!obj) return null;
-    if (typeof obj === 'string') {
+    if (typeof obj === "string") {
       return obj.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`);
     }
     const newObj = {};
-    const sensitiveColumns = ['phone', 'dateOfBirth', 'date_of_birth', 'location', 'education', 'bio'];
-    const isUsersTable = collection === 'users' || !collection;
+    // Accept both phone/mobile spellings; map to canonical `phone` column and keep *_enc in sync via DB trigger
+    const sensitiveColumns = [
+      "phone",
+      "mobile",
+      "dateOfBirth",
+      "date_of_birth",
+      "location",
+      "education",
+      "bio",
+    ];
+    const isUsersTable = collection === "users" || !collection;
     for (const key in obj) {
       if (key === "_id") continue;
       const snakeKey = key
         .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
         .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
         .toLowerCase();
+      // Normalize mobile → phone (canonical column is `phone`; `mobile` is legacy alias retained for backfill)
+      const canonicalKey = snakeKey === "mobile" ? "phone" : snakeKey;
       let val = obj[key];
       if (isUsersTable && sensitiveColumns.includes(key) && val) {
+        // Encrypt once with aes-256-gcm; DB trigger syncs *_enc. For direct *_enc writes, encrypt that too.
         val = encryptValue(val);
       }
-      newObj[snakeKey] = val;
+      // If caller passes *_enc explicitly, encrypt it as well (consistent *_enc pattern)
+      if (
+        isUsersTable &&
+        canonicalKey.endsWith("_enc") &&
+        val &&
+        typeof val === "string" &&
+        !val.includes(":")
+      ) {
+        val = encryptValue(val);
+      }
+      newObj[canonicalKey] = val;
+      // Preserve alias for trigger compatibility: sync_users_pii_enc reads `mobile` legacy, so also set mobile if phone was set
+      if (canonicalKey === "phone" && !newObj["mobile"]) {
+        // Do not duplicate unless mobile column exists — filterToExistingColumns will drop unknown columns safely
+        newObj["mobile"] = val;
+      }
     }
     return newObj;
   }
@@ -679,9 +770,9 @@ class PostgresHelpers {
   async getSelectColumns(table, columns) {
     if (columns) {
       const cols = Array.isArray(columns) ? columns : [columns];
-      const safe = cols.filter((c) => typeof c === 'string' && c.length > 0);
+      const safe = cols.filter((c) => typeof c === "string" && c.length > 0);
       if (safe.length > 0) {
-        return safe.map((c) => quoteIdentifier(c)).join(', ');
+        return safe.map((c) => quoteIdentifier(c)).join(", ");
       }
     }
 
@@ -701,17 +792,17 @@ class PostgresHelpers {
       const cols = tableColumnsCache.get(table);
       // FALLBACK: catalog returned nothing (view/cte/function/unknown) -> SELECT *.
       if (!cols || cols.size === 0) {
-        return '*';
+        return "*";
       }
 
       // Only the users table strips secrets; every other table keeps all columns.
       const allowed =
-        table === 'users'
+        table === "users"
           ? [...cols].filter((c) => !SENSITIVE_USER_COLUMNS.includes(c))
           : [...cols];
 
       if (allowed.length > 0) {
-        return allowed.map((c) => quoteIdentifier(c)).join(', ');
+        return allowed.map((c) => quoteIdentifier(c)).join(", ");
       }
     } catch (error) {
       // Never throw from getSelectColumns — degrade safely to SELECT *.
@@ -722,21 +813,34 @@ class PostgresHelpers {
     }
 
     // FALLBACK: nothing usable resolved -> SELECT * (unchanged behavior).
-    return '*';
+    return "*";
   }
 
-  async find(collection, query = {}, limit = null, offset = null, columns = null) {
+  async find(
+    collection,
+    query = {},
+    limit = null,
+    offset = null,
+    columns = null,
+  ) {
     const table = this.getTableName(collection);
 
     // Extract includeInactive/include_inactive to support opt-out
     const cleanQuery = { ...query };
-    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    const includeInactive =
+      cleanQuery.includeInactive === true ||
+      cleanQuery.include_inactive === true;
     delete cleanQuery.includeInactive;
     delete cleanQuery.include_inactive;
 
     // Default isActive: true scope if the table contains 'is_active'
     const hasActive = await this.columnExists(table, "is_active");
-    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+    if (
+      hasActive &&
+      !includeInactive &&
+      cleanQuery.isActive === undefined &&
+      cleanQuery.is_active === undefined
+    ) {
       cleanQuery.is_active = true;
     }
 
@@ -832,18 +936,31 @@ class PostgresHelpers {
     }
   }
 
-  async findReadOnly(collection, query = {}, limit = null, offset = null, columns = null) {
+  async findReadOnly(
+    collection,
+    query = {},
+    limit = null,
+    offset = null,
+    columns = null,
+  ) {
     const table = this.getTableName(collection);
 
     // Extract includeInactive/include_inactive to support opt-out
     const cleanQuery = { ...query };
-    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    const includeInactive =
+      cleanQuery.includeInactive === true ||
+      cleanQuery.include_inactive === true;
     delete cleanQuery.includeInactive;
     delete cleanQuery.include_inactive;
 
     // Default isActive: true scope if the table contains 'is_active'
     const hasActive = await this.columnExists(table, "is_active");
-    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+    if (
+      hasActive &&
+      !includeInactive &&
+      cleanQuery.isActive === undefined &&
+      cleanQuery.is_active === undefined
+    ) {
       cleanQuery.is_active = true;
     }
 
@@ -1006,7 +1123,10 @@ class PostgresHelpers {
       );
       return this.toCamel(result.rows[0]);
     } catch (error) {
-      console.error(`DB FindByIdReadOnly Error (${collection}):`, error.message);
+      console.error(
+        `DB FindByIdReadOnly Error (${collection}):`,
+        error.message,
+      );
       return null;
     }
   }
@@ -1015,12 +1135,19 @@ class PostgresHelpers {
     const table = this.getTableName(collection);
 
     const cleanQuery = { ...query };
-    const includeInactive = cleanQuery.includeInactive === true || cleanQuery.include_inactive === true;
+    const includeInactive =
+      cleanQuery.includeInactive === true ||
+      cleanQuery.include_inactive === true;
     delete cleanQuery.includeInactive;
     delete cleanQuery.include_inactive;
 
     const hasActive = await this.columnExists(table, "is_active");
-    if (hasActive && !includeInactive && cleanQuery.isActive === undefined && cleanQuery.is_active === undefined) {
+    if (
+      hasActive &&
+      !includeInactive &&
+      cleanQuery.isActive === undefined &&
+      cleanQuery.is_active === undefined
+    ) {
       cleanQuery.is_active = true;
     }
 
@@ -1270,7 +1397,10 @@ class PostgresHelpers {
       );
       return this.toCamel(result.rows[0]);
     } catch (error) {
-      console.error(`DB findByPublicIdReadOnly Error (${collection}):`, error.message);
+      console.error(
+        `DB findByPublicIdReadOnly Error (${collection}):`,
+        error.message,
+      );
       return null;
     }
   }
@@ -1410,36 +1540,46 @@ class PostgresHelpers {
   }
 
   async count(table, filter = {}) {
-    let tableName = table
-    let filterObj = filter
+    let tableName = table;
+    let filterObj = filter;
 
-    if (typeof table === 'object' && table !== null) {
-      tableName = filter
-      filterObj = table
+    if (typeof table === "object" && table !== null) {
+      tableName = filter;
+      filterObj = table;
     }
 
-    const resolvedTable = typeof tableName === 'string' ? (this.tableMap[tableName] || tableName) : 'bookmarks'
-    const quotedTable = quoteIdentifier(resolvedTable)
-    const conditions = []
-    const values = []
-    let paramIndex = 1
+    const resolvedTable =
+      typeof tableName === "string"
+        ? this.tableMap[tableName] || tableName
+        : "bookmarks";
+    const quotedTable = quoteIdentifier(resolvedTable);
+    const conditions = [];
+    const values = [];
+    let paramIndex = 1;
 
-    if (filterObj && typeof filterObj === 'object') {
+    if (filterObj && typeof filterObj === "object") {
       for (const [key, value] of Object.entries(filterObj)) {
-        const snakeKey = typeof key === 'string' ? key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`) : String(key)
+        const snakeKey =
+          typeof key === "string"
+            ? key.replace(/[A-Z]/g, (l) => `_${l.toLowerCase()}`)
+            : String(key);
         if (value === null) {
-          conditions.push(`${quoteIdentifier(snakeKey)} IS NULL`)
+          conditions.push(`${quoteIdentifier(snakeKey)} IS NULL`);
         } else {
-          conditions.push(`${quoteIdentifier(snakeKey)} = $${paramIndex}`)
-          values.push(value)
-          paramIndex++
+          conditions.push(`${quoteIdentifier(snakeKey)} = $${paramIndex}`);
+          values.push(value);
+          paramIndex++;
         }
       }
     }
 
-    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
-    const result = await this.pool.query(`SELECT COUNT(*)::int AS count FROM ${quotedTable} ${whereClause}`, values)
-    return result.rows[0]?.count || 0
+    const whereClause =
+      conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    const result = await this.pool.query(
+      `SELECT COUNT(*)::int AS count FROM ${quotedTable} ${whereClause}`,
+      values,
+    );
+    return result.rows[0]?.count || 0;
   }
 
   async resolveForeignKeys(table, dbData) {
@@ -1483,7 +1623,10 @@ class PostgresHelpers {
     const prepared = prepareDbValues(table, dbData);
     // Filter to only columns that actually exist in the table (same behavior
     // as updateById; unknown fields from client payloads must not crash inserts)
-    const filteredPrepared = await this.filterToExistingColumns(table, prepared);
+    const filteredPrepared = await this.filterToExistingColumns(
+      table,
+      prepared,
+    );
     const keys = Object.keys(filteredPrepared);
     const values = Object.values(filteredPrepared);
 
@@ -1496,10 +1639,19 @@ class PostgresHelpers {
       const db = client || this.pool;
       const result = await db.query(sql, values);
       const inserted = this.toCamel(result.rows[0]);
-      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
-        this.getSubjectIdForCurriculumItem(collection, inserted.id || inserted._id, inserted).then(subjectId => {
-          if (subjectId) this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
-        }).catch(console.error);
+      if (["units", "chapters", "topics", "subtopics"].includes(collection)) {
+        this.getSubjectIdForCurriculumItem(
+          collection,
+          inserted.id || inserted._id,
+          inserted,
+        )
+          .then((subjectId) => {
+            if (subjectId)
+              this.resequenceAndPrefixCurriculum(subjectId).catch(
+                console.error,
+              );
+          })
+          .catch(console.error);
       }
       return inserted;
     } catch (error) {
@@ -1513,7 +1665,7 @@ class PostgresHelpers {
 
     const table = this.getTableName(collection);
     // Process all items to get consistent column sets
-    const processedItems = items.map(item => {
+    const processedItems = items.map((item) => {
       const dbData = this.toSnake(item, collection);
       delete dbData.id;
       delete dbData.created_at;
@@ -1539,13 +1691,17 @@ class PostgresHelpers {
     if (keys.length === 0) return [];
 
     const allValues = [];
-    const valuePlaceholders = processedItems.map((item, rowIdx) => {
-      const placeholders = keys.map((_, colIdx) => `$${rowIdx * keys.length + colIdx + 1}`);
-      keys.forEach((key) => allValues.push(item[key]));
-      return `(${placeholders.join(', ')})`;
-    }).join(', ');
+    const valuePlaceholders = processedItems
+      .map((item, rowIdx) => {
+        const placeholders = keys.map(
+          (_, colIdx) => `$${rowIdx * keys.length + colIdx + 1}`,
+        );
+        keys.forEach((key) => allValues.push(item[key]));
+        return `(${placeholders.join(", ")})`;
+      })
+      .join(", ");
 
-    const sql = `INSERT INTO "${table}" (${keys.map((k) => `"${k}"`).join(', ')}) VALUES ${valuePlaceholders} RETURNING *`;
+    const sql = `INSERT INTO "${table}" (${keys.map((k) => `"${k}"`).join(", ")}) VALUES ${valuePlaceholders} RETURNING *`;
 
     const db = client || this.pool;
     try {
@@ -1612,10 +1768,19 @@ class PostgresHelpers {
       if (result.rows.length === 0) return null;
       console.log(`   ✅ Updated 1 row in ${table}`);
       const updated = this.toCamel(result.rows[0]);
-      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
-        this.getSubjectIdForCurriculumItem(collection, numericId || id || updated.id || updated._id, updated).then(subjectId => {
-          if (subjectId) this.resequenceAndPrefixCurriculum(subjectId).catch(console.error);
-        }).catch(console.error);
+      if (["units", "chapters", "topics", "subtopics"].includes(collection)) {
+        this.getSubjectIdForCurriculumItem(
+          collection,
+          numericId || id || updated.id || updated._id,
+          updated,
+        )
+          .then((subjectId) => {
+            if (subjectId)
+              this.resequenceAndPrefixCurriculum(subjectId).catch(
+                console.error,
+              );
+          })
+          .catch(console.error);
       }
       return updated;
     } catch (error) {
@@ -1632,8 +1797,11 @@ class PostgresHelpers {
         return false;
       }
       let subjectId = null;
-      if (['units', 'chapters', 'topics', 'subtopics'].includes(collection)) {
-        subjectId = await this.getSubjectIdForCurriculumItem(collection, numericId || id);
+      if (["units", "chapters", "topics", "subtopics"].includes(collection)) {
+        subjectId = await this.getSubjectIdForCurriculumItem(
+          collection,
+          numericId || id,
+        );
       }
       await this.pool.query(`DELETE FROM "${table}" WHERE id = $1`, [
         numericId,
@@ -1711,17 +1879,16 @@ class PostgresHelpers {
     const table = this.getTableName(collection);
     // USE STANDARDIZED SOFT-DELETE PATTERN (Migration 032)
     // Keep is_deleted and is_active/isActive in sync to support consistent queries.
-    return await this.updateById(collection, id, { 
-      is_deleted: true, 
+    return await this.updateById(collection, id, {
+      is_deleted: true,
       is_active: false,
       isActive: false,
-      deleted_by: userId || null, 
-      deleted_at: new Date() 
+      deleted_by: userId || null,
+      deleted_at: new Date(),
     });
   }
 
   async getTrashItems(filter = {}) {
-    // Note: 'exams' replaces 'examSubCategories' - no separate subcategories table exists
     const collections = [
       "testSeries",
       "tests",
@@ -1758,7 +1925,7 @@ class PostgresHelpers {
         } catch (e) {
           return [];
         }
-      })
+      }),
     );
 
     const allTrashItems = results.flat();
@@ -1818,7 +1985,6 @@ class PostgresHelpers {
   }
 
   async deleteFromTrash(id) {
-    // Note: 'exams' replaces 'examSubCategories' - no separate subcategories table exists
     const collections = [
       "testSeries",
       "tests",
@@ -1859,7 +2025,6 @@ class PostgresHelpers {
   }
 
   async emptyTrash() {
-    // Note: 'exams' replaces 'examSubCategories' - no separate subcategories table exists
     const collections = [
       "testSeries",
       "tests",
@@ -1898,52 +2063,67 @@ class PostgresHelpers {
 
   async getSubjectIdForCurriculumItem(collection, id, data) {
     try {
-      if (collection === 'units') {
-        if (data && (data.subjectId || data.subject_id)) return data.subjectId || data.subject_id;
-        const unit = await this.findById('units', id);
+      if (collection === "units") {
+        if (data && (data.subjectId || data.subject_id))
+          return data.subjectId || data.subject_id;
+        const unit = await this.findById("units", id);
         return unit?.subjectId || unit?.subject_id;
       }
-      if (collection === 'chapters') {
-        if (data && (data.subjectId || data.subject_id)) return data.subjectId || data.subject_id;
+      if (collection === "chapters") {
+        if (data && (data.subjectId || data.subject_id))
+          return data.subjectId || data.subject_id;
         if (data && (data.unitId || data.unit_id)) {
-          const unit = await this.findById('units', data.unitId || data.unit_id);
-          if (unit?.subjectId || unit?.subject_id) return unit.subjectId || unit.subject_id;
+          const unit = await this.findById(
+            "units",
+            data.unitId || data.unit_id,
+          );
+          if (unit?.subjectId || unit?.subject_id)
+            return unit.subjectId || unit.subject_id;
         }
-        const ch = await this.findById('chapters', id);
-        if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+        const ch = await this.findById("chapters", id);
+        if (ch?.subjectId || ch?.subject_id)
+          return ch.subjectId || ch.subject_id;
         if (ch?.unitId || ch?.unit_id) {
-          const unit = await this.findById('units', ch.unitId || ch.unit_id);
+          const unit = await this.findById("units", ch.unitId || ch.unit_id);
           return unit?.subjectId || unit?.subject_id;
         }
       }
-      if (collection === 'topics') {
+      if (collection === "topics") {
         let chId = data?.chapterId || data?.chapter_id;
         if (!chId && id) {
-          const t = await this.findById('topics', id);
+          const t = await this.findById("topics", id);
           chId = t?.chapterId || t?.chapter_id;
         }
         if (chId) {
-          const ch = await this.findById('chapters', chId);
-          if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+          const ch = await this.findById("chapters", chId);
+          if (ch?.subjectId || ch?.subject_id)
+            return ch.subjectId || ch.subject_id;
           if (ch?.unitId || ch?.unit_id) {
-            const unit = await this.findById('units', ch.unitId || ch.unit_id);
+            const unit = await this.findById("units", ch.unitId || ch.unit_id);
             return unit?.subjectId || unit?.subject_id;
           }
         }
       }
-      if (collection === 'subtopics') {
+      if (collection === "subtopics") {
         let topicId = data?.topicId || data?.topic_id;
         if (!topicId && id) {
-          const st = await this.findById('subtopics', id);
+          const st = await this.findById("subtopics", id);
           topicId = st?.topicId || st?.topic_id;
         }
         if (topicId) {
-          const t = await this.findById('topics', topicId);
+          const t = await this.findById("topics", topicId);
           if (t?.chapterId || t?.chapter_id) {
-            const ch = await this.findById('chapters', t.chapterId || t.chapter_id);
-            if (ch?.subjectId || ch?.subject_id) return ch.subjectId || ch.subject_id;
+            const ch = await this.findById(
+              "chapters",
+              t.chapterId || t.chapter_id,
+            );
+            if (ch?.subjectId || ch?.subject_id)
+              return ch.subjectId || ch.subject_id;
             if (ch?.unitId || ch?.unit_id) {
-              const unit = await this.findById('units', ch.unitId || ch.unit_id);
+              const unit = await this.findById(
+                "units",
+                ch.unitId || ch.unit_id,
+              );
               return unit?.subjectId || unit?.subject_id;
             }
           }
@@ -1957,108 +2137,148 @@ class PostgresHelpers {
 
   async resequenceAndPrefixCurriculum(subjectId) {
     if (!subjectId) return;
+    const prefixRegex =
+      /^(?:Unit|Chapter|Topic|Subtopic|Ch|U|T|St)\s*\d+[\s:]\s*/i;
+    const cleanName = (name) =>
+      name ? name.replace(prefixRegex, "").trim() : "";
     try {
-      const prefixRegex = /^(?:Unit|Chapter|Topic|Subtopic|Ch|U|T|St)\s*\d+[\s:]\s*/i;
-      const cleanName = (name) => {
-        if (!name) return '';
-        return name.replace(prefixRegex, '').trim();
-      };
+      await this.withTransaction(async (client) => {
+        // Helper: bulk update via UNNEST — single round-trip per entity level
+        const bulkUpdate = async (table, idCol, nameCol, orderCol, rows) => {
+          if (!rows.length) return;
+          const ids = rows.map((r) => r.id);
+          const names = rows.map((r) => r.newName);
+          const orders = rows.map((r) => r.newOrder);
+          await client.query(
+            `UPDATE ${quoteIdentifier(table)} AS t
+               SET ${quoteIdentifier(nameCol)} = data.new_name,
+                   ${quoteIdentifier(orderCol)} = data.new_order,
+                   updated_at = NOW()
+             FROM (SELECT unnest($1::int[]) AS id, unnest($2::text[]) AS new_name, unnest($3::int[]) AS new_order) AS data
+             WHERE t.${quoteIdentifier(idCol)} = data.id`,
+            [ids, names, orders],
+          );
+        };
 
-      // 1. Resequence & Prefix Units
-      const units = (await this.pool.query(`
-        SELECT id, name, order_index FROM subject_units
-        WHERE subject_id = $1 AND (is_deleted = false OR is_deleted IS NULL)
-        ORDER BY order_index, id
-      `, [subjectId])).rows;
+        // 1. Units — ordered by order_index, id
+        const unitsRes = await client.query(
+          `SELECT id, name, order_index FROM subject_units
+           WHERE subject_id = $1 AND (is_deleted = false OR is_deleted IS NULL)
+           ORDER BY order_index, id`,
+          [subjectId],
+        );
+        const units = unitsRes.rows;
+        const unitUpdates = units.map((u, idx) => ({
+          id: u.id,
+          newOrder: idx + 1,
+          newName: `Unit ${idx + 1}: ${cleanName(u.name)}`,
+        }));
+        await bulkUpdate(
+          "subject_units",
+          "id",
+          "name",
+          "order_index",
+          unitUpdates,
+        );
 
-      for (let i = 0; i < units.length; i++) {
-        const u = units[i];
-        const unitOrder = i + 1;
-        const cleaned = cleanName(u.name);
-        const newName = `Unit ${unitOrder}: ${cleaned}`;
-        await this.pool.query(`
-          UPDATE subject_units SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
-        `, [newName, unitOrder, u.id]);
-      }
+        // 2. Chapters — continuous global index, ordered by unit order then chapter order
+        const chaptersRes = await client.query(
+          `SELECT c.id, c.title, c.order_index, c.unit_id, u.order_index AS unit_order
+           FROM subject_chapters c
+           LEFT JOIN subject_units u ON c.unit_id = u.id
+           WHERE c.subject_id = $1 AND (c.is_deleted = false OR c.is_deleted IS NULL)
+           ORDER BY COALESCE(u.order_index, 9999), c.order_index, c.id`,
+          [subjectId],
+        );
+        const chapters = chaptersRes.rows;
+        const chapterUpdates = chapters.map((c, idx) => ({
+          id: c.id,
+          newOrder: idx + 1,
+          newName: `Chapter ${idx + 1}: ${cleanName(c.title)}`,
+        }));
+        await bulkUpdate(
+          "subject_chapters",
+          "id",
+          "title",
+          "order_index",
+          chapterUpdates,
+        );
 
-      // 2. Resequence & Prefix Chapters (Continuous Global Index)
-      const chapters = (await this.pool.query(`
-        SELECT c.id, c.title, c.order_index, c.unit_id, u.order_index as unit_order
-        FROM subject_chapters c
-        LEFT JOIN subject_units u ON c.unit_id = u.id
-        WHERE c.subject_id = $1 AND (c.is_deleted = false OR c.is_deleted IS NULL)
-        ORDER BY COALESCE(u.order_index, 9999), c.order_index, c.id
-      `, [subjectId])).rows;
-
-      for (let i = 0; i < chapters.length; i++) {
-        const c = chapters[i];
-        const globalChapNum = i + 1;
-        const cleaned = cleanName(c.title);
-        const newTitle = `Chapter ${globalChapNum}: ${cleaned}`;
-        await this.pool.query(`
-          UPDATE subject_chapters SET title = $1, order_index = $2, updated_at = NOW() WHERE id = $3
-        `, [newTitle, globalChapNum, c.id]);
-      }
-
-      // 3. Resequence & Prefix Topics (Per Chapter Index)
-      const chapterIds = chapters.map(c => c.id);
-      if (chapterIds.length > 0) {
-        const topics = (await this.pool.query(`
-          SELECT id, name, order_index, chapter_id FROM subject_topics
-          WHERE chapter_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
-          ORDER BY chapter_id, order_index, id
-        `, [chapterIds])).rows;
-
-        const topicsByChapter = {};
-        for (const t of topics) {
-          if (!topicsByChapter[t.chapter_id]) topicsByChapter[t.chapter_id] = [];
-          topicsByChapter[t.chapter_id].push(t);
-        }
-
-        for (const chId in topicsByChapter) {
-          const chTopics = topicsByChapter[chId];
-          for (let i = 0; i < chTopics.length; i++) {
-            const t = chTopics[i];
-            const topicOrder = i + 1;
-            const cleaned = cleanName(t.name);
-            const newName = `Topic ${topicOrder}: ${cleaned}`;
-            await this.pool.query(`
-              UPDATE subject_topics SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
-            `, [newName, topicOrder, t.id]);
+        // 3. Topics — per-chapter index
+        const chapterIds = chapters.map((c) => c.id);
+        let topics = [];
+        if (chapterIds.length > 0) {
+          const topicsRes = await client.query(
+            `SELECT id, name, order_index, chapter_id FROM subject_topics
+             WHERE chapter_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
+             ORDER BY chapter_id, order_index, id`,
+            [chapterIds],
+          );
+          topics = topicsRes.rows;
+          const topicsByChapter = new Map();
+          for (const t of topics) {
+            if (!topicsByChapter.has(t.chapter_id))
+              topicsByChapter.set(t.chapter_id, []);
+            topicsByChapter.get(t.chapter_id).push(t);
           }
+          const topicUpdates = [];
+          for (const [, chTopics] of topicsByChapter) {
+            chTopics.forEach((t, idx) => {
+              topicUpdates.push({
+                id: t.id,
+                newOrder: idx + 1,
+                newName: `Topic ${idx + 1}: ${cleanName(t.name)}`,
+              });
+            });
+          }
+          await bulkUpdate(
+            "subject_topics",
+            "id",
+            "name",
+            "order_index",
+            topicUpdates,
+          );
         }
 
-        // 4. Resequence & Prefix Subtopics (Per Topic Index)
-        const topicIds = topics.map(t => t.id);
+        // 4. Subtopics — per-topic index (bulk WITH)
+        const topicIds = topics.map((t) => t.id);
         if (topicIds.length > 0) {
-          const subtopics = (await this.pool.query(`
-            SELECT id, name, order_index, topic_id FROM subject_subtopics
-            WHERE topic_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
-            ORDER BY topic_id, order_index, id
-          `, [topicIds])).rows;
-
-          const subtopicsByTopic = {};
+          const subRes = await client.query(
+            `SELECT id, name, order_index, topic_id FROM subject_subtopics
+             WHERE topic_id = ANY($1) AND (is_deleted = false OR is_deleted IS NULL)
+             ORDER BY topic_id, order_index, id`,
+            [topicIds],
+          );
+          const subtopics = subRes.rows;
+          const subByTopic = new Map();
           for (const st of subtopics) {
-            if (!subtopicsByTopic[st.topic_id]) subtopicsByTopic[st.topic_id] = [];
-            subtopicsByTopic[st.topic_id].push(st);
+            if (!subByTopic.has(st.topic_id)) subByTopic.set(st.topic_id, []);
+            subByTopic.get(st.topic_id).push(st);
           }
-
-          for (const tId in subtopicsByTopic) {
-            const tSubtopics = subtopicsByTopic[tId];
-            for (let i = 0; i < tSubtopics.length; i++) {
-              const st = tSubtopics[i];
-              const subtopicOrder = i + 1;
-              const cleaned = cleanName(st.name);
-              const newName = `Subtopic ${subtopicOrder}: ${cleaned}`;
-              await this.pool.query(`
-                UPDATE subject_subtopics SET name = $1, order_index = $2, updated_at = NOW() WHERE id = $3
-              `, [newName, subtopicOrder, st.id]);
-            }
+          const subUpdates = [];
+          for (const [, tSubs] of subByTopic) {
+            tSubs.forEach((st, idx) => {
+              subUpdates.push({
+                id: st.id,
+                newOrder: idx + 1,
+                newName: `Subtopic ${idx + 1}: ${cleanName(st.name)}`,
+              });
+            });
           }
+          await bulkUpdate(
+            "subject_subtopics",
+            "id",
+            "name",
+            "order_index",
+            subUpdates,
+          );
         }
-      }
+      });
     } catch (err) {
-      console.error('Error auto-prefixing/resequencing curriculum:', err);
+      console.error(
+        "Error auto-prefixing/resequencing curriculum (transaction rolled back):",
+        err.message,
+      );
     }
   }
 

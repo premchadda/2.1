@@ -154,7 +154,7 @@ export default function SubmitSummaryModal({
         aria-modal="true"
         aria-label="Submit Test Summary"
         tabIndex={-1}
-        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] overflow-hidden transform transition-all"
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full flex flex-col max-h-[92vh] max-h-[92dvh] overflow-hidden transform transition-all"
       >
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/80 dark:to-gray-900 shrink-0">
@@ -166,7 +166,7 @@ export default function SubmitSummaryModal({
               <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 Submit Test Summary
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs md:max-w-md">
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs md:max-w-[95vw] sm:max-w-md">
                 {testTitle}
               </p>
             </div>

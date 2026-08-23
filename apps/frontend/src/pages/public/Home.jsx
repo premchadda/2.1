@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -208,108 +209,112 @@ function Home() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) return;
-    const controller = new AbortController();
-    const fetchData = async () => {
-      try {
-        const [
-          series,
-          materials,
-          examsResponse,
-          categoriesResponse,
-          statsResponse,
-        ] = await Promise.all([
-          getTestSeries(),
-          getStudyMaterials(),
-          examAPI.getExams(),
-          examAPI.getCategories(),
-          examAPI.getPublicStats(),
-        ]);
-        setTestSeries(series);
-        setStudyMaterials(materials);
-        const exams = examsResponse.data?.data || [];
-        setFeaturedExams(exams.filter((exam) => exam.isActive).slice(0, 6));
-        const categories = categoriesResponse.data?.data || [];
-        setExamCategories(categories);
-        if (statsResponse?.data?.data) {
-          const s = statsResponse.data.data;
-          setPlatformStats({
-            activeLearners: s.activeLearners || 0,
-            mockTests: s.mockTests || 0,
-            examsCovered: s.examsCovered || 0,
-            satisfaction: s.satisfaction || null,
-          });
-        }
-      } catch (error) {
-        if (!controller.signal.aborted)
-          console.error("Failed to fetch data:", error);
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    };
-    fetchData();
-    return () => controller.abort();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     if (isAuthenticated) navigate("/dashboard", { replace: true });
   }, [navigate, isAuthenticated]);
 
-  useEffect(() => {
-    if (isAuthenticated) return;
-    const controller = new AbortController();
-    const fetchLiveTests = async () => {
-      try {
-        setLiveTestsLoading(true);
-        const [liveRes, quizRes] = await Promise.all([
-          testsAPI.getByTag("live-tests"),
-          testsAPI.getByTag("quizzes"),
-        ]);
-        const rawLive = liveRes.data?.data || liveRes.data || [];
-        const activeLive = (Array.isArray(rawLive) ? rawLive : []).filter(
-          (t) => !checkIsLiveExpired(t),
-        );
-        setLiveTests(activeLive.slice(0, 3));
-
-        const rawQuizzes = quizRes.data?.data || quizRes.data || [];
-        setFreeQuizzes(Array.isArray(rawQuizzes) ? rawQuizzes.slice(0, 3) : []);
-      } catch (error) {
-        if (!controller.signal.aborted)
-          console.error("Failed to fetch live tests:", error);
-      } finally {
-        if (!controller.signal.aborted) setLiveTestsLoading(false);
-      }
-    };
-    fetchLiveTests();
-    return () => controller.abort();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (isAuthenticated) return;
-    const controller = new AbortController();
-    const fetchTestimonials = async () => {
-      try {
-        setTestimonialsLoading(true);
-        const response = await fetchFromAPI("/api/testimonials?limit=3");
-        const data = response?.data || response || [];
-        setTestimonials(Array.isArray(data) ? data.slice(0, 3) : []);
-      } catch (error) {
-        if (!controller.signal.aborted)
-          console.error("Failed to fetch testimonials:", error);
-      } finally {
-        if (!controller.signal.aborted) setTestimonialsLoading(false);
-      }
-    };
-    fetchTestimonials();
-    return () => controller.abort();
-  }, [isAuthenticated]);
+  // Merged catalog query — 5 APIs in parallel, cached 5m (was 3 separate waterfalls)
+  const { data: catalogData } = useQuery({
+    queryKey: ["home-catalog", isAuthenticated],
+    queryFn: async () => {
+      const [
+        series,
+        materials,
+        examsResponse,
+        categoriesResponse,
+        statsResponse,
+      ] = await Promise.all([
+        getTestSeries(),
+        getStudyMaterials(),
+        examAPI.getExams(),
+        examAPI.getCategories(),
+        examAPI.getPublicStats(),
+      ]);
+      return {
+        series,
+        materials,
+        examsResponse,
+        categoriesResponse,
+        statsResponse,
+      };
+    },
+    enabled: !isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
   useEffect(() => {
+    if (!catalogData) return;
+    setTestSeries(catalogData.series);
+    setStudyMaterials(catalogData.materials);
+    const exams = catalogData.examsResponse.data?.data || [];
+    setFeaturedExams(exams.filter((exam) => exam.isActive).slice(0, 6));
+    const categories = catalogData.categoriesResponse.data?.data || [];
+    setExamCategories(categories);
+    if (catalogData.statsResponse?.data?.data) {
+      const s = catalogData.statsResponse.data.data;
+      setPlatformStats({
+        activeLearners: s.activeLearners || 0,
+        mockTests: s.mockTests || 0,
+        examsCovered: s.examsCovered || 0,
+        satisfaction: s.satisfaction || null,
+      });
+    }
+    setLoading(false);
+  }, [catalogData]);
+
+  // Merged live + testimonials — 3 APIs in parallel, cached 5m (was 2 separate waterfalls)
+  const { data: liveData } = useQuery({
+    queryKey: ["home-live", isAuthenticated],
+    queryFn: async () => {
+      const [liveRes, quizRes, testimonialsRes] = await Promise.all([
+        testsAPI.getByTag("live-tests"),
+        testsAPI.getByTag("quizzes"),
+        fetchFromAPI("/api/testimonials?limit=3"),
+      ]);
+      return { liveRes, quizRes, testimonialsRes };
+    },
+    enabled: !isAuthenticated,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
+
+  useEffect(() => {
+    if (!liveData) return;
+    const rawLive = liveData.liveRes.data?.data || liveData.liveRes.data || [];
+    const activeLive = (Array.isArray(rawLive) ? rawLive : []).filter(
+      (t) => !checkIsLiveExpired(t),
+    );
+    setLiveTests(activeLive.slice(0, 3));
+    const rawQuizzes =
+      liveData.quizRes.data?.data || liveData.quizRes.data || [];
+    const activeQuizzes = (Array.isArray(rawQuizzes) ? rawQuizzes : []).filter(
+      (q) => !checkIsLiveExpired(q),
+    );
+    setFreeQuizzes(activeQuizzes.slice(0, 3));
+    const tData =
+      liveData.testimonialsRes?.data || liveData.testimonialsRes || [];
+    setTestimonials(Array.isArray(tData) ? tData.slice(0, 3) : []);
+    setLiveTestsLoading(false);
+    setTestimonialsLoading(false);
+  }, [liveData]);
+
+  useEffect(() => {
+    let raf = 0;
+    let last = 0;
     const handleMouseMove = (e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      const now = Date.now();
+      if (now - last < 32) return;
+      last = now;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() =>
+        setMousePos({ x: e.clientX, y: e.clientY }),
+      );
     };
-    window.addEventListener("mousemove", handleMouseMove);
-    return () => window.removeEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   const categoryMap = useMemo(() => {
@@ -466,6 +471,8 @@ function Home() {
                 <div className="w-14 h-14 md:w-16 md:h-16 rounded-full overflow-hidden bg-white/20 backdrop-blur-sm border-2 border-white/40 flex items-center justify-center text-white shadow-lg group-hover:scale-105 group-hover:border-white/80 transition-all duration-300">
                   {user.avatar || user.avatarUrl || user.photoURL ? (
                     <img
+                      loading="lazy"
+                      decoding="async"
                       src={user.avatar || user.avatarUrl || user.photoURL}
                       alt={user.name || "User"}
                       className="w-full h-full object-cover"
@@ -505,7 +512,7 @@ function Home() {
           </div>
         ) : (
           <div className="w-full">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center md:py-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-4 sm:gap-6 items-center md:py-10">
               {/* Text content */}
               <div className="relative z-10">
                 <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 md:px-4 md:py-2 rounded-full mb-4 md:mb-6 animate-slide-up">
@@ -516,7 +523,7 @@ function Home() {
                 </div>
 
                 <h1
-                  className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 md:mb-5 leading-tight animate-slide-up"
+                  className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-4 md:mb-5 leading-tight animate-slide-up"
                   style={{
                     animationDelay: "0.1s",
                     textShadow: "0 4px 20px rgba(0,0,0,0.3)",
@@ -543,21 +550,21 @@ function Home() {
                 </p>
 
                 <div
-                  className="flex sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 mb-6 md:mb-10 w-full sm:w-auto max-w-full animate-slide-up"
+                  className="flex flex-row items-center gap-2.5 sm:gap-4 mb-6 md:mb-10 w-full sm:w-auto animate-slide-up"
                   style={{ animationDelay: "0.3s" }}
                 >
                   <Link
                     to="/signup"
-                    className="group justify-center px-5 py-3 sm:px-8 sm:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-sm sm:text-base text-center whitespace-nowrap"
+                    className="flex-1 sm:flex-initial group justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white text-brand-start font-bold rounded-xl md:rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 btn-animated inline-flex items-center text-xs sm:text-base text-center whitespace-nowrap"
                   >
                     <span>Start Free Trial</span>
-                    <ArrowRight className="w-4 h-4 sm:w-4 sm:h-4 ml-2 inline group-hover:translate-x-1 transition-transform shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-1.5 sm:ml-2 inline group-hover:translate-x-1 transition-transform shrink-0" />
                   </Link>
                   <Link
                     to="/test-series"
-                    className="justify-center px-5 py-3 sm:px-8 sm:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-sm sm:text-base backdrop-blur-sm text-center whitespace-nowrap"
+                    className="flex-1 sm:flex-initial justify-center px-3.5 py-2.5 sm:px-8 sm:py-4 bg-white/10 text-white border border-white/30 font-semibold rounded-xl md:rounded-2xl hover:bg-white/20 transition-all duration-300 hover:scale-105 inline-flex items-center text-xs sm:text-base backdrop-blur-sm text-center whitespace-nowrap"
                   >
-                    <Play className="w-4 h-4 sm:w-4 sm:h-4 mr-2 shrink-0" />
+                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2 shrink-0" />
                     <span>Explore Tests</span>
                   </Link>
                 </div>
@@ -735,9 +742,9 @@ function Home() {
               )}
             </div>
 
-            {/* Compact hero stats — 2-col on mobile */}
+            {/* Compact hero stats — 2-col on mobile, 4-col on tablet/desktop */}
             <div
-              className="grid grid-cols-2 md:grid-cols-4 gap-3 animate-slide-up"
+              className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 animate-slide-up"
               style={{ animationDelay: "0.4s" }}
             >
               {[
@@ -748,12 +755,12 @@ function Home() {
               ].map((stat, i) => (
                 <div
                   key={i}
-                  className="bg-white/8 backdrop-blur-md border border-white/10 rounded-xl md:rounded-2xl p-3 md:p-4 text-center transition-all duration-300 hover:bg-white/12 hover:scale-105"
+                  className="bg-white/8 backdrop-blur-md border border-white/10 rounded-xl sm:rounded-2xl p-2.5 sm:p-4 text-center transition-all duration-300 hover:bg-white/12 hover:scale-[1.02]"
                 >
-                  <div className="text-xl md:text-2xl font-extrabold text-white">
+                  <div className="text-lg sm:text-2xl font-extrabold text-white">
                     {stat.value}
                   </div>
-                  <div className="text-purple-200/80 text-[10px] md:text-xs font-medium mt-0.5">
+                  <div className="text-purple-200/80 text-[10px] sm:text-xs font-medium mt-0.5">
                     {stat.label}
                   </div>
                 </div>
@@ -804,7 +811,7 @@ function Home() {
                     to={`/exam/${exam.examId || exam.id}`}
                     className="w-[230px] md:w-[270px] flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl border border-gray-100 dark:border-gray-700 p-4 md:p-6 hover:shadow-hover-card hover:border-brand-start dark:hover:border-indigo-500 transition-all cursor-pointer group"
                   >
-                    <div className="text-3xl md:text-4xl mb-2 md:mb-3 group-hover:scale-110 transition-transform">
+                    <div className="text-2xl sm:text-3xl mb-2 md:mb-3 group-hover:scale-110 transition-transform">
                       {getExamIcon(exam.categoryId)}
                     </div>
                     <div className="mb-1 md:mb-2">
@@ -843,7 +850,7 @@ function Home() {
         id="how"
       >
         {/* Ambient background decoration */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-gradient-to-br from-brand-start/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[500px] sm:w-[500px] h-[500px] bg-gradient-to-br from-brand-start/5 via-purple-500/5 to-transparent rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <ScrollReveal>
@@ -861,78 +868,80 @@ function Home() {
             </div>
           </ScrollReveal>
 
-          <div
-            ref={howItWorksScrollRef}
-            className="flex md:grid md:grid-cols-3 gap-3.5 sm:gap-4 md:gap-5 relative overflow-x-auto md:overflow-x-visible pb-3 pt-1 px-1 -mx-1 sm:px-0 sm:mx-0 scroll-smooth snap-x snap-mandatory md:snap-none [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] cursor-grab active:cursor-grabbing select-none"
-            style={{ WebkitOverflowScrolling: "touch" }}
-          >
-            {[
-              {
-                num: "01",
-                icon: "🎯",
-                title: "Choose Exam",
-                desc: `Pick ${
-                  examCategories
-                    .slice(0, 4)
-                    .map((c) => c.label || c.name)
-                    .join(", ") || "SSC, Railways, Banking, UPSC"
-                } — we auto-load your prep plan.`,
-                glow: "from-blue-500 to-indigo-600",
-              },
-              {
-                num: "02",
-                icon: "📝",
-                title: "Practice Smart",
-                desc: "Full-length & sectional mocks with instant results & solutions.",
-                glow: "from-indigo-600 to-purple-600",
-              },
-              {
-                num: "03",
-                icon: "🏆",
-                title: "Crush It",
-                desc: "Follow AI plans, revisit weak topics, track daily progress.",
-                glow: "from-purple-600 to-pink-600",
-              },
-            ].map((step, i) => (
-              <ScrollReveal
-                key={i}
-                direction="up"
-                delay={i * 0.1}
-                threshold={0.15}
-                className="w-[240px] sm:w-[260px] md:w-auto shrink-0 md:shrink snap-start md:snap-align-none h-full"
-              >
-                <div className="relative bg-gray-50/90 dark:bg-gray-700/40 hover:bg-white dark:hover:bg-gray-700/80 backdrop-blur-xs rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-center border border-gray-200/80 dark:border-gray-600 transition-all duration-300 hover:shadow-xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1 group h-full flex flex-col items-center justify-between overflow-hidden">
-                  {/* Hover ambient glow */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-                  <div className="relative z-10 w-full flex flex-col items-center">
-                    <div className="flex items-center justify-center gap-2 mb-2.5 sm:mb-3">
+          <ScrollReveal direction="up" threshold={0.05}>
+            <div className="relative overflow-hidden rounded-xl md:rounded-2xl">
+              <div className="flex gap-3.5 sm:gap-4 md:gap-5 animate-marquee-left hover:[animation-play-state:paused] py-1.5 w-max">
+                {(() => {
+                  const steps = [
+                    {
+                      num: "01",
+                      icon: "🎯",
+                      title: "Choose Exam",
+                      desc: `Pick ${
+                        examCategories
+                          .slice(0, 4)
+                          .map((c) => c.label || c.name)
+                          .join(", ") || "SSC, Railways, Banking, UPSC"
+                      } — we auto-load your prep plan.`,
+                      glow: "from-blue-500 to-indigo-600",
+                    },
+                    {
+                      num: "02",
+                      icon: "📝",
+                      title: "Practice Smart",
+                      desc: "Full-length & sectional mocks with instant results & solutions.",
+                      glow: "from-indigo-600 to-purple-600",
+                    },
+                    {
+                      num: "03",
+                      icon: "🏆",
+                      title: "Crush It",
+                      desc: "Follow AI plans, revisit weak topics, track daily progress.",
+                      glow: "from-purple-600 to-pink-600",
+                    },
+                  ];
+                  return [...steps, ...steps, ...steps, ...steps].map(
+                    (step, i) => (
                       <div
-                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br ${step.glow} flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-300 text-white font-extrabold text-xs sm:text-sm shrink-0`}
+                        key={`${step.num}-${i}`}
+                        className="w-[270px] sm:w-[310px] md:w-[340px] shrink-0"
                       >
-                        {step.num}
+                        <div className="relative bg-gray-50/90 dark:bg-gray-700/40 hover:bg-white dark:hover:bg-gray-700/80 backdrop-blur-xs rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-center border border-gray-200/80 dark:border-gray-600 transition-all duration-300 hover:shadow-xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1 group h-full flex flex-col items-center justify-between overflow-hidden">
+                          {/* Hover ambient glow */}
+                          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+
+                          <div className="relative z-10 w-full flex flex-col items-center">
+                            <div className="flex items-center justify-center gap-2 mb-2.5 sm:mb-3">
+                              <div
+                                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br ${step.glow} flex items-center justify-center shadow-md group-hover:scale-105 transition-all duration-300 text-white font-extrabold text-xs sm:text-sm shrink-0`}
+                              >
+                                {step.num}
+                              </div>
+                              <span className="text-2xl sm:text-3xl group-hover:scale-110 transition-transform duration-300 inline-block">
+                                {step.icon}
+                              </span>
+                            </div>
+
+                            <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white mb-1.5 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                              {step.title}
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed max-w-full">
+                              {step.desc}
+                            </p>
+                          </div>
+
+                          {/* Bottom indicator bar on hover */}
+                          <div className="relative z-10 w-full mt-3 pt-1">
+                            <div className="h-0.5 w-6 mx-auto rounded-full bg-gradient-to-r from-brand-start to-brand-end opacity-0 group-hover:opacity-100 group-hover:w-12 transition-all duration-300" />
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-2xl sm:text-2xl md:text-3xl group-hover:scale-110 transition-transform duration-300 inline-block">
-                        {step.icon}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm sm:text-base font-extrabold text-gray-900 dark:text-white mb-1.5 leading-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-                      {step.title}
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400 text-xs leading-relaxed max-w-[280px]">
-                      {step.desc}
-                    </p>
-                  </div>
-
-                  {/* Bottom indicator bar on hover */}
-                  <div className="relative z-10 w-full mt-3 pt-1">
-                    <div className="h-0.5 w-6 mx-auto rounded-full bg-gradient-to-r from-brand-start to-brand-end opacity-0 group-hover:opacity-100 group-hover:w-12 transition-all duration-300" />
-                  </div>
-                </div>
-              </ScrollReveal>
-            ))}
-          </div>
+                    ),
+                  );
+                })()}
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
@@ -1008,10 +1017,10 @@ function Home() {
                       className={`w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 ${stat.textGlow}`}
                     />
                   </div>
-                  <div className="text-base sm:text-2xl md:text-3xl lg:text-4xl font-extrabold text-white mb-0.5 tracking-tight">
+                  <div className="text-base sm:text-2xl md:text-3xl font-extrabold text-white mb-0.5 tracking-tight">
                     <AnimatedCounter end={stat.value} suffix={stat.suffix} />
                   </div>
-                  <div className="text-purple-200/80 text-[10px] sm:text-xs md:text-xs font-semibold truncate max-w-full">
+                  <div className="text-purple-200/80 text-[10px] sm:text-xs font-semibold truncate max-w-full">
                     {stat.label}
                   </div>
                 </div>
@@ -1032,7 +1041,7 @@ function Home() {
               <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4">
                 <Zap className="w-3 h-3 md:w-3.5 md:h-3.5" /> Why Trstprep
               </div>
-              <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
                 Built for every{" "}
                 <span className="text-gradient">serious aspirant</span>
               </h2>
@@ -1084,7 +1093,7 @@ function Home() {
               >
                 <div className="group relative bg-gray-50 dark:bg-gray-700/30 border border-gray-100 dark:border-gray-600 rounded-2xl md:rounded-3xl p-5 md:p-7 transition-all duration-300 hover:shadow-xl hover:-translate-y-1.5 overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-brand-start/0 to-brand-end/0 group-hover:from-brand-start/5 group-hover:to-brand-end/3 transition-all duration-500" />
-                  <div className="absolute top-3 right-5 text-5xl md:text-7xl font-black text-brand-start/[0.04] leading-none select-none pointer-events-none">
+                  <div className="absolute top-3 right-5 text-4xl sm:text-6xl md:text-7xl font-black text-brand-start/[0.04] leading-none select-none pointer-events-none">
                     {String(i + 1).padStart(2, "0")}
                   </div>
                   <div className="relative z-10">
@@ -1117,7 +1126,7 @@ function Home() {
                 <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3.5 py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4 shadow-xs">
                   📚 Exam Categories
                 </div>
-                <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-2 md:mb-3 tracking-tight">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white mb-2 md:mb-3 tracking-tight">
                   Browse <span className="text-gradient">all categories</span>
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm md:text-base max-w-lg mx-auto">
@@ -1164,7 +1173,7 @@ function Home() {
                       <div className="relative z-10">
                         <div className="flex items-center justify-between mb-4">
                           <div
-                            className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${theme.iconBg} text-white flex items-center justify-center text-2xl md:text-3xl shadow-lg shadow-black/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
+                            className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br ${theme.iconBg} text-white flex items-center justify-center text-2xl sm:text-3xl shadow-lg shadow-black/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}
                           >
                             {getExamIcon(cat.id)}
                           </div>
@@ -1449,7 +1458,7 @@ function Home() {
                   <div className="inline-flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 px-3 py-1 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-2 shadow-xs">
                     <BookOpen className="w-3.5 h-3.5" /> High-Yield Resources
                   </div>
-                  <h2 className="text-xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                  <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
                     Study Materials & Notes
                   </h2>
                   <p className="text-gray-500 dark:text-gray-400 text-xs md:text-sm mt-0.5 hidden sm:block">
@@ -1481,19 +1490,21 @@ function Home() {
                   <Link
                     key={subject._id || subject.id || `sub-${index}`}
                     to={`/study/${subject.slug || subject._id || subject.id}`}
-                    className="flex-shrink-0 w-[270px] sm:w-[290px] md:w-[320px] bg-gradient-to-b from-gray-50/90 to-white dark:from-gray-700/50 dark:to-gray-800/80 border border-gray-200/80 dark:border-gray-600/80 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-sm hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1.5 transition-all duration-300 group flex flex-col justify-between h-full"
+                    className="flex-shrink-0 w-[270px] sm:w-[300px] md:w-full max-w-[320px] bg-gradient-to-b from-gray-50/90 to-white dark:from-gray-700/50 dark:to-gray-800/80 border border-gray-200/80 dark:border-gray-600/80 rounded-2xl md:rounded-3xl p-5 md:p-6 shadow-sm hover:shadow-2xl hover:border-indigo-400 dark:hover:border-indigo-500 hover:-translate-y-1.5 transition-all duration-300 group flex flex-col justify-between h-full"
                   >
                     <div>
                       {/* Card Header */}
                       <div className="flex items-center gap-3.5 mb-4">
                         <div
-                          className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl ${subject.bg || "bg-gradient-to-br from-indigo-500 to-purple-600"} text-white flex items-center justify-center text-2xl md:text-3xl shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shrink-0 overflow-hidden`}
+                          className={`w-12 h-12 md:w-14 md:h-14 rounded-2xl ${subject.bg || "bg-gradient-to-br from-indigo-500 to-purple-600"} text-white flex items-center justify-center text-2xl sm:text-3xl shadow-md group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shrink-0 overflow-hidden`}
                         >
                           {subject.icon &&
                           (subject.icon.startsWith("http") ||
                             subject.icon.startsWith("/") ||
                             subject.icon.startsWith("data:")) ? (
                             <img
+                              loading="lazy"
+                              decoding="async"
                               src={subject.icon}
                               alt={subject.title || subject.name}
                               className="w-full h-full object-cover rounded-2xl"
@@ -1567,7 +1578,7 @@ function Home() {
                 <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-indigo-900/30 text-brand-start dark:text-indigo-300 px-3 py-1 md:px-4 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold uppercase tracking-widest mb-3 md:mb-4">
                   💬 Testimonials
                 </div>
-                <h2 className="text-2xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-gray-900 dark:text-white mb-3 md:mb-4">
                   Loved by <span className="text-gradient">students</span>
                 </h2>
               </div>
@@ -1676,24 +1687,24 @@ function Home() {
               <div className="absolute bottom-0 left-0 w-48 h-48 bg-brand-end/20 rounded-full blur-3xl translate-y-1/3 -translate-x-1/3" />
 
               <div className="relative z-10 px-6 py-10 md:px-16 md:py-14 text-center">
-                <h2 className="text-2xl md:text-4xl font-extrabold text-white mb-3 md:mb-5">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-white mb-3 md:mb-5">
                   Not sure where to start?
                 </h2>
                 <p className="text-purple-200/70 text-sm md:text-base mb-6 md:mb-8 max-w-lg mx-auto">
                   Take our free diagnostic test to evaluate your current level
                   and get a personalised study plan.
                 </p>
-                <div className="flex flex-wrap justify-center gap-3 md:gap-4">
+                <div className="flex flex-row justify-center items-center gap-2.5 md:gap-4 w-full sm:w-auto max-w-md sm:max-w-none mx-auto">
                   <Link
                     to="/signup"
-                    className="group px-8 py-3 md:px-10 md:py-4 bg-white text-brand-start font-extrabold rounded-xl md:rounded-2xl shadow-2xl transition-all duration-300 hover:scale-105 inline-flex items-center text-sm md:text-base"
+                    className="flex-1 sm:flex-initial group px-4 py-2.5 sm:px-8 sm:py-3.5 md:px-10 md:py-4 bg-white text-brand-start font-extrabold rounded-xl md:rounded-2xl shadow-2xl transition-all duration-300 hover:scale-105 inline-flex items-center justify-center text-xs sm:text-sm md:text-base whitespace-nowrap"
                   >
                     🚀 Start Free Trial
-                    <ChevronRight className="w-4 h-4 md:w-5 md:h-5 ml-1.5 md:ml-2 group-hover:translate-x-1 transition-transform" />
+                    <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 ml-1 sm:ml-1.5 md:ml-2 group-hover:translate-x-1 transition-transform shrink-0" />
                   </Link>
                   <Link
                     to="/test-series"
-                    className="px-8 py-3 md:px-10 md:py-4 bg-white/10 text-white border border-white/25 font-semibold rounded-xl md:rounded-2xl hover:bg-white/15 transition-all duration-300 inline-flex items-center text-sm md:text-base backdrop-blur-sm"
+                    className="flex-1 sm:flex-initial px-4 py-2.5 sm:px-8 sm:py-3.5 md:px-10 md:py-4 bg-white/10 text-white border border-white/25 font-semibold rounded-xl md:rounded-2xl hover:bg-white/15 transition-all duration-300 inline-flex items-center justify-center text-xs sm:text-sm md:text-base backdrop-blur-sm whitespace-nowrap"
                   >
                     View Test Series
                   </Link>

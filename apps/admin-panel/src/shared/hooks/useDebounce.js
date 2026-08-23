@@ -31,7 +31,14 @@ export function useDebounce(value, delay = 250) {
 export function useDebouncedCallback(callback, delay = 250) {
   const timerRef = useRef(null);
   const callbackRef = useRef(callback);
+  const safeDelay = Number.isFinite(delay) && delay >= 0 ? delay : 250;
   callbackRef.current = callback;
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   return useCallback(
     (...args) => {
@@ -40,10 +47,15 @@ export function useDebouncedCallback(callback, delay = 250) {
       }
       timerRef.current = setTimeout(() => {
         callbackRef.current?.(...args);
-      }, delay);
+      }, safeDelay);
     },
-    [delay],
+    [safeDelay],
   );
+}
+
+export function useDebounceValidated(value, delay = 250) {
+  const safeDelay = Number.isFinite(delay) && delay >= 0 ? delay : 250;
+  return useDebounce(value, safeDelay);
 }
 
 export default useDebounce;

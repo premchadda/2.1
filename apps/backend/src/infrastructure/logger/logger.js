@@ -91,7 +91,9 @@ const createLogProxy = (instance) => {
               message: msg,
               details: details,
             });
-          } catch {}
+          } catch {
+            // intentionally empty - log buffer push should not break logging
+          }
           return orig.apply(target, args);
         };
       }

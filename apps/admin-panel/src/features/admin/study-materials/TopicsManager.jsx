@@ -171,21 +171,24 @@ export default function TopicsManager() {
   }
 
   return (
-    <div className="p-3 sm:p-4">
+    <div className="p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Tag className="w-6 h-6 text-indigo-600" />
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400 mb-1">
+            Curriculum structure
+          </p>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+            <Tag className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600 shrink-0" />
             Topics Management
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
             Manage topics within chapters
           </p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="mt-4 md:mt-0 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-10 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition text-sm font-bold shadow-sm"
         >
           <Plus className="w-4 h-4" />
           Add Topic
@@ -193,22 +196,22 @@ export default function TopicsManager() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border p-4 mb-6">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4">
+        <div className="flex flex-col md:flex-row gap-2.5 sm:gap-3">
+          <div className="relative flex-1 min-w-0">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Search topics..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full min-h-10 pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
             />
           </div>
           <select
             value={selectedChapter}
             onChange={(e) => setSelectedChapter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className="w-full md:w-64 min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           >
             <option value="All">All Chapters</option>
             {chapters.map((chapter) => {
@@ -224,8 +227,8 @@ export default function TopicsManager() {
       </div>
 
       {/* Topics List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border">
-        <div className="overflow-x-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="hidden md:block overflow-x-auto">
           <div className="grid grid-cols-12 gap-4 p-4 border-b bg-gray-50 dark:bg-gray-900 text-sm font-medium text-gray-600 dark:text-gray-400 min-w-[640px]">
             <div className="col-span-5">Topic Name</div>
             <div className="col-span-3">Chapter</div>
@@ -294,8 +297,87 @@ export default function TopicsManager() {
           })}
         </div>
 
+        {/* Mobile topic cards: avoid shrinking a desktop table into an unusable view. */}
+        <div className="md:hidden p-2.5 space-y-2.5">
+          {filteredTopics.length === 0 ? (
+            <div className="px-3 py-10 text-center text-gray-500 dark:text-gray-400">
+              <BookOpen className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+              <p className="font-semibold">No topics found</p>
+              <p className="text-xs mt-1">
+                Try adjusting your search or chapter filter.
+              </p>
+            </div>
+          ) : (
+            filteredTopics.map((topic) => {
+              const topicId = topic.id || topic._id;
+              return (
+                <article
+                  key={topicId}
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/60 p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-xl shrink-0">
+                        {topic.icon || "📚"}
+                      </span>
+                      <div className="min-w-0">
+                        <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                          {topic.name}
+                        </h3>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                          {getChapterName(topic.chapterId)}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`shrink-0 px-2 py-1 rounded-full text-[10px] font-bold ${
+                        topic.isActive !== false
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                          : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                      }`}
+                    >
+                      {topic.isActive !== false ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+
+                  {topic.description && (
+                    <p className="mt-2 text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
+                      {topic.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-200/80 dark:border-gray-700">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      Order{" "}
+                      <strong className="font-mono text-gray-800 dark:text-gray-200">
+                        {topic.order ?? topic.orderIndex ?? 0}
+                      </strong>
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleEdit(topic)}
+                        className="min-w-10 min-h-10 p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 rounded-xl transition"
+                        aria-label={`Edit ${topic.name}`}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(topicId)}
+                        className="min-w-10 min-h-10 p-2 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-xl transition"
+                        aria-label={`Delete ${topic.name}`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          )}
+        </div>
+
         {filteredTopics.length === 0 && (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+          <div className="hidden md:block p-8 text-center text-gray-500 dark:text-gray-400">
             <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p>No topics found</p>
           </div>
@@ -306,16 +388,18 @@ export default function TopicsManager() {
       {showForm &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-3 sm:p-4 animate-fade-in">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-              <div className="p-5 sm:p-6">
-                <div className="flex justify-between items-center mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-2 sm:p-4 animate-fade-in overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-[18px] sm:rounded-2xl shadow-2xl max-w-2xl w-full max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain border border-gray-200 dark:border-gray-700">
+              <div className="p-4 sm:p-6">
+                {/* Normal-flow header: it scrolls with the form on small screens. */}
+                <div className="flex justify-between items-center gap-3 mb-5 sm:mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
+                  <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white truncate">
                     {editingTopic ? "Edit Topic" : "Add New Topic"}
                   </h2>
                   <button
                     onClick={resetForm}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition"
+                    className="min-w-10 min-h-10 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition shrink-0"
+                    aria-label="Close topic form"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -333,7 +417,7 @@ export default function TopicsManager() {
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      className="w-full min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white outline-none"
                       placeholder="e.g., Number System"
                     />
                   </div>
@@ -348,7 +432,7 @@ export default function TopicsManager() {
                       onChange={(e) =>
                         setFormData({ ...formData, chapterId: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      className="w-full min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white outline-none"
                     >
                       <option value="">Select chapter...</option>
                       {chapters.map((chapter) => {
@@ -375,7 +459,7 @@ export default function TopicsManager() {
                         })
                       }
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white outline-none resize-none"
                       placeholder="Brief description of this topic..."
                     />
                   </div>
@@ -391,7 +475,7 @@ export default function TopicsManager() {
                         onChange={(e) =>
                           setFormData({ ...formData, icon: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 text-center text-xl bg-white dark:bg-gray-900 dark:text-white"
+                        className="w-full min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 text-center text-xl bg-white dark:bg-gray-900 dark:text-white outline-none"
                       />
                     </div>
                     <div>
@@ -407,7 +491,7 @@ export default function TopicsManager() {
                             order: parseInt(e.target.value) || 0,
                           })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        className="w-full min-h-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white outline-none"
                       />
                     </div>
                   </div>
@@ -426,17 +510,17 @@ export default function TopicsManager() {
                     </span>
                   </label>
 
-                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 flex-wrap">
+                  <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
                     <button
                       type="button"
                       onClick={resetForm}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
+                      className="w-full sm:w-auto min-h-10 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900 text-sm font-semibold text-gray-700 dark:text-gray-300 transition"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold shadow-md shadow-indigo-500/20 transition"
+                      className="w-full sm:w-auto min-h-10 flex items-center justify-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm font-semibold shadow-md shadow-indigo-500/20 transition"
                     >
                       <Save className="w-4 h-4" />
                       {editingTopic ? "Update" : "Create"}

@@ -1,31 +1,40 @@
 // PERF-05: Per-route cache-control headers based on data volatility.
 const staticEndpoints = [
-  '/api/test-series',
-  '/api/videos',
-  '/api/subscription-plans',
-  '/api/exam-categories',
-  '/api/public-stats',
-  '/api/testimonials',
+  "/api/test-series",
+  "/api/videos",
+  "/api/subscription-plans",
+  "/api/exam-categories",
+  "/api/public-stats",
+  "/api/testimonials",
 ];
 
 const noCacheEndpoints = [
-  '/api/users/',
-  '/api/me',
-  '/api/sessions',
-  '/api/auth/',
+  "/api/users/",
+  "/api/me",
+  "/api/sessions",
+  "/api/auth/",
 ];
 
 const cacheControl = (req, res, next) => {
   const path = req.path;
 
+  // Hashed assets & uploads — immutable 1y (CDN friendly)
+  if (path.startsWith("/assets/") || path.startsWith("/uploads/")) {
+    // Vite hashed assets and uploaded media are immutable; 1 year + immutable for CDN
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+  }
   // User-specific data — never cache
-  if (noCacheEndpoints.some((prefix) => path.startsWith(prefix))) {
-    res.set('Cache-Control', 'no-store');
+  else if (noCacheEndpoints.some((prefix) => path.startsWith(prefix))) {
+    res.set("Cache-Control", "no-store");
   }
   // Rarely-changing public data — cache for 5 minutes. Match the endpoint or
   // any of its sub-paths (e.g. /api/test-series/123, not just the exact path).
-  else if (staticEndpoints.some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-    res.set('Cache-Control', 'public, max-age=300');
+  else if (
+    staticEndpoints.some(
+      (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+    )
+  ) {
+    res.set("Cache-Control", "public, max-age=300");
   }
 
   next();

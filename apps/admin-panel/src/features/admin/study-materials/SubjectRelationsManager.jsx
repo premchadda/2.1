@@ -283,6 +283,17 @@ export default function SubjectRelationsManager() {
     });
   }, [subjects, searchQuery, filterType, subjectStatsMap]);
 
+  const getSubjectStats = (subject) =>
+    subjectStatsMap.get(String(subject._id || subject.id)) || {
+      chaptersCount: 0,
+      topicsCount: 0,
+      videosCount: 0,
+      pdfsCount: 0,
+      testsCount: 0,
+      seriesCount: 0,
+      isLinked: false,
+    };
+
   if (loading)
     return (
       <div className="p-6 flex items-center justify-center min-h-96">
@@ -296,28 +307,32 @@ export default function SubjectRelationsManager() {
     );
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-5 lg:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 sm:gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400 mb-1">
+            Content mapping
+          </p>
+          <h1 className="text-xl sm:text-2xl font-black tracking-tight text-gray-900 dark:text-white">
             Subject Relations
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
             View chapters, topics, videos, PDFs and tests linked to each subject
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full lg:w-auto items-center gap-2">
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+            className="flex-1 lg:flex-none inline-flex items-center justify-center gap-2 min-h-10 px-3 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-xs sm:text-sm font-bold shadow-sm transition-colors"
           >
             <Download className="w-4 h-4" /> Export CSV
           </button>
           <button
             onClick={fetchAllData}
-            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition-colors"
+            className="min-w-10 min-h-10 p-2 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             title="Refresh"
+            aria-label="Refresh subject relations"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -325,7 +340,7 @@ export default function SubjectRelationsManager() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {[
           {
             label: "Total Subjects",
@@ -358,17 +373,17 @@ export default function SubjectRelationsManager() {
         ].map(({ label, value, icon: Icon, color }) => (
           <div
             key={label}
-            className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 border border-gray-200 dark:border-gray-700 shadow-sm"
           >
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-lg ${color}`}>
-                <Icon className="w-5 h-5" />
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className={`p-1.5 sm:p-2 rounded-lg shrink-0 ${color}`}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-black font-mono text-gray-900 dark:text-white">
                   {value}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
                   {label}
                 </p>
               </div>
@@ -378,24 +393,24 @@ export default function SubjectRelationsManager() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 sm:p-4 border border-gray-200 dark:border-gray-700">
+        <div className="flex flex-col md:flex-row gap-2.5 sm:gap-4">
+          <div className="flex-1 min-w-0 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Search subjects…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+              className="w-full min-h-10 pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:w-56">
             <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-indigo-500"
+              className="w-full min-h-10 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
             >
               <option value="all">All Subjects</option>
               <option value="linked">Linked Only</option>
@@ -408,7 +423,7 @@ export default function SubjectRelationsManager() {
       </div>
 
       {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
@@ -456,15 +471,7 @@ export default function SubjectRelationsManager() {
               ) : (
                 filteredSubjects.map((subject, idx) => {
                   const id = String(subject._id || subject.id);
-                  const stats = subjectStatsMap.get(id) || {
-                    chaptersCount: 0,
-                    topicsCount: 0,
-                    videosCount: 0,
-                    pdfsCount: 0,
-                    testsCount: 0,
-                    seriesCount: 0,
-                    isLinked: false,
-                  };
+                  const stats = getSubjectStats(subject);
                   const isLinked = stats.isLinked;
 
                   return (
@@ -537,6 +544,92 @@ export default function SubjectRelationsManager() {
         </div>
       </div>
 
+      {/* Mobile relation cards: keep the same information without forcing a wide table. */}
+      <div className="md:hidden space-y-2.5">
+        {filteredSubjects.length === 0 ? (
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 px-4 py-10 text-center text-gray-500 dark:text-gray-400">
+            <AlertCircle className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <p className="font-semibold">No subjects found</p>
+            <p className="text-xs mt-1">Try adjusting your search or filter</p>
+          </div>
+        ) : (
+          filteredSubjects.map((subject, idx) => {
+            const id = String(subject._id || subject.id);
+            const stats = getSubjectStats(subject);
+            const name = subject.title || subject.name || "Unnamed";
+            const metricItems = [
+              ["Chapters", stats.chaptersCount, "blue"],
+              ["Topics", stats.topicsCount, "purple"],
+              ["Videos", stats.videosCount, "amber"],
+              ["PDFs", stats.pdfsCount, "cyan"],
+              ["Tests", stats.testsCount, "green"],
+              ["Series", stats.seriesCount, "indigo"],
+            ];
+
+            return (
+              <article
+                key={id}
+                className={`rounded-xl border p-3 shadow-sm ${
+                  stats.isLinked
+                    ? "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700"
+                    : "bg-rose-50/70 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm shrink-0"
+                      style={{ backgroundColor: COLORS[idx % COLORS.length] }}
+                    >
+                      {name[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                        {name}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+                          stats.isLinked
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        {stats.isLinked ? (
+                          <CheckCircle className="w-3 h-3" />
+                        ) : (
+                          <AlertCircle className="w-3 h-3" />
+                        )}
+                        {stats.isLinked ? "Linked" : "Unlinked"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => openPanel(subject)}
+                    className="inline-flex items-center gap-1.5 min-h-9 px-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold shrink-0 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                  >
+                    <Eye className="w-3.5 h-3.5" /> Links
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/80">
+                  {metricItems.map(([label, value, color]) => (
+                    <div
+                      key={label}
+                      className="flex items-center justify-between gap-1 rounded-lg bg-gray-50 dark:bg-gray-900/60 px-2 py-1.5"
+                    >
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                        {label}
+                      </span>
+                      <Badge value={value} color={color} />
+                    </div>
+                  ))}
+                </div>
+              </article>
+            );
+          })
+        )}
+      </div>
+
       {/* Detail Panel */}
       {showPanel &&
         selected &&
@@ -568,12 +661,16 @@ export default function SubjectRelationsManager() {
 // ── Badge component ──
 function Badge({ value, color }) {
   const colors = {
-    blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-800",
-    purple: "bg-purple-100 dark:bg-purple-900/20 text-purple-800",
-    amber: "bg-amber-100 dark:bg-amber-900/20 text-amber-800",
-    cyan: "bg-cyan-100 dark:bg-cyan-900/20 text-cyan-800",
-    green: "bg-green-100 dark:bg-green-900/20 text-green-800",
-    indigo: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800",
+    blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300",
+    purple:
+      "bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-300",
+    amber:
+      "bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300",
+    cyan: "bg-cyan-100 dark:bg-cyan-900/20 text-cyan-800 dark:text-cyan-300",
+    green:
+      "bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300",
+    indigo:
+      "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300",
   };
   return (
     <span
@@ -607,33 +704,34 @@ function SubjectLinkPanel({
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 h-full w-full max-w-xl shadow-2xl overflow-y-auto"
+        className="bg-white dark:bg-gray-800 h-[100dvh] w-full sm:max-w-xl shadow-2xl overflow-y-auto overscroll-contain"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+        {/* Header intentionally scrolls away with the panel content; it is not sticky. */}
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
               {(subject.title || subject.name || "S")[0].toUpperCase()}
             </div>
-            <div>
-              <h2 className="font-bold text-gray-900 dark:text-white">
+            <div className="min-w-0">
+              <h2 className="font-bold text-gray-900 dark:text-white truncate">
                 {subject.title || subject.name}
               </h2>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500 truncate">
                 Content linked to this subject
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 rounded-lg"
+            className="min-w-10 min-h-10 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl shrink-0"
+            aria-label="Close subject relations"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
           {/* Chapters → Topics tree */}
           <Section
             icon={BookOpen}
@@ -650,7 +748,7 @@ function SubjectLinkPanel({
             ) : chapters.length === 0 ? (
               <EmptyState title="No chapters linked to this subject." />
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 {chapters.map((ch) => {
                   const topics = topicsFor(ch.id || ch._id);
                   return (
@@ -659,10 +757,10 @@ function SubjectLinkPanel({
                       className="border border-gray-100 dark:border-gray-700 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-700/30"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm text-gray-800 dark:text-gray-200">
+                        <span className="font-medium text-sm text-gray-800 dark:text-gray-200 min-w-0 truncate">
                           {ch.title || ch.name}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500 shrink-0">
                           {topics.length} topics
                         </span>
                       </div>
@@ -794,11 +892,11 @@ function SubjectLinkPanel({
           </Section>
 
           {/* Link hint */}
-          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 rounded-xl p-4">
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/50 rounded-xl p-3.5 sm:p-4">
             <div className="flex items-start gap-3">
               <Link2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mt-0.5 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-indigo-800">
+                <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-200">
                   To add content to this subject
                 </p>
                 <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1">

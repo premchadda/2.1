@@ -137,7 +137,7 @@ export default function AdminDashboard() {
   const { user, isAdmin, on, socket } = useAuth();
   const queryClient = useQueryClient();
 
-  const hasAdmin = typeof isAdmin === "function" ? isAdmin() : true;
+  const hasAdmin = typeof isAdmin === "function" ? isAdmin() : false;
 
   const {
     data: stats,
@@ -417,19 +417,20 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* Top Action Controls */}
-      <div className="flex items-center justify-between gap-2.5 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] sm:text-xs font-extrabold bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 rounded-xl shadow-xs">
-            <span className="relative flex h-2 w-2">
+      {/* Top Action Controls - single row on all breakpoints, never wraps */}
+      <div className="flex items-center justify-between gap-1 sm:gap-2.5 flex-nowrap w-full min-w-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0 min-w-0">
+          <span className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-1 text-[10px] sm:text-xs font-extrabold bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-700/50 text-emerald-700 dark:text-emerald-400 rounded-xl shadow-xs whitespace-nowrap shrink-0">
+            <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
             </span>
-            Live Data (30s)
+            <span className="sm:hidden">Live (30s)</span>
+            <span className="hidden sm:inline">Live Data (30s)</span>
           </span>
           {lastRefreshed && (
-            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800 shadow-xs whitespace-nowrap shrink-0">
+              <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
               {lastRefreshed.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
@@ -438,30 +439,30 @@ export default function AdminDashboard() {
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0">
           <button
             onClick={handleExportCSV}
             disabled={!stats}
             title="Download metrics as CSV"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs transition-all tap-feedback disabled:opacity-50"
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1.5 text-xs font-bold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs transition-all tap-feedback disabled:opacity-50 whitespace-nowrap shrink-0"
           >
-            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
             <span className="hidden sm:inline">Export CSV</span>
           </button>
           <button
             onClick={() => fetchData()}
             disabled={loading}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-extrabold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs transition-all tap-feedback disabled:opacity-50"
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-extrabold bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 shadow-xs transition-all tap-feedback disabled:opacity-50 whitespace-nowrap shrink-0"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 text-indigo-500 ${loading ? "animate-spin" : ""}`}
+              className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500 shrink-0 ${loading ? "animate-spin" : ""}`}
             />
             Refresh
           </button>
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value)}
-            className="border border-gray-200 dark:border-gray-700 rounded-xl px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
+            className="border border-gray-200 dark:border-gray-700 rounded-xl px-1.5 sm:px-2.5 py-1.5 text-[11px] sm:text-xs font-bold bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs whitespace-nowrap shrink-0 max-w-[105px] sm:max-w-none"
           >
             <option value="24h">Today (24h)</option>
             <option value="7d">Last 7 days</option>
@@ -491,18 +492,27 @@ export default function AdminDashboard() {
                   <Icon className="w-3.5 h-3.5" />
                 </div>
               </div>
-              <div>
-                <p className="text-sm sm:text-base md:text-lg font-black text-gray-900 dark:text-white leading-tight mb-0.5">
+              <div className="flex items-end justify-between gap-2">
+                <p className="text-sm sm:text-base md:text-lg font-black text-gray-900 dark:text-white leading-tight">
                   {card.value}
                 </p>
-                {card.trend && (
-                  <div className="flex items-center mt-0.5">
-                    <span className="flex items-center text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold bg-emerald-50 dark:bg-emerald-500/10 px-1 py-0.5 rounded-md">
-                      <ArrowUp className="w-2.5 h-2.5 mr-0.5" />
-                      {card.trend}
-                    </span>
-                  </div>
-                )}
+                {card.trend &&
+                  (() => {
+                    const isDown = String(card.trend).trim().startsWith("-");
+                    const TrendIcon = isDown ? ArrowDown : ArrowUp;
+                    return (
+                      <span
+                        className={`flex items-center shrink-0 text-[9px] font-extrabold px-1.5 py-0.5 rounded-md leading-none ${
+                          isDown
+                            ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10"
+                            : "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10"
+                        }`}
+                      >
+                        <TrendIcon className="w-2.5 h-2.5 mr-0.5 shrink-0" />
+                        {card.trend}
+                      </span>
+                    );
+                  })()}
               </div>
             </Link>
           );

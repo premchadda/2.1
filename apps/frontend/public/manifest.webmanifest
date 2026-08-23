@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Trstprep - Exam Prep Platform",
   "short_name": "Trstprep",
   "description": "India's platform for SSC, Railway & Banking exam preparation. Mock tests, practice labs, and study materials.",
@@ -8,6 +9,40 @@
   "orientation": "portrait",
   "scope": "/",
   "start_url": "/",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Test Series",
+      "short_name": "Tests",
+      "description": "Explore full & sectional test series",
+      "url": "/test-series",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Live Tests",
+      "short_name": "Live",
+      "description": "Attempt live all-India mock tests",
+      "url": "/live-tests",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Practice Lab",
+      "short_name": "Practice",
+      "description": "Topic-wise practice questions",
+      "url": "/practice",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Current Affairs",
+      "short_name": "GK",
+      "description": "Daily news & current affairs",
+      "url": "/current-affairs",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
   "icons": [
     {
       "src": "/favicon.svg",

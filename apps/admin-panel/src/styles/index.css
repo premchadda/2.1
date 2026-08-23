@@ -2,11 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Base Styles from V2 - Copy (5).html ===== */
+/* ===== Base Styles ===== */
 body {
-    background-color: #f8f9fa;
+    background-color: #f8fafc;
+    color: #0f172a;
     overflow-x: hidden;
     font-family: 'Segoe UI', 'Inter', sans-serif;
+}
+
+html.dark body {
+    background-color: #020617;
+    color: #f8fafc;
 }
 
 /* ===== Enhanced Typography ===== */

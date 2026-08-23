@@ -31,6 +31,184 @@ body {
     position: relative;
 }
 
+/* ===== Mobile-First Responsive Foundations ===== */
+:root {
+    --fluid-pad: clamp(0.75rem, 4vw, 2rem);
+}
+
+/* Media elements never exceed their container */
+img, video {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Long-word / URL overflow guard for text blocks */
+.break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+/* Safe-area aware spacing for fixed footers / bottom sheets */
+.safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-x {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Page-level fluid container: never exceeds viewport, scales padding */
+.container-page {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: auto;
+    padding-inline: var(--fluid-pad);
+}
+
+/* Fluid display typography (scales down to 320px) */
+.fluid-display {
+    font-size: clamp(1.75rem, 5vw + 0.5rem, 3rem);
+    line-height: 1.15;
+}
+
+.fluid-h1 {
+    font-size: clamp(1.5rem, 4vw + 0.5rem, 2.25rem);
+    line-height: 1.2;
+}
+
+.fluid-h2 {
+    font-size: clamp(1.25rem, 3vw + 0.35rem, 1.75rem);
+    line-height: 1.25;
+}
+
+/* Viewport-constrained floating panels (chat docks, popovers) */
+.vw-clamped {
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100dvh - 6rem);
+}
+
+/* Horizontal scrollers: contain children, allow snap */
+.scroll-x-mobile {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+}
+
+.scroll-x-mobile::-webkit-scrollbar {
+    display: none;
+}
+
+/* Tables inside constrained containers scroll instead of overflowing */
+.table-responsive-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 480px) {
+    .table-responsive-wrapper table {
+        min-width: 640px;
+    }
+}
+
+/* ===== Global Mobile-First Enforcement (320px, 375px, 414px) ===== */
+* {
+    min-width: 0;
+}
+*::before, *::after {
+    box-sizing: border-box;
+}
+/* Prevent any element from exceeding viewport at 320px */
+@media (max-width: 414px) {
+    .container, .max-w-6xl, .max-w-7xl, .max-w-5xl {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+}
+/* Typography: scale down fixed headings at 375px/320px if not already responsive */
+@media (max-width: 375px) {
+    .text-3xl { font-size: 1.5rem !important; line-height: 1.25 !important; }
+    .text-4xl { font-size: 1.875rem !important; line-height: 1.2 !important; }
+    .text-5xl { font-size: 2.25rem !important; line-height: 1.15 !important; }
+    .fluid-display, .heading-display { font-size: clamp(1.5rem, 6vw, 2rem) !important; }
+}
+@media (max-width: 320px) {
+    .text-3xl { font-size: 1.375rem !important; }
+    .text-4xl { font-size: 1.625rem !important; }
+    .text-5xl { font-size: 1.875rem !important; }
+}
+/* Layout: force grids and flex rows to stack on narrow viewports */
+@media (max-width: 414px) {
+    .grid-cols-12, .grid-cols-4, .grid-cols-3, .grid-cols-2 {
+        grid-template-columns: 1fr !important;
+    }
+    .lg\:grid-cols-2, .lg\:grid-cols-3, .lg\:grid-cols-4 {
+        grid-template-columns: 1fr !important;
+    }
+    .flex-row { flex-direction: column !important; }
+    .lg\:flex-row { flex-direction: column !important; }
+}
+/* Cards/sections: ensure fluid width */
+@media (max-width: 414px) {
+    .test-series-card, .card, .test-card, .sidebar-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    /* Override excessive padding that wastes 320px width (including audit flagged p-14,24,32) */
+    .p-12, .md\:p-12, .p-14, .p-16, .md\:p-16, .p-20, .p-24, .p-32,
+    .px-12, .py-12, .pt-12, .pb-12, .px-16, .py-16, .m-12, .m-16, .m-24, .m-32 {
+        padding: 1rem !important;
+        margin: 0 !important;
+    }
+    .p-8, .px-8, .py-8 { padding: 1rem !important; }
+    .gap-12, .gap-14, .gap-16, .gap-20, .gap-24, .gap-32 {
+        gap: 1rem !important;
+    }
+    /* Also handle responsive variants like sm:p-12 etc at narrow widths */
+    [class*="p-12"], [class*="p-16"], [class*="p-20"], [class*="gap-12"] {
+        padding: 1rem !important;
+        gap: 1rem !important;
+    }
+}
+/* Modals: always constrained within viewport */
+[role="dialog"], .fixed.inset-0 .bg-white, .fixed.inset-0 .bg-gray-800, .fixed.inset-0 .bg-gray-900 {
+    max-width: min(95vw, 100%) !important;
+    max-height: min(85vh, 100dvh - 1rem) !important;
+}
+.fixed.inset-0 {
+    padding: 0.75rem !important;
+}
+/* Ensure modal inner scroll */
+[role="dialog"] .overflow-y-auto, [role="dialog"] .overflow-y-scroll {
+    max-height: min(70vh, calc(100dvh - 8rem));
+    -webkit-overflow-scrolling: touch;
+}
+/* Container boundaries: every section prevents overflow */
+section, article, main, aside, header, footer, div {
+    max-width: 100%;
+}
+img, video, iframe, canvas, svg {
+    max-width: 100%;
+    height: auto;
+}
+pre, code {
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 /* ===== TCS Style Color System ===== */
 :root {
     /* TCS Primary Colors */

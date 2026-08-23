@@ -161,7 +161,9 @@ function TestSeries() {
       try {
         const res = await testsAPI.getByTag("quizzes");
         const raw = res.data?.data || res.data || [];
-        return (Array.isArray(raw) ? raw : []).slice(0, 3);
+        return (Array.isArray(raw) ? raw : [])
+          .filter((t) => !checkIsLiveExpired(t))
+          .slice(0, 3);
       } catch {
         return [];
       }
@@ -498,7 +500,7 @@ function TestSeries() {
       <AnimatedHero pageType="testSeries" compact>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="flex-1">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-3 animate-slide-up leading-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-3 animate-slide-up leading-tight">
               {user ? "Your Exam Path" : "Find Your Exam"} 🎯
             </h1>
             <p
@@ -520,7 +522,7 @@ function TestSeries() {
             />
           </div>
 
-          <div className="hidden md:grid grid-cols-2 gap-3 lg:w-[400px] animate-slide-in-right">
+          <div className="hidden md:grid grid-cols-2 gap-3 lg:w-full max-w-[400px] sm:w-[400px] animate-slide-in-right">
             {[
               { icon: Zap, label: "Instant Result", color: "bg-orange-400" },
               { icon: BarChart2, label: "AI Analytics", color: "bg-blue-400" },

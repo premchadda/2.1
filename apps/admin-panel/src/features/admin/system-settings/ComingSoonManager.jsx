@@ -22,7 +22,7 @@ import {
   MessageSquare,
   Zap,
 } from "lucide-react";
-import apiClient from "../../../shared/api/adminApi";
+import { apiClient } from "../../../shared/api/adminApi";
 
 // FIX CRIT-10: Use proper apiClient (httpOnly cookie auth) instead of localStorage-based api
 const api = apiClient;

@@ -1,24 +1,31 @@
 -- =====================================================
--- Migration 116: Add Comprehensive RLS Policies
+-- Migration 116: Add Comprehensive RLS Policies (SECURE)
 -- Purpose: Resolve Supabase Security Linter Warnings (0008_rls_enabled_no_policy)
 --          Creates robust RLS policies for all 41 tables with RLS enabled.
 --
+-- Security Fix: Removes `OR current_user_id_setting() IS NULL` bypass that
+--          granted anonymous wide-open access when the GUC was unset.
+--          Split into FOR SELECT vs FOR INSERT/UPDATE/DELETE and wraps
+--          privileged checks in SECURITY DEFINER helpers with fixed
+--          search_path. Uses is_service_role() SECURITY DEFINER wrapper.
+--
 -- Categories:
---   1. User-scoped tables with user_id: Self + Service Role / Admin
---   2. AI messages & discussion replies: Conversation / Author linked policies
---   3. Public catalog/curriculum tables: Public Read + Admin Write
---   4. Internal/admin-only tables: Service Role + Admin Only
+--   1. User-scoped tables with user_id: Self + Service Role / Admin (split SELECT / write)
+--   2. AI messages & discussion replies: Conversation / Author linked policies (split)
+--   3. Public catalog/curriculum tables: Public Read + Admin/Service Write (no IS NULL)
+--   4. Internal/admin-only tables: Service Role + Admin Only (no IS NULL)
 --
 -- Idempotent: Drops existing policy before creating, checks table existence.
 -- =====================================================
 
 BEGIN;
 
--- Helper function to ensure auth helpers exist
+-- Helper functions — SECURITY DEFINER wrapper with fixed search_path
 CREATE OR REPLACE FUNCTION current_user_id_setting()
 RETURNS INTEGER
 LANGUAGE plpgsql
 STABLE
+SECURITY DEFINER
 SET search_path = public, pg_catalog, pg_temp
 AS $$
 DECLARE
@@ -38,6 +45,7 @@ CREATE OR REPLACE FUNCTION current_is_admin()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 STABLE
+SECURITY DEFINER
 SET search_path = public, pg_catalog, pg_temp
 AS $$
 DECLARE
@@ -50,7 +58,22 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
--- 1. USER-SCOPED TABLES (with user_id)
+CREATE OR REPLACE FUNCTION is_service_role()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public, pg_catalog, pg_temp
+AS $$
+BEGIN
+  RETURN current_setting('role', true) = 'service_role'
+      OR current_setting('request.jwt.claim.role', true) = 'service_role';
+EXCEPTION WHEN OTHERS THEN
+  RETURN FALSE;
+END;
+$$;
+
+-- 1. USER-SCOPED TABLES (with user_id) — split SELECT vs write, NO IS NULL bypass
 DO $$
 DECLARE
   tbl TEXT;
@@ -83,43 +106,82 @@ DECLARE
 BEGIN
   FOREACH tbl IN ARRAY user_tables LOOP
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
+      -- Drop legacy policies (including the IS NULL bypass version)
       EXECUTE format('DROP POLICY IF EXISTS %I_user_policy ON %I', tbl, tbl);
       EXECUTE format('DROP POLICY IF EXISTS %I_service_policy ON %I', tbl, tbl);
       EXECUTE format('DROP POLICY IF EXISTS %I_admin_policy ON %I', tbl, tbl);
+      EXECUTE format('DROP POLICY IF EXISTS %I_select ON %I', tbl, tbl);
+      EXECUTE format('DROP POLICY IF EXISTS %I_insert ON %I', tbl, tbl);
+      EXECUTE format('DROP POLICY IF EXISTS %I_update ON %I', tbl, tbl);
+      EXECUTE format('DROP POLICY IF EXISTS %I_delete ON %I', tbl, tbl);
+      -- SELECT: owner or service_role or admin
       EXECUTE format($pol$
-        CREATE POLICY %I_user_policy ON %I
-        FOR ALL
+        CREATE POLICY %I_select ON %I
+        FOR SELECT
         USING (
           user_id::text = (auth.uid())::text
           OR current_user_id_setting() = user_id
-          OR current_user_id_setting() IS NULL
-          OR current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          OR is_service_role()
+          OR current_is_admin() = true
+        )
+      $pol$, tbl, tbl);
+      -- INSERT: WITH CHECK owner or privileged
+      EXECUTE format($pol$
+        CREATE POLICY %I_insert ON %I
+        FOR INSERT
+        WITH CHECK (
+          user_id::text = (auth.uid())::text
+          OR current_user_id_setting() = user_id
+          OR is_service_role()
+          OR current_is_admin() = true
+        )
+      $pol$, tbl, tbl);
+      -- UPDATE: USING + WITH CHECK owner or privileged
+      EXECUTE format($pol$
+        CREATE POLICY %I_update ON %I
+        FOR UPDATE
+        USING (
+          user_id::text = (auth.uid())::text
+          OR current_user_id_setting() = user_id
+          OR is_service_role()
           OR current_is_admin() = true
         )
         WITH CHECK (
           user_id::text = (auth.uid())::text
           OR current_user_id_setting() = user_id
-          OR current_user_id_setting() IS NULL
-          OR current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          OR is_service_role()
           OR current_is_admin() = true
         )
       $pol$, tbl, tbl);
-      RAISE NOTICE 'Migration 116: Created RLS user_policy for %', tbl;
+      -- DELETE: USING owner or privileged
+      EXECUTE format($pol$
+        CREATE POLICY %I_delete ON %I
+        FOR DELETE
+        USING (
+          user_id::text = (auth.uid())::text
+          OR current_user_id_setting() = user_id
+          OR is_service_role()
+          OR current_is_admin() = true
+        )
+      $pol$, tbl, tbl);
+      RAISE NOTICE 'Migration 116: Created split RLS policies (select/insert/update/delete) for %', tbl;
     END IF;
   END LOOP;
 END $$;
 
--- 2. SPECIAL RELATION TABLES (ai_messages, discussion_replies)
+-- 2. SPECIAL RELATION TABLES (ai_messages, discussion_replies) — split, NO IS NULL
 DO $$
 BEGIN
-  -- ai_messages linked to ai_conversations
+  -- ai_messages linked to ai_conversations (owner via conversation.user_id)
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ai_messages') THEN
     EXECUTE 'DROP POLICY IF EXISTS ai_messages_user_policy ON ai_messages';
+    EXECUTE 'DROP POLICY IF EXISTS ai_messages_select ON ai_messages';
+    EXECUTE 'DROP POLICY IF EXISTS ai_messages_insert ON ai_messages';
+    EXECUTE 'DROP POLICY IF EXISTS ai_messages_update ON ai_messages';
+    EXECUTE 'DROP POLICY IF EXISTS ai_messages_delete ON ai_messages';
     EXECUTE $pol$
-      CREATE POLICY ai_messages_user_policy ON ai_messages
-      FOR ALL
+      CREATE POLICY ai_messages_select ON ai_messages
+      FOR SELECT
       USING (
         EXISTS (
           SELECT 1 FROM ai_conversations c
@@ -129,9 +191,39 @@ BEGIN
               OR current_user_id_setting() = c.user_id
             )
         )
-        OR current_user_id_setting() IS NULL
-        OR current_setting('role', true) = 'service_role'
-        OR current_setting('request.jwt.claim.role', true) = 'service_role'
+        OR is_service_role()
+        OR current_is_admin() = true
+      )
+    $pol$;
+    EXECUTE $pol$
+      CREATE POLICY ai_messages_insert ON ai_messages
+      FOR INSERT
+      WITH CHECK (
+        EXISTS (
+          SELECT 1 FROM ai_conversations c
+          WHERE c.id = ai_messages.conversation_id
+            AND (
+              c.user_id::text = (auth.uid())::text
+              OR current_user_id_setting() = c.user_id
+            )
+        )
+        OR is_service_role()
+        OR current_is_admin() = true
+      )
+    $pol$;
+    EXECUTE $pol$
+      CREATE POLICY ai_messages_update ON ai_messages
+      FOR UPDATE
+      USING (
+        EXISTS (
+          SELECT 1 FROM ai_conversations c
+          WHERE c.id = ai_messages.conversation_id
+            AND (
+              c.user_id::text = (auth.uid())::text
+              OR current_user_id_setting() = c.user_id
+            )
+        )
+        OR is_service_role()
         OR current_is_admin() = true
       )
       WITH CHECK (
@@ -143,49 +235,81 @@ BEGIN
               OR current_user_id_setting() = c.user_id
             )
         )
-        OR current_user_id_setting() IS NULL
-        OR current_setting('role', true) = 'service_role'
-        OR current_setting('request.jwt.claim.role', true) = 'service_role'
+        OR is_service_role()
+        OR current_is_admin() = true
+      )
+    $pol$;
+    EXECUTE $pol$
+      CREATE POLICY ai_messages_delete ON ai_messages
+      FOR DELETE
+      USING (
+        EXISTS (
+          SELECT 1 FROM ai_conversations c
+          WHERE c.id = ai_messages.conversation_id
+            AND (
+              c.user_id::text = (auth.uid())::text
+              OR current_user_id_setting() = c.user_id
+            )
+        )
+        OR is_service_role()
         OR current_is_admin() = true
       )
     $pol$;
   END IF;
 
-  -- discussion_replies linked by author_id
+  -- discussion_replies linked by author_id — public read, author/service/admin write
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'discussion_replies') THEN
     EXECUTE 'DROP POLICY IF EXISTS discussion_replies_public_read ON discussion_replies';
     EXECUTE 'DROP POLICY IF EXISTS discussion_replies_author_write ON discussion_replies';
-    
+    EXECUTE 'DROP POLICY IF EXISTS discussion_replies_select ON discussion_replies';
+    EXECUTE 'DROP POLICY IF EXISTS discussion_replies_insert ON discussion_replies';
+    EXECUTE 'DROP POLICY IF EXISTS discussion_replies_update ON discussion_replies';
+    EXECUTE 'DROP POLICY IF EXISTS discussion_replies_delete ON discussion_replies';
     EXECUTE $pol$
-      CREATE POLICY discussion_replies_public_read ON discussion_replies
+      CREATE POLICY discussion_replies_select ON discussion_replies
       FOR SELECT
       USING (true);
     $pol$;
-
     EXECUTE $pol$
-      CREATE POLICY discussion_replies_author_write ON discussion_replies
-      FOR ALL
+      CREATE POLICY discussion_replies_insert ON discussion_replies
+      FOR INSERT
+      WITH CHECK (
+        author_id::text = (auth.uid())::text
+        OR current_user_id_setting() = author_id
+        OR is_service_role()
+        OR current_is_admin() = true
+      )
+    $pol$;
+    EXECUTE $pol$
+      CREATE POLICY discussion_replies_update ON discussion_replies
+      FOR UPDATE
       USING (
         author_id::text = (auth.uid())::text
         OR current_user_id_setting() = author_id
-        OR current_user_id_setting() IS NULL
-        OR current_setting('role', true) = 'service_role'
-        OR current_setting('request.jwt.claim.role', true) = 'service_role'
+        OR is_service_role()
         OR current_is_admin() = true
       )
       WITH CHECK (
         author_id::text = (auth.uid())::text
         OR current_user_id_setting() = author_id
-        OR current_user_id_setting() IS NULL
-        OR current_setting('role', true) = 'service_role'
-        OR current_setting('request.jwt.claim.role', true) = 'service_role'
+        OR is_service_role()
         OR current_is_admin() = true
-      );
+      )
+    $pol$;
+    EXECUTE $pol$
+      CREATE POLICY discussion_replies_delete ON discussion_replies
+      FOR DELETE
+      USING (
+        author_id::text = (auth.uid())::text
+        OR current_user_id_setting() = author_id
+        OR is_service_role()
+        OR current_is_admin() = true
+      )
     $pol$;
   END IF;
 END $$;
 
--- 3. PUBLIC CATALOG / CURRICULUM TABLES (Public Read + Admin/Service Write)
+-- 3. PUBLIC CATALOG / CURRICULUM TABLES (Public Read + Admin/Service Write, NO IS NULL)
 DO $$
 DECLARE
   tbl TEXT;
@@ -202,27 +326,23 @@ BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = tbl) THEN
       EXECUTE format('DROP POLICY IF EXISTS %I_public_read ON %I', tbl, tbl);
       EXECUTE format('DROP POLICY IF EXISTS %I_admin_write ON %I', tbl, tbl);
-      
+      -- Public can SELECT
       EXECUTE format($pol$
         CREATE POLICY %I_public_read ON %I
         FOR SELECT
         USING (true)
       $pol$, tbl, tbl);
-
+      -- Only service_role or admin may write — removed IS NULL bypass
       EXECUTE format($pol$
         CREATE POLICY %I_admin_write ON %I
         FOR ALL
         USING (
-          current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          is_service_role()
           OR current_is_admin() = true
-          OR current_user_id_setting() IS NULL
         )
         WITH CHECK (
-          current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          is_service_role()
           OR current_is_admin() = true
-          OR current_user_id_setting() IS NULL
         )
       $pol$, tbl, tbl);
       RAISE NOTICE 'Migration 116: Created Catalog RLS policies for %', tbl;
@@ -230,7 +350,7 @@ BEGIN
   END LOOP;
 END $$;
 
--- 4. INTERNAL / ADMIN / SYSTEM TABLES (Service Role & Admin Only)
+-- 4. INTERNAL / ADMIN / SYSTEM TABLES (Service Role & Admin Only, NO IS NULL)
 DO $$
 DECLARE
   tbl TEXT;
@@ -253,16 +373,12 @@ BEGIN
         CREATE POLICY %I_service_role_policy ON %I
         FOR ALL
         USING (
-          current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          is_service_role()
           OR current_is_admin() = true
-          OR current_user_id_setting() IS NULL
         )
         WITH CHECK (
-          current_setting('role', true) = 'service_role'
-          OR current_setting('request.jwt.claim.role', true) = 'service_role'
+          is_service_role()
           OR current_is_admin() = true
-          OR current_user_id_setting() IS NULL
         )
       $pol$, tbl, tbl);
       RAISE NOTICE 'Migration 116: Created System RLS policy for %', tbl;
@@ -277,8 +393,8 @@ BEGIN
     INSERT INTO schema_migrations_metadata (migration_name, description, blocks_audit_findings)
     VALUES
       ('116_add_comprehensive_rls_policies.sql',
-       'Add comprehensive RLS policies across all 41 tables with RLS enabled to resolve Supabase linter 0008 warnings.',
-       ARRAY['RLS_ENABLED_NO_POLICY']::text[])
+       'Secure RLS: removed IS NULL bypass, split SELECT vs INSERT/UPDATE/DELETE, SECURITY DEFINER is_service_role() wrapper with fixed search_path.',
+        ARRAY['RLS_ENABLED_NO_POLICY','RLS_IS_NULL_BYPASS']::text[])
     ON CONFLICT (migration_name) DO UPDATE
       SET description = EXCLUDED.description,
           applied_at = CURRENT_TIMESTAMP;

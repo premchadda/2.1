@@ -91,7 +91,9 @@ router.get("/stream", (req, res) => {
     logBuffer.activeSSEClients.delete(clientId);
     try {
       res.end();
-    } catch {}
+    } catch {
+      // intentionally empty - response may already be closed
+    }
   };
 
   req.on("close", cleanup);
@@ -156,7 +158,7 @@ router.post("/test", (req, res) => {
 router.get("/export", (req, res) => {
   try {
     const format = req.query.format === "json" ? "json" : "log";
-    const logs = logBuffer.getLogs({ limit: 2500 });
+    const logs = logBuffer.getLogs({ limit: 10000 });
 
     if (format === "json") {
       res.setHeader("Content-Type", "application/json");

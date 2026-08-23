@@ -31,17 +31,17 @@ import {
   Globe,
   Sliders,
   X,
+  Maximize2,
+  Minimize2,
+  Smartphone,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import Breadcrumb from "../../../shared/components/common/Breadcrumb";
 import { apiClient as api } from "../../../shared/lib/dataService";
+import { API_URL } from "../../../shared/lib/apiBase";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  (import.meta.env.DEV ? "http://localhost:5001/api" : "/api");
-
-const MAX_DISPLAY_LOGS = 2000;
+const MAX_DISPLAY_LOGS = 10000;
 
 export default function ServerLogsManager() {
   const [logs, setLogs] = useState([]);
@@ -58,6 +58,10 @@ export default function ServerLogsManager() {
   const [customTestMsg, setCustomTestMsg] = useState("");
   const [testLogLevel, setTestLogLevel] = useState("info");
   const [showTestModal, setShowTestModal] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   const terminalEndRef = useRef(null);
   const terminalContainerRef = useRef(null);
@@ -67,6 +71,75 @@ export default function ServerLogsManager() {
   useEffect(() => {
     isAutoScrollingRef.current = autoScroll;
   }, [autoScroll]);
+
+  // PWA: capture install prompt + detect standalone
+  useEffect(() => {
+    const checkStandalone =
+      window.matchMedia?.("(display-mode: standalone)").matches ||
+      window.navigator.standalone === true ||
+      document.referrer.includes("android-app://");
+    setIsStandalone(checkStandalone);
+
+    const handler = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => {
+      setIsInstallable(false);
+      setDeferredPrompt(null);
+      toast.success("App installed — open from home screen");
+    });
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+    };
+  }, []);
+
+  // Fullscreen: lock body scroll + ESC to exit
+  useEffect(() => {
+    if (isFullscreen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const onKey = (e) => {
+        if (e.key === "Escape") setIsFullscreen(false);
+      };
+      window.addEventListener("keydown", onKey);
+      return () => {
+        document.body.style.overflow = prev;
+        window.removeEventListener("keydown", onKey);
+      };
+    }
+  }, [isFullscreen]);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted")
+          toast.success("Installing — check home screen");
+        setDeferredPrompt(null);
+        setIsInstallable(false);
+      } catch {
+        // fallback to manual instructions
+      }
+      return;
+    }
+    // Fallback instructions (iOS / no prompt)
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS) {
+      toast("On iPhone: tap Share → Add to Home Screen to save Logs as app", {
+        duration: 5000,
+        icon: "📱",
+      });
+    } else {
+      toast(
+        "In Chrome menu: ⋮ → Add to Home screen / Install app to save Logs",
+        { duration: 5000, icon: "📱" },
+      );
+    }
+  };
 
   // Scroll to bottom when autoScroll is enabled
   const scrollToBottom = useCallback((smooth = true) => {
@@ -89,10 +162,10 @@ export default function ServerLogsManager() {
     }
   };
 
-  // Initial Fetch of recent logs
+  // Initial Fetch of recent logs — pull up to 10k to honour new limit
   const fetchInitialLogs = useCallback(async () => {
     try {
-      const res = await api.get("/admin/logs?limit=300");
+      const res = await api.get("/admin/logs?limit=10000");
       if (res.data?.success) {
         setLogs(res.data.data || []);
         if (res.data.stats) {
@@ -121,8 +194,10 @@ export default function ServerLogsManager() {
 
     setStreamStatus("connecting");
 
-    // EventSource uses httpOnly cookies (withCredentials) — never put token in URL
-    const streamUrl = `${API_BASE_URL}/admin/logs/stream`;
+    // Use centralized API_URL (handles VITE_API_URL with/without /api + Vite proxy in dev)
+    // In dev with empty VITE_API_URL, API_URL="/api" -> "/api/admin/logs/stream" via proxy
+    // In dev with VITE_API_URL=http://localhost:5001, API_URL="http://localhost:5001/api" -> correct
+    const streamUrl = `${API_URL}/admin/logs/stream`;
 
     let es = null;
     try {
@@ -421,123 +496,172 @@ export default function ServerLogsManager() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <Breadcrumb
-            items={[
-              { label: "System & Settings", path: "/admin/system-health" },
-              { label: "Terminal Logs" },
-            ]}
-          />
-          <div className="flex items-center gap-3 mt-1">
-            <div className="p-2 bg-slate-900 text-emerald-400 rounded-lg border border-slate-800 shadow-sm flex items-center justify-center">
-              <Terminal className="w-5 h-5" />
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+      {/* Header — compact, responsive, single row on all sizes */}
+      <div className="space-y-2">
+        <Breadcrumb
+          items={[
+            { label: "System & Settings", path: "/admin/system-health" },
+            { label: "Terminal Logs" },
+          ]}
+        />
+        <div className="flex items-center justify-between gap-2 flex-nowrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-900 text-emerald-400 border border-slate-800 shadow-xs flex items-center justify-center shrink-0">
+              <Terminal className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                Live Backend Terminal Console
-                {/* Live Stream Pulse Badge */}
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-black text-gray-900 dark:text-white leading-tight flex items-center gap-1.5 flex-wrap">
+                <span className="truncate">Live Terminal</span>
                 {streamStatus === "connected" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-500 border border-emerald-500/30">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    LIVE STREAM
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    LIVE
                   </span>
                 )}
                 {streamStatus === "connecting" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-500 border border-amber-500/30">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 whitespace-nowrap">
                     <RefreshCw className="w-3 h-3 animate-spin" />
                     CONNECTING
                   </span>
                 )}
                 {streamStatus === "paused" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-500/15 text-gray-400 border border-gray-500/30">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 whitespace-nowrap">
                     PAUSED
                   </span>
                 )}
                 {streamStatus === "error" && (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-500 border border-red-500/30">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 whitespace-nowrap">
                     <AlertCircle className="w-3 h-3" />
-                    RECONNECTING
+                    RETRY
                   </span>
                 )}
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Real-time server console output, HTTP access events, database
-                logs, and errors from live production
+              <p className="hidden sm:block text-[11px] text-gray-500 dark:text-gray-400 font-medium leading-none mt-0.5 truncate">
+                Real-time console • HTTP • DB • errors
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Global Actions */}
-        <div className="flex items-center flex-wrap gap-2">
-          {/* Pause / Resume Button */}
-          <button
-            onClick={() => setIsStreaming(!isStreaming)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors shadow-sm ${
-              isStreaming
-                ? "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 hover:bg-amber-100"
-                : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100"
-            }`}
-          >
-            {isStreaming ? (
-              <>
-                <Pause className="w-3.5 h-3.5" />
-                Pause Stream
-              </>
-            ) : (
-              <>
-                <Play className="w-3.5 h-3.5" />
-                Resume Stream
-              </>
+          {/* Global Actions — single row, horizontally scrollable on tiny screens */}
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none">
+            {/* Add to Home Screen — install as app to see logs directly */}
+            {!isStandalone && (
+              <button
+                onClick={handleInstallApp}
+                className={`inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold border whitespace-nowrap shrink-0 shadow-xs transition-colors ${
+                  isInstallable
+                    ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+                    : "bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-slate-700 hover:bg-gray-50"
+                }`}
+                title={
+                  isInstallable
+                    ? "Install Logs as app"
+                    : "Save Logs to home screen"
+                }
+              >
+                <Smartphone className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                <span className="hidden sm:inline">
+                  {isInstallable ? "Install App" : "Save App"}
+                </span>
+                <span className="sm:hidden">Save</span>
+              </button>
             )}
-          </button>
+            {/* Pause / Resume — compact */}
+            <button
+              onClick={() => setIsStreaming(!isStreaming)}
+              className={`inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-extrabold border whitespace-nowrap shrink-0 shadow-xs transition-colors ${
+                isStreaming
+                  ? "bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800"
+                  : "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
+              }`}
+            >
+              {isStreaming ? (
+                <>
+                  <Pause className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                  <span className="hidden sm:inline">Pause</span>
+                  <span className="sm:hidden">Pause</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+                  Resume
+                </>
+              )}
+            </button>
 
-          {/* Test Log Modal Button */}
-          <button
-            onClick={() => setShowTestModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors shadow-sm"
-          >
-            <Zap className="w-3.5 h-3.5" />
-            Send Test Log
-          </button>
+            <button
+              onClick={() => setShowTestModal(true)}
+              className="inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-indigo-600 text-white border border-indigo-600 hover:bg-indigo-700 whitespace-nowrap shrink-0 shadow-xs"
+            >
+              <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              <span className="hidden sm:inline">Test Log</span>
+              <span className="sm:hidden">Test</span>
+            </button>
 
-          {/* Copy Logs */}
-          <button
-            onClick={handleCopyLogs}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
-          >
-            {copied ? (
-              <Check className="w-3.5 h-3.5 text-emerald-500" />
-            ) : (
-              <Copy className="w-3.5 h-3.5" />
-            )}
-            {copied ? "Copied" : "Copy"}
-          </button>
+            <button
+              onClick={handleCopyLogs}
+              className="inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 whitespace-nowrap shrink-0 shadow-xs"
+            >
+              {copied ? (
+                <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-500 shrink-0" />
+              ) : (
+                <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />
+              )}
+              <span className="hidden sm:inline">
+                {copied ? "Copied" : "Copy"}
+              </span>
+            </button>
 
-          {/* Export Dropdown / Button */}
-          <button
-            onClick={() => handleExport("log")}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
-            title="Download formatted .log file"
-          >
-            <Download className="w-3.5 h-3.5" />
-            Export (.log)
-          </button>
+            <button
+              onClick={() => handleExport("log")}
+              className="hidden sm:inline-flex items-center justify-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 whitespace-nowrap shrink-0 shadow-xs"
+              title="Download .log"
+            >
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              Export
+            </button>
+            <button
+              onClick={() => handleExport("log")}
+              className="sm:hidden inline-flex items-center justify-center p-1.5 rounded-xl bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 shrink-0 shadow-xs"
+              title="Export"
+            >
+              <Download className="w-3.5 h-3.5 text-gray-600 dark:text-gray-300" />
+            </button>
 
-          {/* Clear Actions */}
-          <button
-            onClick={handleClearLocal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
-            title="Clear current view"
-          >
-            <Trash2 className="w-3.5 h-3.5 text-gray-400" />
-            Clear View
-          </button>
+            <button
+              onClick={handleClearLocal}
+              className="inline-flex items-center justify-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 whitespace-nowrap shrink-0 shadow-xs"
+              title="Clear view"
+            >
+              <Trash2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-400 shrink-0" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Install banner — visible on mobile when PWA installable, one-tap save */}
+      {!isStandalone && (
+        <div className="flex sm:hidden items-center justify-between gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl shadow-md">
+          <span className="flex items-center gap-1.5 text-xs font-bold">
+            <Smartphone className="w-4 h-4" /> Save Logs page as app
+          </span>
+          <button
+            onClick={handleInstallApp}
+            className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white text-indigo-600 text-xs font-extrabold"
+          >
+            {isInstallable ? "Install" : "Add"}{" "}
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+      {isStandalone && (
+        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-400">
+          <Check className="w-3.5 h-3.5" /> App mode — Logs open directly. Use
+          Fullscreen for bottom dock.
+        </div>
+      )}
 
       {/* Live Server Stats Strip */}
       {serverStats && (
@@ -612,10 +736,10 @@ export default function ServerLogsManager() {
         </div>
       )}
 
-      {/* Filter & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-2.5 shadow-sm">
-        {/* Level Badges */}
-        <div className="flex items-center flex-wrap gap-1.5">
+      {/* Filter & Search Bar — compact, responsive, full filter options */}
+      <div className="bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 shadow-sm space-y-2">
+        {/* Row 1: Level badges — horizontally scrollable on mobile, never wraps to keep 1-line */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap pb-0.5 -mx-1 px-1">
           {["ALL", "ERROR", "WARN", "INFO", "HTTP", "DEBUG"].map((lvl) => {
             const count = counts[lvl] || 0;
             const isActive = selectedLevel === lvl;
@@ -623,7 +747,7 @@ export default function ServerLogsManager() {
               <button
                 key={lvl}
                 onClick={() => setSelectedLevel(lvl)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                   isActive
                     ? lvl === "ERROR"
                       ? "bg-red-600 text-white shadow-sm"
@@ -637,7 +761,7 @@ export default function ServerLogsManager() {
               >
                 <span>{lvl}</span>
                 <span
-                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono leading-none ${
                     isActive
                       ? "bg-black/30 text-white"
                       : "bg-gray-200 dark:bg-slate-700 text-gray-700 dark:text-gray-300"
@@ -648,103 +772,210 @@ export default function ServerLogsManager() {
               </button>
             );
           })}
+          {/* Quick error finder */}
+          <button
+            onClick={() => {
+              setSelectedLevel("ERROR");
+              setSearchQuery("");
+            }}
+            title="Show only errors"
+            className="shrink-0 ml-1 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 text-[11px] font-bold hover:bg-red-100 dark:hover:bg-red-500/20 whitespace-nowrap"
+          >
+            <AlertTriangle className="w-3 h-3" /> Errors
+          </button>
         </div>
 
-        {/* Search Input & Controls */}
-        <div className="flex items-center gap-2">
+        {/* Row 2: Search + explicit filter selects — single row on desktop, stacked compact on mobile */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {/* Search Box */}
-          <div className="relative flex-1 sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-0">
+            <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 shrink-0" />
             <input
               type="text"
-              placeholder="Search logs, IPs, routes..."
+              placeholder="Search errors, stacks, routes, IPs..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-7 py-1 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              className="w-full pl-8 pr-7 py-1.5 text-xs bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-0.5"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
 
-          {/* Time format selector */}
-          <button
-            onClick={() =>
-              setTimeFormat((prev) =>
-                prev === "local"
-                  ? "iso"
-                  : prev === "iso"
-                    ? "relative"
-                    : "local",
-              )
-            }
-            className="px-2.5 py-1 text-xs font-mono rounded-lg bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-200 transition-colors"
-            title="Toggle timestamp format"
-          >
-            {timeFormat.toUpperCase()}
-          </button>
-
-          {/* Auto-Scroll Toggle */}
-          <button
-            onClick={() => {
-              const next = !autoScroll;
-              setAutoScroll(next);
-              if (next) scrollToBottom();
-            }}
-            className={`flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-lg border transition-colors ${
-              autoScroll
-                ? "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-700"
-                : "bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-700 hover:bg-gray-200"
-            }`}
-            title="Lock scroll to latest log"
-          >
-            <ArrowDownToLine
-              className={`w-3.5 h-3.5 ${autoScroll ? "animate-bounce" : ""}`}
-            />
-            <span className="hidden md:inline">Auto-Scroll</span>
-          </button>
+          {/* Explicit filter controls */}
+          <div className="flex items-center gap-1.5 flex-nowrap shrink-0 overflow-x-auto scrollbar-none">
+            <div className="relative shrink-0">
+              <Sliders className="w-3 h-3 absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <select
+                value={selectedLevel}
+                onChange={(e) => setSelectedLevel(e.target.value)}
+                className="pl-6 pr-7 py-1.5 text-xs font-bold bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 whitespace-nowrap"
+                title="Filter by level"
+              >
+                <option value="ALL">All levels</option>
+                <option value="ERROR">Error only</option>
+                <option value="WARN">Warning</option>
+                <option value="INFO">Info</option>
+                <option value="HTTP">HTTP</option>
+                <option value="DEBUG">Debug</option>
+              </select>
+            </div>
+            <button
+              onClick={() =>
+                setTimeFormat((prev) =>
+                  prev === "local"
+                    ? "iso"
+                    : prev === "iso"
+                      ? "relative"
+                      : "local",
+                )
+              }
+              className="shrink-0 px-2.5 py-1.5 text-xs font-mono font-bold rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 whitespace-nowrap"
+              title="Toggle timestamp format"
+            >
+              {timeFormat.toUpperCase()}
+            </button>
+            <button
+              onClick={() => {
+                const next = !autoScroll;
+                setAutoScroll(next);
+                if (next) scrollToBottom();
+              }}
+              className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 text-xs font-bold rounded-lg border whitespace-nowrap transition-colors ${
+                autoScroll
+                  ? "bg-indigo-50 dark:bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800"
+                  : "bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-700"
+              }`}
+              title="Lock scroll to latest"
+            >
+              <ArrowDownToLine
+                className={`w-3.5 h-3.5 ${autoScroll ? "animate-bounce" : ""}`}
+              />
+              <span className="hidden lg:inline">Auto</span>
+            </button>
+            {(selectedLevel !== "ALL" || searchQuery) && (
+              <button
+                onClick={() => {
+                  setSelectedLevel("ALL");
+                  setSearchQuery("");
+                }}
+                className="shrink-0 px-2 py-1.5 text-xs font-bold rounded-lg bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-black whitespace-nowrap"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Terminal Display View */}
-      <div className="relative rounded-xl overflow-hidden border border-slate-800 bg-[#0a0e17] shadow-2xl">
-        {/* Terminal Title Bar */}
-        <div className="flex items-center justify-between px-4 py-2 bg-[#0e1422] border-b border-slate-800 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
-            <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
-            <span className="text-slate-400 font-mono ml-2 font-medium">
-              bash - production@trstprep-backend:~
+        {/* Active filter summary — compact */}
+        {(selectedLevel !== "ALL" || searchQuery) && (
+          <div className="flex items-center gap-1.5 flex-wrap text-[11px]">
+            <span className="text-gray-500 dark:text-gray-400 font-medium">
+              Filters:
+            </span>
+            {selectedLevel !== "ALL" && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900 dark:bg-indigo-600 text-white font-bold">
+                Level: {selectedLevel}
+                <button
+                  onClick={() => setSelectedLevel("ALL")}
+                  className="ml-0.5 hover:text-gray-300"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold max-w-[200px] truncate">
+                Search: “{searchQuery}”
+                <button onClick={() => setSearchQuery("")} className="shrink-0">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+            <span className="text-gray-400">
+              • {filteredLogs.length} matches
             </span>
           </div>
-          <div className="flex items-center gap-3 text-slate-400 font-mono text-[11px]">
-            <span>Showing {filteredLogs.length} logs</span>
+        )}
+      </div>
+
+      {/* Terminal Display View — compact & responsive, fullscreen bottom dock */}
+      <div
+        className={`relative overflow-hidden border border-slate-800 bg-[#0a0e17] shadow-2xl flex flex-col ${
+          isFullscreen ? "fixed inset-0 z-[70] rounded-none" : "rounded-xl"
+        }`}
+      >
+        {/* Terminal Title Bar — compact on mobile */}
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-2 bg-[#0e1422] border-b border-slate-800 text-[11px] sm:text-xs shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500/80 shrink-0" />
+            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500/80 shrink-0" />
+            <span className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500/80 shrink-0" />
+            <span className="text-slate-400 font-mono ml-1 sm:ml-2 font-medium truncate hidden sm:inline">
+              bash - production@trstprep-backend:~
+            </span>
+            <span className="text-slate-400 font-mono ml-1 font-medium truncate sm:hidden">
+              bash ~
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap">
+              {filteredLogs.length.toLocaleString()} logs
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2 text-slate-400 font-mono text-[10px] sm:text-[11px] shrink-0">
+            <span className="sm:hidden whitespace-nowrap">
+              {filteredLogs.length}
+            </span>
             {!autoScroll && (
               <button
                 onClick={() => {
                   setAutoScroll(true);
                   scrollToBottom();
                 }}
-                className="text-indigo-400 hover:text-indigo-300 underline flex items-center gap-1"
+                className="hidden sm:inline-flex text-indigo-400 hover:text-indigo-300 underline items-center gap-1 whitespace-nowrap"
               >
-                <ArrowDownToLine className="w-3 h-3" />
-                Jump to bottom
+                <ArrowDownToLine className="w-3 h-3 shrink-0" />
+                Bottom
               </button>
             )}
+            <button
+              onClick={() => setIsFullscreen((v) => !v)}
+              className="inline-flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-bold whitespace-nowrap shrink-0"
+              title={
+                isFullscreen
+                  ? "Exit fullscreen (Esc)"
+                  : "Fullscreen — bottom dock"
+              }
+            >
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Exit</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <span className="hidden sm:inline">Fullscreen</span>
+                  <span className="sm:hidden">Full</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Terminal Log Stream Scroll Area */}
+        {/* Terminal Log Stream Scroll Area — responsive height / fullscreen flex */}
         <div
           ref={terminalContainerRef}
           onScroll={handleScroll}
-          className="h-[560px] overflow-y-auto p-3 font-mono text-xs text-slate-300 space-y-1 select-text scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent"
+          className={`overflow-y-auto p-2 sm:p-3 font-mono text-[11px] sm:text-xs text-slate-300 space-y-0.5 sm:space-y-1 select-text scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent ${
+            isFullscreen
+              ? "flex-1 min-h-0"
+              : "h-[380px] sm:h-[480px] lg:h-[560px]"
+          }`}
           style={{
             fontFamily: "'Fira Code', 'JetBrains Mono', 'Consolas', monospace",
           }}
@@ -851,6 +1082,36 @@ export default function ServerLogsManager() {
             })
           )}
           <div ref={terminalEndRef} />
+        </div>
+
+        {/* Bottom bar — bash ~ • 99 logs — full-screen bottom dock */}
+        <div className="flex items-center justify-between gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-[#0e1422] border-t border-slate-800 text-[11px] font-mono shrink-0">
+          <span className="flex items-center gap-1.5 text-emerald-400 font-bold truncate">
+            <Terminal className="w-3 h-3 shrink-0" />
+            bash ~
+            <span className="text-slate-400 font-normal hidden sm:inline ml-1">
+              production@trstprep
+            </span>
+          </span>
+          <span className="flex items-center gap-2 text-slate-400 shrink-0 whitespace-nowrap">
+            <span className="hidden sm:inline">
+              {filteredLogs.length.toLocaleString()} /{" "}
+              {MAX_DISPLAY_LOGS.toLocaleString()} logs
+            </span>
+            <span className="sm:hidden">{filteredLogs.length} logs</span>
+            <span className="hidden sm:inline w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="hidden sm:inline text-emerald-400 font-bold">
+              {isFullscreen ? "FULLSCREEN" : "BOTTOM"}
+            </span>
+            {!isFullscreen && (
+              <button
+                onClick={() => setIsFullscreen(true)}
+                className="sm:hidden inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-bold"
+              >
+                <Maximize2 className="w-3 h-3" /> Full
+              </button>
+            )}
+          </span>
         </div>
       </div>
 

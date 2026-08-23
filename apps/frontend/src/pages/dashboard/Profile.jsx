@@ -1,4 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  lazy,
+  Suspense,
+  memo,
+} from "react";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
@@ -62,7 +70,7 @@ import {
   Rocket,
   FileText,
 } from "lucide-react";
-import SettingsContent from "./SettingsContent";
+const SettingsContentLazy = lazy(() => import("./SettingsContent"));
 import { SectionLabel, CompactFeatureCard } from "./ProfilePrimitives";
 
 function Profile({ initialTab = "personal" }) {
@@ -508,10 +516,11 @@ function Profile({ initialTab = "personal" }) {
 
         const enrolledExamsMap = new Map();
         enrichedSeries.forEach((series) => {
-          const subcategory = series.subcategory || series.sub_category_id;
-          if (subcategory) {
+          const examIdRef =
+            series.examId || series.exam_id || series.sub_category_id;
+          if (examIdRef) {
             const matchedExam = allExams.find(
-              (exam) => (exam.exam_id || exam.examId) === subcategory,
+              (exam) => (exam.exam_id || exam.examId) === examIdRef,
             );
             if (matchedExam) {
               const examKey = matchedExam.id || matchedExam._id;
@@ -525,7 +534,7 @@ function Profile({ initialTab = "personal" }) {
               } else {
                 enrolledExamsMap.set(examKey, {
                   ...matchedExam,
-                  subcategory,
+                  examId: examIdRef,
                   enrolledSeriesId: series.id || series._id,
                   enrolledSeriesTitle: series.title,
                   testsDone: series.done || 0,
@@ -937,12 +946,14 @@ function Profile({ initialTab = "personal" }) {
                     <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800">
                       {user.avatar ? (
                         <img
+                          loading="lazy"
+                          decoding="async"
                           src={user.avatar}
                           alt="Profile"
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-3xl font-black">
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-xl sm:text-2xl lg:text-3xl font-black">
                           {user.name?.[0]?.toUpperCase()}
                         </div>
                       )}
@@ -1064,12 +1075,14 @@ function Profile({ initialTab = "personal" }) {
                       <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800">
                         {user.avatar ? (
                           <img
+                            loading="lazy"
+                            decoding="async"
                             src={user.avatar}
                             alt="Profile"
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-2xl md:text-3xl font-black">
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black">
                             {user.name?.[0]?.toUpperCase()}
                           </div>
                         )}
@@ -2652,17 +2665,25 @@ function Profile({ initialTab = "personal" }) {
               className="space-y-6"
               style={{ animation: "fadeIn 0.35s ease both" }}
             >
-              <SettingsContent
-                user={user}
-                refreshUser={refreshUser}
-                logout={logout}
-                proPass={proPass}
-                isDarkMode={isDarkMode}
-                toggleDarkMode={toggleDarkMode}
-                navigate={navigate}
-                settingsTab={settingsTab}
-                setSettingsTab={handleSettingsTabChange}
-              />
+              <Suspense
+                fallback={
+                  <div className="p-8 text-center text-sm text-gray-500">
+                    Loading settings…
+                  </div>
+                }
+              >
+                <SettingsContentLazy
+                  user={user}
+                  refreshUser={refreshUser}
+                  logout={logout}
+                  proPass={proPass}
+                  isDarkMode={isDarkMode}
+                  toggleDarkMode={toggleDarkMode}
+                  navigate={navigate}
+                  settingsTab={settingsTab}
+                  setSettingsTab={handleSettingsTabChange}
+                />
+              </Suspense>
             </div>
           )}
         </div>
@@ -2676,6 +2697,8 @@ function Profile({ initialTab = "personal" }) {
               <div className="p-6">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-gray-100 dark:border-gray-700 p-1">
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={user.avatar}
                     alt="Profile"
                     className="w-full h-full rounded-full object-cover"

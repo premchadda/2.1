@@ -70,11 +70,25 @@ if (!googleClientId) {
 }
 
 const getClientIp = (req) => {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim();
+  if (req?.ip) {
+    let ip = String(req.ip).trim();
+    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+    if (ip === "::1") return "127.0.0.1";
+    if (ip) return ip;
   }
-  return req.socket?.remoteAddress || req.ip || "unknown";
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  if (forwardedFor) {
+    const first = String(forwardedFor).split(",")[0].trim();
+    if (first.startsWith("::ffff:")) return first.slice(7);
+    return first;
+  }
+  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
+  if (sock) {
+    if (sock.startsWith("::ffff:")) return sock.slice(7);
+    if (sock === "::1") return "127.0.0.1";
+    return sock;
+  }
+  return "unknown";
 };
 
 // Append-only security audit for authentication events. Best-effort: never
@@ -226,11 +240,22 @@ export const authController = {
       const userId = user._id || user.id;
 
       // SESSION-SEC: Determine session limit based on role/pro status
+      // Admins (admin/super_admin) are unlimited by default; free=1, pro=3.
+      // Explicit users.session_limit overrides all (null/undefined = use default).
       let sessionLimit = 1; // Default for free users
-      if (user.session_limit !== null && user.session_limit !== undefined) {
+      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+        sessionLimit = Infinity; // Admin unlimited
+        // Explicit override still respected if admin has session_limit set
+        if (user.session_limit !== null && user.session_limit !== undefined) {
+          sessionLimit = user.session_limit;
+          // null explicitly means unlimited for admin; numeric string handled
+          if (sessionLimit === null) sessionLimit = Infinity;
+        }
+      } else if (
+        user.session_limit !== null &&
+        user.session_limit !== undefined
+      ) {
         sessionLimit = user.session_limit; // Admin-configured override
-      } else if (user.role === "admin") {
-        sessionLimit = 5; // Admins can have 5 sessions
       } else if (user.isProUser) {
         sessionLimit = 3; // Pro users get 3 sessions
       }
@@ -243,6 +268,7 @@ export const authController = {
 
       // SESSION-SEC: Detect existing active sessions on other devices and
       // enforce the session limit, but never evict the session we just reused.
+      // Skip enforcement entirely for unlimited (Infinity/null) admins.
       let previousSession = false;
       let otherSessions = [];
       try {
@@ -260,9 +286,9 @@ export const authController = {
 
           const activeResult = await client.query(
             `SELECT session_id, device_type, browser, os, country, city, last_active
-             FROM user_sessions
-             WHERE user_id = $1 AND is_active = true
-             ORDER BY last_active DESC`,
+              FROM user_sessions
+              WHERE user_id = $1 AND is_active = true
+              ORDER BY last_active DESC`,
             [String(userId)],
           );
           const activeRows = activeResult.rows;
@@ -279,10 +305,11 @@ export const authController = {
               lastActive: s.last_active,
             }));
 
-          if (activeRows.length > sessionLimit) {
+          const limitNum = Number(sessionLimit);
+          if (Number.isFinite(limitNum) && activeRows.length > limitNum) {
             const sessionsToRevoke = activeRows
               .filter((s) => s.session_id !== sessionId)
-              .slice(sessionLimit - 1);
+              .slice(limitNum - 1);
 
             if (sessionsToRevoke.length > 0) {
               const revokeIds = sessionsToRevoke.map((s) => s.session_id);
@@ -698,7 +725,82 @@ export const authController = {
       res.locals.loginAttemptRecorded = true;
       const userId = user._id || user.id;
 
+      // SESSION-SEC: Determine session limit (admin unlimited)
+      let googleSessionLimit = 1;
+      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+        googleSessionLimit = Infinity;
+        if (user.session_limit !== null && user.session_limit !== undefined) {
+          googleSessionLimit = user.session_limit;
+          if (googleSessionLimit === null) googleSessionLimit = Infinity;
+        }
+      } else if (
+        user.session_limit !== null &&
+        user.session_limit !== undefined
+      ) {
+        googleSessionLimit = user.session_limit;
+      } else if (user.isProUser) {
+        googleSessionLimit = 3;
+      }
+
       const sessionId = await captureSession(req, userId, "web");
+
+      // Enforce session limit after capture (same as email login, never evict current)
+      const googleLimitNum = Number(googleSessionLimit);
+      if (sessionId && Number.isFinite(googleLimitNum)) {
+        try {
+          const { pool } =
+            await import("../../infrastructure/database/postgres-helpers.js");
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+            await client.query(
+              `SELECT 1 FROM user_sessions WHERE user_id = $1 FOR UPDATE`,
+              [String(userId)],
+            );
+            const activeResult = await client.query(
+              `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true ORDER BY last_active DESC`,
+              [String(userId)],
+            );
+            const activeRows = activeResult.rows;
+            if (activeRows.length > googleLimitNum) {
+              const sessionsToRevoke = activeRows
+                .filter((s) => s.session_id !== sessionId)
+                .slice(googleLimitNum - 1);
+              if (sessionsToRevoke.length > 0) {
+                const revokeIds = sessionsToRevoke.map((s) => s.session_id);
+                await client.query(
+                  `UPDATE user_sessions SET is_active = false WHERE session_id = ANY($1)`,
+                  [revokeIds],
+                );
+                await client.query("COMMIT");
+                for (const row of sessionsToRevoke) {
+                  await invalidateSession(
+                    row.session_id,
+                    "system:limit-enforcement",
+                  );
+                }
+                console.log(
+                  `[Auth Google] Evicted ${sessionsToRevoke.length} session(s) for user ${userId} (limit: ${googleSessionLimit})`,
+                );
+              } else {
+                await client.query("COMMIT");
+              }
+            } else {
+              await client.query("COMMIT");
+            }
+          } catch (err) {
+            await client.query("ROLLBACK");
+            throw err;
+          } finally {
+            client.release();
+          }
+        } catch (limitErr) {
+          console.warn(
+            "[Auth Google] Session limit enforcement failed (non-fatal):",
+            limitErr.message,
+          );
+        }
+      }
 
       const rememberMe = Boolean(req.body.rememberMe !== false);
 
@@ -1464,12 +1566,17 @@ export const authController = {
   },
 
   // GET /api/auth/2fa/status — current 2FA enrollment status for the user
+  // Returns per-user `enabled` + global `globalEnabled` (admin toggle `security.twoFactorAuth`)
+  // so frontend can hide enrollment UI when admin has disabled 2FA globally.
   getTwoFactorStatus: async (req, res, next) => {
     try {
-      const result = await dbHelpers.pool.query(
-        "SELECT enabled, backup_codes FROM two_factor_secrets WHERE user_id = $1",
-        [String(req.user.id)],
-      );
+      const [result, securitySettings] = await Promise.all([
+        dbHelpers.pool.query(
+          "SELECT enabled, backup_codes FROM two_factor_secrets WHERE user_id = $1",
+          [String(req.user.id)],
+        ),
+        getRuntimeSecuritySettings(),
+      ]);
       const row = result.rows[0];
       res.json({
         success: true,
@@ -1478,6 +1585,7 @@ export const authController = {
           backupCodesCount: Array.isArray(row?.backup_codes)
             ? row.backup_codes.length
             : 0,
+          globalEnabled: Boolean(securitySettings.twoFactorAuth),
         },
       });
     } catch (error) {
@@ -1486,8 +1594,19 @@ export const authController = {
   },
 
   // POST /api/auth/2fa/enroll — generate a new TOTP secret (not yet enabled)
+  // Blocked when admin has disabled global toggle `security.twoFactorAuth` so
+  // students don't see enrollment UI and can't enroll when feature is off.
   enrollTwoFactor: async (req, res, next) => {
     try {
+      const securitySettings = await getRuntimeSecuritySettings();
+      if (!securitySettings.twoFactorAuth) {
+        return res.status(403).json({
+          success: false,
+          message:
+            "Two-factor authentication is currently disabled by administrator",
+          code: "TWOFA_GLOBALLY_DISABLED",
+        });
+      }
       const secret = twoFactorService.generateSecret();
       const otpauthUri = twoFactorService.buildOtpauthUri(
         secret,
@@ -1709,11 +1828,19 @@ export const authController = {
       }
 
       // SESSION-SEC: Session limit enforcement (same as standard login)
+      // Admins unlimited by default; free=1, pro=3. Explicit session_limit overrides.
       let sessionLimit = 1;
-      if (user.session_limit !== null && user.session_limit !== undefined) {
+      if (user.role === ROLES.ADMIN || user.role === ROLES.SUPER_ADMIN) {
+        sessionLimit = Infinity;
+        if (user.session_limit !== null && user.session_limit !== undefined) {
+          sessionLimit = user.session_limit;
+          if (sessionLimit === null) sessionLimit = Infinity;
+        }
+      } else if (
+        user.session_limit !== null &&
+        user.session_limit !== undefined
+      ) {
         sessionLimit = user.session_limit;
-      } else if (user.role === "admin") {
-        sessionLimit = 5;
       } else if (user.isProUser) {
         sessionLimit = 3;
       }
@@ -1725,8 +1852,12 @@ export const authController = {
            ORDER BY last_active DESC`,
           [String(userId)],
         );
-        if (activeResult.rows.length >= sessionLimit) {
-          const keepCount = sessionLimit - 1;
+        const twoFaLimitNum = Number(sessionLimit);
+        if (
+          Number.isFinite(twoFaLimitNum) &&
+          activeResult.rows.length >= twoFaLimitNum
+        ) {
+          const keepCount = twoFaLimitNum - 1;
           const sessionsToRevoke = activeResult.rows.slice(
             Math.max(0, keepCount),
           );

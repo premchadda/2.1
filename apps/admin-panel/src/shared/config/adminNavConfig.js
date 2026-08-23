@@ -106,7 +106,7 @@ export const adminNavConfig = {
           path: "/admin/deep-analytics",
           icon: TrendingUp,
           description: "User funnel, cohort analysis, and engagement metrics",
-          badge: "NEW",
+          badge: null,
         },
       ],
     },
@@ -257,14 +257,6 @@ export const adminNavConfig = {
           description: "Manage Media, PDFs & Notes",
           badge: null,
         },
-        {
-          id: "curriculum",
-          name: "Curriculum Builder",
-          path: "/admin/curriculum",
-          icon: GitBranch,
-          description: "Build curriculum hierarchies, subjects, and chapters",
-          badge: "NEW",
-        },
       ],
     },
     {
@@ -280,7 +272,7 @@ export const adminNavConfig = {
           path: "/admin/email-templates",
           icon: Mail,
           description: "Manage transactional and marketing email templates",
-          badge: "NEW",
+          badge: null,
         },
         {
           id: "notifications",
@@ -337,7 +329,7 @@ export const adminNavConfig = {
           path: "/admin/promotions",
           icon: Gift,
           description: "Referral rewards",
-          badge: "NEW",
+          badge: null,
         },
         {
           id: "payments",
@@ -345,7 +337,7 @@ export const adminNavConfig = {
           path: "/admin/payments",
           icon: CreditCard,
           description: "Transactions, refunds, and revenue",
-          badge: "NEW",
+          badge: null,
         },
       ],
     },
@@ -362,7 +354,7 @@ export const adminNavConfig = {
           path: "/admin/moderation",
           icon: AlertTriangle,
           description: "Review doubts and flagged content",
-          badge: "NEW",
+          badge: null,
         },
       ],
     },
@@ -398,19 +390,11 @@ export const adminNavConfig = {
           badge: "NEW",
         },
         {
-          id: "live-monitor",
-          name: "Live Test Monitor",
-          path: "/admin/live-monitor",
-          icon: Radio,
-          description: "Realtime view of students currently taking tests",
-          badge: "NEW",
-        },
-        {
-          id: "user-activity",
-          name: "Activity Logs",
-          path: "/admin/activity-log",
-          icon: Activity,
-          description: "User activity tracking",
+          id: "two-factor",
+          name: "Two-Factor Auth",
+          path: "/admin/two-factor",
+          icon: Shield,
+          description: "Manage two-factor authentication for user accounts",
           badge: null,
         },
       ],
@@ -429,7 +413,39 @@ export const adminNavConfig = {
           icon: FileSearch,
           description:
             "Track all admin actions and system changes with before/after snapshots",
-          badge: "NEW",
+          badge: null,
+        },
+        {
+          id: "user-activity",
+          name: "Activity Logs",
+          path: "/admin/activity-log",
+          icon: Activity,
+          description: "User activity tracking",
+          badge: null,
+        },
+        {
+          id: "live-monitor",
+          name: "Live Test Monitor",
+          path: "/admin/live-monitor",
+          icon: Radio,
+          description: "Realtime view of students currently taking tests",
+          badge: null,
+        },
+        {
+          id: "system-health",
+          name: "System Health",
+          path: "/admin/system-health",
+          icon: Activity,
+          description: "Backend status, DB health",
+          badge: null,
+        },
+        {
+          id: "logs",
+          name: "Terminal Logs",
+          path: "/admin/logs",
+          icon: Terminal,
+          description: "Live real-time backend console and terminal logs",
+          badge: "LIVE",
         },
       ],
     },
@@ -449,22 +465,6 @@ export const adminNavConfig = {
           badge: null,
         },
         {
-          id: "system-health",
-          name: "System Health",
-          path: "/admin/system-health",
-          icon: Activity,
-          description: "Backend status, DB health",
-          badge: null,
-        },
-        {
-          id: "logs",
-          name: "Terminal Logs",
-          path: "/admin/logs",
-          icon: Terminal,
-          description: "Live real-time backend console and terminal logs",
-          badge: "LIVE",
-        },
-        {
           id: "backups",
           name: "Backups",
           path: "/admin/backups",
@@ -473,19 +473,11 @@ export const adminNavConfig = {
           badge: null,
         },
         {
-          id: "coming-soon",
-          name: "Maintenance & Coming Soon",
-          path: "/admin/coming-soon",
-          icon: Clock,
-          description: "Manage maintenance mode and feature launch states",
-          badge: null,
-        },
-        {
           id: "settings",
           name: "Settings",
           path: "/admin/settings",
           icon: Settings,
-          description: "Global configuration",
+          description: "Global configuration (incl. Coming Soon — Pages)",
           badge: null,
         },
         {
@@ -495,14 +487,6 @@ export const adminNavConfig = {
           icon: Navigation,
           description: "Nav structure",
           badge: null,
-        },
-        {
-          id: "two-factor",
-          name: "Two-Factor Auth",
-          path: "/admin/two-factor",
-          icon: Shield,
-          description: "Manage two-factor authentication settings",
-          badge: "NEW",
         },
       ],
     },
@@ -527,10 +511,30 @@ export const getFlatNavItems = () => {
 };
 
 /**
- * Get navigation item by path
+ * Get navigation item by path - supports exact and prefix match for sub-routes like /admin/tests/123/edit
  */
 export const getNavItemByPath = (path) => {
-  return getFlatNavItems().find((item) => item.path === path);
+  if (!path) return undefined;
+  const clean =
+    String(path).split("?")[0].split("#")[0].replace(/\/+$/, "") || "/";
+  const items = getFlatNavItems();
+  // Exact match first
+  const exact = items.find((item) => item.path.replace(/\/+$/, "") === clean);
+  if (exact) return exact;
+  // Prefix match: longest matching prefix (e.g., /admin/tests matches /admin/tests/123)
+  let best = null;
+  let bestLen = -1;
+  for (const item of items) {
+    const base = item.path.replace(/\/+$/, "");
+    if (base === "/admin" || base === "/admin/") continue; // don't match dashboard for everything
+    if (clean === base || clean.startsWith(base + "/")) {
+      if (base.length > bestLen) {
+        best = item;
+        bestLen = base.length;
+      }
+    }
+  }
+  return best || items.find((i) => i.path === "/admin/" || i.path === "/admin");
 };
 
 /**

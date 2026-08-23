@@ -196,6 +196,25 @@ ALTER TABLE section_aliases ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFA
 CREATE INDEX IF NOT EXISTS idx_section_aliases_section ON section_aliases(section_id) WHERE section_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_section_aliases_alias ON section_aliases(alias_name) WHERE alias_name IS NOT NULL;
 
+-- Payments ledger (admin-facing) — P1 FIX: ensure via migration, not runtime CREATE TABLE
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+  currency VARCHAR(10) DEFAULT 'INR',
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  gateway VARCHAR(50),
+  gateway_payment_id VARCHAR(255),
+  created_at TIMESTAMP DEFAULT NOW(),
+  refunded_at TIMESTAMP,
+  refunded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  metadata JSONB DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_gateway_payment_id ON payments(gateway_payment_id);
+
 -- Attempt answers (detailed answer tracking)
 CREATE TABLE IF NOT EXISTS attempt_answers (
   id SERIAL PRIMARY KEY,

@@ -137,7 +137,7 @@ export function ConfirmModal({
         if (e.target === e.currentTarget && !busy) onCancel();
       }}
     >
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-[95vw] sm:max-w-sm overflow-hidden">
         <div className="p-6 text-center">
           <div
             className={`w-12 h-12 rounded-full mx-auto mb-4 flex items-center justify-center ${

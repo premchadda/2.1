@@ -248,6 +248,8 @@ function StudyMaterial() {
               subject.icon.startsWith("/") ||
               subject.icon.startsWith("data:") ? (
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={subject.icon}
                   alt={subject.title}
                   className="w-full h-full object-cover"
@@ -369,7 +371,7 @@ function StudyMaterial() {
       <AnimatedHero pageType="studyMaterial" compact>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
           <div className="flex-1">
-            <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-3 animate-slide-up leading-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-3 animate-slide-up leading-tight">
               Master Your Subjects 📖
             </h1>
             <p
@@ -390,7 +392,7 @@ function StudyMaterial() {
             />
           </div>
 
-          <div className="hidden md:grid grid-cols-2 gap-3 lg:w-[400px] animate-slide-in-right">
+          <div className="hidden md:grid grid-cols-2 gap-3 lg:w-full max-w-[400px] sm:w-[400px] animate-slide-in-right">
             {[
               { icon: Video, label: "1k+ Videos", color: "bg-emerald-500" },
               { icon: FileText, label: "Topic PDFs", color: "bg-teal-500" },
@@ -477,7 +479,7 @@ function StudyMaterial() {
                   ))
                 ) : (
                   <div className="w-full bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-700 p-8 flex flex-col md:flex-row items-center gap-6 group">
-                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-3xl animate-bounce">
+                    <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-xl sm:text-2xl lg:text-3xl animate-bounce">
                       🚀
                     </div>
                     <div className="text-center md:text-left">
@@ -704,7 +706,7 @@ function StudyMaterial() {
               Expert Study Tips
             </h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               {
                 title: "Weak Subjects First",

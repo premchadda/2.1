@@ -115,11 +115,28 @@ export const fetchFromAPI = async (endpoint, options = {}) => {
     const response = await apiClient(config);
     return response.data;
   } catch (error) {
-    console.error(`API Error (${endpoint}):`, error);
-    if (error.response?.data) {
-      return error.response.data;
+    // Already mapped by the shared apiClient interceptor (ValidationError etc.)
+    if (
+      error instanceof ValidationError ||
+      error instanceof AuthenticationError ||
+      error instanceof NotFoundError ||
+      error instanceof DataError ||
+      error instanceof NetworkError
+    ) {
+      throw error;
     }
-    throw error;
+    // Fallback mapping for any remaining raw axios errors
+    const status = error?.status ?? error?.response?.status;
+    const data = error?.details ?? error?.response?.data;
+    const message =
+      data?.message || error?.message || `API Error (${endpoint})`;
+    if (status === 400) throw new ValidationError(message, data);
+    if (status === 401 || status === 403)
+      throw new AuthenticationError(message, data);
+    if (status === 404) throw new NotFoundError(message, data);
+    if (status >= 500) throw new DataError(message, `HTTP_${status}`, data);
+    if (!error?.response) throw new NetworkError(message, error);
+    throw new ValidationError(message, data);
   }
 };
 

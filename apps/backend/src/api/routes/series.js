@@ -183,7 +183,7 @@ async function enrichSeriesWithTestCounts(seriesList) {
 
     // Get exam name for this series
     const examName = (() => {
-      const examId = series.subcategory;
+      const examId = series.examId || series.exam_id || series.exam_id_fk;
       if (!examId) return null;
       const exam = examsResult.rows.find(
         (e) =>
@@ -392,7 +392,7 @@ router.get("/:slug", optionalAuth, async (req, res) => {
         categoryName = category?.label || null;
       }
 
-      const examId = series.subcategory;
+      const examId = series.examId || series.exam_id || series.exam_id_fk;
       if (examId) {
         const exam = examsResult.rows.find(
           (e) =>

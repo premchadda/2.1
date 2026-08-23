@@ -23,3 +23,4 @@ export {
 export { default as EmptyState } from "./src/EmptyState.jsx";
 export { ThemeProvider, useTheme } from "./ThemeContext.jsx";
 export { setSharedApiClient, getSharedApiClient } from "./apiClientConfig.js";
+export { default as usePwaInstall } from "./usePwaInstall.js";

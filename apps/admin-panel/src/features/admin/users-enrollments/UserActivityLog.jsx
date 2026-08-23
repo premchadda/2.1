@@ -269,15 +269,29 @@ export default function UserActivityLog() {
       };
     }
 
+    // Build bucket times for nearest lookup
+    const bucketTimes = Object.keys(buckets).map((label) => ({
+      label,
+      time: new Date(`${new Date().toDateString()} ${label}`).getTime(),
+    }));
     activities.forEach((act) => {
       const d = new Date(act.timestamp);
-      const label = d.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      // Find nearest bucket or place into bucket
-      const keys = Object.keys(buckets);
-      const targetKey = keys[keys.length - 1] || "Now";
+      if (Number.isNaN(d.getTime())) return;
+      // Find nearest bucket by time proximity
+      let targetKey = Object.keys(buckets)[0];
+      let bestDiff = Infinity;
+      for (const { label, time } of bucketTimes) {
+        const diff = Math.abs(d.getTime() - time);
+        // handle date wrap: also try previous day
+        const diffAlt = Math.abs(d.getTime() - (time - 24 * 3600 * 1000));
+        const curDiff = Math.min(diff, diffAlt);
+        if (curDiff < bestDiff) {
+          bestDiff = curDiff;
+          targetKey = label;
+        }
+      }
+      if (!targetKey)
+        targetKey = Object.keys(buckets)[Object.keys(buckets).length - 1];
       if (buckets[targetKey]) {
         if (act.type === "user_registration")
           buckets[targetKey].registrations++;

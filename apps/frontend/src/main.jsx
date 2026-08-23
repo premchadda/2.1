@@ -11,7 +11,7 @@ import { setSharedApiClient } from "@trstprep/shared-hooks";
 import { apiClient } from "./shared/lib/dataService.js";
 import "./styles/tokens.css";
 import "./styles/index.css";
-import "katex/dist/katex.min.css";
+// KaTeX CSS loaded dynamically in MathRenderer only when needed (was global 100KB for all routes)
 
 // Register the frontend API client instance globally for shared hooks
 setSharedApiClient(apiClient);

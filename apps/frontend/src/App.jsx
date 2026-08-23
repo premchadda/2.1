@@ -17,6 +17,8 @@ import ProtectedRoute from "./shared/components/auth/ProtectedRoute";
 import ErrorBoundary from "./shared/components/common/ErrorBoundary";
 import MaintenanceMode from "./shared/components/common/MaintenanceMode";
 import FeatureGate from "./shared/components/common/FeatureGate";
+import PwaInstallBanner from "./shared/components/pwa/PwaInstallBanner";
+import PwaUpdatePrompt from "./shared/components/pwa/PwaUpdatePrompt";
 
 // PERF-03: Route-level code splitting via React.lazy with automatic retries.
 // Reduces initial JS bundle by 30-50% — each page is loaded on demand.
@@ -167,7 +169,7 @@ class RouteErrorBoundary extends React.Component {
         );
       return (
         <div className="flex items-center justify-center min-h-screen p-6">
-          <div className="text-center max-w-2xl w-full">
+          <div className="text-center max-w-[95vw] sm:max-w-2xl w-full">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               {isChunkError ? "Unable to load page" : "Something went wrong"}
             </h2>
@@ -235,6 +237,7 @@ function App() {
       <ErrorBoundary>
         <MaintenanceMode>
           <ScrollToTop />
+          <PwaUpdatePrompt />
           <Suspense fallback={<PageSkeleton />}>
             <Routes location={background || location}>
               <Route

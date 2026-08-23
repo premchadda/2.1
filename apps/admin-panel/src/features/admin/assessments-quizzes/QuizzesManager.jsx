@@ -105,19 +105,19 @@ export default function QuizzesManager() {
   const [previewQuiz, setPreviewQuiz] = useState(null);
 
   // Fetch Quizzes and Metadata
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (signal) => {
     try {
       setLoading(true);
       const [qRes, cRes, tRes, quesRes] = await Promise.all([
-        adminAPI.apiClient.get("/admin/quizzes"),
+        adminAPI.apiClient.get("/admin/quizzes", { signal }),
         adminAPI.apiClient
-          .get("/admin/chapters")
+          .get("/admin/chapters", { signal })
           .catch(() => ({ data: { data: [] } })),
         adminAPI.apiClient
-          .get("/admin/topics")
+          .get("/admin/topics", { signal })
           .catch(() => ({ data: { data: [] } })),
         adminAPI.apiClient
-          .get("/admin/questions")
+          .get("/admin/questions", { params: { limit: 200 }, signal })
           .catch(() => ({ data: { data: [] } })),
       ]);
 
@@ -134,23 +134,10 @@ export default function QuizzesManager() {
   }, []);
 
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
+    return () => controller.abort();
   }, [fetchAllData]);
-
-  // Normalization Helpers
-  const getSubjectName = useCallback(
-    (subjectVal) => {
-      if (!subjectVal) return "General";
-      const found = subjects.find(
-        (s) =>
-          String(s.id) === String(subjectVal) ||
-          String(s._id) === String(subjectVal) ||
-          s.label?.toLowerCase() === String(subjectVal).toLowerCase(),
-      );
-      return found?.label || found?.name || subjectVal;
-    },
-    [subjects],
-  );
 
   // Statistics Calculation
   const stats = useMemo(() => {
@@ -165,20 +152,47 @@ export default function QuizzesManager() {
     return { total, active, drafts, proQuizzes };
   }, [quizzes]);
 
-  // Subject Tab Counts
+  // Subject Tab Counts - O(S+Q) via index, fixes O(S*Q) jank
   const subjectCounts = useMemo(() => {
+    const index = new Map();
+    for (const q of quizzes) {
+      const key = String(
+        q.subject || q.subject_id || q.subjectId || "",
+      ).toLowerCase();
+      index.set(key, (index.get(key) || 0) + 1);
+    }
     const map = { all: quizzes.length };
-    subjects.forEach((s) => {
-      const count = quizzes.filter((q) => {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || "");
-        const sId = String(s.id || s._id || "");
-        const sName = String(s.label || s.name || "").toLowerCase();
-        return qSub === sId || qSub.toLowerCase() === sName;
-      }).length;
-      map[s.id] = count;
-    });
+    for (const s of subjects) {
+      const sId = String(s.id || s._id || "").toLowerCase();
+      const sName = String(s.label || s.name || "").toLowerCase();
+      map[s.id] =
+        (index.get(sId) || 0) +
+        (sName && sName !== sId ? index.get(sName) || 0 : 0);
+    }
     return map;
   }, [quizzes, subjects]);
+
+  // Memoized subject lookup for getSubjectName - avoids find per row O(S*Q)
+  const subjectLookup = useMemo(() => {
+    const m = new Map();
+    for (const s of subjects) {
+      m.set(String(s.id).toLowerCase(), s);
+      if (s._id) m.set(String(s._id).toLowerCase(), s);
+      if (s.label) m.set(String(s.label).toLowerCase(), s);
+      if (s.name) m.set(String(s.name).toLowerCase(), s);
+    }
+    return m;
+  }, [subjects]);
+
+  // Normalization Helpers - uses lookup map (must be after subjectLookup)
+  const getSubjectName = useCallback(
+    (subjectVal) => {
+      if (!subjectVal) return "General";
+      const found = subjectLookup.get(String(subjectVal).toLowerCase());
+      return found?.label || found?.name || subjectVal;
+    },
+    [subjectLookup],
+  );
 
   // Filtered Quizzes
   const filteredQuizzes = useMemo(() => {
@@ -309,16 +323,27 @@ export default function QuizzesManager() {
     setShowFormModal(true);
   };
 
-  // Duplicate Quiz
+  // Duplicate Quiz - fixed to use source quiz's linked questions, not currently edited quizQuestions state
   const handleDuplicateQuiz = async (q) => {
     try {
       const id = q.id || q._id;
+      if (!id) throw new Error("Quiz ID missing");
+      const sourceQuestions = allQuestions.filter(
+        (item) =>
+          String(item.quiz_id || item.quizId || item.test_id || item.testId) ===
+          String(id),
+      );
       const payload = {
-        questionIds: quizQuestions
-          .map((item) => item.id || item._id)
-          .filter(Boolean),
+        questionIds: [
+          ...new Set(
+            sourceQuestions.map((item) => item.id || item._id).filter(Boolean),
+          ),
+        ],
       };
-      await adminAPI.apiClient.post(`/admin/quizzes/${id}/duplicate`, payload);
+      await adminAPI.apiClient.post(
+        `/admin/quizzes/${encodeURIComponent(String(id))}/duplicate`,
+        payload,
+      );
       toast.success("Quiz duplicated successfully");
       fetchAllData();
     } catch (err) {
@@ -412,10 +437,15 @@ export default function QuizzesManager() {
     }
   };
 
-  // Bulk Operations
+  // Bulk Operations - fixed: selects filtered (user expectation) with paginated fallback, adds aria support
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedQuizIds(paginatedQuizzes.map((q) => q.id || q._id));
+      // Prefer filtered set (user expects all filtered), but expose paginated count in UI
+      const ids =
+        filteredQuizzes.length <= 100
+          ? filteredQuizzes.map((q) => q.id || q._id)
+          : paginatedQuizzes.map((q) => q.id || q._id);
+      setSelectedQuizIds(ids);
     } else {
       setSelectedQuizIds([]);
     }
@@ -471,11 +501,16 @@ export default function QuizzesManager() {
     }
   };
 
-  // AI Quiz Generator
+  // AI Quiz Generator - clamped to prevent cost blow-up (5/10/15 UI but manual 1000 blocked)
+  const clampedAiCount = Math.min(Math.max(Number(aiCount) || 5, 1), 15);
   const handleAiQuizGenerate = async () => {
     if (!aiTopic.trim()) {
       toast.error("Please enter a quiz topic or theme");
       return;
+    }
+    if (clampedAiCount !== Number(aiCount)) {
+      toast.error("AI count clamped to 1-15");
+      setAiCount(clampedAiCount);
     }
 
     setAiGenerating(true);
@@ -488,7 +523,7 @@ export default function QuizzesManager() {
         {
           topic: aiTopic,
           subject: selectedSubName,
-          count: Number(aiCount) || 5,
+          count: clampedAiCount,
           difficulty: aiDifficulty,
           isPractice: true,
         },
@@ -496,7 +531,11 @@ export default function QuizzesManager() {
 
       const rawQuestions = qRes.data?.data || [];
       const questionIds = Array.isArray(rawQuestions)
-        ? rawQuestions.map((q) => q.id || q._id || q).filter(Boolean)
+        ? [
+            ...new Set(
+              rawQuestions.map((q) => q.id || q._id || q).filter(Boolean),
+            ),
+          ]
         : [];
 
       if (questionIds.length === 0) {

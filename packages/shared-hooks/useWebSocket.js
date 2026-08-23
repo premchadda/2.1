@@ -1,74 +1,128 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { io } from 'socket.io-client';
+import { useEffect, useState, useCallback } from "react";
+import { io } from "socket.io-client";
 
-const SOCKET_URL = (() => {
-  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  if (typeof process !== 'undefined' && process.env?.REACT_APP_SOCKET_URL) return process.env.REACT_APP_SOCKET_URL;
-  if (typeof window !== 'undefined') {
-    return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
+const getSocketUrl = () => {
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_SOCKET_URL)
+      return import.meta.env.VITE_SOCKET_URL;
+    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_BACKEND_URL)
+      return import.meta.env.VITE_BACKEND_URL;
+    if (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_URL)
+      return import.meta.env.VITE_API_URL;
+  } catch {
+    // import.meta not available in Node/SSR
   }
-  return 'http://localhost:5001';
-})();
-
-// HIGH-09/05 FIX: Uses cookie-based auth (withCredentials), no token parameter
-export const useWebSocket = () => {
-  const socketRef = useRef(null);
-  const [isConnected, setIsConnected] = useState(false);
-
-  if (!socketRef.current && typeof window !== 'undefined') {
-    socketRef.current = io(SOCKET_URL, {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 1000,
-    });
+  if (typeof process !== "undefined" && process.env?.REACT_APP_SOCKET_URL)
+    return process.env.REACT_APP_SOCKET_URL;
+  if (typeof process !== "undefined" && process.env?.VITE_SOCKET_URL)
+    return process.env.VITE_SOCKET_URL;
+  if (typeof window !== "undefined") {
+    return `${window.location.protocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ""}`;
   }
+  return "http://localhost:5001";
+};
+
+const SOCKET_URL = getSocketUrl();
+
+// Shared socket — prevents React StrictMode duplicate connections
+let sharedSocket = null;
+let consumerCount = 0;
+
+/**
+ * WebSocket hook — cookie-based auth (withCredentials), no localStorage JWT.
+ * @param {Object|boolean} options - Either `{ enabled, token }` or a boolean `enabled`
+ * @param {boolean} [options.enabled=true] - Whether to establish the connection
+ * @param {string|null} [options.token=null] - Optional explicit token for auth (prefer cookie auth)
+ */
+export const useWebSocket = (options = {}) => {
+  const { enabled = true, token = null } =
+    typeof options === "boolean" ? { enabled: options } : options || {};
+
+  const [isConnected, setIsConnected] = useState(() =>
+    Boolean(sharedSocket?.connected),
+  );
 
   useEffect(() => {
-    const socket = socketRef.current;
-    if (!socket) return;
+    if (!enabled) {
+      setIsConnected(false);
+      return undefined;
+    }
 
-    const handleConnect = () => setIsConnected(true);
-    const handleDisconnect = () => setIsConnected(false);
-    const handleConnectError = (err) => console.error('WebSocket Connect Error:', err.message);
+    consumerCount += 1;
 
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
-    socket.on('connect_error', handleConnectError);
+    if (!sharedSocket) {
+      const socketOptions = {
+        withCredentials: true,
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+      };
+      // Only include token auth if explicitly provided — do NOT read from localStorage
+      if (token) {
+        socketOptions.auth = { token };
+      }
+      sharedSocket = io(SOCKET_URL, socketOptions);
+    }
 
+    const socket = sharedSocket;
     if (socket.connected) {
       setIsConnected(true);
     }
 
-    return () => {
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.off('connect_error', handleConnectError);
-      socket.disconnect();
-      socketRef.current = null;
+    const handleConnect = () => setIsConnected(true);
+    const handleDisconnect = () => setIsConnected(false);
+    const handleConnectError = (err) => {
+      // Avoid leaking sensitive info; only log message
+      if (typeof console !== "undefined" && console.error) {
+        console.error("WebSocket Connect Error:", err?.message || "unknown");
+      }
     };
-  }, []);
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("connect_error", handleConnectError);
+
+    return () => {
+      consumerCount = Math.max(0, consumerCount - 1);
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("connect_error", handleConnectError);
+
+      if (consumerCount === 0 && sharedSocket === socket) {
+        socket.removeAllListeners();
+        socket.disconnect();
+        sharedSocket = null;
+      }
+      setIsConnected(false);
+    };
+  }, [enabled, token]);
 
   const emit = useCallback((event, data) => {
-    if (socketRef.current) {
-      socketRef.current.emit(event, data);
+    if (sharedSocket) {
+      sharedSocket.emit(event, data);
     }
   }, []);
 
   const on = useCallback((event, callback) => {
-    if (socketRef.current) {
-      socketRef.current.on(event, callback);
+    if (sharedSocket) {
+      sharedSocket.on(event, callback);
       return () => {
-        if (socketRef.current) {
-          socketRef.current.off(event, callback);
+        if (sharedSocket) {
+          sharedSocket.off(event, callback);
         }
       };
     }
     return () => {};
   }, []);
 
-  return { isConnected, emit, on, socketRef };
+  return {
+    isConnected,
+    emit,
+    on,
+    socket: sharedSocket,
+    socketRef: { current: sharedSocket },
+  };
 };
 
 export default useWebSocket;

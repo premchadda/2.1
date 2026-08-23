@@ -20,6 +20,8 @@ export default function BannerManager() {
     position: "home",
     sortOrder: 0,
     isActive: true,
+    startDate: "",
+    endDate: "",
   });
 
   useEffect(() => {
@@ -53,13 +55,23 @@ export default function BannerManager() {
 
     try {
       const payload = {
-        title: formData.title,
-        imageUrl: formData.imageUrl,
-        linkUrl: formData.linkUrl,
+        title: String(formData.title || "").trim(),
+        imageUrl: String(formData.imageUrl || "").trim(),
+        linkUrl: String(formData.linkUrl || "").trim(),
         position: formData.position,
-        sortOrder: formData.sortOrder,
-        isActive: formData.isActive,
+        sortOrder: Number(formData.sortOrder) || 0,
+        isActive: !!formData.isActive,
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null,
       };
+      if (payload.startDate && Number.isNaN(Date.parse(payload.startDate))) {
+        toast.error("Invalid start date");
+        return;
+      }
+      if (payload.endDate && Number.isNaN(Date.parse(payload.endDate))) {
+        toast.error("Invalid end date");
+        return;
+      }
       let response;
       if (editingId) {
         response = await apiClient.put(`/admin/banners/${editingId}`, payload);
@@ -210,6 +222,8 @@ export default function BannerManager() {
               <div className="h-40 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
                 {banner.imageUrl ? (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={banner.imageUrl}
                     alt={banner.title}
                     className="w-full h-full object-cover"

@@ -28,6 +28,9 @@ import {
   CheckCircle,
   AlertCircle,
   Settings,
+  Search,
+  Check,
+  Loader2,
 } from "lucide-react";
 import { apiClient } from "../../../shared/lib/dataService.js";
 import { useNavigate } from "react-router-dom";
@@ -148,6 +151,23 @@ const LEVEL_EMOJI = {
 
 const getLevelEmoji = (level) => LEVEL_EMOJI[level] || "\u{1F4DA}";
 
+const SUBJECT_PALETTE_CB = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f59e0b",
+  "#10b981",
+  "#06b6d4",
+  "#3b82f6",
+  "#ef4444",
+];
+const paletteColorCB = (name) => {
+  let hash = 0;
+  for (let i = 0; i < (name || "").length; i++)
+    hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return SUBJECT_PALETTE_CB[Math.abs(hash) % SUBJECT_PALETTE_CB.length];
+};
+
 const CHAPTER_CONTENT_TABS = [
   {
     id: "videos",
@@ -181,7 +201,7 @@ const normalizeText = (value) =>
     .trim();
 const includesAny = (text, patterns) => patterns.some((p) => text.includes(p));
 
-export default function CurriculumBuilder() {
+function CurriculumBuilder() {
   const navigate = useNavigate();
   const [data, setData] = useState({
     subjects: [],
@@ -209,6 +229,30 @@ export default function CurriculumBuilder() {
 
   // Global filter - curriculum builder revolves around a specific subject, '' means All Subjects
   const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [subjectDropdownOpen, setSubjectDropdownOpen] = useState(false);
+  const subjectDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (
+        subjectDropdownRef.current &&
+        !subjectDropdownRef.current.contains(e.target)
+      ) {
+        setSubjectDropdownOpen(false);
+      }
+    };
+    const handleEsc = (e) => {
+      if (e.key === "Escape") setSubjectDropdownOpen(false);
+    };
+    if (subjectDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEsc);
+      return () => {
+        document.removeEventListener("mousedown", handleClickOutside);
+        document.removeEventListener("keydown", handleEsc);
+      };
+    }
+  }, [subjectDropdownOpen]);
 
   // Bulk selection state (chapters, topics, subtopics)
   const [selectedItemIds, setSelectedItemIds] = useState(new Set());
@@ -406,6 +450,11 @@ export default function CurriculumBuilder() {
       data.subjects.find((s) => entityMatchesParentId(s, selectedSubjectId)) ||
       null,
     [data.subjects, selectedSubjectId],
+  );
+
+  const filteredSubjectsForDropdown = useMemo(
+    () => sortByOrderAndId(data.subjects),
+    [data.subjects],
   );
 
   const hierarchyTree = useMemo(() => {
@@ -1152,13 +1201,6 @@ export default function CurriculumBuilder() {
     }
   };
 
-  if (loading)
-    return (
-      <div className="p-12 text-center text-gray-500 dark:text-gray-400">
-        Loading curriculum builder...
-      </div>
-    );
-
   // Which data is currently active? Sort by orderIndex so list views respect ordering.
   let activeData = [];
   if (activeTab === "subjects") activeData = sortByOrderAndId(filteredSubjects);
@@ -1250,17 +1292,33 @@ export default function CurriculumBuilder() {
           "Unknown Topic";
       }
 
-      const groupKey = `${parentName}-${parentId}`;
+      const isOrphan =
+        parentName === "Unknown Chapter" ||
+        parentName === "Unknown Topic" ||
+        parentName === "Unknown Unit" ||
+        parentName === "Unknown Subject" ||
+        parentName === "Unassigned" ||
+        parentName === "Directly under Subject";
+      const groupKey = isOrphan
+        ? `__orphan__${parentName}`
+        : `${parentName}-${parentId}`;
       if (!groups[groupKey]) {
-        const { parentOrder, parentNumericId, parentEntityName } =
-          resolveParentOrder(activeTab, parentId);
+        const orphanOrder = isOrphan ? 9999 : undefined;
+        const resolved = isOrphan
+          ? {
+              parentOrder: 9999,
+              parentNumericId: 0,
+              parentEntityName: parentName,
+            }
+          : resolveParentOrder(activeTab, parentId);
         groups[groupKey] = {
           id: groupKey,
           name: parentName,
           items: [],
-          parentOrder,
-          parentNumericId,
-          parentEntityName,
+          parentOrder: resolved.parentOrder,
+          parentNumericId: resolved.parentNumericId,
+          parentEntityName: resolved.parentEntityName,
+          isOrphan,
         };
       }
       groups[groupKey].items.push(item);
@@ -1270,6 +1328,83 @@ export default function CurriculumBuilder() {
   };
 
   const groupedData = activeTab === "hierarchy" ? {} : groupItemsByParent();
+
+  // Chapters, topics, and subtopics open with their parent groups collapsed.
+  // The scope ref prevents a user expanding a group from being overwritten on
+  // every render, while still resetting groups when the tab/subject changes.
+  const collapsedGroupIdsKey = Object.values(groupedData)
+    .map((group) => group.id)
+    .sort()
+    .join("|");
+  const collapseScopeKey = `${activeTab}:${selectedSubjectId}:${collapsedGroupIdsKey}`;
+  const shouldDefaultCollapse =
+    ["chapters", "topics", "subtopics"].includes(activeTab) &&
+    Boolean(collapsedGroupIdsKey);
+  const collapseDefaultsScopeRef = useRef("");
+  const forceInitialCollapse =
+    shouldDefaultCollapse &&
+    collapseDefaultsScopeRef.current !== collapseScopeKey;
+
+  useEffect(() => {
+    if (!shouldDefaultCollapse) return;
+
+    const groupIds = collapsedGroupIdsKey.split("|");
+    setCollapsedGroups((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      groupIds.forEach((groupId) => {
+        if (next[groupId] !== true) {
+          next[groupId] = true;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+    collapseDefaultsScopeRef.current = collapseScopeKey;
+  }, [collapseScopeKey, collapsedGroupIdsKey, shouldDefaultCollapse]);
+
+  if (loading)
+    return (
+      <div
+        className="min-h-[420px] p-4 sm:p-8 flex items-center justify-center"
+        role="status"
+        aria-live="polite"
+        aria-label="Loading curriculum builder"
+      >
+        <div className="w-full max-w-md rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-5 py-8 sm:px-8 sm:py-10 text-center shadow-sm">
+          <div className="relative mx-auto mb-5 w-16 h-16 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-indigo-100 dark:bg-indigo-950/50 animate-ping opacity-60" />
+            <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <Loader2
+                className="w-7 h-7 text-white animate-spin"
+                aria-hidden="true"
+              />
+            </div>
+          </div>
+          <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+            Loading curriculum builder
+          </h2>
+          <p className="mt-1.5 text-xs sm:text-sm text-gray-500 dark:text-gray-400">
+            Preparing your subjects, chapters, topics, and subtopics...
+          </p>
+          <div className="mt-6 grid grid-cols-5 gap-2" aria-hidden="true">
+            {["w-3/5", "w-4/5", "w-2/5", "w-full", "w-3/4"].map(
+              (width, index) => (
+                <div
+                  key={index}
+                  className="h-1.5 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden"
+                >
+                  <div
+                    className={`${width} h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 animate-pulse`}
+                    style={{ animationDelay: `${index * 120}ms` }}
+                  />
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+      </div>
+    );
 
   const selectedChapterTopic =
     chapterView.topics.find((topic) =>
@@ -1884,93 +2019,240 @@ export default function CurriculumBuilder() {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-      {/* Global Subject Selector */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+      {/* Global Subject Selector — one row on mobile */}
+      <div className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex flex-row items-center justify-between gap-2 sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm sm:text-lg font-bold text-gray-900 dark:text-white leading-tight truncate">
             Tiered Curriculum Builder
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5 leading-tight line-clamp-2 sm:line-clamp-none">
             Select a Subject to manage its internal hierarchy.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 px-4 py-2 border border-indigo-100 rounded-lg">
-          <Filter className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-          <div>
-            <label className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">
-              Target Subject
-            </label>
-            <select
-              className="bg-transparent text-sm font-bold text-gray-900 dark:text-white outline-none w-full md:w-56 cursor-pointer"
-              value={selectedSubjectId}
-              onChange={(e) => setSelectedSubjectId(e.target.value)}
-            >
-              <option value="">All Subjects</option>
-              {data.subjects.map((sub) => (
-                <option key={getEntityId(sub)} value={getEntityId(sub)}>
-                  {sub.name}
-                </option>
-              ))}
-            </select>
+        {/* Target Subject — filter logo + name only on mobile (label hidden to save space) */}
+        <div
+          ref={subjectDropdownRef}
+          className="flex relative items-center gap-1.5 md:gap-3 bg-white dark:bg-gray-800 pl-2 pr-2.5 md:pl-3 md:pr-4 py-1.5 md:py-2.5 rounded-xl md:rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm shrink-0 max-w-[52vw] md:max-w-none md:w-[300px] hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-sm transition-all group"
+        >
+          <div className="w-7 h-7 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shrink-0 shadow-sm transition-all">
+            <Filter className="w-3.5 h-3.5 md:w-[18px] md:h-[18px] text-white" />
           </div>
+          <div className="min-w-0 flex-1">
+            <div className="hidden md:flex items-center gap-1.5">
+              <span className="text-[11px] font-black tracking-[0.12em] uppercase text-gray-400 dark:text-gray-500 leading-none">
+                Target Subject
+              </span>
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/40 text-[10px] font-black leading-none">
+                {data.subjects.length}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSubjectDropdownOpen((o) => !o)}
+              className="w-full flex items-center justify-between gap-1 md:-ml-1 md:mt-0.5 text-left group/btn outline-none focus:outline-none focus:ring-0"
+            >
+              <span className="text-xs md:text-[13px] font-bold text-gray-900 dark:text-white truncate pr-1">
+                {selectedSubject ? selectedSubject.name : "All Subjects"}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400 dark:text-gray-500 shrink-0 transition-transform duration-200 ${subjectDropdownOpen ? "rotate-180 text-gray-600 dark:text-gray-300" : "group-hover/btn:text-gray-600"}`}
+              />
+            </button>
+          </div>
+
+          {subjectDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 md:mt-3 w-[74vw] max-w-[300px] md:w-[320px] bg-white dark:bg-gray-800 rounded-xl md:rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl shadow-gray-300/30 dark:shadow-black/30 overflow-hidden z-50 animate-fade-in">
+              {/* List — compact, no search */}
+              <div className="max-h-[52vh] md:max-h-[320px] overflow-y-auto p-1.5 md:p-2 space-y-0.5 md:space-y-1 scrollbar-thin">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubjectId("");
+                    setSubjectDropdownOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-2 md:gap-3 px-2.5 md:px-3 py-2 md:py-2.5 rounded-lg md:rounded-xl text-left transition border outline-none focus:outline-none focus:ring-0 ${!selectedSubjectId ? "bg-gray-100 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600" : "hover:bg-gray-50 dark:hover:bg-gray-700/50 border-transparent hover:border-gray-100 dark:hover:border-gray-700"}`}
+                >
+                  <div className="w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 dark:from-slate-600 dark:to-slate-800 flex items-center justify-center text-white shrink-0 shadow-sm">
+                    <Layers className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div
+                      className={`text-xs md:text-sm font-bold truncate ${!selectedSubjectId ? "text-gray-900 dark:text-white" : "text-gray-900 dark:text-white"}`}
+                    >
+                      All Subjects
+                    </div>
+                    <div className="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 truncate">
+                      {data.subjects.length} subjects
+                    </div>
+                  </div>
+                  {!selectedSubjectId && (
+                    <Check className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-700 dark:text-gray-300 shrink-0" />
+                  )}
+                </button>
+
+                {filteredSubjectsForDropdown.map((sub) => {
+                  const subId = String(getEntityId(sub));
+                  const isSelected = subId === String(selectedSubjectId);
+                  const accent = sub.color || paletteColorCB(sub.name);
+                  return (
+                    <button
+                      key={subId}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSubjectId(subId);
+                        setSubjectDropdownOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 md:gap-3 px-2.5 md:px-3 py-2 md:py-2.5 rounded-lg md:rounded-xl text-left transition border outline-none focus:outline-none focus:ring-0 ${isSelected ? "bg-gray-100 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600" : "hover:bg-gray-50 dark:hover:bg-gray-700/50 border-transparent hover:border-gray-100 dark:hover:border-gray-700"}`}
+                    >
+                      <div
+                        className="w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl flex items-center justify-center text-[13px] md:text-[15px] shrink-0 border shadow-sm"
+                        style={{
+                          backgroundColor: `${accent}18`,
+                          borderColor: `${accent}28`,
+                        }}
+                      >
+                        {sub.icon || "📚"}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className={`text-xs md:text-sm font-bold truncate ${isSelected ? "text-gray-900 dark:text-white" : "text-gray-900 dark:text-white"}`}
+                        >
+                          {sub.name}
+                        </div>
+                      </div>
+                      {isSelected ? (
+                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-700 dark:text-gray-300 shrink-0" />
+                      ) : (
+                        <ChevronRight className="w-3 h-3 md:w-3.5 md:h-3.5 text-gray-300 dark:text-gray-600 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {filteredSubjectsForDropdown.length === 0 && (
+                  <div className="py-8 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mx-auto mb-2">
+                      <BookOpen className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <p className="text-xs md:text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      No subjects found
+                    </p>
+                    <p className="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Create a subject first
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-1.5 md:p-2.5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 flex items-center justify-between">
+                <span className="text-[11px] md:text-xs text-gray-500 dark:text-gray-400 px-1 font-medium">
+                  {filteredSubjectsForDropdown.length} subjects
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubjectId("");
+                    setSubjectDropdownOpen(false);
+                  }}
+                  className="text-[11px] md:text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 px-2 md:px-2.5 py-1 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition"
+                >
+                  Clear filter
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Sub-Tabs */}
-      <div className="flex px-4 pt-4 space-x-2 border-b border-gray-100 bg-white dark:bg-gray-800 overflow-x-auto">
-        {HIERARCHY_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? "border-indigo-600 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-900"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Hierarchy Tabs — pill with active background */}
+      <div className="mx-3 sm:mx-4 mt-3 sm:mt-4 p-1 sm:p-1.5 bg-gray-100 dark:bg-gray-800/80 backdrop-blur rounded-2xl border border-gray-200/60 dark:border-gray-700/60 flex items-center gap-1 overflow-x-auto scrollbar-none shadow-sm">
+        {HIERARCHY_TABS.map((tab) => {
+          const isActive = activeTab === tab.id;
+          // Count badge per tab — updates when Target Subject filter applied
+          const countMap = {
+            subjects: filteredSubjects.length,
+            units: filteredUnits.length,
+            chapters: filteredChapters.length,
+            topics: filteredTopics.length,
+            subtopics: filteredSubtopics.length,
+            hierarchy: "-",
+          };
+          const count = countMap[tab.id];
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`relative flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold whitespace-nowrap transition-all duration-200 shrink-0 ${
+                isActive
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20 scale-[1.02]"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white dark:hover:bg-gray-700/60"
+              }`}
+            >
+              <span
+                className={`${isActive ? "text-white" : "text-gray-400 dark:text-gray-500"}`}
+              >
+                {tab.label}
+              </span>
+              {count !== "-" && (
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-black leading-none ${isActive ? "bg-white/20 text-white" : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="p-4 bg-white dark:bg-gray-800">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h3 className="text-lg font-bold text-gray-800">
+      <div className="p-3 sm:p-4 bg-white dark:bg-gray-800">
+        <div className="flex flex-row justify-between items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm sm:text-lg font-bold text-gray-800 dark:text-white leading-tight truncate">
               {currentTabConfig.label}
             </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-[11px] sm:text-sm text-gray-500 dark:text-gray-400 leading-tight truncate">
               {currentTabConfig.desc}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {activeTab === "subjects" && (
               <button
                 onClick={() => navigate("/admin/study-materials")}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 text-sm font-medium"
+                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-200 text-xs sm:text-sm font-medium whitespace-nowrap"
                 title="Open full Study Materials page"
               >
-                <ExternalLink className="w-4 h-4" /> Full Manager
+                <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />{" "}
+                <span className="hidden sm:inline">Full Manager</span>
+                <span className="sm:hidden">Full</span>
               </button>
             )}
             {["chapters", "topics", "subtopics"].includes(activeTab) &&
               selectedItemIds.size > 0 && (
                 <button
                   onClick={handleBulkDelete}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+                  className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs sm:text-sm font-medium whitespace-nowrap"
                 >
-                  <Trash2 className="w-4 h-4" /> Trash Selected (
-                  {selectedItemIds.size})
+                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />{" "}
+                  <span className="hidden sm:inline">
+                    Trash Selected ({selectedItemIds.size})
+                  </span>
+                  <span className="sm:hidden">
+                    Trash ({selectedItemIds.size})
+                  </span>
                 </button>
               )}
             {!["hierarchy"].includes(activeTab) && (
               <button
                 onClick={() => handleAction(activeTab)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium"
+                className="flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs sm:text-sm font-medium whitespace-nowrap"
               >
-                <Plus className="w-4 h-4" /> Add{" "}
-                {currentTabConfig.label.slice(0, -1)}
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />{" "}
+                <span className="hidden sm:inline">
+                  Add {currentTabConfig.label.slice(0, -1)}
+                </span>
+                <span className="sm:hidden">Add</span>
               </button>
             )}
           </div>
@@ -2007,7 +2289,8 @@ export default function CurriculumBuilder() {
                 return a.parentNumericId - b.parentNumericId;
               })
               .map((group) => {
-                const isCollapsed = collapsedGroups[group.id];
+                const isCollapsed =
+                  forceInitialCollapse || collapsedGroups[group.id];
                 return (
                   <div
                     key={group.id}
@@ -2015,14 +2298,14 @@ export default function CurriculumBuilder() {
                   >
                     {/* Group Header Toggle */}
                     <div
-                      className="bg-gray-50 dark:bg-gray-900 px-4 py-3 font-semibold text-gray-800 text-sm flex items-center justify-between cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 transition-colors"
+                      className={`px-3 md:px-4 py-2.5 md:py-3 font-semibold text-xs md:text-sm flex items-center justify-between gap-2 cursor-pointer transition-colors ${group.isOrphan ? "bg-amber-50/70 dark:bg-amber-950/20 hover:bg-amber-50 dark:hover:bg-amber-950/30 border-amber-100" : "bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800"}`}
                       onClick={() => toggleGroup(group.id)}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 md:gap-2 min-w-0 flex-1">
                         {isCollapsed ? (
-                          <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <ChevronRight className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                         ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <ChevronDown className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                         )}
                         {["chapters", "topics", "subtopics"].includes(
                           activeTab,
@@ -2048,15 +2331,24 @@ export default function CurriculumBuilder() {
                               });
                               setSelectedItemIds(next);
                             }}
-                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer mr-1"
+                            className="w-3.5 h-3.5 md:w-4 md:h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer shrink-0"
                           />
                         )}
-                        <span className="text-base leading-none">
-                          {getLevelEmoji(activeTab)}
+                        <span className="text-sm md:text-base leading-none shrink-0">
+                          {group.isOrphan ? "⚠️" : getLevelEmoji(activeTab)}
                         </span>
-                        {group.name}
+                        <span className="truncate" title={group.name}>
+                          {group.name}
+                        </span>
+                        {group.isOrphan && (
+                          <span className="hidden sm:inline-flex text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 shrink-0">
+                            fix link
+                          </span>
+                        )}
                       </div>
-                      <span className="text-xs bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2 py-0.5 rounded-full">
+                      <span
+                        className={`text-[11px] md:text-xs px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0 border ${group.isOrphan ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800"}`}
+                      >
                         {group.items.length} items
                       </span>
                     </div>
@@ -2111,6 +2403,8 @@ export default function CurriculumBuilder() {
                                   ) {
                                     return (
                                       <img
+                                        loading="lazy"
+                                        decoding="async"
                                         src={iconValue}
                                         alt="icon"
                                         className="w-full h-full object-cover"
@@ -2789,3 +3083,5 @@ export default function CurriculumBuilder() {
     </div>
   );
 }
+
+export default memo(CurriculumBuilder);

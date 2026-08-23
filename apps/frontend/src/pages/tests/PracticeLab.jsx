@@ -318,7 +318,7 @@ function ChooseExamModal({ onSelectExam, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-5 sm:p-7 md:p-8 max-w-xl w-full shadow-2xl space-y-5 sm:space-y-6 my-auto max-h-[90vh] overflow-y-auto animate-scale-in"
+        className="bg-white dark:bg-gray-800 rounded-2xl sm:rounded-3xl border border-slate-200 dark:border-gray-700 p-5 sm:p-7 md:p-8 max-w-[95vw] sm:max-w-xl w-full shadow-2xl space-y-5 sm:space-y-6 my-auto max-h-[90vh] max-h-[90dvh] overflow-y-auto animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
@@ -458,10 +458,10 @@ function ExamPracticeHub({
           <span className="text-xs font-bold uppercase tracking-wider bg-white/20 text-indigo-100 px-3 py-1 rounded-full mb-2 inline-block">
             {selectedExam.name} Exam Practice
           </span>
-          <h1 className="text-3xl font-black">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black">
             {selectedExam.name} Free Practice Questions
           </h1>
-          <p className="text-xs text-indigo-200 mt-1 max-w-xl">
+          <p className="text-xs text-indigo-200 mt-1 max-w-[95vw] sm:max-w-xl">
             Syllabus-aligned questions fetched directly from your active
             database across all subjects with concept tracking.
           </p>
@@ -855,7 +855,7 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
             <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 text-indigo-200 px-3 py-1 rounded-full mb-2 inline-block">
               Chapter Practice
             </span>
-            <h1 className="text-2xl md:text-3xl font-black mt-1 leading-tight">
+            <h1 className="text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black mt-1 leading-tight">
               {chapter.title}
             </h1>
             {chapterData && (
@@ -1117,7 +1117,7 @@ function PracticeHubDashboard({
       {/* Title & Daily Streak */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
             Practice Workspace
           </h1>
           <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">
@@ -1170,7 +1170,7 @@ function PracticeHubDashboard({
             <h3 className="text-lg font-black text-slate-900 dark:text-white mt-0.5">
               Re-Practice Past Incorrect Questions
             </h3>
-            <p className="text-xs text-slate-600 dark:text-gray-400 max-w-xl">
+            <p className="text-xs text-slate-600 dark:text-gray-400 max-w-[95vw] sm:max-w-xl">
               {mistakeCount > 0
                 ? `You have ${mistakeCount} questions answered incorrectly across mock tests & practice sets. Turn your mistakes into mastered concepts.`
                 : "No mistakes pending! Every question you miss in tests and practice will appear here for targeted revision."}
@@ -1203,7 +1203,7 @@ function PracticeHubDashboard({
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-3xl">🧮</span>
+              <span className="text-xl sm:text-2xl lg:text-3xl">🧮</span>
               <span className="text-[10px] uppercase font-bold tracking-wider bg-white/20 px-3 py-1 rounded-full text-indigo-100">
                 Calculation Gym
               </span>
@@ -1226,7 +1226,7 @@ function PracticeHubDashboard({
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-3xl">📚</span>
+              <span className="text-xl sm:text-2xl lg:text-3xl">📚</span>
               <span className="text-[10px] uppercase font-bold tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1 rounded-full">
                 {selectedExam ? selectedExam.name : "Choose Exam"}
               </span>
@@ -1253,7 +1253,7 @@ function PracticeHubDashboard({
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <span className="text-3xl">🎯</span>
+              <span className="text-xl sm:text-2xl lg:text-3xl">🎯</span>
               <span className="text-[10px] uppercase font-bold tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full">
                 Personalized AI
               </span>
@@ -1398,7 +1398,7 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
   const [count, setCount] = useState(initialConfig?.count || 20);
 
   return (
-    <div className="max-w-xl mx-auto py-10 px-4">
+    <div className="max-w-[95vw] sm:max-w-xl mx-auto py-10 px-4">
       <button
         onClick={onBack}
         className="inline-flex items-center text-sm font-semibold text-slate-500 dark:text-gray-400 hover:text-slate-800 dark:hover:text-gray-200 mb-6"
@@ -1532,7 +1532,7 @@ function PracticeCompleteScreen({
   onPracticeWeakTopic,
 }) {
   return (
-    <div className="max-w-2xl mx-auto py-10 px-4 text-center">
+    <div className="max-w-[95vw] sm:max-w-2xl mx-auto py-10 px-4 text-center">
       <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 shadow-sm space-y-6">
         <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
           <Award className="w-8 h-8" />

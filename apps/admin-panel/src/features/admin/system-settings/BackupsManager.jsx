@@ -118,7 +118,9 @@ export default function BackupsManager() {
         try {
           const json = JSON.parse(text);
           throw { response: { data: json } };
-        } catch {}
+        } catch (_ignored) {
+          // JSON parse failed — response is not JSON, treat as blob error downstream
+        }
       }
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");

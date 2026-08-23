@@ -99,12 +99,20 @@ const rejectOnServerless = (req, res, next) => {
 };
 
 // Fetch the current Pro Pass price from the subscription_plans table.
+// Uses index-friendly equality + prefix pattern (plan_id has btree index).
 // Falls back to 999 only if the table/query fails (e.g. not yet seeded).
 async function getProPassPrice() {
   try {
+    // Ensure index exists for fast lookup (idempotent)
+    await pool
+      .query(
+        `CREATE INDEX IF NOT EXISTS idx_subscription_plans_plan_id ON subscription_plans(plan_id)`,
+      )
+      .catch(() => {});
     const result = await pool.query(
       `SELECT price FROM subscription_plans
-       WHERE plan_id LIKE 'pro_pass%' OR plan_id LIKE 'pro-%'
+       WHERE plan_id IN ('pro_pass','pro_pass_monthly','pro_pass_yearly','pro-monthly','pro-yearly','pro_monthly','pro_yearly')
+          OR plan_id LIKE 'pro\\_%' ESCAPE '\\'
        ORDER BY price ASC LIMIT 1`,
     );
     if (result.rows.length > 0) {
@@ -202,7 +210,7 @@ router.get("/exams", async (req, res) => {
       isActive: true,
     });
 
-    const subcategories = exams
+    const examsWithCategory = exams
       .map((exam) => {
         const category = categories.find(
           (cat) =>
@@ -227,7 +235,7 @@ router.get("/exams", async (req, res) => {
       })
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
-    res.json({ success: true, data: subcategories });
+    res.json({ success: true, data: examsWithCategory });
   } catch (error) {
     res
       .status(500)
@@ -300,42 +308,30 @@ router.get("/analytics/export", async (req, res) => {
 });
 
 // ===== STUDY MATERIALS MANAGEMENT =====
-// Helper function to calculate study material counts
+// Single-query aggregation for study material counts (replaces N*5 queries).
+// Uses LEFT JOIN subqueries to compute all counts in one round-trip.
 async function calculateStudyMaterialCounts(materialId) {
   try {
-    // Count chapters
-    const chapters = await dbHelpers.find("chapters", {
-      studyMaterialId: materialId,
-      isActive: true,
-    });
-
-    // Count videos
-    const videos = await dbHelpers.find("subjectVideos", {
-      studyMaterialId: materialId,
-      isActive: true,
-    });
-
-    // Count PDFs
-    const pdfs = await dbHelpers.find("subjectPdfs", {
-      studyMaterialId: materialId,
-      isActive: true,
-    });
-
-    // Count tests (topic_tests + tests with subject_id)
-    const topicTests = await dbHelpers.find("topicTests", {
-      studyMaterialId: materialId,
-      isActive: true,
-    });
-    const directTests = await dbHelpers.pool.query(
-      "SELECT COUNT(*) FROM tests WHERE subject_id = $1 AND is_active = true",
+    const result = await pool.query(
+      `SELECT
+         COALESCE(ch.cnt,0) as topics,
+         COALESCE(sv.cnt,0) as videos,
+         COALESCE(sp.cnt,0) as pdf,
+         COALESCE(tt.cnt,0) + COALESCE(t.cnt,0) as tests
+       FROM (SELECT $1::int as mid) q
+       LEFT JOIN (SELECT study_material_id, COUNT(*)::int as cnt FROM subject_chapters WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) ch ON ch.study_material_id = q.mid
+       LEFT JOIN (SELECT study_material_id, COUNT(*)::int as cnt FROM subject_videos WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) sv ON sv.study_material_id = q.mid
+       LEFT JOIN (SELECT study_material_id, COUNT(*)::int as cnt FROM subject_pdfs WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) sp ON sp.study_material_id = q.mid
+       LEFT JOIN (SELECT study_material_id, COUNT(*)::int as cnt FROM topic_tests WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) tt ON tt.study_material_id = q.mid
+       LEFT JOIN (SELECT subject_id, COUNT(*)::int as cnt FROM tests WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY subject_id) t ON t.subject_id = q.mid`,
       [materialId],
     );
-
+    const row = result.rows[0] || {};
     return {
-      topics: chapters.length,
-      videos: videos.length,
-      pdf: pdfs.length,
-      tests: topicTests.length + parseInt(directTests.rows[0]?.count || 0),
+      topics: parseInt(row.topics) || 0,
+      videos: parseInt(row.videos) || 0,
+      pdf: parseInt(row.pdf) || 0,
+      tests: parseInt(row.tests) || 0,
     };
   } catch (error) {
     console.error("Error calculating counts:", error);
@@ -359,35 +355,62 @@ router.get("/subjects-list", async (req, res) => {
 
 router.get("/study-materials", async (req, res) => {
   try {
-    const materials = await dbHelpers.find("studyMaterials", {
-      isActive: true,
-    });
-
-    // Calculate actual counts for each material
-    const materialsWithCounts = await Promise.all(
-      materials.map(async (material) => {
-        try {
-          const counts = await calculateStudyMaterialCounts(
-            material._id || material.id,
-          );
-          return {
-            ...material,
-            topics: counts.topics,
-            videos: counts.videos,
-            pdf: counts.pdf,
-            tests: counts.tests,
-          };
-        } catch {
-          return { ...material, topics: 0, videos: 0, pdf: 0, tests: 0 };
-        }
-      }),
+    // Single query: fetch materials with aggregated counts via LEFT JOIN (no N+1)
+    const result = await pool.query(
+      `SELECT 
+         sm.*,
+         COALESCE(ch.cnt,0)::int as topics,
+         COALESCE(sv.cnt,0)::int as videos,
+         COALESCE(sp.cnt,0)::int as pdf,
+         (COALESCE(tt.cnt,0) + COALESCE(t.cnt,0))::int as tests
+       FROM study_materials sm
+       LEFT JOIN (SELECT study_material_id, COUNT(*) as cnt FROM subject_chapters WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) ch ON ch.study_material_id = sm.id
+       LEFT JOIN (SELECT study_material_id, COUNT(*) as cnt FROM subject_videos WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) sv ON sv.study_material_id = sm.id
+       LEFT JOIN (SELECT study_material_id, COUNT(*) as cnt FROM subject_pdfs WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) sp ON sp.study_material_id = sm.id
+       LEFT JOIN (SELECT study_material_id, COUNT(*) as cnt FROM topic_tests WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY study_material_id) tt ON tt.study_material_id = sm.id
+       LEFT JOIN (SELECT subject_id, COUNT(*) as cnt FROM tests WHERE is_active = true AND (is_deleted = false OR is_deleted IS NULL) GROUP BY subject_id) t ON t.subject_id = sm.id
+       WHERE sm.is_active = true AND (sm.is_deleted = false OR sm.is_deleted IS NULL)
+       ORDER BY sm.id ASC`,
     );
-
+    const materialsWithCounts = result.rows.map((row) => {
+      const camel = dbHelpers.toCamel(row);
+      camel.topics = row.topics;
+      camel.videos = row.videos;
+      camel.pdf = row.pdf;
+      camel.tests = row.tests;
+      return camel;
+    });
     res.json({ success: true, data: materialsWithCounts });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
+    // Fallback to helper-managed path if aggregation query fails (e.g., missing column)
+    try {
+      const materials = await dbHelpers.find("studyMaterials", {
+        isActive: true,
+      });
+      const materialsWithCounts = await Promise.all(
+        materials.map(async (material) => {
+          try {
+            const counts = await calculateStudyMaterialCounts(
+              material._id || material.id,
+            );
+            return {
+              ...material,
+              topics: counts.topics,
+              videos: counts.videos,
+              pdf: counts.pdf,
+              tests: counts.tests,
+            };
+          } catch {
+            return { ...material, topics: 0, videos: 0, pdf: 0, tests: 0 };
+          }
+        }),
+      );
+      return res.json({ success: true, data: materialsWithCounts });
+    } catch (fallbackErr) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(fallbackErr) });
+    }
   }
 });
 
@@ -1086,172 +1109,402 @@ router.put("/topic-tests/:id/reorder", async (req, res) => {
 // Centralized sanitization helper to avoid PII leakage (SEC-12)
 const sanitizeUser = (user) => canonicalSanitizeUser(user);
 
-// List users with pagination
-// List enrollments — one row per user with aggregated enrollment details
-// CRIT-06 FIX: Sanitize user data to prevent PII leakage (SEC-12)
+// List enrollments — SQL JOIN+WHERE+LIMIT/OFFSET (no in-memory full table scans)
+// One row per user with aggregated enrollment details, paginated, filtered via SQL ILIKE
 router.get("/enrollments", async (req, res) => {
   try {
-    const [
-      allEnrollments,
-      allUsers,
-      allSeries,
-      allStudyMaterials,
-      allExams,
-      allPlans,
-    ] = await Promise.all([
-      dbHelpers.find("enrollments", { isActive: true }),
-      dbHelpers.find("users"),
-      dbHelpers.find("testSeries"),
-      dbHelpers.find("studyMaterials"),
-      dbHelpers.find("exams"),
-      dbHelpers.find("subscriptionPlans"),
-    ]);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(
+      Math.max(parseInt(req.query.limit, 10) || 20, 1),
+      100,
+    );
+    const offset = (page - 1) * limit;
+    const search = (req.query.search || "").trim();
+    const statusFilter = (req.query.status || "").trim();
 
-    const seriesMap = {};
-    for (const s of allSeries) seriesMap[s.id || s._id] = s;
+    // Build WHERE for user search (used in both count and paginated queries)
+    const whereConds = ["e.is_active = true"];
+    const params = [];
+    let pIdx = 1;
+    // Search on user name/email via ILIKE
+    if (search) {
+      whereConds.push(`(u.name ILIKE $${pIdx} OR u.email ILIKE $${pIdx})`);
+      params.push(`%${search}%`);
+      pIdx++;
+    }
+    if (statusFilter) {
+      whereConds.push(`e.status = $${pIdx}`);
+      params.push(statusFilter);
+      pIdx++;
+    }
+    const whereSql = whereConds.join(" AND ");
 
-    const materialMap = {};
-    for (const m of allStudyMaterials) materialMap[m.id || m._id] = m;
+    // Total distinct users with enrollments matching filter (for pagination meta)
+    let total = 0;
+    try {
+      const countRes = await pool.query(
+        `SELECT COUNT(DISTINCT e.user_id) as total
+         FROM enrollments e
+         JOIN users u ON e.user_id = u.id
+         WHERE ${whereSql}`,
+        params,
+      );
+      total = parseInt(countRes.rows[0]?.total || 0, 10);
+    } catch (countErr) {
+      // If enrollments table missing or query fails, fall back to 0 (handled below)
+      console.warn(
+        "[Admin][Enrollments] count query failed:",
+        countErr.message,
+      );
+    }
 
-    const examMap = {};
-    for (const e of allExams) examMap[e.id || e._id] = e;
+    if (total === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+        total: 0,
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      });
+    }
 
-    const planMap = {};
-    for (const p of allPlans) planMap[p.plan_id || p.planId] = p;
+    // Paginated user ids ordered by most recent enrollment (MAX enrolled_at DESC)
+    const paginatedUserIdsRes = await pool.query(
+      `SELECT e.user_id, MAX(e.enrolled_at) as last_enrolled
+       FROM enrollments e
+       JOIN users u ON e.user_id = u.id
+       WHERE ${whereSql}
+       GROUP BY e.user_id
+       ORDER BY MAX(e.enrolled_at) DESC
+       LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
+      [...params, limit, offset],
+    );
+    const paginatedUserIds = paginatedUserIdsRes.rows.map((r) => r.user_id);
+    if (paginatedUserIds.length === 0) {
+      return res.json({
+        success: true,
+        data: [],
+        count: 0,
+        total,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      });
+    }
+
+    // Fetch all enrollments for those paginated users with JOINs to resolve names via SQL
+    const enrollmentsRes = await pool.query(
+      `SELECT 
+         e.id, e.user_id, e.series_id, e.study_material_id, e.exam_id, e.status, e.progress, e.enrolled_at,
+         u.id as u_id, u.name as u_name, u.email as u_email, u.is_active as u_is_active, u.is_pro_user, u.pro_pass_expiry, u.pass_type, u.created_at as u_created_at,
+         ts.title as series_title, ts.name as series_name,
+         sm.title as material_title, sm.name as material_name,
+         ex.title as exam_title, ex.name as exam_name,
+         sp.plan_id as sp_plan_id, sp.name as sp_name, sp.period as sp_period
+       FROM enrollments e
+       JOIN users u ON e.user_id = u.id
+       LEFT JOIN test_series ts ON e.series_id = ts.id
+       LEFT JOIN study_materials sm ON e.study_material_id = sm.id
+       LEFT JOIN exams ex ON e.exam_id = ex.id
+       LEFT JOIN subscription_plans sp ON u.pass_type = sp.plan_id
+       WHERE e.user_id = ANY($1::int[]) AND e.is_active = true
+       ORDER BY e.enrolled_at DESC`,
+      [paginatedUserIds],
+    );
+
+    // Group by user
+    const userMap = new Map();
+    for (const row of enrollmentsRes.rows) {
+      const uid = String(row.user_id);
+      if (!userMap.has(uid)) {
+        const safeUser = sanitizeUser({
+          id: row.u_id,
+          name: row.u_name,
+          email: row.u_email,
+          isActive: row.u_is_active,
+          isProUser: row.is_pro_user,
+          proPassExpiry: row.pro_pass_expiry,
+          passType: row.pass_type,
+          pass_type: row.pass_type,
+          createdAt: row.u_created_at,
+        });
+        userMap.set(uid, {
+          user: safeUser,
+          rawPassType: row.pass_type || "free",
+          plan: row.sp_plan_id
+            ? {
+                name: row.sp_name,
+                period: row.sp_period,
+                plan_id: row.sp_plan_id,
+              }
+            : null,
+          series: [],
+          materials: [],
+          exams: [],
+          dates: [],
+        });
+      }
+      const entry = userMap.get(uid);
+      const enrolledAt = row.enrolled_at || null;
+      if (enrolledAt) entry.dates.push(enrolledAt);
+      if (row.series_id) {
+        entry.series.push({
+          id: row.series_id,
+          name:
+            row.series_title || row.series_name || `Series #${row.series_id}`,
+          status: row.status || "active",
+          progress: row.progress || 0,
+          enrolledAt,
+        });
+      }
+      if (row.study_material_id) {
+        entry.materials.push({
+          id: row.study_material_id,
+          name:
+            row.material_title ||
+            row.material_name ||
+            `Material #${row.study_material_id}`,
+          status: row.status || "active",
+          progress: row.progress || 0,
+          enrolledAt,
+        });
+      }
+      if (row.exam_id) {
+        entry.exams.push({
+          id: row.exam_id,
+          name: row.exam_title || row.exam_name || `Exam #${row.exam_id}`,
+          status: row.status || "active",
+          enrolledAt,
+        });
+      }
+    }
 
     const records = [];
-
-    for (const user of allUsers) {
-      const safeUser = sanitizeUser(user);
-      const userId = safeUser.id;
-
-      // Collect all enrollments for this user
-      const userEnrollments = allEnrollments.filter(
-        (e) => String(e.userId || e.user_id) === String(userId),
-      );
-
-      const enrolledSeries = [];
-      const enrolledMaterials = [];
-      const enrolledExams = [];
-
-      for (const enrollment of userEnrollments) {
-        if (enrollment.seriesId || enrollment.series_id) {
-          const sid = enrollment.seriesId || enrollment.series_id;
-          const series = seriesMap[sid];
-          if (series) {
-            enrolledSeries.push({
-              id: sid,
-              name: series.title || series.name || `Series #${sid}`,
-              status: enrollment.status || "active",
-              progress: enrollment.progress || 0,
-              enrolledAt:
-                enrollment.enrolledAt || enrollment.enrolled_at || null,
-            });
-          }
-        }
-
-        if (enrollment.studyMaterialId || enrollment.study_material_id) {
-          const mid =
-            enrollment.studyMaterialId || enrollment.study_material_id;
-          const material = materialMap[mid];
-          if (material) {
-            enrolledMaterials.push({
-              id: mid,
-              name: material.title || material.name || `Material #${mid}`,
-              status: enrollment.status || "active",
-              progress: enrollment.progress || 0,
-              enrolledAt:
-                enrollment.enrolledAt || enrollment.enrolled_at || null,
-            });
-          }
-        }
-
-        if (enrollment.examId || enrollment.exam_id) {
-          const eid = enrollment.examId || enrollment.exam_id;
-          const exam = examMap[eid];
-          if (exam) {
-            enrolledExams.push({
-              id: eid,
-              name: exam.title || exam.name || `Exam #${eid}`,
-              status: enrollment.status || "active",
-              enrolledAt:
-                enrollment.enrolledAt || enrollment.enrolled_at || null,
-            });
-          }
-        }
-      }
-
-      // Skip users with no enrollments
-      if (
-        enrolledSeries.length === 0 &&
-        enrolledMaterials.length === 0 &&
-        enrolledExams.length === 0
-      )
+    for (const {
+      user,
+      rawPassType,
+      plan,
+      series,
+      materials,
+      exams,
+      dates,
+    } of userMap.values()) {
+      if (series.length === 0 && materials.length === 0 && exams.length === 0)
         continue;
-
-      // Determine pass type label from users.pass_type field
-      const rawPassType = safeUser.passType || safeUser.pass_type || "free";
-      const plan = planMap[rawPassType];
-      const passLabel = safeUser.isProUser
+      const passLabel = user.isProUser
         ? plan
           ? `${plan.name} (${plan.period})`
           : "Pro Pass"
         : "Free";
-      const passBadge = safeUser.isProUser
+      const passBadge = user.isProUser
         ? plan?.period === "yearly"
           ? "Pro Yearly"
           : plan?.period === "monthly"
             ? "Pro Monthly"
             : "Pro Pass"
         : "Free";
-
-      // Find earliest enrollment date
-      const allDates = [
-        ...enrolledSeries.map((e) => e.enrolledAt),
-        ...enrolledMaterials.map((e) => e.enrolledAt),
-        ...enrolledExams.map((e) => e.enrolledAt),
-      ].filter(Boolean);
       const enrolledAt =
-        allDates.length > 0
-          ? allDates.sort((a, b) => new Date(a) - new Date(b))[0]
-          : safeUser.createdAt || null;
-
+        dates.length > 0
+          ? dates.sort((a, b) => new Date(a) - new Date(b))[0]
+          : user.createdAt || null;
       records.push({
-        userId: safeUser.id,
-        userName: safeUser.name || "Unknown",
-        userEmail: safeUser.email || "",
-        isActive: safeUser.isActive !== false,
-        isProUser: !!safeUser.isProUser,
-        proPassExpiry:
-          safeUser.proPassExpiry ||
-          safeUser.proExpiry ||
-          safeUser.pro_expiry ||
-          null,
+        userId: user.id,
+        userName: user.name || "Unknown",
+        userEmail: user.email || "",
+        isActive: user.isActive !== false,
+        isProUser: !!user.isProUser,
+        proPassExpiry: user.proPassExpiry || user.proExpiry || null,
         passType: passLabel,
         passBadge,
         passPeriod: plan?.period || null,
         planId: rawPassType,
-        series: enrolledSeries,
-        seriesCount: enrolledSeries.length,
-        studyMaterials: enrolledMaterials,
-        studyMaterialCount: enrolledMaterials.length,
-        exams: enrolledExams,
-        examCount: enrolledExams.length,
-        totalEnrollments:
-          enrolledSeries.length +
-          enrolledMaterials.length +
-          enrolledExams.length,
+        series,
+        seriesCount: series.length,
+        studyMaterials: materials,
+        studyMaterialCount: materials.length,
+        exams,
+        examCount: exams.length,
+        totalEnrollments: series.length + materials.length + exams.length,
         enrolledAt,
       });
     }
 
+    // Sort by enrolledAt desc (already paginated by user, but ensure order)
     records.sort(
       (a, b) => new Date(b.enrolledAt || 0) - new Date(a.enrolledAt || 0),
     );
 
-    res.json({ success: true, data: records, count: records.length });
+    res.json({
+      success: true,
+      data: records,
+      count: records.length,
+      total,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error" });
+    console.error(
+      "[Admin][Enrollments] SQL path failed, falling back:",
+      error.message,
+    );
+    // Fallback to legacy in-memory path if SQL JOIN fails (e.g., missing tables)
+    try {
+      const [
+        allEnrollments,
+        allUsers,
+        allSeries,
+        allStudyMaterials,
+        allExams,
+        allPlans,
+      ] = await Promise.all([
+        dbHelpers.find("enrollments", { isActive: true }),
+        dbHelpers.find("users"),
+        dbHelpers.find("testSeries"),
+        dbHelpers.find("studyMaterials"),
+        dbHelpers.find("exams"),
+        dbHelpers.find("subscriptionPlans"),
+      ]);
+      const seriesMap = {};
+      for (const s of allSeries) seriesMap[s.id || s._id] = s;
+      const materialMap = {};
+      for (const m of allStudyMaterials) materialMap[m.id || m._id] = m;
+      const examMap = {};
+      for (const e of allExams) examMap[e.id || e._id] = e;
+      const planMap = {};
+      for (const p of allPlans) planMap[p.plan_id || p.planId] = p;
+      const records = [];
+      for (const user of allUsers) {
+        const safeUser = sanitizeUser(user);
+        const userId = safeUser.id;
+        const userEnrollments = allEnrollments.filter(
+          (e) => String(e.userId || e.user_id) === String(userId),
+        );
+        const enrolledSeries = [];
+        const enrolledMaterials = [];
+        const enrolledExams = [];
+        for (const enrollment of userEnrollments) {
+          if (enrollment.seriesId || enrollment.series_id) {
+            const sid = enrollment.seriesId || enrollment.series_id;
+            const series = seriesMap[sid];
+            if (series)
+              enrolledSeries.push({
+                id: sid,
+                name: series.title || series.name || `Series #${sid}`,
+                status: enrollment.status || "active",
+                progress: enrollment.progress || 0,
+                enrolledAt:
+                  enrollment.enrolledAt || enrollment.enrolled_at || null,
+              });
+          }
+          if (enrollment.studyMaterialId || enrollment.study_material_id) {
+            const mid =
+              enrollment.studyMaterialId || enrollment.study_material_id;
+            const material = materialMap[mid];
+            if (material)
+              enrolledMaterials.push({
+                id: mid,
+                name: material.title || material.name || `Material #${mid}`,
+                status: enrollment.status || "active",
+                progress: enrollment.progress || 0,
+                enrolledAt:
+                  enrollment.enrolledAt || enrollment.enrolled_at || null,
+              });
+          }
+          if (enrollment.examId || enrollment.exam_id) {
+            const eid = enrollment.examId || enrollment.exam_id;
+            const exam = examMap[eid];
+            if (exam)
+              enrolledExams.push({
+                id: eid,
+                name: exam.title || exam.name || `Exam #${eid}`,
+                status: enrollment.status || "active",
+                enrolledAt:
+                  enrollment.enrolledAt || enrollment.enrolled_at || null,
+              });
+          }
+        }
+        if (
+          enrolledSeries.length === 0 &&
+          enrolledMaterials.length === 0 &&
+          enrolledExams.length === 0
+        )
+          continue;
+        const rawPassType = safeUser.passType || safeUser.pass_type || "free";
+        const plan = planMap[rawPassType];
+        const passLabel = safeUser.isProUser
+          ? plan
+            ? `${plan.name} (${plan.period})`
+            : "Pro Pass"
+          : "Free";
+        const passBadge = safeUser.isProUser
+          ? plan?.period === "yearly"
+            ? "Pro Yearly"
+            : plan?.period === "monthly"
+              ? "Pro Monthly"
+              : "Pro Pass"
+          : "Free";
+        const allDates = [
+          ...enrolledSeries.map((e) => e.enrolledAt),
+          ...enrolledMaterials.map((e) => e.enrolledAt),
+          ...enrolledExams.map((e) => e.enrolledAt),
+        ].filter(Boolean);
+        const enrolledAt =
+          allDates.length > 0
+            ? allDates.sort((a, b) => new Date(a) - new Date(b))[0]
+            : safeUser.createdAt || null;
+        records.push({
+          userId: safeUser.id,
+          userName: safeUser.name || "Unknown",
+          userEmail: safeUser.email || "",
+          isActive: safeUser.isActive !== false,
+          isProUser: !!safeUser.isProUser,
+          proPassExpiry: safeUser.proPassExpiry || safeUser.proExpiry || null,
+          passType: passLabel,
+          passBadge,
+          passPeriod: plan?.period || null,
+          planId: rawPassType,
+          series: enrolledSeries,
+          seriesCount: enrolledSeries.length,
+          studyMaterials: enrolledMaterials,
+          studyMaterialCount: enrolledMaterials.length,
+          exams: enrolledExams,
+          examCount: enrolledExams.length,
+          totalEnrollments:
+            enrolledSeries.length +
+            enrolledMaterials.length +
+            enrolledExams.length,
+          enrolledAt,
+        });
+      }
+      records.sort(
+        (a, b) => new Date(b.enrolledAt || 0) - new Date(a.enrolledAt || 0),
+      );
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 20, 1),
+        100,
+      );
+      const offset = (page - 1) * limit;
+      const paged = records.slice(offset, offset + limit);
+      return res.json({
+        success: true,
+        data: paged,
+        count: paged.length,
+        total: records.length,
+        pagination: {
+          page,
+          limit,
+          total: records.length,
+          totalPages: Math.ceil(records.length / limit),
+        },
+      });
+    } catch (fallbackErr) {
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
   }
 });
 
@@ -1390,68 +1643,128 @@ const buildAssetUrlMap = async (assetIds) => {
 const listAssets = async (req, res) => {
   try {
     const { category, type, search, page = 1, limit = 100 } = req.query;
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 100, 1), 100);
+    const offset = (pageNumber - 1) * limitNumber;
 
-    const allAssets = await dbHelpers.find("assets", { isActive: true });
-    let filteredAssets = allAssets;
+    // Build SQL WHERE with parameterized ILIKE (no in-memory filtering)
+    const conditions = ["is_active = true"];
+    const values = [];
+    let pIdx = 1;
 
     if (category) {
-      filteredAssets = filteredAssets.filter(
-        (asset) =>
-          (asset.category || "").toLowerCase() ===
-          String(category).toLowerCase(),
-      );
+      conditions.push(`category ILIKE $${pIdx}`);
+      values.push(String(category));
+      pIdx++;
     }
-
     if (type) {
       const typeLower = String(type).toLowerCase();
-      filteredAssets = filteredAssets.filter((asset) => {
-        const assetType = (asset.type || "").toLowerCase();
-        const assetCategory = (asset.category || "").toLowerCase();
-        return (
-          assetType.startsWith(`${typeLower}/`) || assetCategory === typeLower
-        );
-      });
+      // type filter: matches mime prefix (e.g., 'image') or exact category
+      conditions.push(`(type ILIKE $${pIdx} OR category ILIKE $${pIdx + 1})`);
+      values.push(`${typeLower}/%`);
+      values.push(typeLower);
+      pIdx += 2;
     }
-
     if (search) {
-      const query = String(search).toLowerCase();
-      filteredAssets = filteredAssets.filter(
-        (asset) =>
-          String(asset.name || "")
-            .toLowerCase()
-            .includes(query) ||
-          String(asset.url || "")
-            .toLowerCase()
-            .includes(query),
-      );
+      const like = `%${String(search)}%`;
+      conditions.push(`(name ILIKE $${pIdx} OR url ILIKE $${pIdx})`);
+      values.push(like);
+      pIdx++;
     }
 
-    filteredAssets.sort(
-      (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    const whereSql = conditions.join(" AND ");
+
+    // Count total matching rows via SQL
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int as total FROM assets WHERE ${whereSql}`,
+      values,
+    );
+    const total = countRes.rows[0]?.total || 0;
+
+    // Fetch paginated rows via SQL JOIN (no JOIN needed but WHERE+ORDER+LIMIT/OFFSET)
+    const rowsRes = await pool.query(
+      `SELECT id, name, type, category, url, size, metadata, uploaded_by, is_active, created_at, updated_at
+       FROM assets
+       WHERE ${whereSql}
+       ORDER BY created_at DESC
+       LIMIT $${pIdx} OFFSET $${pIdx + 1}`,
+      [...values, limitNumber, offset],
     );
 
-    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
-    const limitNumber = Math.max(parseInt(limit, 10) || 100, 1);
-    const startIndex = (pageNumber - 1) * limitNumber;
-    const paginatedAssets = filteredAssets
-      .slice(startIndex, startIndex + limitNumber)
-      .map(normalizeAssetRecord);
+    const paginatedAssets = rowsRes.rows.map((row) =>
+      normalizeAssetRecord(dbHelpers.toCamel(row)),
+    );
 
     res.json({
       success: true,
       data: paginatedAssets,
-      total: filteredAssets.length,
+      total,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
-        total: filteredAssets.length,
-        totalPages: Math.ceil(filteredAssets.length / limitNumber),
+        total,
+        totalPages: Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
+    // Fallback to in-memory path if SQL fails (e.g., missing columns)
+    try {
+      const allAssets = await dbHelpers.find("assets", { isActive: true });
+      let filteredAssets = allAssets;
+      if (req.query.category) {
+        filteredAssets = filteredAssets.filter(
+          (asset) =>
+            (asset.category || "").toLowerCase() ===
+            String(req.query.category).toLowerCase(),
+        );
+      }
+      if (req.query.type) {
+        const typeLower = String(req.query.type).toLowerCase();
+        filteredAssets = filteredAssets.filter((asset) => {
+          const assetType = (asset.type || "").toLowerCase();
+          const assetCategory = (asset.category || "").toLowerCase();
+          return (
+            assetType.startsWith(`${typeLower}/`) || assetCategory === typeLower
+          );
+        });
+      }
+      if (req.query.search) {
+        const q = String(req.query.search).toLowerCase();
+        filteredAssets = filteredAssets.filter(
+          (asset) =>
+            String(asset.name || "")
+              .toLowerCase()
+              .includes(q) ||
+            String(asset.url || "")
+              .toLowerCase()
+              .includes(q),
+        );
+      }
+      filteredAssets.sort(
+        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+      );
+      const pageNumber = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const limitNumber = Math.max(parseInt(req.query.limit, 10) || 100, 1);
+      const startIndex = (pageNumber - 1) * limitNumber;
+      const paginatedAssets = filteredAssets
+        .slice(startIndex, startIndex + limitNumber)
+        .map(normalizeAssetRecord);
+      return res.json({
+        success: true,
+        data: paginatedAssets,
+        total: filteredAssets.length,
+        pagination: {
+          page: pageNumber,
+          limit: limitNumber,
+          total: filteredAssets.length,
+          totalPages: Math.ceil(filteredAssets.length / limitNumber),
+        },
+      });
+    } catch (fallbackErr) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(fallbackErr) });
+    }
   }
 };
 
@@ -1854,7 +2167,7 @@ router.delete("/exam-categories/:id", async (req, res) => {
 // @desc    Get all stages with test counts
 // @access  Admin
 
-// ===== EXAMS CRUD (renamed from exam-subcategories) =====
+// ===== EXAMS CRUD =====
 // NOTE: All exam management now uses the exams table directly
 
 // @route   POST /api/admin/exams
@@ -1890,7 +2203,6 @@ router.post("/exams", async (req, res) => {
       });
     }
 
-    // Create the exam (subcategory is now an exam)
     const newExam = await dbHelpers.insertOne("exams", {
       categoryId: parentCategoryId,
       examId: slug,
@@ -1902,7 +2214,6 @@ router.post("/exams", async (req, res) => {
       displayOrder: displayOrder || 0,
     });
 
-    // Return in subcategory format
     const categories = await dbHelpers.find("examCategories", {
       isActive: true,
     });
@@ -1930,7 +2241,7 @@ router.post("/exams", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error creating subcategory (exam):", error);
+    console.error("Error creating exam:", error);
     res
       .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });
@@ -2008,7 +2319,7 @@ router.put("/exams/:id", async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error updating subcategory (exam):", error);
+    console.error("Error updating exam:", error);
     res
       .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });
@@ -2038,10 +2349,10 @@ router.delete("/exams/:id", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Subcategory (exam) deleted successfully",
+      message: "Exam deleted successfully",
     });
   } catch (error) {
-    console.error("Error deleting subcategory (exam):", error);
+    console.error("Error deleting exam:", error);
     res
       .status(500)
       .json({ success: false, message: sanitizeErrorMessage(error) });

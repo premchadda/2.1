@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams, Link } from "react-router-dom";
 import {
@@ -25,9 +25,48 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { adminAPI, apiClient } from "../../../shared/lib/dataService";
-import { coerceArray } from "../../../shared/utils/questionHelpers";
+import {
+  coerceArray,
+  idsEqual,
+  normalizeKey,
+  flattenCategories,
+  getEntityId,
+} from "../../../shared/utils/questionHelpers";
+import {
+  getSeriesId,
+  getTestId,
+  getTestSeriesIdFromTest as getTestSeriesId,
+  getStageIdFromTest,
+  getSectionId,
+  getSectionName,
+  getSeriesExamId,
+  getSeriesExamCategoryId,
+} from "./components/questionHelpers.js";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
+
+// Revived helpers (were missing after dedup - P0 fix)
+const parseIdList = (value) =>
+  coerceArray(value)
+    .map((v) => String(v).trim())
+    .filter(Boolean);
+const normalizeTest = (t) => ({
+  id: getTestId(t),
+  title: t?.title || t?.name || "",
+  ...t,
+});
+const normalizeSectionForForm = (s) => ({
+  id: getSectionId(s),
+  name: getSectionName(s),
+  ...s,
+});
+const getTestQuestionsCount = (testId, questions) =>
+  Array.isArray(questions)
+    ? questions.filter((q) => String(q.testId || q.test_id) === String(testId))
+        .length
+    : 0;
+const getLinkedTestCategoryId = () => null;
 import FullTestImportModal from "./components/FullTestImportModal";
+import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
 
 const TEST_CATEGORY_TABS = [
   { id: "mock-tests", label: "Mock Tests", icon: CheckSquare },
@@ -66,869 +105,6 @@ const TEST_CATEGORY_ALIASES = {
 
 const UNASSIGNED_SUBCATEGORY_ID = "__unassigned__";
 
-const SECTION_PRESETS = [
-  // ───────────────────── SSC CGL ─────────────────────
-  {
-    id: "ssc-cgl-tier-1",
-    label: "SSC CGL Tier-I",
-    description:
-      "4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "1",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "2",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "Quantitative Aptitude",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "3",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "English Comprehension",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "4",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-    ],
-  },
-  {
-    id: "ssc-cgl-tier-2-paper-1",
-    label: "SSC CGL Tier-II Paper-I",
-    description: "150 Qs + DEST, 450 marks, 2 hr 30 min, -1.00 neg",
-    sections: [
-      {
-        name: "Mathematical Abilities",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-I",
-        section_code: "I-A",
-        expected_questions: 30,
-        total_marks: 90,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "Reasoning & General Intelligence",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-I",
-        section_code: "I-B",
-        expected_questions: 30,
-        total_marks: 90,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "English Language & Comprehension",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-I",
-        section_code: "II-A",
-        expected_questions: 45,
-        total_marks: 135,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-I",
-        section_code: "II-B",
-        expected_questions: 25,
-        total_marks: 75,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "Computer Knowledge Test",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-I",
-        section_code: "III",
-        expected_questions: 20,
-        total_marks: 60,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 900,
-        is_qualifying: true,
-      },
-      {
-        name: "Data Entry Speed Test (DEST)",
-        exam_stage: "Tier-II",
-        paper: "Paper-I",
-        session: "Session-II",
-        section_code: "IV",
-        expected_questions: 0,
-        total_marks: 0,
-        marks_per_question: 0,
-        negative_marks: 0,
-        time_limit: 900,
-        is_qualifying: true,
-      },
-    ],
-  },
-  {
-    id: "ssc-cgl-tier-2-paper-2",
-    label: "SSC CGL Tier-II Paper-II (Statistics)",
-    description:
-      "Statistics paper for JSO / Statistical Investigator — 100 Qs, 200 marks, 2 hr",
-    sections: [
-      {
-        name: "Statistics",
-        exam_stage: "Tier-II",
-        paper: "Paper-II",
-        section_code: "Paper-II",
-        expected_questions: 100,
-        total_marks: 200,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 7200,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC CHSL ─────────────────────
-  {
-    id: "ssc-chsl-tier-1",
-    label: "SSC CHSL Tier-I",
-    description:
-      "4 sections, 100 Qs, 200 marks, 60 min, -0.50 neg, sectional timing 15 min/section",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "1",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "2",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "Quantitative Aptitude",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "3",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-      {
-        name: "English Language",
-        exam_stage: "Tier-I",
-        paper: "Tier-I",
-        section_code: "4",
-        expected_questions: 25,
-        total_marks: 50,
-        marks_per_question: 2,
-        negative_marks: 0.5,
-        time_limit: 900,
-      },
-    ],
-  },
-  {
-    id: "ssc-chsl-tier-2-session-1",
-    label: "SSC CHSL Tier-II Session-I",
-    description: "135 Qs, 405 marks, 2 hr 15 min, -1.00 neg",
-    sections: [
-      {
-        name: "Mathematical Abilities",
-        exam_stage: "Tier-II",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "I-M1",
-        expected_questions: 30,
-        total_marks: 90,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "Reasoning & General Intelligence",
-        exam_stage: "Tier-II",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "I-M2",
-        expected_questions: 30,
-        total_marks: 90,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "English Language & Comprehension",
-        exam_stage: "Tier-II",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "II-M1",
-        expected_questions: 40,
-        total_marks: 120,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "Tier-II",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "II-M2",
-        expected_questions: 20,
-        total_marks: 60,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 3600,
-      },
-      {
-        name: "Computer Knowledge Test",
-        exam_stage: "Tier-II",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "III-M1",
-        expected_questions: 15,
-        total_marks: 45,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 900,
-        is_qualifying: true,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC MTS ─────────────────────
-  {
-    id: "ssc-mts-session-1",
-    label: "SSC MTS / Havaldar Session-I",
-    description: "40 Qs, 120 marks, 45 min, NO negative marking",
-    sections: [
-      {
-        name: "Numerical & Mathematical Ability",
-        exam_stage: "Session-I",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "1",
-        expected_questions: 20,
-        total_marks: 60,
-        marks_per_question: 3,
-        negative_marks: 0,
-        time_limit: 2700,
-      },
-      {
-        name: "Reasoning Ability & Problem Solving",
-        exam_stage: "Session-I",
-        paper: "Session-I",
-        session: "Session-I",
-        section_code: "2",
-        expected_questions: 20,
-        total_marks: 60,
-        marks_per_question: 3,
-        negative_marks: 0,
-        time_limit: 2700,
-      },
-    ],
-  },
-  {
-    id: "ssc-mts-session-2",
-    label: "SSC MTS / Havaldar Session-II",
-    description: "50 Qs, 150 marks, 45 min, -1.00 neg",
-    sections: [
-      {
-        name: "General Awareness",
-        exam_stage: "Session-II",
-        paper: "Session-II",
-        session: "Session-II",
-        section_code: "3",
-        expected_questions: 25,
-        total_marks: 75,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 2700,
-      },
-      {
-        name: "English Language & Comprehension",
-        exam_stage: "Session-II",
-        paper: "Session-II",
-        session: "Session-II",
-        section_code: "4",
-        expected_questions: 25,
-        total_marks: 75,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 2700,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC CPO ─────────────────────
-  {
-    id: "ssc-cpo-paper-1",
-    label: "SSC CPO Paper-I",
-    description:
-      "200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing 30 min/section",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "1",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-      {
-        name: "General Knowledge & General Awareness",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "2",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-      {
-        name: "Quantitative Aptitude",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "3",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-      {
-        name: "English Comprehension",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "4",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-    ],
-  },
-  {
-    id: "ssc-cpo-paper-2",
-    label: "SSC CPO Paper-II",
-    description:
-      "English Language & Comprehension — 200 Qs, 200 marks, 2 hr, -0.25 neg",
-    sections: [
-      {
-        name: "English Language & Comprehension",
-        exam_stage: "Paper-II",
-        paper: "Paper-II",
-        section_code: "Paper-II",
-        expected_questions: 200,
-        total_marks: 200,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 7200,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC Stenographer ─────────────────────
-  {
-    id: "ssc-steno-cbt",
-    label: "SSC Stenographer CBT",
-    description: "200 Qs, 200 marks, 2 hr, -0.25 neg, sectional timing",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "1",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "2",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 1800,
-      },
-      {
-        name: "English Language & Comprehension",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "3",
-        expected_questions: 100,
-        total_marks: 100,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 3600,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC GD ─────────────────────
-  {
-    id: "ssc-gd-constable",
-    label: "SSC GD Constable",
-    description:
-      "80 Qs, 160 marks, 60 min, -0.25 neg, sectional timing 15 min/section",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "1",
-        expected_questions: 20,
-        total_marks: 40,
-        marks_per_question: 2,
-        negative_marks: 0.25,
-        time_limit: 900,
-      },
-      {
-        name: "General Knowledge & General Awareness",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "2",
-        expected_questions: 20,
-        total_marks: 40,
-        marks_per_question: 2,
-        negative_marks: 0.25,
-        time_limit: 900,
-      },
-      {
-        name: "Elementary Mathematics",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "3",
-        expected_questions: 20,
-        total_marks: 40,
-        marks_per_question: 2,
-        negative_marks: 0.25,
-        time_limit: 900,
-      },
-      {
-        name: "English / Hindi",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "4",
-        expected_questions: 20,
-        total_marks: 40,
-        marks_per_question: 2,
-        negative_marks: 0.25,
-        time_limit: 900,
-      },
-    ],
-  },
-
-  // ───────────────────── SSC JE ─────────────────────
-  {
-    id: "ssc-je-paper-1",
-    label: "SSC JE Paper-I",
-    description: "200 Qs, 200 marks, 2 hr, -0.25 neg, no sectional timing",
-    sections: [
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "1",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 7200,
-      },
-      {
-        name: "General Awareness",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "2",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 7200,
-      },
-      {
-        name: "General Engineering (Civil/Electrical/Mechanical)",
-        exam_stage: "Paper-I",
-        paper: "Paper-I",
-        section_code: "3",
-        expected_questions: 100,
-        total_marks: 100,
-        marks_per_question: 1,
-        negative_marks: 0.25,
-        time_limit: 7200,
-      },
-    ],
-  },
-  {
-    id: "ssc-je-paper-2",
-    label: "SSC JE Paper-II",
-    description: "General Engineering — 100 Qs, 300 marks, 2 hr, -1.00 neg",
-    sections: [
-      {
-        name: "General Engineering (Civil/Electrical/Mechanical)",
-        exam_stage: "Paper-II",
-        paper: "Paper-II",
-        section_code: "Paper-II",
-        expected_questions: 100,
-        total_marks: 300,
-        marks_per_question: 3,
-        negative_marks: 1,
-        time_limit: 7200,
-      },
-    ],
-  },
-
-  // ───────────────────── RRB NTPC ─────────────────────
-  {
-    id: "rrb-ntpc-cbt-1",
-    label: "RRB NTPC CBT-1",
-    description: "100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing",
-    sections: [
-      {
-        name: "General Awareness",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "1",
-        expected_questions: 40,
-        total_marks: 40,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "Mathematics",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "2",
-        expected_questions: 30,
-        total_marks: 30,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "3",
-        expected_questions: 30,
-        total_marks: 30,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-    ],
-  },
-  {
-    id: "rrb-ntpc-cbt-2",
-    label: "RRB NTPC CBT-2",
-    description: "120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing",
-    sections: [
-      {
-        name: "General Awareness",
-        exam_stage: "CBT-2",
-        paper: "CBT-2",
-        section_code: "1",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "Mathematics",
-        exam_stage: "CBT-2",
-        paper: "CBT-2",
-        section_code: "2",
-        expected_questions: 35,
-        total_marks: 35,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT-2",
-        paper: "CBT-2",
-        section_code: "3",
-        expected_questions: 35,
-        total_marks: 35,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-    ],
-  },
-
-  // ───────────────────── RRB ALP ─────────────────────
-  {
-    id: "rrb-alp-cbt-1",
-    label: "RRB ALP CBT-1",
-    description: "75 Qs, 75 marks, 60 min, -1/3 neg, no sectional timing",
-    sections: [
-      {
-        name: "Mathematics",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "1",
-        expected_questions: 20,
-        total_marks: 20,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 3600,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "2",
-        expected_questions: 25,
-        total_marks: 25,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 3600,
-      },
-      {
-        name: "General Science",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "3",
-        expected_questions: 20,
-        total_marks: 20,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 3600,
-      },
-      {
-        name: "General Awareness & Current Affairs",
-        exam_stage: "CBT-1",
-        paper: "CBT-1",
-        section_code: "4",
-        expected_questions: 10,
-        total_marks: 10,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 3600,
-      },
-    ],
-  },
-  {
-    id: "rrb-alp-cbt-2-part-a",
-    label: "RRB ALP CBT-2 Part-A",
-    description: "100 Qs, 100 marks, 90 min, -1/3 neg",
-    sections: [
-      {
-        name: "Mathematics",
-        exam_stage: "CBT-2",
-        paper: "Part-A",
-        session: "Part-A",
-        section_code: "1",
-        expected_questions: 0,
-        total_marks: 0,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT-2",
-        paper: "Part-A",
-        session: "Part-A",
-        section_code: "2",
-        expected_questions: 0,
-        total_marks: 0,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "Basic Science & Engineering",
-        exam_stage: "CBT-2",
-        paper: "Part-A",
-        session: "Part-A",
-        section_code: "3",
-        expected_questions: 0,
-        total_marks: 0,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-    ],
-  },
-  {
-    id: "rrb-alp-cbt-2-part-b",
-    label: "RRB ALP CBT-2 Part-B (Trade)",
-    description: "Trade-specific — 75 Qs, 75 marks, 60 min, -1/3 neg",
-    sections: [
-      {
-        name: "Trade Specific (as per trade)",
-        exam_stage: "CBT-2",
-        paper: "Part-B",
-        session: "Part-B",
-        section_code: "Part-B",
-        expected_questions: 75,
-        total_marks: 75,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 3600,
-      },
-    ],
-  },
-
-  // ───────────────────── RRB Group D ─────────────────────
-  {
-    id: "rrb-group-d",
-    label: "RRB Group D (Level-1)",
-    description: "100 Qs, 100 marks, 90 min, -1/3 neg, no sectional timing",
-    sections: [
-      {
-        name: "General Science",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "1",
-        expected_questions: 25,
-        total_marks: 25,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "Mathematics",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "2",
-        expected_questions: 25,
-        total_marks: 25,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "3",
-        expected_questions: 30,
-        total_marks: 30,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Awareness & Current Affairs",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "4",
-        expected_questions: 20,
-        total_marks: 20,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-    ],
-  },
-
-  // ───────────────────── RPF ─────────────────────
-  {
-    id: "rpf-constable-si",
-    label: "RPF Constable / Sub-Inspector",
-    description: "120 Qs, 120 marks, 90 min, -1/3 neg, no sectional timing",
-    sections: [
-      {
-        name: "General Awareness",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "1",
-        expected_questions: 50,
-        total_marks: 50,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "Arithmetic",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "2",
-        expected_questions: 35,
-        total_marks: 35,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-      {
-        name: "General Intelligence & Reasoning",
-        exam_stage: "CBT",
-        paper: "CBT",
-        section_code: "3",
-        expected_questions: 35,
-        total_marks: 35,
-        marks_per_question: 1,
-        negative_marks: 0.33,
-        time_limit: 5400,
-      },
-    ],
-  },
-];
-
 const DEFAULT_TEST_FORM = {
   title: "",
   slug: "",
@@ -953,136 +129,7 @@ const DEFAULT_TEST_FORM = {
   scheduledEnd: "",
 };
 
-const normalizeKey = (value) =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-const idsEqual = (a, b) =>
-  a !== null &&
-  a !== undefined &&
-  b !== null &&
-  b !== undefined &&
-  String(a) === String(b);
-const getEntityId = (item) => item?._id ?? item?.id ?? null;
-const getSeriesId = (series) =>
-  series?._id ?? series?.id ?? series?.public_id ?? null;
-const getTestId = (test) => test?._id ?? test?.id ?? test?.public_id ?? null;
-const getTestSeriesId = (test = {}) =>
-  test.testSeriesId ??
-  test.test_series_id ??
-  test.seriesId ??
-  test.series_id ??
-  null;
-const getStageIdFromTest = (test = {}) =>
-  test.stageId ?? test.stage_id ?? test.tierId ?? test.tier_id ?? null;
-const getSeriesExamId = (series) => {
-  if (!series) return null;
-  return (
-    series.examId ??
-    series.exam_id ??
-    series.subcategory ??
-    series.subCategory ??
-    series.sub_category ??
-    series.subcategory_id ??
-    null
-  );
-};
-const getSeriesExamCategoryId = (series) => {
-  if (!series) return null;
-  return (
-    series.category ??
-    series.category_id ??
-    series.examCategoryId ??
-    series.exam_category_id ??
-    null
-  );
-};
-const getTestQuestionsCount = (test = {}) =>
-  Number(
-    test.questionsCount ??
-      test.questions_count ??
-      test.totalQuestions ??
-      test.total_questions ??
-      test.question_count ??
-      0,
-  );
-
-const parseIdList = (value) =>
-  String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const normalizeTest = (test) => ({
-  ...test,
-  title: test.title || test.name || "",
-  slug: test.slug || "",
-  testSeriesId:
-    test.testSeriesId ??
-    test.test_series_id ??
-    test.seriesId ??
-    test.series_id ??
-    null,
-  stageId: test.stageId ?? test.stage_id ?? test.tierId ?? test.tier_id ?? null,
-  testCategoryId: test.testCategoryId ?? test.test_category_id ?? null,
-  examId: test.examId ?? test.exam_id ?? null,
-  category: test.category || "",
-  type: test.type || "mock-tests",
-  duration: test.duration ?? test.time_limit ?? 60,
-  totalQuestions: test.totalQuestions ?? test.total_questions ?? 0,
-  totalMarks: test.totalMarks ?? test.total_marks ?? 0,
-  negativeMarking: test.negativeMarking ?? test.negative_marking ?? 0.25,
-  difficulty: test.difficulty || "medium",
-  isPro: Boolean(test.isPro ?? test.is_pro),
-  isComingSoon: Boolean(test.isComingSoon ?? test.is_coming_soon),
-  isLive: Boolean(test.isLive ?? test.is_live),
-  tags: Array.isArray(test.tags)
-    ? test.tags
-    : test.tags
-      ? test.tags
-          .split(",")
-          .map((t) => t.trim())
-          .filter(Boolean)
-      : [],
-  stageIds: Array.isArray(test.stage_ids ?? test.stageIds)
-    ? (test.stage_ids ?? test.stageIds)
-    : [],
-  questionsCount: getTestQuestionsCount(test),
-});
-
-const normalizeSectionForForm = (section) => ({
-  ...section,
-  duration: Math.max(
-    1,
-    Math.round((section.time_limit ?? section.timeLimit ?? 900) / 60),
-  ),
-  marks_per_question:
-    section.marks_per_question ?? section.marksPerQuestion ?? 2,
-  negative_marks: section.negative_marks ?? section.negativeMarks ?? 0.5,
-  expected_questions:
-    section.expected_questions ?? section.expectedQuestions ?? 0,
-  total_marks: section.total_marks ?? section.totalMarks ?? 0,
-});
-
-const flattenCategories = (categories = []) => {
-  const flattened = [];
-  const walk = (items, parentId = "") => {
-    items.forEach((item) => {
-      const id = getEntityId(item);
-      flattened.push({
-        ...item,
-        parentId: item.parentId ?? item.parent_id ?? parentId,
-      });
-      if (Array.isArray(item.children) && item.children.length > 0)
-        walk(item.children, id);
-    });
-  };
-  walk(Array.isArray(categories) ? categories : []);
-  return flattened;
-};
+// helpers now imported from shared/utils/questionHelpers.js
 
 const refsFrom = (values) => {
   const refs = new Set();
@@ -1204,9 +251,10 @@ const buildTestCategoryRefs = (activeCategory, flatCategories = []) => {
   );
   const childrenByParent = buildChildrenByParent(flatCategories);
   const queue = [...seeds];
+  let qHead = 0;
   const seen = new Set();
-  while (queue.length) {
-    const cat = queue.shift();
+  while (qHead < queue.length) {
+    const cat = queue[qHead++];
     const id = String(
       getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
     );
@@ -2683,14 +1731,14 @@ const BulkUploadModal = ({
     : modalContent;
 };
 
-export default function TestsManager() {
+function TestsManager() {
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkAppliedRef = useRef(false);
   const {
     categories: examCategories,
     exams: examsFromHook = [],
     examInfo,
-    getSubcategories,
+    getExamsByCategory,
     loading: examFiltersLoading,
   } = useExamCategories();
 
@@ -3088,7 +2136,7 @@ export default function TestsManager() {
         if (path.length >= 4) setSubCategoryLevel4(getEntityId(path[3]) || "");
       }
     }
-  }, []);
+  }, [selectedTestSubCategoryId, flatTestCategories]);
 
   const editingTest = useMemo(
     () => tests.find((test) => idsEqual(getTestId(test), editingId)) || null,
@@ -3097,8 +2145,8 @@ export default function TestsManager() {
 
   const examsForActiveCategory = useMemo(() => {
     if (!activeExamCategoryId) return [];
-    return getSubcategories(activeExamCategoryId) || [];
-  }, [activeExamCategoryId, getSubcategories]);
+    return getExamsByCategory(activeExamCategoryId) || [];
+  }, [activeExamCategoryId, getExamsByCategory]);
 
   const activeExamCategoryRefs = useMemo(
     () => buildExamCategoryRefs(activeExamCategoryId, examCategories),
@@ -4067,6 +3115,18 @@ export default function TestsManager() {
 
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("testSeriesId", String(getSeriesId(selectedSeries)));
+    fd.append(
+      "category",
+      String(
+        getSeriesExamCategoryId(selectedSeries) || activeExamCategoryId || "",
+      ),
+    );
+    const vExamId = getSeriesExamId(selectedSeries) || activeExamId;
+    if (vExamId) fd.append("examId", String(vExamId));
+    if (activeStageId) fd.append("stageId", String(activeStageId));
+    const vLinkedCat = getLinkedTestCategoryId();
+    if (vLinkedCat) fd.append("testCategoryId", String(vLinkedCat));
     fd.append("validateOnly", "true");
 
     try {
@@ -5459,3 +4519,5 @@ export default function TestsManager() {
     </div>
   );
 }
+
+export default memo(TestsManager);

@@ -18,11 +18,25 @@ export const LOCKOUT_CONFIG = {
 };
 
 const getClientIp = (req) => {
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim();
+  if (req?.ip) {
+    let ip = String(req.ip).trim();
+    if (ip.startsWith("::ffff:")) ip = ip.slice(7);
+    if (ip === "::1") return "127.0.0.1";
+    if (ip) return ip;
   }
-  return req.socket?.remoteAddress || req.ip || "unknown";
+  const forwardedFor = req.headers?.["x-forwarded-for"];
+  if (forwardedFor) {
+    const first = String(forwardedFor).split(",")[0].trim();
+    if (first.startsWith("::ffff:")) return first.slice(7);
+    return first;
+  }
+  const sock = req.socket?.remoteAddress || req.connection?.remoteAddress;
+  if (sock) {
+    if (sock.startsWith("::ffff:")) return sock.slice(7);
+    if (sock === "::1") return "127.0.0.1";
+    return sock;
+  }
+  return "unknown";
 };
 
 export const checkAccountLockout = async (email, ipAddress) => {

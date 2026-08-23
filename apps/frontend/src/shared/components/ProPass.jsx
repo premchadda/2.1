@@ -80,7 +80,7 @@ export function ProPassCard({ onClose: _onClose }) {
               <span className="text-2xl font-bold text-gray-400 line-through">
                 ₹{monthlyPlan?.originalPrice || 999}
               </span>
-              <span className="text-3xl font-bold text-purple-600">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-600">
                 ₹{monthlyPlan?.price || 299}
               </span>
             </div>
@@ -97,7 +97,7 @@ export function ProPassCard({ onClose: _onClose }) {
               <span className="text-2xl font-bold text-gray-400 line-through">
                 ₹{yearlyPlan?.originalPrice || 4999}
               </span>
-              <span className="text-3xl font-bold text-green-600">
+              <span className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600">
                 ₹{yearlyPlan?.price || 999}
               </span>
             </div>

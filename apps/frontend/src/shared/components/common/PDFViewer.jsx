@@ -88,7 +88,7 @@ export default function PDFViewer({ isOpen, onClose, pdfData }) {
           />
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-white/60 gap-3">
-            <div className="text-5xl">📄</div>
+            <div className="text-3xl sm:text-4xl lg:text-5xl">📄</div>
             <p className="text-sm">No PDF file loaded</p>
           </div>
         )}

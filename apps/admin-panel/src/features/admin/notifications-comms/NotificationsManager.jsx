@@ -135,6 +135,7 @@ export default function NotificationsManager() {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [formData, setFormData] = useState({
     userId: "",
+    recipientGroup: "all",
     type: "system",
     title: "",
     message: "",
@@ -145,6 +146,8 @@ export default function NotificationsManager() {
     scheduledAt: "",
     sentVia: ["in_app"],
   });
+  const [userSearch, setUserSearch] = useState("");
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(15);
 
@@ -171,27 +174,112 @@ export default function NotificationsManager() {
     }
   };
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (query = "") => {
     try {
-      const response = await apiClient.get("/admin/users", {
-        params: { limit: 100 },
-      });
-      if (response.data?.success) {
-        setUsers(response.data.data);
+      const params = { limit: 100 };
+      if (query?.trim()) params.search = query.trim();
+      const response = await apiClient.get("/admin/users", { params });
+      const data = response.data?.data ?? response.data?.users ?? [];
+      if (Array.isArray(data)) {
+        setUsers(data);
+        if (!query) setFilteredUsers(data.slice(0, 10));
       }
     } catch (error) {
       console.error("Failed to fetch users:", error);
     }
   };
 
+  const searchUsers = (query) => {
+    setUserSearch(query);
+    if (!query?.trim()) {
+      setFilteredUsers(users.slice(0, 10));
+      return;
+    }
+    const q = query.toLowerCase();
+    const results = users.filter(
+      (u) =>
+        String(u.name ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(u.email ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(u.id ?? u._id ?? "")
+          .toLowerCase()
+          .includes(q),
+    );
+    setFilteredUsers(results.slice(0, 10));
+    if (results.length === 0 && query.trim().length > 2) {
+      fetchUsers(query);
+    }
+  };
+
+  const selectUserGroup = (group) => {
+    setFormData((prev) => ({ ...prev, recipientGroup: group }));
+    let ids = [];
+    if (group === "all") {
+      ids = users.map((u) => String(u.id ?? u._id)).filter(Boolean);
+    } else if (group === "active") {
+      ids = users
+        .filter((u) => u.isActive !== false && !u.deletedAt)
+        .map((u) => String(u.id ?? u._id))
+        .filter(Boolean);
+    } else if (group === "inactive") {
+      ids = users
+        .filter((u) => u.isActive === false || u.deletedAt)
+        .map((u) => String(u.id ?? u._id))
+        .filter(Boolean);
+    } else if (group === "premium") {
+      ids = users
+        .filter((u) => u.isProUser || u.is_premium || u.role === "premium")
+        .map((u) => String(u.id ?? u._id))
+        .filter(Boolean);
+    }
+    setSelectedUsers(ids);
+  };
+
+  const isSafeUrl = (url) => {
+    if (!url) return true;
+    const trimmed = String(url).trim();
+    if (trimmed.startsWith("/") || trimmed.startsWith("#")) return true;
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const u = new URL(trimmed);
+        return (
+          ["http:", "https:"].includes(u.protocol) &&
+          !trimmed.toLowerCase().startsWith("javascript:")
+        );
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isSafeUrl(formData.actionUrl)) {
+      toast.error("Action URL is not allowed. Use /path or https:// URLs.");
+      return;
+    }
+    if (!formData.title.trim() || !formData.message.trim()) {
+      toast.error("Title and message are required");
+      return;
+    }
+    if (sendMode === "single" && !formData.userId) {
+      toast.error("Select a recipient user");
+      return;
+    }
+    if (sendMode === "bulk" && selectedUsers.length === 0) {
+      toast.error("Select at least one user group/user");
+      return;
+    }
     try {
       const notificationPayload = {
-        title: formData.title,
-        message: formData.message,
+        title: formData.title.trim(),
+        message: formData.message.trim(),
         type: formData.type,
-        actionUrl: formData.actionUrl || undefined,
+        actionUrl: formData.actionUrl?.trim() || undefined,
         priority: formData.priority,
         scheduledAt: formData.scheduledAt || undefined,
         sentVia: formData.sentVia,
@@ -240,6 +328,7 @@ export default function NotificationsManager() {
   const resetForm = () => {
     setFormData({
       userId: "",
+      recipientGroup: "all",
       type: "system",
       title: "",
       message: "",
@@ -251,7 +340,7 @@ export default function NotificationsManager() {
       sentVia: ["in_app"],
     });
     setSelectedUsers([]);
-    setSendMode("single");
+    setUserSearch("");
     setShowForm(false);
   };
 
@@ -459,19 +548,20 @@ export default function NotificationsManager() {
                   <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
                     {notification.message}
                   </p>
-                  {notification.actionUrl && (
-                    <a
-                      href={notification.actionUrl}
-                      className="text-sm text-indigo-600 hover:underline"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      {notification.actionText ??
-                        notification.metadata?.actionText ??
-                        "View"}{" "}
-                      →
-                    </a>
-                  )}
+                  {notification.actionUrl &&
+                    isSafeUrl(notification.actionUrl) && (
+                      <a
+                        href={notification.actionUrl}
+                        className="text-sm text-indigo-600 hover:underline"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {notification.actionText ??
+                          notification.metadata?.actionText ??
+                          "View"}{" "}
+                        →
+                      </a>
+                    )}
                   {notification.data &&
                     Object.keys(notification.data).length > 0 && (
                       <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono">
@@ -596,29 +686,38 @@ export default function NotificationsManager() {
                           required
                           value={formData.userId}
                           onChange={(e) => {
-                            setFormData({
-                              ...formData,
-                              userId: e.target.value,
-                            });
-                            searchUsers(e.target.value);
+                            const val = e.target.value;
+                            setFormData((prev) => ({ ...prev, userId: val }));
+                            setUserSearch(val);
+                            searchUsers(val);
+                          }}
+                          onFocus={() => {
+                            if (!filteredUsers.length && users.length)
+                              setFilteredUsers(users.slice(0, 10));
                           }}
                           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
                           placeholder="Search by name or email, or enter user ID"
+                          aria-label="Search recipient user"
                         />
-                        {users.length > 0 && formData.userId && (
-                          <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {users.map((user) => (
+                        {filteredUsers.length > 0 && userSearch && (
+                          <div
+                            className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                            role="listbox"
+                          >
+                            {filteredUsers.map((user) => (
                               <button
-                                key={user.id}
+                                key={user.id ?? user._id}
                                 type="button"
                                 onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    userId: user.id.toString(),
-                                  });
-                                  setUsers([]);
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    userId: String(user.id ?? user._id),
+                                  }));
+                                  setUserSearch(user.name ?? user.email);
+                                  setFilteredUsers([]);
                                 }}
                                 className="w-full text-left px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
+                                role="option"
                               >
                                 <span className="font-medium">{user.name}</span>
                                 <span className="text-sm text-gray-500">
@@ -627,6 +726,11 @@ export default function NotificationsManager() {
                               </button>
                             ))}
                           </div>
+                        )}
+                        {formData.userId && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Selected ID: {formData.userId}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -694,14 +798,13 @@ export default function NotificationsManager() {
                         setFormData({ ...formData, type: e.target.value })
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                      aria-label="Notification type"
                     >
-                      <option value="system">System Notification</option>
-                      <option value="alert">Alert</option>
-                      <option value="success">Success</option>
-                      <option value="warning">Warning</option>
-                      <option value="info">Info</option>
-                      <option value="achievement">Achievement</option>
-                      <option value="test_reminder">Test Reminder</option>
+                      {NOTIFICATION_TYPES.map((t) => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

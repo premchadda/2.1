@@ -1,9 +1,9 @@
-import { apiClient, ValidationError } from './apiClient.js'
+import { apiClient, ValidationError } from "./apiClient.js";
 
 export const authAPI = {
   login: (emailOrData, password) => {
     let email, pass;
-    if (typeof emailOrData === 'object' && emailOrData !== null) {
+    if (typeof emailOrData === "object" && emailOrData !== null) {
       email = emailOrData.email;
       pass = emailOrData.password;
     } else {
@@ -12,41 +12,54 @@ export const authAPI = {
     }
 
     if (!email || !pass) {
-      throw new ValidationError('Email and password are required')
+      throw new ValidationError("Email and password are required");
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
-      throw new ValidationError('Please enter a valid email address')
+      throw new ValidationError("Please enter a valid email address");
     }
     if (pass.length < 6) {
-      throw new ValidationError('Password must be at least 6 characters')
+      throw new ValidationError("Password must be at least 6 characters");
     }
-    return apiClient.post('/api/auth/login', { email, password: pass })
+    return apiClient.post("/api/auth/login", { email, password: pass });
   },
   register: (data) => {
-    const required = ['name', 'email', 'password']
+    const required = ["name", "email", "password"];
     for (const field of required) {
       if (!data[field]) {
-        throw new ValidationError(`${field} is required`)
+        throw new ValidationError(`${field} is required`);
       }
     }
     if (!/^\S+@\S+\.\S+$/.test(data.email)) {
-      throw new ValidationError('Please enter a valid email address')
+      throw new ValidationError("Please enter a valid email address");
     }
     if (data.password.length < 8) {
-      throw new ValidationError('Password must be at least 8 characters')
+      throw new ValidationError("Password must be at least 8 characters");
     }
-    return apiClient.post('/api/auth/register', data)
+    return apiClient.post("/api/auth/register", data);
   },
-  logout: () => apiClient.post('/api/auth/logout'),
-  getMe: () => apiClient.get('/api/auth/me'),
-  refreshToken: () => apiClient.post('/api/auth/refresh'),
+  logout: () => apiClient.post("/api/auth/logout"),
+  getMe: () => apiClient.get("/api/auth/me"),
+  refreshToken: () => apiClient.post("/api/auth/refresh"),
+  twoFactorStatus: () => apiClient.get("/api/auth/2fa/status"),
+  twoFactorEnroll: () => apiClient.post("/api/auth/2fa/enroll"),
+  twoFactorVerify: (token) => {
+    const t = String(token || "").trim();
+    if (!t) throw new ValidationError("Verification code is required");
+    return apiClient.post("/api/auth/2fa/verify", { token: t });
+  },
+  twoFactorRegenerateBackupCodes: () =>
+    apiClient.post("/api/auth/2fa/backup-codes/regenerate"),
+  twoFactorDisable: () => apiClient.post("/api/auth/2fa/disable"),
   changePassword: (currentPassword, newPassword) => {
     if (!currentPassword || !newPassword) {
-      throw new ValidationError('Current and new password are required')
+      throw new ValidationError("Current and new password are required");
     }
     if (newPassword.length < 8) {
-      throw new ValidationError('New password must be at least 8 characters')
+      throw new ValidationError("New password must be at least 8 characters");
     }
-    return apiClient.post('/api/auth/change-password', { currentPassword, newPassword })
+    return apiClient.post("/api/auth/change-password", {
+      currentPassword,
+      newPassword,
+    });
   },
-}
+};

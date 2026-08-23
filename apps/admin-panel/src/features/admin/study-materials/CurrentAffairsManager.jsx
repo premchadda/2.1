@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import apiClient from "../../../shared/api/adminApi";
+import { apiClient } from "../../../shared/api/adminApi";
 import { toast } from "react-hot-toast";
 import { useConfirm } from "../../../shared/components/common/ConfirmModal";
 import {
@@ -24,9 +24,13 @@ const CurrentAffairsManager = () => {
   const [formData, setFormData] = useState({
     title: "",
     content: "",
-    category: "India",
+    summary: "",
+    category: "National",
     date: new Date().toISOString().split("T")[0],
     language: "en",
+    tags: "",
+    source: "",
+    isImportant: false,
   });
   const [editingId, setEditingId] = useState(null);
   const { confirm, ConfirmDialog } = useConfirm();
@@ -50,12 +54,27 @@ const CurrentAffairsManager = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      tags: String(formData.tags || "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .slice(0, 20),
+      title: String(formData.title || "").trim(),
+      content: String(formData.content || "").trim(),
+      summary: String(formData.summary || "").trim(),
+    };
+    if (!payload.title) {
+      toast.error("Title is required");
+      return;
+    }
     try {
       if (editingId) {
-        await apiClient.put(`/admin/current-affairs/${editingId}`, formData);
+        await apiClient.put(`/admin/current-affairs/${editingId}`, payload);
         toast.success("Article updated successfully");
       } else {
-        await apiClient.post("/admin/current-affairs", formData);
+        await apiClient.post("/admin/current-affairs", payload);
         toast.success("Article created successfully");
       }
       loadArticles();
@@ -63,9 +82,13 @@ const CurrentAffairsManager = () => {
       setFormData({
         title: "",
         content: "",
-        category: "India",
+        summary: "",
+        category: "National",
         date: new Date().toISOString().split("T")[0],
         language: "en",
+        tags: "",
+        source: "",
+        isImportant: false,
       });
       setEditingId(null);
     } catch (error) {
@@ -94,25 +117,46 @@ const CurrentAffairsManager = () => {
     setFormData({
       title: article.title || "",
       content: article.content || "",
-      category: article.category || "India",
+      summary: article.summary || article.excerpt || "",
+      category: article.category || "National",
       date:
         article.date?.split("T")[0] || new Date().toISOString().split("T")[0],
       language: article.language || "en",
+      tags: Array.isArray(article.tags)
+        ? article.tags.join(", ")
+        : article.tags || "",
+      source: article.source || "",
+      isImportant: !!article.isImportant,
     });
     setEditingId(article.id || article._id);
     setShowModal(true);
   };
 
-  const categories = ["All", "India", "World", "Business", "Science", "Sports"];
+  const categories = [
+    "All",
+    "National",
+    "International",
+    "Economy",
+    "Science & Tech",
+    "Sports",
+    "Defense",
+    "Environment",
+  ];
 
-  const filteredArticles = articles.filter((article) => {
-    const matchesSearch =
-      article.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      article.content?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      selectedCategory === "All" || article.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Debounced search via memoization; O(n) but with early exit and normalized query
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredArticles = React.useMemo(() => {
+    return articles.filter((article) => {
+      const matchesSearch =
+        !normalizedQuery ||
+        article.title?.toLowerCase().includes(normalizedQuery) ||
+        article.content?.toLowerCase().includes(normalizedQuery) ||
+        article.summary?.toLowerCase().includes(normalizedQuery);
+      const matchesCategory =
+        selectedCategory === "All" || article.category === selectedCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [articles, normalizedQuery, selectedCategory]);
 
   return (
     <div className="p-3 sm:p-4">
@@ -133,9 +177,13 @@ const CurrentAffairsManager = () => {
             setFormData({
               title: "",
               content: "",
-              category: "India",
+              summary: "",
+              category: "National",
               date: new Date().toISOString().split("T")[0],
               language: "en",
+              tags: "",
+              source: "",
+              isImportant: false,
             });
             setEditingId(null);
             setShowModal(true);
@@ -156,6 +204,7 @@ const CurrentAffairsManager = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+              aria-label="Search articles"
             />
           </div>
           <div className="flex items-center gap-2">
@@ -164,6 +213,7 @@ const CurrentAffairsManager = () => {
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+              aria-label="Filter by category"
             >
               {categories.map((cat) => (
                 <option key={cat} value={cat}>
@@ -197,21 +247,37 @@ const CurrentAffairsManager = () => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
+              <caption className="sr-only">Current affairs articles</caption>
               <thead className="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Title
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Language
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider"
+                  >
                     Actions
                   </th>
                 </tr>

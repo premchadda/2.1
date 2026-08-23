@@ -55,22 +55,27 @@ const getPaymentSettings = async () => {
 
 let adminPaymentsTableReady = false;
 const ensureAdminPaymentsTable = async () => {
+  // P1 FIX: migration 098 creates table; fallback probes instead of unconditional DDL.
   if (adminPaymentsTableReady) return;
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS payments (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
-      currency VARCHAR(10) DEFAULT 'INR',
-      status VARCHAR(50) NOT NULL DEFAULT 'pending',
-      gateway VARCHAR(50),
-      gateway_payment_id VARCHAR(255),
-      created_at TIMESTAMP DEFAULT NOW(),
-      refunded_at TIMESTAMP,
-      refunded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      metadata JSONB DEFAULT '{}'::jsonb
-    )
-  `);
+  try {
+    await pool.query(`SELECT 1 FROM payments LIMIT 1`);
+  } catch {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        amount NUMERIC(10, 2) NOT NULL DEFAULT 0,
+        currency VARCHAR(10) DEFAULT 'INR',
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        gateway VARCHAR(50),
+        gateway_payment_id VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW(),
+        refunded_at TIMESTAMP,
+        refunded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        metadata JSONB DEFAULT '{}'::jsonb
+      )
+    `);
+  }
   adminPaymentsTableReady = true;
 };
 
@@ -346,7 +351,7 @@ router.post("/create-order", protect, async (req, res) => {
     const { taxAmount } = taxedAmount;
 
     if (!razorpayKeyId || !razorpayKeySecret || isDemoMode) {
-      if (process.env.NODE_ENV !== "production" || isDemoMode) {
+      if (process.env.NODE_ENV !== "production") {
         const mockOrderId = `order_mock_${Date.now()}_${req.user.id}`;
         return res.json({
           success: true,
@@ -433,10 +438,11 @@ router.post(
       let isSignatureValid = false;
       let verifiedOrderAmount = null;
 
-      if (
-        isMockOrder &&
-        (process.env.NODE_ENV !== "production" || isDemoMode)
-      ) {
+      if (isMockOrder && process.env.NODE_ENV !== "production") {
+        // Mock orders ONLY allowed when NODE_ENV !== production (never in production, even with demoMode)
+        console.warn(
+          `[Payments] Mock verify accepted for ${razorpay_order_id} user=${req.user.id} demoMode=${isDemoMode}`,
+        );
         isSignatureValid = true;
       } else if (razorpayKeySecret) {
         const body = razorpay_order_id + "|" + razorpay_payment_id;
@@ -571,10 +577,20 @@ router.post(
           }
         }
 
+        // P1 FIX: don't trust client amount; fallback to server-expected price when Razorpay fetch unavailable (mock/dev only)
+        let fallbackAmount = expiryDays === 365 ? 999 : 99;
+        try {
+          const planRows = await dbHelpers.find("subscription_plans");
+          const fbPlan = planRows.find(
+            (p) => (p.plan_id || p.planId || p.id) === authoritativePlanId,
+          );
+          if (fbPlan)
+            fallbackAmount = Number(
+              fbPlan.price || fbPlan.amount || fallbackAmount,
+            );
+        } catch {}
         const transactionAmount =
-          verifiedOrderAmount ||
-          Number(req.body.amount) ||
-          (expiryDays === 365 ? 999 : 99);
+          verifiedOrderAmount != null ? verifiedOrderAmount : fallbackAmount;
 
         // Record the legacy transaction and the admin-facing payment record.
         try {
@@ -602,7 +618,11 @@ router.post(
             gatewayPaymentId: razorpay_payment_id,
             orderId: razorpay_order_id,
             planId: authoritativePlanId,
-            metadata: { couponCode: couponCode || null },
+            metadata: {
+              couponCode: couponCode || null,
+              source: isMockOrder ? "mock_verify" : "verify",
+              isMock: isMockOrder || false,
+            },
           });
         } catch (paymentErr) {
           console.error(
@@ -614,25 +634,61 @@ router.post(
         res.json({
           success: true,
           message: "Payment verified successfully and Pro status updated",
+          data: {
+            orderId: razorpay_order_id,
+            paymentId: razorpay_payment_id,
+            amount: transactionAmount,
+            currency: "INR",
+            planId: authoritativePlanId,
+            proExpiry: proExpiry.toISOString(),
+          },
         });
 
-        // Send payment confirmation email
-        try {
-          const { default: emailService } =
-            await import("../../services/EmailService.js");
-          await emailService.sendEmail(
-            user.email,
-            "Payment Confirmed",
-            `
-          <h2>Payment Confirmed</h2>
-          <p>Your Pro Pass has been activated.</p>
-          <p>Expiry: ${proExpiry.toLocaleDateString()}</p>
-          <p>Thank you for your purchase!</p>
-        `,
-          );
-        } catch (e) {
-          console.error("Payment confirmation email error:", e.message);
-        }
+        // P0 FIX: send receipt email via correct EmailService API (supports queuing)
+        // Fire-and-forget after response to avoid blocking verify latency.
+        (async () => {
+          try {
+            const { default: emailService } =
+              await import("../../services/EmailService.js");
+            const receiptHtml = emailService.getHtmlWrapper
+              ? emailService.getHtmlWrapper(
+                  "Payment Confirmed — Trstprep Pro Pass",
+                  `
+                  <p>Hi ${user.name || user.email},</p>
+                  <p>Your payment has been confirmed and <strong>${authoritativePlanId === "pro-yearly" ? "Pro Yearly" : "Pro Monthly"}</strong> is now active.</p>
+                  <div style="background:#f9fafb;padding:16px;border-radius:8px;margin:16px 0;border:1px solid #e5e7eb;">
+                    <p style="margin:4px 0"><strong>Order ID:</strong> ${razorpay_order_id}</p>
+                    <p style="margin:4px 0"><strong>Payment ID:</strong> ${razorpay_payment_id}</p>
+                    <p style="margin:4px 0"><strong>Amount Paid:</strong> ₹${transactionAmount}</p>
+                    <p style="margin:4px 0"><strong>Plan:</strong> ${authoritativePlanId}</p>
+                    <p style="margin:4px 0"><strong>Valid Until:</strong> ${proExpiry.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</p>
+                  </div>
+                  <p>Keep this email as your payment receipt. You can also view your transactions from your profile.</p>
+                  <p>Thank you for choosing Trstprep!</p>
+                  `,
+                  {
+                    text: "Go to Dashboard",
+                    url: `${process.env.FRONTEND_URL || "https://trstprep.com"}/dashboard`,
+                  },
+                )
+              : `
+                  <h2>Payment Confirmed</h2>
+                  <p>Order: ${razorpay_order_id} | Payment: ${razorpay_payment_id} | Amount: ₹${transactionAmount} | Plan: ${authoritativePlanId}</p>
+                  <p>Expiry: ${proExpiry.toLocaleDateString()}</p>
+                  <p>Thank you for your purchase!</p>
+                `;
+
+            const method =
+              typeof emailService.send === "function" ? "send" : "sendDirect";
+            await emailService[method](
+              user.email,
+              `Payment Confirmed — ₹${transactionAmount} — Trstprep Pro Pass`,
+              receiptHtml,
+            );
+          } catch (e) {
+            console.error("Payment confirmation email error:", e.message);
+          }
+        })();
       } else {
         res.status(400).json({
           success: false,
@@ -652,12 +708,35 @@ router.post(
 // @route   POST /api/payments/webhook
 // @desc    Handle Razorpay webhook for payment confirmation
 // @access  Public (but verify signature)
+// P0 FIX: raw body is now provided by app-port5001.js before global JSON parser.
+// Router-level raw parser kept as fallback for direct mounting; handles both Buffer and pre-parsed cases.
 router.post(
   "/webhook",
-  express.raw({ type: "application/json" }),
   (req, res, next) => {
-    req.rawBody = req.body.toString();
+    // If app-level raw parser already ran, req.body is Buffer
+    if (Buffer.isBuffer(req.body)) {
+      req.rawBody = req.body.toString("utf8");
+      try {
+        req.body = JSON.parse(req.rawBody);
+      } catch (e) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid JSON" });
+      }
+      return next();
+    }
+    // Fallback: body already parsed by express.json (e.g., tests) — re-serialize deterministically
+    if (
+      req.body &&
+      typeof req.body === "object" &&
+      !Buffer.isBuffer(req.body)
+    ) {
+      req.rawBody = JSON.stringify(req.body);
+      return next();
+    }
+    // Legacy path: still Buffer-like
     try {
+      req.rawBody = (req.body || "").toString();
       req.body = JSON.parse(req.rawBody);
     } catch (e) {
       return res.status(400).json({ success: false, message: "Invalid JSON" });
@@ -665,10 +744,63 @@ router.post(
     next();
   },
   async (req, res) => {
+    // Helper: persist webhook event for admin audit (best-effort, never blocks response)
+    const persistWebhookEvent = async ({
+      event,
+      gatewayPaymentId,
+      orderId,
+      status,
+      error,
+      signatureValid,
+    }) => {
+      try {
+        await pool.query(
+          `CREATE TABLE IF NOT EXISTS webhook_events (
+            id SERIAL PRIMARY KEY,
+            gateway VARCHAR(50) NOT NULL DEFAULT 'razorpay',
+            event VARCHAR(100) NOT NULL,
+            gateway_payment_id VARCHAR(255),
+            order_id VARCHAR(255),
+            status VARCHAR(50) NOT NULL DEFAULT 'received',
+            payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+            headers JSONB NOT NULL DEFAULT '{}'::jsonb,
+            signature_valid BOOLEAN NOT NULL DEFAULT true,
+            error TEXT,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+          )`,
+        );
+        await pool.query(
+          `INSERT INTO webhook_events (gateway, event, gateway_payment_id, order_id, status, payload, headers, signature_valid, error)
+           VALUES ('razorpay', $1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8)`,
+          [
+            event || req.body?.event || "unknown",
+            gatewayPaymentId || null,
+            orderId || null,
+            status || "received",
+            JSON.stringify(req.body || {}),
+            JSON.stringify({
+              "x-razorpay-signature":
+                req.headers["x-razorpay-signature"] || null,
+            }),
+            signatureValid !== false,
+            error || null,
+          ],
+        );
+      } catch (e) {
+        // never fail webhook on audit write
+        console.warn("[webhook_events] persist failed:", e.message);
+      }
+    };
+
     try {
       const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
       if (!secret) {
         console.error("Razorpay webhook secret not configured");
+        await persistWebhookEvent({
+          status: "failed",
+          error: "Webhook secret not configured",
+          signatureValid: false,
+        });
         return res
           .status(500)
           .json({ success: false, message: "Webhook not configured" });
@@ -689,13 +821,33 @@ router.post(
         expectedBuf.length !== actualBuf.length ||
         !crypto.timingSafeEqual(expectedBuf, actualBuf)
       ) {
+        await persistWebhookEvent({
+          status: "failed",
+          error: "Invalid signature",
+          signatureValid: false,
+        });
         return res
           .status(400)
           .json({ success: false, message: "Invalid signature" });
       }
 
       const event = req.body.event;
-      const paymentEntity = req.body.payload.payment.entity;
+      const paymentEntity = req.body.payload?.payment?.entity || {};
+      // Persist received event early (before business logic) so admin sees delivery even if downstream fails
+      await persistWebhookEvent({
+        event,
+        gatewayPaymentId:
+          paymentEntity.id ||
+          req.body?.payload?.refund?.entity?.payment_id ||
+          null,
+        orderId: paymentEntity.order_id || null,
+        status: "received",
+        signatureValid: true,
+      });
+
+      // Re-derive for business logic (kept for existing code below)
+      // eslint-disable-next-line no-unused-vars
+      const _paymentEntity = paymentEntity;
 
       if (event === "payment.captured") {
         // Payment was successfully captured
@@ -798,6 +950,39 @@ router.post(
               planId,
               metadata: { couponCode: couponCode || null, source: "webhook" },
             });
+
+            // P0 FIX: webhook receipt email (was missing)
+            try {
+              const userRec = await dbHelpers.findById("users", userId);
+              if (userRec?.email) {
+                const { default: emailService } =
+                  await import("../../services/EmailService.js");
+                let expiryForEmail = new Date();
+                expiryForEmail.setDate(
+                  expiryForEmail.getDate() +
+                    (planId === "pro-yearly" ? 365 : 30),
+                );
+                const html = emailService.getHtmlWrapper
+                  ? emailService.getHtmlWrapper(
+                      "Payment Confirmed — Trstprep Pro Pass",
+                      `<p>Hi ${userRec.name || userRec.email},</p><p>Your payment was confirmed via webhook and <strong>${planId || "Pro"}</strong> is active.</p><div style="background:#f9fafb;padding:16px;border-radius:8px;margin:16px 0;border:1px solid #e5e7eb;"><p><strong>Order:</strong> ${orderId}</p><p><strong>Payment:</strong> ${gatewayPaymentId}</p><p><strong>Amount:</strong> ₹${paymentEntity.amount / 100}</p></div><p>Keep this as your receipt.</p>`,
+                      {
+                        text: "Go to Dashboard",
+                        url: `${process.env.FRONTEND_URL || "https://trstprep.com"}/dashboard`,
+                      },
+                    )
+                  : `<p>Payment confirmed: ${orderId} / ${gatewayPaymentId} ₹${paymentEntity.amount / 100}</p>`;
+                const m =
+                  typeof emailService.send === "function"
+                    ? "send"
+                    : "sendDirect";
+                await emailService[m](
+                  userRec.email,
+                  `Payment Confirmed — ₹${paymentEntity.amount / 100} — Trstprep`,
+                  html,
+                ).catch(() => {});
+              }
+            } catch {}
           });
         }
       } else if (event === "refund.created" || event === "refund.processed") {
@@ -840,19 +1025,155 @@ router.post(
                   client,
                 );
               }
+              // P0 FIX: keep payments ledger in sync on webhook refund
+              try {
+                await pool.query(
+                  `UPDATE payments SET status='refunded', refunded_at=NOW() WHERE gateway_payment_id=$1 AND status != 'refunded'`,
+                  [gatewayPaymentId],
+                );
+              } catch {}
             }
           });
         }
       }
 
+      // Update webhook_events status to processed (best-effort)
+      try {
+        const evt = req.body.event;
+        const payId =
+          req.body?.payload?.payment?.entity?.id ||
+          req.body?.payload?.refund?.entity?.payment_id ||
+          null;
+        await pool.query(
+          `UPDATE webhook_events SET status='processed' WHERE gateway_payment_id=$1 AND event=$2 AND status='received'`,
+          [payId, evt],
+        );
+      } catch {}
       res.json({ success: true, message: "Webhook processed" });
     } catch (error) {
       console.error("Webhook error:", error);
+      try {
+        await pool.query(
+          `INSERT INTO webhook_events (gateway, event, status, payload, headers, signature_valid, error)
+           VALUES ('razorpay', $1, 'failed', $2::jsonb, '{}'::jsonb, true, $3)`,
+          [
+            req.body?.event || "unknown",
+            JSON.stringify(req.body || {}),
+            error.message,
+          ],
+        );
+      } catch {}
       res
         .status(500)
         .json({ success: false, message: "Webhook processing failed" });
     }
   },
+);
+
+// P0 FIX: User transaction history + receipt download
+router.get(
+  "/my-transactions",
+  protect,
+  asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    try {
+      const rows = await dbHelpers.find("transactions", { userId }, limit);
+      // sort by createdAt desc and apply offset manually (dbHelpers find no offset)
+      rows.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.created_at) -
+          new Date(a.createdAt || a.created_at),
+      );
+      const sliced = rows.slice(offset, offset + limit);
+      // enrich with payments metadata if available
+      const enriched = sliced.map((r) => ({
+        id: r.id || r._id,
+        orderId: r.orderId || r.order_id,
+        paymentId: r.paymentId || r.payment_id,
+        amount: Number(r.amount) || 0,
+        currency: r.currency || "INR",
+        status: r.status || "completed",
+        planId: r.planId || r.plan_id,
+        createdAt: r.createdAt || r.created_at,
+        refundId: r.refundId || r.refund_id || null,
+      }));
+      res.json({ success: true, count: enriched.length, data: enriched });
+    } catch (e) {
+      // fallback raw query
+      try {
+        const result = await pool.query(
+          `SELECT id, user_id, order_id, payment_id, amount, currency, status, plan_id, created_at FROM transactions WHERE user_id=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+          [userId, limit, offset],
+        );
+        const data = result.rows.map((r) => ({
+          id: r.id,
+          orderId: r.order_id,
+          paymentId: r.payment_id,
+          amount: parseFloat(r.amount) || 0,
+          currency: r.currency || "INR",
+          status: r.status,
+          planId: r.plan_id,
+          createdAt: r.created_at,
+        }));
+        res.json({ success: true, count: data.length, data });
+      } catch (err) {
+        res
+          .status(500)
+          .json({ success: false, message: sanitizeErrorMessage(err) });
+      }
+    }
+  }),
+);
+
+router.get(
+  "/receipt/:orderId",
+  protect,
+  asyncHandler(async (req, res) => {
+    const userId = req.user.id;
+    const orderId = req.params.orderId;
+    let txn = null;
+    try {
+      txn = await dbHelpers.findOne("transactions", { orderId, userId });
+    } catch {}
+    if (!txn) {
+      try {
+        const r = await pool.query(
+          `SELECT id, user_id, order_id, payment_id, amount, currency, status, plan_id, created_at FROM transactions WHERE order_id=$1 AND user_id=$2 LIMIT 1`,
+          [orderId, userId],
+        );
+        txn = r.rows[0] || null;
+      } catch {}
+    }
+    if (!txn)
+      return res
+        .status(404)
+        .json({ success: false, message: "Receipt not found" });
+    // also fetch user
+    let user = null;
+    try {
+      user = await dbHelpers.findById("users", userId);
+    } catch {}
+    res.json({
+      success: true,
+      data: {
+        receiptNo: `TRST-${txn.id || txn._id}-${String(
+          txn.orderId || txn.order_id,
+        )
+          .slice(-6)
+          .toUpperCase()}`,
+        orderId: txn.orderId || txn.order_id,
+        paymentId: txn.paymentId || txn.payment_id,
+        amount: Number(txn.amount) || 0,
+        currency: txn.currency || "INR",
+        status: txn.status,
+        planId: txn.planId || txn.plan_id,
+        createdAt: txn.createdAt || txn.created_at,
+        user: user ? { name: user.name, email: user.email } : null,
+      },
+    });
+  }),
 );
 
 export default router;

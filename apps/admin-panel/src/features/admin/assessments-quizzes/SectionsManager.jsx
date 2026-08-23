@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -342,7 +342,7 @@ function SectionPreview({ existingSections, preset, seriesName, stageName }) {
   );
 }
 
-export default function SectionsManager({ testId: propTestId } = {}) {
+function SectionsManager({ testId: propTestId } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlTab = searchParams.get("tab");
   const initialTab = ["all sections", "linking", "presets"].includes(urlTab)
@@ -2670,3 +2670,5 @@ export default function SectionsManager({ testId: propTestId } = {}) {
     </div>
   );
 }
+
+export default memo(SectionsManager);

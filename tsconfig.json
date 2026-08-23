@@ -13,7 +13,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
       "@trstprep/*": ["./packages/*/src"]
@@ -23,15 +22,6 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "apps/**/src/**/*",
-    "packages/**/src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "build",
-    "**/*.test.js",
-    "**/*.test.jsx"
-  ]
+  "include": ["apps/**/src/**/*", "packages/**/src/**/*"],
+  "exclude": ["node_modules", "dist", "build", "**/*.test.js", "**/*.test.jsx"]
 }

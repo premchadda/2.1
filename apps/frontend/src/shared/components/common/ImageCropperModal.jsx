@@ -196,9 +196,9 @@ export default function ImageCropperModal({
         aria-labelledby={titleId}
         tabIndex={-1}
         onKeyDown={handleKeyDown}
-        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[94vh] max-h-[94dvh]"
       >
-        <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+        <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center shrink-0">
           <h3
             id={titleId}
             className="text-lg font-bold text-gray-900 dark:text-white"
@@ -213,7 +213,7 @@ export default function ImageCropperModal({
           </button>
         </div>
 
-        <div className="relative w-full h-[60vh] min-h-[300px] bg-black">
+        <div className="relative w-full h-[42vh] min-h-[220px] sm:h-[60vh] bg-black">
           <Cropper
             image={imageSrc}
             crop={crop}

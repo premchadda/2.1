@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Helmet } from 'react-helmet-async'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo } from "react";
+import { Helmet } from "react-helmet-async";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Bell,
   Layout,
@@ -20,59 +20,83 @@ import {
   GraduationCap as GraduationIcon,
   Plus,
   Minus,
-} from 'lucide-react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import Breadcrumb from '../../shared/components/common/Breadcrumb'
-import api from '../../shared/lib/api'
-import { useAuth } from '../../shared/providers/AuthContext'
-import { invalidateDashboardCache } from '../../shared/lib/enrollment'
-import ComingSoon from '../../shared/components/common/ComingSoon'
-import { toast } from 'react-hot-toast'
+} from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Breadcrumb from "../../shared/components/common/Breadcrumb";
+import api from "../../shared/lib/api";
+import { useAuth } from "../../shared/providers/AuthContext";
+import { invalidateDashboardCache } from "../../shared/lib/enrollment";
+import ComingSoon from "../../shared/components/common/ComingSoon";
+import { toast } from "react-hot-toast";
 
 export default function ExamDetails() {
   const { examId } = useParams();
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
-  const isUserPro = Boolean(user?.isProUser || user?.isPro || user?.role === 'admin' || (user?.passType && user.passType !== 'free'));
+  const isUserPro = Boolean(
+    user?.isProUser ||
+    user?.isPro ||
+    user?.role === "admin" ||
+    (user?.passType && user.passType !== "free"),
+  );
   const queryClient = useQueryClient();
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
-  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedYear, setSelectedYear] = useState(
+    new Date().getFullYear().toString(),
+  );
+  const [activeTab, setActiveTab] = useState("overview");
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
   // Unified Exam Data Fetching
-  const { data: examResponse, isLoading: examLoading, error: examError } = useQuery({
-    queryKey: ['exam-full-details', examId],
+  const {
+    data: examResponse,
+    isLoading: examLoading,
+    error: examError,
+  } = useQuery({
+    queryKey: ["exam-full-details", examId],
     queryFn: async () => {
       // First get basic info to find category
-      const infoRes = await api.get('/api/exam-info');
+      const infoRes = await api.get("/api/exam-info");
       const allInfo = infoRes.data?.data || [];
-      
+
       let baseExamId = examId;
       const yearMatch = examId.match(/-(\d{4})$/);
       if (yearMatch) {
-        baseExamId = examId.replace(/-\d{4}$/, '');
+        baseExamId = examId.replace(/-\d{4}$/, "");
       }
 
-      const examInfo = allInfo.find(e => e.examId === examId || e.examId === baseExamId);
-      if (!examInfo) throw new Error('Exam not found');
+      const examInfo = allInfo.find(
+        (e) => e.examId === examId || e.examId === baseExamId,
+      );
+      if (!examInfo) throw new Error("Exam not found");
 
       // Fetch extended static/pattern/syllabus content (Real replacement for STATIC_CONTENT)
       // Note: content endpoint may not exist, using exam details instead
-      const contentRes = await api.get(`/api/exams/${examInfo.examId}`).catch(() => ({ data: { data: {} } }));
-      const updatesRes = await api.get(`/api/exam-info/${examInfo.examId}/updates`).catch(() => ({ data: { data: [] } }));
-      const yearlyRes = await api.get(`/api/exam-info/${examInfo.examId}/yearly-data`).catch(() => ({ data: { data: {} } }));
+      const contentRes = await api
+        .get(`/api/exams/${examInfo.examId}`)
+        .catch(() => ({ data: { data: {} } }));
+      const updatesRes = await api
+        .get(`/api/exam-info/${examInfo.examId}/updates`)
+        .catch(() => ({ data: { data: [] } }));
+      const yearlyRes = await api
+        .get(`/api/exam-info/${examInfo.examId}/yearly-data`)
+        .catch(() => ({ data: { data: {} } }));
 
       // Fetch category
-      const catRes = await api.get('/api/exam-categories');
-      const category = (catRes.data?.data || []).find(c => c.id === examInfo.categoryId);
+      const catRes = await api.get("/api/exam-categories");
+      const category = (catRes.data?.data || []).find(
+        (c) => c.id === examInfo.categoryId,
+      );
 
       return {
         info: examInfo,
         content: contentRes.data?.data || {},
         updates: updatesRes.data?.data || [],
         yearly: yearlyRes.data?.data || {},
-        category: category || { id: examInfo.categoryId, label: examInfo.categoryId }
+        category: category || {
+          id: examInfo.categoryId,
+          label: examInfo.categoryId,
+        },
       };
     },
     staleTime: 1000 * 60 * 10,
@@ -107,33 +131,36 @@ export default function ExamDetails() {
 
   // Check if user is enrolled in this exam
   useEffect(() => {
-    const controller = new AbortController()
+    const controller = new AbortController();
     const checkEnrollment = async () => {
       if (!user) {
         setIsEnrolled(false);
         return;
       }
       try {
-        const response = await api.get('/api/users/enrolled-exams', { signal: controller.signal });
+        const response = await api.get("/api/users/enrolled-exams", {
+          signal: controller.signal,
+        });
         const enrolledExams = response.data?.data || [];
-        const enrolled = enrolledExams.some(exam => 
-          exam.examId === examId || 
-          exam.id === examId || 
-          exam._id === examId ||
-          exam.examId === examData?.examId ||
-          exam.id === examData?.examId
+        const enrolled = enrolledExams.some(
+          (exam) =>
+            exam.examId === examId ||
+            exam.id === examId ||
+            exam._id === examId ||
+            exam.examId === examData?.examId ||
+            exam.id === examData?.examId,
         );
         setIsEnrolled(enrolled);
       } catch (error) {
-        if (api.isCancel(error)) return
-        console.error('Error checking enrollment:', error);
+        if (api.isCancel(error)) return;
+        console.error("Error checking enrollment:", error);
         setIsEnrolled(false);
       }
     };
     if (examData) {
       checkEnrollment();
     }
-    return () => controller.abort()
+    return () => controller.abort();
   }, [user, examId, examData]);
 
   // Enroll in exam mutation
@@ -145,18 +172,18 @@ export default function ExamDetails() {
     },
     onSuccess: async () => {
       setIsEnrolled(true);
-      queryClient.invalidateQueries(['enrolled-exams']);
-      queryClient.invalidateQueries(['user-profile']);
+      queryClient.invalidateQueries(["enrolled-exams"]);
+      queryClient.invalidateQueries(["user-profile"]);
       await refreshUser?.();
       invalidateDashboardCache();
     },
     onError: (error) => {
-      console.error('Enrollment error:', error);
-      toast.error(error.response?.data?.message || 'Failed to enroll in exam');
+      console.error("Enrollment error:", error);
+      toast.error(error.response?.data?.message || "Failed to enroll in exam");
     },
     onSettled: () => {
       setEnrollmentLoading(false);
-    }
+    },
   });
 
   // Unenroll from exam mutation
@@ -168,24 +195,26 @@ export default function ExamDetails() {
     },
     onSuccess: async () => {
       setIsEnrolled(false);
-      queryClient.invalidateQueries(['enrolled-exams']);
-      queryClient.invalidateQueries(['user-profile']);
+      queryClient.invalidateQueries(["enrolled-exams"]);
+      queryClient.invalidateQueries(["user-profile"]);
       await refreshUser?.();
       invalidateDashboardCache();
-      toast.success('Successfully unenrolled from exam!');
+      toast.success("Successfully unenrolled from exam!");
     },
     onError: (error) => {
-      console.error('Unenrollment error:', error);
-      toast.error(error.response?.data?.message || 'Failed to unenroll from exam');
+      console.error("Unenrollment error:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to unenroll from exam",
+      );
     },
     onSettled: () => {
       setEnrollmentLoading(false);
-    }
+    },
   });
 
   const handleEnrollToggle = () => {
     if (!user) {
-      navigate('/login');
+      navigate("/login");
       return;
     }
     if (isEnrolled) {
@@ -199,7 +228,9 @@ export default function ExamDetails() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
         <Loader2 className="w-12 h-12 text-indigo-600 dark:text-indigo-400 animate-spin mb-4" />
-        <p className="text-gray-500 dark:text-gray-400 font-bold animate-pulse uppercase tracking-widest text-xs">Synchronizing Exam Intelligence...</p>
+        <p className="text-gray-500 dark:text-gray-400 font-bold animate-pulse uppercase tracking-widest text-xs">
+          Synchronizing Exam Intelligence...
+        </p>
       </div>
     );
   }
@@ -211,9 +242,17 @@ export default function ExamDetails() {
           <div className="w-20 h-20 bg-red-50 dark:bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
             <AlertCircle className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">Exam Archive Not Found</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-8 font-medium">The exam ID "{examId}" does not exist in our database or has been moved to a new archive.</p>
-          <button onClick={() => navigate('/exams')} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">
+            Exam Archive Not Found
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-8 font-medium">
+            The exam ID "{examId}" does not exist in our database or has been
+            moved to a new archive.
+          </p>
+          <button
+            onClick={() => navigate("/exams")}
+            className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
+          >
             Browse All Exams
           </button>
         </div>
@@ -242,22 +281,40 @@ export default function ExamDetails() {
   return (
     <div className="min-h-screen bg-[#f8fafc] dark:bg-gray-900">
       <Helmet>
-        <title>{examData?.name || 'Exam Details'} | Trstprep</title>
-        <meta name="description" content={examData?.description || 'View exam details, syllabus, and preparation resources on Trstprep.'} />
-        <meta property="og:title" content={`${examData?.name || 'Exam Details'} | Trstprep`} />
-        <meta property="og:description" content={examData?.description || 'View exam details, syllabus, and preparation resources.'} />
+        <title>{examData?.name || "Exam Details"} | Trstprep</title>
+        <meta
+          name="description"
+          content={
+            examData?.description ||
+            "View exam details, syllabus, and preparation resources on Trstprep."
+          }
+        />
+        <meta
+          property="og:title"
+          content={`${examData?.name || "Exam Details"} | Trstprep`}
+        />
+        <meta
+          property="og:description"
+          content={
+            examData?.description ||
+            "View exam details, syllabus, and preparation resources."
+          }
+        />
         <meta property="og:type" content="website" />
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
-       {/* Breadcrumb */}
-       <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
+      {/* Breadcrumb */}
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Breadcrumb
             items={[
-              { label: 'Home', path: '/' },
-              { label: 'Exams', path: '/exams' },
-              { label: categoryData?.label || 'Category', path: `/exams/category/${categoryData?.id}` },
-              { label: examData.title }
+              { label: "Home", path: "/" },
+              { label: "Exams", path: "/exams" },
+              {
+                label: categoryData?.label || "Category",
+                path: `/exams/category/${categoryData?.id}`,
+              },
+              { label: examData.title },
             ]}
           />
         </div>
@@ -265,12 +322,12 @@ export default function ExamDetails() {
 
       {/* Hero Section */}
       <div className="relative py-16 md:py-24 overflow-hidden bg-slate-950 text-white">
-           <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[120px] -mr-64 -mt-64" />
-        <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] -ml-32 -mb-32" />
-        
+        <div className="absolute inset-0 bg-grid-pattern opacity-10 pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-full max-w-[500px] sm:w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[120px] -mr-64 -mt-64" />
+        <div className="absolute bottom-0 left-0 w-full max-w-[300px] sm:w-[300px] h-[300px] bg-purple-600/10 rounded-full blur-[100px] -ml-32 -mb-32" />
+
         <div className="max-w-7xl mx-auto px-4 relative z-10">
-          <div className="flex flex-col lg:flex-row gap-12 items-start">
+          <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-start">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-6">
                 <span className="px-4 py-1.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">
@@ -284,73 +341,117 @@ export default function ExamDetails() {
                 )}
               </div>
 
-              <h1 className="text-4xl md:text-6xl font-black mb-4 leading-tight tracking-tight">
-                {examData.title} <span className="text-indigo-400">{selectedYear}</span>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl md:text-6xl font-black mb-4 leading-tight tracking-tight">
+                {examData.title}{" "}
+                <span className="text-indigo-400">{selectedYear}</span>
               </h1>
-              <p className="text-xl text-white/60 font-medium mb-8 max-w-2xl">{examData.fullName || examData.title}</p>
+              <p className="text-xl text-white/60 font-medium mb-8 max-w-[95vw] sm:max-w-2xl">
+                {examData.fullName || examData.title}
+              </p>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 group hover:bg-white/10 transition-all">
                   <Users className="w-6 h-6 text-indigo-400 mb-3 group-hover:scale-110 transition-transform" />
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Vacancies</p>
-                  <p className="text-2xl font-black">{currentYearData?.vacancy?.toLocaleString() || 'TBA'}</p>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+                    Vacancies
+                  </p>
+                  <p className="text-2xl font-black">
+                    {currentYearData?.vacancy?.toLocaleString() || "TBA"}
+                  </p>
                 </div>
                 <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 group hover:bg-white/10 transition-all">
                   <Calendar className="w-6 h-6 text-emerald-400 mb-3 group-hover:scale-110 transition-transform" />
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Notification</p>
-                  <p className="text-xl font-black">{currentYearData?.notificationDate ? new Date(currentYearData.notificationDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric'}) : 'Released'}</p>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+                    Notification
+                  </p>
+                  <p className="text-xl font-black">
+                    {currentYearData?.notificationDate
+                      ? new Date(
+                          currentYearData.notificationDate,
+                        ).toLocaleDateString("en-IN", {
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "Released"}
+                  </p>
                 </div>
                 <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 group hover:bg-white/10 transition-all">
                   <Target className="w-6 h-6 text-amber-400 mb-3 group-hover:scale-110 transition-transform" />
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Tier-I Date</p>
-                  <p className="text-xl font-black">{currentYearData?.tier1ExamDate ? new Date(currentYearData.tier1ExamDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'June 2026'}</p>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+                    Tier-I Date
+                  </p>
+                  <p className="text-xl font-black">
+                    {currentYearData?.tier1ExamDate
+                      ? new Date(
+                          currentYearData.tier1ExamDate,
+                        ).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })
+                      : "June 2026"}
+                  </p>
                 </div>
                 <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-6 border border-white/10 group hover:bg-white/10 transition-all">
                   <Building2 className="w-6 h-6 text-purple-400 mb-3 group-hover:scale-110 transition-transform" />
-                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">Auth Body</p>
-                  <p className="text-xl font-black">{effectiveContent?.conductingBody || 'SSC'}</p>
+                  <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-1">
+                    Auth Body
+                  </p>
+                  <p className="text-xl font-black">
+                    {effectiveContent?.conductingBody || "SSC"}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="w-full lg:w-[320px] bg-white/5 backdrop-blur-2xl rounded-[3rem] p-8 border border-white/10 shadow-2xl">
-                <div className="text-center mb-8">
-                  <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 animate-bounce-subtle">🎯</div>
-                  <h3 className="text-xl font-black mb-2">Crack This Exam</h3>
-                  <p className="text-white/50 text-xs font-medium">Full preparations with mocks & notes</p>
+            <div className="w-full lg:w-full max-w-[320px] sm:w-[320px] bg-white/5 backdrop-blur-2xl rounded-[3rem] p-8 border border-white/10 shadow-2xl">
+              <div className="text-center mb-8">
+                <div className="w-20 h-20 bg-indigo-600 rounded-full flex items-center justify-center text-2xl sm:text-3xl lg:text-4xl mx-auto mb-4 animate-bounce-subtle">
+                  🎯
                 </div>
-                <div className="space-y-4">
-                  {/* Enroll/Unenroll Button */}
-                  <button 
-                    onClick={handleEnrollToggle}
-                    disabled={enrollmentLoading}
-                    className={`w-full py-4 rounded-2xl font-black text-xs transition-all shadow-xl flex items-center justify-center gap-2 group ${
-                      isEnrolled 
-                        ? 'bg-red-500/20 text-white border border-red-500/30 hover:bg-red-500/30' 
-                        : 'bg-white dark:bg-gray-800 text-slate-950 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 shadow-white/5'
-                    }`}
-                  >
-                    {enrollmentLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : isEnrolled ? (
-                      <>
-                        <Minus className="w-4 h-4" /> UNENROLL FROM EXAM
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" /> ENROLL IN EXAM
-                      </>
-                    )}
-                  </button>
-                  <button onClick={() => navigate('/test-series')} className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2 group">
-                    START PREPARATION <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                  {!isUserPro && (
-                    <button onClick={() => navigate('/pass')} className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2">
-                      GET PRO PASS <Award className="w-4 h-4 text-amber-400" />
-                    </button>
+                <h3 className="text-xl font-black mb-2">Crack This Exam</h3>
+                <p className="text-white/50 text-xs font-medium">
+                  Full preparations with mocks & notes
+                </p>
+              </div>
+              <div className="space-y-4">
+                {/* Enroll/Unenroll Button */}
+                <button
+                  onClick={handleEnrollToggle}
+                  disabled={enrollmentLoading}
+                  className={`w-full py-4 rounded-2xl font-black text-xs transition-all shadow-xl flex items-center justify-center gap-2 group ${
+                    isEnrolled
+                      ? "bg-red-500/20 text-white border border-red-500/30 hover:bg-red-500/30"
+                      : "bg-white dark:bg-gray-800 text-slate-950 dark:text-white hover:bg-indigo-50 dark:hover:bg-indigo-900/30 shadow-white/5"
+                  }`}
+                >
+                  {enrollmentLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : isEnrolled ? (
+                    <>
+                      <Minus className="w-4 h-4" /> UNENROLL FROM EXAM
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" /> ENROLL IN EXAM
+                    </>
                   )}
-                </div>
+                </button>
+                <button
+                  onClick={() => navigate("/test-series")}
+                  className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2 group"
+                >
+                  START PREPARATION{" "}
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+                {!isUserPro && (
+                  <button
+                    onClick={() => navigate("/pass")}
+                    className="w-full py-4 bg-white/10 text-white border border-white/10 rounded-2xl font-black text-xs hover:bg-white/20 transition-all flex items-center justify-center gap-2"
+                  >
+                    GET PRO PASS <Award className="w-4 h-4 text-amber-400" />
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -360,17 +461,19 @@ export default function ExamDetails() {
       <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
         <div className="bg-white dark:bg-gray-800 rounded-[2rem] shadow-xl shadow-slate-200/50 p-3 border border-gray-100 dark:border-gray-700 flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {[
-            { id: 'overview', label: 'Overview', icon: Target },
-            { id: 'updates', label: 'Updates', icon: Bell },
-            { id: 'syllabus', label: 'Syllabus', icon: ListChecks },
-            { id: 'pattern', label: 'Pattern', icon: Layout },
-            { id: 'pyq', label: 'Archive', icon: History }
-          ].map(tab => (
+            { id: "overview", label: "Overview", icon: Target },
+            { id: "updates", label: "Updates", icon: Bell },
+            { id: "syllabus", label: "Syllabus", icon: ListChecks },
+            { id: "pattern", label: "Pattern", icon: Layout },
+            { id: "pyq", label: "Archive", icon: History },
+          ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-xs transition-all whitespace-nowrap ${
-                activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                activeTab === tab.id
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-100"
+                  : "text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700"
               }`}
             >
               <tab.icon className="w-4 h-4" /> {tab.label.toUpperCase()}
@@ -380,182 +483,289 @@ export default function ExamDetails() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-          
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           <div className="lg:col-span-2 space-y-10">
-            {activeTab === 'overview' && (
+            {activeTab === "overview" && (
               <div className="animate-fade-in space-y-10">
                 <section className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
                   <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-                    <span className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400"><FileText className="w-5 h-5"/></span>
+                    <span className="p-2 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl text-indigo-600 dark:text-indigo-400">
+                      <FileText className="w-5 h-5" />
+                    </span>
                     Exam Highlights
                   </h2>
                   <div className="prose prose-slate max-w-none text-gray-600 dark:text-gray-300 font-medium leading-relaxed">
-                    {examData.description || effectiveContent?.overview || 'Detailed overview being compiled by our subject experts.'}
+                    {examData.description ||
+                      effectiveContent?.overview ||
+                      "Detailed overview being compiled by our subject experts."}
                   </div>
                 </section>
 
                 <section className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
                   <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8 flex items-center gap-3">
-                    <span className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-purple-600 dark:text-purple-400"><GraduationIcon className="w-5 h-5"/></span>
+                    <span className="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-xl text-purple-600 dark:text-purple-400">
+                      <GraduationIcon className="w-5 h-5" />
+                    </span>
                     Eligibility Logic
                   </h2>
                   <div className="grid md:grid-cols-2 gap-8">
                     <div className="p-8 bg-slate-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-700">
-                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">Qualification</p>
-                      <p className="text-gray-900 dark:text-white font-black leading-snug">{effectiveContent?.basicEligibility || 'Graduate in any discipline'}</p>
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">
+                        Qualification
+                      </p>
+                      <p className="text-gray-900 dark:text-white font-black leading-snug">
+                        {effectiveContent?.basicEligibility ||
+                          "Graduate in any discipline"}
+                      </p>
                     </div>
                     <div className="p-8 bg-slate-50 dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-700">
-                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">Age Window</p>
-                      <p className="text-gray-900 dark:text-white font-black leading-snug">{effectiveContent?.basicAgeLimit || '18 to 32 Years'}</p>
+                      <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-3">
+                        Age Window
+                      </p>
+                      <p className="text-gray-900 dark:text-white font-black leading-snug">
+                        {effectiveContent?.basicAgeLimit || "18 to 32 Years"}
+                      </p>
                     </div>
                   </div>
                 </section>
               </div>
             )}
 
-            {activeTab === 'updates' && (
+            {activeTab === "updates" && (
               <div className="animate-fade-in space-y-6">
-                {updates && updates.length > 0 ? updates.map((update, idx) => (
-                   <div key={idx} className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex items-start gap-4">
-                      <div className={`p-3 rounded-2xl ${update.priority === 'high' ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-blue-50 dark:bg-blue-900/20 text-blue-500'}`}>
+                {updates && updates.length > 0 ? (
+                  updates.map((update, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-white dark:bg-gray-800 rounded-3xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex items-start gap-4"
+                    >
+                      <div
+                        className={`p-3 rounded-2xl ${update.priority === "high" ? "bg-red-50 dark:bg-red-900/20 text-red-500" : "bg-blue-50 dark:bg-blue-900/20 text-blue-500"}`}
+                      >
                         <Bell className="w-5 h-5" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">{new Date(update.date).toLocaleDateString()}</span>
-                          {update.priority === 'high' && <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[8px] font-black rounded uppercase">Urgent</span>}
+                          <span className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase">
+                            {new Date(update.date).toLocaleDateString()}
+                          </span>
+                          {update.priority === "high" && (
+                            <span className="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-[8px] font-black rounded uppercase">
+                              Urgent
+                            </span>
+                          )}
                         </div>
-                        <h4 className="font-black text-gray-900 dark:text-white mb-2">{update.title}</h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">{update.description}</p>
+                        <h4 className="font-black text-gray-900 dark:text-white mb-2">
+                          {update.title}
+                        </h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                          {update.description}
+                        </p>
                       </div>
-                   </div>
-                )) : (
+                    </div>
+                  ))
+                ) : (
                   <div className="py-20 text-center bg-white dark:bg-gray-800 rounded-[3rem] border border-dashed border-gray-200 dark:border-gray-700">
-                    <p className="text-4xl mb-4">📢</p>
-                    <p className="font-black text-gray-500 dark:text-gray-400">No recent official updates recorded.</p>
+                    <p className="text-2xl sm:text-3xl lg:text-4xl mb-4">📢</p>
+                    <p className="font-black text-gray-500 dark:text-gray-400">
+                      No recent official updates recorded.
+                    </p>
                   </div>
                 )}
               </div>
             )}
 
-            {activeTab === 'syllabus' && (
+            {activeTab === "syllabus" && (
               <div className="animate-fade-in space-y-8">
-                 <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-8">
-                      <button className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
-                        <Download className="w-4 h-4" /> DOWNLOAD PDF SYLLABUS
-                      </button>
-                    </div>
-                    <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">Detailed Subject Mapping</h2>
-                    <div className="space-y-12">
-                       {(effectiveContent?.syllabus || []).map((subject, sIdx) => (
-                         <div key={sIdx}>
-                            <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-4">
-                              {subject.subject}
-                              <span className="flex-1 h-px bg-indigo-50 dark:bg-indigo-900/30" />
-                            </h3>
-                            <div className="grid md:grid-cols-2 gap-4">
-                               {subject.chapters.map((chapter, cIdx) => (
-                                 <div key={cIdx} className="p-6 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group">
-                                    <h4 className="font-black text-gray-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{chapter.name}</h4>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">{chapter.topics?.join(', ')}</p>
-                                 </div>
-                               ))}
+                <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-8">
+                    <button className="flex items-center gap-2 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+                      <Download className="w-4 h-4" /> DOWNLOAD PDF SYLLABUS
+                    </button>
+                  </div>
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">
+                    Detailed Subject Mapping
+                  </h2>
+                  <div className="space-y-12">
+                    {(effectiveContent?.syllabus || []).map((subject, sIdx) => (
+                      <div key={sIdx}>
+                        <h3 className="text-xs font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-4">
+                          {subject.subject}
+                          <span className="flex-1 h-px bg-indigo-50 dark:bg-indigo-900/30" />
+                        </h3>
+                        <div className="grid md:grid-cols-2 gap-4">
+                          {subject.chapters.map((chapter, cIdx) => (
+                            <div
+                              key={cIdx}
+                              className="p-6 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-700 hover:border-indigo-100 dark:hover:border-indigo-800 transition-all group"
+                            >
+                              <h4 className="font-black text-gray-900 dark:text-white mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                {chapter.name}
+                              </h4>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                {chapter.topics?.join(", ")}
+                              </p>
                             </div>
-                         </div>
-                       ))}
-                    </div>
-                 </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
-            {activeTab === 'pattern' && (
+            {activeTab === "pattern" && (
               <div className="animate-fade-in space-y-10">
-                 <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">Tier-I Examination Structure</h2>
-                    <div className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-700">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50 dark:bg-gray-900">
-                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Section / Subject</th>
-                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">Questions</th>
-                            <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">Max Marks</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
-                           {(effectiveContent?.pattern?.tier1 || []).map((sec, i) => (
-                             <tr key={i} className="hover:bg-slate-50/50 dark:hover:bg-gray-800/50 transition-colors">
-                               <td className="p-6 font-black text-gray-900 dark:text-white text-sm">{sec.section}</td>
-                               <td className="p-6 text-center font-bold text-gray-500 dark:text-gray-400">{sec.questions}</td>
-                               <td className="p-6 text-center font-black text-indigo-600 dark:text-indigo-400">{sec.marks}</td>
-                             </tr>
-                           ))}
-                        </tbody>
-                        <tfoot>
-                           <tr className="bg-indigo-600 text-white font-black">
-                              <td className="p-6 text-sm">TOTAL POTENTIAL</td>
-                              <td className="p-6 text-center">{(effectiveContent?.pattern?.tier1 || []).reduce((acc, s) => acc + s.questions, 0)} Qs</td>
-                              <td className="p-6 text-center">{(effectiveContent?.pattern?.tier1 || []).reduce((acc, s) => acc + s.marks, 0)} Marks</td>
-                           </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                 </div>
+                <div className="bg-white dark:bg-gray-800 rounded-[2.5rem] p-10 border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-8">
+                    Tier-I Examination Structure
+                  </h2>
+                  <div className="overflow-hidden rounded-3xl border border-gray-100 dark:border-gray-700">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-gray-900">
+                          <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                            Section / Subject
+                          </th>
+                          <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">
+                            Questions
+                          </th>
+                          <th className="p-6 text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest text-center">
+                            Max Marks
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                        {(effectiveContent?.pattern?.tier1 || []).map(
+                          (sec, i) => (
+                            <tr
+                              key={i}
+                              className="hover:bg-slate-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                            >
+                              <td className="p-6 font-black text-gray-900 dark:text-white text-sm">
+                                {sec.section}
+                              </td>
+                              <td className="p-6 text-center font-bold text-gray-500 dark:text-gray-400">
+                                {sec.questions}
+                              </td>
+                              <td className="p-6 text-center font-black text-indigo-600 dark:text-indigo-400">
+                                {sec.marks}
+                              </td>
+                            </tr>
+                          ),
+                        )}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-indigo-600 text-white font-black">
+                          <td className="p-6 text-sm">TOTAL POTENTIAL</td>
+                          <td className="p-6 text-center">
+                            {(effectiveContent?.pattern?.tier1 || []).reduce(
+                              (acc, s) => acc + s.questions,
+                              0,
+                            )}{" "}
+                            Qs
+                          </td>
+                          <td className="p-6 text-center">
+                            {(effectiveContent?.pattern?.tier1 || []).reduce(
+                              (acc, s) => acc + s.marks,
+                              0,
+                            )}{" "}
+                            Marks
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
               </div>
             )}
-            
-            {activeTab === 'pyq' && (
+
+            {activeTab === "pyq" && (
               <div className="animate-fade-in p-10 bg-white dark:bg-gray-800 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center justify-center text-center">
-                 <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
-                    <History className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
-                 </div>
-                 <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">Previous Year Archive</h3>
-                 <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mb-8">Access sorted question papers from 2018 to 2025 with detailed solutions.</p>
-                 <button onClick={() => navigate('/pyps')} className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100">
-                    OPEN ARCHIVE
-                 </button>
+                <div className="w-20 h-20 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
+                  <History className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h3 className="text-xl font-black text-gray-900 dark:text-white mb-2">
+                  Previous Year Archive
+                </h3>
+                <p className="text-gray-500 dark:text-gray-400 font-medium max-w-sm mb-8">
+                  Access sorted question papers from 2018 to 2025 with detailed
+                  solutions.
+                </p>
+                <button
+                  onClick={() => navigate("/pyps")}
+                  className="bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-xs hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100"
+                >
+                  OPEN ARCHIVE
+                </button>
               </div>
             )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-8">
-             <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl" />
-                <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-6">Target Roadmap</h3>
-                <div className="space-y-6 relative z-10">
-                   {(currentYearData?.importantDates || [
-                     { event: 'Notification', date: 'March 1, 2026', status: 'upcoming' },
-                     { event: 'Applications', date: 'March-April 2026', status: 'upcoming' },
-                     { event: 'Exam Tier-I', date: 'June 2026', status: 'upcoming' }
-                   ]).map((item, idx) => (
-                     <div key={idx} className="flex gap-4">
-                        <div className="flex flex-col items-center gap-1">
-                           <div className={`w-3 h-3 rounded-full border-2 ${item.status === 'upcoming' ? 'bg-transparent border-indigo-500' : 'bg-green-500 border-green-500'}`} />
-                           {idx < 2 && <div className="w-px h-full bg-white/10" />}
-                        </div>
-                        <div>
-                           <p className="text-[10px] font-black text-white/40 uppercase mb-0.5">{item.event}</p>
-                           <p className="text-xs font-black">{item.date}</p>
-                        </div>
-                     </div>
-                   ))}
-                </div>
-             </div>
+            <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl" />
+              <h3 className="text-xs font-black text-indigo-400 uppercase tracking-widest mb-6">
+                Target Roadmap
+              </h3>
+              <div className="space-y-6 relative z-10">
+                {(
+                  currentYearData?.importantDates || [
+                    {
+                      event: "Notification",
+                      date: "March 1, 2026",
+                      status: "upcoming",
+                    },
+                    {
+                      event: "Applications",
+                      date: "March-April 2026",
+                      status: "upcoming",
+                    },
+                    {
+                      event: "Exam Tier-I",
+                      date: "June 2026",
+                      status: "upcoming",
+                    },
+                  ]
+                ).map((item, idx) => (
+                  <div key={idx} className="flex gap-4">
+                    <div className="flex flex-col items-center gap-1">
+                      <div
+                        className={`w-3 h-3 rounded-full border-2 ${item.status === "upcoming" ? "bg-transparent border-indigo-500" : "bg-green-500 border-green-500"}`}
+                      />
+                      {idx < 2 && <div className="w-px h-full bg-white/10" />}
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-white/40 uppercase mb-0.5">
+                        {item.event}
+                      </p>
+                      <p className="text-xs font-black">{item.date}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-             <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm">
-                <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-6">Related Exams</h3>
-                <div className="space-y-4">
-                   {/* Here we would normally map relatedExams from the query */}
-                   <p className="text-xs text-gray-400 dark:text-gray-500 font-medium italic">Scanning for related exams in the same category...</p>
-                   <button onClick={() => navigate('/exams')} className="w-full py-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-xl font-bold text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all outline-none uppercase tracking-widest">
-                      BROWSE ALL {categoryData?.label} EXAMS
-                   </button>
-                </div>
-             </div>
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm">
+              <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-6">
+                Related Exams
+              </h3>
+              <div className="space-y-4">
+                {/* Here we would normally map relatedExams from the query */}
+                <p className="text-xs text-gray-400 dark:text-gray-500 font-medium italic">
+                  Scanning for related exams in the same category...
+                </p>
+                <button
+                  onClick={() => navigate("/exams")}
+                  className="w-full py-3 bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-xl font-bold text-[10px] hover:bg-gray-100 dark:hover:bg-gray-700 transition-all outline-none uppercase tracking-widest"
+                >
+                  BROWSE ALL {categoryData?.label} EXAMS
+                </button>
+              </div>
+            </div>
           </div>
-
         </div>
       </div>
     </div>

@@ -108,7 +108,7 @@ export default function CurrentAffairs() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <BookOpen className="w-10 h-10 text-indigo-600" />
-            <h1 className="text-4xl font-bold text-gray-900">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900">
               Daily Current Affairs
             </h1>
           </div>
@@ -214,7 +214,7 @@ export default function CurrentAffairs() {
             <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : filteredArticles.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredArticles.map((article, idx) => (
               <div
                 key={article.id || article._id || idx}
