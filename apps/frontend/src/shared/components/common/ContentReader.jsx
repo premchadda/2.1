@@ -20,6 +20,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
   const [bookmarkLoading, setBookmarkLoading] = useState(false);
   const [shareSuccess, setShareSuccess] = useState(false);
   const shareTimerRef = useRef(null);
+  const dialogRef = useRef(null);
   const bookmarkItemType = contentData?.itemType || "study-material";
 
   useEffect(() => {
@@ -27,6 +28,53 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
       if (shareTimerRef.current) clearTimeout(shareTimerRef.current);
     };
   }, []);
+
+  // ESC to close + focus trap
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose?.();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault();
+            last.focus();
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault();
+            first.focus();
+          }
+        }
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    // Focus first focusable on open
+    const t = setTimeout(() => {
+      if (dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable[0]) focusable[0].focus();
+      }
+    }, 0);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      clearTimeout(t);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isOpen, onClose]);
   // Memoize the sanitized content — DOMPurify is expensive and was previously
   // re-computed on every parent re-render even when contentData didn't change.
   const safeContent = useMemo(
@@ -114,22 +162,32 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
   if (!isOpen || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 bg-gray-50 dark:bg-gray-900 z-[99999] overflow-y-auto animate-fade-in">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={contentData?.title || "Study material reader"}
+      className="fixed inset-0 bg-gray-50 dark:bg-gray-900 z-[99999] overflow-y-auto animate-fade-in"
+    >
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 shadow-sm z-10">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <button
+            type="button"
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close reader"
           >
-            <X className="w-5 h-5 text-gray-600" />
+            <X className="w-5 h-5 text-gray-600" aria-hidden="true" />
           </button>
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleShare}
               className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${shareSuccess ? "text-green-600" : "text-gray-600"}`}
               title={shareSuccess ? "Link copied!" : "Share"}
+              aria-label={shareSuccess ? "Link copied" : "Share"}
             >
               {shareSuccess ? (
                 <Check className="w-5 h-5" />
@@ -138,10 +196,13 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
               )}
             </button>
             <button
+              type="button"
               onClick={handleBookmark}
               disabled={bookmarkLoading}
               className={`p-2 hover:bg-gray-100 rounded-lg transition-colors ${isBookmarked ? "text-brand-start" : "text-gray-600"}`}
               title={isBookmarked ? "Remove bookmark" : "Bookmark"}
+              aria-label={isBookmarked ? "Remove bookmark" : "Bookmark"}
+              aria-pressed={isBookmarked}
             >
               {bookmarkLoading ? (
                 <div className="w-5 h-5 border-2 border-gray-300 border-t-brand-start rounded-full animate-spin" />
