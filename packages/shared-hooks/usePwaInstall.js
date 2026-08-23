@@ -2,6 +2,20 @@ import { useState, useEffect, useCallback } from "react";
 
 const STORAGE_KEY = "trstprep_pwa_dismissed";
 
+// Test routes where PWA install prompt must be suppressed to avoid
+// interfering with timed assessments / fullscreen test UX.
+const TEST_ROUTE_PATTERNS = [
+  /\/test\//i,
+  /\/tests?\//i,
+  /\/live-test/i,
+  /\/practice/i,
+  /\/attempt\//i,
+];
+
+function isTestRoute(pathname = "") {
+  return TEST_ROUTE_PATTERNS.some((re) => re.test(pathname));
+}
+
 export function usePwaInstall() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -20,6 +34,12 @@ export function usePwaInstall() {
   // Check standalone mode and platform once on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Suppress PWA handling entirely on test routes
+    try {
+      if (isTestRoute(window.location.pathname)) return;
+    } catch {
+      // ignore pathname access errors
+    }
 
     // Check if running in standalone mode (already installed as PWA)
     const checkStandalone = () => {
@@ -90,6 +110,12 @@ export function usePwaInstall() {
 
     // Listen for Chromium beforeinstallprompt event
     const handleBeforeInstallPrompt = (e) => {
+      // Do not capture prompt on test routes — would interfere with test UX
+      try {
+        if (isTestRoute(window.location.pathname)) return;
+      } catch {
+        // ignore
+      }
       // Prevent browser mini-infobar default
       e.preventDefault();
       setDeferredPrompt(e);
@@ -121,8 +147,13 @@ export function usePwaInstall() {
     };
   }, []);
 
-  // Install trigger action
+  // Install trigger action — no-op on test routes
   const installApp = useCallback(async () => {
+    try {
+      if (isTestRoute(window.location.pathname)) return "unsupported";
+    } catch {
+      // ignore
+    }
     if (deferredPrompt) {
       // Standard Chromium PWA install
       try {
@@ -167,9 +198,12 @@ export function usePwaInstall() {
     setIsDismissed(false);
   }, []);
 
-  // Whether installation is supported/available
+  // Whether installation is supported/available (suppressed on test routes)
   const isInstallable =
     !isStandalone &&
+    !isTestRoute(
+      typeof window !== "undefined" ? window.location.pathname : "",
+    ) &&
     (!!deferredPrompt || (platform.isIOS && platform.isSafari));
 
   return {

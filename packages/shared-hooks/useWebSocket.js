@@ -29,10 +29,25 @@ let sharedSocket = null;
 let consumerCount = 0;
 
 /**
- * WebSocket hook — cookie-based auth (withCredentials), no localStorage JWT.
+ * WebSocket hook — httpOnly cookie auth via `withCredentials`.
+ *
+ * SECURITY MIGRATION (httpOnly):
+ * Previously this hook read `trstprep_auth_token` from browser storage and
+ * injected it as `auth: { token }` on every socket handshake. That pattern
+ * is vulnerable to XSS exfiltration. The migration removes ALL storage reads:
+ * - No browser storage read here (token is never sourced from storage).
+ * - Auth relies exclusively on the httpOnly `accessToken` cookie sent automatically
+ *   via `withCredentials: true` and validated by the Socket.IO `protect` middleware.
+ * - The optional `token` param is retained only for backwards compat / manual testing;
+ *   production callers must omit it. If provided, it is sent as `auth.token` but
+ *   never sourced from browser storage inside this module.
+ *
+ * Shared singleton + ref-count pattern is preserved to avoid duplicate connections
+ * under React StrictMode.
+ *
  * @param {Object|boolean} options - Either `{ enabled, token }` or a boolean `enabled`
  * @param {boolean} [options.enabled=true] - Whether to establish the connection
- * @param {string|null} [options.token=null] - Optional explicit token for auth (prefer cookie auth)
+ * @param {string|null} [options.token=null] - Deprecated: explicit token (prefer cookie auth; omit in prod)
  */
 export const useWebSocket = (options = {}) => {
   const { enabled = true, token = null } =
@@ -52,13 +67,15 @@ export const useWebSocket = (options = {}) => {
 
     if (!sharedSocket) {
       const socketOptions = {
+        // httpOnly migration: rely on cookie, never read token from storage
         withCredentials: true,
         transports: ["websocket", "polling"],
         reconnection: true,
         reconnectionAttempts: 10,
         reconnectionDelay: 1000,
       };
-      // Only include token auth if explicitly provided — do NOT read from localStorage
+      // Back-compat only: if caller explicitly passes token, forward it; otherwise rely on cookie.
+      // Intentionally no storage read here (see JSDoc).
       if (token) {
         socketOptions.auth = { token };
       }

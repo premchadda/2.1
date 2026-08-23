@@ -1,6 +1,7 @@
 // Shared Hooks Package - Exports common hooks used across frontend and admin-panel
 // HIGH-09 Fix: Consolidated hook files into single shared package
 // 9 identical hooks found across frontend/src/shared/hooks/ and admin-panel/src/shared/hooks/
+// EmptyState lives at ./src/EmptyState.jsx — package.json "./EmptyState" export mirrors this path.
 
 export { default as useStages } from "./useStages.js";
 export { default as useExamCategories } from "./useExamCategories.js";
