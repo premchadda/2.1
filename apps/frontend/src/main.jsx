@@ -20,25 +20,14 @@ setSharedApiClient(apiClient);
 import { validateEnvVars } from "./shared/lib/env-validation.js";
 validateEnvVars();
 
-// DEFENSIVE PATCH: Prevent browser extension DOM mutations (Google Translate, Grammarly, AutoFill)
-// from throwing `NotFoundError: Failed to execute 'removeChild' on 'Node'`
-if (typeof window !== "undefined") {
-  const origRemove = Node.prototype.removeChild;
-  Node.prototype.removeChild = function (child) {
-    if (child && child.parentNode !== this) {
-      return child;
-    }
-    return origRemove.apply(this, arguments);
-  };
-
-  const origInsert = Node.prototype.insertBefore;
-  Node.prototype.insertBefore = function (newNode, refNode) {
-    if (refNode && refNode.parentNode !== this) {
-      return newNode;
-    }
-    return origInsert.apply(this, arguments);
-  };
-}
+// NOTE: Previous Node.prototype.removeChild/insertBefore monkey-patch has been removed.
+// It was a workaround for browser extensions (Google Translate, Grammarly, AutoFill)
+// mutating the DOM and causing `NotFoundError: Failed to execute 'removeChild' on 'Node'`
+// in React 17. React 18's concurrent reconciler no longer throws fatally on
+// external DOM mutations — it recovers via re-render — so the patch is unnecessary
+// and is intentionally not reintroduced to avoid masking real DOM bugs and to keep
+// the prototype clean. If a future extension again breaks rendering, prefer a
+// scoped error boundary over a global prototype override.
 
 const queryClient = new QueryClient({
   defaultOptions: {

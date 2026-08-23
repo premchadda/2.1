@@ -38,67 +38,37 @@ const USER_CACHE_KEY = "trstprep_user_profile";
 
 const getInitialUser = () => {
   try {
-    const cached =
-      sessionStorage.getItem(USER_CACHE_KEY) ||
-      localStorage.getItem(USER_CACHE_KEY);
+    const cached = sessionStorage.getItem(USER_CACHE_KEY);
     return cached ? JSON.parse(cached) : null;
   } catch {
     return null;
   }
 };
 
-const saveUserCache = (frontendUser, rememberMe = false) => {
+const saveUserCache = (frontendUser) => {
   try {
-    const primary = rememberMe ? localStorage : sessionStorage;
-    const secondary = rememberMe ? sessionStorage : localStorage;
-    secondary.removeItem(USER_CACHE_KEY);
-
+    // Use sessionStorage only - localStorage persistence contradicts httpOnly security model
+    // Legacy localStorage cache is purged on every write for migration hygiene
+    try {
+      localStorage.removeItem(USER_CACHE_KEY);
+    } catch {}
     if (frontendUser) {
-      primary.setItem(USER_CACHE_KEY, JSON.stringify(frontendUser));
+      sessionStorage.setItem(USER_CACHE_KEY, JSON.stringify(frontendUser));
     } else {
-      primary.removeItem(USER_CACHE_KEY);
-    }
-  } catch {
-    // sessionStorage / localStorage may throw in private mode
-  }
-};
-
-export const applyAuthSession = ({
-  token,
-  refreshToken,
-  csrfToken,
-  rememberMe = false,
-}) => {
-  try {
-    const primaryStorage = rememberMe ? localStorage : sessionStorage;
-    const secondaryStorage = rememberMe ? sessionStorage : localStorage;
-
-    // Purge stale tokens from opposite storage to prevent cross-contamination
-    secondaryStorage.removeItem("trstprep_auth_token");
-    secondaryStorage.removeItem("trstprep_token");
-    secondaryStorage.removeItem("trstprep_refresh_token");
-
-    if (token) {
-      primaryStorage.setItem(
-        rememberMe ? "trstprep_token" : "trstprep_auth_token",
-        token,
-      );
-    }
-    if (refreshToken) {
-      primaryStorage.setItem("trstprep_refresh_token", refreshToken);
-    }
-    if (csrfToken) {
-      setCsrfToken(csrfToken);
+      sessionStorage.removeItem(USER_CACHE_KEY);
     }
   } catch {
     // storage may throw in private mode
   }
 };
 
-// Backward-compatible alias for existing imports
-export const saveAuthTokens = applyAuthSession;
-
-export const clearAuthTokens = () => {
+export const applyAuthSession = ({ csrfToken } = {}) => {
+  // httpOnly cookie authentication: tokens are never stored in JS-accessible storage.
+  // Only the CSRF token (non-secret, needed for mutating requests) is kept in memory.
+  if (csrfToken) {
+    setCsrfToken(csrfToken);
+  }
+  // Migration: purge any legacy tokens that may remain from pre-httpOnly builds
   try {
     sessionStorage.removeItem("trstprep_auth_token");
     sessionStorage.removeItem("trstprep_token");
@@ -106,7 +76,29 @@ export const clearAuthTokens = () => {
     localStorage.removeItem("trstprep_token");
     localStorage.removeItem("trstprep_auth_token");
     localStorage.removeItem("trstprep_refresh_token");
+  } catch {}
+};
+
+// Backward-compatible alias for existing imports
+export const saveAuthTokens = applyAuthSession;
+
+export const clearAuthTokens = () => {
+  try {
+    // Purge legacy token keys (migration hygiene) + CSRF
+    sessionStorage.removeItem("trstprep_auth_token");
+    sessionStorage.removeItem("trstprep_token");
+    sessionStorage.removeItem("trstprep_refresh_token");
+    localStorage.removeItem("trstprep_token");
+    localStorage.removeItem("trstprep_auth_token");
+    localStorage.removeItem("trstprep_refresh_token");
+    localStorage.removeItem(USER_CACHE_KEY);
     clearCsrfToken();
+    // Clear encrypted offline answer buffers and other sensitive localStorage
+    try {
+      Object.keys(localStorage).forEach((k) => {
+        if (k.startsWith("trstprep_answers_")) localStorage.removeItem(k);
+      });
+    } catch {}
   } catch {
     // storage may throw in private mode
   }
@@ -120,42 +112,16 @@ export function AuthProvider({ children }) {
   const [authResolved, setAuthResolved] = useState(Boolean(initialCachedUser));
   const authSequenceRef = useRef(0);
 
-  // Refresh token function
+  // Refresh token function - httpOnly cookie only (no refreshToken in body)
   const refreshToken = useCallback(async () => {
     try {
-      const isPersistent =
-        typeof window !== "undefined" &&
-        Boolean(
-          localStorage.getItem("trstprep_token") ||
-          localStorage.getItem("trstprep_refresh_token"),
-        );
-      const storedRefreshToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem("trstprep_refresh_token") ||
-            sessionStorage.getItem("trstprep_refresh_token")
-          : null;
-      const response = await api.post(
-        "/api/auth/refresh",
-        storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
-      );
-      const {
-        token: newToken,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data?.data || {};
-      const rememberMe =
-        serverRememberMe !== undefined ? serverRememberMe : isPersistent;
-      applyAuthSession({
-        token: newToken,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe,
-      });
+      const response = await api.post("/api/auth/refresh", {});
+      const { csrfToken: newCsrfToken } = response.data?.data || {};
+      applyAuthSession({ csrfToken: newCsrfToken });
       return { success: true };
     } catch (err) {
       logger.error("Token refresh failed:", err);
-      const status = err?.response?.status;
+      const status = err?.response?.status ?? err?.status;
       if (status === 401 || status === 419) {
         clearAuthTokens();
         saveUserCache(null);
@@ -183,14 +149,8 @@ export function AuthProvider({ children }) {
 
         if (userData) {
           const frontendUser = mapUserToFrontend(userData);
-          const isPersistent =
-            typeof window !== "undefined" &&
-            Boolean(
-              localStorage.getItem("trstprep_token") ||
-              localStorage.getItem("trstprep_refresh_token"),
-            );
           setUser(frontendUser);
-          saveUserCache(frontendUser, isPersistent);
+          saveUserCache(frontendUser);
         } else {
           clearAuthTokens();
           setUser(null);
@@ -264,14 +224,8 @@ export function AuthProvider({ children }) {
       const userData = response.data.data;
 
       const frontendUser = mapUserToFrontend(userData);
-      const isPersistent =
-        typeof window !== "undefined" &&
-        Boolean(
-          localStorage.getItem("trstprep_token") ||
-          localStorage.getItem("trstprep_refresh_token"),
-        );
       setUser(frontendUser);
-      saveUserCache(frontendUser, isPersistent);
+      saveUserCache(frontendUser);
 
       return { success: true, user: frontendUser };
     } catch (err) {
@@ -308,27 +262,14 @@ export function AuthProvider({ children }) {
         };
       }
 
-      const {
-        user: userData,
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data.data;
-      const isRemember =
-        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
+      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
 
-      applyAuthSession({
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: isRemember,
-      });
+      applyAuthSession({ csrfToken: newCsrfToken });
 
       const frontendUser = mapUserToFrontend(userData);
       clearDashboardCache();
       setUser(frontendUser);
-      saveUserCache(frontendUser, isRemember);
+      saveUserCache(frontendUser);
       setAuthResolved(true);
 
       if (typeof window !== "undefined") {
@@ -363,28 +304,15 @@ export function AuthProvider({ children }) {
         credential,
         rememberMe,
       });
-      const {
-        user: userData,
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data.data;
-      const isRemember =
-        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
+      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
 
-      applyAuthSession({
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: isRemember,
-      });
+      applyAuthSession({ csrfToken: newCsrfToken });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
-      saveUserCache(frontendUser, isRemember);
+      saveUserCache(frontendUser);
       setAuthResolved(true);
 
       return { success: true, user: frontendUser };
@@ -419,28 +347,15 @@ export function AuthProvider({ children }) {
       }
 
       const response = await api.post("/api/auth/login/2fa", body);
-      const {
-        user: userData,
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data.data;
-      const isRemember =
-        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
+      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
 
-      applyAuthSession({
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: isRemember,
-      });
+      applyAuthSession({ csrfToken: newCsrfToken });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
-      saveUserCache(frontendUser, isRemember);
+      saveUserCache(frontendUser);
       setAuthResolved(true);
 
       return { success: true, user: frontendUser };
@@ -490,18 +405,13 @@ export function AuthProvider({ children }) {
       }
 
       if (userData) {
-        applyAuthSession({
-          token: payload.token,
-          refreshToken: payload.refreshToken,
-          csrfToken: payload.csrfToken,
-          rememberMe: false,
-        });
+        applyAuthSession({ csrfToken: payload.csrfToken });
 
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         const frontendUser = mapUserToFrontend(userData);
         setUser(frontendUser);
-        saveUserCache(frontendUser, false);
+        saveUserCache(frontendUser);
         setAuthResolved(true);
 
         return {

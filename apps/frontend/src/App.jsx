@@ -5,7 +5,7 @@ import {
   useParams,
   Navigate,
 } from "react-router-dom";
-import React, { Suspense } from "react";
+import { Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 import { lazyWithRetry as lazy } from "./shared/utils/lazyWithRetry";
@@ -13,27 +13,14 @@ import { lazyWithRetry as lazy } from "./shared/utils/lazyWithRetry";
 // Layout Components (kept eager — used on nearly every route)
 import Layout from "./shared/components/layout/Layout";
 import ScrollToTop from "./shared/components/common/ScrollToTop";
-import ProtectedRoute from "./shared/components/auth/ProtectedRoute";
 import ErrorBoundary from "./shared/components/common/ErrorBoundary";
 import MaintenanceMode from "./shared/components/common/MaintenanceMode";
-import FeatureGate from "./shared/components/common/FeatureGate";
-import PwaInstallBanner from "./shared/components/pwa/PwaInstallBanner";
 import PwaUpdatePrompt from "./shared/components/pwa/PwaUpdatePrompt";
+import { PageSkeleton } from "./shared/components/common/LoadingSkeleton.jsx";
+import { createRoute, wrapElement } from "./app/routes.jsx";
 
 // PERF-03: Route-level code splitting via React.lazy with automatic retries.
 // Reduces initial JS bundle by 30-50% — each page is loaded on demand.
-
-// Page loading skeleton
-const PageSkeleton = () => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-    <div className="text-center">
-      <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-3 will-change-transform"></div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-        Loading...
-      </p>
-    </div>
-  </div>
-);
 
 const LegacyPypsExamRedirect = () => {
   const { examSlug } = useParams();
@@ -41,10 +28,14 @@ const LegacyPypsExamRedirect = () => {
   return <Navigate to={`/pyps/${examSlug}${location.search || ""}`} replace />;
 };
 
-// --- Core Entry Pages (eagerly imported for instant 0ms initial render) ---
-import Home from "./pages/public/Home";
-import Dashboard from "./pages/dashboard/Dashboard";
+// --- Core Entry Pages ---
+// Home and Dashboard are lazy-loaded to reduce initial bundle size; they are
+// heavy pages (Home ~ catalog queries, Dashboard ~ analytics + series cards)
+// that should not block the initial chunk. Login stays eager as it is a tiny
+// modal and beneficial for LCP when unauthenticated users land on /.
 import Login from "./features/auth/Login";
+const Home = lazy(() => import("./pages/public/Home"));
+const Dashboard = lazy(() => import("./pages/dashboard/Dashboard"));
 
 // --- Public Pages (lazy) ---
 const About = lazy(() => import("./pages/public/About"));
@@ -137,81 +128,6 @@ function LegacyExamRedirect() {
   return <Navigate to={`/exam/${examId}`} replace />;
 }
 
-class RouteErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, info: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, info) {
-    this.setState({ info });
-    console.error("RouteErrorBoundary caught:", error, info);
-  }
-  handleRetry = () => {
-    const isChunkError =
-      /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i.test(
-        this.state.error?.message || "",
-      );
-    if (isChunkError) {
-      window.location.reload();
-    } else {
-      this.setState({ hasError: false, error: null, info: null });
-    }
-  };
-  render() {
-    if (this.state.hasError) {
-      const isDev = import.meta.env.DEV;
-      const isChunkError =
-        /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|Loading chunk/i.test(
-          this.state.error?.message || "",
-        );
-      return (
-        <div className="flex items-center justify-center min-h-screen p-6">
-          <div className="text-center max-w-[95vw] sm:max-w-2xl w-full">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-              {isChunkError ? "Unable to load page" : "Something went wrong"}
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              {isChunkError
-                ? "A new version or update is available, or connection was temporarily interrupted. Please reload the page."
-                : "This page encountered an error. Try refreshing."}
-            </p>
-            {isDev && this.state.error && (
-              <pre className="text-left text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg p-4 overflow-auto max-h-96 whitespace-pre-wrap">
-                {this.state.error.stack ||
-                  this.state.error.message ||
-                  String(this.state.error)}
-                {this.state.info?.componentStack
-                  ? "\n\n" + this.state.info.componentStack
-                  : ""}
-              </pre>
-            )}
-            <div className="flex justify-center gap-3 mt-4">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors shadow-sm"
-              >
-                Reload Page
-              </button>
-              {!isChunkError && (
-                <button
-                  onClick={this.handleRetry}
-                  className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 font-medium transition-colors"
-                >
-                  Try Again
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 function ConditionalGoogleProvider({ children }) {
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   if (!clientId) return <>{children}</>;
@@ -219,6 +135,153 @@ function ConditionalGoogleProvider({ children }) {
     <GoogleOAuthProvider clientId={clientId}>{children}</GoogleOAuthProvider>
   );
 }
+
+// Route configs — de-duplicated via createRoute helper (see src/app/routes.jsx)
+// Each entry is `{ path, element }` where element is already wrapped with
+// <RouteErrorBoundary> + optional <ProtectedRoute>/<FeatureGate>.
+const standaloneRoutes = [
+  createRoute("/verify-email", <EmailVerification />),
+  createRoute("/:seriesSlug/tests/:testId/instructions", <TestInstructions />, {
+    protected: true,
+  }),
+  createRoute("/:seriesSlug/tests/:testId/result", <TestResult />, {
+    protected: true,
+  }),
+  createRoute("/:seriesSlug/tests/:testId/review", <TestInterface />, {
+    protected: true,
+  }),
+  createRoute("/:seriesSlug/tests/:testId", <TestInterface />, {
+    protected: true,
+  }),
+  createRoute("/test/:seriesId/:testId/instructions", <TestInstructions />, {
+    protected: true,
+  }),
+  createRoute("/test/:seriesId/:testId", <TestInterface />, {
+    protected: true,
+  }),
+  createRoute("/test-result/:seriesId/:testId", <TestResult />, {
+    protected: true,
+  }),
+  createRoute("/test-review/:seriesId/:testId", <TestInterface />, {
+    protected: true,
+  }),
+];
+
+const layoutRoutes = [
+  createRoute("/", <Home />),
+  createRoute(
+    "/login",
+    <>
+      <Home />
+      <Login />
+    </>,
+  ),
+  createRoute(
+    "/signup",
+    <>
+      <Home />
+      <Signup />
+    </>,
+  ),
+  createRoute("/dashboard", <Dashboard />, { protected: true }),
+  createRoute("/dashboard/ai-planner", <AIStudyPlanner />, { protected: true }),
+  createRoute("/ai-tutor", <AIStudyPlanner />, { protected: true }),
+  createRoute("/dashboard/insights", <PerformanceInsights />, {
+    protected: true,
+    featureKey: "analytics",
+  }),
+  createRoute("/dashboard/rankings", <Leaderboard />, { protected: true }),
+  createRoute("/test-series", <TestSeries />),
+  createRoute("/tests", <TestSeries />),
+  createRoute("/live-tests", <LiveTests />),
+  createRoute("/live", <Navigate to="/live-tests" replace />),
+  createRoute("/pricing", <Navigate to="/pass" replace />),
+  createRoute("/results", <Navigate to="/attempted-tests" replace />),
+  createRoute("/test-series/:seriesId", <TestDetails />),
+  createRoute("/test-series/:seriesId/my", <TestDetails />),
+  createRoute("/:examSlug/test-series/my", <TestDetails />),
+  createRoute("/:examSlug/test-series/:seriesId", <TestDetails />),
+  createRoute("/test-series/:id/leaderboard", <SeriesLeaderboard />),
+  createRoute("/study", <StudyMaterial />),
+  createRoute("/study/:subjectId", <StudyMaterialDetail />),
+  createRoute("/study/:subjectId/:chapterId", <StudyMaterialChapter />),
+  createRoute("/exams", <Exams />),
+  createRoute("/exams-old", <Navigate to="/exams" replace />),
+  createRoute("/exams/category/:categoryId", <ExamCategory />),
+  createRoute("/exams/category/:categoryId/exam/:examId", <ExamInfoNew />),
+  createRoute(
+    "/exams/category/:categoryId/exam/:examId/year/:year",
+    <ExamYear />,
+  ),
+  createRoute("/exam/:examId", <ExamInfoNew />),
+  createRoute("/exam-old/:examId", <LegacyExamRedirect />),
+  createRoute("/exam/:examId/updates", <ExamUpdates />),
+  createRoute("/exam/:examId/year/:year", <ExamYear />),
+  createRoute("/exam/:examId/compare", <ExamCompare />),
+  createRoute("/tag/:tag", <TagPage />),
+  createRoute("/videos", <Videos />, { pageKey: "videos" }),
+  createRoute("/videos/:subjectSlug/:chapterSlug/:videoId", <VideoDetail />),
+  createRoute("/videos/:id", <VideoDetail />),
+  createRoute("/analysis", <Analysis />, {
+    protected: true,
+    featureKey: "analytics",
+  }),
+  createRoute("/attempted-tests", <AttemptedTests />, { protected: true }),
+  createRoute("/pass", <Pass />),
+  createRoute("/profile", <Profile />, { protected: true }),
+  createRoute("/settings", <Settings />, { protected: true }),
+  createRoute("/about", <About />),
+  createRoute("/contact", <Contact />),
+  createRoute("/terms", <Terms />),
+  createRoute("/privacy", <Privacy />),
+  createRoute("/refund", <Refund />),
+  createRoute("/faq", <Faq />),
+  createRoute("/search", <SearchPage />),
+  createRoute("/forgot-password", <ForgotPassword />),
+  createRoute("/reset-password", <ResetPassword />),
+  createRoute("/live-test-results/:liveTestId", <LiveTestResults />, {
+    protected: true,
+  }),
+  createRoute("/live-tests/:liveTestId/leaderboard", <LiveTestLeaderboard />, {
+    protected: true,
+  }),
+  createRoute("/live-tests/:liveTestId", <LiveTestInterface />, {
+    protected: true,
+  }),
+  createRoute("/live-tests/:liveTestId/review", <LiveTestReview />, {
+    protected: true,
+  }),
+  createRoute("/spaced-repetition", <SpacedRepetition />, { protected: true }),
+  createRoute("/current-affairs", <CurrentAffairs />, {
+    pageKey: "currentAffairs",
+  }),
+  createRoute("/current-affairs/:caId", <CurrentAffairsDetail />),
+  createRoute("/previous-year-papers", <PreviousYearPapers />),
+  createRoute("/pyps", <PypsLanding />),
+  createRoute("/pyps/:examCategory/:examSlug", <LegacyPypsExamRedirect />),
+  createRoute("/pyps/:examCategory", <PypsLanding />),
+  createRoute("/tag/pyps", <PypsLanding />),
+  createRoute("/tag/pyq", <PypsLanding />),
+  createRoute("/tag/previous-year-papers", <PypsLanding />),
+  createRoute("/pyp/:pypId/test", <PYPTest />, { protected: true }),
+  createRoute("/leaderboard", <Leaderboard />),
+  createRoute("/refer-and-earn", <ReferAndEarn />, { pageKey: "referAndEarn" }),
+  createRoute("/practice", <PracticeLab />, { protected: true }),
+  createRoute("/quizzes", <TagPage tagProp="quizzes" />),
+  createRoute("/blog", <Blog />),
+  createRoute("/blog/:id", <BlogDetail />),
+  createRoute("/community", <Community />, { pageKey: "doubtForum" }),
+  createRoute("/community/groups/:id", <Community />, {
+    pageKey: "studyGroups",
+  }),
+  createRoute("/notifications", <Notifications />, { protected: true }),
+  createRoute("/bookmarks", <Bookmarks />, { protected: true }),
+  createRoute("/achievements", <Achievements />, {
+    protected: true,
+    pageKey: "achievements",
+  }),
+  createRoute("/error-500", <ServerError />),
+];
 
 function App() {
   const location = useLocation();
@@ -240,806 +303,22 @@ function App() {
           <PwaUpdatePrompt />
           <Suspense fallback={<PageSkeleton />}>
             <Routes location={background || location}>
-              <Route
-                path="/verify-email"
-                element={
-                  <RouteErrorBoundary>
-                    <EmailVerification />
-                  </RouteErrorBoundary>
-                }
-              />
-
-              {/* Test Interface & Instructions (Testbook URL Structure: /:seriesSlug/tests/:testId/instructions) */}
-              <Route
-                path="/:seriesSlug/tests/:testId/instructions"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInstructions />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/:seriesSlug/tests/:testId/result"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestResult />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/:seriesSlug/tests/:testId/review"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInterface />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/:seriesSlug/tests/:testId"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInterface />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-
-              {/* Legacy Test Interface Routes (Backwards Compatibility) */}
-              <Route
-                path="/test/:seriesId/:testId/instructions"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInstructions />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/test/:seriesId/:testId"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInterface />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/test-result/:seriesId/:testId"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestResult />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-              <Route
-                path="/test-review/:seriesId/:testId"
-                element={
-                  <RouteErrorBoundary>
-                    <ProtectedRoute>
-                      <TestInterface />
-                    </ProtectedRoute>
-                  </RouteErrorBoundary>
-                }
-              />
-
-              {/* Main Layout Routes */}
+              {standaloneRoutes.map(({ path, element }) => (
+                <Route key={path} path={path} element={element} />
+              ))}
               <Route element={<Layout />}>
-                <Route
-                  path="/"
-                  element={
-                    <RouteErrorBoundary>
-                      <Home />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/login"
-                  element={
-                    <RouteErrorBoundary>
-                      <Home />
-                      <Login />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/signup"
-                  element={
-                    <RouteErrorBoundary>
-                      <Home />
-                      <Signup />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/dashboard/ai-planner"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <AIStudyPlanner />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/ai-tutor"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <AIStudyPlanner />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/dashboard/insights"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <FeatureGate featureKey="analytics">
-                          <PerformanceInsights />
-                        </FeatureGate>
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/dashboard/rankings"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Leaderboard />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/test-series"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestSeries />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tests"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestSeries />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live-tests"
-                  element={
-                    <RouteErrorBoundary>
-                      <LiveTests />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live"
-                  element={
-                    <RouteErrorBoundary>
-                      <Navigate to="/live-tests" replace />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pricing"
-                  element={
-                    <RouteErrorBoundary>
-                      <Navigate to="/pass" replace />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/results"
-                  element={
-                    <RouteErrorBoundary>
-                      <Navigate to="/attempted-tests" replace />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/test-series/:seriesId"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestDetails />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/test-series/:seriesId/my"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestDetails />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/:examSlug/test-series/my"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestDetails />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/:examSlug/test-series/:seriesId"
-                  element={
-                    <RouteErrorBoundary>
-                      <TestDetails />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/test-series/:id/leaderboard"
-                  element={
-                    <RouteErrorBoundary>
-                      <SeriesLeaderboard />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/study"
-                  element={
-                    <RouteErrorBoundary>
-                      <StudyMaterial />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/study/:subjectId"
-                  element={
-                    <RouteErrorBoundary>
-                      <StudyMaterialDetail />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/study/:subjectId/:chapterId"
-                  element={
-                    <RouteErrorBoundary>
-                      <StudyMaterialChapter />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exams"
-                  element={
-                    <RouteErrorBoundary>
-                      <Exams />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exams-old"
-                  element={
-                    <RouteErrorBoundary>
-                      <Navigate to="/exams" replace />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exams/category/:categoryId"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamCategory />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exams/category/:categoryId/exam/:examId"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamInfoNew />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exams/category/:categoryId/exam/:examId/year/:year"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamYear />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exam/:examId"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamInfoNew />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exam-old/:examId"
-                  element={
-                    <RouteErrorBoundary>
-                      <LegacyExamRedirect />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exam/:examId/updates"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamUpdates />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exam/:examId/year/:year"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamYear />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/exam/:examId/compare"
-                  element={
-                    <RouteErrorBoundary>
-                      <ExamCompare />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tag/:tag"
-                  element={
-                    <RouteErrorBoundary>
-                      <TagPage />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/videos"
-                  element={
-                    <RouteErrorBoundary>
-                      <FeatureGate pageKey="videos">
-                        <Videos />
-                      </FeatureGate>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/videos/:subjectSlug/:chapterSlug/:videoId"
-                  element={
-                    <RouteErrorBoundary>
-                      <VideoDetail />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/videos/:id"
-                  element={
-                    <RouteErrorBoundary>
-                      <VideoDetail />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/analysis"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <FeatureGate featureKey="analytics">
-                          <Analysis />
-                        </FeatureGate>
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/attempted-tests"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <AttemptedTests />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pass"
-                  element={
-                    <RouteErrorBoundary>
-                      <Pass />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Profile />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/settings"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Settings />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-
-                <Route
-                  path="/about"
-                  element={
-                    <RouteErrorBoundary>
-                      <About />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/contact"
-                  element={
-                    <RouteErrorBoundary>
-                      <Contact />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/terms"
-                  element={
-                    <RouteErrorBoundary>
-                      <Terms />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/privacy"
-                  element={
-                    <RouteErrorBoundary>
-                      <Privacy />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/refund"
-                  element={
-                    <RouteErrorBoundary>
-                      <Refund />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/faq"
-                  element={
-                    <RouteErrorBoundary>
-                      <Faq />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/search"
-                  element={
-                    <RouteErrorBoundary>
-                      <SearchPage />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/forgot-password"
-                  element={
-                    <RouteErrorBoundary>
-                      <ForgotPassword />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/reset-password"
-                  element={
-                    <RouteErrorBoundary>
-                      <ResetPassword />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live-test-results/:liveTestId"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <LiveTestResults />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live-tests/:liveTestId/leaderboard"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <LiveTestLeaderboard />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live-tests/:liveTestId"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <LiveTestInterface />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/live-tests/:liveTestId/review"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <LiveTestReview />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/spaced-repetition"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <SpacedRepetition />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/current-affairs"
-                  element={
-                    <RouteErrorBoundary>
-                      <FeatureGate pageKey="currentAffairs">
-                        <CurrentAffairs />
-                      </FeatureGate>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/current-affairs/:caId"
-                  element={
-                    <RouteErrorBoundary>
-                      <CurrentAffairsDetail />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/previous-year-papers"
-                  element={
-                    <RouteErrorBoundary>
-                      <PreviousYearPapers />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pyps"
-                  element={
-                    <RouteErrorBoundary>
-                      <PypsLanding />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pyps/:examCategory/:examSlug"
-                  element={
-                    <RouteErrorBoundary>
-                      <LegacyPypsExamRedirect />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pyps/:examCategory"
-                  element={
-                    <RouteErrorBoundary>
-                      <PypsLanding />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tag/pyps"
-                  element={
-                    <RouteErrorBoundary>
-                      <PypsLanding />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tag/pyq"
-                  element={
-                    <RouteErrorBoundary>
-                      <PypsLanding />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/tag/previous-year-papers"
-                  element={
-                    <RouteErrorBoundary>
-                      <PypsLanding />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/pyp/:pypId/test"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <PYPTest />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/leaderboard"
-                  element={
-                    <RouteErrorBoundary>
-                      <Leaderboard />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/refer-and-earn"
-                  element={
-                    <RouteErrorBoundary>
-                      <FeatureGate pageKey="referAndEarn">
-                        <ReferAndEarn />
-                      </FeatureGate>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/practice"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <PracticeLab />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/quizzes"
-                  element={
-                    <RouteErrorBoundary>
-                      <TagPage tagProp="quizzes" />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/blog"
-                  element={
-                    <RouteErrorBoundary>
-                      <Blog />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/blog/:id"
-                  element={
-                    <RouteErrorBoundary>
-                      <BlogDetail />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/community"
-                  element={
-                    <RouteErrorBoundary>
-                      <FeatureGate pageKey="doubtForum">
-                        <Community />
-                      </FeatureGate>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/community/groups/:id"
-                  element={
-                    <RouteErrorBoundary>
-                      <FeatureGate pageKey="studyGroups">
-                        <Community />
-                      </FeatureGate>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/notifications"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Notifications />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/bookmarks"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <Bookmarks />
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/achievements"
-                  element={
-                    <RouteErrorBoundary>
-                      <ProtectedRoute>
-                        <FeatureGate pageKey="achievements">
-                          <Achievements />
-                        </FeatureGate>
-                      </ProtectedRoute>
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/error-500"
-                  element={
-                    <RouteErrorBoundary>
-                      <ServerError />
-                    </RouteErrorBoundary>
-                  }
-                />
+                {layoutRoutes.map(({ path, element }) => (
+                  <Route key={path} path={path} element={element} />
+                ))}
               </Route>
-
-              {/* 404 */}
-              <Route
-                path="*"
-                element={
-                  <RouteErrorBoundary>
-                    <NotFound />
-                  </RouteErrorBoundary>
-                }
-              />
+              <Route path="*" element={wrapElement(<NotFound />)} />
             </Routes>
 
             {/* Render auth popup modal over background page when navigating with state */}
             {background && (
               <Routes>
-                <Route
-                  path="/login"
-                  element={
-                    <RouteErrorBoundary>
-                      <Login />
-                    </RouteErrorBoundary>
-                  }
-                />
-                <Route
-                  path="/signup"
-                  element={
-                    <RouteErrorBoundary>
-                      <Signup />
-                    </RouteErrorBoundary>
-                  }
-                />
+                <Route path="/login" element={wrapElement(<Login />)} />
+                <Route path="/signup" element={wrapElement(<Signup />)} />
               </Routes>
             )}
           </Suspense>
