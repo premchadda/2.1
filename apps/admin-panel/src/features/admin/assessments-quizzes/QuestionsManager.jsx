@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, memo } from "react";
+import { createPortal } from "react-dom";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -807,11 +808,16 @@ function QuestionsManager() {
         };
 
         const newErrors = {};
-        if (seriesRes.status !== "fulfilled") newErrors.series = "Failed to load test series";
-        if (testsRes.status !== "fulfilled") newErrors.tests = "Failed to load tests";
-        if (categoriesRes.status !== "fulfilled") newErrors.categories = "Failed to load categories";
-        if (stagesRes.status !== "fulfilled") newErrors.stages = "Failed to load stages";
-        if (statsRes.status !== "fulfilled") newErrors.stats = "Failed to load stats";
+        if (seriesRes.status !== "fulfilled")
+          newErrors.series = "Failed to load test series";
+        if (testsRes.status !== "fulfilled")
+          newErrors.tests = "Failed to load tests";
+        if (categoriesRes.status !== "fulfilled")
+          newErrors.categories = "Failed to load categories";
+        if (stagesRes.status !== "fulfilled")
+          newErrors.stages = "Failed to load stages";
+        if (statsRes.status !== "fulfilled")
+          newErrors.stats = "Failed to load stats";
 
         if (statsRes.status === "fulfilled") {
           const statsPayload =
@@ -3842,812 +3848,828 @@ function QuestionsManager() {
           </div>
         )}
 
-        {selectedSeries && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fade-in">
-            <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 w-full max-w-6xl max-h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
-              <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/40">
-                <div className="min-w-0">
-                  <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate">
-                    {selectedSeries.title ||
-                      selectedSeries.name ||
-                      "Test Series"}
-                  </h2>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                    <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                      {selectedExamCategoryLabel}
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                    <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                      {selectedExamLabel}
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                    <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
-                      {selectedStageLabel}
-                    </span>
-                    <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
-                    <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg">
-                      {activeCatLabel}
-                    </span>
+        {selectedSeries &&
+          createPortal(
+            <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 animate-fade-in">
+              <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 w-full max-w-6xl h-[92vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-modal-pop">
+                <div className="px-4 sm:px-6 py-3.5 border-b border-gray-100 dark:border-gray-800 flex items-start justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/40">
+                  <div className="min-w-0">
+                    <h2 className="text-base sm:text-lg font-black text-gray-900 dark:text-white truncate">
+                      {selectedSeries.title ||
+                        selectedSeries.name ||
+                        "Test Series"}
+                    </h2>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
+                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
+                        {selectedExamCategoryLabel}
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
+                        {selectedExamLabel}
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                      <span className="px-2 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg font-medium">
+                        {selectedStageLabel}
+                      </span>
+                      <ChevronRight className="w-3 h-3 text-gray-300 dark:text-gray-600 shrink-0" />
+                      <span className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-bold rounded-lg">
+                        {activeCatLabel}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedSeries(null);
-                    setSelectedTest(null);
-                    resetTestForm();
-                  }}
-                  className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl text-gray-500 dark:text-gray-400 transition tap-feedback"
-                  aria-label="Close modal"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="border-b border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2">
-                {/* Level 1 - Top level row (Year Based, Exam Based) */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">
-                    Test Subcategory
-                  </span>
                   <button
-                    type="button"
                     onClick={() => {
-                      setSubCategoryLevel1("");
-                      setSubCategoryLevel2("");
-                      setSubCategoryLevel3("");
-                      setSubCategoryLevel4("");
-                      setSelectedTestSubCategoryId("all");
+                      setSelectedSeries(null);
                       setSelectedTest(null);
+                      resetTestForm();
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                      !subCategoryLevel1
-                        ? "bg-gray-900 text-white border-gray-900"
-                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                    }`}
+                    className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-xl text-gray-500 dark:text-gray-400 transition tap-feedback"
+                    aria-label="Close modal"
                   >
-                    All ({seriesTests.length})
+                    <X className="w-5 h-5" />
                   </button>
-                  {subCategoryOptionsLevel1.map((cat) => {
-                    const catId = getEntityId(cat) || "";
-                    const isSelected = subCategoryLevel1 === catId;
-                    const count = getCategoryTestCount(catId);
-                    return (
-                      <button
-                        key={catId}
-                        type="button"
-                        onClick={() => {
-                          const newVal = isSelected ? "" : catId;
-                          setSubCategoryLevel1(newVal);
-                          setSubCategoryLevel2("");
-                          setSubCategoryLevel3("");
-                          setSubCategoryLevel4("");
-                          setSelectedTestSubCategoryId(newVal || "all");
-                          setSelectedTest(null);
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                          isSelected
-                            ? "bg-gray-900 text-white border-gray-900"
-                            : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        {getCategoryLabel(cat)} ({count})
-                      </button>
-                    );
-                  })}
-                  {subCategoryOptionsLevel1.length === 0 && (
-                    <span className="text-sm text-gray-400 px-2">
-                      No child categories under {activeCatLabel}
+                </div>
+
+                <div className="border-b border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2">
+                  {/* Level 1 - Top level row (Year Based, Exam Based) */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mr-1 shrink-0">
+                      Test Subcategory
                     </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSubCategoryLevel1("");
+                        setSubCategoryLevel2("");
+                        setSubCategoryLevel3("");
+                        setSubCategoryLevel4("");
+                        setSelectedTestSubCategoryId("all");
+                        setSelectedTest(null);
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                        !subCategoryLevel1
+                          ? "bg-gray-900 text-white border-gray-900"
+                          : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                      }`}
+                    >
+                      All ({seriesTests.length})
+                    </button>
+                    {subCategoryOptionsLevel1.map((cat) => {
+                      const catId = getEntityId(cat) || "";
+                      const isSelected = subCategoryLevel1 === catId;
+                      const count = getCategoryTestCount(catId);
+                      return (
+                        <button
+                          key={catId}
+                          type="button"
+                          onClick={() => {
+                            const newVal = isSelected ? "" : catId;
+                            setSubCategoryLevel1(newVal);
+                            setSubCategoryLevel2("");
+                            setSubCategoryLevel3("");
+                            setSubCategoryLevel4("");
+                            setSelectedTestSubCategoryId(newVal || "all");
+                            setSelectedTest(null);
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                            isSelected
+                              ? "bg-gray-900 text-white border-gray-900"
+                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                          }`}
+                        >
+                          {getCategoryLabel(cat)} ({count})
+                        </button>
+                      );
+                    })}
+                    {subCategoryOptionsLevel1.length === 0 && (
+                      <span className="text-sm text-gray-400 px-2">
+                        No child categories under {activeCatLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Level 2 - Second row (2025, 2024, etc.) */}
+                  {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap ml-4">
+                      {subCategoryOptionsLevel2.map((cat) => {
+                        const catId = getEntityId(cat) || "";
+                        const isSelected = subCategoryLevel2 === catId;
+                        const count = getCategoryTestCount(catId);
+                        return (
+                          <button
+                            key={catId}
+                            type="button"
+                            onClick={() => {
+                              const newVal = isSelected ? "" : catId;
+                              setSubCategoryLevel2(newVal);
+                              setSubCategoryLevel3("");
+                              setSubCategoryLevel4("");
+                              setSelectedTestSubCategoryId(
+                                newVal || subCategoryLevel1 || "all",
+                              );
+                              setSelectedTest(null);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                              isSelected
+                                ? "bg-gray-900 text-white border-gray-900"
+                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            {getCategoryLabel(cat)} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Level 3 - Third row */}
+                  {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap ml-8">
+                      {subCategoryOptionsLevel3.map((cat) => {
+                        const catId = getEntityId(cat) || "";
+                        const isSelected = subCategoryLevel3 === catId;
+                        const count = getCategoryTestCount(catId);
+                        return (
+                          <button
+                            key={catId}
+                            type="button"
+                            onClick={() => {
+                              const newVal = isSelected ? "" : catId;
+                              setSubCategoryLevel3(newVal);
+                              setSubCategoryLevel4("");
+                              setSelectedTestSubCategoryId(
+                                newVal ||
+                                  subCategoryLevel2 ||
+                                  subCategoryLevel1 ||
+                                  "all",
+                              );
+                              setSelectedTest(null);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                              isSelected
+                                ? "bg-gray-900 text-white border-gray-900"
+                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            {getCategoryLabel(cat)} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Level 4 - Fourth row */}
+                  {subCategoryLevel3 && subCategoryOptionsLevel4.length > 0 && (
+                    <div className="flex items-center gap-2 flex-wrap ml-12">
+                      {subCategoryOptionsLevel4.map((cat) => {
+                        const catId = getEntityId(cat) || "";
+                        const isSelected = subCategoryLevel4 === catId;
+                        const count = getCategoryTestCount(catId);
+                        return (
+                          <button
+                            key={catId}
+                            type="button"
+                            onClick={() => {
+                              const newVal = isSelected ? "" : catId;
+                              setSubCategoryLevel4(newVal);
+                              setSelectedTestSubCategoryId(
+                                newVal ||
+                                  subCategoryLevel3 ||
+                                  subCategoryLevel2 ||
+                                  subCategoryLevel1 ||
+                                  "all",
+                              );
+                              setSelectedTest(null);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
+                              isSelected
+                                ? "bg-gray-900 text-white border-gray-900"
+                                : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            {getCategoryLabel(cat)} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
 
-                {/* Level 2 - Second row (2025, 2024, etc.) */}
-                {subCategoryLevel1 && subCategoryOptionsLevel2.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap ml-4">
-                    {subCategoryOptionsLevel2.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel2 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel2(newVal);
-                            setSubCategoryLevel3("");
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(
-                              newVal || subCategoryLevel1 || "all",
-                            );
-                            setSelectedTest(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                            isSelected
-                              ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Level 3 - Third row */}
-                {subCategoryLevel2 && subCategoryOptionsLevel3.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap ml-8">
-                    {subCategoryOptionsLevel3.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel3 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel3(newVal);
-                            setSubCategoryLevel4("");
-                            setSelectedTestSubCategoryId(
-                              newVal ||
-                                subCategoryLevel2 ||
-                                subCategoryLevel1 ||
-                                "all",
-                            );
-                            setSelectedTest(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                            isSelected
-                              ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Level 4 - Fourth row */}
-                {subCategoryLevel3 && subCategoryOptionsLevel4.length > 0 && (
-                  <div className="flex items-center gap-2 flex-wrap ml-12">
-                    {subCategoryOptionsLevel4.map((cat) => {
-                      const catId = getEntityId(cat) || "";
-                      const isSelected = subCategoryLevel4 === catId;
-                      const count = getCategoryTestCount(catId);
-                      return (
-                        <button
-                          key={catId}
-                          type="button"
-                          onClick={() => {
-                            const newVal = isSelected ? "" : catId;
-                            setSubCategoryLevel4(newVal);
-                            setSelectedTestSubCategoryId(
-                              newVal ||
-                                subCategoryLevel3 ||
-                                subCategoryLevel2 ||
-                                subCategoryLevel1 ||
-                                "all",
-                            );
-                            setSelectedTest(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap border ${
-                            isSelected
-                              ? "bg-gray-900 text-white border-gray-900"
-                              : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                          }`}
-                        >
-                          {getCategoryLabel(cat)} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
-                {!selectedTest ? (
-                  <div>
-                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-gray-900">Tests</h3>
-                        <p className="text-sm text-gray-500">
-                          {workspaceTests.length} tests linked to the selected
-                          test subcategory.
-                        </p>
+                <div className="flex-1 overflow-y-auto p-4 bg-gray-50/40">
+                  {!selectedTest ? (
+                    <div>
+                      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-gray-900">Tests</h3>
+                          <p className="text-sm text-gray-500">
+                            {workspaceTests.length} tests linked to the selected
+                            test subcategory.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowTestBulkUpload(true)}
+                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" /> Bulk Create
+                          </button>
+                          <button
+                            onClick={openCreateTestForm}
+                            className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" /> Create Test
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowTestBulkUpload(true)}
-                          className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <Upload className="w-4 h-4" /> Bulk Create
-                        </button>
-                        <button
-                          onClick={openCreateTestForm}
-                          className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" /> Create Test
-                        </button>
-                      </div>
-                    </div>
 
-                    {workspaceTests.length === 0 ? (
-                      <EmptyState
-                        icon={FileText}
-                        title="No Tests Linked"
-                        description="Create a test or bulk upload tests for this series and selected test subcategory."
-                      />
-                    ) : (
-                      <div className="flex flex-col gap-3">
-                        {workspaceTests.map((test) => {
-                          const testId = getTestId(test);
-                          const qCount =
-                            Number(
-                              test.total_questions ??
-                                test.totalQuestions ??
-                                test.question_count ??
-                                test.questionsCount,
-                            ) ||
-                            questions.filter((q) =>
-                              idsEqual(getTestIdFromQuestion(q), testId),
-                            ).length;
-                          return (
-                            <div
-                              key={testId}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => setSelectedTest(test)}
-                              onKeyDown={(event) => {
-                                if (
-                                  event.key === "Enter" ||
-                                  event.key === " "
-                                ) {
-                                  event.preventDefault();
-                                  setSelectedTest(test);
-                                }
-                              }}
-                              className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                  <Badge
-                                    variant={
-                                      test.status === "active" ||
-                                      test.status === "published"
-                                        ? "success"
-                                        : "default"
-                                    }
-                                  >
-                                    {test.status || "draft"}
-                                  </Badge>
-                                  <Badge variant="info">
-                                    {test.type || activeCategory}
-                                  </Badge>
+                      {workspaceTests.length === 0 ? (
+                        <EmptyState
+                          icon={FileText}
+                          title="No Tests Linked"
+                          description="Create a test or bulk upload tests for this series and selected test subcategory."
+                        />
+                      ) : (
+                        <div className="flex flex-col gap-3">
+                          {workspaceTests.map((test) => {
+                            const testId = getTestId(test);
+                            const qCount =
+                              Number(
+                                test.total_questions ??
+                                  test.totalQuestions ??
+                                  test.question_count ??
+                                  test.questionsCount,
+                              ) ||
+                              questions.filter((q) =>
+                                idsEqual(getTestIdFromQuestion(q), testId),
+                              ).length;
+                            return (
+                              <div
+                                key={testId}
+                                role="button"
+                                tabIndex={0}
+                                onClick={() => setSelectedTest(test)}
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === " "
+                                  ) {
+                                    event.preventDefault();
+                                    setSelectedTest(test);
+                                  }
+                                }}
+                                className="w-full text-left bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-sm transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    <Badge
+                                      variant={
+                                        test.status === "active" ||
+                                        test.status === "published"
+                                          ? "success"
+                                          : "default"
+                                      }
+                                    >
+                                      {test.status || "draft"}
+                                    </Badge>
+                                    <Badge variant="info">
+                                      {test.type || activeCategory}
+                                    </Badge>
+                                  </div>
+                                  <h4 className="font-bold text-gray-900 truncate">
+                                    {test.title || test.name || "Untitled Test"}
+                                  </h4>
+                                  <p className="text-xs text-gray-500 mt-1 truncate">
+                                    {test.description || "No description"}
+                                  </p>
                                 </div>
-                                <h4 className="font-bold text-gray-900 truncate">
-                                  {test.title || test.name || "Untitled Test"}
-                                </h4>
-                                <p className="text-xs text-gray-500 mt-1 truncate">
-                                  {test.description || "No description"}
-                                </p>
+                                <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="w-4 h-4" />
+                                    {test.duration ||
+                                      test.time_limit ||
+                                      "--"}{" "}
+                                    min
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <FileText className="w-4 h-4" />
+                                    {qCount} Qs
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleTestPreview(test);
+                                    }}
+                                    className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
+                                    title="Preview Test"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      openEditTestForm(test);
+                                    }}
+                                    className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
+                                    title="Edit Test Setup"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <ChevronRight className="w-5 h-5 text-gray-300" />
+                                </div>
                               </div>
-                              <div className="flex items-center gap-4 text-sm text-gray-600 shrink-0">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" />
-                                  {test.duration || test.time_limit || "--"} min
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <FileText className="w-4 h-4" />
-                                  {qCount} Qs
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleTestPreview(test);
-                                  }}
-                                  className="p-2 rounded-lg hover:bg-green-50 text-gray-400 hover:text-green-600"
-                                  title="Preview Test"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openEditTestForm(test);
-                                  }}
-                                  className="p-2 rounded-lg hover:bg-indigo-50 text-gray-400 hover:text-indigo-600"
-                                  title="Edit Test Setup"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <ChevronRight className="w-5 h-5 text-gray-300" />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleBackToTests();
-                      }}
-                      className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <ArrowLeft className="w-4 h-4" /> Back to Tests
-                    </button>
-                    <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>
                       <button
-                        onClick={() => {
-                          setSelectedSection("all");
-                          setCurrentPage(1);
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleBackToTests();
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                        className="mb-4 inline-flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
                       >
-                        All Sections ({testQuestions.length})
+                        <ArrowLeft className="w-4 h-4" /> Back to Tests
                       </button>
-                      {[...sectionCounts.entries()].map(([section, count]) => (
+                      <div className="mb-4 bg-white border border-gray-200 rounded-xl p-3 flex gap-2 overflow-x-auto">
                         <button
-                          key={section}
                           onClick={() => {
-                            setSelectedSection(section);
+                            setSelectedSection("all");
                             setCurrentPage(1);
                           }}
-                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === section ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === "all" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
                         >
-                          {section} ({count})
+                          All Sections ({testQuestions.length})
                         </button>
-                      ))}
-                    </div>
+                        {[...sectionCounts.entries()].map(
+                          ([section, count]) => (
+                            <button
+                              key={section}
+                              onClick={() => {
+                                setSelectedSection(section);
+                                setCurrentPage(1);
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${selectedSection === section ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}
+                            >
+                              {section} ({count})
+                            </button>
+                          ),
+                        )}
+                      </div>
 
-                    <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div>
-                        <h3 className="font-bold text-gray-900">
-                          {selectedTest.title || selectedTest.name || "Test"}
-                        </h3>
-                        <p className="text-sm text-gray-500">
-                          {filteredTestQuestions.length} questions in current
-                          section.
-                        </p>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => setShowBulkImport(true)}
-                          className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                        >
-                          <Upload className="w-4 h-4" /> Bulk Questions
-                        </button>
-                        <button
-                          onClick={() => {
-                            resetForm();
-                            setShowForm(true);
-                          }}
-                          className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" /> Add Question
-                        </button>
-                      </div>
-                    </div>
-
-                    {testQuestionsLoading ? (
-                      <div className="flex flex-col items-center justify-center p-8 my-6 text-center space-y-4">
-                        <LoadingSpinner
-                          size="lg"
-                          message="Loading questions for this test..."
-                        />
-                      </div>
-                    ) : filteredTestQuestions.length === 0 ? (
-                      <EmptyState
-                        icon={FileText}
-                        title="No Questions in this Test"
-                        description="Add or bulk upload questions for this test."
-                      />
-                    ) : (
-                      <div className="space-y-3">
-                        {paginatedQuestions.map((q, idx) => (
-                          <div
-                            key={getQuestionId(q) || idx}
-                            className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-all shadow-xs"
+                      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-bold text-gray-900">
+                            {selectedTest.title || selectedTest.name || "Test"}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            {filteredTestQuestions.length} questions in current
+                            section.
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowBulkImport(true)}
+                            className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                  <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">
-                                    {(currentPage - 1) * QUESTIONS_PER_PAGE +
-                                      idx +
-                                      1}
-                                  </span>
-                                  <Badge variant="info">
-                                    {q.type || "mcq"}
-                                  </Badge>
-                                  <Badge
-                                    className={
-                                      (
-                                        DIFFICULTY_LEVELS.find(
-                                          (d) => d.value === q.difficulty,
-                                        ) || DIFFICULTY_LEVELS[1]
-                                      ).color
-                                    }
-                                  >
-                                    {q.difficulty || "medium"}
-                                  </Badge>
-                                  <Badge
-                                    className={
-                                      (
-                                        STATUS_OPTIONS.find(
-                                          (s) => s.value === q.status,
-                                        ) || STATUS_OPTIONS[1]
-                                      ).color
-                                    }
-                                  >
-                                    {q.status || "draft"}
-                                  </Badge>
-                                  {q.marks && (
-                                    <span className="text-xs text-gray-500 font-medium">
-                                      <strong className="text-emerald-600">
-                                        +{q.marks}
-                                      </strong>
-                                      {q.negativeMarks > 0 && (
-                                        <span className="text-red-500">
-                                          {" "}
-                                          / -{q.negativeMarks}
-                                        </span>
-                                      )}
-                                    </span>
-                                  )}
-                                  {q.questionTextHi && (
-                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                                      Hindi Available
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-sm text-gray-900 leading-relaxed font-medium mb-3">
-                                  <MathRenderer content={q.questionText} />
-                                </div>
+                            <Upload className="w-4 h-4" /> Bulk Questions
+                          </button>
+                          <button
+                            onClick={() => {
+                              resetForm();
+                              setShowForm(true);
+                            }}
+                            className="px-3 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 flex items-center gap-2"
+                          >
+                            <Plus className="w-4 h-4" /> Add Question
+                          </button>
+                        </div>
+                      </div>
 
-                                {/* Options Preview */}
-                                {q.options && q.options.length > 0 && (
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-gray-600 mb-2">
-                                    {q.options.map((opt, oi) => {
-                                      const isCorrect = Array.isArray(
-                                        q.correctOption,
-                                      )
-                                        ? q.correctOption.includes(oi)
-                                        : q.correctOption === oi ||
-                                          Number(q.correctOption) === oi;
-                                      const optionLetters = [
-                                        "A",
-                                        "B",
-                                        "C",
-                                        "D",
-                                        "E",
-                                        "F",
-                                      ];
-                                      return (
-                                        <div
-                                          key={oi}
-                                          className={`flex items-start gap-1.5 p-2 rounded-lg border text-xs ${
-                                            isCorrect
-                                              ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 font-medium"
-                                              : "bg-gray-50/60 border-gray-100 text-gray-700"
-                                          }`}
-                                        >
-                                          <span
-                                            className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                      {testQuestionsLoading ? (
+                        <div className="flex flex-col items-center justify-center p-8 my-6 text-center space-y-4">
+                          <LoadingSpinner
+                            size="lg"
+                            message="Loading questions for this test..."
+                          />
+                        </div>
+                      ) : filteredTestQuestions.length === 0 ? (
+                        <EmptyState
+                          icon={FileText}
+                          title="No Questions in this Test"
+                          description="Add or bulk upload questions for this test."
+                        />
+                      ) : (
+                        <div className="space-y-3">
+                          {paginatedQuestions.map((q, idx) => (
+                            <div
+                              key={getQuestionId(q) || idx}
+                              className="bg-white border border-gray-200 rounded-xl p-4 hover:border-indigo-200 transition-all shadow-xs"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                                    <span className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-700 inline-flex items-center justify-center text-xs font-bold">
+                                      {(currentPage - 1) * QUESTIONS_PER_PAGE +
+                                        idx +
+                                        1}
+                                    </span>
+                                    <Badge variant="info">
+                                      {q.type || "mcq"}
+                                    </Badge>
+                                    <Badge
+                                      className={
+                                        (
+                                          DIFFICULTY_LEVELS.find(
+                                            (d) => d.value === q.difficulty,
+                                          ) || DIFFICULTY_LEVELS[1]
+                                        ).color
+                                      }
+                                    >
+                                      {q.difficulty || "medium"}
+                                    </Badge>
+                                    <Badge
+                                      className={
+                                        (
+                                          STATUS_OPTIONS.find(
+                                            (s) => s.value === q.status,
+                                          ) || STATUS_OPTIONS[1]
+                                        ).color
+                                      }
+                                    >
+                                      {q.status || "draft"}
+                                    </Badge>
+                                    {q.marks && (
+                                      <span className="text-xs text-gray-500 font-medium">
+                                        <strong className="text-emerald-600">
+                                          +{q.marks}
+                                        </strong>
+                                        {q.negativeMarks > 0 && (
+                                          <span className="text-red-500">
+                                            {" "}
+                                            / -{q.negativeMarks}
+                                          </span>
+                                        )}
+                                      </span>
+                                    )}
+                                    {q.questionTextHi && (
+                                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                                        Hindi Available
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-gray-900 leading-relaxed font-medium mb-3">
+                                    <MathRenderer content={q.questionText} />
+                                  </div>
+
+                                  {/* Options Preview */}
+                                  {q.options && q.options.length > 0 && (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-gray-600 mb-2">
+                                      {q.options.map((opt, oi) => {
+                                        const isCorrect = Array.isArray(
+                                          q.correctOption,
+                                        )
+                                          ? q.correctOption.includes(oi)
+                                          : q.correctOption === oi ||
+                                            Number(q.correctOption) === oi;
+                                        const optionLetters = [
+                                          "A",
+                                          "B",
+                                          "C",
+                                          "D",
+                                          "E",
+                                          "F",
+                                        ];
+                                        return (
+                                          <div
+                                            key={oi}
+                                            className={`flex items-start gap-1.5 p-2 rounded-lg border text-xs ${
                                               isCorrect
-                                                ? "bg-emerald-200 text-emerald-800"
-                                                : "bg-gray-200 text-gray-600"
+                                                ? "bg-emerald-50/80 border-emerald-200 text-emerald-900 font-medium"
+                                                : "bg-gray-50/60 border-gray-100 text-gray-700"
                                             }`}
                                           >
-                                            {optionLetters[oi] || oi + 1}
-                                          </span>
-                                          <div className="flex-1 overflow-hidden">
-                                            <MathRenderer content={opt} />
+                                            <span
+                                              className={`w-4 h-4 rounded flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                                isCorrect
+                                                  ? "bg-emerald-200 text-emerald-800"
+                                                  : "bg-gray-200 text-gray-600"
+                                              }`}
+                                            >
+                                              {optionLetters[oi] || oi + 1}
+                                            </span>
+                                            <div className="flex-1 overflow-hidden">
+                                              <MathRenderer content={opt} />
+                                            </div>
                                           </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
+                                        );
+                                      })}
+                                    </div>
+                                  )}
 
-                                {/* Explanation Preview */}
-                                {q.explanation && (
-                                  <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/60 rounded-lg text-xs text-indigo-950 mt-2">
-                                    <div className="font-bold text-[11px] text-indigo-700 mb-1 flex items-center gap-1">
-                                      <Sparkles className="w-3 h-3" /> Solution
-                                      & Explanation
+                                  {/* Explanation Preview */}
+                                  {q.explanation && (
+                                    <div className="p-2.5 bg-indigo-50/40 border border-indigo-100/60 rounded-lg text-xs text-indigo-950 mt-2">
+                                      <div className="font-bold text-[11px] text-indigo-700 mb-1 flex items-center gap-1">
+                                        <Sparkles className="w-3 h-3" />{" "}
+                                        Solution & Explanation
+                                      </div>
+                                      <div className="line-clamp-3 overflow-hidden text-gray-700">
+                                        <MathRenderer content={q.explanation} />
+                                      </div>
                                     </div>
-                                    <div className="line-clamp-3 overflow-hidden text-gray-700">
-                                      <MathRenderer content={q.explanation} />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                              <div className="flex gap-1 shrink-0">
-                                <button
-                                  onClick={() => handleQuestionPreview(q)}
-                                  className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50"
-                                  title="Preview Question"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleEdit(q)}
-                                  className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    openVersionHistory(getQuestionId(q))
-                                  }
-                                  className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50"
-                                  title="Version History"
-                                >
-                                  <History className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(getQuestionId(q))}
-                                  className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
+                                  )}
+                                </div>
+                                <div className="flex gap-1 shrink-0">
+                                  <button
+                                    onClick={() => handleQuestionPreview(q)}
+                                    className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                    title="Preview Question"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleEdit(q)}
+                                    className="p-2 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      openVersionHistory(getQuestionId(q))
+                                    }
+                                    className="p-2 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50"
+                                    title="Version History"
+                                  >
+                                    <History className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleDelete(getQuestionId(q))
+                                    }
+                                    className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body,
+          )}
 
-        {showTestForm && (
-          <div
-            key={
-              editingTestId ||
-              `create-${getSeriesId(selectedSeries) || "none"}-${activeStageId || "all"}-${selectedTestSubCategoryId}`
-            }
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          >
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="px-6 py-4 border-b flex justify-between items-center">
-                <h3 className="font-bold text-gray-900">
-                  {editingTestId ? "Edit Test" : "Create Test"}
-                </h3>
-                <button
-                  onClick={resetTestForm}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              <form
-                onSubmit={handleTestSubmit}
-                className="p-6 overflow-y-auto space-y-4"
-              >
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Title *
-                  </label>
-                  <input
-                    required
-                    value={testFormData.title}
-                    onChange={(e) =>
-                      setTestFormData({
-                        ...testFormData,
-                        title: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={testFormData.description}
-                    onChange={(e) =>
-                      setTestFormData({
-                        ...testFormData,
-                        description: e.target.value,
-                      })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Duration
-                    </label>
-                    <input
-                      type="number"
-                      value={testFormData.duration}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          duration: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Questions
-                    </label>
-                    <input
-                      type="number"
-                      value={testFormData.totalQuestions}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          totalQuestions: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Marks
-                    </label>
-                    <input
-                      type="number"
-                      value={testFormData.totalMarks}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          totalMarks: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Negative
-                    </label>
-                    <input
-                      type="number"
-                      step="0.25"
-                      value={testFormData.negativeMarking}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          negativeMarking: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Type
-                    </label>
-                    <input
-                      value={testFormData.type}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          type: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Difficulty
-                    </label>
-                    <select
-                      value={testFormData.difficulty}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          difficulty: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    >
-                      <option>Easy</option>
-                      <option>Medium</option>
-                      <option>Hard</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Passing Marks
-                    </label>
-                    <input
-                      type="number"
-                      value={testFormData.passingMarks}
-                      onChange={(e) =>
-                        setTestFormData({
-                          ...testFormData,
-                          passingMarks: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Tags
-                  </label>
-                  <input
-                    value={testFormData.tags}
-                    onChange={(e) =>
-                      setTestFormData({ ...testFormData, tags: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="comma, separated, tags"
-                  />
-                </div>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900">
-                  Linked to: {selectedSeries?.title || selectedSeries?.name} /{" "}
-                  {selectedStageLabel} / {activeCatLabel} /{" "}
-                  {selectedTestSubCategoryRecord?.name ||
-                    selectedTestSubCategoryRecord?.label ||
-                    "All test subcategories"}
-                </div>
-                <div className="pt-4 border-t flex justify-end gap-3">
+        {showTestForm &&
+          createPortal(
+            <div
+              key={
+                editingTestId ||
+                `create-${getSeriesId(selectedSeries) || "none"}-${activeStageId || "all"}-${selectedTestSubCategoryId}`
+              }
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            >
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+                <div className="px-6 py-4 border-b flex justify-between items-center">
+                  <h3 className="font-bold text-gray-900">
+                    {editingTestId ? "Edit Test" : "Create Test"}
+                  </h3>
                   <button
-                    type="button"
                     onClick={resetTestForm}
-                    className="px-4 py-2 border rounded-lg"
+                    className="p-2 hover:bg-gray-100 rounded-lg"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={testSaving}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50"
-                  >
-                    {testSaving ? "Saving..." : "Save Test"}
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              </form>
-            </div>
-          </div>
-        )}
+                <form
+                  onSubmit={handleTestSubmit}
+                  className="p-6 overflow-y-auto space-y-4"
+                >
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title *
+                    </label>
+                    <input
+                      required
+                      value={testFormData.title}
+                      onChange={(e) =>
+                        setTestFormData({
+                          ...testFormData,
+                          title: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={testFormData.description}
+                      onChange={(e) =>
+                        setTestFormData({
+                          ...testFormData,
+                          description: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Duration
+                      </label>
+                      <input
+                        type="number"
+                        value={testFormData.duration}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            duration: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Questions
+                      </label>
+                      <input
+                        type="number"
+                        value={testFormData.totalQuestions}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            totalQuestions: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Marks
+                      </label>
+                      <input
+                        type="number"
+                        value={testFormData.totalMarks}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            totalMarks: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Negative
+                      </label>
+                      <input
+                        type="number"
+                        step="0.25"
+                        value={testFormData.negativeMarking}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            negativeMarking: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Type
+                      </label>
+                      <input
+                        value={testFormData.type}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            type: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Difficulty
+                      </label>
+                      <select
+                        value={testFormData.difficulty}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            difficulty: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      >
+                        <option>Easy</option>
+                        <option>Medium</option>
+                        <option>Hard</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Passing Marks
+                      </label>
+                      <input
+                        type="number"
+                        value={testFormData.passingMarks}
+                        onChange={(e) =>
+                          setTestFormData({
+                            ...testFormData,
+                            passingMarks: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Tags
+                    </label>
+                    <input
+                      value={testFormData.tags}
+                      onChange={(e) =>
+                        setTestFormData({
+                          ...testFormData,
+                          tags: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="comma, separated, tags"
+                    />
+                  </div>
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900">
+                    Linked to: {selectedSeries?.title || selectedSeries?.name} /{" "}
+                    {selectedStageLabel} / {activeCatLabel} /{" "}
+                    {selectedTestSubCategoryRecord?.name ||
+                      selectedTestSubCategoryRecord?.label ||
+                      "All test subcategories"}
+                  </div>
+                  <div className="pt-4 border-t flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={resetTestForm}
+                      className="px-4 py-2 border rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={testSaving}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50"
+                    >
+                      {testSaving ? "Saving..." : "Save Test"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>,
+            document.body,
+          )}
 
-        {showTestBulkUpload && (
-          <BulkImportModal
-            isOpen={showTestBulkUpload}
-            onClose={() => setShowTestBulkUpload(false)}
-            onImport={handleTestBulkUpload}
-            title="Bulk Create Tests"
-            expectedColumns="title, duration, totalQuestions, totalMarks, difficulty, type, tags"
-            context={{
-              testTitle: selectedSeries?.title || selectedSeries?.name || "",
-              section:
-                selectedTestSubCategoryRecord?.name ||
-                selectedTestSubCategoryRecord?.label ||
-                "All test subcategories",
-            }}
-          />
-        )}
+        {showTestBulkUpload &&
+          createPortal(
+            <BulkImportModal
+              isOpen={showTestBulkUpload}
+              onClose={() => setShowTestBulkUpload(false)}
+              onImport={handleTestBulkUpload}
+              title="Bulk Create Tests"
+              expectedColumns="title, duration, totalQuestions, totalMarks, difficulty, type, tags"
+              context={{
+                testTitle: selectedSeries?.title || selectedSeries?.name || "",
+                section:
+                  selectedTestSubCategoryRecord?.name ||
+                  selectedTestSubCategoryRecord?.label ||
+                  "All test subcategories",
+              }}
+            />,
+            document.body,
+          )}
 
         {/* Form Modal */}
         <QuestionForm
@@ -4677,627 +4699,643 @@ function QuestionsManager() {
         />
 
         {/* Activity Log Modal */}
-        {showActivityLog && (
-          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-indigo-600" />
-                    Activity Log
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Monitor user actions and system events
-                  </p>
+        {showActivityLog &&
+          createPortal(
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+                <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-indigo-600" />
+                      Activity Log
+                    </h2>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Monitor user actions and system events
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowActivityLog(false)}
+                    className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setShowActivityLog(false)}
-                  className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex-1 overflow-y-auto">
+                  <UserActivityLog />
+                </div>
               </div>
-              <div className="flex-1 overflow-y-auto">
-                <UserActivityLog />
-              </div>
-            </div>
-          </div>
-        )}
+            </div>,
+            document.body,
+          )}
 
         {/* Close Main Content */}
       </div>
 
       {/* Question Preview Drawer (NF-02) */}
-      {previewQuestion && (
-        <div
-          className="fixed inset-0 z-[100] overflow-hidden"
-          aria-labelledby="slide-over-title"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="absolute inset-0 overflow-hidden">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
-              onClick={() => setPreviewQuestion(null)}
-            />
+      {previewQuestion &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] overflow-hidden"
+            aria-labelledby="slide-over-title"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
+                onClick={() => setPreviewQuestion(null)}
+              />
 
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-              <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
-                <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
-                  {/* Header */}
-                  <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <div>
-                      <h2
-                        className="text-lg font-bold text-gray-900 dark:text-white"
-                        id="slide-over-title"
+              <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
+                  <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
+                    {/* Header */}
+                    <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                      <div>
+                        <h2
+                          className="text-lg font-bold text-gray-900 dark:text-white"
+                          id="slide-over-title"
+                        >
+                          Question Preview
+                        </h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Review question layout and answer correctness
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setPreviewQuestion(null)}
+                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                       >
-                        Question Preview
-                      </h2>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Review question layout and answer correctness
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setPreviewQuestion(null)}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Body */}
-                  <div className="flex-1 p-6 space-y-6">
-                    {/* Metadata Badges */}
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="info">
-                        {(previewQuestion.type || "mcq").toUpperCase()}
-                      </Badge>
-                      <Badge
-                        className={
-                          (
-                            DIFFICULTY_LEVELS.find(
-                              (d) => d.value === previewQuestion.difficulty,
-                            ) || DIFFICULTY_LEVELS[1]
-                          ).color
-                        }
-                      >
-                        {previewQuestion.difficulty || "medium"}
-                      </Badge>
-                      <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900">
-                        Marks: +{previewQuestion.marks}{" "}
-                        {previewQuestion.negativeMarks > 0
-                          ? `/ -${previewQuestion.negativeMarks}`
-                          : ""}
-                      </Badge>
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
 
-                    {/* Question Content */}
-                    <div className="space-y-4">
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
-                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                          English Question
-                        </h4>
-                        <div
-                          className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
-                          dangerouslySetInnerHTML={{
-                            __html: sanitizeHtml(
-                              previewQuestion.questionText || "",
-                            ),
-                          }}
-                        />
-                        {previewQuestion.imageUrl &&
-                          isSafeImageUrl(previewQuestion.imageUrl) && (
-                            <img
-                              loading="lazy"
-                              decoding="async"
-                              src={previewQuestion.imageUrl}
-                              alt="Question Graphic"
-                              className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700"
-                            />
-                          )}
+                    {/* Body */}
+                    <div className="flex-1 p-6 space-y-6">
+                      {/* Metadata Badges */}
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="info">
+                          {(previewQuestion.type || "mcq").toUpperCase()}
+                        </Badge>
+                        <Badge
+                          className={
+                            (
+                              DIFFICULTY_LEVELS.find(
+                                (d) => d.value === previewQuestion.difficulty,
+                              ) || DIFFICULTY_LEVELS[1]
+                            ).color
+                          }
+                        >
+                          {previewQuestion.difficulty || "medium"}
+                        </Badge>
+                        <Badge className="bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900">
+                          Marks: +{previewQuestion.marks}{" "}
+                          {previewQuestion.negativeMarks > 0
+                            ? `/ -${previewQuestion.negativeMarks}`
+                            : ""}
+                        </Badge>
                       </div>
 
-                      {previewQuestion.questionTextHi && (
+                      {/* Question Content */}
+                      <div className="space-y-4">
                         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
                           <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
-                            Hindi Question (हिंदी प्रश्न)
+                            English Question
                           </h4>
                           <div
                             className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
                             dangerouslySetInnerHTML={{
                               __html: sanitizeHtml(
-                                previewQuestion.questionTextHi || "",
+                                previewQuestion.questionText || "",
                               ),
                             }}
                           />
+                          {previewQuestion.imageUrl &&
+                            isSafeImageUrl(previewQuestion.imageUrl) && (
+                              <img
+                                loading="lazy"
+                                decoding="async"
+                                src={previewQuestion.imageUrl}
+                                alt="Question Graphic"
+                                className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700"
+                              />
+                            )}
+                        </div>
+
+                        {previewQuestion.questionTextHi && (
+                          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 border border-gray-200/60 dark:border-gray-700">
+                            <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">
+                              Hindi Question (हिंदी प्रश्न)
+                            </h4>
+                            <div
+                              className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed"
+                              dangerouslySetInnerHTML={{
+                                __html: sanitizeHtml(
+                                  previewQuestion.questionTextHi || "",
+                                ),
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Options Render (Interactive Student Simulation) */}
+                      {previewQuestion.options?.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                            Options & Correct Answer
+                          </h4>
+                          <div className="space-y-2">
+                            {previewQuestion.options.map((opt, idx) => {
+                              const isCorrect = Array.isArray(
+                                previewQuestion.correctOption,
+                              )
+                                ? previewQuestion.correctOption.includes(idx)
+                                : parseInt(previewQuestion.correctOption) ===
+                                    idx ||
+                                  previewQuestion.correctOption === idx;
+                              const optionLetters = [
+                                "A",
+                                "B",
+                                "C",
+                                "D",
+                                "E",
+                                "F",
+                              ];
+                              return (
+                                <div
+                                  key={idx}
+                                  className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
+                                    isCorrect
+                                      ? "bg-green-50/75 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-300 font-semibold shadow-sm"
+                                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                                  }`}
+                                >
+                                  <span
+                                    className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                                      isCorrect
+                                        ? "bg-green-200 dark:bg-green-950 text-green-700"
+                                        : "bg-gray-100 dark:bg-gray-700 text-gray-500"
+                                    }`}
+                                  >
+                                    {optionLetters[idx]}
+                                  </span>
+                                  <div className="flex-1">
+                                    <div
+                                      className="text-sm text-gray-900 dark:text-gray-100"
+                                      dangerouslySetInnerHTML={{
+                                        __html: sanitizeHtml(opt || ""),
+                                      }}
+                                    />
+                                    {previewQuestion.optionsHi?.[idx] && (
+                                      <div
+                                        className="text-xs text-gray-500 dark:text-gray-400 mt-1"
+                                        dangerouslySetInnerHTML={{
+                                          __html: sanitizeHtml(
+                                            previewQuestion.optionsHi[idx] ||
+                                              "",
+                                          ),
+                                        }}
+                                      />
+                                    )}
+                                  </div>
+                                  {isCorrect && (
+                                    <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0">
+                                      Correct
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Numerical or Descriptive Correct Value */}
+                      {(previewQuestion.type === "numeric" ||
+                        previewQuestion.type === "descriptive") && (
+                        <div className="bg-green-50/75 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
+                          <h4 className="text-xs font-bold text-green-800 dark:text-green-400 uppercase tracking-wider mb-2">
+                            {previewQuestion.type === "numeric"
+                              ? "Correct Numerical Value"
+                              : "Model Answer"}
+                          </h4>
+                          <p className="text-sm text-green-900 dark:text-green-300 font-mono leading-relaxed whitespace-pre-wrap">
+                            {previewQuestion.correctOption}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Explanation */}
+                      {previewQuestion.explanation && (
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                            Explanation
+                          </h4>
+                          <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4">
+                            <div
+                              className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
+                              dangerouslySetInnerHTML={{
+                                __html: sanitizeHtml(
+                                  previewQuestion.explanation || "",
+                                ),
+                              }}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Options Render (Interactive Student Simulation) */}
-                    {previewQuestion.options?.length > 0 && (
-                      <div className="space-y-3">
-                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                          Options & Correct Answer
-                        </h4>
-                        <div className="space-y-2">
-                          {previewQuestion.options.map((opt, idx) => {
-                            const isCorrect = Array.isArray(
-                              previewQuestion.correctOption,
-                            )
-                              ? previewQuestion.correctOption.includes(idx)
-                              : parseInt(previewQuestion.correctOption) ===
-                                  idx || previewQuestion.correctOption === idx;
-                            const optionLetters = [
-                              "A",
-                              "B",
-                              "C",
-                              "D",
-                              "E",
-                              "F",
-                            ];
-                            return (
-                              <div
-                                key={idx}
-                                className={`flex items-start gap-3 p-3 rounded-xl border transition-all ${
-                                  isCorrect
-                                    ? "bg-green-50/75 dark:bg-green-950/20 border-green-200 dark:border-green-800 text-green-900 dark:text-green-300 font-semibold shadow-sm"
-                                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
-                                }`}
-                              >
-                                <span
-                                  className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                                    isCorrect
-                                      ? "bg-green-200 dark:bg-green-950 text-green-700"
-                                      : "bg-gray-100 dark:bg-gray-700 text-gray-500"
-                                  }`}
-                                >
-                                  {optionLetters[idx]}
-                                </span>
-                                <div className="flex-1">
-                                  <div
-                                    className="text-sm text-gray-900 dark:text-gray-100"
-                                    dangerouslySetInnerHTML={{
-                                      __html: sanitizeHtml(opt || ""),
-                                    }}
-                                  />
-                                  {previewQuestion.optionsHi?.[idx] && (
-                                    <div
-                                      className="text-xs text-gray-500 dark:text-gray-400 mt-1"
-                                      dangerouslySetInnerHTML={{
-                                        __html: sanitizeHtml(
-                                          previewQuestion.optionsHi[idx] || "",
-                                        ),
-                                      }}
-                                    />
-                                  )}
-                                </div>
-                                {isCorrect && (
-                                  <span className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider shrink-0">
-                                    Correct
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Numerical or Descriptive Correct Value */}
-                    {(previewQuestion.type === "numeric" ||
-                      previewQuestion.type === "descriptive") && (
-                      <div className="bg-green-50/75 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
-                        <h4 className="text-xs font-bold text-green-800 dark:text-green-400 uppercase tracking-wider mb-2">
-                          {previewQuestion.type === "numeric"
-                            ? "Correct Numerical Value"
-                            : "Model Answer"}
-                        </h4>
-                        <p className="text-sm text-green-900 dark:text-green-300 font-mono leading-relaxed whitespace-pre-wrap">
-                          {previewQuestion.correctOption}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Explanation */}
-                    {previewQuestion.explanation && (
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                          Explanation
-                        </h4>
-                        <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4">
-                          <div
-                            className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed"
-                            dangerouslySetInnerHTML={{
-                              __html: sanitizeHtml(
-                                previewQuestion.explanation || "",
-                              ),
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
-                    <button
-                      onClick={() => {
-                        const q = previewQuestion;
-                        setPreviewQuestion(null);
-                        handleEdit(q);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" /> Edit Question
-                    </button>
-                    <button
-                      onClick={() => setPreviewQuestion(null)}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
-                    >
-                      Close
-                    </button>
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
+                      <button
+                        onClick={() => {
+                          const q = previewQuestion;
+                          setPreviewQuestion(null);
+                          handleEdit(q);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" /> Edit Question
+                      </button>
+                      <button
+                        onClick={() => setPreviewQuestion(null)}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* QUESTION ENGINE FIX #2 (MEDIUM): Version History modal */}
-      {versionHistory.open && (
-        <div
-          className="fixed inset-0 z-[110] overflow-y-auto"
-          aria-labelledby="version-history-title"
-          role="dialog"
-          aria-modal="true"
-        >
+      {versionHistory.open &&
+        createPortal(
           <div
-            className="fixed inset-0 bg-black/50"
-            onClick={closeVersionHistory}
-          ></div>
-          <div className="relative min-h-screen flex items-center justify-center p-4">
-            <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-2">
-                  <History className="w-5 h-5 text-amber-500" />
-                  <h3
-                    id="version-history-title"
-                    className="text-lg font-bold text-gray-900 dark:text-white"
+            className="fixed inset-0 z-[110] overflow-y-auto"
+            aria-labelledby="version-history-title"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div
+              className="fixed inset-0 bg-black/50"
+              onClick={closeVersionHistory}
+            ></div>
+            <div className="relative min-h-screen flex items-center justify-center p-4">
+              <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between shrink-0">
+                  <div className="flex items-center gap-2">
+                    <History className="w-5 h-5 text-amber-500" />
+                    <h3
+                      id="version-history-title"
+                      className="text-lg font-bold text-gray-900 dark:text-white"
+                    >
+                      Question Version History
+                    </h3>
+                  </div>
+                  <button
+                    onClick={closeVersionHistory}
+                    className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
                   >
-                    Question Version History
-                  </h3>
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
-                <button
-                  onClick={closeVersionHistory}
-                  className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              <div className="p-6 overflow-y-auto flex-1">
-                {versionHistory.loading && (
-                  <p className="text-sm text-gray-500">Loading versions…</p>
-                )}
-                {versionHistory.error && (
-                  <p className="text-sm text-red-600">{versionHistory.error}</p>
-                )}
-                {versionHistory.data && (
-                  <>
-                    {versionHistory.data.quality && (
-                      <div className="mb-4 rounded-lg border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/10 p-3">
-                        <div className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300 mb-1">
-                          Current Quality Score
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl font-black text-indigo-700 dark:text-indigo-300">
-                            {versionHistory.data.quality.score}/100
+                <div className="p-6 overflow-y-auto flex-1">
+                  {versionHistory.loading && (
+                    <p className="text-sm text-gray-500">Loading versions…</p>
+                  )}
+                  {versionHistory.error && (
+                    <p className="text-sm text-red-600">
+                      {versionHistory.error}
+                    </p>
+                  )}
+                  {versionHistory.data && (
+                    <>
+                      {versionHistory.data.quality && (
+                        <div className="mb-4 rounded-lg border border-indigo-100 dark:border-indigo-900 bg-indigo-50/50 dark:bg-indigo-950/10 p-3">
+                          <div className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300 mb-1">
+                            Current Quality Score
                           </div>
-                          {versionHistory.data.quality.flags?.length > 0 ? (
-                            <ul className="text-xs text-amber-700 dark:text-amber-300 list-disc list-inside">
-                              {versionHistory.data.quality.flags.map((f, i) => (
-                                <li key={i}>{f}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span className="text-xs text-green-700 dark:text-green-300">
-                              No issues detected
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    {!versionHistory.data.versions ||
-                    versionHistory.data.versions.length === 0 ? (
-                      <p className="text-sm text-gray-500">
-                        No previous versions recorded yet. Versions are created
-                        automatically each time this question is edited.
-                      </p>
-                    ) : (
-                      <ul className="space-y-3">
-                        {versionHistory.data.versions.map((v) => (
-                          <li
-                            key={v.version_number}
-                            className="border border-gray-200 dark:border-gray-700 rounded-xl p-4"
-                          >
-                            <div className="flex items-center justify-between gap-3 mb-2">
-                              <div className="flex items-center gap-2">
-                                <span className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center text-xs font-bold">
-                                  v{v.version_number}
-                                </span>
-                                {v.is_current && (
-                                  <span className="text-[10px] font-bold uppercase text-green-700 bg-green-100 px-2 py-0.5 rounded">
-                                    Current
-                                  </span>
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl font-black text-indigo-700 dark:text-indigo-300">
+                              {versionHistory.data.quality.score}/100
+                            </div>
+                            {versionHistory.data.quality.flags?.length > 0 ? (
+                              <ul className="text-xs text-amber-700 dark:text-amber-300 list-disc list-inside">
+                                {versionHistory.data.quality.flags.map(
+                                  (f, i) => (
+                                    <li key={i}>{f}</li>
+                                  ),
                                 )}
-                                <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
-                                  {v.difficulty}
-                                </span>
+                              </ul>
+                            ) : (
+                              <span className="text-xs text-green-700 dark:text-green-300">
+                                No issues detected
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      {!versionHistory.data.versions ||
+                      versionHistory.data.versions.length === 0 ? (
+                        <p className="text-sm text-gray-500">
+                          No previous versions recorded yet. Versions are
+                          created automatically each time this question is
+                          edited.
+                        </p>
+                      ) : (
+                        <ul className="space-y-3">
+                          {versionHistory.data.versions.map((v) => (
+                            <li
+                              key={v.version_number}
+                              className="border border-gray-200 dark:border-gray-700 rounded-xl p-4"
+                            >
+                              <div className="flex items-center justify-between gap-3 mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 inline-flex items-center justify-center text-xs font-bold">
+                                    v{v.version_number}
+                                  </span>
+                                  {v.is_current && (
+                                    <span className="text-[10px] font-bold uppercase text-green-700 bg-green-100 px-2 py-0.5 rounded">
+                                      Current
+                                    </span>
+                                  )}
+                                  <span className="text-[10px] font-bold uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                                    {v.difficulty}
+                                  </span>
+                                </div>
+                                {!v.is_current && (
+                                  <button
+                                    onClick={() =>
+                                      restoreVersion(v.version_number)
+                                    }
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-xs font-medium transition-colors"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />{" "}
+                                    Restore
+                                  </button>
+                                )}
                               </div>
-                              {!v.is_current && (
-                                <button
-                                  onClick={() =>
-                                    restoreVersion(v.version_number)
-                                  }
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-xs font-medium transition-colors"
-                                >
-                                  <RotateCcw className="w-3.5 h-3.5" /> Restore
-                                </button>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">
-                              {v.text}
-                            </p>
-                            <div className="text-xs text-gray-400">
-                              {v.changed_by_name
-                                ? `Edited by ${v.changed_by_name}`
-                                : "System"}{" "}
-                              ·{" "}
-                              {v.created_at
-                                ? new Date(v.created_at).toLocaleString()
-                                : ""}
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
+                              <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 mb-1">
+                                {v.text}
+                              </p>
+                              <div className="text-xs text-gray-400">
+                                {v.changed_by_name
+                                  ? `Edited by ${v.changed_by_name}`
+                                  : "System"}{" "}
+                                ·{" "}
+                                {v.created_at
+                                  ? new Date(v.created_at).toLocaleString()
+                                  : ""}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
 
-              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
-                <button
-                  onClick={closeVersionHistory}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
-                >
-                  Close
-                </button>
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end shrink-0">
+                  <button
+                    onClick={closeVersionHistory}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* Test Preview Drawer (NF-02) */}
-      {previewTest && (
-        <div
-          className="fixed inset-0 z-[100] overflow-hidden"
-          aria-labelledby="test-slide-title"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="absolute inset-0 overflow-hidden">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
-              onClick={() => setPreviewTest(null)}
-            />
+      {previewTest &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[100] overflow-hidden"
+            aria-labelledby="test-slide-title"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              {/* Backdrop */}
+              <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
+                onClick={() => setPreviewTest(null)}
+              />
 
-            <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
-              <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
-                <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
-                  {/* Header */}
-                  <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <div>
-                      <h2
-                        className="text-lg font-bold text-gray-900 dark:text-white"
-                        id="test-slide-title"
+              <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+                <div className="pointer-events-auto w-screen max-w-xl transform transition-transform duration-300 ease-in-out translate-x-0">
+                  <div className="flex h-full flex-col overflow-y-scroll bg-white dark:bg-gray-900 shadow-2xl border-l border-gray-200 dark:border-gray-800">
+                    {/* Header */}
+                    <div className="px-6 py-5 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                      <div>
+                        <h2
+                          className="text-lg font-bold text-gray-900 dark:text-white"
+                          id="test-slide-title"
+                        >
+                          Test Configuration Preview
+                        </h2>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Verify curriculum, timings, and parameters
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setPreviewTest(null)}
+                        className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
                       >
-                        Test Configuration Preview
-                      </h2>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                        Verify curriculum, timings, and parameters
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setPreviewTest(null)}
-                      className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-500 dark:text-gray-400"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  {/* Body */}
-                  <div className="flex-1 p-6 space-y-6">
-                    {/* Title and Description */}
-                    <div>
-                      <h3 className="text-xl font-extrabold text-gray-950 dark:text-white mb-2">
-                        {previewTest.title || previewTest.name}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
-                        {previewTest.description ||
-                          "No description provided for this test."}
-                      </p>
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
 
-                    {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
-                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
-                          Duration
-                        </p>
-                        <p className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
-                          <Clock className="w-5 h-5 text-indigo-500" />{" "}
-                          {previewTest.duration ||
-                            previewTest.time_limit ||
-                            "--"}{" "}
-                          min
+                    {/* Body */}
+                    <div className="flex-1 p-6 space-y-6">
+                      {/* Title and Description */}
+                      <div>
+                        <h3 className="text-xl font-extrabold text-gray-950 dark:text-white mb-2">
+                          {previewTest.title || previewTest.name}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-wrap">
+                          {previewTest.description ||
+                            "No description provided for this test."}
                         </p>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
-                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
-                          Marks & Negatives
-                        </p>
-                        <p className="text-lg font-extrabold text-gray-900 dark:text-white">
-                          {previewTest.totalMarks ||
-                            previewTest.total_marks ||
-                            "--"}{" "}
-                          pts{" "}
-                          <span className="text-xs text-red-500 font-medium">
-                            (-{previewTest.negativeMarking ?? 0.25} neg)
-                          </span>
-                        </p>
-                      </div>
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
-                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
-                          Difficulty & Status
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <Badge
-                            variant={
-                              previewTest.status === "active" ||
-                              previewTest.status === "published"
-                                ? "success"
-                                : "default"
-                            }
-                          >
-                            {previewTest.status || "draft"}
-                          </Badge>
-                          <Badge variant="info">
-                            {previewTest.difficulty || "medium"}
-                          </Badge>
+
+                      {/* Quick Stats Grid */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                          <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
+                            Duration
+                          </p>
+                          <p className="text-lg font-extrabold text-gray-900 dark:text-white flex items-center gap-1.5">
+                            <Clock className="w-5 h-5 text-indigo-500" />{" "}
+                            {previewTest.duration ||
+                              previewTest.time_limit ||
+                              "--"}{" "}
+                            min
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                          <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
+                            Marks & Negatives
+                          </p>
+                          <p className="text-lg font-extrabold text-gray-900 dark:text-white">
+                            {previewTest.totalMarks ||
+                              previewTest.total_marks ||
+                              "--"}{" "}
+                            pts{" "}
+                            <span className="text-xs text-red-500 font-medium">
+                              (-{previewTest.negativeMarking ?? 0.25} neg)
+                            </span>
+                          </p>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                          <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
+                            Difficulty & Status
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Badge
+                              variant={
+                                previewTest.status === "active" ||
+                                previewTest.status === "published"
+                                  ? "success"
+                                  : "default"
+                              }
+                            >
+                              {previewTest.status || "draft"}
+                            </Badge>
+                            <Badge variant="info">
+                              {previewTest.difficulty || "medium"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
+                          <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
+                            Linked Series
+                          </p>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-300 truncate mt-1">
+                            {selectedSeries?.title ||
+                              selectedSeries?.name ||
+                              "Individual Test"}
+                          </p>
                         </div>
                       </div>
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200/60 dark:border-gray-700">
-                        <p className="text-xs text-gray-400 font-semibold tracking-wider uppercase mb-1">
-                          Linked Series
-                        </p>
-                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-300 truncate mt-1">
-                          {selectedSeries?.title ||
-                            selectedSeries?.name ||
-                            "Individual Test"}
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Section Breakdown */}
-                    <div className="space-y-3">
-                      <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        Test Section Breakdown
-                      </h4>
-                      <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                          <thead className="bg-gray-50 dark:bg-gray-800">
-                            <tr>
-                              <th className="px-4 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
-                                Section Name
-                              </th>
-                              <th className="px-4 py-2 text-center font-semibold text-gray-500 dark:text-gray-400">
-                                Questions
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                            {previewTestSections.length === 0 ? (
+                      {/* Section Breakdown */}
+                      <div className="space-y-3">
+                        <h4 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                          Test Section Breakdown
+                        </h4>
+                        <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                            <thead className="bg-gray-50 dark:bg-gray-800">
                               <tr>
-                                <td
-                                  colSpan={2}
-                                  className="px-4 py-4 text-center text-gray-500 dark:text-gray-400"
-                                >
-                                  No custom sections defined. Uses global
-                                  default.
-                                </td>
+                                <th className="px-4 py-2 text-left font-semibold text-gray-500 dark:text-gray-400">
+                                  Section Name
+                                </th>
+                                <th className="px-4 py-2 text-center font-semibold text-gray-500 dark:text-gray-400">
+                                  Questions
+                                </th>
                               </tr>
-                            ) : (
-                              previewTestSections.map((sec, idx) => (
-                                <tr key={idx}>
-                                  <td className="px-4 py-2.5 text-gray-900 dark:text-gray-200 font-medium">
-                                    {sec.name}
-                                  </td>
-                                  <td className="px-4 py-2.5 text-center font-semibold text-indigo-600 dark:text-indigo-400">
-                                    {sec.questions} Qs
+                            </thead>
+                            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                              {previewTestSections.length === 0 ? (
+                                <tr>
+                                  <td
+                                    colSpan={2}
+                                    className="px-4 py-4 text-center text-gray-500 dark:text-gray-400"
+                                  >
+                                    No custom sections defined. Uses global
+                                    default.
                                   </td>
                                 </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
+                              ) : (
+                                previewTestSections.map((sec, idx) => (
+                                  <tr key={idx}>
+                                    <td className="px-4 py-2.5 text-gray-900 dark:text-gray-200 font-medium">
+                                      {sec.name}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-center font-semibold text-indigo-600 dark:text-indigo-400">
+                                      {sec.questions} Qs
+                                    </td>
+                                  </tr>
+                                ))
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+
+                      {/* Test Rules / Meta Info */}
+                      <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4 space-y-2">
+                        <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-2">
+                          Test Configuration Rules
+                        </h4>
+                        <ul className="text-xs text-indigo-950 dark:text-indigo-300 space-y-1.5 list-disc pl-4">
+                          <li>
+                            Passing Criteria: Student must score at least{" "}
+                            <strong>{previewTest.passingMarks || 33}%</strong>{" "}
+                            to pass.
+                          </li>
+                          <li>
+                            Proctoring Mode:{" "}
+                            {previewTest.isPro
+                              ? "Enforced (Secure tab locking active)"
+                              : "Standard Practice Mode"}
+                            .
+                          </li>
+                          <li>
+                            Live Mode:{" "}
+                            {previewTest.isLive
+                              ? "Yes, scheduled slot enforcement active"
+                              : "Self-paced practice, available anytime"}
+                            .
+                          </li>
+                          <li>
+                            Tags:{" "}
+                            <span className="font-semibold">
+                              {previewTest.tags || "none"}
+                            </span>
+                          </li>
+                        </ul>
                       </div>
                     </div>
 
-                    {/* Test Rules / Meta Info */}
-                    <div className="bg-indigo-50/45 dark:bg-indigo-950/10 border border-indigo-100 dark:border-indigo-950 rounded-xl p-4 space-y-2">
-                      <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-wider mb-2">
-                        Test Configuration Rules
-                      </h4>
-                      <ul className="text-xs text-indigo-950 dark:text-indigo-300 space-y-1.5 list-disc pl-4">
-                        <li>
-                          Passing Criteria: Student must score at least{" "}
-                          <strong>{previewTest.passingMarks || 33}%</strong> to
-                          pass.
-                        </li>
-                        <li>
-                          Proctoring Mode:{" "}
-                          {previewTest.isPro
-                            ? "Enforced (Secure tab locking active)"
-                            : "Standard Practice Mode"}
-                          .
-                        </li>
-                        <li>
-                          Live Mode:{" "}
-                          {previewTest.isLive
-                            ? "Yes, scheduled slot enforcement active"
-                            : "Self-paced practice, available anytime"}
-                          .
-                        </li>
-                        <li>
-                          Tags:{" "}
-                          <span className="font-semibold">
-                            {previewTest.tags || "none"}
-                          </span>
-                        </li>
-                      </ul>
+                    {/* Footer */}
+                    <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
+                      <button
+                        onClick={() => {
+                          const t = previewTest;
+                          setPreviewTest(null);
+                          openEditTestForm(t);
+                        }}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4" /> Edit Test Setup
+                      </button>
+                      <button
+                        onClick={() => setPreviewTest(null)}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                      >
+                        Close
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Footer */}
-                  <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3 shrink-0">
-                    <button
-                      onClick={() => {
-                        const t = previewTest;
-                        setPreviewTest(null);
-                        openEditTestForm(t);
-                      }}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4" /> Edit Test Setup
-                    </button>
-                    <button
-                      onClick={() => setPreviewTest(null)}
-                      className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
-                    >
-                      Close
-                    </button>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
