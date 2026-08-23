@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { authAPI, userAPI } from "../lib/dataService.js";
 import { logger } from "../lib/logger.js";
 import { mapUserToFrontend } from "../types";
@@ -11,62 +11,13 @@ import {
   clearCsrfToken,
 } from "@trstprep/shared-config";
 import { AuthContext } from "./AuthContextCore.js";
-
-// Session configuration - 3 days default, 7 days when rememberMe checked
-const SESSION_CONFIG = {
-  defaultExpiry: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeExpiry: 7 * 24 * 60 * 60 * 1000, // 7 days
-  inactivityTimeout: 3 * 24 * 60 * 60 * 1000, // 3 days
-  rememberMeInactivityTimeout: 7 * 24 * 60 * 60 * 1000, // 7 days
-};
-
-export const applyAuthSession = ({ csrfToken }) => {
-  try {
-    // httpOnly cookies only - do NOT store JWT in localStorage (CRIT-03)
-    // Clean legacy tokens if present (migration from old localStorage flow)
-    try {
-      localStorage.removeItem("trstprep_auth_token");
-      localStorage.removeItem("trstprep_token");
-      localStorage.removeItem("trstprep_refresh_token");
-      sessionStorage.removeItem("trstprep_auth_token");
-      sessionStorage.removeItem("trstprep_token");
-      sessionStorage.removeItem("trstprep_refresh_token");
-    } catch (_e) {
-      void _e;
-    }
-    if (csrfToken) {
-      setCsrfToken(csrfToken);
-    }
-  } catch (error) {
-    void error;
-  }
-};
-
-export const saveAuthTokens = applyAuthSession;
-
-export const clearAuthTokens = () => {
-  try {
-    // httpOnly cookies cleared server-side; only clear CSRF and legacy storage
-    try {
-      localStorage.removeItem("trstprep_auth_token");
-      localStorage.removeItem("trstprep_token");
-      localStorage.removeItem("trstprep_refresh_token");
-      sessionStorage.removeItem("trstprep_auth_token");
-      sessionStorage.removeItem("trstprep_token");
-      sessionStorage.removeItem("trstprep_refresh_token");
-    } catch (_e) {
-      void _e;
-    }
-    clearCsrfToken();
-  } catch (error) {
-    void error;
-  }
-};
+import { applyAuthSession, clearAuthTokens } from "./authSession.js";
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const currentSessionIdRef = useRef(null);
 
   // Check for existing session on mount (Issue #42: Uses httpOnly cookies)
   useEffect(() => {
@@ -188,7 +139,15 @@ export function AuthProvider({ children }) {
         rememberMe,
         botContext,
       );
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        sessionId: serverSessionId,
+      } = response.data.data || {};
+
+      if (serverSessionId) {
+        currentSessionIdRef.current = serverSessionId;
+      }
 
       applyAuthSession({
         csrfToken: newCsrfToken,
@@ -337,6 +296,21 @@ export function AuthProvider({ children }) {
       }
     });
 
+    const cleanupRevocation = on("session:revoked", (data) => {
+      if (
+        data?.sessionId &&
+        currentSessionIdRef.current &&
+        data.sessionId === currentSessionIdRef.current
+      ) {
+        clearAuthTokens();
+        setUser(null);
+        toast.error("Your admin session was logged out from another device.", {
+          duration: 6000,
+          id: "admin-session-revoked-toast",
+        });
+      }
+    });
+
     const cleanupAdmin = on("admin:stats_update", (data) => {
       logger.debug("📊 Admin stats update:", data);
       getQueryClient()?.invalidateQueries({ queryKey: ["admin", "stats"] });
@@ -349,6 +323,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       cleanupNotification();
+      cleanupRevocation();
       cleanupAdmin();
       cleanupLiveAttempts();
     };
@@ -357,7 +332,9 @@ export function AuthProvider({ children }) {
   // Revoke other active sessions for user
   const revokeOtherSessions = async () => {
     try {
-      const response = await authAPI.revokeOtherSessions();
+      const response = await authAPI.revokeOtherSessions(
+        currentSessionIdRef.current,
+      );
       return {
         success: true,
         message: response.data?.message || "Revoked other sessions",

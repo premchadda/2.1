@@ -304,6 +304,186 @@ function Login() {
     setTotpCode(cleaned);
   };
 
+  if (showSessionConflict) {
+    return createPortal(
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="session-conflict-title"
+        className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+      >
+        {/* Modal Container */}
+        <div
+          ref={dialogRef}
+          tabIndex={-1}
+          className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-500/20 dark:border-amber-500/30 overflow-hidden animate-scale-in z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Top Security Ambient Gradient Bar */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
+
+          <div className="p-5 sm:p-7">
+            {/* Header Icon + Badge */}
+            <div className="flex flex-col items-center text-center mb-5">
+              <div className="relative mb-3">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shadow-inner">
+                  <MonitorSmartphone className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-400" />
+                </div>
+                <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border-2 border-white dark:border-gray-900"></span>
+                </span>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 mb-1.5">
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Active Device Conflict
+              </div>
+
+              <h2
+                id="session-conflict-title"
+                className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight"
+              >
+                Another Session is Active
+              </h2>
+              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 max-w-xs">
+                Your account is currently signed in on{" "}
+                {conflictSessions.length > 0
+                  ? `${conflictSessions.length} other ${conflictSessions.length === 1 ? "device" : "devices"}`
+                  : "another device"}
+                .
+              </p>
+            </div>
+
+            {/* Sessions List */}
+            {conflictSessions.length > 0 && (
+              <div className="mb-5">
+                <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 px-1">
+                  <span>Active Device(s)</span>
+                  <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live
+                  </span>
+                </div>
+
+                <div className="space-y-2.5 max-h-44 sm:max-h-52 overflow-y-auto pr-1">
+                  {conflictSessions.slice(0, 4).map((session, idx) => {
+                    const locationStr = [session.city, session.country]
+                      .filter(Boolean)
+                      .join(", ");
+                    const deviceLabel =
+                      session.deviceType || session.device_type || "desktop";
+                    const DeviceIcon = getDeviceIcon(deviceLabel, session.os);
+                    const relativeTime = formatRelativeTime(
+                      session.lastActive || session.last_active,
+                    );
+
+                    return (
+                      <div
+                        key={session.id || session.session_id || idx}
+                        className="group relative flex items-center gap-3 p-2.5 sm:p-3 bg-gray-50/90 dark:bg-gray-800/70 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700/60 transition-all duration-200"
+                      >
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/60 dark:to-purple-950/60 border border-indigo-200/50 dark:border-indigo-800/40 flex items-center justify-center shrink-0 shadow-sm">
+                          <DeviceIcon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                              {session.browser || "Browser"} on{" "}
+                              {session.os || "Device"}
+                            </p>
+                            <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
+                              {relativeTime}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                            {locationStr ? (
+                              <span className="flex items-center gap-1 truncate">
+                                <Globe className="w-3 h-3 shrink-0 text-gray-400" />
+                                <span className="truncate">{locationStr}</span>
+                              </span>
+                            ) : (
+                              <span className="text-gray-400">
+                                Unknown location
+                              </span>
+                            )}
+                            {(session.ipAddress || session.ip) && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-200/60 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 font-mono shrink-0">
+                                {session.ipAddress || session.ip}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons (Left & Right across all screen sizes) */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  setRevoking(true);
+                  try {
+                    const res = await revokeOtherSessions();
+                    if (res?.success) {
+                      toast.success("Other sessions logged out successfully");
+                    } else {
+                      toast.error(
+                        res?.error || "Failed to logout other sessions",
+                      );
+                    }
+                  } catch (err) {
+                    toast.error("Failed to logout other sessions");
+                  } finally {
+                    setRevoking(false);
+                    setShowSessionConflict(false);
+                    navigate(from, { replace: true, state: {} });
+                  }
+                }}
+                disabled={revoking}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 sm:px-3 bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 hover:from-rose-700 hover:via-red-700 hover:to-amber-700 text-white text-xs sm:text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed text-center group"
+              >
+                <LogOut
+                  className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5 ${revoking ? "animate-spin" : ""}`}
+                />
+                <span className="leading-tight">
+                  {revoking
+                    ? "Logging out..."
+                    : "Logout Other Devices & Continue"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSessionConflict(false);
+                  navigate(from, { replace: true, state: {} });
+                }}
+                disabled={revoking}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 sm:px-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-xs font-medium rounded-xl transition-all duration-200 cursor-pointer text-center group"
+              >
+                <span className="leading-tight">Keep Active & Continue</span>
+                <ArrowRight className="w-3.5 h-3.5 shrink-0 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </div>
+
+            <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-3.5">
+              Logging out other devices secures your test attempts & active
+              progress.
+            </p>
+          </div>
+        </div>
+      </div>,
+      document.body,
+    );
+  }
+
   return createPortal(
     <div
       className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -645,188 +825,6 @@ function Login() {
           </div>
         </AnimatedHero>
       </div>
-
-      {/* Active Session Conflict Modal */}
-      {showSessionConflict && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="session-conflict-title"
-          className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in"
-        >
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setShowSessionConflict(false);
-              navigate(from, { replace: true, state: {} });
-            }}
-          />
-
-          {/* Modal Container */}
-          <div className="relative w-full max-w-md bg-white dark:bg-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl border border-amber-500/20 dark:border-amber-500/30 overflow-hidden animate-scale-in z-10">
-            {/* Top Security Ambient Gradient Bar */}
-            <div className="h-1.5 w-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
-
-            <div className="p-5 sm:p-7">
-              {/* Header Icon + Badge */}
-              <div className="flex flex-col items-center text-center mb-5">
-                <div className="relative mb-3">
-                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800/60 flex items-center justify-center shadow-inner">
-                    <MonitorSmartphone className="w-7 h-7 sm:w-8 sm:h-8 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500 border-2 border-white dark:border-gray-900"></span>
-                  </span>
-                </div>
-
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 mb-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Active Device Conflict
-                </div>
-
-                <h2
-                  id="session-conflict-title"
-                  className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white tracking-tight"
-                >
-                  Another Session is Active
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1 max-w-xs">
-                  Your account is currently signed in on{" "}
-                  {conflictSessions.length > 0
-                    ? `${conflictSessions.length} other ${conflictSessions.length === 1 ? "device" : "devices"}`
-                    : "another device"}
-                  .
-                </p>
-              </div>
-
-              {/* Sessions List */}
-              {conflictSessions.length > 0 && (
-                <div className="mb-5">
-                  <div className="flex items-center justify-between text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 px-1">
-                    <span>Active Device(s)</span>
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Live
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5 max-h-44 sm:max-h-52 overflow-y-auto pr-1">
-                    {conflictSessions.slice(0, 4).map((session, idx) => {
-                      const locationStr = [session.city, session.country]
-                        .filter(Boolean)
-                        .join(", ");
-                      const deviceLabel =
-                        session.deviceType || session.device_type || "desktop";
-                      const DeviceIcon = getDeviceIcon(deviceLabel, session.os);
-                      const relativeTime = formatRelativeTime(
-                        session.lastActive || session.last_active,
-                      );
-
-                      return (
-                        <div
-                          key={session.id || session.session_id || idx}
-                          className="group relative flex items-center gap-3 p-2.5 sm:p-3 bg-gray-50/90 dark:bg-gray-800/70 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700/60 transition-all duration-200"
-                        >
-                          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-950/60 dark:to-purple-950/60 border border-indigo-200/50 dark:border-indigo-800/40 flex items-center justify-center shrink-0 shadow-sm">
-                            <DeviceIcon className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-1">
-                              <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
-                                {session.browser || "Browser"} on{" "}
-                                {session.os || "Device"}
-                              </p>
-                              <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap shrink-0">
-                                {relativeTime}
-                              </span>
-                            </div>
-
-                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
-                              {locationStr ? (
-                                <span className="flex items-center gap-1 truncate">
-                                  <Globe className="w-3 h-3 shrink-0 text-gray-400" />
-                                  <span className="truncate">
-                                    {locationStr}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span className="text-gray-400">
-                                  Unknown location
-                                </span>
-                              )}
-                              {(session.ipAddress || session.ip) && (
-                                <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-200/60 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300 font-mono shrink-0">
-                                  {session.ipAddress || session.ip}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2.5">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setRevoking(true);
-                    try {
-                      const res = await revokeOtherSessions();
-                      if (res?.success) {
-                        toast.success("Other sessions logged out successfully");
-                      } else {
-                        toast.error(
-                          res?.error || "Failed to logout other sessions",
-                        );
-                      }
-                    } catch (err) {
-                      toast.error("Failed to logout other sessions");
-                    } finally {
-                      setRevoking(false);
-                      setShowSessionConflict(false);
-                      navigate(from, { replace: true, state: {} });
-                    }
-                  }}
-                  disabled={revoking}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 hover:from-rose-700 hover:via-red-700 hover:to-amber-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed group"
-                >
-                  <LogOut
-                    className={`w-4 h-4 transition-transform group-hover:-translate-x-0.5 ${revoking ? "animate-spin" : ""}`}
-                  />
-                  {revoking
-                    ? "Logging out other devices..."
-                    : "Logout Other Devices & Continue"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowSessionConflict(false);
-                    navigate(from, { replace: true, state: {} });
-                  }}
-                  disabled={revoking}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs sm:text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer"
-                >
-                  Keep Active & Continue
-                  <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:translate-x-0.5 transition-transform" />
-                </button>
-              </div>
-
-              <p className="text-[11px] text-center text-gray-400 dark:text-gray-500 mt-3.5">
-                Logging out other devices secures your test attempts & active
-                progress.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>,
     document.body,
   );

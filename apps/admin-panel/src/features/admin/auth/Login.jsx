@@ -588,13 +588,7 @@ function Login() {
           className="fixed inset-0 z-[999999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 dark:bg-black/80 backdrop-blur-md animate-fade-in"
         >
           {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setShowSessionConflict(false);
-              navigate(from, { replace: true });
-            }}
-          />
+          <div className="absolute inset-0" />
 
           {/* Modal Container */}
           <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-amber-300 dark:border-amber-500/30 overflow-hidden animate-scale-in z-10">
@@ -704,8 +698,8 @@ function Login() {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="flex flex-col gap-2.5">
+              {/* Action Buttons (Left & Right across all screen sizes) */}
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={async () => {
@@ -728,14 +722,16 @@ function Login() {
                     }
                   }}
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 hover:from-rose-700 hover:via-red-700 hover:to-amber-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed group"
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 sm:px-3 bg-gradient-to-r from-rose-600 via-red-600 to-amber-600 hover:from-rose-700 hover:via-red-700 hover:to-amber-700 text-white text-xs sm:text-xs font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed text-center group"
                 >
                   <LogOut
-                    className={`w-4 h-4 transition-transform group-hover:-translate-x-0.5 ${loading ? "animate-spin" : ""}`}
+                    className={`w-3.5 h-3.5 shrink-0 transition-transform group-hover:-translate-x-0.5 ${loading ? "animate-spin" : ""}`}
                   />
-                  {loading
-                    ? "Logging out other devices..."
-                    : "Logout Other Devices & Continue"}
+                  <span className="leading-tight">
+                    {loading
+                      ? "Logging out..."
+                      : "Logout Other Devices & Continue"}
+                  </span>
                 </button>
 
                 <button
@@ -745,10 +741,10 @@ function Login() {
                     navigate(from, { replace: true });
                   }}
                   disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-medium rounded-xl transition-all duration-200 cursor-pointer"
+                  className="flex items-center justify-center gap-1.5 py-2.5 px-2.5 sm:px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs sm:text-xs font-medium rounded-xl transition-all duration-200 cursor-pointer text-center group"
                 >
-                  <span>Keep Active & Continue</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+                  <span className="leading-tight">Keep Active & Continue</span>
+                  <ArrowRight className="w-3.5 h-3.5 shrink-0 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
                 </button>
               </div>
 

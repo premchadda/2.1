@@ -24,9 +24,6 @@
     transform: translateX(0);
 }
 
-.desktop-left-nav-mode #navbar .hidden.md\:flex {
-    display: none !important;
-}
 
 /* ===== Breadcrumb Styles ===== */
 .breadcrumb-container {

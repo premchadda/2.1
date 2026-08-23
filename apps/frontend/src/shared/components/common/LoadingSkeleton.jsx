@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { TrstprepLoading } from "./TrstprepLoading";
 
 // Skeleton base component
 export function Skeleton({
@@ -174,15 +175,13 @@ export function LoadingDots({ className = "" }) {
 }
 
 // Full Page Loading
-export function FullPageLoading({ message = "Loading..." }) {
+export function FullPageLoading({
+  message = "Loading Trstprep...",
+  subtext = "Preparing your test preparation environment",
+}) {
   return (
     <div className="loading-overlay">
-      <div className="text-center">
-        <LoadingSpinner size="lg" />
-        <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">
-          {message}
-        </p>
-      </div>
+      <TrstprepLoading message={message} subtext={subtext} />
     </div>
   );
 }

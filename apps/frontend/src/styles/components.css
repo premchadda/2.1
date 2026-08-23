@@ -86,16 +86,6 @@ img, video {
     }
 }
 
-/* Modals: always constrained within viewport */
-[role="dialog"], .fixed.inset-0 .bg-white, .fixed.inset-0 .bg-gray-800, .fixed.inset-0 .bg-gray-900 {
-    max-width: min(95vw, 100%) !important;
-    max-height: min(85vh, 100dvh - 1rem) !important;
-}
-
-.fixed.inset-0 {
-    padding: 0.75rem !important;
-}
-
 /* Ensure modal inner scroll */
 [role="dialog"] .overflow-y-auto, [role="dialog"] .overflow-y-scroll {
     max-height: min(80vh, calc(100dvh - 8rem));

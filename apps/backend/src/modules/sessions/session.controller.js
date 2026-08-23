@@ -334,12 +334,30 @@ const sessionController = {
         req.user?.sessionId || req.headers["x-session-id"] || null;
 
       // Find sessions to revoke
-      const sessionsToRevoke = await pool.query(
-        `SELECT session_id FROM user_sessions
-         WHERE user_id = $1 AND is_active = true
-           AND ($2::text IS NULL OR session_id != $2)`,
-        [userId, currentSessionId],
-      );
+      // IMPORTANT: Never revoke the current session. If currentSessionId is provided,
+      // exclude matches on both session_id and id. If currentSessionId is missing,
+      // identify the latest active session (current) and keep it.
+      let sessionsToRevoke;
+      if (currentSessionId) {
+        sessionsToRevoke = await pool.query(
+          `SELECT session_id FROM user_sessions
+           WHERE user_id = $1 AND is_active = true
+             AND session_id != $2 AND id::text != $2`,
+          [userId, currentSessionId],
+        );
+      } else {
+        // Fallback: keep the most recently active session as current, revoke older ones
+        const allActive = await pool.query(
+          `SELECT session_id FROM user_sessions
+           WHERE user_id = $1 AND is_active = true
+           ORDER BY last_active DESC, created_at DESC`,
+          [userId],
+        );
+        // Exclude the most recent active session (index 0)
+        sessionsToRevoke = {
+          rows: allActive.rows.slice(1),
+        };
+      }
 
       let revokedCount = 0;
       for (const row of sessionsToRevoke.rows) {
