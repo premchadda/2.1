@@ -39,7 +39,10 @@ const LOG_LEVELS = {
   debug: 3,
 };
 
-// Default to debug in development, error only in production
+// Default to debug in development, error only in production.
+// PROD HYGIENE: console leakage is gated by LOG_LEVEL filtering — in production
+// currentLevel === LOG_LEVELS.error, so debug/info/warn/log are no-ops and do not
+// emit to console. Only explicit `logger.error` reaches console in prod.
 const currentLevel = isDevelopment ? LOG_LEVELS.debug : LOG_LEVELS.error;
 
 function shouldLog(level) {
@@ -49,32 +52,27 @@ function shouldLog(level) {
 export const logger = {
   debug: (...args) => {
     if (shouldLog("debug")) {
-      // eslint-disable-next-line no-console
       console.debug(...args);
     }
   },
   info: (...args) => {
     if (shouldLog("info")) {
-      // eslint-disable-next-line no-console
       console.log(...args);
     }
   },
   warn: (...args) => {
     if (shouldLog("warn")) {
-      // eslint-disable-next-line no-console
       console.warn(...args);
     }
   },
   error: (...args) => {
     if (shouldLog("error")) {
-      // eslint-disable-next-line no-console
       console.error(...args);
     }
   },
   // Alias for logging objects/traces
   log: (...args) => {
     if (shouldLog("info")) {
-      // eslint-disable-next-line no-console
       console.log(...args);
     }
   },

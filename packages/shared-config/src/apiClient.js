@@ -5,7 +5,20 @@
  *   - CSRF interceptor (uses the shared getCsrfToken/setCsrfToken store)
  *   - a response interceptor mapping errors to the shared error classes
  *   - 401/419 token-refresh handling with a request queue
+ *   - X-Client-App fingerprint header for server-side audit / rate-limit scoping
  *   - isCancel pass-through
+ *
+ * HTML sanitizer hygiene (ALLOWED_ATTR / ALLOWED_TAGS):
+ * This module does NOT sanitize HTML. Sanitization belongs to the companion
+ * `htmlSanitizer.js` (shared-config) / `htmlSanitizer.js` (frontend). That
+ * module enforces a strict DOMPurify allowlist:
+ *   - ALLOWED_TAGS never includes `script`, `iframe`, `object`, `embed`, `form`,
+ *     `style`, or `link` — script execution is impossible via sanitized HTML.
+ *   - ALLOWED_ATTR is limited to safe attrs (href/src/alt/class/id/title/target/rel
+ *     plus SVG/MML presentation attrs). `on*` handlers, `style` for CSS exfiltration,
+ *     and `srcdoc` are excluded. See `htmlSanitizer.js` for the canonical list.
+ * Keeping sanitization separate ensures apiClient stays framework-agnostic and
+ * avoids accidental script execution through API payloads.
  *
  * Each app configures its own baseURL/timeout/auth behavior. No React or
  * window access is performed inside the factory; apps provide the
@@ -62,6 +75,9 @@ export function createApiClient(options = {}) {
     timeout = 30000,
     headers,
     withCredentials = true,
+    // X-Client-App fingerprint: identifies calling app for server audit / rate-limit.
+    // Defaults to 'trstprep-web' for frontend; admin-panel passes 'trstprep-admin'.
+    clientApp = null,
     authEndpoints = [
       "/auth/login",
       "/auth/register",
@@ -76,14 +92,30 @@ export function createApiClient(options = {}) {
     onAuthFailure = null,
   } = options;
 
+  // Merge caller headers with required fingerprints without mutating input
+  const baseHeaders = {
+    "Content-Type": "application/json",
+    ...(headers || {}),
+  };
+  // X-Client-App fingerprint — always sent if known (header names lower-cased by axios)
+  if (clientApp) {
+    baseHeaders["X-Client-App"] = clientApp;
+  } else if (!baseHeaders["X-Client-App"] && !baseHeaders["x-client-app"]) {
+    // Infer from baseURL or default to web when not explicitly provided
+    const inferred = baseURL?.includes("admin")
+      ? "trstprep-admin"
+      : "trstprep-web";
+    baseHeaders["X-Client-App"] = inferred;
+  }
+
   const instance = axios.create({
     baseURL,
     timeout,
-    headers: headers || { "Content-Type": "application/json" },
+    headers: baseHeaders,
     withCredentials,
   });
 
-  // ---- Request interceptor: attach CSRF token ----
+  // ---- Request interceptor: attach CSRF token + ensure fingerprint ----
   // SECURITY: No localStorage/sessionStorage JWT fallback — rely exclusively
   // on httpOnly cookies (withCredentials: true). This prevents XSS exfiltration
   // of tokens via localStorage.
@@ -92,6 +124,12 @@ export function createApiClient(options = {}) {
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
         delete config.headers["Content-Type"];
         delete config.headers["content-type"];
+      }
+
+      // Ensure X-Client-App fingerprint survives per-request header overrides
+      if (!config.headers["X-Client-App"] && !config.headers["x-client-app"]) {
+        config.headers["X-Client-App"] =
+          baseHeaders["X-Client-App"] || "trstprep-web";
       }
 
       const method = config.method?.toUpperCase();

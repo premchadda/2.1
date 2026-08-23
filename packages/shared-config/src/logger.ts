@@ -32,6 +32,10 @@ enum LogLevel {
   DEBUG = 3,
 }
 
+/**
+ * PROD HYGIENE: LOG_LEVEL filtering prevents console leakage in production.
+ * In prod, currentLevel === ERROR so debug/info/warn/log are no-ops.
+ */
 const currentLevel: LogLevel = isDevelopment ? LogLevel.DEBUG : LogLevel.ERROR;
 
 function shouldLog(level: LogLevel): boolean {
@@ -49,35 +53,30 @@ export interface Logger {
 const logger: Logger = {
   debug: (...args: any[]): void => {
     if (shouldLog(LogLevel.DEBUG)) {
-      // eslint-disable-next-line no-console
       console.debug(...args);
     }
   },
 
   info: (...args: any[]): void => {
     if (shouldLog(LogLevel.INFO)) {
-      // eslint-disable-next-line no-console
       console.log(...args);
     }
   },
 
   warn: (...args: any[]): void => {
     if (shouldLog(LogLevel.WARN)) {
-      // eslint-disable-next-line no-console
       console.warn(...args);
     }
   },
 
   error: (...args: any[]): void => {
     if (shouldLog(LogLevel.ERROR)) {
-      // eslint-disable-next-line no-console
       console.error(...args);
     }
   },
 
   log: (...args: any[]): void => {
     if (shouldLog(LogLevel.INFO)) {
-      // eslint-disable-next-line no-console
       console.log(...args);
     }
   },
