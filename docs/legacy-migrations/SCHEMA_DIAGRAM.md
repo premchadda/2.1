@@ -325,4 +325,4 @@ AuditTrailManager class available
 
 ### User Journey Tracking
 ```\nUser Action → API Call → Audit Log → Database\n     │\n     ├─→ log_audit_event()\n     │   ├─ user_id (who)\n     │   ├─ action (what)\n     │   ├─ resource (where)\n     │   ├─ resource_id (which)\n     │   ├─ old_values (before)\n     │   ├─ new_values (after)\n     │   └─ timestamp (when)\n     │\n     └─→ Business Logic\n         └─→ Database Operation\n```\n\n## Error Handling Flow\n\n```\nOperation Start\n     │\n     ├─→ Begin Transaction\n     │\n     ├─→ Execute Operation\n     │   ├─ Success?\n     │   │   ├─ Log audit event\n     │   │   └─ Commit transaction\n     │   │\n     │   └─ Failure?\n     │       ├─ Log audit event (failure)\n     │       └─ Rollback transaction\n     │\n     └─→ Return result\n```\n\n---\n\n**Diagram Version**: 1.0  
-**Last Updated**: 2026-05-02
+**Last Updated**: 2026-08-23

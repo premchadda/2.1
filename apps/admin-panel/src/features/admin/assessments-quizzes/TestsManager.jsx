@@ -308,6 +308,7 @@ const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
   const queue = [
     ...(childrenByParent.get(String(getEntityId(seed) || "")) || []),
   ];
+  let qHead = 0;
   const seen = new Set([
     String(
       getEntityId(seed) ||
@@ -317,8 +318,8 @@ const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
         categoryId,
     ),
   ]);
-  while (queue.length) {
-    const cat = queue.shift();
+  while (qHead < queue.length) {
+    const cat = queue[qHead++];
     const id = String(
       getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
     );
@@ -2985,14 +2986,16 @@ function TestsManager() {
         negativeMarking: Number(data.negativeMarking) || 0,
         difficulty: data.difficulty,
         hasSectionalTiming: Boolean(data.hasSectionalTiming),
-        has_sectional_timing: Boolean(data.hasSectionalTiming),
-        sectionalTiming: Boolean(data.hasSectionalTiming),
         isPro: Boolean(data.isPro),
         isComingSoon: Boolean(data.isComingSoon),
         isLive: Boolean(data.isLive),
-        sectionIds: parseIdList(data.sectionIds)
-          .map((id) => parseInt(id, 10))
-          .filter((id) => !Number.isNaN(id)),
+        sectionIds: [
+          ...new Set(
+            parseIdList(data.sectionIds)
+              .map((id) => parseInt(id, 10))
+              .filter((id) => !Number.isNaN(id)),
+          ),
+        ],
         ...(data.isLive && data.scheduledAt
           ? { scheduledAt: data.scheduledAt }
           : {}),

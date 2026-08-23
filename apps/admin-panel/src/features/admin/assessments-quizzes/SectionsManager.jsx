@@ -79,23 +79,24 @@ const DEFAULT_SECTION_FORM = {
   exam_alias: "",
 };
 
-let sectionAliasMap = {};
+const sectionAliasMapRef = { current: {} };
 
 async function fetchSectionAliases() {
   try {
     const res = await adminAPI.getSectionAliases();
     const rows = res.data?.data || [];
-    sectionAliasMap = {};
+    const next = {};
     for (const row of rows) {
-      sectionAliasMap[row.alias_name.toLowerCase()] = row.canonical_name;
+      next[row.alias_name.toLowerCase()] = row.canonical_name;
     }
+    sectionAliasMapRef.current = next;
   } catch {
-    sectionAliasMap = {};
+    sectionAliasMapRef.current = {};
   }
 }
 
 function resolveCanonical(alias) {
-  return sectionAliasMap[(alias || "").toLowerCase()] || alias;
+  return sectionAliasMapRef.current[(alias || "").toLowerCase()] || alias;
 }
 
 function SectionPreview({ existingSections, preset, seriesName, stageName }) {
@@ -539,15 +540,22 @@ function SectionsManager({ testId: propTestId } = {}) {
       if (!data.name?.trim()) {
         validationErrors.name = "Section name is required";
       } else {
-        // Check duplicate name (within same test if testId provided)
-        const duplicate = sections.find(
-          (s) =>
-            s.name?.toLowerCase() === data.name.trim().toLowerCase() &&
-            s.id !== excludeId &&
-            (!testId || s.test_id === testId),
-        );
+        // Duplicate check scoped to same series/stage/test (not global)
+        const duplicate = sections.find((s) => {
+          if (String(s.name || "").toLowerCase() !== data.name.trim().toLowerCase()) return false;
+          if (String(s.id) === String(excludeId)) return false;
+          const sameSeries = String(s.test_series_id || "") === String(data.test_series_id || "");
+          const sameStage = String(s.stage_id || "") === String(data.stage_id || "");
+          const sameTest = String(s.test_id || "") === String(data.test_id || "");
+          // If either side has series/stage context, require matching context; otherwise fall back to testId check
+          if (data.test_series_id || data.stage_id || s.test_series_id || s.stage_id) {
+            return sameSeries && sameStage && sameTest;
+          }
+          if (testId) return String(s.test_id) === String(testId);
+          return true;
+        });
         if (duplicate) {
-          validationErrors.name = "A section with this name already exists";
+          validationErrors.name = "A section with this name already exists in this scope";
         }
       }
 

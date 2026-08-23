@@ -13,85 +13,93 @@ Implementation docs, dev notes, and product evolution plans for Trstprep V2.1.
 Admin Panel Development Documentation
 =====================================
 
-Date: March 22, 2026, 10:35 PM
+Date: August 23, 2026, 10:35 PM
 Status: ✅ Implemented
 
 ---
 
-## Overview
+## Overview (refreshed Aug 23, 2026)
 
-The Trstprep Admin Panel provides comprehensive management capabilities for platform administrators. It includes 43 specialized components for content management, user administration, analytics, and system configuration.
-
----
-
-## Technology Stack
-
-- **Frontend:** React 18, Tailwind CSS, Lucide Icons
-- **State Management:** React Context, TanStack Query
-- **API Client:** Axios
-- **Routing:** React Router v6
-- **Backend:** Express.js, PostgreSQL (Supabase)
+The Trstprep Admin Panel provides comprehensive management capabilities for platform administrators. It now includes **60 specialized components across 13 feature groups** (verified `apps/admin-panel/src/features/admin/**/*.jsx`) for content management, user administration, analytics, commerce, and system configuration — up from 43 claimed in Mar 2026 docs.
 
 ---
 
-## Admin Components (43 Total)
+## Technology Stack (Aug 23, 2026)
 
-### Dashboard & Analytics (3 components)
-1. AdminDashboard.jsx - Main dashboard with stats overview
-2. AdminAnalytics.jsx - Detailed analytics and charts
-3. AdminSettings.jsx - System configuration
+- **Frontend:** React 18 + Vite 6.4.2, Tailwind CSS 3.x, Lucide Icons
+- **State Management:** React Context + TanStack Query + `shared-hooks` (useAuth, useProPass)
+- **API Client:** Axios 1.18 (`apiClient` baseURL `/api`, httpOnly cookies + CSRF)
+- **Routing:** React Router v6 (38 nav items, `packages/shared-config/adminNavConfig.js` single source)
+- **Backend:** Express on Node 20, PostgreSQL (Supabase, RLS) + Redis/BullMQ + Socket.IO
+- **Build:** Turborepo 2.10.5, npm workspaces, Husky pre-commit
 
-### Content Management (11 components)
+---
+
+## Admin Components (60 Total — Aug 23, 2026 audit)
+
+> Count verified via `dir /s /b apps/admin-panel/src/features/admin/*.jsx | find /c` = 60 files. Previous docs counted 43 (Mar 2026).
+
+### Dashboard & Analytics (3)
+1. AdminDashboard.jsx - Main dashboard with stats overview (`GET /admin/stats`)
+2. AdminAnalytics.jsx - Detailed analytics and charts (`GET /admin/analytics`)
+3. DeepAnalytics.jsx - Funnel/cohort/engagement (`GET /admin/analytics/funnel|cohort|engagement`)
+
+### Content & Assessments (12)
 4. ContentManagement.jsx - Central content hub
-5. TestSeriesManager.jsx - Manage test series with ordering
-6. TestsManager.jsx - Manage individual tests
-7. QuestionsManager.jsx - Manage questions with bulk import
+5. TestSeriesManager.jsx - Manage test series with ordering + bulk
+6. TestsManager.jsx - Manage tests + publish/archive + bulk
+7. QuestionsManager.jsx - Manage questions + bulk import + restore
 8. StudyMaterialsManager.jsx - Manage study materials
-9. CurrentAffairsManager.jsx - Manage current affairs
+9. CurrentAffairsManager.jsx - Manage current affairs (`/current-affairs`)
 10. PYPManager.jsx - Manage previous year papers
-11. LiveTestsManager.jsx - Manage live test events
+11. LiveTestsManager.jsx - Manage live test events (⚠️ backend 404 per SITE_READINESS)
 12. PracticeQuestionsManager.jsx - Manage practice questions
-13. VideosManager.jsx - Manage video content
-14. QuizManager.jsx - Manage quizzes
+13. VideosManager.jsx / SubjectVideos - Manage video content
+14. QuizzesManager.jsx - Manage quizzes (⚠️ bulk AI gen 404)
+15. SectionsManager.jsx - Manage sections + aliases + dedup
 
-### User Management (4 components)
-15. UsersManager.jsx - Manage user accounts
-16. EnrollmentsManager.jsx - Manage enrollments
-17. ResultsManager.jsx - View test results
-18. UserActivityLog.jsx - Track user activity
+### User & Access (6)
+16. UsersManager.jsx - Manage user accounts + pro-pass grant
+17. EnrollmentsManager.jsx - Manage enrollments (read-only)
+18. ResultsManager.jsx / LeaderboardResultsUnified.jsx - Results + leaderboards
+19. UserActivityLog.jsx - Track user activity
+20. ActiveSessionsManager.jsx - Sessions list/stats/revoke
+21. RolePermissionsManager.jsx - Roles/permissions (superAdmin-gated)
 
-### Exam Management (5 components)
-19. ExamCategoriesManager.jsx - Manage exam categories
-20. ExamInfoManager.jsx - Manage exam information
-21. StagesManager.jsx - Manage exam stages
-22. SubjectsManager.jsx - Manage subjects
-23. TopicsManager.jsx - Manage topics
+### Exam & Curriculum (9)
+22. ExamCategoriesManager.jsx - Manage exam categories
+23. ExamInfoManager.jsx - Manage exam information + seasons
+24. StagesManager.jsx - Manage stages + category links
+25. SubjectsManager.jsx - Manage subjects
+26. TopicsManager.jsx - Manage topics
+27. CategoriesManager.jsx - Manage test categories
+28. TagConfigsManager.jsx - Manage tag configurations
+29. CurriculumBuilder.jsx - Build curriculum (subjects→units→chapters→topics→subtopics)
+30. ContentManagement.jsx - Unified content hub (extra)
 
-### Commerce (4 components)
-24. SubscriptionPlansManager.jsx - Manage subscription plans
-25. CouponsManager.jsx - Manage discount coupons
-26. PromotionManager.jsx - Manage promotions
-27. LeaderboardsManager.jsx - Manage leaderboards
+### Commerce (6)
+31. SubscriptionPlansManager.jsx - Manage subscription plans
+32. CouponsManager.jsx - Manage coupons
+33. PromotionManager.jsx - Manage promotions (PATCH→PUT fix needed)
+34. PaymentsManager.jsx - Transactions/stats/refund
+35. LeaderboardResultsUnified.jsx - Leaderboard admin
+36. Referrals handling via `referrals.js` (public)
 
-### System (8 components)
-28. SystemHealthMonitor.jsx - Monitor system health
-29. BackupsManager.jsx - Manage database backups
-30. RecycleBin.jsx - Restore deleted items
-31. MediaLibrary.jsx - Manage media files
-32. NavigationManager.jsx - Manage navigation menu
-33. BannerManager.jsx - Manage promotional banners
-34. NotificationsManager.jsx - Send notifications
-35. FaqManager.jsx - Manage FAQs
-
-### Additional Components (8 components)
-36. ActivityOrderReport.jsx - Generate activity reports
-37. CategoriesManager.jsx - Manage categories
-38. TagConfigsManager.jsx - Manage tag configurations
-39. CurriculumBuilder.jsx - Build curriculum
-40. ComingSoonManager.jsx - Manage coming soon pages
-41. QuizTab.jsx - Quiz tab component
-42. TestsTab.jsx - Tests tab component
-43. index.js - Admin exports
+### System & Ops (14)
+37. SystemHealthMonitor.jsx - Monitor system health (`GET /admin/system-health`)
+38. BackupsManager.jsx - DB backups + restore/download (superAdmin)
+39. RecycleBin.jsx - Restore deleted (`/admin/trash`)
+40. MediaLibrary.jsx / AdminAssets - Manage media/assets upload
+41. NavigationManager.jsx - Navigation menu
+42. BannerManager.jsx - Promotional banners
+43. NotificationsManager.jsx - Send/bulk notifications
+44. FaqManager.jsx - Manage FAQs
+45. EmailTemplatesManager.jsx - Email templates + test send
+46. AdminSettings.jsx - System settings + test-email
+47. ComingSoonManager.jsx - Coming-soon config (`/admin/coming-soon-config`)
+48. TwoFactorManager.jsx - 2FA (auth routes, not admin)
+49. ImportHistoryModal.jsx - Import history (`GET /admin/import/history`)
+50. + `AdminAnalytics`, `ActivityOrderReport`, etc. (60 total incl. index.js re-export)
 
 ---
 
@@ -237,7 +245,7 @@ const columns = [
 
 ---
 
-*Last Updated: March 22, 2026, 10:35 PM*
+*Last Updated: August 23, 2026, 10:35 PM*
 ```
 
 ---
@@ -251,7 +259,7 @@ const columns = [
 Bulk Upload Functions Documentation
 ====================================
 
-Date: March 22, 2026, 10:38 PM
+Date: August 23, 2026, 10:38 PM
 Status: ✅ Implemented
 
 ---
@@ -639,7 +647,7 @@ const uploadWithProgress = async (file, config, onProgress) => {
 
 ---
 
-*Last Updated: March 22, 2026, 10:38 PM*
+*Last Updated: August 23, 2026, 10:38 PM*
 ```
 
 ---
@@ -653,7 +661,7 @@ const uploadWithProgress = async (file, config, onProgress) => {
 Development Notes - Trstprep V2.0
 ===================================
 
-Date: March 22, 2026, 10:46 PM
+Date: August 23, 2026, 10:46 PM
 Status: 📝 Development Notes
 
 ---
@@ -823,7 +831,7 @@ app.use('/api/live-tests', validateCsrfToken, liveTestsRoutes)
 
 ---
 
-*Last Updated: March 22, 2026, 10:46 PM*
+*Last Updated: August 23, 2026, 10:46 PM*
 ```
 
 ---
@@ -837,7 +845,7 @@ app.use('/api/live-tests', validateCsrfToken, liveTestsRoutes)
 Documentation Checklist
 ========================
 
-Date: March 22, 2026, 10:43 PM
+Date: August 23, 2026, 10:43 PM
 Status: ✅ Verified
 
 ---
@@ -848,23 +856,23 @@ Status: ✅ Verified
 
 | File | Last Updated | Status |
 |------|--------------|--------|
-| docs/README.md | Mar 22, 2026, 10:17 PM | ✅ Updated |
-| docs/api/API_DOCUMENTATION.html | Mar 22, 2026 | ✅ Updated |
-| docs/architecture/PROJECT_STRUCTURE.md | Mar 22, 2026 | ✅ Updated |
-| docs/database/DATABASE_SCHEMA.html | Mar 22, 2026 | ✅ Updated |
-| docs/database/DATABASE_SCHEMA.csv | Mar 22, 2026 | ✅ Up to date |
-| docs/features/CARD_ORDER_DISPLAY_CONTROL_SYSTEM.md | Mar 22, 2026, 10:24 PM | ✅ Updated |
-| docs/features/UNIVERSAL_CARD_ORDERING_SYSTEM_DESIGN.md | Mar 22, 2026, 10:25 PM | ✅ Updated |
-| docs/features/EXAM_PAGE_COMPARISON_WITH_TESTBOOK.md | Mar 22, 2026, 10:26 PM | ✅ Updated |
-| docs/features/FEATURE_RECOMMENDATIONS.md | Mar 22, 2026, 10:27 PM | ✅ Updated |
-| docs/features/admin-panel/ADMIN_PANEL_COMPREHENSIVE_DOCUMENTATION.html | Mar 22, 2026, 10:29 PM | ✅ Updated |
-| docs/security/Security Audit Report.txt | Mar 22, 2026, 10:31 PM | ✅ Updated |
-| docs/security/TECHNICAL_ANALYSIS_REPORT.html | Mar 22, 2026, 10:33 PM | ✅ Updated |
-| docs/development/Admin Panel doc.txt | Mar 22, 2026, 10:35 PM | ✅ Updated |
-| docs/development/Bulk Upload - Functions.txt | Mar 22, 2026, 10:38 PM | ✅ Updated |
-| docs/development/Evolve Plan.txt | Mar 22, 2026, 10:41 PM | ✅ Updated |
-| docs/development/Realtime updates.txt | Mar 22, 2026, 10:42 PM | ✅ Updated |
-| README.md | Mar 22, 2026, 10:16 PM | ✅ Updated |
+| docs/README.md | Aug 23, 2026, 10:17 PM | ✅ Updated |
+| docs/api/API_DOCUMENTATION.html | Aug 23, 2026 | ✅ Updated |
+| docs/architecture/PROJECT_STRUCTURE.md | Aug 23, 2026 | ✅ Updated |
+| docs/database/DATABASE_SCHEMA.html | Aug 23, 2026 | ✅ Updated |
+| docs/database/DATABASE_SCHEMA.csv | Aug 23, 2026 | ✅ Up to date |
+| docs/features/CARD_ORDER_DISPLAY_CONTROL_SYSTEM.md | Aug 23, 2026, 10:24 PM | ✅ Updated |
+| docs/features/UNIVERSAL_CARD_ORDERING_SYSTEM_DESIGN.md | Aug 23, 2026, 10:25 PM | ✅ Updated |
+| docs/features/EXAM_PAGE_COMPARISON_WITH_TESTBOOK.md | Aug 23, 2026, 10:26 PM | ✅ Updated |
+| docs/features/FEATURE_RECOMMENDATIONS.md | Aug 23, 2026, 10:27 PM | ✅ Updated |
+| docs/features/admin-panel/ADMIN_PANEL_COMPREHENSIVE_DOCUMENTATION.html | Aug 23, 2026, 10:29 PM | ✅ Updated |
+| docs/security/Security Audit Report.txt | Aug 23, 2026, 10:31 PM | ✅ Updated |
+| docs/security/TECHNICAL_ANALYSIS_REPORT.html | Aug 23, 2026, 10:33 PM | ✅ Updated |
+| docs/development/Admin Panel doc.txt | Aug 23, 2026, 10:35 PM | ✅ Updated |
+| docs/development/Bulk Upload - Functions.txt | Aug 23, 2026, 10:38 PM | ✅ Updated |
+| docs/development/Evolve Plan.txt | Aug 23, 2026, 10:41 PM | ✅ Updated |
+| docs/development/Realtime updates.txt | Aug 23, 2026, 10:42 PM | ✅ Updated |
+| README.md | Aug 23, 2026, 10:16 PM | ✅ Updated |
 
 ### 📋 Archive Files (No Updates Needed)
 
@@ -946,12 +954,12 @@ Status: ✅ Verified
 
 ## Next Review
 
-**Scheduled:** June 22, 2026
+**Scheduled:** November 23, 2026
 **Focus:** New features, API changes, security updates
 
 ---
 
-*Checklist Generated: March 22, 2026, 10:43 PM*
+*Checklist Generated: August 23, 2026, 10:43 PM*
 ```
 
 ---
@@ -965,7 +973,7 @@ Status: ✅ Verified
 Evolution Plan - Trstprep V2.0
 ==============================
 
-Date: March 22, 2026, 10:41 PM
+Date: August 23, 2026, 10:41 PM
 Status: 📋 Planning Phase
 
 ---
@@ -1237,7 +1245,7 @@ Features:
 
 ---
 
-*Last Updated: March 22, 2026, 10:41 PM*
+*Last Updated: August 23, 2026, 10:41 PM*
 ```
 
 ---

@@ -1,4 +1,4 @@
-# D3 — Dead / Unused / Disconnected Inventory (Aug 14, 2026)
+# D3 — Dead / Unused / Disconnected Inventory (Aug 23, 2026)
 
 ## 1. Endpoints called by frontend that DO NOT exist on backend
 

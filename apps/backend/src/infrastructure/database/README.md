@@ -1,6 +1,6 @@
 # Database Schema — Audit & Remediation Summary
 
-**Last updated:** 2026-06-15
+**Last updated:** 2026-08-23
 **Audit document:** `docs/AUDIT_2026-06-15.md`
 **Migration chain:** `apps/backend/src/infrastructure/database/migrations/` (000-048)
 

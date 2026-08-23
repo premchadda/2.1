@@ -137,23 +137,31 @@ export default function SubjectHierarchyManager() {
       toast.error("Name is required");
       return;
     }
+    if (formLevel !== "subject" && !formParentId && !editingItem?.subject && !editingItem?.subjectId && !editingItem?.parentTopic && !editingItem?.parentId) {
+      toast.error(`Please select a parent ${formLevel === "subtopic" ? "topic" : "subject"}`);
+      return;
+    }
 
     const slug = formData.slug || generateSlug(formData.name);
 
     if (formLevel === "topic" || formLevel === "subtopic") {
-      const validationData = {
-        name: formData.name,
-        slug,
-        subjectId: formParentId || editingItem?.subject || "",
-        description: formData.description,
-        order: formData.order || 0,
-        isActive: true,
-      };
-      const result = validateForm(topicSchema, validationData);
-      if (!result.success) {
-        const firstError = Object.values(result.errors)[0];
-        toast.error(firstError);
-        return;
+      const effectiveSubjectId = formParentId || editingItem?.subjectId || editingItem?.subject || "";
+      // Only validate subjectId for topic level; subtopic validates via parentTopic
+      if (formLevel === "topic") {
+        const validationData = {
+          name: formData.name,
+          slug,
+          subjectId: effectiveSubjectId,
+          description: formData.description,
+          order: formData.order || 0,
+          isActive: true,
+        };
+        const result = validateForm(topicSchema, validationData);
+        if (!result.success) {
+          const firstError = Object.values(result.errors)[0];
+          toast.error(firstError);
+          return;
+        }
       }
     }
 

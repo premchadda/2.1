@@ -69,6 +69,20 @@ const DEFAULT_FORM_DATA = {
   imageUrl: "",
 };
 
+const isSafeImageUrl = (url) => {
+  if (!url) return true;
+  try {
+    const parsed = new URL(url, window.location.origin);
+    return (
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:" ||
+      parsed.protocol === "data:"
+    );
+  } catch {
+    return false;
+  }
+};
+
 export default function PracticeQuestionsManager() {
   const { subjects, loading: subjectsLoading } = useSubjects();
   const [questions, setQuestions] = useState([]);
@@ -460,6 +474,11 @@ export default function PracticeQuestionsManager() {
       return;
     }
 
+    if (formData.imageUrl && !isSafeImageUrl(formData.imageUrl)) {
+      toast.error("Image URL must be http, https, or data URI");
+      return;
+    }
+
     if (
       formData.type === "mcq" &&
       (!formData.options || formData.options.length < 2)
@@ -564,7 +583,7 @@ export default function PracticeQuestionsManager() {
     }
   };
 
-  // Bulk Selection Handlers - fixed to select filtered when reasonable (100 limit)
+  // Bulk Selection Handlers - select filtered when <=100 otherwise paginated
   const handleSelectAll = (e) => {
     if (e.target.checked) {
       const ids =
@@ -576,6 +595,19 @@ export default function PracticeQuestionsManager() {
       setSelectedQuestions([]);
     }
   };
+
+  const isAllSelected = (() => {
+    if (filteredQuestions.length <= 100) {
+      return (
+        filteredQuestions.length > 0 &&
+        filteredQuestions.every((q) => selectedQuestions.includes(q.id || q._id))
+      );
+    }
+    return (
+      paginatedQuestions.length > 0 &&
+      paginatedQuestions.every((q) => selectedQuestions.includes(q.id || q._id))
+    );
+  })();
 
   const handleSelectRow = (id) => {
     setSelectedQuestions((prev) =>
@@ -1157,11 +1189,9 @@ export default function PracticeQuestionsManager() {
                   <th className="p-3.5 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={
-                        selectedQuestions.length > 0 &&
-                        selectedQuestions.length === paginatedQuestions.length
-                      }
+                      checked={isAllSelected}
                       onChange={handleSelectAll}
+                      aria-label="Select all questions"
                       className="rounded text-amber-600 focus:ring-amber-500"
                     />
                   </th>

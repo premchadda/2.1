@@ -56,11 +56,12 @@ const CurrentAffairsManager = () => {
     e.preventDefault();
     const payload = {
       ...formData,
-      tags: String(formData.tags || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean)
-        .slice(0, 20),
+      tags: [...new Set(
+        String(formData.tags || "")
+          .split(",")
+          .map((t) => t.trim().toLowerCase())
+          .filter(Boolean),
+      )].slice(0, 20),
       title: String(formData.title || "").trim(),
       content: String(formData.content || "").trim(),
       summary: String(formData.summary || "").trim(),

@@ -95,6 +95,13 @@ export const getTestCategoryValues = (item = {}) =>
     item.category_name,
     item.testCategory,
     item.test_category,
+    item.subCategory,
+    item.sub_category,
+    item.year,
+    item.pyq_year,
+    ...coerceArray(item.category_path_ids),
+    ...coerceArray(item.category_path_names),
+    ...coerceArray(item.test_category_ids || item.testCategoryIds),
   ].filter((value) => value !== null && value !== undefined && value !== "");
 
 export const getSeriesCategoryValues = (series = {}) =>
@@ -288,9 +295,10 @@ export const buildTestCategoryRefs = (activeCategory, flatCategories = []) => {
   };
 
   const queue = [...seedCategories];
+  let qHead = 0;
   const seen = new Set();
-  while (queue.length > 0) {
-    const cat = queue.shift();
+  while (qHead < queue.length) {
+    const cat = queue[qHead++];
     const id = String(
       getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
     );
@@ -343,6 +351,7 @@ export const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
   const queue = [
     ...(childrenByParent.get(String(getEntityId(seed) || "")) || []),
   ];
+  let qHead2 = 0;
   const seen = new Set([
     String(
       getEntityId(seed) ||
@@ -353,8 +362,8 @@ export const buildCategorySelectionRefs = (categoryId, flatCategories = []) => {
     ),
   ]);
 
-  while (queue.length > 0) {
-    const cat = queue.shift();
+  while (qHead2 < queue.length) {
+    const cat = queue[qHead2++];
     const id = String(
       getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
     );

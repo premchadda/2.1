@@ -1,6 +1,8 @@
 # TRSTPrep — FINAL Site-Readiness Audit (Evidence-Based, Live-DB Verified)
 
-> Supersedes `docs/SITE_READINESS_REPORT.md` (first pass). This report is built on:
+**Last Updated:** 2026-08-23 — docs refresh: `README.md`, `ARCHITECTURE.md` (112 migrations, 85 routes, 60 admin components), `DEVELOPMENT.md`, `DATABASE_SCHEMA_AUDIT.md` reconciled with live counts (see `CHANGELOG.md:3`)
+
+> Supersedes `docs/SITE_READINESS_REPORT.md` (first pass, also refreshed Aug 23). This report is built on:
 > direct source reads (frontend, backend, admin panel), six parallel deep-dive
 > workstreams, and **read-only queries against the live PostgreSQL database**
 > (154 tables, ground-truth row counts). Findings are cited `file:line`.

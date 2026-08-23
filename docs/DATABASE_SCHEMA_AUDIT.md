@@ -1,9 +1,9 @@
 # Trstprep V2.1 — Comprehensive Database Schema Audit
 
-**Audit Date:** 2026-07-25  
-**Database:** PostgreSQL (Supabase)  
-**Migrations on disk:** 000–093 (94 SQL files + 7 legacy)  
-**Estimated tables:** ~75–80 in production  
+**Audit Date:** 2026-08-23  
+**Database:** PostgreSQL (Supabase) — live read Aug 23, 2026  
+**Migrations on disk:** 000–112 (112 SQL files + 7 legacy in `docs/legacy-migrations/`) — was 000–093 (94) in Jul 2026 audit
+**Estimated tables:** ~80 active (allowlist) / 154 live incl. legacy (`pg_stat_user_tables` per `FINAL_SITE_READINESS_REPORT.md`)  
 
 ---
 
@@ -23,6 +23,7 @@
 | 069–075 | 7 | Schema audit fixes, FKs/indexes, critical fixes, AI tables |
 | 076–093 | 18 | Embeddings, assets, subject videos, performance indexes, HNSW |
 | 094–101 | 8 | Certificates, missing tables, soft-delete, exam_id type fix, RLS, duplicate reconciliation, achievement consolidation |
+| 102–112 | 11 | Recent fixes (102+ adds per-file audit, 112 latest — verify `ls migrations/ | sort`) |
 
 ### Legacy migrations (docs/legacy-migrations/)
 | File | Purpose |

@@ -504,13 +504,18 @@ export default function ContentManagement() {
 
   const handleEditSubmit = async () => {
     if (!editingItem) return;
+    if (saving) return;
+    if (!editForm.title?.trim()) {
+      toast.error("Title is required");
+      return;
+    }
     try {
       setSaving(true);
       const endpoint = getEndpoint();
       const itemId = editingItem._id || editingItem.id;
       await api.put(`${endpoint}/${itemId}`, {
-        title: editForm.title,
-        description: editForm.description,
+        title: String(editForm.title || "").trim(),
+        description: String(editForm.description || "").trim(),
         studyMaterialId: editForm.studyMaterialId || null,
         chapterId: editForm.chapterId || null,
         topicId: editForm.topicId || null,
@@ -595,6 +600,7 @@ export default function ContentManagement() {
     setAddForm((prev) => ({ ...prev, [key]: value }));
 
   const handleAddSubmit = async () => {
+    if (saving) return;
     try {
       const endpoint = getEndpoint();
 

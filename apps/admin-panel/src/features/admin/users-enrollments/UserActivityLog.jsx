@@ -249,73 +249,44 @@ export default function UserActivityLog() {
   }, [activities, filterType, searchQuery]);
 
   // --- CHART COMPUTATIONS ---
-  // 1. Time Trend Data (Grouped by 3-hour windows or relative slots)
+  // 1. Time Trend Data (Grouped by 4-hour windows)
   const timeTrendData = useMemo(() => {
-    const buckets = {};
-    // Initialize 6 time buckets
+    const buckets = [];
     const now = Date.now();
-    for (let i = 5; i >= 0; i--) {
-      const slotTime = new Date(now - i * 4 * 3600 * 1000);
+    const BUCKET_MS = 4 * 3600 * 1000;
+    const BUCKET_COUNT = 6;
+    const start = now - (BUCKET_COUNT - 1) * BUCKET_MS;
+    for (let i = 0; i < BUCKET_COUNT; i++) {
+      const slotTime = new Date(start + i * BUCKET_MS);
       const label = slotTime.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
-      buckets[label] = {
+      buckets.push({
         time: label,
+        ts: slotTime.getTime(),
         registrations: 0,
         tests: 0,
         uploads: 0,
         total: 0,
-      };
+      });
     }
-
-    // Build bucket times for nearest lookup
-    const bucketTimes = Object.keys(buckets).map((label) => ({
-      label,
-      time: new Date(`${new Date().toDateString()} ${label}`).getTime(),
-    }));
     activities.forEach((act) => {
       const d = new Date(act.timestamp);
       if (Number.isNaN(d.getTime())) return;
-      // Find nearest bucket by time proximity
-      let targetKey = Object.keys(buckets)[0];
-      let bestDiff = Infinity;
-      for (const { label, time } of bucketTimes) {
-        const diff = Math.abs(d.getTime() - time);
-        // handle date wrap: also try previous day
-        const diffAlt = Math.abs(d.getTime() - (time - 24 * 3600 * 1000));
-        const curDiff = Math.min(diff, diffAlt);
-        if (curDiff < bestDiff) {
-          bestDiff = curDiff;
-          targetKey = label;
-        }
-      }
-      if (!targetKey)
-        targetKey = Object.keys(buckets)[Object.keys(buckets).length - 1];
-      if (buckets[targetKey]) {
-        if (act.type === "user_registration")
-          buckets[targetKey].registrations++;
-        else if (act.type === "test_completed" || act.type === "test_attempt")
-          buckets[targetKey].tests++;
-        else if (
-          act.type === "media_uploaded" ||
-          act.type === "content_uploaded"
-        )
-          buckets[targetKey].uploads++;
-        buckets[targetKey].total++;
-      }
+      const t = d.getTime();
+      // Find bucket by interval: bucket i covers [ts - BUCKET_MS/2, ts + BUCKET_MS/2)
+      let idx = Math.floor((t - (start - BUCKET_MS / 2)) / BUCKET_MS);
+      if (idx < 0) idx = 0;
+      if (idx >= buckets.length) idx = buckets.length - 1;
+      const b = buckets[idx];
+      if (act.type === "user_registration") b.registrations++;
+      else if (act.type === "test_completed" || act.type === "test_attempt") b.tests++;
+      else if (act.type === "media_uploaded" || act.type === "content_uploaded") b.uploads++;
+      b.total++;
     });
-
-    // If empty, generate a realistic distributed curve from current stats for smooth preview
-    const dataList = Object.values(buckets);
-    if (activities.length > 0) {
-      dataList[dataList.length - 1].tests = stats.testsCompleted;
-      dataList[dataList.length - 1].registrations = stats.registrations;
-      dataList[dataList.length - 1].uploads = stats.mediaUploads;
-      dataList[dataList.length - 1].total = stats.total;
-    }
-    return dataList;
-  }, [activities, stats]);
+    return buckets.map(({ ts, ...rest }) => rest);
+  }, [activities]);
 
   // 2. Category Distribution Data for Donut Chart
   const categoryDistributionData = useMemo(() => {
