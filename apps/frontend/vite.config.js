@@ -278,6 +278,7 @@ export default defineConfig(({ mode }) => {
         "react",
         "react-dom",
         "react-router-dom",
+        "katex",
       ],
     },
     resolve: {
@@ -325,6 +326,8 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "dist",
       sourcemap: mode !== "production",
+      cssCodeSplit: true,
+      cssMinify: "esbuild",
       rollupOptions: {
         output: {
           manualChunks: {

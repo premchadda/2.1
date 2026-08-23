@@ -6,11 +6,10 @@
 
 :root {
   /* ── Color Palette ───────────────────────────────────────── */
-
-  /* Primary brand gradient */
-  --color-brand-start: #6366f1;
-  --color-brand-end: #8b5cf6;
-  --color-brand: var(--color-brand-start);
+  /* Brand palette is single-source in tailwind.config.js (brand.start #667eea, brand.end #764ba2).
+   * Do not duplicate --color-brand-* here; use Tailwind `bg-brand-start`, `from-brand-start` etc.
+   * Semantic tokens below are the only true CSS-var tokens not in Tailwind.
+   */
 
   /* Semantic surface colors */
   --color-surface: #ffffff;
@@ -24,12 +23,10 @@
   --color-text-secondary: #475569;
   --color-text-tertiary: #94a3b8;
   --color-text-inverse: #ffffff;
-  --color-text-brand: var(--color-brand);
 
   /* Semantic border colors */
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
-  --color-border-brand: var(--color-brand-start);
 
   /* Status colors */
   --color-success: #10b981;

@@ -1,0 +1,215 @@
+/* ===== Responsive Layer =====
+ * Responsive overrides and mobile hacks that previously lived as !important in index.css.
+ * NOTE: These !important rules fight Tailwind at <414px. Where possible, replace with
+ * Tailwind responsive variants (e.g., sm:p-4, xs:text-sm). Kept here with comments for
+ * incremental migration. See tailwind.config.js screens.xs (320px) and xsm (375px).
+ */
+
+/* Prevent any element from exceeding viewport at 414px
+ * Tailwind equivalent: replace with `max-w-full px-4` or `container max-w-full`
+ * The !important here overrides legacy fixed max-w-6xl etc. Migrate to responsive container.
+ */
+@media (max-width: 414px) {
+    .container, .max-w-6xl, .max-w-7xl, .max-w-5xl {
+        max-width: 100% !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+}
+
+/* Typography: scale down fixed headings at 375px/320px if not already responsive
+ * TODO Tailwind equivalent: use xs:text-2xl, xsm:text-3xl or fluid typography (fluid-display)
+ * These !important overrides are fallback for legacy fixed text-3xl/4xl/5xl classes.
+ */
+@media (max-width: 375px) {
+    .text-3xl { font-size: 1.5rem !important; line-height: 1.25 !important; }
+    .text-4xl { font-size: 1.875rem !important; line-height: 1.2 !important; }
+    .text-5xl { font-size: 2.25rem !important; line-height: 1.15 !important; }
+    .fluid-display, .heading-display { font-size: clamp(1.5rem, 6vw, 2rem) !important; }
+}
+
+@media (max-width: 320px) {
+    .text-3xl { font-size: 1.375rem !important; }
+    .text-4xl { font-size: 1.625rem !important; }
+    .text-5xl { font-size: 1.875rem !important; }
+}
+
+/* Layout: force grids and flex rows to stack on narrow viewports
+ * Tailwind equivalent: use `grid-cols-1 sm:grid-cols-2 lg:grid-cols-4` or `flex-col sm:flex-row`
+ * !important retained for legacy non-responsive grids.
+ */
+@media (max-width: 414px) {
+    .grid-cols-12, .grid-cols-4, .grid-cols-3, .grid-cols-2 {
+        grid-template-columns: 1fr !important;
+    }
+    .lg\:grid-cols-2, .lg\:grid-cols-3, .lg\:grid-cols-4 {
+        grid-template-columns: 1fr !important;
+    }
+    .flex-row { flex-direction: column !important; }
+    .lg\:flex-row { flex-direction: column !important; }
+}
+
+/* Cards/sections: ensure fluid width
+ * Tailwind equivalent: `w-full min-w-0 max-w-full xsm:w-auto` or use flex/grid responsive
+ * Keeps cards from overflowing 320px viewport.
+ */
+@media (max-width: 414px) {
+    .test-series-card, .card, .test-card, .sidebar-card {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+    /* Override excessive padding that wastes 320px width (including audit flagged p-14,24,32) */
+    .p-12, .md\:p-12, .p-14, .p-16, .md\:p-16, .p-20, .p-24, .p-32,
+    .px-12, .py-12, .pt-12, .pb-12, .px-16, .py-16, .m-12, .m-16, .m-24, .m-32 {
+        padding: 1rem !important;
+        margin: 0 !important;
+    }
+    .p-8, .px-8, .py-8 { padding: 1rem !important; }
+    .gap-12, .gap-14, .gap-16, .gap-20, .gap-24, .gap-32 {
+        gap: 1rem !important;
+    }
+    /* Also handle responsive variants like sm:p-12 etc at narrow widths */
+    [class*="p-12"], [class*="p-16"], [class*="p-20"], [class*="gap-12"] {
+        padding: 1rem !important;
+        gap: 1rem !important;
+    }
+}
+
+/* Hide mobile overlay on desktop in navigation mode */
+@media (min-width: 768px) {
+    body:not(.desktop-left-nav-mode) .mobile-overlay,
+    body:not(.desktop-left-nav-mode) .mobile-drawer {
+        display: none !important;
+    }
+
+    .desktop-left-nav-mode .mobile-overlay {
+        display: none !important;
+    }
+
+    .desktop-left-nav-mode .mobile-drawer {
+        display: flex !important;
+        left: 0;
+        right: auto;
+        transform: translateX(0) !important;
+    }
+
+.desktop-left-nav-mode #app {
+    margin-left: 260px;
+    margin-right: 0;
+}
+}
+
+@media (max-width: 640px) {
+    .test-series-card {
+        width: 240px;
+        min-width: 240px;
+        min-height: 260px;
+        border-radius: 14px;
+    }
+
+    .test-series-card h3 {
+        font-size: 1rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .test-series-card {
+        width: 220px;
+        min-width: 220px;
+        min-height: 240px;
+        border-radius: 12px;
+    }
+
+    .test-series-card h3 {
+        font-size: 0.9rem !important;
+    }
+}
+
+@media (min-width: 768px) {
+    .stats-categories-row {
+        flex-direction: row;
+        align-items: center;
+        gap: 20px;
+    }
+
+    .stats-categories-row .test-stats {
+        flex-shrink: 0;
+        margin-bottom: 0;
+        width: auto !important;
+    }
+
+    .stats-categories-row .test-categories-dropdown-wrapper {
+        flex: 1;
+        min-width: 220px;
+        width: auto !important;
+    }
+}
+
+/* Dark Mode Print Styles */
+@media print {
+    .dark body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .dark .card,
+    .dark .test-series-card,
+    .dark .test-card,
+    .dark .sidebar-card,
+    .dark .main-content-area {
+        background: white !important;
+        border-color: #e5e7eb !important;
+        color: black !important;
+    }
+}
+
+/* ----- Reduced Motion Support ----- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .animate-float,
+    .animate-bounce-subtle,
+    .animate-attention,
+    .animate-fadeIn,
+    .animate-slideUp {
+        animation: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .animate-float,
+    .animate-float-slow,
+    .animate-shimmer,
+    .animate-pulse-slow,
+    .animate-bounce-subtle,
+    .animate-twinkle,
+    .animate-gradient-flow {
+        animation: none !important;
+    }
+
+    .skeleton,
+    .skeleton-enhanced {
+        background: #e5e7eb !important;
+        animation: none !important;
+    }
+canvas.particle-canvas {
+  display: none !important;
+}
+
+}
