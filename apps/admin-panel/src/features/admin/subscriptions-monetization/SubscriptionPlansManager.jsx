@@ -52,9 +52,30 @@ export default function SubscriptionPlansManager() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.name?.trim()) {
+      toast.error("Plan name is required");
+      return;
+    }
+    if (!formData.id?.trim()) {
+      toast.error("Plan ID is required");
+      return;
+    }
+    if (Number(formData.price) < 0) {
+      toast.error("Price cannot be negative");
+      return;
+    }
     try {
+      const dedupedFeatures = [];
+      const seen = new Set();
+      for (const f of formData.features || []) {
+        const key = (typeof f === "string" ? f : f.text || "").toLowerCase().trim();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        dedupedFeatures.push(typeof f === "string" ? { text: f, included: true } : { text: String(f.text || "").trim(), included: !!f.included });
+      }
       const payload = {
         ...formData,
+        features: dedupedFeatures,
         planId: formData.planId || formData.id,
         popular: formData.isPopular ?? formData.popular,
         period: formData.duration ?? formData.period,
@@ -129,13 +150,21 @@ export default function SubscriptionPlansManager() {
   };
 
   const addFeature = () => {
-    if (newFeature.text.trim()) {
-      setFormData({
-        ...formData,
-        features: [...formData.features, { ...newFeature }],
-      });
-      setNewFeature({ text: "", included: true });
+    const text = String(newFeature.text || "").trim();
+    if (!text) return;
+    if (formData.features.some((f) => (typeof f === "string" ? f : f.text)?.toLowerCase() === text.toLowerCase())) {
+      toast.error("Feature already added");
+      return;
     }
+    if (text.length > 120) {
+      toast.error("Feature text too long (max 120 chars)");
+      return;
+    }
+    setFormData({
+      ...formData,
+      features: [...formData.features, { text, included: !!newFeature.included }],
+    });
+    setNewFeature({ text: "", included: true });
   };
 
   const removeFeature = (index) => {

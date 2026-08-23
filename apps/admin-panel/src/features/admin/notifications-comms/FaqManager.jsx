@@ -138,7 +138,9 @@ export default function FaqManager() {
   ];
 
   const groupedFaqs = categories.reduce((acc, cat) => {
-    acc[cat.value] = faqs.filter((f) => f.category === cat.value);
+    acc[cat.value] = faqs.filter(
+      (f) => String(f.category || "general").toLowerCase() === String(cat.value).toLowerCase(),
+    );
     return acc;
   }, {});
 

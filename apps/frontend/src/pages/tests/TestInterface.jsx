@@ -46,23 +46,58 @@ const DEFAULT_NEGATIVE_MARKS = 0.25
 // Local offline buffer key for in-progress answers. Uses the URL param testId
 // so it is stable and available at restore time (before numeric DB id resolves).
 const ANSWERS_KEY = (id) => `trstprep_answers_${id}`
+const OFFLINE_BUFFER_TTL_MS = 24 * 60 * 60 * 1000 // 24h — stale buffers are discarded
 
 // Persist the current answer buffer to localStorage. Guarded so quota /
-// private-mode failures never crash the test.
+// private-mode failures never crash the test. On QuotaExceededError we evict
+// the oldest trstprep_answers_* entry and retry once.
 const persistLocalAnswers = (id, payload) => {
   try {
-    localStorage.setItem(ANSWERS_KEY(id), JSON.stringify({ ...payload, savedAt: Date.now() }))
-  } catch {
+    const record = { ...payload, savedAt: Date.now() }
+    localStorage.setItem(ANSWERS_KEY(id), JSON.stringify(record))
+  } catch (e) {
+    const isQuota = e?.name === "QuotaExceededError" || e?.code === 22
+    if (isQuota) {
+      try {
+        // Evict oldest answer buffer to free quota
+        let oldestKey = null
+        let oldestTime = Infinity
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i)
+          if (k?.startsWith("trstprep_answers_") && k !== ANSWERS_KEY(id)) {
+            try {
+              const v = JSON.parse(localStorage.getItem(k) || "{}")
+              if (v.savedAt && v.savedAt < oldestTime) {
+                oldestTime = v.savedAt
+                oldestKey = k
+              }
+            } catch {}
+          }
+        }
+        if (oldestKey) localStorage.removeItem(oldestKey)
+        // Retry once after eviction
+        try {
+          localStorage.setItem(ANSWERS_KEY(id), JSON.stringify({ ...payload, savedAt: Date.now() }))
+        } catch {}
+      } catch {}
+    }
     // storage unavailable — silently skip
   }
 }
 
-// Read the local answer buffer. Returns null on missing/garbage input.
+// Read the local answer buffer. Returns null on missing/garbage/expired input.
 const readLocalAnswers = (id) => {
   try {
     const raw = localStorage.getItem(ANSWERS_KEY(id))
     if (!raw) return null
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    // Expire stale buffers (e.g. abandoned test days ago) — prevents
+    // resurrecting outdated answers after a long gap.
+    if (parsed?.savedAt && Date.now() - parsed.savedAt > OFFLINE_BUFFER_TTL_MS) {
+      try { localStorage.removeItem(ANSWERS_KEY(id)) } catch {}
+      return null
+    }
+    return parsed
   } catch {
     return null
   }
@@ -747,13 +782,9 @@ function TestInterface() {
           currentSection: s.currentSection
         }
 
-        const token = typeof window !== 'undefined'
-          ? (sessionStorage.getItem('trstprep_auth_token') || localStorage.getItem('trstprep_token'))
-          : null
         const headers = { 'Content-Type': 'application/json' }
-        if (token) {
-          headers.Authorization = `Bearer ${token}`
-        }
+        // httpOnly cookie auth: no Authorization header from JS storage — browser
+        // sends httpOnly cookies automatically via credentials:'include' (keepalive).
 
         const autosaveEndpoint = `${API_BASE_URL || ''}/api/tests/${actualTestId}/autosave`
         fetch(autosaveEndpoint, {

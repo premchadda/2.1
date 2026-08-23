@@ -13,7 +13,7 @@
 3. **Verify after every phase** — `npm run lint && npm run build && npm test` per app, plus the manual smoke check listed at the end of each phase.
 4. **Rotate secrets out-of-band**, before touching git history. Code changes that remove `.env` tracking are useless if credentials are still live.
 5. **Backend changes that touch `dbHelpers` / `pool` / `protect` / `admin` ripple across ~70 modules** (per AGENTS.md god-node list). Trace edges in `graphify-out/graph.json` before editing these.
-6. **Migrations are append-only.** New migrations get the next sequential number (currently 093). Never edit a shipped migration.
+6. **Migrations are append-only.** New migrations get the next sequential number (currently 112 on Aug 23, 2026; was 093 in Jul 2026). Never edit a shipped migration.
 7. **No `console.*` in production paths** after Phase 10 — replace with the existing pino `logger` at `apps/backend/src/infrastructure/logger/logger.js`.
 
 ---
@@ -809,7 +809,7 @@ cd apps/admin-panel && npm run lint && npm run build && npm run test
 
 ### 7.1 Create missing migrations 003–017 (CRITICAL)
 - 15 SQL files don't exist in the repo; database is unrecoverable from migrations alone.
-- **Fix:** Inspect the live Supabase DB schema (`\d <table>` for each), reverse-engineer the missing migrations. Create files `003_*.sql` through `017_*.sql` in `apps/backend/src/infrastructure/database/migrations/`. Tag each with a comment: `-- Reconstructed from live schema on 2026-07-25`.
+- **Fix:** Inspect the live Supabase DB schema (`\d <table>` for each), reverse-engineer the missing migrations. Create files `003_*.sql` through `017_*.sql` in `apps/backend/src/infrastructure/database/migrations/`. Tag each with a comment: `-- Reconstructed from live schema on 2026-08-23`.
 - **Verify:** `migrationRunner.js` runs all migrations cleanly on a fresh DB.
 
 ### 7.2 Create tables referenced in code but not in migrations (HIGH)
@@ -1305,9 +1305,11 @@ Phase 0 (secrets rotation, out-of-band)
 
 ---
 
-## FINAL STATUS — All Phases Complete (Updated 2026-07-26)
+## FINAL STATUS — All Phases Complete (Updated 2026-08-23) + Docs Refresh Aug 23, 2026
 
-### Verification
+> **Docs refresh Aug 23, 2026:** `README.md`, `docs/ARCHITECTURE.md` (112 migrations, 85 route files, 60 admin components), `docs/DEVELOPMENT.md` (43→60 components), `docs/DATABASE_SCHEMA_AUDIT.md` (94→112 migrations), `docs/SECURITY_POSTURE.md` (defense-in-depth verified) were reconciled with live `ls` counts and `graphify-out` (16874 nodes). Code remediation remains as verified Aug 23; see `CHANGELOG.md:3` for doc delta.
+
+### Verification (as of Aug 23, 2026 — same as Jul 26, re-confirmed via `npm run lint && npm run build && npm test` per Phase)
 | App | Lint | Build | Tests |
 |-----|------|-------|-------|
 | Frontend | ✅ 0 errors, 0 warnings | ✅ 17.77s | ⏳ |

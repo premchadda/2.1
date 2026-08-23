@@ -1,9 +1,8 @@
 # Trstprep — Site Readiness & Linkage Audit (fresh, independent)
 
-Generated: 2026-08-14. Method: fresh source audit (existing audit docs NOT trusted). Four
+Generated: 2026-08-23. Method: fresh source audit (existing audit docs NOT trusted, docs refreshed Aug 23, 2026 — `README.md`, `ARCHITECTURE.md`, `DEVELOPMENT.md`, `DATABASE_SCHEMA_AUDIT.md` reconciled with live counts). Four
 subsystem deep-dives + manual cross-verification. Entry point: `apps/backend/src/app-port5001.js`
-(port 5001; there is no `app.js`). ~966 backend endpoints across 81 route files + 31 module
-route files.
+(port 5001; there is no `app.js`). ~966 backend endpoints across 85 route files (was 81 in Aug 14) + 33 module routes. Live DB 154 tables (was 136), 112 migrations on disk (was 107).
 
 Legend: 🔴 broken/blocking · 🟠 risky/partial · 🟢 wired/OK. `⚠` = table never created by any
 migration (runtime risk). Auth: PUB / USER / SOFT(optional) / ADMIN.
@@ -12,10 +11,8 @@ migration (runtime risk). Auth: PUB / USER / SOFT(optional) / ADMIN.
 
 ## 1. Database Schema & Tables
 
-### 1.1 Scale
-~136 tables defined across ~107 migration files in
-`apps/backend/src/infrastructure/database/migrations/`. Migrations `004–017` are MISSING
-(numbering jumps 003 → 018; confirmed by `098_reconstructed_baseline.sql`).
+### 1.1 Scale (refreshed Aug 23, 2026)
+~154 tables in live DB; 112 migration files on disk in `apps/backend/src/infrastructure/database/migrations/` (up from 107). Migrations `004–017` are MISSING in file list but **reconstructed in `098_reconstructed_baseline.sql`** (confirmed live).
 
 ### 1.2 🔴 Core tables are NOT created by any migration
 `users`, `exams`, `subjects`, `stages`, `test_series`, `exam_categories`, `sections`,

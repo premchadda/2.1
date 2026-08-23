@@ -4,67 +4,52 @@ import {
   clearAuthTokens,
 } from "../shared/providers/AuthProvider";
 
-describe("applyAuthSession storage isolation", () => {
+describe("applyAuthSession storage isolation (httpOnly)", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
 
-  it("stores tokens in sessionStorage and purges localStorage when rememberMe is false", () => {
-    // Populate stale tokens in localStorage
+  it("purges legacy tokens from both storages and does not persist new tokens (httpOnly)", () => {
+    // Populate legacy tokens in both storages
     localStorage.setItem("trstprep_token", "old-access-token");
     localStorage.setItem("trstprep_refresh_token", "old-refresh-token");
-
-    applyAuthSession({
-      token: "session-access-token",
-      refreshToken: "session-refresh-token",
-      csrfToken: "csrf-123",
-      rememberMe: false,
-    });
-
-    // Should write to sessionStorage
-    expect(sessionStorage.getItem("trstprep_auth_token")).toBe(
-      "session-access-token",
-    );
-    expect(sessionStorage.getItem("trstprep_refresh_token")).toBe(
-      "session-refresh-token",
-    );
-
-    // Should purge localStorage
-    expect(localStorage.getItem("trstprep_token")).toBeNull();
-    expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
-  });
-
-  it("stores tokens in localStorage and purges sessionStorage when rememberMe is true", () => {
-    // Populate stale tokens in sessionStorage
+    localStorage.setItem("trstprep_auth_token", "old-auth-token");
     sessionStorage.setItem("trstprep_auth_token", "old-session-access");
     sessionStorage.setItem("trstprep_refresh_token", "old-session-refresh");
+    sessionStorage.setItem("trstprep_token", "old-session-token");
 
+    // applyAuthSession must NOT store tokens — httpOnly cookies handle auth
+    // It should only handle csrfToken and purge legacy keys
     applyAuthSession({
-      token: "persisted-access-token",
-      refreshToken: "persisted-refresh-token",
-      csrfToken: "csrf-456",
-      rememberMe: true,
+      csrfToken: "csrf-123",
     });
 
-    // Should write to localStorage
-    expect(localStorage.getItem("trstprep_token")).toBe(
-      "persisted-access-token",
-    );
-    expect(localStorage.getItem("trstprep_refresh_token")).toBe(
-      "persisted-refresh-token",
-    );
-
-    // Should purge sessionStorage
+    // All legacy token keys must be purged (httpOnly migration)
     expect(sessionStorage.getItem("trstprep_auth_token")).toBeNull();
     expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
+    expect(sessionStorage.getItem("trstprep_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_auth_token")).toBeNull();
   });
 
-  it("clears both storages on clearAuthTokens", () => {
+  it("is idempotent when called with no tokens (migration hygiene)", () => {
+    localStorage.setItem("trstprep_token", "legacy");
+    applyAuthSession({ csrfToken: "csrf-456" });
+    expect(localStorage.getItem("trstprep_token")).toBeNull();
+    // Second call with only csrfToken should still purge
+    applyAuthSession({});
+    expect(localStorage.getItem("trstprep_token")).toBeNull();
+  });
+
+  it("clears both storages and offline buffers on clearAuthTokens", () => {
     sessionStorage.setItem("trstprep_auth_token", "s-token");
     sessionStorage.setItem("trstprep_refresh_token", "s-refresh");
     localStorage.setItem("trstprep_token", "l-token");
     localStorage.setItem("trstprep_refresh_token", "l-refresh");
+    localStorage.setItem("trstprep_answers_123", JSON.stringify({ answers: { 0: 1 } }));
+    localStorage.setItem("trstprep_user_profile", JSON.stringify({ name: "Test" }));
 
     clearAuthTokens();
 
@@ -72,5 +57,7 @@ describe("applyAuthSession storage isolation", () => {
     expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
     expect(localStorage.getItem("trstprep_token")).toBeNull();
     expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_answers_123")).toBeNull();
+    expect(localStorage.getItem("trstprep_user_profile")).toBeNull();
   });
 });

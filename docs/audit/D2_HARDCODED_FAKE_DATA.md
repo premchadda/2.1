@@ -1,4 +1,4 @@
-# D2 — Hardcoded / Fake / Placeholder Data Inventory (Aug 14, 2026)
+# D2 — Hardcoded / Fake / Placeholder Data Inventory (Aug 23, 2026)
 
 Classification: **FAKE** = user-visible fabricated data · **FALLBACK** = acceptable
 degradation but misleading · **LEGIT** = intentional (anonymization etc.)

@@ -66,10 +66,17 @@ export default function BannerManager() {
       };
       if (payload.startDate && Number.isNaN(Date.parse(payload.startDate))) {
         toast.error("Invalid start date");
+        setSaving(false);
         return;
       }
       if (payload.endDate && Number.isNaN(Date.parse(payload.endDate))) {
         toast.error("Invalid end date");
+        setSaving(false);
+        return;
+      }
+      if (payload.startDate && payload.endDate && new Date(payload.startDate) > new Date(payload.endDate)) {
+        toast.error("Start date must be before end date");
+        setSaving(false);
         return;
       }
       let response;
@@ -102,6 +109,8 @@ export default function BannerManager() {
       position: banner.position || "home",
       sortOrder: banner.sortOrder ?? banner.order ?? banner.displayOrder ?? 0,
       isActive: banner.isActive !== false,
+      startDate: banner.startDate ? String(banner.startDate).slice(0, 10) : "",
+      endDate: banner.endDate ? String(banner.endDate).slice(0, 10) : "",
     });
     setEditingId(banner.id || banner._id);
     setShowForm(true);
@@ -155,6 +164,8 @@ export default function BannerManager() {
       position: "home",
       sortOrder: 0,
       isActive: true,
+      startDate: "",
+      endDate: "",
     });
     setEditingId(null);
     setShowForm(false);

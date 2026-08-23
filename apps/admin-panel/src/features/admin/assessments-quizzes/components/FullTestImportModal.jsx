@@ -228,9 +228,14 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
     }
 
     let completedCount = 0;
-    let nextChunkPointer = 0;
-    // Run 3 concurrent worker pipelines
-    const CONCURRENCY = Math.min(3, chunks.length);
+    const chunkQueue = [...chunks];
+    let queueHead = 0;
+    // Run 3 concurrent worker pipelines (queueHead increment is synchronous, avoids race)
+    const CONCURRENCY = Math.min(3, chunkQueue.length);
+    const getNextChunk = () => {
+      if (queueHead >= chunkQueue.length) return null;
+      return chunkQueue[queueHead++];
+    };
 
     const executeWithRetry = async (payload, maxRetries = 2) => {
       let lastError = null;
@@ -248,12 +253,11 @@ const FullTestImportModal = ({ isOpen, onClose, onImported }) => {
       throw lastError;
     };
 
+    let abortImport = false;
     const worker = async (workerId) => {
-      while (true) {
-        const chunkIndex = nextChunkPointer++;
-        if (chunkIndex >= chunks.length) break;
-
-        const chunkIndices = chunks[chunkIndex];
+      while (!abortImport) {
+        const chunkIndices = getNextChunk();
+        if (!chunkIndices) break;
         const firstIdx = chunkIndices[0];
         const testObj = tests.find((t) => t.index === firstIdx);
         const chunkLabel = testObj

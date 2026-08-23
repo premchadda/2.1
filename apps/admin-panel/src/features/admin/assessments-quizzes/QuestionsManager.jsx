@@ -291,9 +291,10 @@ const buildTestCategoryRefs = (activeCategory, flatCategories = []) => {
   };
 
   const queue = [...seedCategories];
+  let qHead = 0;
   const seen = new Set();
-  while (queue.length > 0) {
-    const cat = queue.shift();
+  while (qHead < queue.length) {
+    const cat = queue[qHead++];
     const id = String(
       getEntityId(cat) || cat.categoryId || cat.slug || cat.name || "",
     );
@@ -806,6 +807,11 @@ function QuestionsManager() {
         };
 
         const newErrors = {};
+        if (seriesRes.status !== "fulfilled") newErrors.series = "Failed to load test series";
+        if (testsRes.status !== "fulfilled") newErrors.tests = "Failed to load tests";
+        if (categoriesRes.status !== "fulfilled") newErrors.categories = "Failed to load categories";
+        if (stagesRes.status !== "fulfilled") newErrors.stages = "Failed to load stages";
+        if (statsRes.status !== "fulfilled") newErrors.stats = "Failed to load stats";
 
         if (statsRes.status === "fulfilled") {
           const statsPayload =
@@ -815,15 +821,19 @@ function QuestionsManager() {
 
         const seriesData = extractArray(seriesRes);
         if (seriesData !== null) setTestSeriesList(seriesData);
+        else if (seriesRes.status === "fulfilled") setTestSeriesList([]);
 
         const testsData = extractArray(testsRes);
         if (testsData !== null) setTestsList(testsData);
+        else if (testsRes.status === "fulfilled") setTestsList([]);
 
         const categoriesData = extractArray(categoriesRes);
         if (categoriesData !== null) setAllTestCategories(categoriesData);
+        else if (categoriesRes.status === "fulfilled") setAllTestCategories([]);
 
         const stagesData = extractArray(stagesRes);
         if (stagesData !== null) setStages(stagesData);
+        else if (stagesRes.status === "fulfilled") setStages([]);
 
         if (Object.keys(newErrors).length > 0) {
           setErrors(newErrors);
@@ -1793,12 +1803,14 @@ function QuestionsManager() {
 
   const handleBulkDifficulty = async (newDifficulty) => {
     if (selectedIds.length === 0) return;
-    try {
-      await Promise.all(
-        selectedIds.map((id) =>
-          adminAPI.updateQuestion(id, { difficulty: newDifficulty }),
-        ),
-      );
+    const results = await Promise.allSettled(
+      selectedIds.map((id) =>
+        adminAPI.updateQuestion(id, { difficulty: newDifficulty }),
+      ),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    const succeeded = results.length - failed;
+    if (succeeded > 0) {
       setQuestions((prev) =>
         prev.map((q) =>
           selectedIds.includes(q._id || q.id)
@@ -1806,15 +1818,20 @@ function QuestionsManager() {
             : q,
         ),
       );
+    }
+    if (failed === 0) {
       const count = selectedIds.length;
       setSelectedIds([]);
       toast.success(
         `Updated difficulty to "${newDifficulty}" for ${count} questions`,
       );
-    } catch (error) {
-      console.error("Bulk difficulty update failed:", error);
-      toast.error("Failed to update difficulty");
+    } else if (failed === results.length) {
+      toast.error(`Failed to update ${failed} question(s)`);
+    } else {
+      toast.success(`${succeeded} updated, ${failed} failed`);
+      setSelectedIds([]);
     }
+    if (failed > 0) console.error("Bulk difficulty partial failure:", results);
   };
 
   const handleToggleStatus = async (question) => {
@@ -2065,11 +2082,18 @@ function QuestionsManager() {
       );
       setShowBulkImport(false);
 
-      // Refresh questions
-      const res = await questionsAPI.getAll({ page: 1, limit: 2000 });
-      if (res.data?.success) {
-        const rawQuestions = res.data.data || [];
-        setQuestions(rawQuestions.map(normalizeQuestion));
+      // Refresh questions (paginated to avoid OOM)
+      const res = await questionsAPI.getAll({ page: 1, limit: 50 });
+      if (res.data?.success || Array.isArray(res.data?.data)) {
+        const rawQuestions = res.data.data || res.data || [];
+        setQuestions((prev) => {
+          const map = new Map(prev.map((q) => [String(q._id || q.id), q]));
+          (Array.isArray(rawQuestions) ? rawQuestions : []).forEach((r) => {
+            const nq = normalizeQuestion(r);
+            map.set(String(nq._id || nq.id), nq);
+          });
+          return Array.from(map.values());
+        });
       }
     } catch (err) {
       console.error("Bulk import failed:", err);
@@ -2135,15 +2159,14 @@ function QuestionsManager() {
       await adminAPI.apiClient.put(`/admin/questions/${id}/restore`);
       toast.success("Question restored!");
       await loadTrashedQuestions();
-      // Refresh active questions
-      const res = await questionsAPI.getAll({ page: 1, limit: 2000 });
+      // Refresh active questions (paginated)
+      const res = await questionsAPI.getAll({ page: 1, limit: 50 });
       if (res.data?.success) {
         setQuestions(
-          res.data.data.map((q) => ({
+          (res.data.data || []).map((q) => ({
             ...q,
             questionText: q.questionText || q.question_text || "",
             questionTextHi: q.questionTextHi || "",
-            // FIX BUG-016: Remove duplicate snake_case field access
             correctOption: q.correctOption ?? 0,
             negativeMarks: q.negativeMarks ?? 0,
             options: Array.isArray(q.options) ? q.options : [],

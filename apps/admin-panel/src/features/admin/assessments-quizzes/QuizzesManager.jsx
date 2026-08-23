@@ -197,18 +197,17 @@ export default function QuizzesManager() {
   // Filtered Quizzes
   const filteredQuizzes = useMemo(() => {
     return quizzes.filter((q) => {
-      // 1. Subject Tab
+      // 1. Subject Tab (uses lookup map to avoid O(S*Q) find per row)
       if (activeSubjectTab !== "all") {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || "");
-        const activeSubObj = subjects.find(
-          (s) => String(s.id) === String(activeSubjectTab),
-        );
+        const qSub = String(q.subject || q.subject_id || q.subjectId || "").toLowerCase();
+        const activeKey = String(activeSubjectTab).toLowerCase();
+        const activeSubObj = subjectLookup.get(activeKey);
         const sName = String(
           activeSubObj?.label || activeSubObj?.name || "",
         ).toLowerCase();
         const matchesSubject =
-          qSub === String(activeSubjectTab) ||
-          (sName && qSub.toLowerCase() === sName);
+          qSub === activeKey ||
+          (sName && qSub === sName);
         if (!matchesSubject) return false;
       }
 
@@ -440,7 +439,6 @@ export default function QuizzesManager() {
   // Bulk Operations - fixed: selects filtered (user expectation) with paginated fallback, adds aria support
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      // Prefer filtered set (user expects all filtered), but expose paginated count in UI
       const ids =
         filteredQuizzes.length <= 100
           ? filteredQuizzes.map((q) => q.id || q._id)
@@ -450,6 +448,12 @@ export default function QuizzesManager() {
       setSelectedQuizIds([]);
     }
   };
+  const isAllQuizzesSelected = (() => {
+    if (filteredQuizzes.length <= 100) {
+      return filteredQuizzes.length > 0 && filteredQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id));
+    }
+    return paginatedQuizzes.length > 0 && paginatedQuizzes.every((q) => selectedQuizIds.includes(q.id || q._id));
+  })();
 
   const handleSelectRow = (id) => {
     setSelectedQuizIds((prev) =>
@@ -459,21 +463,26 @@ export default function QuizzesManager() {
 
   const handleBulkStatus = async (newStatus) => {
     if (selectedQuizIds.length === 0) return;
-    try {
-      await Promise.all(
-        selectedQuizIds.map((id) =>
-          adminAPI.apiClient.put(`/admin/quizzes/${id}`, {
-            status: newStatus,
-            is_active: newStatus === "active",
-            isActive: newStatus === "active",
-          }),
-        ),
-      );
+    const results = await Promise.allSettled(
+      selectedQuizIds.map((id) =>
+        adminAPI.apiClient.put(`/admin/quizzes/${id}`, {
+          status: newStatus,
+          is_active: newStatus === "active",
+          isActive: newStatus === "active",
+        }),
+      ),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed === 0) {
       toast.success(`${selectedQuizIds.length} quizzes set to ${newStatus}`);
       setSelectedQuizIds([]);
       fetchAllData();
-    } catch (err) {
-      toast.error("Failed to update selected quizzes");
+    } else if (failed === results.length) {
+      toast.error(`Failed to update ${failed} quizzes`);
+    } else {
+      toast.success(`${results.length - failed} updated, ${failed} failed`);
+      setSelectedQuizIds([]);
+      fetchAllData();
     }
   };
 
@@ -487,17 +496,22 @@ export default function QuizzesManager() {
     });
     if (!ok) return;
 
-    try {
-      await Promise.all(
-        selectedQuizIds.map((id) =>
-          adminAPI.apiClient.delete(`/admin/quizzes/${id}`),
-        ),
-      );
+    const results = await Promise.allSettled(
+      selectedQuizIds.map((id) =>
+        adminAPI.apiClient.delete(`/admin/quizzes/${id}`),
+      ),
+    );
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed === 0) {
       toast.success(`${selectedQuizIds.length} quizzes deleted`);
       setSelectedQuizIds([]);
       fetchAllData();
-    } catch (err) {
-      toast.error("Failed to delete selected quizzes");
+    } else if (failed === results.length) {
+      toast.error(`Failed to delete ${failed} quizzes`);
+    } else {
+      toast.success(`${results.length - failed} deleted, ${failed} failed`);
+      setSelectedQuizIds([]);
+      fetchAllData();
     }
   };
 
@@ -545,27 +559,27 @@ export default function QuizzesManager() {
         return;
       }
 
-      // 2. Create the Quiz in database
+      // 2. Create the Quiz in database (all counts use clampedAiCount to enforce limit)
       const quizPayload = {
         title: `${aiTopic} - Rapid Quiz`,
         description: `AI generated practice quiz on ${aiTopic} covering key concepts.`,
         subject: selectedSubName,
         topic: aiTopic,
-        duration: Math.max(5, (Number(aiCount) || 5) * 2),
-        totalMarks: (Number(aiCount) || 5) * 2,
-        passingMarks: Math.ceil((Number(aiCount) || 5) * 0.8),
+        duration: Math.max(5, clampedAiCount * 2),
+        totalMarks: clampedAiCount * 2,
+        passingMarks: Math.ceil(clampedAiCount * 0.8),
         difficulty: aiDifficulty,
         status: "active",
         is_active: true,
         questionIds: questionIds,
-        totalQuestions: questionIds.length || Number(aiCount) || 5,
+        totalQuestions: questionIds.length || clampedAiCount,
         shuffleQuestions: true,
         showAnswers: true,
       };
 
       await adminAPI.apiClient.post("/admin/quizzes", quizPayload);
       toast.success(
-        `Successfully generated quiz with ${questionIds.length || aiCount} questions!`,
+        `Successfully generated quiz with ${questionIds.length || clampedAiCount} questions!`,
       );
       setShowAiModal(false);
       setAiTopic("");
@@ -922,11 +936,9 @@ export default function QuizzesManager() {
                   <th className="p-3.5 w-10 text-center">
                     <input
                       type="checkbox"
-                      checked={
-                        selectedQuizIds.length > 0 &&
-                        selectedQuizIds.length === paginatedQuizzes.length
-                      }
+                      checked={isAllQuizzesSelected}
                       onChange={handleSelectAll}
+                      aria-label="Select all quizzes"
                       className="rounded text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>

@@ -588,7 +588,7 @@ router.post(
             fallbackAmount = Number(
               fbPlan.price || fbPlan.amount || fallbackAmount,
             );
-        } catch {}
+        } catch (_e) { void _e; }
         const transactionAmount =
           verifiedOrderAmount != null ? verifiedOrderAmount : fallbackAmount;
 
@@ -982,7 +982,7 @@ router.post(
                   html,
                 ).catch(() => {});
               }
-            } catch {}
+            } catch (_e) { void _e; }
           });
         }
       } else if (event === "refund.created" || event === "refund.processed") {
@@ -1031,7 +1031,7 @@ router.post(
                   `UPDATE payments SET status='refunded', refunded_at=NOW() WHERE gateway_payment_id=$1 AND status != 'refunded'`,
                   [gatewayPaymentId],
                 );
-              } catch {}
+              } catch (_e) { void _e; }
             }
           });
         }
@@ -1048,7 +1048,7 @@ router.post(
           `UPDATE webhook_events SET status='processed' WHERE gateway_payment_id=$1 AND event=$2 AND status='received'`,
           [payId, evt],
         );
-      } catch {}
+      } catch (_e) { void _e; }
       res.json({ success: true, message: "Webhook processed" });
     } catch (error) {
       console.error("Webhook error:", error);
@@ -1062,7 +1062,7 @@ router.post(
             error.message,
           ],
         );
-      } catch {}
+      } catch (_e) { void _e; }
       res
         .status(500)
         .json({ success: false, message: "Webhook processing failed" });
@@ -1136,7 +1136,7 @@ router.get(
     let txn = null;
     try {
       txn = await dbHelpers.findOne("transactions", { orderId, userId });
-    } catch {}
+    } catch (_e) { void _e; }
     if (!txn) {
       try {
         const r = await pool.query(
@@ -1144,7 +1144,7 @@ router.get(
           [orderId, userId],
         );
         txn = r.rows[0] || null;
-      } catch {}
+      } catch (_e) { void _e; }
     }
     if (!txn)
       return res
@@ -1154,7 +1154,7 @@ router.get(
     let user = null;
     try {
       user = await dbHelpers.findById("users", userId);
-    } catch {}
+    } catch (_e) { void _e; }
     res.json({
       success: true,
       data: {
@@ -1177,3 +1177,4 @@ router.get(
 );
 
 export default router;
+

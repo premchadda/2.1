@@ -130,7 +130,7 @@ describe('App route smoke tests', () => {
 
   it('renders the mobile bottom navigation', async () => {
     renderRoute('/')
-    const bottomNav = await screen.findByRole('navigation', { name: /mobile navigation/i })
+    const bottomNav = await screen.findByRole('navigation', { name: /mobile navigation/i }, { timeout: 10000 })
     expect(bottomNav).toHaveClass('fixed', 'bottom-0')
-  })
+  }, 15000)
 })

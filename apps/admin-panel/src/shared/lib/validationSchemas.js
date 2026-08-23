@@ -87,10 +87,12 @@ export function validateForm(schema, data) {
   if (result.success) return { success: true, data: result.data, errors: {} }
 
   const errors = {}
-  result.error.errors.forEach((err) => {
-    const path = err.path.join('.')
-    if (!errors[path]) errors[path] = []
-    errors[path].push(err.message)
+  const issues = result.error?.errors ?? result.error?.issues ?? []
+  issues.forEach((err) => {
+    const path = Array.isArray(err.path) ? err.path.join('.') : String(err.path || '_error')
+    const key = path || '_error'
+    if (!errors[key]) errors[key] = []
+    errors[key].push(err.message)
   })
   return { success: false, data: null, errors }
 }

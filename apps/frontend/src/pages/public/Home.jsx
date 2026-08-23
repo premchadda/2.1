@@ -317,6 +317,34 @@ function Home() {
     };
   }, []);
 
+  // Prefetch /test-series when hero is visible (for instant catalog nav)
+  useEffect(() => {
+    const el = document.getElementById("test-series");
+    if (!el || typeof IntersectionObserver === "undefined") {
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = "/test-series";
+      document.head.appendChild(link);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          const link = document.createElement("link");
+          link.rel = "prefetch";
+          link.href = "/test-series";
+          document.head.appendChild(link);
+          // Also warm the API cache
+          fetch("/api/test-series?limit=6", { credentials: "include" }).catch(() => {});
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const categoryMap = useMemo(() => {
     const map = {};
     examCategories.forEach((cat) => {

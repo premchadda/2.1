@@ -11,60 +11,67 @@ Complete architecture documentation for Trstprep V2.1 — quick reference, deplo
 
 ## Trstprep V2.1 — Quick Architecture Reference
 
-## Stack
-- **Frontend:** React 18 + Vite + Tailwind + React Query + React Router v6
-- **Admin Panel:** React 18 + Vite + Tailwind + React Query (separate app)
-- **Backend:** Node.js 20 + Express + PostgreSQL (Supabase) + Redis (BullMQ) + Socket.IO
-- **Database:** PostgreSQL via Supabase (RLS enabled)
-- **Cache:** Redis (optional, graceful degradation)
-- **Queue:** BullMQ (analytics, leaderboard, notifications, recommendations)
-- **Storage:** S3 / Supabase Storage / local disk (configurable)
-- **Email:** Nodemailer
-- **Payments:** Razorpay
-- **AI:** OpenRouter multi-provider (OpenAI, Anthropic, Gemini)
+## Stack (verified Aug 23, 2026)
+- **Frontend:** React 18 + Vite 6.4.2 + Tailwind CSS 3.x + TanStack Query + React Router v6 + Axios 1.18
+- **Admin Panel:** React 18 + Vite 6.4.2 + Tailwind CSS 3.x + TanStack Query (separate Vite app, port 3002)
+- **Backend:** Node.js 20 (`.nvmrc`) + Express + PostgreSQL (Supabase, RLS) + Redis (BullMQ 5.x) + Socket.IO 4.x
+- **Database:** PostgreSQL via Supabase (RLS enabled, pgvector `vector(1536)` + HNSW/ivfflat)
+- **Cache:** Redis (Upstash/local, `lazyConnect: true`, graceful degradation)
+- **Queue:** BullMQ (analytics, leaderboard, notifications, recommendations, outbox)
+- **Storage:** S3 / Supabase Storage / local disk + `storageProvider` path-traversal guard
+- **Email:** Nodemailer 9.x / SendGrid / SES (spool + retry with backoff)
+- **Payments:** Razorpay (order → server-side `orders.fetch` verification)
+- **AI:** OpenRouter multi-provider (OpenAI, Anthropic, Gemini) + per-user rate limiter (free 50/h, pro 500/h)
+- **Monorepo:** Turborepo 2.10.5, npm workspaces `apps/*` + `packages/*`, Husky 9 + lint-staged
 
-## Repo layout
+## Repo layout (Aug 23, 2026 — live `ls`)
 ```
 apps/
-  frontend/          - User-facing SPA (port 3000)
-  admin-panel/       - Admin SPA (port 3002)
-  backend/           - Express API (port 5001)
+  frontend/          - User-facing SPA (port 3000, Vite 6.4.2, 87 pages)
+  admin-panel/       - Admin SPA (port 3002, 60 components across 13 categories)
+  backend/           - Express API (port 5001, single entry app-port5001.js)
 packages/
-  shared-config/     - Shared constants (admin nav, coming-soon, etc.)
-  shared-hooks/      - Shared React hooks
-docs/                - Documentation
-supabase_data/       - Scraped exam data (PYP, Mock Test)
-graphify-out/        - Knowledge graph artifacts (do not deploy)
+  shared-config/     - Shared constants (admin nav, coming-soon, etc.) — single source
+  shared-hooks/      - Shared React hooks (useAuth, useProPass)
+docs/                - Documentation (ARCHITECTURE.md 4178 lines, this file)
+scripts/             - dev-sequential, DB audit, maintenance (canonical; dev-tools/ removed)
+deploy/              - docker-compose, nginx, logging docs
+graphify-out/        - Knowledge graph (16874 nodes, 22184 edges, do NOT deploy)
+archify/             - Architecture explorer skill
+supabase_data/       - Scraped exam data (legacy, gitignored where applicable)
 ```
 
-## Backend layers
+## Backend layers (Aug 23, 2026)
 ```
 apps/backend/src/
-  app-port5001.js          - Single Express entrypoint (1644 lines)
-  api/routes/              - 40+ router files (consolidated ~60 duplicate mounts)
-  modules/                 - Domain modules (auth, tests, attempts, ...)
-    auth/
-    tests/
-    attempts/
-    ...
+  app-port5001.js          - Single Express entrypoint (1022 route defs, 1644 lines)
+  api/routes/              - 85 route files (40 admin-* + 30+ public) + 33 module routes
+                           - duplicate mount block at 727-739 vs 780-792 (known, see SITE_READINESS)
+  modules/                 - Domain modules (auth, tests, attempts, live, ai, analytics...)
+    auth/                  - JWT + 2FA + phone OTP + session capture
+    tests/                 - test.routes.js (race-guarded start/submit, FOR UPDATE)
+    attempts/              - attempt.routes.js
+    ai/                    - aiMentor, adaptiveDifficulty, math, embeddings
+    live/                  - liveMock (real) vs live-tests-public (shadowed)
   infrastructure/
     database/
-      postgres-helpers.js  - ~3000 lines dbHelpers façade + initTables()
-      migrations/          - 101 .sql files (003-017 reconstructed in 098)
-    cache/
-    email/
-    events/
-    queue/
-    storage/
-    websocket/
-  middleware/              - auth, csrf, error, origin, audit, etc.
-  services/                - Business logic (analytics, leaderboard, etc.)
+      postgres-helpers.js  - ~3000 lines dbHelpers façade + initTables() (1022-line legacy duplicate)
+      migrations/          - 112 .sql files on disk (003-017 reconstructed in 098, 094-112 recent)
+      README.md            - Last updated 2026-08-23, tracks 039-048 consolidation
+    cache/                 - redisClient.js (lazyConnect, Upstash TLS)
+    email/                 - emailService.js (spool + BullMQ retry with backoff)
+    events/                - messageBroker.js (Redis Pub/Sub + in-memory fallback)
+    queue/                 - queueManager.js (BullMQ workers, error handlers)
+    storage/               - storageProvider.js + upload.js (signature + MIME guard)
+    websocket/             - websocketManager.js (JWT auth, session eviction, guest rejection)
+  middleware/              - auth (protect/admin/superAdmin), csrf (DB→Redis), origin, audit, rateLimiterFactory
+  services/                - analytics, leaderboard, rankPrediction, recommendation (all OOM-fixed, batched SQL)
   data/
-    models/                - MongoDB-like shims over PostgreSQL
+    models/                - MongoDB-like shims over PostgreSQL (legacy)
   shared/
-    config.js              - Immediate env validation at module load
-    validation/
-  __tests__/               - Jest tests (157 passing, 20 suites)
+    config.js              - Immediate env validation at module load (fail-closed)
+    validation/            - inputValidation.js, upload.validator.js
+  __tests__/               - Jest 20 suites, 157 passing (3 isolation flakes fixed in REMEDIATION)
 ```
 
 ## Key data flows
@@ -75,13 +82,13 @@ apps/backend/src/
 - **Payments:** Razorpay order → server-side verification → activate subscription
 - **Admin routes:** Defense-in-depth: restrictAdminOrigin → validateAdminApiKey → protect → admin → auditMiddleware
 
-## Database
-- ~80 tables in production
-- 101 migrations on disk (003-017 reconstructed in 098_reconstructed_baseline.sql)
-- Migrations 094-101: certificates, missing tables, soft-delete, exam_id fix, RLS policies, duplicate reconciliation, achievement consolidation
-- Table name allowlist in BaseRepository prevents SQL injection via dynamic table names
-- RLS enabled on all tables with service role + public read policies
-- Write pool = DATABASE_URL, read pool = DATABASE_READ_URL (falls back to primary)
+## Database (Aug 23, 2026 — live counts)
+- ~80 active tables in `postgres-helpers.js` allowlist; 112 migration files on disk (003-017 reconstructed in `098_reconstructed_baseline.sql`); 154 tables in live DB (includes legacy `group_*`, `exam_rooms`, etc. per FINAL_SITE_READINESS_REPORT.md)
+- Migrations 018-093 core + 094-112 recent: certificates, missing tables (app_settings, navigation_menu), soft-delete, exam_id type fix, RLS policies, duplicate reconciliation, achievement consolidation, embeddings HNSW
+- Table name allowlist in `BaseRepository` (80+ entries, `tableMap` handles camelCase → snake_case) prevents SQL injection via dynamic table names
+- RLS enabled on 50+ tables via `047_orphan_tracking_and_rls.sql` + policies in `048_rls_policies...`; known cosmetic issue `099` casts INTEGER `user_id` vs UUID `auth.uid()` (always false — backend sets `app.current_user_id` via helper instead)
+- Write pool = `DATABASE_URL`, read pool = `DATABASE_READ_URL` (falls back to primary); `database-replicas.js` + `db-config.js` default to `rejectUnauthorized: false` (MITM risk — see backend-audit C2/H5)
+- `initTables()` (postgres-helpers.js:1070-2046, ~1000 lines) still duplicates migration DDL — tracked for removal in `cleanup_legacy_tables.sql`
 
 ## Security posture
 - **Fail-closed auth:** Registration, 2FA, feature flags deny on error
@@ -102,23 +109,22 @@ apps/backend/src/
 - `/api/practice/*` — practice questions
 - `/api/intelligence/*` — leaderboard, streak, top performers
 
-## Common tasks
-- **Add a new admin manager:** Create file in `apps/admin-panel/src/features/admin/<category>/`, add to `features/admin/index.js`, add route in `App.jsx`, add nav item in `shared/config/adminNavConfig.js`.
-- **Add a new API endpoint:** Create or extend a router file in `apps/backend/src/api/routes/` or `apps/backend/src/modules/`, mount in `app-port5001.js`, add to docs/api/ if exists.
-- **Add a new DB table:** Add to a new migration file `030_xxx.sql`, also add to `postgres-helpers.js` `initTables()` if needed.
-- **Run a migration:** `node apps/backend/scripts/run-migration.js` (or restart the backend — `migrationRunner.js` runs on boot).
+## Common tasks (Aug 23, 2026 — current conventions)
+- **Add a new admin manager:** Create file in `apps/admin-panel/src/features/admin/<category>/`, add to `features/admin/index.js`, add route in `App.jsx:1` (38 nav items, auto-mapped), add nav item in `packages/shared-config/adminNavConfig.js` (single source, not `apps/frontend/src/shared/config/`).
+- **Add a new API endpoint:** Create or extend a router file in `apps/backend/src/api/routes/` or `apps/backend/src/modules/`, mount in `app-port5001.js:700+` (both `/api/v1/*` and legacy `/api/*` mounts), enforce `mass assignment` whitelist + `validateCsrfToken` where required, add to `docs/api/API_DOCUMENTATION.html` if exists.
+- **Add a new DB table:** Add to a new migration file `113_xxx.sql` (next sequential, now 113 — **append-only, never edit shipped**), also add to `postgres-helpers.js` `tableMap` allowlist + `initTables()` only if legacy path still required (tracked for removal).
+- **Run a migration:** `node apps/backend/scripts/run-migration.js` (or restart backend — `migrationRunner.js` with advisory lock + `schema_migrations` + transactional DDL + halt-on-failure runs on boot). Run `scripts/run-database-audit.js` before any DDL per `AGENTS.md`.
 
-## Open issues (see AUDIT_REPORT.md)
-- 5 critical blockers (secrets, missing migrations, missing functions, missing tables, is_active filter)
-- 12 high priority
-- 29 medium/low
+## Open issues (see `docs/UNIFIED_TRSTPREP_AUDIT.md` + `docs/REMEDIATION_PLAN.md:1308` FINAL STATUS Aug 23, 2026)
+- **Before remediation:** 5 critical blockers (secrets, missing migrations, missing functions, missing tables, is_active filter) + 12 high + 29 medium/low.
+- **After remediation (Aug 23, 2026):** Content fixes (60 admin components verified, 112 migrations, OOM bombs fixed, mass-assignment whitelisted, CSRF on auth routes added, WebSocket guest rejection, AI rate limiter). Remaining tracked in `docs/FINAL_SITE_READINESS_REPORT.md`: live-tests REST surface 404 (frontend expects `/api/live-tests/:id/*`, backend serves `/api/live-mock/*`), public `/api/leaderboards` 401 shadowing, and 24 code-referenced tables absent from migrations (fresh-DB risk). See `docs/SITE_READINESS_REPORT.md:3` (Generated Aug 23, 2026) — classification **Major Fixes Required (~4/10)** but P0 content flows fixed.
 
-## Deployment
-- Frontend: built with Vite, deployed to Vercel/Netlify/Cloudflare Pages
-- Admin Panel: same as frontend but on a separate domain
-- Backend: Docker container, deployed to Railway/Render/Fly.io
-- Database: Supabase managed
-- Migrations: applied automatically on backend boot
+## Deployment (Aug 23, 2026 — per `docs/REMEDIATION_PLAN.md:3` + `deploy/logging.md`)
+- **Primary:** Docker Compose + nginx (`docker-compose.yml`, `apps/frontend/nginx.conf` mounted as `/etc/nginx/nginx.conf`, not `conf.d/`; `deploy.sh`)
+- **Frontend/Admin:** Vite build → static `dist/` served by `nginx:1.27-alpine` (HEALTHCHECK via wget), also deployable to Vercel (vestigial, see `vercel.json` catch-all fix Phase 1.3)
+- **Backend:** Node 20 Docker container (`apps/backend/Dockerfile`, pinned `nginx:alpine` → `1.27`), Railway/Render/Fly.io alternative
+- **Database:** Supabase managed (112 migrations, `DATABASE_URL` + `DATABASE_READ_URL` split)
+- **Migrations:** Applied automatically on backend boot via `migrationRunner.js` (advisory lock, transactional, halt-on-failure); fresh DB requires `098_reconstructed_baseline.sql` + 039-048 consolidation
 
 ---
 
@@ -323,44 +329,33 @@ cd ../admin-panel && vercel --prod
 ## 📁 Root Directory
 
 ```text
-Trstprep V2.1/
-├── .gitignore
-├── README.md
-├── deploy.sh
-├── package.json
-├── package-lock.json
-├── qms.jsx
-├── transform.cjs
-├── turbo.json
+Trstprep V2.1/  (verified Aug 23, 2026 — ls + package.json workspaces)
+├── .gitignore / .husky / .nvmrc / turbo.json (2.10.5)
+├── README.md / CHANGELOG.md (2026-08-23) / package.json (workspaces apps/*, packages/*)
+├── deploy.sh / docker-compose*.yml / deploy/logging.md
 │
 ├── apps/
-│   ├── backend/               # Express.js API Server (Port 5001)
-│   ├── frontend/              # React + Vite Application (User-facing)
-│   └── admin-panel/           # React + Vite Application (Admin-only)
+│   ├── backend/               # Express API (port 5001, 85 route files + 33 module routes)
+│   │   └── src/app-port5001.js  # 1022 route defs, single entry
+│   ├── frontend/              # React 18 + Vite 6.4.2 (87 pages, port 3000)
+│   └── admin-panel/           # React 18 + Vite 6.4.2 (60 components, port 3002)
 │
-├── dev-tools/                 # Development utilities & scripts
-│   ├── add-pass-type.js       # Add pass type to tests
-│   ├── alter_banners.js       # Modify banner schema
-│   ├── check_schema.js        # Validate database schema
-│   ├── check_tables.js        # Check table structures
-│   ├── create-leaderboard.js  # Create leaderboard entries
-│   ├── migrate-admin-panel.bat # Windows migration script
-│   ├── migrate-admin-panel.sh # Unix migration script
-│   ├── verify-indexes.js      # Verify database indexes
-│   ├── backups/               # Database backups
-│   └── scripts/               # Additional dev utility scripts
+├── scripts/                   # dev-sequential.mjs, run-database-audit.js, maintenance
+│   └── apps/backend/scripts/  # run-migration.js, migrationRunner.js
 │
-├── docs/                      # Documentation hub
-│   ├── api/                   # API documentation
-│   ├── architecture/          # System architecture docs
-│   ├── database/              # Database schema & exports
-│   ├── development/           # Development notes
-│   ├── features/              # Feature documentation
-│   ├── security/              # Security reports
-│   ├── analysis/              # Performance & competitor analysis
-│   └── archive/               # Historical documentation
+├── docs/                      # Documentation hub (this file 4178 lines)
+│   ├── ARCHITECTURE.md        # Quick ref + deployment + structure + workflows
+│   ├── DEVELOPMENT.md         # Admin 60 components, bulk upload, evolve plan
+│   ├── SECURITY_POSTURE.md    # Hardened post-audit, Aug 23 2026
+│   ├── DATABASE_SCHEMA_AUDIT.md # 112 migrations, ~80 active tables
+│   ├── SITE_READINESS_REPORT.md # Site readiness (Generated Aug 23, 2026)
+│   └── audit/                 # D1/D2/D3 Aug 23 2026 deep-dives
 │
-└── packages/                  # Shared monorepo packages (empty)
+├── packages/
+│   ├── shared-config/         # adminNavConfig single source
+│   └── shared-hooks/          # useAuth, useProPass (shared)
+│
+└── graphify-out/ / archify/   # knowledge graph (16874 nodes) + explorer skill (do NOT deploy)
 ```
 
 ---
@@ -375,37 +370,40 @@ apps/backend/src/
 ├── app-port5001.js            # Main Express server entry point
 ```
 
-### API Routes (`src/api/routes/`)
-26 route files handling all API endpoints:
+### API Routes (`src/api/routes/` — 85 files verified Aug 23, 2026)
+85 route files + 33 module routes. Core mounts (see `app-port5001.js:700+`):
 
-| Route File | Mount Path | Description |
-|------------|------------|-------------|
-| `achievements.js` | `/api/achievements` | User achievements |
-| `admin.js` | `/api/admin` | Admin panel operations |
-| `blog.js` | `/api/blogs` | Blog content |
-| `bookmarks.js` | `/api/bookmarks` | User bookmarks |
-| `currentAffairs.js` | `/api/current-affairs` | Current affairs articles |
-| `discussions.js` | `/api/discussions` | Question discussions |
-| `doubts.js` | `/api/doubts` | Doubt forum |
-| `intelligence.js` | `/api/intelligence` | AI recommendations |
-| `liveTests.js` | `/api/live-tests` | Live test events |
-| `notifications.js` | `/api/notifications` | User notifications |
-| `notificationsPref.js` | `/api/notifications-pref` | Notification preferences |
-| `payments.js` | `/api/payments` | Payment processing |
-| `phoneAuth.js` | `/api/auth/phone` | Phone OTP authentication |
-| `practice.js` | `/api/practice` | Practice questions |
-| `promotions.js` | `/api/promotions` | Promotional offers |
-| `pyp.js` | `/api/pyp` | Previous year papers |
-| `questions.js` | `/api/questions` | Question management |
-| `referrals.js` | `/api/referrals` | Referral system |
-| `series.js` | `/api/series` | Test series |
-| `stages.js` | `/api/stages` | Exam stages |
-| `study.js` | `/api/study` | Study materials |
-| `studyGroups.js` | `/api/study-groups` | Study groups |
-| `subscriptions.js` | `/api/subscriptions` | User subscriptions |
-| `subscriptions-admin.js` | `/api/admin/subscriptions` | Admin subscription management |
-| `tagConfigs.js` | `/api/tag-configs` | Tag configurations |
-| `testCategories.js` | `/api/test-categories` | Test categories |
+| Route File | Mount Path | Description | Notes |
+|------------|------------|-------------|-------|
+| `achievements.js` | `/api/achievements` | User achievements |  |
+| `admin.js` | `/api/admin` | Admin panel (legacy monolith) | 40+ sub-routers |
+| `admin-*` (37 files, e.g. `admin-tests.js`, `admin-questions.js`, `admin-users.js`) | `/api/admin/*` | Admin CRUD (defense-in-depth) | `admin-routes-index.js` defense chain |
+| `blog.js` | `/api/blogs` | Blog content |  |
+| `bookmarks.js` | `/api/bookmarks` | User bookmarks |  |
+| `currentAffairs.js` + `current-affairs-public.js` | `/api/current-affairs` | Current affairs | public + admin |
+| `discussions.js` | `/api/discussions` | Question discussions | camelCase → tableMap |
+| `doubts.js` | `/api/doubts` | Doubt forum |  |
+| `intelligence.js` | `/api/intelligence` | AI recommendations |  |
+| `live-tests-public.js` | `/api/live-tests` (shadowed) | Live test list | shadowed by admin mount (see SITE_READINESS) |
+| `liveMock` (modules/live) | `/api/live-mock` | Live test sessions | real implementation |
+| `notifications.js` | `/api/notifications` | User notifications |  |
+| `notificationsPref.js` | `/api/notifications-pref` | Notification preferences |  |
+| `payments.js` | `/api/payments` | Payment processing | Razorpay verify |
+| `phoneAuth.js` | `/api/auth/phone` | Phone OTP |  |
+| `practice.js` | `/api/practice` | Practice questions |  |
+| `promotions.js` | `/api/promotions` | Promotional offers |  |
+| `pyp-hierarchy.js` / `pyp-public.js` | `/api/pyps` | Previous year papers | hierarchy |
+| `questions.js` | `/api/questions` | Question management |  |
+| `referrals.js` | `/api/referrals` | Referral system |  |
+| `series.js` | `/api/series` | Test series |  |
+| `stages.js` | `/api/stages` | Exam stages |  |
+| `study.js` | `/api/study` | Study materials |  |
+| `studyGroups.js` | `/api/study-groups` | Study groups |  |
+| `subscriptions.js` | `/api/subscriptions` | User subscriptions |  |
+| `subscriptions-admin.js` | `/api/admin/subscriptions` | Admin subscription management |  |
+| `tagConfigs.js` | `/api/tag-configs` | Tag configurations |  |
+| `testCategories.js` | `/api/test-categories` | Test categories | unauth reassign risk (see SITE_READINESS) |
+| `+ 30 more` | `/api/*` | `analytics.js`, `community.js`, `enrollments-admin.js`, `fortspy.js`, etc. | see `app-port5001.js` |
 
 ### Modules (`src/modules/`)
 Domain-driven module structure:
@@ -744,49 +742,19 @@ apps/admin-panel/
     ├── App.jsx                # Main app component
     ├── main.jsx               # Entry point
     ├── features/
-    │   └── admin/             # 43 admin management components
-    │       ├── index.js
-    │       ├── ActivityOrderReport.jsx
-    │       ├── AdminAnalytics.jsx
-    │       ├── AdminDashboard.jsx
-    │       ├── AdminSettings.jsx
-    │       ├── BackupsManager.jsx
-    │       ├── BannerManager.jsx
-    │       ├── CategoriesManager.jsx
-    │       ├── ComingSoonManager.jsx
-    │       ├── ContentManagement.jsx
-    │       ├── CouponsManager.jsx
-    │       ├── CurrentAffairsManager.jsx
-    │       ├── CurriculumBuilder.jsx
-    │       ├── EnrollmentsManager.jsx
-    │       ├── ExamCategoriesManager.jsx
-    │       ├── ExamInfoManager.jsx
-    │       ├── FaqManager.jsx
-    │       ├── LeaderboardResultsUnified.jsx
-    │       ├── LiveTestsManager.jsx
-    │       ├── MediaLibrary.jsx
-    │       ├── NavigationManager.jsx
-    │       ├── NotificationsManager.jsx
-    │       ├── PracticeQuestionsManager.jsx
-    │       ├── PromotionManager.jsx
-    │       ├── PYPManager.jsx
-    │       ├── QuestionsManager.jsx
-    │       ├── QuizTab.jsx
-    │       ├── RecycleBin.jsx
-    │       ├── ResultsManager.jsx
-    │       ├── StagesManager.jsx
-    │       ├── StudyMaterialsManager.jsx
-    │       ├── SubjectsManager.jsx
-    │       ├── SubscriptionPlansManager.jsx
-    │       ├── SystemHealthMonitor.jsx
-    │       ├── TagConfigsManager.jsx
-    │       ├── TestSeriesManager.jsx
-    │       ├── TestsManager.jsx
-    │       ├── TestsTab.jsx
-    │       ├── TopicsManager.jsx
-    │       ├── UserActivityLog.jsx
-    │       ├── UsersManager.jsx
-    │       └── VideosManager.jsx
+    │   └── admin/             # 60 components across 13 categories (verified Aug 23, 2026)
+    │       ├── analytics-insights/  # AdminAnalytics, DeepAnalytics, LeaderboardResultsUnified
+    │       ├── assessments-quizzes/ # TestsManager, QuestionsManager, QuizzesManager, SectionsManager, PracticeQuestionsManager
+    │       ├── audit-compliance/    # AuditTrailManager, ResultsManager, RecycleBin
+    │       ├── dashboard/           # AdminDashboard
+    │       ├── exams-categories/    # ExamCategoriesManager, ExamInfoManager, StagesManager, CategoriesManager, TagConfigsManager
+    │       ├── moderation/          # ModerationManager
+    │       ├── notifications-comms/ # EmailTemplatesManager, NotificationsManager, BannerManager
+    │       ├── study-materials/     # CurriculumBuilder, StudyMaterialsManager, CurrentAffairsManager, TopicsManager, SubjectsManager
+    │       ├── subscriptions-monetization/ # SubscriptionPlansManager, CouponsManager, PromotionManager, PaymentsManager
+    │       ├── system-settings/     # AdminSettings, BackupsManager, SystemHealthMonitor, NavigationManager, TwoFactorManager, ActiveSessionsManager, ComingSoonManager
+    │       ├── users-enrollments/   # UsersManager, EnrollmentsManager, RolePermissionsManager
+    │       └── (60 .jsx files total — see `apps/admin-panel/src/features/admin/**/*.jsx`, down from 43 claimed in Mar 2026 docs)
     └── shared/
         ├── components/
         └── api/
@@ -794,19 +762,22 @@ apps/admin-panel/
 
 ---
 
-## 📊 Database Statistics
+## 📊 Database Statistics (Aug 23, 2026 — verified)
 
-| Table Category | Count |
-|----------------|-------|
-| **Total Tables** | **78** |
-| User & Auth | 4 |
-| Tests & Series | 12 |
-| Study Materials | 10 |
-| Exams | 8 |
-| Engagement | 9 |
-| Commerce | 6 |
-| Content & Media | 11 |
-| Analytics & Misc | 18 |
+| Table Category | Count (allowlist) | Live DB (incl. legacy) |
+|----------------|-------------------|------------------------|
+| **Total Tables** | **~80 (allowlist)** | **154 (live `pg_stat_user_tables`)** |
+| User & Auth | 4 (+ sessions, 2FA, CSRF) | 5 |
+| Tests & Series | 12 (+ sections, junction) | 14 |
+| Study Materials | 10 | 10 |
+| Exams & Hierarchy | 8 (+ subjects/topics) | 12 |
+| Engagement | 9 | 15 |
+| Commerce | 6 | 8 |
+| Content & Media | 11 | 13 |
+| Analytics & AI / Embeddings | 18 (+ vector) | 22 |
+| Infra (backups, audit, live_tests) | — | 6 |
+
+Source: `docs/DATABASE_SCHEMA_AUDIT.md:3` (112 migrations) + `docs/FINAL_SITE_READINESS_REPORT.md` (154 live tables). Allowlist = `BaseRepository` `tableMap` (~80).
 
 ---
 
@@ -825,7 +796,7 @@ apps/admin-panel/
 
 ---
 
-*Last Updated: March 31, 2026*
+*Last Updated: August 23, 2026*
 *Documented from actual codebase structure*
 
 ---
@@ -955,7 +926,7 @@ graph TD
 * **Premium Layer (Pro Pass):** Full Mock Tests, advanced Analytics/Diagnosis, complete Test Series bundles, and personalized Recommendation Engines.
 
 
-*Last Updated: March 10, 2026 | Update date is (19:18)*
+*Last Updated: August 23, 2026 | Update date is (19:18)*
 
 ---
 
@@ -3967,7 +3938,7 @@ git check-ignore -v apps/backend/.env
 
 ## Pre-Deployment Manual Action Required: Secret Rotation
 
-**Date:** 2026-06-15
+**Date:** 2026-08-23
 **Priority:** CRITICAL — must complete before production launch
 **Status:** Pending human action
 

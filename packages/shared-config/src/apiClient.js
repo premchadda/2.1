@@ -132,6 +132,24 @@ export function createApiClient(options = {}) {
           baseHeaders["X-Client-App"] || "trstprep-web";
       }
 
+      // Attach Authorization token if present in session/local storage for mobile/webview fallback
+      if (!config.headers["Authorization"] && !config.headers["authorization"]) {
+        try {
+          const token =
+            (typeof sessionStorage !== "undefined" &&
+              (sessionStorage.getItem("trstprep_auth_token") ||
+                sessionStorage.getItem("trstprep_token"))) ||
+            (typeof localStorage !== "undefined" &&
+              (localStorage.getItem("trstprep_token") ||
+                localStorage.getItem("trstprep_auth_token")));
+          if (token) {
+            config.headers["Authorization"] = `Bearer ${token}`;
+          }
+        } catch {
+          // ignore storage access errors in non-browser environments
+        }
+      }
+
       const method = config.method?.toUpperCase();
       if (["POST", "PUT", "DELETE", "PATCH"].includes(method)) {
         const csrfToken = getCsrfToken();
@@ -265,12 +283,47 @@ export function createApiClient(options = {}) {
         if (!isRefreshing) {
           isRefreshing = true;
           try {
-            // Rely on httpOnly cookie for refresh — no refreshToken in body or storage
-            await instance.post(
+            const fallbackRefreshToken =
+              (typeof localStorage !== "undefined" &&
+                localStorage.getItem("trstprep_refresh_token")) ||
+              (typeof sessionStorage !== "undefined" &&
+                sessionStorage.getItem("trstprep_refresh_token")) ||
+              undefined;
+            const refreshPayload = fallbackRefreshToken
+              ? { refreshToken: fallbackRefreshToken }
+              : {};
+            const refreshRes = await instance.post(
               refreshUrl,
-              {},
+              refreshPayload,
               { _authRefreshAttempted: true },
             );
+            const newAccessToken =
+              refreshRes?.data?.data?.token || refreshRes?.data?.token;
+            const newRefreshToken =
+              refreshRes?.data?.data?.refreshToken ||
+              refreshRes?.data?.refreshToken;
+            if (
+              newAccessToken &&
+              typeof localStorage !== "undefined" &&
+              localStorage.getItem("trstprep_token")
+            ) {
+              localStorage.setItem("trstprep_token", newAccessToken);
+            }
+            if (
+              newRefreshToken &&
+              typeof localStorage !== "undefined" &&
+              localStorage.getItem("trstprep_refresh_token")
+            ) {
+              localStorage.setItem(
+                "trstprep_refresh_token",
+                newRefreshToken,
+              );
+            }
+            if (newAccessToken) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers["Authorization"] =
+                `Bearer ${newAccessToken}`;
+            }
             isRefreshing = false;
             processQueue(null);
             return instance(originalRequest);

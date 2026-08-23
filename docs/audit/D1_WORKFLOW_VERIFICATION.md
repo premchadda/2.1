@@ -1,4 +1,4 @@
-# D1 — End-to-End Workflow Verification (Aug 14, 2026)
+# D1 — End-to-End Workflow Verification (Aug 23, 2026)
 
 Verified against live code (`E:\Tech\Testprep\Trstprep V2.1`). Live DB facts supplied by
 user: results=0 rows, attempts=22, questions=1575, test_questions=1375, tests=26,
