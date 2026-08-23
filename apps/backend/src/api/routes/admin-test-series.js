@@ -184,20 +184,24 @@ router.get(
     } else if (includeInactive === "false") {
       filter.isActive = true;
     }
-    let series = await dbHelpers.find("testSeries", filter);
 
+    let series = [];
     try {
-      const resCount = await pool.query(
-        `SELECT 
-         series_id, 
-         COUNT(*) as actual_count, 
-         SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
-         json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
-       FROM tests 
-       WHERE is_active = true 
-       GROUP BY series_id`,
-      );
+      const [seriesResult, resCount] = await Promise.all([
+        dbHelpers.find("testSeries", filter),
+        pool.query(
+          `SELECT 
+           series_id, 
+           COUNT(*) as actual_count, 
+           SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
+           json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
+         FROM tests 
+         WHERE is_active = true 
+         GROUP BY series_id`,
+        ),
+      ]);
 
+      series = seriesResult || [];
       const countsMap = {};
       resCount.rows.forEach((r) => {
         countsMap[String(r.series_id)] = r;
@@ -209,8 +213,8 @@ router.get(
         const rawTests = metrics ? metrics.raw_tests || [] : [];
         const testTypesMap = categorizeTests(rawTests);
 
-        const totalTests = metrics ? parseInt(metrics.actual_count) : 0;
-        const freeTests = metrics ? parseInt(metrics.free_count) : 0;
+        const totalTests = metrics ? parseInt(metrics.actual_count, 10) : 0;
+        const freeTests = metrics ? parseInt(metrics.free_count, 10) : 0;
 
         return {
           ...s,

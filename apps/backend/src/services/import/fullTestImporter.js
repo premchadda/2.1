@@ -258,10 +258,29 @@ async function resolveTestSeriesId(
     : upsertSlug(client, "test_series", slug, extra);
 }
 
+const SUBJECT_ALIASES = {
+  mathematics: "quantitative-aptitude",
+  math: "quantitative-aptitude",
+  maths: "quantitative-aptitude",
+  quant: "quantitative-aptitude",
+  reasoning: "logical-reasoning",
+  "general-intelligence": "logical-reasoning",
+  "general-intelligence-and-reasoning": "logical-reasoning",
+  "general-studies": "general-awareness",
+  "general-knowledge": "general-awareness",
+  gk: "general-awareness",
+  gs: "general-awareness",
+  english: "english-language",
+  "english-comprehension": "english-language",
+};
+
 async function resolveSubjectId(client, slug, strict = false) {
+  if (!slug) return null;
+  const normalized = String(slug).toLowerCase().trim().replace(/_/g, "-");
+  const resolved = SUBJECT_ALIASES[normalized] || normalized;
   return strict
-    ? findSlug(client, "subjects", slug)
-    : upsertSlug(client, "subjects", slug);
+    ? findSlug(client, "subjects", resolved)
+    : upsertSlug(client, "subjects", resolved);
 }
 
 async function resolveChapterId(client, slug, subjectId, strict = false) {
@@ -388,6 +407,33 @@ function getSectionDisplayOrder(sectionName, fallbackOrder) {
   return SECTION_ORDER_MAP[key] ?? fallbackOrder;
 }
 
+function safeInt(val, fallback = null) {
+  if (val === null || val === undefined || val === "") return fallback;
+  const num = parseInt(val, 10);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function safeFloat(val, fallback = 0) {
+  if (val === null || val === undefined || val === "") return fallback;
+  const num = parseFloat(val);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+function safeYear(val, title = null) {
+  if (val !== null && val !== undefined && val !== "") {
+    const num = parseInt(val, 10);
+    if (Number.isFinite(num) && num > 1900 && num < 2100) return num;
+  }
+  if (title) {
+    const match = String(title).match(/\b(19\d\d|20\d\d)\b/);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      if (Number.isFinite(num)) return num;
+    }
+  }
+  return null;
+}
+
 // ─── Year extraction ───────────────────────────────────────────────────────────
 
 function extractYear(json) {
@@ -464,7 +510,7 @@ async function safeInsert(client, table, row, columns) {
  */
 export async function importFullTest(json, config = {}) {
   const {
-    userId = null,
+    userId = 1,
     fileName = "unknown.json",
     dryRun = false,
     skipDuplicates = true,
@@ -598,44 +644,35 @@ export async function importFullTest(json, config = {}) {
                 .replace(/[-_]/g, " ")
                 .replace(/\b\w/g, (c) => c.toUpperCase())
             : null),
-      exam_category_id: examCategoryId || null,
+      exam_category_id: safeInt(examCategoryId),
       test_type: json.testType || "full-length",
       status: json.status ? mapStatus(json.status) : "published",
       difficulty: json.difficulty || "medium",
-      duration: json.duration || 60,
-      total_questions: json.totalQuestions || 0,
-      total_marks: json.totalMarks || 0,
-      negative_marking:
-        json.negativeMarking ??
-        json.negative_marking ??
-        json.negativeMarks ??
+      duration: safeInt(json.duration, 60),
+      total_questions: safeInt(json.totalQuestions, 0),
+      total_marks: safeInt(json.totalMarks, 0),
+      negative_marking: safeFloat(
+        json.negativeMarking ?? json.negative_marking ?? json.negativeMarks,
         0,
+      ),
       is_active: true,
-      is_pro: json.access?.type === "paid" || false,
       is_pyq: json.isPyq || (year ? true : false),
-      year:
-        year ||
-        (json.year ? Number(json.year) : null) ||
-        (json.title
-          ? Number((String(json.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0])
-          : null),
+      year: safeYear(year, json.title) || safeYear(json.year, json.title),
       pyq_year:
-        year ||
-        (json.year ? Number(json.year) : null) ||
-        (json.title
-          ? Number((String(json.title).match(/\b(19\d\d|20\d\d)\b/) || [])[0])
-          : null),
+        safeYear(year, json.title) ||
+        safeYear(json.pyqYear, json.title) ||
+        safeYear(json.year, json.title),
       is_live: json.isLive ?? false,
       is_coming_soon: json.isComingSoon ?? false,
       is_featured: json.isFeatured ?? false,
-      passing_marks: json.passingMarks || 0,
+      passing_marks: safeInt(json.passingMarks, 0),
       cutoff_marks: json.cutoffMarks ? JSON.stringify(json.cutoffMarks) : null,
       question_language_mode: json.questionLanguageMode || "bilingual",
       languages: JSON.stringify(json.languages || ["en"]),
-      series_id: seriesId,
-      stage_id: stageId,
-      test_category_id: testCategoryId,
-      exam_id: examId ? String(examId) : null,
+      series_id: safeInt(seriesId),
+      stage_id: safeInt(stageId),
+      test_category_id: safeInt(testCategoryId),
+      exam_id: safeInt(examId),
       category_path_ids: JSON.stringify(pathIds),
       category_path_names: JSON.stringify(pathNames),
       tags: json.tags || [],
@@ -1233,7 +1270,11 @@ export async function importFullTest(json, config = {}) {
  * @returns {object} - An object containing { extraFields, missingFields }
  */
 export function validateJsonSchema(json) {
-  const sample = Array.isArray(json) ? json[0] : json;
+  const sample = Array.isArray(json)
+    ? json[0]
+    : Array.isArray(json?.tests)
+      ? json.tests[0]
+      : json;
 
   const extraFields = { test: [], section: [], question: [] };
   const missingFields = { test: [], section: [], question: [] };

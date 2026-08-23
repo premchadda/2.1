@@ -19,5 +19,7 @@ export {
   applyAuthSession,
   saveAuthTokens,
   clearAuthTokens,
+  getInitialUser,
+  saveUserCache,
 } from "./authSession";
 export default AuthProvider;

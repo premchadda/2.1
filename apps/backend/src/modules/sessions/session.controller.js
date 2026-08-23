@@ -6,7 +6,11 @@
  * Actual session creation/invalidation is delegated to SessionCaptureService (which handles
  * WebSocket events, IP geolocation, and audit logging).
  */
-import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
+import { findEntityByIdentifier } from "../../shared/utils/identifier-utils.js";
 import {
   captureSession,
   invalidateSession,
@@ -514,10 +518,21 @@ const sessionController = {
   revokeUserSessions: async (req, res) => {
     try {
       const { userId } = req.params;
+      let internalUserId = parseInt(userId, 10);
+      if (isNaN(internalUserId)) {
+        const user = await findEntityByIdentifier(dbHelpers, "users", userId);
+        internalUserId = user ? user.id || user._id : null;
+      }
+      if (!internalUserId) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
       // Get all active sessions for this user
       const sessions = await pool.query(
         `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true`,
-        [parseInt(userId)],
+        [internalUserId],
       );
       // Invalidate each (triggers WebSocket events per session)
       let revoked = 0;
@@ -538,7 +553,18 @@ const sessionController = {
   getUserSessionsById: async (req, res) => {
     try {
       const { userId } = req.params;
-      const sessions = await getUserSessions(parseInt(userId));
+      let internalUserId = parseInt(userId, 10);
+      if (isNaN(internalUserId)) {
+        const user = await findEntityByIdentifier(dbHelpers, "users", userId);
+        internalUserId = user ? user.id || user._id : null;
+      }
+      if (!internalUserId) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
+      const sessions = await getUserSessions(internalUserId);
       const mapped = sessions.map((s) => ({
         id: s.session_id || s.id,
         browser: s.browser,
@@ -565,17 +591,28 @@ const sessionController = {
   updateSessionLimit: async (req, res) => {
     try {
       const { userId } = req.params;
+      let internalUserId = parseInt(userId, 10);
+      if (isNaN(internalUserId)) {
+        const user = await findEntityByIdentifier(dbHelpers, "users", userId);
+        internalUserId = user ? user.id || user._id : null;
+      }
+      if (!internalUserId) {
+        return res
+          .status(404)
+          .json({ success: false, message: "User not found" });
+      }
+
       const { sessionLimit, session_limit } = req.body;
       const rawLimit =
         sessionLimit !== undefined ? sessionLimit : session_limit;
       const limit =
         rawLimit !== undefined && rawLimit !== null && rawLimit !== ""
-          ? parseInt(rawLimit)
+          ? parseInt(rawLimit, 10)
           : null;
 
       await pool.query(`UPDATE users SET session_limit = $1 WHERE id = $2`, [
         limit,
-        userId,
+        internalUserId,
       ]);
       res.json({
         success: true,

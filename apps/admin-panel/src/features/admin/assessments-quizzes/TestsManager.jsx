@@ -71,14 +71,12 @@ import SECTION_PRESETS from "../../../shared/config/sectionPresets.js";
 const TEST_CATEGORY_TABS = [
   { id: "mock-tests", label: "Mock Tests", icon: CheckSquare },
   { id: "pyp", label: "Previous Year Papers", icon: FileText },
-  { id: "practice", label: "Practice & Quiz", icon: Layers },
   { id: "live-tests", label: "Live Tests", icon: Clock },
 ];
 
 const TEST_CATEGORY_NAMES = {
   "mock-tests": "Mock Tests",
   pyp: "PYPs",
-  practice: "Practice",
   "live-tests": "Live Tests",
 };
 
@@ -92,13 +90,6 @@ const TEST_CATEGORY_ALIASES = {
     "previous year papers",
     "Previous Year Papers",
     "PYPs",
-  ],
-  practice: [
-    "practice",
-    "quiz",
-    "practice-quiz",
-    "practice & quiz",
-    "Practice",
   ],
   "live-tests": ["live-tests", "live", "live test", "live tests", "Live Tests"],
 };
@@ -2210,14 +2201,15 @@ function TestsManager() {
       !deepLinkAppliedRef.current &&
       (searchParams.get("seriesId") || searchParams.get("stageId"));
     if (hasPendingDeepLink) return;
-    const isValidStage =
-      activeStageId &&
-      stagesForActiveExam.some((stage) =>
-        idsEqual(getEntityId(stage), activeStageId),
-      );
-    if (!isValidStage && stagesForActiveExam.length > 0) {
-      const firstStageId = getEntityId(stagesForActiveExam[0]);
-      if (firstStageId) setActiveStageId(firstStageId);
+    if (stagesForActiveExam.length === 0) {
+      if (activeStageId) setActiveStageId("");
+      return;
+    }
+    const stillValid = stagesForActiveExam.some((stage) =>
+      idsEqual(getEntityId(stage), activeStageId),
+    );
+    if (!stillValid) {
+      setActiveStageId(getEntityId(stagesForActiveExam[0]));
     }
   }, [stagesForActiveExam, activeStageId, searchParams]);
 
@@ -2297,6 +2289,8 @@ function TestsManager() {
     return seriesList.filter((series) => {
       const seriesId = String(getSeriesId(series) || "");
       const testsInSeries = testsBySeriesId.get(seriesId) || [];
+
+      // 1. Must match the selected exam category
       if (
         activeExamCategoryRefs.size > 0 &&
         !valueMatchesRefs(
@@ -2305,11 +2299,15 @@ function TestsManager() {
         )
       )
         return false;
+
+      // 2. Must match the selected exam
       if (
         activeExamRefs.size > 0 &&
         !valueMatchesRefs([getSeriesExamId(series)], activeExamRefs)
       )
         return false;
+
+      // 3. Stage filter (only when a specific stage is selected)
       if (activeStageRefs.size > 0) {
         const seriesStages = coerceArray(
           series.stages || series.stageIds || series.stage_ids,
@@ -2320,15 +2318,32 @@ function TestsManager() {
         );
         if (!seriesHasStage && !testHasStage) return false;
       }
+
+      // 4. Test-category filter — SOFT: only exclude when we have explicit
+      //    category metadata that actively contradicts the active tab.
+      //    Series without any testCategory metadata are always included
+      //    (the tab filters which tests show inside, not the series list itself).
+      const seriesCatValues = getSeriesCategoryValues(series);
+      const hasExplicitCategoryMeta = seriesCatValues.length > 0;
       const linkedFromCategory = flatTestCategories.some(
         (category) =>
           categoryRecordMatchesRefs(category, activeTestCategoryRefs) &&
           categoryLinksSeries(category, seriesId),
       );
-      return (
-        linkedFromCategory ||
-        seriesMatchesTestCategory(series, activeTestCategoryRefs, testsInSeries)
-      );
+      if (hasExplicitCategoryMeta || linkedFromCategory) {
+        // Series has metadata — only include if it actually matches
+        const matchesByMeta =
+          linkedFromCategory ||
+          seriesMatchesTestCategory(
+            series,
+            activeTestCategoryRefs,
+            testsInSeries,
+          );
+        if (!matchesByMeta) return false;
+      }
+      // If no category metadata at all → include (soft pass)
+
+      return true;
     });
   }, [
     seriesList,
@@ -3520,7 +3535,6 @@ function TestsManager() {
                     onClick={() => {
                       setActiveExamCategoryId(categoryValue);
                       setActiveExamId("");
-                      setActiveStageId("");
                     }}
                     className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${
                       isActive
@@ -3562,7 +3576,6 @@ function TestsManager() {
                       type="button"
                       onClick={() => {
                         setActiveExamId(exam.value);
-                        setActiveStageId("");
                       }}
                       className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${
                         isActive
@@ -3581,20 +3594,26 @@ function TestsManager() {
             <span className="text-xs font-bold text-gray-700 dark:text-gray-300 whitespace-nowrap">
               Stage:
             </span>
-            {stagesForActiveExam.map((stage) => {
-              const stageId = getEntityId(stage);
-              const isActive = idsEqual(activeStageId, stageId);
-              return (
-                <button
-                  key={stageId}
-                  type="button"
-                  onClick={() => setActiveStageId(stageId)}
-                  className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${isActive ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-bold" : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"}`}
-                >
-                  {stage.name || stage.title || stage.slug || stageId}
-                </button>
-              );
-            })}
+            {stagesForActiveExam.length === 0 ? (
+              <span className="text-xs text-gray-400 dark:text-gray-500 italic whitespace-nowrap">
+                No stages configured
+              </span>
+            ) : (
+              stagesForActiveExam.map((stage) => {
+                const stageId = getEntityId(stage);
+                const isActive = idsEqual(activeStageId, stageId);
+                return (
+                  <button
+                    key={stageId}
+                    type="button"
+                    onClick={() => setActiveStageId(stageId)}
+                    className={`px-2.5 py-1 text-xs rounded-xl border transition-all whitespace-nowrap tap-feedback ${isActive ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 font-bold" : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750"}`}
+                  >
+                    {stage.name || stage.title || stage.slug || stageId}
+                  </button>
+                );
+              })
+            )}
           </div>
 
           <div className="flex overflow-x-auto flex-nowrap items-center gap-2 pt-2.5 border-t border-gray-100 dark:border-gray-800 scrollbar-none pb-0.5">
@@ -3659,17 +3678,21 @@ function TestsManager() {
       </div>
 
       <div className="flex flex-col gap-2.5">
-        {!activeStageId ? (
+        {!activeExamCategoryId || !activeExamId ? (
           <EmptyState
             icon={Layers}
-            title="Stage Selection Required"
-            description="Please select a stage from the filters above to view and manage test series."
+            title="Select Exam Category & Exam"
+            description="Choose an exam category and exam from the filters above to view test series."
           />
         ) : filteredSeriesList.length === 0 ? (
           <EmptyState
             icon={FolderOpen}
             title="No Test Series Found"
-            description="Choose an exam category and exam, or link a test series to this test category."
+            description={
+              activeStageId
+                ? "No test series are linked to this stage. Try selecting 'All Stages', or link a series in the Test Series Manager."
+                : "No test series match the current filters. Create or link a test series to this exam category."
+            }
           />
         ) : (
           filteredSeriesList.map((series) => {

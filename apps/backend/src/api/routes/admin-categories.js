@@ -34,20 +34,21 @@ router.get(
     if (categories.length > 0) {
       const ids = categories.map((c) => c._id || c.id);
       const catTable = dbHelpers.getTableName("testCategories");
-      const countRes = await pool.query(
-        `SELECT parent_id, COUNT(*) as count FROM "${catTable}" WHERE parent_id = ANY($1) AND is_active = true GROUP BY parent_id`,
-        [ids],
-      );
+      const [countRes, relationsRes] = await Promise.all([
+        pool.query(
+          `SELECT parent_id, COUNT(*) as count FROM "${catTable}" WHERE parent_id = ANY($1) AND is_active = true GROUP BY parent_id`,
+          [ids],
+        ),
+        pool.query(
+          `SELECT test_category_id, test_series_id FROM test_category_series WHERE test_category_id = ANY($1)`,
+          [ids],
+        ),
+      ]);
 
       const countsMap = {};
       countRes.rows.forEach((row) => {
-        countsMap[row.parent_id] = parseInt(row.count);
+        countsMap[row.parent_id] = parseInt(row.count, 10);
       });
-
-      const relationsRes = await pool.query(
-        `SELECT test_category_id, test_series_id FROM test_category_series WHERE test_category_id = ANY($1)`,
-        [ids],
-      );
 
       const relationsMap = {};
       relationsRes.rows.forEach((row) => {

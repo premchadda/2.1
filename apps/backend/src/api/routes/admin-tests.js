@@ -403,6 +403,7 @@ const mapBulkRowToTestPayload = (row, config) => {
 // NOTE: Must be defined BEFORE /tests/:id to avoid being matched by the param route
 router.get(
   "/tests/orphaned",
+  responseCache("admin-tests-orphaned", 60),
   asyncHandler(async (req, res) => {
     const rawLimit = Number(req.query.limit);
     const rawOffset = Number(req.query.offset);
@@ -412,18 +413,19 @@ router.get(
     );
     const offset = Math.max(Number.isFinite(rawOffset) ? rawOffset : 0, 0);
 
-    const countRows = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
-    );
+    const [countRows, tests] = await Promise.all([
+      pool.query(
+        "SELECT COUNT(*)::int AS c FROM tests WHERE _orphaned = true AND is_active = true",
+      ),
+      dbHelpers.find(
+        "tests",
+        { _orphaned: true, isActive: true },
+        limit,
+        offset,
+      ),
+    ]);
     const total = countRows.rows[0]?.c ?? 0;
-
-    const tests = await dbHelpers.find("tests", {
-      _orphaned: true,
-      isActive: true,
-    });
-    const normalized = tests
-      .slice(offset, offset + limit)
-      .map(withTestSeriesAliases);
+    const normalized = tests.map(withTestSeriesAliases);
 
     res.json({ success: true, data: normalized, total, limit, offset });
   }),
@@ -449,12 +451,11 @@ router.get(
     if (req.query.categoryId) filters.categoryId = req.query.categoryId;
     if (req.query._orphaned === "true") filters._orphaned = true;
 
-    const countRows = await pool.query(
-      "SELECT COUNT(*)::int AS c FROM tests WHERE is_active = true",
-    );
+    const [countRows, tests] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS c FROM tests WHERE is_active = true"),
+      dbHelpers.find("tests", filters, limit, offset),
+    ]);
     const total = countRows.rows[0]?.c ?? 0;
-
-    let tests = await dbHelpers.find("tests", filters, limit, offset);
 
     // Normalize fields
     const normalized = tests.map(withTestSeriesAliases);
@@ -1076,12 +1077,10 @@ router.post("/tests/:id/duplicate", async (req, res) => {
       description: `Duplicated test ${sourceTestId} -> ${result.newTestId}`,
     });
 
-    res
-      .status(201)
-      .json({
-        success: true,
-        data: { newTestId: result.newTestId, newTitle: result.newTitle },
-      });
+    res.status(201).json({
+      success: true,
+      data: { newTestId: result.newTestId, newTitle: result.newTitle },
+    });
   } catch (error) {
     logger.error("[Tests] Error duplicating test:", error);
     res
@@ -1343,12 +1342,10 @@ router.put("/tests/:id/reassign", async (req, res) => {
         testSeriesId,
       );
       if (!existingSeries) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "The specified test series does not exist",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "The specified test series does not exist",
+        });
       }
       updateData.seriesId = testSeriesId;
       updateData.series_id = testSeriesId;
@@ -1360,12 +1357,10 @@ router.put("/tests/:id/reassign", async (req, res) => {
         testCategoryId,
       );
       if (!existingCat) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "The specified test category does not exist",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "The specified test category does not exist",
+        });
       }
       updateData.testCategoryId = testCategoryId;
       updateData.test_category_id = testCategoryId;
@@ -1455,12 +1450,10 @@ router.post(
       }
 
       if (!Array.isArray(normalizedRows) || normalizedRows.length === 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "No valid test rows found in upload",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "No valid test rows found in upload",
+        });
       }
 
       const config = {
@@ -1590,14 +1583,12 @@ router.post(
       }
 
       if (mapped.length === 0) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "All rows failed validation.",
-            skipped: skipDetails.length,
-            skipDetails,
-          });
+        return res.status(400).json({
+          success: false,
+          message: "All rows failed validation.",
+          skipped: skipDetails.length,
+          skipDetails,
+        });
       }
 
       const CHUNK_SIZE = 500;

@@ -28,8 +28,11 @@ apps/admin-panel/.env
 # Uploads and exports
 uploads/
 exports/
+storage/
 apps/backend/uploads/
 apps/backend/exports/
+apps/backend/storage/
+*.bak
 
 # OS files
 .DS_Store
@@ -58,6 +61,7 @@ apps/backend/src/data/*
 *.db
 *.sqlite
 ssc_cgl_prevyear_full.json
+RRB_NTPC_*.json
 
 # Test and debug scripts (if any remain outside _dev)
 test-*.js

@@ -710,7 +710,10 @@ app.use(
     res.setHeader("Cross-Origin-Embedder-Policy", "unsafe-none");
     next();
   },
-  express.static(path.join(__dirname, "uploads"), { maxAge: "7d", etag: true }),
+  express.static(path.join(__dirname, "..", "uploads"), {
+    maxAge: "7d",
+    etag: true,
+  }),
 );
 
 // Avatars/banners are public profile assets — left unauthenticated by design.

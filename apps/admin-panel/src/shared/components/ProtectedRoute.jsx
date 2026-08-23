@@ -50,10 +50,10 @@ function ProtectedRoute({
   requireAnyPermission,
   requireAllPermissions,
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, authResolved } = useAuth();
   const location = useLocation();
 
-  if (loading) {
+  if (loading || !authResolved) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

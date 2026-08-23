@@ -6,7 +6,10 @@ import {
   admin,
   superAdmin,
 } from "../../middleware/auth.middleware.js";
-import { invalidateResponseCache } from "../../middleware/responseCache.middleware.js";
+import {
+  responseCache,
+  invalidateResponseCache,
+} from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
 
@@ -53,6 +56,7 @@ function stripMaskedSecrets(payload) {
 // ===== APP SETTINGS =====
 router.get(
   "/settings",
+  responseCache("admin-settings", 30),
   asyncHandler(async (req, res) => {
     const { getFullSettings } =
       await import("../../services/SettingsService.js");

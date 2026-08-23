@@ -97,14 +97,14 @@ function TestSeriesCard({
   const mainCategories = categoryRows.slice(0, categoriesToShow);
   const extraCategories = categoryRows.slice(categoriesToShow);
 
-  const catSlug = (
-    series.examId ||
-    series.exam_id ||
+  const rawCatSlug =
+    series.examSlug ||
+    series.exam_slug ||
+    series.examCategory ||
     series.category ||
-    "ssc-cgl"
-  )
-    .toLowerCase()
-    .replace(/\s+/g, "-");
+    (series.examId ? String(series.examId) : "") ||
+    "ssc-cgl";
+  const catSlug = String(rawCatSlug).toLowerCase().replace(/\s+/g, "-");
   const targetUrl = isEnrolled
     ? `/${catSlug}/test-series/my`
     : `/${catSlug}/test-series/${seriesId}`;

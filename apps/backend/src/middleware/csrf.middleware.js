@@ -224,28 +224,13 @@ async function storePrevCsrfToken(authTokenHash) {
 export const getCsrfToken = async (authToken) => {
   const authTokenHash = hashAuthToken(authToken);
 
-  // 1. Try database (primary) — DB-first to survive multi-instance deployments
-  try {
-    const record = await dbHelpers.findOne("csrf_tokens", {
-      auth_token_hash: authTokenHash,
-      expires_at: { $gt: new Date().toISOString() },
-    });
-    if (record) {
-      // Hydrate memory cache for next lookup without extra DB hit
-      csrfTokensMemory.set(authTokenHash, {
-        token: record.csrf_token,
-        expiresAt:
-          new Date(record.expires_at).getTime() ||
-          Date.now() + CSRF_TOKEN_EXPIRY_MS,
-        createdAt: Date.now(),
-      });
-      return record.csrf_token;
-    }
-  } catch (dbError) {
-    console.warn("CSRF database lookup failed:", dbError.message);
+  // 1. Fast path: In-memory cache (0ms lookup)
+  const memoryRecord = csrfTokensMemory.get(authTokenHash);
+  if (memoryRecord && memoryRecord.expiresAt > Date.now()) {
+    return memoryRecord.token;
   }
 
-  // 2. Try Redis (secondary)
+  // 2. Fast path: Redis (sub-millisecond)
   const redis = getRedisClient();
   if (redis) {
     try {
@@ -263,10 +248,26 @@ export const getCsrfToken = async (authToken) => {
     }
   }
 
-  // 3. Check memory (grace period prev: tokens or dev fallback) — tertiary only
-  const memoryRecord = csrfTokensMemory.get(authTokenHash);
-  if (memoryRecord && memoryRecord.expiresAt > Date.now()) {
-    return memoryRecord.token;
+  // 3. Fallback: Database (on cold start or cache miss)
+  try {
+    const record = await dbHelpers.findOne("csrf_tokens", {
+      auth_token_hash: authTokenHash,
+      expires_at: { $gt: new Date().toISOString() },
+    });
+    if (record) {
+      const token = record.csrfToken || record.csrf_token;
+      const expiresAt = record.expiresAt || record.expires_at;
+      // Hydrate memory cache for next lookup without extra DB hit
+      csrfTokensMemory.set(authTokenHash, {
+        token,
+        expiresAt:
+          new Date(expiresAt).getTime() || Date.now() + CSRF_TOKEN_EXPIRY_MS,
+        createdAt: Date.now(),
+      });
+      return token;
+    }
+  } catch (dbError) {
+    console.warn("CSRF database lookup failed:", dbError.message);
   }
 
   return null;
@@ -365,6 +366,21 @@ async function isRecentCsrfToken(authTokenHash, csrfToken) {
   return false;
 }
 
+export const setCsrfCookie = (res, token) => {
+  if (!res || !res.cookie) return;
+  try {
+    res.cookie("_csrf_token", token, {
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      httpOnly: false, // Accessible by JavaScript so getCsrfToken() can read it
+      maxAge: CSRF_TOKEN_EXPIRY_MS,
+    });
+  } catch (_) {
+    // ignore cookie serialization errors
+  }
+};
+
 export const validateCsrfToken = async (req, res, next) => {
   const authToken =
     req.headers.authorization?.replace("Bearer ", "") || req.cookies?.token;
@@ -380,6 +396,7 @@ export const validateCsrfToken = async (req, res, next) => {
         await storeCsrfToken(authToken, existingToken);
       }
       res.set("X-CSRF-Token", existingToken);
+      setCsrfCookie(res, existingToken);
     }
     return next();
   }
@@ -413,7 +430,12 @@ export const validateCsrfToken = async (req, res, next) => {
     return next();
   }
 
-  const csrfToken = req.headers["x-csrf-token"] || req.body?._csrf;
+  const csrfToken =
+    req.headers["x-csrf-token"] ||
+    req.headers["csrf-token"] ||
+    req.headers["x-xsrf-token"] ||
+    req.body?._csrf ||
+    req.cookies?._csrf_token;
 
   if (!authToken) {
     // No auth token, skip CSRF (unauthenticated request)
@@ -435,6 +457,7 @@ export const validateCsrfToken = async (req, res, next) => {
       await storeCsrfToken(authToken, recoveryToken);
     }
     res.set("X-CSRF-Token", recoveryToken);
+    setCsrfCookie(res, recoveryToken);
     return res.status(403).json({
       success: false,
       message: "Invalid CSRF token",
@@ -473,6 +496,7 @@ export const validateCsrfToken = async (req, res, next) => {
   const newToken = generateCsrfToken();
   await storeCsrfToken(authToken, newToken);
   res.set("X-CSRF-Token", newToken); // Send new token in response header
+  setCsrfCookie(res, newToken);
 
   next();
 };
