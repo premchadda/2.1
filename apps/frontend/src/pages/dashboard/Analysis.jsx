@@ -25,14 +25,9 @@ import {
   Trophy,
   Timer,
   Zap,
-  Star,
   Lock as LockIcon,
   Activity,
   Gauge,
-  PieChart,
-  Calendar,
-  TrendingDown,
-  Hash,
   Layers,
   Wind,
   Brain,
@@ -54,7 +49,6 @@ const getSubjectIcon = (name = "") => {
 function Analysis() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
-  const [seriesData, setSeriesData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [attemptRows, setAttemptRows] = useState([]);
 
@@ -62,8 +56,7 @@ function Analysis() {
   useEffect(() => {
     const fetchSeries = async () => {
       try {
-        const series = await getTestSeries();
-        setSeriesData(series);
+        await getTestSeries();
       } catch (error) {
         console.error("Failed to fetch series:", error);
       } finally {
@@ -245,13 +238,13 @@ function Analysis() {
     let currentStreak = Number(analytics?.streak) || 0;
     if (currentStreak === 0 && attemptDates.size > 0) {
       const today = new Date();
-      let checkDate = new Date(today);
+      const checkDate = new Date(today);
       const todayStr = checkDate.toISOString().split("T")[0];
       checkDate.setDate(checkDate.getDate() - 1);
       const yesterdayStr = checkDate.toISOString().split("T")[0];
 
       if (attemptDates.has(todayStr) || attemptDates.has(yesterdayStr)) {
-        let cursor = attemptDates.has(todayStr) ? new Date(today) : checkDate;
+        const cursor = attemptDates.has(todayStr) ? new Date(today) : checkDate;
         while (attemptDates.has(cursor.toISOString().split("T")[0])) {
           currentStreak++;
           cursor.setDate(cursor.getDate() - 1);
@@ -669,30 +662,42 @@ function Analysis() {
             <p className="text-purple-100 text-xs mb-4">
               Keep up the great work!
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-              <div className="text-center">
-                <p className="text-xl font-bold text-white leading-none">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
                   {userStats.testsTaken}
                 </p>
-                <p className="text-purple-200 text-[10px] mt-1">Tests</p>
+                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                  Tests
+                </p>
               </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-white leading-none">
+              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
                   {userStats.accuracy}%
                 </p>
-                <p className="text-purple-200 text-[10px] mt-1">Accuracy</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-white leading-none">
-                  #{userStats.rank}
+                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                  Accuracy
                 </p>
-                <p className="text-purple-200 text-[10px] mt-1">Rank</p>
               </div>
-              <div className="text-center">
-                <p className="text-xl font-bold text-white leading-none">
-                  {userStats.timeSpent}h
+              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+                  {userStats.rank && userStats.rank !== "-"
+                    ? String(userStats.rank).startsWith("#")
+                      ? userStats.rank
+                      : `#${userStats.rank}`
+                    : "—"}
                 </p>
-                <p className="text-purple-200 text-[10px] mt-1">Time</p>
+                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                  Rank
+                </p>
+              </div>
+              <div className="text-center p-1.5 sm:p-2 rounded-xl bg-white/10 backdrop-blur-sm border border-white/10 min-h-[56px] sm:min-h-[64px] flex flex-col justify-center items-center">
+                <p className="text-base sm:text-xl font-bold text-white leading-none truncate w-full">
+                  {userStats.timeSpent}
+                </p>
+                <p className="text-purple-100 text-[9px] sm:text-[10px] mt-1 font-semibold tracking-wide uppercase truncate w-full">
+                  Time
+                </p>
               </div>
             </div>
           </div>
@@ -840,7 +845,7 @@ function Analysis() {
         </div>
 
         {/* Quick Stats */}
-        <div className="p-3 grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="p-3 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
