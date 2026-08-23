@@ -3,7 +3,39 @@ import typography from "@tailwindcss/typography";
 
 export default {
   darkMode: "class",
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}", "./src/styles/*.css"],
+  safelist: [
+    // Dynamically generated / JS-toggled classes that Tailwind purge must not remove
+    "animate-marquee-left",
+    "animate-marquee",
+    "animate-shimmer",
+    "animate-shimmer-slide",
+    "animate-float",
+    "animate-float-slow",
+    "animate-bounce-subtle",
+    "animate-pulse-subtle",
+    "animate-pulse-ring",
+    "animate-shake",
+    "animate-morph",
+    "glass",
+    "glass-card",
+    "glass-premium",
+    "glass-dark",
+    "glass-navbar",
+    "glass-premium-dark",
+    "text-gradient",
+    "shimmer",
+    "skeleton",
+    "skeleton-enhanced",
+    "skeleton-pulse",
+    "shadow-tcs",
+    "shadow-tcs-lg",
+    "shadow-glow",
+    "bottom-nav",
+    "mobile-overlay",
+    "mobile-drawer",
+    "open",
+  ],
   theme: {
     screens: {
       xs: "320px",
@@ -20,6 +52,7 @@ export default {
         display: ["Inter", "Segoe UI", "sans-serif"],
       },
       colors: {
+        // Brand palette — single source of truth (tokens.css aliases these via CSS vars; do not duplicate)
         brand: {
           start: "#667eea",
           end: "#764ba2",

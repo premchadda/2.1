@@ -1,0 +1,594 @@
+/* ===== Layout Layer =====
+ * Structural layout styles: overlays, drawers, navigation, containers, grids.
+ * Includes mobile-overlay, desktop-left-nav-mode, bottom-nav, content-layout.
+ */
+
+/* ===== Mobile Overlay & Drawer ===== */
+.mobile-overlay {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.mobile-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.mobile-drawer {
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mobile-drawer.open {
+    transform: translateX(0);
+}
+
+/* Desktop Left Sidebar Navigation */
+.desktop-left-nav-mode .mobile-drawer {
+    width: 260px;
+    left: 0;
+    right: auto;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.1);
+}
+
+.desktop-left-nav-mode #navbar .hidden.md\:flex {
+    display: none !important;
+}
+
+/* Keep mobile behavior on small screens */
+@media (max-width: 767px) {
+    .mobile-overlay,
+    .mobile-drawer {
+        left: auto;
+        right: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* ===== Breadcrumb Styles ===== */
+.breadcrumb-container {
+    padding: 16px 0;
+    font-size: 13px;
+    color: #718096;
+    background-color: white;
+}
+
+@media (max-width: 768px) {
+    .breadcrumb-container {
+        padding: 12px 0;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .breadcrumb-container {
+        padding: 10px 0;
+    }
+}
+
+/* ===== Test Detail Page Styles ===== */
+.test-detail-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px 40px;
+}
+
+.test-detail-header {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 25px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+}
+
+/* Stats and Categories Row - Responsive */
+.stats-categories-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Content Layout */
+.content-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    padding-top: 18px;
+    background-color: #f9fafb;
+}
+
+@media (min-width: 1025px) {
+    .content-layout {
+        flex-direction: row;
+    }
+
+    .main-content-area {
+        flex: 1;
+        order: 1;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 20px;
+    }
+
+    .sidebar {
+        width: 320px;
+        flex-shrink: 0;
+        order: 2;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+    }
+}
+
+@media (max-width: 1024px) {
+    .content-layout {
+        gap: 20px;
+    }
+
+    .main-content-area {
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+    }
+
+    .sidebar {
+        order: 1;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .content-layout {
+        gap: 15px;
+    }
+
+    .test-detail-container {
+        padding: 0 15px 20px;
+    }
+
+    .test-detail-header {
+        padding: 18px;
+        margin-bottom: 12px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .test-detail-title {
+        font-size: 22px;
+    }
+
+    .test-detail-subtitle {
+        font-size: 13px;
+    }
+
+    .stage-selector {
+        padding: 7px 14px;
+        font-size: 14px;
+    }
+
+    .test-stats {
+        gap: 18px;
+    }
+
+    .stat-item {
+        font-size: 14px;
+    }
+
+    .free-tests-badge {
+        font-size: 11px;
+        padding: 5px 11px;
+    }
+
+    .category-item {
+        font-size: 12px;
+    }
+
+    .enroll-btn {
+        padding: 9px 18px;
+        font-size: 14px;
+    }
+
+    .main-content-area {
+        padding: 12px;
+    }
+
+    .main-tabs-container {
+        gap: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .main-tab-btn {
+        font-size: 0.95rem;
+        padding: 0.5rem 0.25rem;
+    }
+
+    .sub-tab-navigation,
+    #subTabsContainer {
+        display: flex;
+        overflow-x: auto;
+        gap: 0.5rem;
+        scrollbar-width: thin;
+        scrollbar-color: #ccc #f5f5f5;
+    }
+
+    .sub-tab-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+
+    .test-cards-grid {
+        gap: 18px;
+    }
+
+    .test-card {
+        padding: 16px;
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 480px) {
+    .test-detail-container {
+        padding: 0 10px 15px;
+    }
+
+    .test-detail-header {
+        padding: 12px;
+        margin-bottom: 8px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .test-detail-title {
+        font-size: 20px;
+    }
+
+    .test-detail-subtitle {
+        font-size: 12px;
+    }
+
+    .stage-selector {
+        padding: 6px 12px;
+        font-size: 13px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+    }
+
+    .test-stats {
+        gap: 12px;
+    }
+
+    .stat-item {
+        font-size: 13px;
+    }
+
+    .free-tests-badge {
+        font-size: 10px;
+        padding: 4px 10px;
+    }
+
+    .category-item {
+        font-size: 11px;
+    }
+
+    .enroll-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+
+    .main-content-area {
+        padding: 12px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .navigation-wrapper {
+        margin-bottom: 0.5rem;
+    }
+
+    .main-tabs-container {
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .main-tab-btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.2rem;
+    }
+
+    .sub-tab-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+        min-width: fit-content;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+    }
+
+    .test-cards-grid {
+        gap: 12px;
+        grid-template-columns: 1fr;
+    }
+
+    .test-card {
+        padding: 12px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .test-title {
+        font-size: 0.95rem;
+    }
+
+    .test-details {
+        gap: 0.6rem;
+        font-size: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .register-btn {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+    }
+
+    .sidebar-card {
+        padding: 12px;
+        background: white;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .benefit-item {
+        gap: 0.75rem;
+        background: white;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .benefit-icon {
+        width: 35px;
+        height: 35px;
+    }
+
+    .benefit-title {
+        font-size: 0.9rem;
+    }
+
+    .benefit-description {
+        font-size: 12px;
+    }
+}
+
+.main-content-area {
+    background: white;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+}
+
+.section-title {
+    font-size: 20px;
+    color: #2d3748;
+    margin-bottom: 20px;
+}
+
+.free-tests-title {
+    margin-top: 40px;
+}
+
+.tab-navigation {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 25px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+
+/* Main & Sub Tab Styles */
+.main-tabs-container {
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.sub-tab-navigation,
+
+#subTabsContainer {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: #ccc #f5f5f5;
+}
+
+/* Test Cards Grid */
+.test-cards-grid {
+    gap: 15px;
+}
+
+/* ===== Sidebar Card ===== */
+.sidebar-card {
+    background: white;
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* ===== Bottom Navigation (Mobile) - Material Design 3 ===== */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    z-index: 50;
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.04);
+}
+
+.bottom-nav-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px 0;
+    color: rgba(0, 0, 0, 0.5);
+    transition: color 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    min-width: 64px;
+    flex: 1;
+}
+
+/* Material ripple effect */
+.bottom-nav-item::after {
+    content: '';
+    position: absolute;
+    inset: 4px 8px;
+    border-radius: 16px;
+    background: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.bottom-nav-item:active::after {
+    opacity: 0.08;
+}
+
+.bottom-nav-item.active {
+    color: #6366f1;
+}
+
+/* Material 3 style icon container with pill indicator */
+.bottom-nav-item .nav-icon-wrapper {
+    position: relative;
+    width: 64px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    transition: background 0.2s ease, transform 0.2s ease;
+    margin-bottom: 4px;
+}
+
+.bottom-nav-item.active .nav-icon-wrapper {
+    background: rgba(99, 102, 241, 0.12);
+}
+
+/* Material 3 pill indicator above active icon */
+.bottom-nav-item.active .nav-icon-wrapper::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 56px;
+    height: 28px;
+    background: rgba(99, 102, 241, 0.08);
+    border-radius: 14px;
+}
+
+/* Material-style label */
+.bottom-nav-item .nav-label {
+    font-family: 'Google Sans', 'Segoe UI', Roboto, sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    line-height: 1;
+}
+
+/* Active label styling */
+.bottom-nav-item.active .nav-label {
+    font-weight: 600;
+    color: #6366f1;
+}
+
+/* ===== Mobile Bottom Navigation Live Dot ===== */
+.bottom-nav-live-dot {
+    animation: livePulse 1.5s ease-in-out infinite;
+}
+
+.dark .sidebar-card,
+
+.dark .main-content-area,
+
+.dark .sidebar {
+    background: #1f2937;
+    border-color: #374151;
+    color: #e5e7eb;
+}
+
+/* Dark mode detail pages */
+.dark .test-detail-header {
+    background: #1f2937;
+    border-color: #374151;
+}
+
+/* Dark mode breadcrumbs */
+.dark .breadcrumb-container {
+    background-color: #1f2937;
+    color: #9ca3af;
+}
+
+/* Dark mode content layout */
+.dark .content-layout {
+    background-color: #111827;
+}
+
+/* Dark mode mobile drawer */
+.dark .mobile-drawer {
+    background: #1f2937;
+}
+
+/* Smooth dark mode transition */
+html, body, .card, .test-series-card, #navbar, aside, .mobile-drawer,
+
+/* Dark Mode Navigation - Material Design 3 */
+.dark .bottom-nav {
+    background: #1f2937;
+    border-top-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.3);
+}
+
+.dark .bottom-nav-item {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.dark .bottom-nav-item.active {
+    color: #818cf8;
+}
+
+.dark .bottom-nav-item.active .nav-icon-wrapper {
+    background: rgba(129, 140, 248, 0.15);
+}
+
+.dark .bottom-nav-item.active .nav-icon-wrapper::before {
+    background: rgba(129, 140, 248, 0.1);
+}
+
+.dark .bottom-nav-item.active .nav-label {
+    color: #818cf8;
+}
