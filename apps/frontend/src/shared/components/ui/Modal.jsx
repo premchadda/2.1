@@ -7,8 +7,8 @@ const sizes = {
   sm: "max-w-sm",
   md: "max-w-md",
   lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
+  xl: "max-w-[95vw] sm:max-w-xl",
+  "2xl": "max-w-[95vw] sm:max-w-2xl",
   full: "max-w-full mx-4",
 };
 
@@ -97,48 +97,53 @@ function Modal({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[99990] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[99990] overflow-y-auto overscroll-contain">
       <div
         ref={overlayRef}
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
         onClick={closeOnOverlay ? onClose : undefined}
       />
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={title ? titleId : undefined}
-        aria-describedby={bodyId}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        className={twMerge(
-          "relative w-full bg-white dark:bg-gray-800 rounded-2xl shadow-elevated border border-gray-200 dark:border-gray-700 animate-scale-in",
-          sizes[size] || sizes.md,
-          className,
-        )}
-      >
-        {(title || showClose) && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
-            {title && (
-              <h2
-                id={titleId}
-                className="text-lg font-bold text-gray-900 dark:text-white"
-              >
-                {title}
-              </h2>
-            )}
-            {showClose && (
-              <button
-                onClick={onClose}
-                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              </button>
-            )}
+      <div className="relative min-h-full flex items-center justify-center p-3 sm:p-4">
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={title ? titleId : undefined}
+          aria-describedby={bodyId}
+          tabIndex={-1}
+          onKeyDown={handleKeyDown}
+          className={twMerge(
+            "relative w-full my-2 max-h-[calc(100vh-1.5rem)] max-h-[calc(100dvh-1.5rem)] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-elevated border border-gray-200 dark:border-gray-700 animate-scale-in",
+            sizes[size] || sizes.md,
+            className,
+          )}
+        >
+          {(title || showClose) && (
+            <div className="shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              {title && (
+                <h2
+                  id={titleId}
+                  className="text-lg font-bold text-gray-900 dark:text-white break-anywhere"
+                >
+                  {title}
+                </h2>
+              )}
+              {showClose && (
+                <button
+                  onClick={onClose}
+                  className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                </button>
+              )}
+            </div>
+          )}
+          <div
+            id={bodyId}
+            className="px-6 py-4 overflow-y-auto overscroll-contain min-h-0"
+          >
+            {children}
           </div>
-        )}
-        <div id={bodyId} className="px-6 py-4">
-          {children}
         </div>
       </div>
     </div>

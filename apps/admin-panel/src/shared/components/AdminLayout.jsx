@@ -38,9 +38,12 @@ import {
   Moon,
   Sun,
   RotateCw,
+  Smartphone,
+  Download,
 } from "lucide-react";
 import { useAuth } from "../providers/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { usePwaInstall } from "@trstprep/shared-hooks";
 import adminNavConfig, {
   getFlatNavItems,
   getBreadcrumbs,
@@ -48,6 +51,8 @@ import adminNavConfig, {
 import { Logo, CommandPalette, PageTransition } from "./index.jsx";
 import AdminBottomNav from "./AdminBottomNav.jsx";
 import { filterAndRank, getHighlightedParts } from "../utils/searchUtils";
+import { getResourceFromSegment, hasPermission } from "../lib/rbac";
+import { isSafeImageUrl } from "../lib/sanitizeHtml";
 
 // Main site URL - can be changed via environment variable
 const MAIN_SITE_URL =
@@ -68,8 +73,9 @@ export default function AdminLayout() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { isDarkMode, toggleDarkMode } = useTheme();
+  const { isStandalone, installApp } = usePwaInstall();
 
   const handlePageRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -96,32 +102,28 @@ export default function AdminLayout() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Get user initials for avatar fallback
+  // Get user initials for avatar fallback - trimmed and filtered
   const getUserInitials = () => {
     if (!user?.name) return "A";
-    return user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    return (
+      user.name
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "A"
+    );
   };
 
-  // Check if user has a valid avatar URL (supports data URIs, http URLs, and relative paths)
-  const hasValidAvatar =
-    user?.avatar &&
-    typeof user.avatar === "string" &&
-    user.avatar !== "null" &&
-    user.avatar !== "undefined" &&
-    user.avatar !== "" &&
-    (user.avatar.startsWith("data:") ||
-      user.avatar.startsWith("http") ||
-      user.avatar.startsWith("/"));
+  // Check if user has a valid avatar URL - now uses isSafeImageUrl
+  const hasValidAvatar = isSafeImageUrl(user?.avatar);
 
   // Resolve avatar URL - use relative path for Vite proxy
   const getAvatarUrl = (avatar) => {
-    if (!avatar || typeof avatar !== "string") return "";
-    return avatar;
+    if (!isSafeImageUrl(avatar)) return "";
+    return String(avatar).trim();
   };
 
   // Close mobile menu on route change
@@ -174,8 +176,6 @@ export default function AdminLayout() {
     (item) => {
       const isSuper =
         user?.role === "super_admin" ||
-        user?.role === "admin" ||
-        user?.isAdmin === true ||
         user?.isSuperAdmin === true ||
         user?.is_super_admin === true;
       if (isSuper) return true;
@@ -185,78 +185,13 @@ export default function AdminLayout() {
           : [];
       if (permissions.includes("*")) return true;
       const segment = item.path.split("/").filter(Boolean)[1] || "content";
-      const resource = [
-        "users",
-        "enrollments",
-        "sessions",
-        "roles-permissions",
-        "user-activity-log",
-      ].includes(segment)
-        ? "users"
-        : [
-              "tests",
-              "test-series",
-              "questions",
-              "quizzes",
-              "sections",
-              "stages",
-              "exam-categories",
-              "exam-info",
-            ].includes(segment)
-          ? "tests"
-          : [
-                "settings",
-                "analytics",
-                "backups",
-                "recycle-bin",
-                "system-health",
-                "coming-soon",
-                "two-factor",
-                "navigation",
-              ].includes(segment)
-            ? "settings"
-            : [
-                  "payments",
-                  "subscription-plans",
-                  "plans",
-                  "coupons",
-                  "promotions",
-                ].includes(segment)
-              ? "monetization"
-              : [
-                    "banners",
-                    "faqs",
-                    "notifications",
-                    "email-templates",
-                  ].includes(segment)
-                ? "communications"
-                : ["moderation"].includes(segment)
-                  ? "moderation"
-                  : ["audit", "audit-trail", "results"].includes(segment)
-                    ? "audit"
-                    : ["analytics", "deep-analytics", "leaderboards"].includes(
-                          segment,
-                        )
-                      ? "analytics"
-                      : "content";
-
-      return permissions.some((p) => {
-        const [permResource, permAction] = p.split(":");
-        const resourceMatch =
-          permResource === "*" ||
-          permResource === resource ||
-          (resource === "settings" && permResource === "system") ||
-          (resource === "users" && permResource === "user") ||
-          (resource === "tests" &&
-            (permResource === "test" || permResource === "assessment"));
-        const actionMatch =
-          !permAction ||
-          permAction === "*" ||
-          permAction === "view" ||
-          permAction === "read" ||
-          permAction === "manage";
-        return resourceMatch && actionMatch;
-      });
+      const resource = getResourceFromSegment(segment);
+      return (
+        hasPermission(permissions, `${resource}:view`, false) ||
+        hasPermission(permissions, `${resource}:read`, false) ||
+        hasPermission(permissions, `${resource}:manage`, false) ||
+        hasPermission(permissions, `${resource}:*`, false)
+      );
     },
     [user],
   );
@@ -290,7 +225,7 @@ export default function AdminLayout() {
       .filter((category) => category.items.length > 0);
   }, [searchQuery, canViewItem]);
 
-  // Search results for top bar dropdown
+  // Search results for top bar dropdown - fixed category field (was categoryName mismatch)
   const searchResults = useMemo(() => {
     const cleanQuery = searchQuery.trim();
     if (!cleanQuery) return [];
@@ -301,15 +236,13 @@ export default function AdminLayout() {
       (item) => [
         item.name,
         item.description,
-        item.categoryName,
+        item.category || item.categoryName,
         item.id,
         ...(item.keywords || []),
       ],
       { threshold: 18, maxResults: 8 },
     );
   }, [searchQuery, canViewItem]);
-
-  const { logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
@@ -510,6 +443,27 @@ export default function AdminLayout() {
         >
           {filteredNav.map((category) => renderCategory(category))}
         </nav>
+
+        {/* Install Admin App - Desktop */}
+        {!isStandalone && (
+          <div className="p-2 border-t border-gray-200 dark:border-gray-800">
+            <button
+              onClick={installApp}
+              className={`w-full flex items-center ${sidebarOpen ? "justify-between px-3" : "justify-center px-2"} py-2 rounded-xl bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 transition-colors group text-left`}
+              title="Install Admin App"
+            >
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+                {sidebarOpen && (
+                  <span className="text-xs font-semibold">Install App</span>
+                )}
+              </div>
+              {sidebarOpen && (
+                <Download className="w-3.5 h-3.5 text-indigo-500" />
+              )}
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Sidebar - Mobile Drawer */}
@@ -550,6 +504,25 @@ export default function AdminLayout() {
         >
           {filteredNav.map((category) => renderCategory(category))}
         </nav>
+
+        {/* Install Admin App - Mobile Drawer */}
+        {!isStandalone && (
+          <div className="p-3 border-t border-gray-200 dark:border-gray-800">
+            <button
+              onClick={() => {
+                installApp();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-indigo-50/80 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 transition-colors group text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <Smartphone className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-semibold">Install Admin App</span>
+              </div>
+              <Download className="w-3.5 h-3.5 text-indigo-500" />
+            </button>
+          </div>
+        )}
       </aside>
 
       {/* Main Content */}

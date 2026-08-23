@@ -1,67 +1,75 @@
-import { useState, useMemo } from 'react'
-import { 
-  BookOpen, 
-  ChevronRight, 
-  Search, 
-  Sparkles, 
+import { useState, useMemo } from "react";
+import {
+  BookOpen,
+  ChevronRight,
+  Search,
+  Sparkles,
   Layers,
-  ArrowRight
-} from 'lucide-react'
+  ArrowRight,
+} from "lucide-react";
 
-export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, onQuickStart }) {
+export default function PracticeTopicTree({
+  subjects = [],
+  tree,
+  onSelectTopic,
+  onQuickStart,
+}) {
   const subjectList = useMemo(() => {
-    if (Array.isArray(tree)) return tree
-    if (tree?.subjects) return tree.subjects
-    return subjects || []
-  }, [tree, subjects])
+    if (Array.isArray(tree)) return tree;
+    if (tree?.subjects) return tree.subjects;
+    return subjects || [];
+  }, [tree, subjects]);
 
-  const [activeSubjectId, setActiveSubjectId] = useState(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [activeSubjectId, setActiveSubjectId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Set default active subject when data loads
   const currentSubject = useMemo(() => {
-    if (!subjectList.length) return null
-    return subjectList.find((s) => s.id === activeSubjectId) || subjectList[0]
-  }, [subjectList, activeSubjectId])
+    if (!subjectList.length) return null;
+    return subjectList.find((s) => s.id === activeSubjectId) || subjectList[0];
+  }, [subjectList, activeSubjectId]);
 
   // Filter topics by search query
   const filteredChapters = useMemo(() => {
-    if (!currentSubject?.chapters) return []
-    if (!searchQuery.trim()) return currentSubject.chapters
+    if (!currentSubject?.chapters) return [];
+    if (!searchQuery.trim()) return currentSubject.chapters;
 
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.toLowerCase();
     return currentSubject.chapters
       .map((ch) => {
-        const matchChapter = ch.name?.toLowerCase().includes(q)
-        const matchingTopics = ch.topics?.filter((t) => t.name?.toLowerCase().includes(q)) || []
+        const matchChapter = ch.name?.toLowerCase().includes(q);
+        const matchingTopics =
+          ch.topics?.filter((t) => t.name?.toLowerCase().includes(q)) || [];
         if (matchChapter || matchingTopics.length > 0) {
           return {
             ...ch,
             topics: matchChapter ? ch.topics : matchingTopics,
-          }
+          };
         }
-        return null
+        return null;
       })
-      .filter(Boolean)
-  }, [currentSubject, searchQuery])
+      .filter(Boolean);
+  }, [currentSubject, searchQuery]);
 
   return (
     <div className="space-y-6">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
-        
+
         <div className="relative z-10 max-w-3xl space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-xs font-semibold text-purple-200">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>Testbook & Exam Engine Inspired</span>
           </div>
 
-          <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white">
+          <h2 className="text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white">
             Topic-Wise Practice Lab
           </h2>
           <p className="text-sm md:text-base text-indigo-100/90 leading-relaxed">
-            Select a subject and chapter to target specific weak spots. Practice with instant solution reveals, adaptive AI difficulty, or timed sprint modes.
+            Select a subject and chapter to target specific weak spots. Practice
+            with instant solution reveals, adaptive AI difficulty, or timed
+            sprint modes.
           </p>
 
           {/* Quick Search */}
@@ -83,30 +91,34 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
       {/* Subject Navigation Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         {subjects.map((sub) => {
-          const isActive = (currentSubject?.id || subjects[0]?.id) === sub.id
+          const isActive = (currentSubject?.id || subjects[0]?.id) === sub.id;
           return (
             <button
               key={sub.id}
               onClick={() => setActiveSubjectId(sub.id)}
               className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl font-bold text-xs md:text-sm shrink-0 transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20'
-                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-50'
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20"
+                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-50"
               }`}
             >
-              <BookOpen className={`w-4 h-4 ${isActive ? 'text-white' : 'text-indigo-500'}`} />
+              <BookOpen
+                className={`w-4 h-4 ${isActive ? "text-white" : "text-indigo-500"}`}
+              />
               <span>{sub.name}</span>
               {sub.chaptersCount && (
                 <span
                   className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-500'
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-slate-100 dark:bg-slate-700 text-slate-500"
                   }`}
                 >
                   {sub.chaptersCount} Ch
                 </span>
               )}
             </button>
-          )
+          );
         })}
       </div>
 
@@ -129,13 +141,16 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
                       {chapter.name}
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {chapter.topics?.length || 0} Topics • {chapter.totalQuestions || 0} Questions
+                      {chapter.topics?.length || 0} Topics •{" "}
+                      {chapter.totalQuestions || 0} Questions
                     </p>
                   </div>
                 </div>
 
                 <button
-                  onClick={() => onQuickStart?.({ chapterId: chapter.id, mode: 'learn' })}
+                  onClick={() =>
+                    onQuickStart?.({ chapterId: chapter.id, mode: "learn" })
+                  }
                   className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 text-xs font-semibold rounded-xl border border-indigo-100 dark:border-indigo-800/40 flex items-center gap-1 transition-all cursor-pointer"
                 >
                   <span>Practice All</span>
@@ -146,27 +161,34 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
               {/* Topics List */}
               <div className="space-y-2">
                 {chapter.topics?.map((topic) => {
-                  const accuracy = topic.accuracy !== null ? Math.round(topic.accuracy) : null
-                  let accuracyColor = 'text-slate-400'
-                  let progressColor = 'bg-indigo-500'
+                  const accuracy =
+                    topic.accuracy !== null ? Math.round(topic.accuracy) : null;
+                  let accuracyColor = "text-slate-400";
+                  let progressColor = "bg-indigo-500";
 
                   if (accuracy !== null) {
                     if (accuracy >= 70) {
-                      accuracyColor = 'text-emerald-600 dark:text-emerald-400'
-                      progressColor = 'bg-emerald-500'
+                      accuracyColor = "text-emerald-600 dark:text-emerald-400";
+                      progressColor = "bg-emerald-500";
                     } else if (accuracy >= 40) {
-                      accuracyColor = 'text-amber-600 dark:text-amber-400'
-                      progressColor = 'bg-amber-500'
+                      accuracyColor = "text-amber-600 dark:text-amber-400";
+                      progressColor = "bg-amber-500";
                     } else {
-                      accuracyColor = 'text-rose-600 dark:text-rose-400'
-                      progressColor = 'bg-rose-500'
+                      accuracyColor = "text-rose-600 dark:text-rose-400";
+                      progressColor = "bg-rose-500";
                     }
                   }
 
                   return (
                     <div
                       key={topic.id}
-                      onClick={() => onSelectTopic?.({ ...topic, chapterId: chapter.id, subjectId: currentSubject.id })}
+                      onClick={() =>
+                        onSelectTopic?.({
+                          ...topic,
+                          chapterId: chapter.id,
+                          subjectId: currentSubject.id,
+                        })
+                      }
                       className="group bg-slate-50/70 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-700/60 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 hover:border-indigo-300 dark:hover:border-indigo-500/50 transition-all duration-200 cursor-pointer flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0 flex-1">
@@ -175,7 +197,9 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
                             {topic.name}
                           </h4>
                           {accuracy !== null && (
-                            <span className={`text-[10px] font-bold ${accuracyColor}`}>
+                            <span
+                              className={`text-[10px] font-bold ${accuracyColor}`}
+                            >
                               {accuracy}% Mastery
                             </span>
                           )}
@@ -199,7 +223,7 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
                         </div>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             </div>
@@ -217,5 +241,5 @@ export default function PracticeTopicTree({ subjects = [], tree, onSelectTopic, 
         </div>
       )}
     </div>
-  )
+  );
 }

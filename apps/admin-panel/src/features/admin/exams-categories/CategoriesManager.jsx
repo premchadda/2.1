@@ -46,7 +46,7 @@ const TABS = [
     icon: ExternalLink,
   },
   {
-    id: "series-subcategory-relations",
+    id: "series-exam-relations",
     label: "Child Relations",
     icon: ClipboardList,
   },
@@ -59,11 +59,16 @@ export { TABS };
 export const CategoryTabConfig = TABS;
 
 const isSameEntityId = (a, b) => {
-  if (a == null || b == null) return false;
-  if (String(a) === String(b)) return true;
-  const na = Number(a);
-  const nb = Number(b);
-  return !Number.isNaN(na) && !Number.isNaN(nb) && na === nb;
+  if (a == null || b == null || a === "" || b === "") return false;
+  const sa = String(a).trim();
+  const sb = String(b).trim();
+  if (sa === "" || sb === "") return false;
+  if (sa === sb) return true;
+  // Strict numeric only for pure numeric strings to avoid Number("")===0 bug
+  if (/^-?\d+$/.test(sa) && /^-?\d+$/.test(sb)) {
+    return Number(sa) === Number(sb);
+  }
+  return false;
 };
 
 const normalizeIdList = (value) => coerceArray(value).map(String);
@@ -546,13 +551,36 @@ export default function CategoriesManager() {
     return Array.from(byId.values());
   };
 
+  // Memoized counts map to avoid O(C*(S+T)) per render per node — compute once per data change
+  const categoryCountsMap = useMemo(() => {
+    const map = new Map();
+    for (const cat of categories) {
+      const id = String(cat._id ?? cat.id ?? cat.categoryId);
+      const ids = getCategoryAndDescendantIds(cat);
+      // Direct counts without re-filtering all categories each time
+      const seriesCount = getRelatedSeriesForCategories(ids).length;
+      const testsCount = getRelatedTestsForCategories(ids).length;
+      map.set(id, { seriesCount, testsCount });
+    }
+    return map;
+  }, [categories, testSeries, tests]);
+
   const getTotalCountsRecursive = (category) => {
-    const categoryIds = getCategoryAndDescendantIds(category);
-    return {
-      seriesCount: getRelatedSeriesForCategories(categoryIds).length,
-      testsCount: getRelatedTestsForCategories(categoryIds).length,
-    };
+    const id = String(category?._id ?? category?.id ?? "");
+    return categoryCountsMap.get(id) || { seriesCount: 0, testsCount: 0 };
   };
+
+  const childrenByParent = useMemo(() => {
+    const m = new Map();
+    for (const c of categories) {
+      const pid = normParentId(c.parentId);
+      if (!m.has(pid)) m.set(pid, []);
+      m.get(pid).push(c);
+    }
+    for (const [, arr] of m)
+      arr.sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    return m;
+  }, [categories]);
 
   const triggerTreeRefresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1);
@@ -700,12 +728,29 @@ export default function CategoriesManager() {
       const descendantArray = Array.from(descendantIds).filter(
         (did) => !isSameEntityId(did, id),
       );
-      for (const descendantId of descendantArray) {
-        try {
-          await adminAPI.deleteTestCategory(descendantId);
-        } catch (err) {
-          console.warn(`Failed to delete child ${descendantId}:`, err);
+      // Batch delete children with limited concurrency (3) and track failures for transaction-like reporting
+      const batchDelete = async (ids, concurrency = 3) => {
+        const results = [];
+        for (let i = 0; i < ids.length; i += concurrency) {
+          const batch = ids.slice(i, i + concurrency);
+          const batchRes = await Promise.allSettled(
+            batch.map((did) => adminAPI.deleteTestCategory(did)),
+          );
+          results.push(...batchRes);
         }
+        return results;
+      };
+      const childResults = descendantArray.length
+        ? await batchDelete(descendantArray)
+        : [];
+      const failedChildren = childResults.filter(
+        (r) => r.status === "rejected",
+      ).length;
+      if (failedChildren > 0) {
+        showToast(
+          `${failedChildren} child categories failed to delete - continuing with parent`,
+          "warning",
+        );
       }
 
       const response = await adminAPI.deleteTestCategory(id);
@@ -1097,7 +1142,7 @@ export default function CategoriesManager() {
     }
   };
 
-  // Recursive Category Tree Item
+  // Recursive Category Tree Item - memoized via closure stability (uses maps)
   const CategoryItem = ({ category, depth = 0 }) => {
     const catId = category._id || category.id;
     const hasChildren = category.children && category.children.length > 0;
@@ -1105,11 +1150,7 @@ export default function CategoriesManager() {
     const counts = getTotalCountsRecursive(category);
     const isHovered = hoveredCategory === catId;
 
-    const sibs = categories
-      .filter(
-        (c) => normParentId(c.parentId) === normParentId(category.parentId),
-      )
-      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+    const sibs = childrenByParent.get(normParentId(category.parentId)) || [];
     const sidx = sibs.findIndex((c) => isSameEntityId(c._id ?? c.id, catId));
 
     const examCategoryLabel = category.examCategoryId

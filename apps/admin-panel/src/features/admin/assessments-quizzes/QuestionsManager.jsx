@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Plus,
@@ -117,13 +117,7 @@ const getTestSeriesIdFromQuestion = (question = {}) =>
   question.series_id ??
   null;
 const getSeriesExamId = (series = {}) =>
-  series.examId ??
-  series.exam_id ??
-  series.subcategory ??
-  series.subCategory ??
-  series.sub_category ??
-  series.subcategory_id ??
-  null;
+  series.examId ?? series.exam_id ?? null;
 const getSeriesExamCategoryId = (series = {}) =>
   series.category ??
   series.category_id ??
@@ -385,12 +379,12 @@ const DEFAULT_TEST_FORM = {
   isLive: false,
 };
 
-export default function QuestionsManager() {
+function QuestionsManager() {
   const {
     categories: examCategories,
     exams: examsFromHook,
     examInfo,
-    getSubcategories,
+    getExamsByCategory,
     loading: examFiltersLoading,
   } = useExamCategories();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1058,8 +1052,8 @@ export default function QuestionsManager() {
 
   const examsForActiveCategory = useMemo(() => {
     if (!activeExamCategoryId) return [];
-    return getSubcategories(activeExamCategoryId) || [];
-  }, [activeExamCategoryId, getSubcategories]);
+    return getExamsByCategory(activeExamCategoryId) || [];
+  }, [activeExamCategoryId, getExamsByCategory]);
 
   const activeExamCategoryRefs = useMemo(
     () => buildExamCategoryRefs(activeExamCategoryId, examCategories),
@@ -1660,7 +1654,6 @@ export default function QuestionsManager() {
       if (editingId) {
         if (data.testId) {
           payload.testId = data.testId;
-          payload.test_id = data.testId;
         }
         if (data.testSeriesId) {
           payload.testSeriesId = data.testSeriesId;
@@ -1670,7 +1663,6 @@ export default function QuestionsManager() {
       else if (selectedTest) {
         const testId = getTestId(selectedTest);
         payload.testId = testId;
-        payload.test_id = testId;
         const sid =
           selectedTest.testSeriesId ??
           selectedTest.test_series_id ??
@@ -1689,12 +1681,21 @@ export default function QuestionsManager() {
         toast.success("Question created successfully!");
       }
 
-      // Refresh questions
-      const res = await questionsAPI.getAll({ page: 1, limit: 2000 });
-      if (res.data?.success) {
-        const rawQuestions = res.data.data || [];
-        const normalizedQuestions = rawQuestions.map(normalizeQuestion);
-        setQuestions(normalizedQuestions);
+      // Refresh questions - paginated to avoid OOM (was 2000)
+      const res = await questionsAPI.getAll({ page: 1, limit: 50 });
+      if (res.data?.success || Array.isArray(res.data?.data)) {
+        const rawQuestions = res.data.data || res.data || [];
+        const normalizedQuestions = Array.isArray(rawQuestions)
+          ? rawQuestions.map(normalizeQuestion)
+          : [];
+        // Merge with existing to avoid losing >50 bank, just refresh current view
+        if (normalizedQuestions.length)
+          setQuestions((prev) => {
+            const map = new Map(prev.map((q) => [String(q._id || q.id), q]));
+            for (const nq of normalizedQuestions)
+              map.set(String(nq._id || nq.id), nq);
+            return Array.from(map.values());
+          });
       }
 
       setShowForm(false);
@@ -4765,6 +4766,8 @@ export default function QuestionsManager() {
                         {previewQuestion.imageUrl &&
                           isSafeImageUrl(previewQuestion.imageUrl) && (
                             <img
+                              loading="lazy"
+                              decoding="async"
                               src={previewQuestion.imageUrl}
                               alt="Question Graphic"
                               className="mt-3 rounded-lg max-h-48 object-contain border border-gray-200 dark:border-gray-700"
@@ -5275,3 +5278,5 @@ export default function QuestionsManager() {
     </div>
   );
 }
+
+export default memo(QuestionsManager);

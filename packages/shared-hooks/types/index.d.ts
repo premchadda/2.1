@@ -1,5 +1,5 @@
-import { RefObject } from 'react';
-import { Socket } from 'socket.io-client';
+import { RefObject } from "react";
+import { Socket } from "socket.io-client";
 
 // ─── useUndoRedo ────────────────────────────────────────────────────────────
 
@@ -11,7 +11,11 @@ interface UndoRedoEntry {
 }
 
 interface UndoRedoResult {
-  execute: <T = any>(doAction: () => T | Promise<T>, undoAction: () => void, label?: string) => Promise<T>;
+  execute: <T = any>(
+    doAction: () => T | Promise<T>,
+    undoAction: () => void,
+    label?: string,
+  ) => Promise<T>;
   undo: () => Promise<{ result: any; label: string } | null>;
   redo: () => Promise<{ result: any; label: string } | null>;
   canUndo: boolean;
@@ -35,7 +39,9 @@ interface ValidationRule {
   custom?: (value: any, formData: Record<string, any>) => string | null;
 }
 
-interface FormManagerResult<T extends Record<string, any> = Record<string, any>> {
+interface FormManagerResult<
+  T extends Record<string, any> = Record<string, any>,
+> {
   formData: T;
   errors: Record<string, string | null>;
   touched: Record<string, boolean>;
@@ -45,19 +51,29 @@ interface FormManagerResult<T extends Record<string, any> = Record<string, any>>
   isDirty: boolean;
 
   updateField: (field: string, value: any) => void;
-  handleChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+  handleChange: (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => void;
   handleBlur: (field: string) => void;
   validateForm: () => boolean;
   resetForm: () => void;
   populateForm: (data: Partial<T>) => void;
-  handleSubmit: <R = any>(submitFn: (data: T) => Promise<R> | R) => Promise<R | false>;
+  handleSubmit: <R = any>(
+    submitFn: (data: T) => Promise<R> | R,
+  ) => Promise<R | false>;
   setFormData: React.Dispatch<React.SetStateAction<T>>;
-  setErrors: React.Dispatch<React.SetStateAction<Record<string, string | null>>>;
+  setErrors: React.Dispatch<
+    React.SetStateAction<Record<string, string | null>>
+  >;
 }
 
-export function useFormManager<T extends Record<string, any> = Record<string, any>>(
+export function useFormManager<
+  T extends Record<string, any> = Record<string, any>,
+>(
   initialData?: T,
-  validationRules?: Record<string, ValidationRule>
+  validationRules?: Record<string, ValidationRule>,
 ): FormManagerResult<T>;
 
 // ─── useStages ──────────────────────────────────────────────────────────────
@@ -121,7 +137,7 @@ export function useStages(options?: StagesOptions): StagesResult;
 
 // ─── useProPass ──────────────────────────────────────────────────────────────
 
-type UrgencyLevel = 'active' | 'critical' | 'warning' | 'notice' | 'expired';
+type UrgencyLevel = "active" | "critical" | "warning" | "notice" | "expired";
 
 interface ProPassResult {
   isProUser: boolean;
@@ -192,26 +208,21 @@ interface ExamCategoriesResult {
   categories: ExamCategory[];
   examInfo: ExamInfo[];
   exams: ExamInfo[];
-  examSubCategories: ExamInfo[];
   loading: boolean;
   error: string | null;
 
   fetchCategories: () => Promise<void>;
   fetchExamInfo: () => Promise<void>;
   fetchExams: () => Promise<void>;
-  fetchExamSubCategories: () => Promise<void>;
 
   getExamsByCategory: (categoryId: string) => ExamOption[];
   getAllExams: () => ExamOption[];
   getExamById: (examId: string) => ExamInfo | undefined;
 
-  getSubcategories: (categoryId: string) => ExamOption[];
-  getAllSubcategories: () => ExamOption[];
-  getSubcategoriesFromExamInfo: (categoryId: string) => ExamOption[];
-  getAllSubcategoriesFromExamInfo: () => ExamOption[];
+  getExamsFromExamInfo: (categoryId: string) => ExamOption[];
+  getAllExamsFromExamInfo: () => ExamOption[];
   getCategoryLabel: (categoryId: string) => string;
   getExamInfo: (categoryId: string, examId: string) => ExamInfo | undefined;
-  getSubCategoryById: (examId: string) => ExamInfo | undefined;
 
   refresh: () => void;
 }
@@ -266,7 +277,10 @@ interface TestCategoriesResult {
   fetchTree: () => Promise<void>;
   fetchRoots: () => Promise<void>;
 
-  buildTree: (items: TestCategory[], parentId?: string | null) => TestCategoryTreeNode[];
+  buildTree: (
+    items: TestCategory[],
+    parentId?: string | null,
+  ) => TestCategoryTreeNode[];
   getCategoryOptions: () => TestCategoryOption[];
   getRootCategoryNames: () => string[];
   getFeaturedExams: () => FeaturedExam[];
@@ -293,7 +307,7 @@ interface GenericCRUDConfig {
   getErrorMessage?: (action: string, itemName: string) => string;
   useAdminAPI?: boolean;
   confirmFn?: (message: string) => boolean;
-  notifyFn?: (type: 'success' | 'error', message: string) => Promise<void>;
+  notifyFn?: (type: "success" | "error", message: string) => Promise<void>;
 }
 
 interface GenericCRUDResult {
@@ -306,7 +320,10 @@ interface GenericCRUDResult {
   setShowForm: React.Dispatch<React.SetStateAction<boolean>>;
 
   fetchItems: (queryParams?: Record<string, any>) => Promise<any[]>;
-  saveItem: (customData?: Record<string, any> | null, id?: string | null) => Promise<boolean>;
+  saveItem: (
+    customData?: Record<string, any> | null,
+    id?: string | null,
+  ) => Promise<boolean>;
   deleteItem: (id: string, confirmMessage?: string) => Promise<boolean>;
   editItem: (item: Record<string, any>) => void;
   resetForm: () => void;
@@ -335,9 +352,9 @@ export function useWebSocket(): WebSocketResult;
 
 // ─── EmptyState ─────────────────────────────────────────────────────────────
 
-import { ComponentType, ReactNode } from 'react';
+import { ComponentType, ReactNode } from "react";
 
-type IllustrationType = 'search' | 'empty' | 'error' | 'success';
+type IllustrationType = "search" | "empty" | "error" | "success";
 
 interface EmptyStateProps {
   icon?: ComponentType<{ className?: string }>;
@@ -348,7 +365,7 @@ interface EmptyStateProps {
   action?: ReactNode;
   actionLabel?: string;
   onAction?: () => void;
-  actionVariant?: 'primary' | 'secondary';
+  actionVariant?: "primary" | "secondary";
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   className?: string;

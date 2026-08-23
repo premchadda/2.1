@@ -1,45 +1,49 @@
-import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { Calendar, User, Clock, ArrowLeft, Share2 } from 'lucide-react';
-import api from '../../shared/lib/dataService'
-import sanitizeHtml from '../../shared/lib/sanitizeHtml'
+import { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Calendar, User, Clock, ArrowLeft, Share2 } from "lucide-react";
+import api from "../../shared/lib/dataService";
+import sanitizeHtml from "../../shared/lib/sanitizeHtml";
 
 export default function BlogDetail() {
-  const { id } = useParams()
-  const [blog, setBlog] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { id } = useParams();
+  const [blog, setBlog] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetchBlog(controller.signal)
-    return () => controller.abort()
-  }, [id])
+    const controller = new AbortController();
+    fetchBlog(controller.signal);
+    return () => controller.abort();
+  }, [id]);
 
   const fetchBlog = async (signal) => {
     try {
-      setLoading(true)
-      const response = await api.get(`/api/blogs/${id}`, { signal })
-      if (signal?.aborted) return
+      setLoading(true);
+      const response = await api.get(`/api/blogs/${id}`, { signal });
+      if (signal?.aborted) return;
       if (response.data?.success) {
-        const data = response.data.data
+        const data = response.data.data;
         setBlog({
           ...data,
-          imageUrl: data.featuredImage || data.thumbnail || data.image || data.coverImage,
-          author: data.author || 'Trstprep Team',
-        })
+          imageUrl:
+            data.featuredImage ||
+            data.thumbnail ||
+            data.image ||
+            data.coverImage,
+          author: data.author || "Trstprep Team",
+        });
       } else {
-        setError('Blog post not found')
+        setError("Blog post not found");
       }
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Failed to fetch blog:', error)
-        setError('Failed to load blog post')
+      if (error.name !== "AbortError") {
+        console.error("Failed to fetch blog:", error);
+        setError("Failed to load blog post");
       }
     } finally {
-      if (!signal?.aborted) setLoading(false)
+      if (!signal?.aborted) setLoading(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -55,28 +59,35 @@ export default function BlogDetail() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   if (error || !blog) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Blog Not Found</h1>
-          <p className="text-gray-600 mb-6">{error || 'The blog post you are looking for does not exist.'}</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Blog Not Found
+          </h1>
+          <p className="text-gray-600 mb-6">
+            {error || "The blog post you are looking for does not exist."}
+          </p>
           <Link to="/blog" className="text-indigo-600 hover:underline">
             Back to Blog
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         {/* Back Button */}
-        <Link to="/blog" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6">
+        <Link
+          to="/blog"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+        >
           <ArrowLeft className="w-4 h-4" />
           Back to Blog
         </Link>
@@ -86,8 +97,10 @@ export default function BlogDetail() {
           {/* Hero Image */}
           {blog.imageUrl && (
             <div className="h-64 md:h-96 bg-gray-200">
-              <img 
-                src={blog.imageUrl} 
+              <img
+                loading="lazy"
+                decoding="async"
+                src={blog.imageUrl}
                 alt={blog.title}
                 className="w-full h-full object-cover"
               />
@@ -99,13 +112,15 @@ export default function BlogDetail() {
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-4">
               <span className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
-                {new Date(blog.createdAt).toLocaleDateString('en-IN', { 
-                  day: 'numeric', month: 'long', year: 'numeric' 
+                {new Date(blog.createdAt).toLocaleDateString("en-IN", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
                 })}
               </span>
               <span className="flex items-center gap-1">
                 <User className="w-4 h-4" />
-                {blog.author || 'Trstprep Team'}
+                {blog.author || "Trstprep Team"}
               </span>
               {blog.readTime && (
                 <span className="flex items-center gap-1">
@@ -116,7 +131,7 @@ export default function BlogDetail() {
             </div>
 
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
               {blog.title}
             </h1>
 
@@ -124,7 +139,10 @@ export default function BlogDetail() {
             {blog.tags && blog.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
                 {blog.tags.map((tag, index) => (
-                  <span key={index} className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm">
+                  <span
+                    key={index}
+                    className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm"
+                  >
                     {tag}
                   </span>
                 ))}
@@ -132,8 +150,12 @@ export default function BlogDetail() {
             )}
 
             {/* FIX 2.11: Sanitize blog content to prevent stored XSS */}
-            <div className="prose max-w-none text-gray-700 leading-relaxed"
-                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(blog.description || blog.content || '') }} />
+            <div
+              className="prose max-w-none text-gray-700 leading-relaxed"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHtml(blog.description || blog.content || ""),
+              }}
+            />
 
             {/* Share */}
             <div className="mt-8 pt-6 border-t border-gray-100">
@@ -151,12 +173,14 @@ export default function BlogDetail() {
 
         {/* Related Articles */}
         <div className="mt-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Related Articles</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Related Articles
+          </h2>
           <Link to="/blog" className="text-indigo-600 hover:underline">
             View all articles →
           </Link>
         </div>
       </div>
     </div>
-  )
+  );
 }

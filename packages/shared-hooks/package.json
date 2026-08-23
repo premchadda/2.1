@@ -14,6 +14,7 @@
   "exports": {
     ".": "./index.js",
     "./useDebounce": "./useDebounce.js",
+    "./usePwaInstall": "./usePwaInstall.js",
     "./EmptyState": "./src/EmptyState.jsx",
     "./ThemeContext": "./ThemeContext.jsx",
     "./ThemeContext.jsx": "./ThemeContext.jsx"

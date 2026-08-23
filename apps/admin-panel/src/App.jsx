@@ -38,15 +38,6 @@ const PracticeQuestionsManager = lazy(
 const StudyMaterialsManager = lazy(
   () => import("./features/admin/study-materials/StudyMaterialsManager"),
 );
-const SubjectRelationsManager = lazy(
-  () => import("./features/admin/study-materials/SubjectRelationsManager"),
-);
-const TopicsManager = lazy(
-  () => import("./features/admin/study-materials/TopicsManager"),
-);
-const CurriculumBuilder = lazy(
-  () => import("./features/admin/study-materials/CurriculumBuilder"),
-);
 const ContentManagement = lazy(
   () => import("./features/admin/study-materials/ContentManagement"),
 );
@@ -80,14 +71,8 @@ const LeaderboardResultsUnified = lazy(
   () => import("./features/admin/analytics-insights/LeaderboardResultsUnified"),
 );
 
-const UsersManager = lazy(
-  () => import("./features/admin/users-enrollments/UsersManager"),
-);
 const EnrollmentsManager = lazy(
   () => import("./features/admin/users-enrollments/EnrollmentsManager"),
-);
-const RolePermissionsManager = lazy(
-  () => import("./features/admin/users-enrollments/RolePermissionsManager"),
 );
 const UsersPermissions = lazy(
   () => import("./features/admin/users-enrollments/UsersPermissions"),
@@ -229,10 +214,25 @@ function App() {
             />
             <Route path="deep-analytics" element={<DeepAnalytics />} />
             <Route path="email-templates" element={<EmailTemplatesManager />} />
-            <Route path="roles-permissions" element={<UsersPermissions />} />
+            {/* Canonical: /admin/users?tab=roles — keep legacy path as redirect */}
+            <Route
+              path="roles-permissions"
+              element={<Navigate to="/admin/users?tab=roles" replace />}
+            />
             <Route path="audit-trail" element={<AuditTrailManager />} />
-            <Route path="topics" element={<TopicsManager />} />
-            <Route path="curriculum" element={<CurriculumBuilder />} />
+            {/* Canonical hub: /admin/study-materials?tab=topics|curriculum */}
+            <Route
+              path="topics"
+              element={
+                <Navigate to="/admin/study-materials?tab=topics" replace />
+              }
+            />
+            <Route
+              path="curriculum"
+              element={
+                <Navigate to="/admin/study-materials?tab=curriculum" replace />
+              }
+            />
 
             <Route path="exam-categories" element={<ExamCategoriesManager />} />
             <Route path="exam-info" element={<ExamInfoManager />} />
@@ -257,7 +257,10 @@ function App() {
 
             <Route path="promotions" element={<PromotionManager />} />
             <Route path="coupons" element={<CouponsManager />} />
-            <Route path="coming-soon" element={<ComingSoonManager />} />
+            <Route
+              path="coming-soon"
+              element={<Navigate to="/admin/settings" replace />}
+            />
 
             <Route
               path="subscription-plans"

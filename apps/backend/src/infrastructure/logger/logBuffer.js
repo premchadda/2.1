@@ -7,12 +7,12 @@
 import { EventEmitter } from "events";
 import util from "util";
 
-const MAX_BUFFER_SIZE = 2500;
+const MAX_BUFFER_SIZE = 10000;
 
 // Keys that must be sanitized before storing in the log buffer
 const SENSITIVE_PATTERNS = [
   /password["':\s=]+([^"'\s&,]+)/gi,
-  /bearer\s+([a-zA-Z0-9_\-\.]+)/gi,
+  /bearer\s+([a-zA-Z0-9_.-]+)/gi,
   /jwt["':\s=]+([^"'\s&,]+)/gi,
   /secret["':\s=]+([^"'\s&,]+)/gi,
   /token["':\s=]+([^"'\s&,]+)/gi,
@@ -191,7 +191,9 @@ class LogBufferEngine extends EventEmitter {
           )
           .join(" ");
         this.push({ level: "info", source: "console", message: msg });
-      } catch {}
+      } catch {
+        // intentionally empty - log buffer push failure should not break console
+      }
     };
 
     console.info = (...args) => {
@@ -203,7 +205,9 @@ class LogBufferEngine extends EventEmitter {
           )
           .join(" ");
         this.push({ level: "info", source: "console", message: msg });
-      } catch {}
+      } catch {
+        // intentionally empty - log buffer push failure should not break console
+      }
     };
 
     console.warn = (...args) => {
@@ -215,7 +219,9 @@ class LogBufferEngine extends EventEmitter {
           )
           .join(" ");
         this.push({ level: "warn", source: "console", message: msg });
-      } catch {}
+      } catch {
+        // intentionally empty - log buffer push failure should not break console
+      }
     };
 
     console.error = (...args) => {
@@ -227,7 +233,9 @@ class LogBufferEngine extends EventEmitter {
           )
           .join(" ");
         this.push({ level: "error", source: "console", message: msg });
-      } catch {}
+      } catch {
+        // intentionally empty - log buffer push failure should not break console
+      }
     };
 
     // Capture unhandled exceptions & rejections to the terminal log buffer

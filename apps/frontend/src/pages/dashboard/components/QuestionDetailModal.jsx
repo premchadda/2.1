@@ -227,7 +227,7 @@ export default function QuestionDetailModal({
       className="fixed inset-0 z-[10005] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 overflow-hidden animate-in fade-in duration-150"
     >
       <div
-        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl max-w-xl w-full shadow-2xl flex flex-col max-h-[82vh] sm:max-h-[80vh] overflow-hidden my-auto transition-all"
+        className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl max-w-[95vw] sm:max-w-xl w-full shadow-2xl flex flex-col max-h-[82vh] max-h-[82dvh] sm:max-h-[80vh] sm:max-h-[80dvh] overflow-hidden my-auto transition-all"
         role="dialog"
         aria-modal="true"
       >

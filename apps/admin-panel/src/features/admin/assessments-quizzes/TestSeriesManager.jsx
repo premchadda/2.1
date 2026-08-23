@@ -8,7 +8,6 @@ import {
   X,
   Save,
   Layers,
-  MoreVertical,
   Pin,
   Eye,
   EyeOff,
@@ -18,6 +17,7 @@ import {
   ChevronDown,
   Link as LinkIcon,
   FileText,
+  AlertTriangle,
 } from "lucide-react";
 import { useExamCategories } from "../../../shared/hooks/useExamCategories";
 import { adminAPI } from "../../../shared/lib/dataService.js";
@@ -25,38 +25,98 @@ import { coerceArray } from "../../../shared/utils/questionHelpers.js";
 import { toast } from "react-hot-toast";
 import { confirmOnce } from "../../../shared/components/common/ConfirmModal";
 
-function buildExamRefSet(examId, examInfo) {
+function coerceStageExamIds(stageExamIds) {
+  if (!stageExamIds) return [];
+  if (Array.isArray(stageExamIds)) return stageExamIds;
+  if (typeof stageExamIds === "string") {
+    return stageExamIds
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [stageExamIds];
+}
+
+function getStageExamIdList(stage) {
+  if (!stage) return [];
+  const rawList = [
+    ...(Array.isArray(stage.examIds)
+      ? stage.examIds
+      : coerceStageExamIds(stage.examIds)),
+    ...(Array.isArray(stage.exam_ids)
+      ? stage.exam_ids
+      : coerceStageExamIds(stage.exam_ids)),
+    ...(stage.examId != null ? [stage.examId] : []),
+    ...(stage.exam_id != null ? [stage.exam_id] : []),
+    ...(Array.isArray(stage.exams)
+      ? stage.exams.map((e) =>
+          typeof e === "object" ? e?.id || e?.examId || e?._id || e?.slug : e,
+        )
+      : []),
+    ...(stage.exam_slug != null ? [stage.exam_slug] : []),
+    ...(stage.examSlug != null ? [stage.examSlug] : []),
+  ];
+  return rawList.filter((id) => id !== null && id !== undefined && id !== "");
+}
+
+function numMatch(val, num) {
+  const parsed = Number(val);
+  return Number.isNaN(parsed) ? null : parsed === num ? num : null;
+}
+
+function buildExamRefSet(examId, examInfo, examsList) {
   const refs = new Set();
   if (examId == null || examId === "") return refs;
-  refs.add(String(examId));
-  const n = Number(examId);
+  const rawStr = String(examId).trim();
+  refs.add(rawStr);
+  refs.add(rawStr.toLowerCase());
+  const n = Number(rawStr);
   if (!Number.isNaN(n)) refs.add(String(n));
-  for (const e of examInfo || []) {
+  const allExamObjects = [...(examInfo || []), ...(examsList || [])];
+  for (const e of allExamObjects) {
+    if (!e) continue;
     const match =
-      String(e.examId) === String(examId) ||
-      String(e.id) === String(examId) ||
-      (!Number.isNaN(n) && Number(e.id) === n);
+      String(e.examId) === rawStr ||
+      String(e.id) === rawStr ||
+      String(e.slug || "") === rawStr ||
+      String(e.value || "") === rawStr ||
+      (!Number.isNaN(n) && (Number(e.id) === n || Number(e.examId) === n));
     if (match) {
       if (e.id != null) {
         refs.add(String(e.id));
+        refs.add(String(e.id).toLowerCase());
         refs.add(Number(e.id));
       }
       if (e.examId != null) {
         refs.add(String(e.examId));
-        refs.add(e.examId);
+        refs.add(String(e.examId).toLowerCase());
+      }
+      if (e.slug != null) {
+        refs.add(String(e.slug));
+        refs.add(String(e.slug).toLowerCase());
+      }
+      if (e.value != null) {
+        refs.add(String(e.value));
+        refs.add(String(e.value).toLowerCase());
       }
     }
   }
   return refs;
 }
 
-function stageExamIdsMatch(stageExamIds, refSet) {
-  const arr = coerceStageExamIds(stageExamIds);
-  if (arr.length === 0 || refSet.size === 0) return false;
+function stageExamIdsMatch(stageOrExamIds, refSet) {
+  if (!stageOrExamIds || !refSet || refSet.size === 0) return false;
+  const arr =
+    Array.isArray(stageOrExamIds) ||
+    typeof stageOrExamIds === "string" ||
+    typeof stageOrExamIds === "number"
+      ? coerceStageExamIds(stageOrExamIds)
+      : getStageExamIdList(stageOrExamIds);
+  if (arr.length === 0) return false;
   return arr.some((id) =>
     [...refSet].some(
       (r) =>
-        String(r) === String(id) ||
+        String(r).toLowerCase() === String(id).toLowerCase() ||
         (!Number.isNaN(Number(r)) &&
           !Number.isNaN(Number(id)) &&
           Number(r) === Number(id)),
@@ -64,26 +124,117 @@ function stageExamIdsMatch(stageExamIds, refSet) {
   );
 }
 
+function normalizeCatKey(v) {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase();
+}
+
+function categoryMatches(seriesCategory, activeTab, categories) {
+  const s = normalizeCatKey(seriesCategory);
+  const t = normalizeCatKey(activeTab);
+  if (!s || !t) return false;
+  if (s === t) return true;
+  const catForSeries = categories.find(
+    (c) =>
+      normalizeCatKey(c.categoryId) === s ||
+      normalizeCatKey(c.slug) === s ||
+      normalizeCatKey(c.id) === s ||
+      normalizeCatKey(c.label) === s,
+  );
+  const catForTab = categories.find(
+    (c) =>
+      normalizeCatKey(c.categoryId) === t ||
+      normalizeCatKey(c.slug) === t ||
+      normalizeCatKey(c.id) === t ||
+      normalizeCatKey(c.label) === t,
+  );
+  if (catForSeries && catForTab) {
+    const a = normalizeCatKey(
+      catForSeries.categoryId || catForSeries.slug || catForSeries.id,
+    );
+    const b = normalizeCatKey(
+      catForTab.categoryId || catForTab.slug || catForTab.id,
+    );
+    return a === b;
+  }
+  return false;
+}
+
+function normalizeExamKey(v) {
+  return String(v ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function examMatches(seriesExamId, targetExamValue, examsList = []) {
+  const s = normalizeExamKey(seriesExamId);
+  const t = normalizeExamKey(targetExamValue);
+  if (!s || !t) return false;
+  if (s === t) return true;
+  const matchedTarget = examsList.find(
+    (e) =>
+      normalizeExamKey(e.value) === t ||
+      normalizeExamKey(e.id) === t ||
+      normalizeExamKey(e.slug) === t ||
+      normalizeExamKey(e.label) === t ||
+      normalizeExamKey(e.name) === t,
+  );
+  if (matchedTarget) {
+    const targetKeys = [
+      normalizeExamKey(matchedTarget.value),
+      normalizeExamKey(matchedTarget.id),
+      normalizeExamKey(matchedTarget.slug),
+      normalizeExamKey(matchedTarget.label),
+      normalizeExamKey(matchedTarget.name),
+    ].filter(Boolean);
+    if (targetKeys.includes(s)) return true;
+  }
+  const matchedSeries = examsList.find(
+    (e) =>
+      normalizeExamKey(e.value) === s ||
+      normalizeExamKey(e.id) === s ||
+      normalizeExamKey(e.slug) === s ||
+      normalizeExamKey(e.label) === s ||
+      normalizeExamKey(e.name) === s,
+  );
+  if (matchedSeries) {
+    const seriesKeys = [
+      normalizeExamKey(matchedSeries.value),
+      normalizeExamKey(matchedSeries.id),
+      normalizeExamKey(matchedSeries.slug),
+      normalizeExamKey(matchedSeries.label),
+      normalizeExamKey(matchedSeries.name),
+    ].filter(Boolean);
+    if (seriesKeys.includes(t)) return true;
+  }
+  return false;
+}
+
 export default function TestSeriesManager() {
   const {
     categories,
     examInfo,
+    exams,
     examSubCategories,
-    getSubcategories,
+    getExamsByCategory,
     loading: categoriesLoading,
+    error: categoriesError,
   } = useExamCategories();
   const [series, setSeries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [seriesError, setSeriesError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [activeTab, setActiveTab] = useState("");
   const [activeExamFilter, setActiveExamFilter] = useState(null); // null = show all, or exam ID
   const [stages, setStages] = useState([]);
-  const [hoveredSeries, setHoveredSeries] = useState(null);
   const [orphanedTests, setOrphanedTests] = useState([]);
   const [showOrphanModal, setShowOrphanModal] = useState(false);
   const [reassignSelections, setReassignSelections] = useState({});
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   // Inline stage editing state
   const [editingStagesId, setEditingStagesId] = useState(null);
@@ -95,7 +246,7 @@ export default function TestSeriesManager() {
     title: "",
     slug: "",
     category: "",
-    subcategory: "",
+    examId: "",
     stages: [],
     description: "",
     isPro: false,
@@ -106,81 +257,136 @@ export default function TestSeriesManager() {
     isPinned: false,
   });
 
-  // Build tabs from categories with series counts
+  // Memoized lookup: normalized category key -> canonical categoryId (alias-aware)
+  const categoryKeyToCanonical = useMemo(() => {
+    const map = new Map();
+    for (const cat of categories) {
+      const canon = normalizeCatKey(cat.categoryId || cat.slug || cat.id);
+      for (const key of [cat.categoryId, cat.slug, cat.id, cat.label].filter(
+        Boolean,
+      )) {
+        map.set(normalizeCatKey(key), canon);
+      }
+    }
+    return map;
+  }, [categories]);
+
+  const seriesCanonCategory = useMemo(() => {
+    return series.map(
+      (s) =>
+        categoryKeyToCanonical.get(normalizeCatKey(s.category)) ||
+        normalizeCatKey(s.category),
+    );
+  }, [series, categoryKeyToCanonical]);
+
+  // Build tabs from categories with series counts (alias-aware) - O(C+S) via index
   const tabs = useMemo(() => {
-    const categoryTabs = categories.map((cat) => {
+    // Build counts via single pass over series
+    const countMap = new Map();
+    for (const canon of seriesCanonCategory) {
+      countMap.set(canon, (countMap.get(canon) || 0) + 1);
+    }
+    return categories.map((cat) => {
       const catId = cat.categoryId || cat.slug || cat.id;
-      const count = series.filter(
-        (s) => String(s.category) === String(catId),
-      ).length;
+      const canon = normalizeCatKey(catId);
       return {
         id: catId,
         label: cat.label,
         icon: cat.icon,
-        count,
+        count: countMap.get(canon) || 0,
       };
     });
-    return categoryTabs;
-  }, [categories, series]);
+  }, [categories, seriesCanonCategory]);
 
-  // Get exams (subcategories) for the active category - show ALL exams, even without series
   const examsForActiveCategory = useMemo(() => {
     if (!activeTab) return [];
-    const allExams = getSubcategories(activeTab);
+    const allExams = getExamsByCategory(activeTab);
     return allExams;
-  }, [activeTab, getSubcategories]);
+  }, [activeTab, getExamsByCategory]);
 
-  // Precomputed exam series counts to eliminate O(exams * series) scans during render
-  const examCountsMap = useMemo(() => {
+  // Exam alias map for O(1) matching
+  const examKeyToCanon = useMemo(() => {
     const map = new Map();
-    for (const s of series) {
-      const sub = String(
-        s.subcategory || s.subCategory || s.sub_category || "",
-      ).toLowerCase();
-      if (sub) {
-        map.set(sub, (map.get(sub) || 0) + 1);
-      }
+    for (const e of examsForActiveCategory) {
+      const canon = normalizeExamKey(e.value);
+      for (const k of [e.value, e.id, e.slug, e.label, e.name].filter(Boolean))
+        map.set(normalizeExamKey(k), canon);
     }
     return map;
-  }, [series]);
+  }, [examsForActiveCategory]);
+
+  // Precomputed exam series counts - O(S+E) via index, no nested filter
+  const examCountsMap = useMemo(() => {
+    const activeCanon = normalizeCatKey(activeTab);
+    const counts = new Map();
+    for (let i = 0; i < series.length; i++) {
+      if (seriesCanonCategory[i] !== activeCanon) continue;
+      const s = series[i];
+      const canonExam =
+        examKeyToCanon.get(normalizeExamKey(s.examId || s.exam_id)) ||
+        normalizeExamKey(s.examId || s.exam_id);
+      if (!canonExam) continue;
+      counts.set(canonExam, (counts.get(canonExam) || 0) + 1);
+    }
+    const map = new Map();
+    for (const exam of examsForActiveCategory) {
+      const canon = normalizeExamKey(exam.value);
+      const c = counts.get(canon) || 0;
+      map.set(String(exam.value).toLowerCase(), c);
+      if (exam.slug) map.set(String(exam.slug).toLowerCase(), c);
+      if (exam.id) map.set(String(exam.id).toLowerCase(), c);
+      if (exam.label) map.set(normalizeExamKey(exam.label), c);
+    }
+    return map;
+  }, [
+    series,
+    seriesCanonCategory,
+    examsForActiveCategory,
+    activeTab,
+    examKeyToCanon,
+  ]);
 
   // Set default active tab
   useEffect(() => {
     if (!activeTab && tabs.length > 0) {
       setActiveTab(tabs[0].id);
     }
-  }, [tabs]);
+  }, [tabs, activeTab]);
 
-  // FIX BUG-001: Normalize the legacy exam field for consistent filtering
+  // Filtered series (alias-aware) — O(S) via canonical maps
   const filteredSeries = useMemo(() => {
     if (!activeTab) return [];
+    const activeCanon = normalizeCatKey(activeTab);
     let filtered = series.filter(
-      (s) => String(s.category) === String(activeTab),
+      (_, i) => seriesCanonCategory[i] === activeCanon,
     );
-    // Apply exam filter if selected. Older records still store this as subcategory.
+    // Apply exam filter if selected. Older records still store this as examId.
     if (activeExamFilter) {
+      const targetCanon =
+        examKeyToCanon.get(normalizeExamKey(activeExamFilter)) ||
+        normalizeExamKey(activeExamFilter);
       filtered = filtered.filter((s) => {
-        const sub = String(
-          s.subcategory || s.subCategory || s.sub_category || "",
-        ).toLowerCase();
-        return sub === String(activeExamFilter).toLowerCase();
+        const sub = s.examId || s.exam_id;
+        const subCanon =
+          examKeyToCanon.get(normalizeExamKey(sub)) || normalizeExamKey(sub);
+        return subCanon === targetCanon;
       });
     }
     return filtered;
-  }, [series, activeTab, activeExamFilter]);
+  }, [series, activeTab, activeExamFilter, categories, examsForActiveCategory]);
 
   // Auto-select first exam if only one exam has series
   useEffect(() => {
     if (activeTab && examsForActiveCategory.length === 1 && !activeExamFilter) {
       setActiveExamFilter(examsForActiveCategory[0].value);
     }
-  }, [activeTab, examsForActiveCategory]);
+  }, [activeTab, examsForActiveCategory, activeExamFilter]);
 
   // Group series by exam.
   const seriesByExam = useMemo(() => {
     const grouped = {};
     filteredSeries.forEach((s) => {
-      const examKey = s.subcategory || "uncategorized";
+      const examKey = s.examId || "uncategorized";
       if (!grouped[examKey]) {
         grouped[examKey] = [];
       }
@@ -191,13 +397,13 @@ export default function TestSeriesManager() {
 
   // Get available stages for form (match numeric exam ids and slugs in stage.examIds)
   const availableStages = useMemo(() => {
-    if (!formData.subcategory || !stages.length) return stages;
-    const refSet = buildExamRefSet(formData.subcategory, examInfo);
-    const linkedStages = stages.filter((s) =>
-      stageExamIdsMatch(s.examIds, refSet),
-    );
+    if (!formData.examId || !stages.length) return stages;
+    const refSet = buildExamRefSet(formData.examId, examInfo, exams);
+    const linkedStages = stages.filter((s) => stageExamIdsMatch(s, refSet));
     return linkedStages.length > 0 ? linkedStages : stages;
-  }, [formData.subcategory, stages, examInfo]);
+  }, [formData.examId, stages, examInfo, exams]);
+
+  const availableStagesForForm = availableStages;
 
   const fetchOrphanedTests = async () => {
     try {
@@ -210,7 +416,52 @@ export default function TestSeriesManager() {
     }
   };
 
-  // Close dropdown when clicking outside
+  const fetchStages = async () => {
+    try {
+      const response = await adminAPI.apiClient.get("/admin/stages");
+      if (response.data.success) {
+        setStages(
+          response.data.data.sort((a, b) => (a.order || 0) - (b.order || 0)),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch stages:", error);
+    }
+  };
+
+  const fetchSeries = async () => {
+    try {
+      setSeriesError(null);
+      const response = await adminAPI.getTestSeries();
+      if (response.data.success) {
+        const normalizedSeries = response.data.data.map((item) => ({
+          ...item,
+          // Backend may still store the exam reference in the legacy examId column.
+          examId: item.examId || item.exam_id || "",
+        }));
+
+        const sortedSeries = normalizedSeries.sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return (a.order || 0) - (b.order || 0);
+        });
+        setSeries(sortedSeries);
+      } else {
+        setSeriesError(response.data.message || "Failed to load test series");
+        toast.error(response.data.message || "Failed to load test series");
+      }
+    } catch (error) {
+      console.error("Failed to fetch series:", error);
+      const msg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to fetch series - check backend connection";
+      setSeriesError(msg);
+      if (!loading) toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchSeries();
     fetchStages();
@@ -239,51 +490,29 @@ export default function TestSeriesManager() {
     }
   }, []);
 
-  const fetchStages = async () => {
-    try {
-      const response = await adminAPI.apiClient.get("/admin/stages");
-      if (response.data.success) {
-        setStages(
-          response.data.data.sort((a, b) => (a.order || 0) - (b.order || 0)),
-        );
-      }
-    } catch (error) {
-      console.error("Failed to fetch stages:", error);
-    }
-  };
-
-  const fetchSeries = async () => {
-    try {
-      const response = await adminAPI.getTestSeries();
-      if (response.data.success) {
-        const normalizedSeries = response.data.data.map((item) => ({
-          ...item,
-          // Backend may still store the exam reference in the legacy subcategory column.
-          subcategory:
-            item.subcategory || item.subCategory || item.sub_category || "",
-        }));
-
-        const sortedSeries = normalizedSeries.sort((a, b) => {
-          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-          return (a.order || 0) - (b.order || 0);
-        });
-        setSeries(sortedSeries);
-      }
-    } catch (error) {
-      console.error("Failed to fetch series:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getExamDisplayName = (categoryId, examValue) => {
     if (!examValue) return "N/A";
-    const subCat = examSubCategories?.find(
-      (s) => String(s.id) === String(examValue),
+    const valLower = String(examValue).toLowerCase();
+    const subCat = (examSubCategories || exams)?.find(
+      (s) =>
+        String(s.id).toLowerCase() === valLower ||
+        String(s.slug || "").toLowerCase() === valLower,
     );
-    if (subCat) return subCat.name;
-    const exam = examInfo.find((e) => String(e.examId) === String(examValue));
-    if (exam) return exam.title;
+    if (subCat) return subCat.name || subCat.title || examValue;
+    const exam = examInfo.find(
+      (e) =>
+        String(e.examId).toLowerCase() === valLower ||
+        String(e.id).toLowerCase() === valLower ||
+        String(e.slug || "").toLowerCase() === valLower,
+    );
+    if (exam) return exam.title || exam.fullName || examValue;
+    const fallback = exams?.find(
+      (e) =>
+        String(e.id).toLowerCase() === valLower ||
+        String(e.examId || "").toLowerCase() === valLower ||
+        String(e.slug || "").toLowerCase() === valLower,
+    );
+    if (fallback) return fallback.name || fallback.title || examValue;
     return examValue;
   };
 
@@ -307,15 +536,36 @@ export default function TestSeriesManager() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // FIX BUG-003: Don't send totalTests — backend calculates from SQL
+    // Price must be a valid number (backend now accepts float). Coerce empty/invalid to 0.
+    const rawPrice = formData.price;
+    const parsedPrice =
+      rawPrice === "" || rawPrice == null ? 0 : Number(String(rawPrice).trim());
+    if (rawPrice !== "" && rawPrice != null && !Number.isFinite(parsedPrice)) {
+      toast.error("Price must be a valid number");
+      return;
+    }
+    const cleanTags = (formData.tags || "")
+      .split(",")
+      .map((t) =>
+        t
+          .trim()
+          .replace(/^[=+\-@]+/, "")
+          .slice(0, 50),
+      )
+      .filter(Boolean)
+      .slice(0, 20);
     const payload = {
       ...formData,
-      examId: formData.subcategory,
-      tags: (formData.tags || "")
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
-      price: Number(formData.price) || 0,
+      title: String(formData.title || "").trim(),
+      examId: formData.examId ? String(formData.examId).trim() : "",
+      category: String(formData.category || "").trim(),
+      tags: cleanTags,
+      price:
+        Number.isFinite(parsedPrice) &&
+        parsedPrice >= 0 &&
+        parsedPrice <= 100000
+          ? parsedPrice
+          : 0,
     };
 
     try {
@@ -345,8 +595,7 @@ export default function TestSeriesManager() {
       title: item.title || "",
       slug: item.slug || "",
       category: item.category || "",
-      subcategory:
-        item.subcategory || item.subCategory || item.sub_category || "",
+      examId: item.examId || item.exam_id || "",
       stages: Array.isArray(item.stages) ? item.stages : [],
       description: item.description || "",
       isPro: item.isPro || false,
@@ -358,6 +607,7 @@ export default function TestSeriesManager() {
       isPinned: item.isPinned || false,
     });
     setEditingId(seriesId(item));
+    setSlugManuallyEdited(true);
     setShowForm(true);
   };
 
@@ -393,22 +643,26 @@ export default function TestSeriesManager() {
       const results = await Promise.allSettled(
         selectedIds.map((id) => adminAPI.deleteTestSeries(id)),
       );
+      const succeededIds = selectedIds.filter(
+        (_, i) => results[i].status === "fulfilled",
+      );
       const failed = results.filter((r) => r.status === "rejected").length;
-      if (failed === 0) {
+      if (succeededIds.length) {
         setSeries((prev) =>
-          prev.filter((s) => !selectedIds.includes(seriesId(s))),
+          prev.filter((s) => !succeededIds.includes(seriesId(s))),
         );
+      }
+      if (failed === 0) {
         setSelectedIds([]);
         toast.success(`${selectedIds.length} series deleted`);
       } else if (failed === results.length) {
         toast.error(`Failed to delete ${failed} series`);
       } else {
-        setSeries((prev) =>
-          prev.filter((s) => !selectedIds.includes(seriesId(s))),
+        setSelectedIds((prev) =>
+          prev.filter((id) => !succeededIds.includes(id)),
         );
-        setSelectedIds([]);
         toast.success(
-          `${results.length - failed} series deleted, ${failed} failed`,
+          `${succeededIds.length} series deleted, ${failed} failed`,
         );
       }
     } catch (error) {
@@ -444,23 +698,37 @@ export default function TestSeriesManager() {
     const id = seriesId(item);
     const currentIndex = categorySeries.findIndex((s) => seriesId(s) === id);
     const targetIndex = currentIndex + direction;
-    if (targetIndex >= 0 && targetIndex < categorySeries.length) {
-      try {
-        const reordered = [...categorySeries];
-        [reordered[currentIndex], reordered[targetIndex]] = [
-          reordered[targetIndex],
-          reordered[currentIndex],
-        ];
-        await Promise.all(
-          reordered.map((s, index) =>
-            adminAPI.updateTestSeries(seriesId(s), { order: index }),
-          ),
-        );
-        fetchSeries();
-      } catch (error) {
-        console.error("Failed to move series:", error);
-        toast.error("Failed to reorder series");
-      }
+    if (targetIndex < 0 || targetIndex >= categorySeries.length) return;
+    const current = categorySeries[currentIndex];
+    const target = categorySeries[targetIndex];
+    const currentOrder = current.order ?? currentIndex;
+    const targetOrder = target.order ?? targetIndex;
+
+    // Optimistic UI update with 2-swap and rollback on failure (functional to avoid stale closure)
+    setSeries((prev) =>
+      prev
+        .map((s) => {
+          const sid = seriesId(s);
+          if (sid === seriesId(current)) return { ...s, order: targetOrder };
+          if (sid === seriesId(target)) return { ...s, order: currentOrder };
+          return s;
+        })
+        .sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+          return (a.order || 0) - (b.order || 0);
+        }),
+    );
+
+    try {
+      await Promise.all([
+        adminAPI.updateTestSeries(seriesId(current), { order: targetOrder }),
+        adminAPI.updateTestSeries(seriesId(target), { order: currentOrder }),
+      ]);
+      fetchSeries();
+    } catch (error) {
+      console.error("Failed to move series:", error);
+      toast.error("Failed to reorder series");
+      fetchSeries();
     }
   };
 
@@ -469,7 +737,8 @@ export default function TestSeriesManager() {
       title: "",
       slug: "",
       category: activeTab || "",
-      subcategory: "",
+      examId: "",
+      stages: [],
       description: "",
       isPro: false,
       price: 0,
@@ -481,6 +750,7 @@ export default function TestSeriesManager() {
     });
     setEditingId(null);
     setShowForm(false);
+    setSlugManuallyEdited(false);
   };
 
   // Inline stage editing functions
@@ -545,13 +815,10 @@ export default function TestSeriesManager() {
 
   // Get filtered stages for dropdown based on selected exam.
   const getFilteredStagesForSeries = (item) => {
-    const subcat =
-      item.subcategory || item.subCategory || item.sub_category || "";
+    const subcat = item.examId || item.exam_id || "";
     if (!subcat || !stages.length) return stages;
-    const refSet = buildExamRefSet(subcat, examInfo);
-    const linkedStages = stages.filter((s) =>
-      stageExamIdsMatch(s.examIds, refSet),
-    );
+    const refSet = buildExamRefSet(subcat, examInfo, exams);
+    const linkedStages = stages.filter((s) => stageExamIdsMatch(s, refSet));
     return linkedStages.length > 0 ? linkedStages : stages;
   };
 
@@ -586,6 +853,83 @@ export default function TestSeriesManager() {
     );
   }
 
+  if (categoriesError) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 text-center">
+          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h3 className="font-bold text-red-900 dark:text-red-200 mb-1">
+            Failed to load categories
+          </h3>
+          <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+            {String(categoriesError)}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (seriesError && series.length === 0) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto space-y-4">
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-6 text-center">
+          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+          <h3 className="font-bold text-amber-900 dark:text-amber-200 mb-1">
+            Failed to load test series
+          </h3>
+          <p className="text-sm text-amber-700 dark:text-amber-300 mb-4">
+            {String(seriesError)}
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => {
+                setLoading(true);
+                fetchSeries();
+              }}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 cursor-pointer"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => setSeriesError(null)}
+              className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!categoriesLoading && categories.length === 0) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <Layers className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+          <h3 className="font-bold text-gray-900 dark:text-white mb-1">
+            No categories found
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Create exam categories first before managing test series.
+          </p>
+          <a
+            href="/admin/exam-categories"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700"
+          >
+            Go to Categories
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header Action Bar */}
@@ -593,6 +937,7 @@ export default function TestSeriesManager() {
         <button
           onClick={() => {
             setFormData((prev) => ({ ...prev, category: activeTab }));
+            setSlugManuallyEdited(false);
             setShowForm(true);
           }}
           className="mt-4 md:mt-0 flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg transition-all"
@@ -664,22 +1009,39 @@ export default function TestSeriesManager() {
         {/* Exam Sub-Tabs - Only exams with test series */}
         {activeTab && examsForActiveCategory.length > 0 && (
           <div className="flex overflow-x-auto border-b border-gray-100 bg-gray-50 dark:bg-gray-900 px-4 py-2 gap-2">
+            <button
+              onClick={() => setActiveExamFilter(null)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+                activeExamFilter === null
+                  ? "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-600 dark:bg-gray-700 border border-gray-200 dark:border-gray-700"
+              }`}
+            >
+              <FileText className="w-3 h-3" />
+              All Exams
+              <span
+                className={`px-1.5 py-0.5 text-[10px] rounded-full ${
+                  activeExamFilter === null
+                    ? "bg-indigo-200"
+                    : "bg-gray-100 dark:bg-gray-700"
+                }`}
+              >
+                {
+                  series.filter((s) =>
+                    categoryMatches(s.category, activeTab, categories),
+                  ).length
+                }
+              </span>
+            </button>
             {examsForActiveCategory.map((exam) => {
               const examCount =
                 examCountsMap.get(String(exam.value).toLowerCase()) || 0;
-              const isActive =
-                activeExamFilter === exam.value ||
-                (activeExamFilter === null &&
-                  examsForActiveCategory.length === 1);
+              const isActive = activeExamFilter === exam.value;
               return (
                 <button
                   key={exam.value}
                   onClick={() =>
-                    setActiveExamFilter(
-                      isActive && activeExamFilter === exam.value
-                        ? null
-                        : exam.value,
-                    )
+                    setActiveExamFilter(isActive ? null : exam.value)
                   }
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
                     isActive
@@ -726,8 +1088,9 @@ export default function TestSeriesManager() {
                   setFormData((prev) => ({
                     ...prev,
                     category: activeTab,
-                    subcategory: activeExamFilter || "",
+                    examId: activeExamFilter || "",
                   }));
+                  setSlugManuallyEdited(false);
                   setShowForm(true);
                 }}
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors"
@@ -899,12 +1262,9 @@ export default function TestSeriesManager() {
                         <span className="font-mono text-gray-400 dark:text-gray-500">
                           {item.slug}
                         </span>
-                        {item.subcategory && (
+                        {item.examId && (
                           <span className="text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-1.5 py-0.5 rounded font-medium">
-                            {getExamDisplayName(
-                              item.category,
-                              item.subcategory,
-                            )}
+                            {getExamDisplayName(item.category, item.examId)}
                           </span>
                         )}
 
@@ -1197,7 +1557,7 @@ export default function TestSeriesManager() {
                       setFormData((prev) => ({
                         ...prev,
                         title: newTitle,
-                        slug: !editingId
+                        slug: !slugManuallyEdited
                           ? newTitle
                               .toLowerCase()
                               .replace(/[^a-z0-9]+/g, "-")
@@ -1217,9 +1577,10 @@ export default function TestSeriesManager() {
                     type="text"
                     required
                     value={formData.slug}
-                    onChange={(e) =>
-                      setFormData({ ...formData, slug: e.target.value })
-                    }
+                    onChange={(e) => {
+                      setSlugManuallyEdited(true);
+                      setFormData({ ...formData, slug: e.target.value });
+                    }}
                     className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-mono">
@@ -1239,7 +1600,7 @@ export default function TestSeriesManager() {
                         setFormData({
                           ...formData,
                           category: e.target.value,
-                          subcategory: "",
+                          examId: "",
                         })
                       }
                       className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
@@ -1261,11 +1622,11 @@ export default function TestSeriesManager() {
                       Exam
                     </label>
                     <select
-                      value={formData.subcategory}
+                      value={formData.examId}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          subcategory: e.target.value,
+                          examId: e.target.value,
                         })
                       }
                       disabled={!formData.category}
@@ -1273,7 +1634,7 @@ export default function TestSeriesManager() {
                     >
                       <option value="">Select</option>
                       {formData.category &&
-                        getSubcategories(formData.category).map((sub) => (
+                        getExamsByCategory(formData.category).map((sub) => (
                           <option key={sub.value} value={sub.value}>
                             {sub.label}
                           </option>
@@ -1305,6 +1666,7 @@ export default function TestSeriesManager() {
                     <input
                       type="number"
                       min="0"
+                      step="0.01"
                       value={formData.price}
                       onChange={(e) =>
                         setFormData({ ...formData, price: e.target.value })
@@ -1319,7 +1681,7 @@ export default function TestSeriesManager() {
                     Stages/Tiers
                   </label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 max-h-32 overflow-y-auto">
-                    {stages.map((stage) => (
+                    {availableStagesForForm.map((stage) => (
                       <label
                         key={stage._id || stage.id}
                         className="flex items-center gap-2 cursor-pointer p-2 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition"
@@ -1519,26 +1881,32 @@ export default function TestSeriesManager() {
                           <option value="">
                             -- Select Series to Reassign --
                           </option>
-                          {categories.map((cat) => (
-                            <optgroup
-                              key={cat.categoryId || cat.id}
-                              label={cat.label}
-                            >
-                              {series
-                                .filter(
-                                  (s) =>
-                                    s.category === (cat.categoryId || cat.id),
-                                )
-                                .map((s) => (
-                                  <option
-                                    key={s.id || s._id}
-                                    value={s.id || s._id}
-                                  >
-                                    {s.title}
-                                  </option>
-                                ))}
-                            </optgroup>
-                          ))}
+                          {categories.map((cat) => {
+                            const catKey = cat.categoryId || cat.slug || cat.id;
+                            return (
+                              <optgroup
+                                key={cat.categoryId || cat.id}
+                                label={cat.label}
+                              >
+                                {series
+                                  .filter((s) =>
+                                    categoryMatches(
+                                      s.category,
+                                      catKey,
+                                      categories,
+                                    ),
+                                  )
+                                  .map((s) => (
+                                    <option
+                                      key={s.id || s._id}
+                                      value={s.id || s._id}
+                                    >
+                                      {s.title}
+                                    </option>
+                                  ))}
+                              </optgroup>
+                            );
+                          })}
                         </select>
                         <button
                           type="button"

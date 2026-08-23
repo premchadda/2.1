@@ -1,28 +1,60 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { toast } from 'react-hot-toast'
-import { 
-  Clock, ArrowLeft, Sparkles, Bell,
-  Radio, Target, Video, Newspaper, MessageCircle,
-  Users, Award, Gift, BarChart, BookOpen, Zap,
-  Trophy, Star, Flame, CheckCircle, XCircle, Loader2
-} from 'lucide-react'
-import { useAuth } from '../../providers/AuthContext'
-import { apiClient } from '../../lib/api.js'
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import {
+  Clock,
+  ArrowLeft,
+  Sparkles,
+  Bell,
+  Radio,
+  Target,
+  Video,
+  Newspaper,
+  MessageCircle,
+  Users,
+  Award,
+  Gift,
+  BarChart,
+  BookOpen,
+  Zap,
+  Trophy,
+  Star,
+  Flame,
+  CheckCircle,
+  XCircle,
+  Loader2,
+} from "lucide-react";
+import { useAuth } from "../../providers/AuthContext";
+import { apiClient } from "../../lib/api.js";
 
 // Icon mapping for string-based icon selection
 const ICON_MAP = {
-  Clock, Radio, Target, Video, Newspaper, MessageCircle,
-  Users, Award, Gift, BarChart, BookOpen, Zap,
-  Trophy, Star, Flame, CheckCircle, XCircle, Sparkles
-}
+  Clock,
+  Radio,
+  Target,
+  Video,
+  Newspaper,
+  MessageCircle,
+  Users,
+  Award,
+  Gift,
+  BarChart,
+  BookOpen,
+  Zap,
+  Trophy,
+  Star,
+  Flame,
+  CheckCircle,
+  XCircle,
+  Sparkles,
+};
 
 /**
  * ComingSoon Component (HIGH-01: Notify Me Integration)
- * 
+ *
  * Displays a "Coming Soon" page with optional notification signup.
  * Users can subscribe to be notified when content becomes available.
- * 
+ *
  * @param {string} title - Page title
  * @param {string} message - Main description
  * @param {string} submessage - Additional context
@@ -34,60 +66,61 @@ const ICON_MAP = {
  * @param {React.Component} icon - Custom icon component
  */
 function ComingSoon({
-  title = 'Coming Soon',
-  message = 'We are working hard to bring this content to you.',
-  submessage = 'Stay tuned for updates!',
+  title = "Coming Soon",
+  message = "We are working hard to bring this content to you.",
+  submessage = "Stay tuned for updates!",
   showNotificationButton = false,
   notificationTopic = null,
-  backLink = '/',
-  backText = 'Go Back',
+  backLink = "/",
+  backText = "Go Back",
   estimatedTime = null,
-  icon: IconProp = null
+  icon: IconProp = null,
 }) {
-  const { isAuthenticated } = useAuth()
-  const [subscribing, setSubscribing] = useState(false)
-  const [subscribed, setSubscribed] = useState(false)
-  
+  const { isAuthenticated } = useAuth();
+  const [subscribing, setSubscribing] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
   // Resolve icon - could be component or string
-  const CustomIcon = typeof IconProp === 'string' ? ICON_MAP[IconProp] : IconProp
-  
+  const CustomIcon =
+    typeof IconProp === "string" ? ICON_MAP[IconProp] : IconProp;
+
   /**
    * Handle notification subscription
    * Registers user interest in the coming soon feature
    */
   const handleSubscribe = async () => {
     if (!isAuthenticated) {
-      toast.error('Please sign in to receive notifications')
-      return
+      toast.error("Please sign in to receive notifications");
+      return;
     }
-    
+
     if (!notificationTopic) {
-      toast.error('Notification topic not configured')
-      return
+      toast.error("Notification topic not configured");
+      return;
     }
-    
-    setSubscribing(true)
-    
+
+    setSubscribing(true);
+
     try {
-      await apiClient.post('/api/notifications/subscribe', {
-        type: 'coming_soon',
-      })
-      
-      setSubscribed(true)
-      toast.success('You will be notified when this feature launches!')
+      await apiClient.post("/api/notifications/subscribe", {
+        type: "coming_soon",
+      });
+
+      setSubscribed(true);
+      toast.success("You will be notified when this feature launches!");
     } catch (error) {
-      console.error('Subscription failed:', error)
+      console.error("Subscription failed:", error);
       // If user is already subscribed, that's still a success
       if (error.response?.status === 409 || error.response?.status === 400) {
-        setSubscribed(true)
-        toast.success('You are already subscribed to updates!')
+        setSubscribed(true);
+        toast.success("You are already subscribed to updates!");
       } else {
-        toast.error('Failed to subscribe. Please try again.')
+        toast.error("Failed to subscribe. Please try again.");
       }
     } finally {
-      setSubscribing(false)
+      setSubscribing(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -111,20 +144,14 @@ function ComingSoon({
         </div>
 
         {/* Title */}
-        <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+        <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-4">
           {title}
         </h1>
 
         {/* Message */}
-        <p className="text-lg text-gray-600 mb-2">
-          {message}
-        </p>
-        
-        {submessage && (
-          <p className="text-gray-500 mb-6">
-            {submessage}
-          </p>
-        )}
+        <p className="text-lg text-gray-600 mb-2">{message}</p>
+
+        {submessage && <p className="text-gray-500 mb-6">{submessage}</p>}
 
         {/* Estimated Time */}
         {estimatedTime && (
@@ -144,8 +171,8 @@ function ComingSoon({
             {backText}
           </Link>
 
-          {showNotificationButton && (
-            subscribed ? (
+          {showNotificationButton &&
+            (subscribed ? (
               <div className="inline-flex items-center gap-2 px-6 py-3 bg-green-50 text-green-700 rounded-full font-medium">
                 <CheckCircle className="w-5 h-5" />
                 You'll be notified when this launches!
@@ -168,22 +195,24 @@ function ComingSoon({
                   </>
                 )}
               </button>
-            )
-          )}
+            ))}
         </div>
 
         {/* Additional Help */}
         <div className="mt-12 pt-8 border-t border-gray-200">
           <p className="text-sm text-gray-500">
-            Looking for something else?{' '}
-            <Link to="/" className="text-indigo-600 hover:text-indigo-700 font-medium">
+            Looking for something else?{" "}
+            <Link
+              to="/"
+              className="text-indigo-600 hover:text-indigo-700 font-medium"
+            >
               Browse all content
             </Link>
           </p>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default ComingSoon
+export default ComingSoon;

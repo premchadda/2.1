@@ -1,7 +1,10 @@
 // Frontend Type Definitions for Data Models
-import { getNormalizedEnrolledSeries } from '../lib/enrollment.js'
-import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '../lib/htmlSanitizer.js'
-
+import { getNormalizedEnrolledSeries } from "../lib/enrollment.js";
+import {
+  decodeHtmlEntities,
+  cleanHtmlWrapper,
+  extractBilingualContent,
+} from "../lib/htmlSanitizer.js";
 
 /**
  * User data structure
@@ -25,7 +28,7 @@ import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '.
  * @property {string} slug - URL-friendly identifier
  * @property {string} title - Series title
  * @property {string} category - Category (SSC, Railway, etc.)
- * @property {string} [subcategory] - Subcategory
+ * @property {string} [examId] - Exam ID (replaces legacy subcategory)
  * @property {string} [description] - Series description
  * @property {string} [image] - Image URL
  * @property {string} [thumbnail] - Thumbnail URL
@@ -102,6 +105,7 @@ import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '.
  */
 
 // Data mapping functions
+import { getAssetUrl } from "../config/assets-config.js";
 
 /**
  * Maps backend User model to frontend User type
@@ -115,36 +119,56 @@ import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '.
  * @returns {boolean} Whether Pro Pass is currently active
  */
 function isProPassActive(isProUser, expiryDate) {
-  if (!isProUser) return false
-  
+  if (!isProUser) return false;
+
   if (expiryDate) {
-    const expiry = new Date(expiryDate)
-    const now = new Date()
-    return expiry > now
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    return expiry > now;
   }
-  
+
   // If isProUser is true but no expiry date, assume active
-  return true
+  return true;
 }
 
 export function mapUserToFrontend(backendUser) {
-  const isProUser = backendUser.is_pro !== undefined ? backendUser.is_pro : (backendUser.isProUser || backendUser.is_pro_user || false)
-  const proPassExpiry = backendUser.pro_expiry || backendUser.proExpiry || backendUser.proPassExpiry || null
+  const isProUser =
+    backendUser.is_pro !== undefined
+      ? backendUser.is_pro
+      : backendUser.isProUser || backendUser.is_pro_user || false;
+  const proPassExpiry =
+    backendUser.pro_expiry ||
+    backendUser.proExpiry ||
+    backendUser.proPassExpiry ||
+    null;
   // Handle both camelCase and snake_case for enrolledSeries (PostgreSQL returns snake_case)
-  const enrolledSeries = backendUser.enrolledSeries || backendUser.enrolled_series || []
-  
+  const enrolledSeries =
+    backendUser.enrolledSeries || backendUser.enrolled_series || [];
+  const avatar =
+    backendUser.avatar ||
+    backendUser.avatar_url ||
+    backendUser.avatarUrl ||
+    null;
+  const banner =
+    backendUser.banner ||
+    backendUser.banner_url ||
+    backendUser.bannerUrl ||
+    null;
+
   return {
     id: backendUser.id || backendUser._id,
     name: backendUser.name,
     email: backendUser.email,
     mobile: backendUser.mobile,
     phone: backendUser.phone || backendUser.mobile,
-    avatar: backendUser.avatar,
-    banner: backendUser.banner,
+    // API responses store local profile assets as `/assets/...`. Resolve them
+    // once here so every consumer uses the backend origin when needed.
+    avatar: getAssetUrl(avatar),
+    banner: getAssetUrl(banner),
     role: backendUser.role,
     isProUser,
     proPassExpiry,
-    passType: backendUser.pass_type || backendUser.passType || 'free',
+    passType: backendUser.pass_type || backendUser.passType || "free",
     hasProPass: isProPassActive(isProUser, proPassExpiry),
     enrolledSeries: getNormalizedEnrolledSeries(enrolledSeries),
     attemptedTests: backendUser.attemptedTests || {},
@@ -153,10 +177,13 @@ export function mapUserToFrontend(backendUser) {
     location: backendUser.location,
     education: backendUser.education,
     bio: backendUser.bio,
-    notificationPreferences: backendUser.notificationPreferences || backendUser.notification_preferences,
+    notificationPreferences:
+      backendUser.notificationPreferences ||
+      backendUser.notification_preferences,
     privacy: backendUser.privacy,
-    examPreferences: backendUser.examPreferences || backendUser.exam_preferences,
-    createdAt: backendUser.created_at || backendUser.createdAt
+    examPreferences:
+      backendUser.examPreferences || backendUser.exam_preferences,
+    createdAt: backendUser.created_at || backendUser.createdAt,
   };
 }
 
@@ -167,7 +194,12 @@ export function mapUserToFrontend(backendUser) {
  */
 export function mapTestSeriesToFrontend(backendSeries) {
   if (!backendSeries) return null;
-  const publicId = backendSeries.publicId || backendSeries.public_id || (typeof backendSeries.id === 'string' && backendSeries.id.startsWith('ser_') ? backendSeries.id : null);
+  const publicId =
+    backendSeries.publicId ||
+    backendSeries.public_id ||
+    (typeof backendSeries.id === "string" && backendSeries.id.startsWith("ser_")
+      ? backendSeries.id
+      : null);
   const resolvedId = publicId || backendSeries.slug || backendSeries.id;
   return {
     id: resolvedId,
@@ -177,58 +209,107 @@ export function mapTestSeriesToFrontend(backendSeries) {
     publicId: publicId,
     slug: backendSeries.slug,
     title: backendSeries.title,
-    // Keep category and subcategory as IDs/Slugs for stable filtering/routing
     category: backendSeries.category,
-    subcategory: backendSeries.subcategory,
+    examId: backendSeries.examId || backendSeries.exam_id || null,
+    exam_id: backendSeries.examId || backendSeries.exam_id || null,
     // Provide labels separately if they exist in the backend response
-    categoryName: backendSeries.category_name || backendSeries.categoryName || null,
+    categoryName:
+      backendSeries.category_name || backendSeries.categoryName || null,
     examName: backendSeries.exam_name || backendSeries.examName || null,
     stageName: backendSeries.stage_name || backendSeries.stageName || null,
     stageNames: backendSeries.stageNames || backendSeries.stage_names || null,
     description: backendSeries.description,
-    image: backendSeries.image || backendSeries.thumbnail || backendSeries.banner_url,
+    image:
+      backendSeries.image ||
+      backendSeries.thumbnail ||
+      backendSeries.banner_url,
     thumbnail: backendSeries.thumbnail,
     icon: backendSeries.icon,
-    totalTests: Number(backendSeries.totalTests || backendSeries.total_tests || 0),
+    totalTests: Number(
+      backendSeries.totalTests || backendSeries.total_tests || 0,
+    ),
     freeTests: Number(backendSeries.freeTests || backendSeries.free_tests || 0),
-    users: backendSeries.users || backendSeries.usersCount || backendSeries.activeUsers || '0',
+    users:
+      backendSeries.users ||
+      backendSeries.usersCount ||
+      backendSeries.activeUsers ||
+      "0",
     activeUsers: backendSeries.activeUsers,
-    rating: backendSeries.rating || '4.5',
+    rating: backendSeries.rating || "4.5",
     tags: backendSeries.tags || [],
     testTypes: backendSeries.testTypes || backendSeries.test_types || [],
     testCounts: backendSeries.testCounts || backendSeries.test_counts || {},
-    isActive: backendSeries.is_active !== undefined ? backendSeries.is_active : (backendSeries.isActive !== false),
-    status: (backendSeries.status === 'disabled' ? 'archived' : backendSeries.status || 'draft'),
-    isPro: backendSeries.is_pro !== undefined ? backendSeries.is_pro : (backendSeries.isPro || false),
+    isActive:
+      backendSeries.is_active !== undefined
+        ? backendSeries.is_active
+        : backendSeries.isActive !== false,
+    status:
+      backendSeries.status === "disabled"
+        ? "archived"
+        : backendSeries.status || "draft",
+    isPro:
+      backendSeries.is_pro !== undefined
+        ? backendSeries.is_pro
+        : backendSeries.isPro || false,
     price: backendSeries.price,
-    difficulty: (backendSeries.difficulty || backendSeries.difficulty_level || 'medium').toLowerCase(),
-    isComingSoon: backendSeries.is_coming_soon || backendSeries.isComingSoon || false,
+    difficulty: (
+      backendSeries.difficulty ||
+      backendSeries.difficulty_level ||
+      "medium"
+    ).toLowerCase(),
+    isComingSoon:
+      backendSeries.is_coming_soon || backendSeries.isComingSoon || false,
     stages: backendSeries.stages || [],
     // Added missing fields for card display and ordering
-    languages: backendSeries.languages || ['Eng', 'Hin'],
+    languages: backendSeries.languages || ["Eng", "Hin"],
     order: backendSeries.order || 0,
     isPinned: backendSeries.is_pinned || backendSeries.isPinned || false,
     colourHex: backendSeries.colour_hex || backendSeries.colourHex || null,
     createdAt: backendSeries.createdAt || backendSeries.created_at,
-    updatedAt: backendSeries.updatedAt || backendSeries.updated_at
+    updatedAt: backendSeries.updatedAt || backendSeries.updated_at,
   };
 }
 
 export function mapTestToFrontend(backendTest) {
-  if (!backendTest) return null
-  const bannerAssetId = backendTest.bannerAssetId || backendTest.banner_asset_id || null
-  const promotionBannerAssetId = backendTest.promotionBannerAssetId || backendTest.promotion_banner_asset_id || null
-  const resolvedId = backendTest.public_id || backendTest.public_id_uuid || backendTest.uuid || (backendTest.id !== undefined && backendTest.id !== null ? String(backendTest.id) : null) || (backendTest._id !== undefined && backendTest._id !== null ? String(backendTest._id) : null) || backendTest.slug
+  if (!backendTest) return null;
+  const bannerAssetId =
+    backendTest.bannerAssetId || backendTest.banner_asset_id || null;
+  const promotionBannerAssetId =
+    backendTest.promotionBannerAssetId ||
+    backendTest.promotion_banner_asset_id ||
+    null;
+  const resolvedId =
+    backendTest.public_id ||
+    backendTest.public_id_uuid ||
+    backendTest.uuid ||
+    (backendTest.id !== undefined && backendTest.id !== null
+      ? String(backendTest.id)
+      : null) ||
+    (backendTest._id !== undefined && backendTest._id !== null
+      ? String(backendTest._id)
+      : null) ||
+    backendTest.slug;
 
-  const subCat = backendTest.subcategory || backendTest.subCategory || backendTest.sub_category || null
-  const testCatId = backendTest.test_category_id || backendTest.testCategoryId || backendTest.category_id || backendTest.categoryId || null
-  const subCatId = backendTest.sub_category_id || backendTest.subCategoryId || null
-  const examId = backendTest.exam_id || backendTest.examId || subCat || null
+  const subCat =
+    backendTest.subcategory ||
+    backendTest.subCategory ||
+    backendTest.sub_category ||
+    null;
+  const testCatId =
+    backendTest.test_category_id ||
+    backendTest.testCategoryId ||
+    backendTest.category_id ||
+    backendTest.categoryId ||
+    null;
+  const subCatId =
+    backendTest.sub_category_id || backendTest.subCategoryId || null;
+  const examId = backendTest.exam_id || backendTest.examId || subCat || null;
 
   return {
     id: resolvedId,
     _id: backendTest.id || backendTest._id,
-    public_id: backendTest.public_id || backendTest.public_id_uuid || resolvedId,
+    public_id:
+      backendTest.public_id || backendTest.public_id_uuid || resolvedId,
     slug: backendTest.slug,
     title: backendTest.title,
     category: backendTest.category,
@@ -243,47 +324,105 @@ export function mapTestToFrontend(backendTest) {
     category_id: testCatId,
     subCategoryId: subCatId,
     sub_category_id: subCatId,
-    testCategoryName: backendTest.test_category_name || backendTest.testCategoryName || null,
+    testCategoryName:
+      backendTest.test_category_name || backendTest.testCategoryName || null,
     categoryName: backendTest.category_name || backendTest.categoryName || null,
     categorySlug: backendTest.category_slug || backendTest.categorySlug || null,
-    category_slug: backendTest.category_slug || backendTest.categorySlug || null,
-    subCategorySlug: backendTest.sub_category_slug || backendTest.subCategorySlug || null,
-    sub_category_slug: backendTest.sub_category_slug || backendTest.subCategorySlug || null,
-    categoryPathIds: backendTest.category_path_ids || backendTest.categoryPathIds || [],
-    category_path_ids: backendTest.category_path_ids || backendTest.categoryPathIds || [],
-    categoryPathNames: backendTest.category_path_names || backendTest.categoryPathNames || [],
-    category_path_names: backendTest.category_path_names || backendTest.categoryPathNames || [],
-    type: backendTest.type || (backendTest.is_pro ? 'Pro' : 'Free'),
-    isPro: backendTest.is_pro !== undefined ? backendTest.is_pro : (backendTest.isPro || false),
-    totalQuestions: backendTest.total_questions || backendTest.totalQuestions || 0,
+    category_slug:
+      backendTest.category_slug || backendTest.categorySlug || null,
+    subCategorySlug:
+      backendTest.sub_category_slug || backendTest.subCategorySlug || null,
+    sub_category_slug:
+      backendTest.sub_category_slug || backendTest.subCategorySlug || null,
+    categoryPathIds:
+      backendTest.category_path_ids || backendTest.categoryPathIds || [],
+    category_path_ids:
+      backendTest.category_path_ids || backendTest.categoryPathIds || [],
+    categoryPathNames:
+      backendTest.category_path_names || backendTest.categoryPathNames || [],
+    category_path_names:
+      backendTest.category_path_names || backendTest.categoryPathNames || [],
+    type: backendTest.type || (backendTest.is_pro ? "Pro" : "Free"),
+    isPro:
+      backendTest.is_pro !== undefined
+        ? backendTest.is_pro
+        : backendTest.isPro || false,
+    totalQuestions:
+      backendTest.total_questions || backendTest.totalQuestions || 0,
     totalMarks: backendTest.total_marks || backendTest.totalMarks || 0,
-    questions: backendTest.questions || backendTest.total_questions || backendTest.totalQuestions || 0,
+    questions:
+      backendTest.questions ||
+      backendTest.total_questions ||
+      backendTest.totalQuestions ||
+      0,
     duration: backendTest.duration || 60,
-    year: backendTest.year || backendTest.pyq_year || backendTest.pyqYear || null,
-    pyqYear: backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
-    pyq_year: backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
-    isPyq: backendTest.is_pyq !== undefined ? backendTest.is_pyq : (backendTest.isPyq || false),
-    is_pyq: backendTest.is_pyq !== undefined ? backendTest.is_pyq : (backendTest.isPyq || false),
+    year:
+      backendTest.year || backendTest.pyq_year || backendTest.pyqYear || null,
+    pyqYear:
+      backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
+    pyq_year:
+      backendTest.pyq_year || backendTest.pyqYear || backendTest.year || null,
+    isPyq:
+      backendTest.is_pyq !== undefined
+        ? backendTest.is_pyq
+        : backendTest.isPyq || false,
+    is_pyq:
+      backendTest.is_pyq !== undefined
+        ? backendTest.is_pyq
+        : backendTest.isPyq || false,
     tags: backendTest.tags || [],
     languages: backendTest.languages || [],
-    isComingSoon: backendTest.is_coming_soon !== undefined ? backendTest.is_coming_soon : (backendTest.isComingSoon || false),
-    comingSoonDate: backendTest.coming_soon_date || backendTest.comingSoonDate || null,
-    testSeriesId: backendTest.test_series_id || backendTest.testSeriesId || backendTest.series_id || backendTest.seriesId,
-    seriesId: backendTest.test_series_id || backendTest.testSeriesId || backendTest.series_id || backendTest.seriesId,
+    isComingSoon:
+      backendTest.is_coming_soon !== undefined
+        ? backendTest.is_coming_soon
+        : backendTest.isComingSoon || false,
+    comingSoonDate:
+      backendTest.coming_soon_date || backendTest.comingSoonDate || null,
+    testSeriesId:
+      backendTest.test_series_id ||
+      backendTest.testSeriesId ||
+      backendTest.series_id ||
+      backendTest.seriesId,
+    seriesId:
+      backendTest.test_series_id ||
+      backendTest.testSeriesId ||
+      backendTest.series_id ||
+      backendTest.seriesId,
     bannerAssetId,
     promotionBannerAssetId,
-    bannerUrl: backendTest.bannerUrl || backendTest.banner_url || backendTest.bannerImageUrl || backendTest.banner_image_url || null,
-    promotionBannerUrl: backendTest.promotionBannerUrl || backendTest.promotion_banner_url || null,
-    isActive: backendTest.is_active !== undefined ? backendTest.is_active : (backendTest.isActive !== false),
-    difficulty: (backendTest.difficulty || backendTest.difficulty_level || 'medium').toLowerCase(),
+    bannerUrl:
+      backendTest.bannerUrl ||
+      backendTest.banner_url ||
+      backendTest.bannerImageUrl ||
+      backendTest.banner_image_url ||
+      null,
+    promotionBannerUrl:
+      backendTest.promotionBannerUrl ||
+      backendTest.promotion_banner_url ||
+      null,
+    isActive:
+      backendTest.is_active !== undefined
+        ? backendTest.is_active
+        : backendTest.isActive !== false,
+    difficulty: (
+      backendTest.difficulty ||
+      backendTest.difficulty_level ||
+      "medium"
+    ).toLowerCase(),
     stageId: backendTest.stage_id || backendTest.stageId,
     stage_id: backendTest.stage_id || backendTest.stageId,
     stageIds: backendTest.stage_ids || backendTest.stageIds || [],
     stage_ids: backendTest.stage_ids || backendTest.stageIds || [],
     tier: backendTest.tier || null,
-    status: backendTest.status === 'disabled' ? 'archived' : (backendTest.status || (backendTest.is_active !== false && backendTest.isActive !== false ? 'published' : 'draft')),
+    status:
+      backendTest.status === "disabled"
+        ? "archived"
+        : backendTest.status ||
+          (backendTest.is_active !== false && backendTest.isActive !== false
+            ? "published"
+            : "draft"),
     createdAt: backendTest.created_at || backendTest.createdAt,
-    updatedAt: backendTest.updated_at || backendTest.updatedAt
+    updatedAt: backendTest.updated_at || backendTest.updatedAt,
   };
 }
 
@@ -295,18 +434,33 @@ export function mapTestToFrontend(backendTest) {
  */
 export function mapQuestionToFrontend(backendQuestion) {
   // 1. Process question text & bilingual spans
-  let textFormatted = { en: '', hi: '' };
-  const rawText = backendQuestion.questionText || backendQuestion.question_text || backendQuestion.text || backendQuestion.question || '';
-  const rawTextHi = backendQuestion.questionTextHi || backendQuestion.question_text_hi || backendQuestion.questionHi || backendQuestion.question_hi || '';
+  let textFormatted = { en: "", hi: "" };
+  const rawText =
+    backendQuestion.questionText ||
+    backendQuestion.question_text ||
+    backendQuestion.text ||
+    backendQuestion.question ||
+    "";
+  const rawTextHi =
+    backendQuestion.questionTextHi ||
+    backendQuestion.question_text_hi ||
+    backendQuestion.questionHi ||
+    backendQuestion.question_hi ||
+    "";
 
-
-  if (typeof rawText === 'string') {
+  if (typeof rawText === "string") {
     const extracted = extractBilingualContent(rawText);
     textFormatted.en = extracted.en;
-    textFormatted.hi = rawTextHi ? cleanHtmlWrapper(decodeHtmlEntities(rawTextHi)) : extracted.hi;
-  } else if (typeof rawText === 'object' && rawText !== null) {
-    textFormatted.en = cleanHtmlWrapper(decodeHtmlEntities(rawText.en || rawText.text || ''));
-    textFormatted.hi = cleanHtmlWrapper(decodeHtmlEntities(rawText.hi || rawTextHi || ''));
+    textFormatted.hi = rawTextHi
+      ? cleanHtmlWrapper(decodeHtmlEntities(rawTextHi))
+      : extracted.hi;
+  } else if (typeof rawText === "object" && rawText !== null) {
+    textFormatted.en = cleanHtmlWrapper(
+      decodeHtmlEntities(rawText.en || rawText.text || ""),
+    );
+    textFormatted.hi = cleanHtmlWrapper(
+      decodeHtmlEntities(rawText.hi || rawTextHi || ""),
+    );
   }
 
   // 2. Process options & bilingual options
@@ -318,12 +472,16 @@ export function mapQuestionToFrontend(backendQuestion) {
     const enOpts = [];
     const hiOpts = [];
     rawOptions.forEach((opt, idx) => {
-      if (typeof opt === 'string') {
+      if (typeof opt === "string") {
         const extracted = extractBilingualContent(opt);
         enOpts.push(extracted.en);
         if (extracted.hi) hiOpts.push(extracted.hi);
-      } else if (typeof opt === 'object' && opt !== null) {
-        enOpts.push(cleanHtmlWrapper(decodeHtmlEntities(opt.en || opt.text || opt.value || String(opt))));
+      } else if (typeof opt === "object" && opt !== null) {
+        enOpts.push(
+          cleanHtmlWrapper(
+            decodeHtmlEntities(opt.en || opt.text || opt.value || String(opt)),
+          ),
+        );
         if (opt.hi) hiOpts.push(cleanHtmlWrapper(decodeHtmlEntities(opt.hi)));
       } else {
         enOpts.push(cleanHtmlWrapper(decodeHtmlEntities(String(opt))));
@@ -332,50 +490,106 @@ export function mapQuestionToFrontend(backendQuestion) {
 
     optionsFormatted.en = enOpts;
     if (Array.isArray(rawOptionsHi) && rawOptionsHi.length > 0) {
-      optionsFormatted.hi = rawOptionsHi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(typeof o === 'string' ? o : (o?.hi || o?.text || String(o)))));
+      optionsFormatted.hi = rawOptionsHi.map((o) =>
+        cleanHtmlWrapper(
+          decodeHtmlEntities(
+            typeof o === "string" ? o : o?.hi || o?.text || String(o),
+          ),
+        ),
+      );
     } else if (hiOpts.length === enOpts.length) {
       optionsFormatted.hi = hiOpts;
     }
-  } else if (typeof rawOptions === 'object' && rawOptions !== null) {
-    optionsFormatted.en = Array.isArray(rawOptions.en) ? rawOptions.en.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : [];
-    optionsFormatted.hi = Array.isArray(rawOptions.hi) ? rawOptions.hi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : (Array.isArray(rawOptionsHi) ? rawOptionsHi.map((o) => cleanHtmlWrapper(decodeHtmlEntities(String(o)))) : []);
+  } else if (typeof rawOptions === "object" && rawOptions !== null) {
+    optionsFormatted.en = Array.isArray(rawOptions.en)
+      ? rawOptions.en.map((o) =>
+          cleanHtmlWrapper(decodeHtmlEntities(String(o))),
+        )
+      : [];
+    optionsFormatted.hi = Array.isArray(rawOptions.hi)
+      ? rawOptions.hi.map((o) =>
+          cleanHtmlWrapper(decodeHtmlEntities(String(o))),
+        )
+      : Array.isArray(rawOptionsHi)
+        ? rawOptionsHi.map((o) =>
+            cleanHtmlWrapper(decodeHtmlEntities(String(o))),
+          )
+        : [];
   }
 
   // 3. Process explanation & bilingual explanation
-  let explanationFormatted = { en: '', hi: '' };
-  const rawExplanation = backendQuestion.explanation || backendQuestion.solution || '';
-  const rawExplanationHi = backendQuestion.explanationHi || backendQuestion.explanation_hi || backendQuestion.solutionHi || backendQuestion.solution_hi || '';
+  let explanationFormatted = { en: "", hi: "" };
+  const rawExplanation =
+    backendQuestion.explanation || backendQuestion.solution || "";
+  const rawExplanationHi =
+    backendQuestion.explanationHi ||
+    backendQuestion.explanation_hi ||
+    backendQuestion.solutionHi ||
+    backendQuestion.solution_hi ||
+    "";
 
-  if (typeof rawExplanation === 'string') {
+  if (typeof rawExplanation === "string") {
     const extracted = extractBilingualContent(rawExplanation);
     explanationFormatted.en = extracted.en;
-    explanationFormatted.hi = rawExplanationHi ? cleanHtmlWrapper(decodeHtmlEntities(rawExplanationHi)) : extracted.hi;
-  } else if (typeof rawExplanation === 'object' && rawExplanation !== null) {
-    explanationFormatted.en = cleanHtmlWrapper(decodeHtmlEntities(rawExplanation.en || rawExplanation.text || ''));
-    explanationFormatted.hi = cleanHtmlWrapper(decodeHtmlEntities(rawExplanation.hi || rawExplanationHi || ''));
+    explanationFormatted.hi = rawExplanationHi
+      ? cleanHtmlWrapper(decodeHtmlEntities(rawExplanationHi))
+      : extracted.hi;
+  } else if (typeof rawExplanation === "object" && rawExplanation !== null) {
+    explanationFormatted.en = cleanHtmlWrapper(
+      decodeHtmlEntities(rawExplanation.en || rawExplanation.text || ""),
+    );
+    explanationFormatted.hi = cleanHtmlWrapper(
+      decodeHtmlEntities(rawExplanation.hi || rawExplanationHi || ""),
+    );
   }
 
-
   return {
-    id: backendQuestion.public_id || String(backendQuestion.id || backendQuestion._id),
+    id:
+      backendQuestion.public_id ||
+      String(backendQuestion.id || backendQuestion._id),
     _id: backendQuestion.id || backendQuestion._id,
     public_id: backendQuestion.public_id,
     text: textFormatted,
     options: optionsFormatted,
-    correct: backendQuestion.correctAnswer !== undefined ? backendQuestion.correctAnswer : (backendQuestion.correct_answer !== undefined ? backendQuestion.correct_answer : (backendQuestion.correctOption !== undefined ? backendQuestion.correctOption : (backendQuestion.correct_option !== undefined ? backendQuestion.correct_option : backendQuestion.correct))),
+    correct:
+      backendQuestion.correctAnswer !== undefined
+        ? backendQuestion.correctAnswer
+        : backendQuestion.correct_answer !== undefined
+          ? backendQuestion.correct_answer
+          : backendQuestion.correctOption !== undefined
+            ? backendQuestion.correctOption
+            : backendQuestion.correct_option !== undefined
+              ? backendQuestion.correct_option
+              : backendQuestion.correct,
     explanation: explanationFormatted,
-    section: backendQuestion.section || backendQuestion.subject || 'General',
+    section: backendQuestion.section || backendQuestion.subject || "General",
     subject: backendQuestion.subject,
     testId: backendQuestion.testId || backendQuestion.test_id,
     // REMOVED duplicate: test_id - use testId instead
-    imageAssetId: backendQuestion.imageAssetId || backendQuestion.image_asset_id || null,
-    imageUrl: backendQuestion.imageUrl || backendQuestion.image_url || backendQuestion.questionImageUrl || backendQuestion.question_image_url || backendQuestion.image || null,
-    questionImageUrl: backendQuestion.imageUrl || backendQuestion.image_url || backendQuestion.questionImageUrl || backendQuestion.question_image_url || backendQuestion.image || null,
+    imageAssetId:
+      backendQuestion.imageAssetId || backendQuestion.image_asset_id || null,
+    imageUrl:
+      backendQuestion.imageUrl ||
+      backendQuestion.image_url ||
+      backendQuestion.questionImageUrl ||
+      backendQuestion.question_image_url ||
+      backendQuestion.image ||
+      null,
+    questionImageUrl:
+      backendQuestion.imageUrl ||
+      backendQuestion.image_url ||
+      backendQuestion.questionImageUrl ||
+      backendQuestion.question_image_url ||
+      backendQuestion.image ||
+      null,
     marks: parseFloat(backendQuestion.marks) || 1,
-    negativeMarks: parseFloat(backendQuestion.negativeMarks) || parseFloat(backendQuestion.negative_marks) || 0,
-    difficulty: backendQuestion.difficulty || 'Medium',
+    negativeMarks:
+      parseFloat(backendQuestion.negativeMarks) ||
+      parseFloat(backendQuestion.negative_marks) ||
+      0,
+    difficulty: backendQuestion.difficulty || "Medium",
     createdAt: backendQuestion.createdAt || backendQuestion.created_at,
-    updatedAt: backendQuestion.updatedAt || backendQuestion.updated_at
+    updatedAt: backendQuestion.updatedAt || backendQuestion.updated_at,
   };
 }
 
@@ -389,7 +603,8 @@ export function mapTestSeriesToBackend(frontendSeries) {
     slug: frontendSeries.id || frontendSeries.slug,
     title: frontendSeries.title,
     category: frontendSeries.category,
-    subcategory: frontendSeries.subcategory,
+    examId: frontendSeries.examId || frontendSeries.exam_id || null,
+    exam_id: frontendSeries.examId || frontendSeries.exam_id || null,
     description: frontendSeries.description,
     image: frontendSeries.image,
     thumbnail: frontendSeries.thumbnail,
@@ -409,7 +624,7 @@ export function mapTestSeriesToBackend(frontendSeries) {
     languages: frontendSeries.languages,
     order: frontendSeries.order,
     isPinned: frontendSeries.isPinned,
-    colourHex: frontendSeries.colourHex
+    colourHex: frontendSeries.colourHex,
   };
 }
 
@@ -421,10 +636,12 @@ export function mapTestSeriesToBackend(frontendSeries) {
  * @returns {boolean} Whether user object is valid
  */
 export function validateUser(user) {
-  return user && 
-    typeof user.name === 'string' && 
-    typeof user.email === 'string' &&
-    typeof user.isProUser === 'boolean';
+  return (
+    user &&
+    typeof user.name === "string" &&
+    typeof user.email === "string" &&
+    typeof user.isProUser === "boolean"
+  );
 }
 
 /**
@@ -433,50 +650,53 @@ export function validateUser(user) {
  * @returns {boolean} Whether test series object is valid
  */
 export function validateTestSeries(series) {
-  return series && 
-    typeof series.title === 'string' && 
-    typeof series.category === 'string' &&
-    typeof series.totalTests === 'number';
+  return (
+    series &&
+    typeof series.title === "string" &&
+    typeof series.category === "string" &&
+    typeof series.totalTests === "number"
+  );
 }
 
 // Default objects
 
 export const DEFAULT_USER = {
-  id: '',
-  name: '',
-  email: '',
-  mobile: '',
-  role: 'user',
+  id: "",
+  name: "",
+  email: "",
+  mobile: "",
+  role: "user",
   isProUser: false,
   proPassExpiry: null,
   enrolledSeries: [],
   attemptedTests: {},
-  createdAt: ''
+  createdAt: "",
 };
 
 export const DEFAULT_TEST_SERIES = {
-  id: '',
-  slug: '',
-  title: '',
-  category: '',
-  subcategory: '',
-  description: '',
-  image: '',
-  thumbnail: '',
-  icon: '📝',
+  id: "",
+  slug: "",
+  title: "",
+  category: "",
+  examId: "",
+  exam_id: "",
+  description: "",
+  image: "",
+  thumbnail: "",
+  icon: "📝",
   totalTests: 0,
   freeTests: 0,
-  users: '0',
-  activeUsers: '0',
+  users: "0",
+  activeUsers: "0",
   rating: 4.5,
   tags: [],
   testTypes: [],
   isActive: true,
   isPro: false,
   price: 0,
-  difficulty: 'Medium',
-  createdAt: '',
-  updatedAt: ''
+  difficulty: "Medium",
+  createdAt: "",
+  updatedAt: "",
 };
 
 export default {
@@ -488,5 +708,5 @@ export default {
   validateUser,
   validateTestSeries,
   DEFAULT_USER,
-  DEFAULT_TEST_SERIES
+  DEFAULT_TEST_SERIES,
 };

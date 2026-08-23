@@ -58,6 +58,16 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterRole, setFilterRole] = useState("all");
+  const filterValue =
+    filterStatus === "active"
+      ? "active"
+      : filterStatus === "inactive"
+        ? "inactive"
+        : filterRole === "pro"
+          ? "pro"
+          : filterRole === "admin"
+            ? "admin"
+            : "all";
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [viewMode, setViewMode] = useState("table"); // 'table' | 'cards' | 'charts'
@@ -535,13 +545,13 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
 
   return (
     <div className="p-3 sm:p-4 max-w-7xl mx-auto space-y-3.5">
-      {/* 1. Unified Single-Row Top Bar (Tabs on Left + Actions on Right) */}
-      <div className="flex items-center justify-between gap-2.5 flex-wrap">
+      {/* 1. Top Bar — 4 items in one row, minimized text on mobile */}
+      <div className="flex flex-row items-center justify-between gap-1 sm:gap-2.5 flex-nowrap overflow-x-auto scrollbar-none">
         {/* Left: Tab Switcher Pills */}
-        <div className="inline-flex items-center gap-1 p-1 bg-white dark:bg-gray-800/90 rounded-2xl shadow-xs border border-gray-100 dark:border-gray-700/80">
+        <div className="inline-flex items-center gap-1 p-1 bg-white dark:bg-gray-800/90 rounded-2xl shadow-xs border border-gray-100 dark:border-gray-700/80 shrink-0">
           <button
             onClick={() => setActiveTab && setActiveTab("users")}
-            className={`relative flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all duration-200 tap-feedback ${
+            className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 text-[10px] sm:text-sm font-bold rounded-xl transition-all duration-200 tap-feedback whitespace-nowrap shrink-0 ${
               activeTab === "users"
                 ? "text-white shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
@@ -550,15 +560,15 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
             {activeTab === "users" && (
               <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-xl shadow-sm" />
             )}
-            <span className="relative flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="relative flex items-center gap-1 sm:gap-1.5">
+              <Users className="w-3 h-3 sm:w-4 sm:h-4" />
               Users
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab && setActiveTab("roles")}
-            className={`relative flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 text-xs sm:text-sm font-bold rounded-xl transition-all duration-200 tap-feedback ${
+            className={`relative flex items-center gap-1 sm:gap-1.5 px-2 sm:px-4 py-1.5 text-[10px] sm:text-sm font-bold rounded-xl transition-all duration-200 tap-feedback whitespace-nowrap shrink-0 ${
               activeTab === "roles"
                 ? "text-white shadow-sm"
                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
@@ -567,22 +577,22 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
             {activeTab === "roles" && (
               <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-500 dark:to-purple-500 rounded-xl shadow-sm" />
             )}
-            <span className="relative flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="relative flex items-center gap-1 sm:gap-1.5">
+              <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
               Roles & Permissions
             </span>
           </button>
         </div>
 
         {/* Right: Refresh + Export CSV Buttons */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0">
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-bold text-gray-700 dark:text-gray-200 transition-all tap-feedback"
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl text-[10px] sm:text-xs font-bold text-gray-700 dark:text-gray-200 transition-all tap-feedback whitespace-nowrap shrink-0"
           >
             <RefreshCw
-              className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
+              className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${refreshing ? "animate-spin text-indigo-600" : ""}`}
             />
             <span>Refresh</span>
           </button>
@@ -590,9 +600,9 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
           <button
             onClick={exportUsersAsCSV}
             disabled={exporting}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-500/20 transition-all tap-feedback"
+            className="flex items-center justify-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl text-[10px] sm:text-xs font-bold shadow-md shadow-indigo-500/20 transition-all tap-feedback whitespace-nowrap shrink-0"
           >
-            <Download className="w-3.5 h-3.5" />
+            <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             <span>{exporting ? "Exporting..." : "Export CSV"}</span>
           </button>
         </div>
@@ -688,11 +698,12 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
         </div>
       </div>
 
-      {/* 3. Search, Filter Chips & View Mode Switcher in ONE ROW on PC */}
-      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-2.5 sm:p-3 space-y-2.5 lg:space-y-0">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5 sm:gap-3">
-          {/* Left: Search */}
-          <div className="w-full lg:w-72 shrink-0">
+      {/* 3. Search + Filters — Search left, User Type right on mobile; Search+Chips+ViewMode on desktop */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xs p-2.5 sm:p-3 space-y-2.5">
+        {/* Top row: Search + Filters in one row */}
+        <div className="flex flex-row items-center gap-2 sm:gap-3">
+          {/* Search — flex-1 on all, left side */}
+          <div className="flex-1 min-w-0">
             <SearchInput
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -702,8 +713,41 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
             />
           </div>
 
-          {/* Middle: Filter Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0 pb-1 lg:pb-0">
+          {/* Mobile only: User Type dropdown — right side, one row with Search */}
+          <div className="w-28 sm:hidden shrink-0">
+            <select
+              value={filterValue}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "active") {
+                  setFilterStatus("active");
+                  setFilterRole("all");
+                } else if (v === "inactive") {
+                  setFilterStatus("inactive");
+                  setFilterRole("all");
+                } else if (v === "pro") {
+                  setFilterStatus("all");
+                  setFilterRole("pro");
+                } else if (v === "admin") {
+                  setFilterStatus("all");
+                  setFilterRole("admin");
+                } else {
+                  setFilterStatus("all");
+                  setFilterRole("all");
+                }
+              }}
+              className="w-full px-2.5 py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-xs font-semibold bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="all">All Users</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="pro">Pro Members</option>
+              <option value="admin">Admins</option>
+            </select>
+          </div>
+
+          {/* Desktop only: Filter Chips — middle */}
+          <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1 min-w-0">
             {[
               {
                 id: "all",
@@ -758,8 +802,8 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
             })}
           </div>
 
-          {/* Right: View Mode Switcher + Selected count */}
-          <div className="flex items-center gap-2 shrink-0 justify-between lg:justify-end">
+          {/* Desktop only: View Mode Switcher + Selected count */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0 justify-end">
             {selectedUsers.length > 0 && (
               <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-xl shrink-0">
                 <span className="text-xs text-indigo-700 dark:text-indigo-300 font-bold">
@@ -809,6 +853,58 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
                 <span>Charts</span>
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Mobile only: View Mode + Selected count */}
+        <div className="flex sm:hidden items-center justify-between gap-2">
+          {selectedUsers.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 px-2.5 py-1 rounded-xl shrink-0">
+              <span className="text-xs text-indigo-700 dark:text-indigo-300 font-bold">
+                {selectedUsers.length}
+              </span>
+              <button
+                onClick={() => setShowBulkActions(!showBulkActions)}
+                className="text-xs text-indigo-600 dark:text-indigo-400 font-bold underline tap-feedback"
+              >
+                {showBulkActions ? "Hide" : "Actions"}
+              </button>
+            </div>
+          )}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shrink-0 ml-auto">
+            <button
+              onClick={() => setViewMode("table")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all tap-feedback shrink-0 ${
+                viewMode === "table"
+                  ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-xs"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              <LayoutList className="w-3 h-3" />
+              <span>Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all tap-feedback shrink-0 ${
+                viewMode === "cards"
+                  ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-xs"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              <LayoutGrid className="w-3 h-3" />
+              <span>Cards</span>
+            </button>
+            <button
+              onClick={() => setViewMode("charts")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all tap-feedback shrink-0 ${
+                viewMode === "charts"
+                  ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-300 shadow-xs"
+                  : "text-gray-500 dark:text-gray-400"
+              }`}
+            >
+              <BarChart3 className="w-3 h-3" />
+              <span>Charts</span>
+            </button>
           </div>
         </div>
 

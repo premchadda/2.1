@@ -456,7 +456,11 @@ export default function SubscriptionPlansManager() {
                           key={idx}
                           className="flex items-center justify-between bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg"
                         >
-                          <span className="text-sm">{feature}</span>
+                          <span className="text-sm">
+                            {typeof feature === "string"
+                              ? feature
+                              : feature?.text || JSON.stringify(feature)}
+                          </span>
                           <button
                             type="button"
                             onClick={() => removeFeature(idx)}
@@ -470,8 +474,13 @@ export default function SubscriptionPlansManager() {
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={newFeature}
-                        onChange={(e) => setNewFeature(e.target.value)}
+                        value={newFeature.text}
+                        onChange={(e) =>
+                          setNewFeature((prev) => ({
+                            ...prev,
+                            text: e.target.value,
+                          }))
+                        }
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();

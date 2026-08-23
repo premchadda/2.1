@@ -83,27 +83,15 @@ export function createApiClient(options = {}) {
     withCredentials,
   });
 
-  // ---- Request interceptor: attach CSRF token and Authorization header ----
+  // ---- Request interceptor: attach CSRF token ----
+  // SECURITY: No localStorage/sessionStorage JWT fallback — rely exclusively
+  // on httpOnly cookies (withCredentials: true). This prevents XSS exfiltration
+  // of tokens via localStorage.
   instance.interceptors.request.use(
     (config) => {
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
         delete config.headers["Content-Type"];
         delete config.headers["content-type"];
-      }
-
-      // Attach Authorization token as fallback for cross-domain cookie restrictions
-      if (typeof window !== "undefined") {
-        const token =
-          sessionStorage.getItem("trstprep_auth_token") ||
-          localStorage.getItem("trstprep_token");
-        if (token) {
-          if (config.headers && typeof config.headers.set === "function") {
-            config.headers.set("Authorization", `Bearer ${token}`);
-          } else {
-            config.headers = config.headers || {};
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-        }
       }
 
       const method = config.method?.toUpperCase();
@@ -173,36 +161,65 @@ export function createApiClient(options = {}) {
       const isAuthEndpoint = authEndpoints.some(matchFn);
 
       // Handle 403 CSRF mismatch: auto-recover and retry once
+      // FIX: Do not retry if the failing request is itself the refresh endpoint
+      // — otherwise a 403 from /auth/refresh (e.g. invalid CSRF) loops infinitely.
       if (status === 403) {
         const errorMsg = String(error.response?.data?.message || "");
+        const isRefreshRequest = url?.includes(refreshUrl);
         if (
           errorMsg.toLowerCase().includes("csrf") &&
           originalRequest &&
-          !originalRequest._csrfRetry
+          !originalRequest._csrfRetry &&
+          !isRefreshRequest
         ) {
           originalRequest._csrfRetry = true;
           const freshCsrf =
             error.response?.headers?.["x-csrf-token"] ||
             error.response?.headers?.["X-CSRF-Token"] ||
-            error.response?.data?.csrfToken;
+            error.response?.data?.csrfToken ||
+            error.response?.data?.data?.csrfToken;
           if (freshCsrf) {
-            getCsrfToken?.(); // trigger refresh if needed
+            setCsrfToken(freshCsrf);
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers["X-CSRF-Token"] = freshCsrf;
+            return instance(originalRequest);
           }
-          return instance(originalRequest);
         }
       }
 
       if (status === 401 || status === 419) {
         if (isAuthEndpoint) {
           onAuthFailure?.(error, { isRefreshFailure: false });
-          return Promise.reject(error);
+          return Promise.reject(
+            new AuthenticationError(
+              error.response?.data?.message ||
+                error.message ||
+                "Authentication failed",
+              error.response?.data,
+            ),
+          );
+        }
+
+        // Prevent infinite loop when the refresh endpoint itself returns 401/419
+        const isRefreshUrl = url?.includes(refreshUrl);
+        if (isRefreshUrl) {
+          onAuthFailure?.(error, { isRefreshFailure: true });
+          return Promise.reject(
+            new AuthenticationError(
+              error.response?.data?.message || "Session expired",
+              error.response?.data,
+            ),
+          );
         }
 
         if (originalRequest?._authRefreshAttempted) {
           onAuthFailure?.(error, { isRefreshFailure: false });
-          return Promise.reject(error);
+          return Promise.reject(
+            new AuthenticationError(
+              error.response?.data?.message || "Session expired",
+              error.response?.data,
+            ),
+          );
         }
 
         originalRequest._authRefreshAttempted = true;
@@ -210,87 +227,43 @@ export function createApiClient(options = {}) {
         if (!isRefreshing) {
           isRefreshing = true;
           try {
-            const isPersistent = Boolean(
-              localStorage.getItem("trstprep_token") ||
-              localStorage.getItem("trstprep_refresh_token"),
-            );
-            const storedRefreshToken =
-              typeof window !== "undefined"
-                ? localStorage.getItem("trstprep_refresh_token") ||
-                  sessionStorage.getItem("trstprep_refresh_token")
-                : null;
-            const refreshRes = await instance.post(
+            // Rely on httpOnly cookie for refresh — no refreshToken in body or storage
+            await instance.post(
               refreshUrl,
-              storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
+              {},
+              { _authRefreshAttempted: true },
             );
-            const {
-              token: freshToken,
-              refreshToken: freshRefreshToken,
-              rememberMe: serverRememberMe,
-            } = refreshRes.data?.data || refreshRes.data || {};
-            const rememberMe =
-              serverRememberMe !== undefined ? serverRememberMe : isPersistent;
-
-            if (typeof window !== "undefined") {
-              const primaryStorage = rememberMe ? localStorage : sessionStorage;
-              const secondaryStorage = rememberMe
-                ? sessionStorage
-                : localStorage;
-
-              // Purge stale tokens from opposite storage
-              secondaryStorage.removeItem("trstprep_auth_token");
-              secondaryStorage.removeItem("trstprep_token");
-              secondaryStorage.removeItem("trstprep_refresh_token");
-
-              if (freshToken) {
-                try {
-                  primaryStorage.setItem(
-                    rememberMe ? "trstprep_token" : "trstprep_auth_token",
-                    freshToken,
-                  );
-                } catch {}
-              }
-              if (freshRefreshToken) {
-                try {
-                  primaryStorage.setItem(
-                    "trstprep_refresh_token",
-                    freshRefreshToken,
-                  );
-                } catch {}
-              }
-            }
-
-            if (freshToken && originalRequest?.headers) {
-              originalRequest.headers.Authorization = `Bearer ${freshToken}`;
-            }
-
             isRefreshing = false;
             processQueue(null);
             return instance(originalRequest);
           } catch (refreshError) {
             isRefreshing = false;
-            processQueue(refreshError);
+            const authErr = new AuthenticationError(
+              refreshError?.response?.data?.message ||
+                refreshError?.message ||
+                "Session expired",
+              refreshError?.response?.data || refreshError,
+            );
+            authErr.status = refreshError?.response?.status || 401;
+            authErr.cause = refreshError;
+            processQueue(authErr);
             const refreshStatus = refreshError?.response?.status;
-            if (refreshStatus === 401 || refreshStatus === 419) {
+            if (
+              refreshStatus === 401 ||
+              refreshStatus === 419 ||
+              refreshStatus === 403
+            ) {
               onAuthFailure?.(refreshError, { isRefreshFailure: true });
             }
-            return Promise.reject(refreshError);
+            return Promise.reject(authErr);
           }
         }
 
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        }).then(() => {
-          if (typeof window !== "undefined") {
-            const latestToken =
-              sessionStorage.getItem("trstprep_auth_token") ||
-              localStorage.getItem("trstprep_token");
-            if (latestToken && originalRequest?.headers) {
-              originalRequest.headers.Authorization = `Bearer ${latestToken}`;
-            }
-          }
-          return instance(originalRequest);
-        });
+        })
+          .then(() => instance(originalRequest))
+          .catch((queueError) => Promise.reject(queueError));
       }
 
       if (error.response) {

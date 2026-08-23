@@ -42,35 +42,50 @@ function cleanupCsrfTokens() {
   }
 }
 
+// HMAC pepper for auth token hashing — never store raw token hash without pepper
+const getCsrfPepper = () => {
+  return (
+    process.env.CSRF_HMAC_PEPPER ||
+    process.env.CSRF_PEPPER ||
+    process.env.JWT_SECRET ||
+    ""
+  );
+};
+
+const hashAuthToken = (authToken) => {
+  const pepper = getCsrfPepper();
+  // Use HMAC-SHA256 with pepper; falls back gracefully if pepper missing (warned)
+  if (!pepper) {
+    console.warn(
+      "[CSRF] CSRF_HMAC_PEPPER/JWT_SECRET not set — using insecure hash",
+    );
+    return crypto.createHash("sha256").update(authToken).digest("hex");
+  }
+  return crypto.createHmac("sha256", pepper).update(authToken).digest("hex");
+};
+
 // Generate CSRF token
 export const generateCsrfToken = () => {
   return crypto.randomBytes(32).toString("hex");
 };
 
-// Store CSRF token: DB -> Redis -> reject (prod) / memory (dev)
-// FIX C1: Use delete-then-insert to prevent duplicate rows for the same
-// auth_token_hash. Previously, raw INSERT created multiple rows per hash,
-// and findOne returned an arbitrary (potentially stale) row, causing
-// intermittent 403 Invalid CSRF token errors after server restarts.
+// Store CSRF token: DB (UPSERT ON CONFLICT) -> Redis -> reject (prod) / memory (dev)
+// Uses HMAC pepper and atomic UPSERT to avoid race/duplicate rows.
 export const storeCsrfToken = async (authToken, csrfToken) => {
   const expiresAt = new Date(Date.now() + CSRF_TOKEN_EXPIRY_MS).toISOString();
-  const authTokenHash = crypto
-    .createHash("sha256")
-    .update(authToken)
-    .digest("hex");
+  const authTokenHash = hashAuthToken(authToken);
 
-  // 1. Try database — delete existing rows for this hash first, then insert
+  // 1. Try database — atomic UPSERT ON CONFLICT (auth_token_hash)
   try {
     await dbHelpers.pool.query(
-      "DELETE FROM csrf_tokens WHERE auth_token_hash = $1",
-      [authTokenHash],
+      `INSERT INTO csrf_tokens (auth_token_hash, csrf_token, expires_at, created_at)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (auth_token_hash) DO UPDATE SET
+         csrf_token = EXCLUDED.csrf_token,
+         expires_at = EXCLUDED.expires_at,
+         created_at = EXCLUDED.created_at`,
+      [authTokenHash, csrfToken, expiresAt, new Date().toISOString()],
     );
-    await dbHelpers.insertOne("csrf_tokens", {
-      auth_token_hash: authTokenHash,
-      csrf_token: csrfToken,
-      expires_at: expiresAt,
-      created_at: new Date().toISOString(),
-    });
     // Also persist the previous token in DB so grace period survives restarts
     await storePrevCsrfToken(authTokenHash);
     csrfTokensMemory.set(authTokenHash, {
@@ -80,7 +95,33 @@ export const storeCsrfToken = async (authToken, csrfToken) => {
     });
     return true;
   } catch (dbError) {
-    console.warn("CSRF database storage failed:", dbError.message);
+    // If ON CONFLICT fails due to missing unique constraint, fallback to DELETE+INSERT
+    if (dbError && dbError.code === "42P10") {
+      try {
+        await dbHelpers.pool.query(
+          "DELETE FROM csrf_tokens WHERE auth_token_hash = $1",
+          [authTokenHash],
+        );
+        await dbHelpers.pool.query(
+          `INSERT INTO csrf_tokens (auth_token_hash, csrf_token, expires_at, created_at) VALUES ($1,$2,$3,$4)`,
+          [authTokenHash, csrfToken, expiresAt, new Date().toISOString()],
+        );
+        await storePrevCsrfToken(authTokenHash);
+        csrfTokensMemory.set(authTokenHash, {
+          token: csrfToken,
+          expiresAt: Date.now() + CSRF_TOKEN_EXPIRY_MS,
+          createdAt: Date.now(),
+        });
+        return true;
+      } catch (fallbackErr) {
+        console.warn(
+          "CSRF database fallback store failed:",
+          fallbackErr.message,
+        );
+      }
+    } else {
+      console.warn("CSRF database storage failed:", dbError.message);
+    }
   }
 
   // 2. Try Redis
@@ -137,21 +178,25 @@ async function storePrevCsrfToken(authTokenHash) {
   );
   if (validItems.length === 0) return;
 
-  const prevHashKey = crypto
-    .createHash("sha256")
-    .update(`prev:${authTokenHash}`)
-    .digest("hex");
+  const prevHashKey = hashAuthToken(`prev:${authTokenHash}`);
 
-  // Try DB
+  // Try DB — UPSERT to avoid duplicate key errors on repeated grace writes
   try {
     for (const item of validItems) {
       if (item && item.token) {
-        await dbHelpers.insertOne("csrf_tokens", {
-          auth_token_hash: prevHashKey,
-          csrf_token: item.token,
-          expires_at: new Date(item.expiresAt).toISOString(),
-          created_at: new Date().toISOString(),
-        });
+        await dbHelpers.pool.query(
+          `INSERT INTO csrf_tokens (auth_token_hash, csrf_token, expires_at, created_at)
+           VALUES ($1,$2,$3,$4)
+           ON CONFLICT (auth_token_hash) DO UPDATE SET
+             csrf_token = EXCLUDED.csrf_token,
+             expires_at = EXCLUDED.expires_at`,
+          [
+            prevHashKey,
+            item.token,
+            new Date(item.expiresAt).toISOString(),
+            new Date().toISOString(),
+          ],
+        );
       }
     }
   } catch (err) {
@@ -175,45 +220,50 @@ async function storePrevCsrfToken(authTokenHash) {
   }
 }
 
-// Retrieve CSRF token: DB -> Redis -> memory (grace period only)
+// Retrieve CSRF token: DB-first -> Redis -> memory (grace/dev fallback)
 export const getCsrfToken = async (authToken) => {
-  const authTokenHash = crypto
-    .createHash("sha256")
-    .update(authToken)
-    .digest("hex");
+  const authTokenHash = hashAuthToken(authToken);
 
-  // 0. Fast in-memory path. This is the only store layer guaranteed to be
-  // readable on the next request even when the primary DB/Redis layers are
-  // flaky (slow or intermittently failing). Keeps CSRF validation working
-  // when the database connection is unreliable.
-  const mem = csrfTokensMemory.get(authTokenHash);
-  if (mem && mem.expiresAt > Date.now()) {
-    return mem.token;
-  }
-
-  // 1. Try database
+  // 1. Try database (primary) — DB-first to survive multi-instance deployments
   try {
     const record = await dbHelpers.findOne("csrf_tokens", {
       auth_token_hash: authTokenHash,
       expires_at: { $gt: new Date().toISOString() },
     });
-    if (record) return record.csrf_token;
+    if (record) {
+      // Hydrate memory cache for next lookup without extra DB hit
+      csrfTokensMemory.set(authTokenHash, {
+        token: record.csrf_token,
+        expiresAt:
+          new Date(record.expires_at).getTime() ||
+          Date.now() + CSRF_TOKEN_EXPIRY_MS,
+        createdAt: Date.now(),
+      });
+      return record.csrf_token;
+    }
   } catch (dbError) {
     console.warn("CSRF database lookup failed:", dbError.message);
   }
 
-  // 2. Try Redis
+  // 2. Try Redis (secondary)
   const redis = getRedisClient();
   if (redis) {
     try {
       const cached = await redis.get(`csrf:${authTokenHash}`);
-      if (cached) return cached;
+      if (cached) {
+        csrfTokensMemory.set(authTokenHash, {
+          token: cached,
+          expiresAt: Date.now() + CSRF_TOKEN_EXPIRY_MS,
+          createdAt: Date.now(),
+        });
+        return cached;
+      }
     } catch (redisError) {
       console.warn("CSRF Redis lookup failed:", redisError.message);
     }
   }
 
-  // 3. Check memory (grace period prev: tokens or dev fallback)
+  // 3. Check memory (grace period prev: tokens or dev fallback) — tertiary only
   const memoryRecord = csrfTokensMemory.get(authTokenHash);
   if (memoryRecord && memoryRecord.expiresAt > Date.now()) {
     return memoryRecord.token;
@@ -224,10 +274,7 @@ export const getCsrfToken = async (authToken) => {
 
 // Delete CSRF token (for logout)
 export const deleteCsrfToken = async (authToken) => {
-  const authTokenHash = crypto
-    .createHash("sha256")
-    .update(authToken)
-    .digest("hex");
+  const authTokenHash = hashAuthToken(authToken);
   try {
     await dbHelpers.deleteMany("csrf_tokens", {
       auth_token_hash: authTokenHash,
@@ -288,11 +335,8 @@ async function isRecentCsrfToken(authTokenHash, csrfToken) {
     return true;
   }
 
-  // 2. Database check
-  const prevHashKey = crypto
-    .createHash("sha256")
-    .update(`prev:${authTokenHash}`)
-    .digest("hex");
+  // 2. Database check (HMAC peppered)
+  const prevHashKey = hashAuthToken(`prev:${authTokenHash}`);
   try {
     const record = await dbHelpers.findOne("csrf_tokens", {
       auth_token_hash: prevHashKey,
@@ -373,10 +417,7 @@ export const validateCsrfToken = async (req, res, next) => {
   }
 
   const storedToken = await getCsrfToken(authToken);
-  const authTokenHash = crypto
-    .createHash("sha256")
-    .update(authToken)
-    .digest("hex");
+  const authTokenHash = hashAuthToken(authToken);
   const previousValid = await isRecentCsrfToken(authTokenHash, csrfToken);
 
   if (

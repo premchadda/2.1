@@ -277,7 +277,7 @@ function formatExplanationTables(htmlString) {
                 ? "md:grid-cols-2"
                 : headerCells.length === 3
                   ? "md:grid-cols-3"
-                  : "md:grid-cols-4";
+                  : "md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4";
             container.className = `pedagogical-grid grid grid-cols-1 ${cols} gap-3 my-3`;
 
             headerCells.forEach((headerCell, idx) => {

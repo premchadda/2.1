@@ -22,7 +22,9 @@ const requireAnalyticsEnabled = async (req, res, next) => {
         message: "Analytics is disabled by admin settings",
       });
     }
-  } catch {}
+  } catch {
+    // intentionally empty - fail open if feature flag check errors
+  }
   next();
 };
 router.use(requireAnalyticsEnabled);

@@ -315,7 +315,7 @@ function Login() {
         aria-modal="true"
         aria-label="Login"
         tabIndex={-1}
-        className="relative w-[min(100%,28rem)] lg:w-[min(100%,60rem)] max-h-[92vh] overflow-hidden bg-white dark:bg-gray-800 rounded-3xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
+        className="relative w-[min(100%,28rem)] lg:w-[min(100%,60rem)] max-h-[92vh] max-h-[92dvh] overflow-hidden bg-white dark:bg-gray-800 rounded-3xl shadow-2xl animate-scale-in flex flex-col lg:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
@@ -609,7 +609,7 @@ function Login() {
         >
           <div className="max-w-lg text-center p-8">
             <div className="text-8xl mb-8 animate-float">📚</div>
-            <h2 className="text-3xl font-bold text-white mb-4 animate-slide-up">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-4 animate-slide-up">
               Start Your Preparation Journey
             </h2>
             <p
@@ -624,19 +624,19 @@ function Login() {
               style={{ animationDelay: "0.2s" }}
             >
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">
+                <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
                   {platformStats.activeLearners}
                 </div>
                 <div className="text-white/70 text-sm">Students</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">
+                <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
                   {platformStats.mockTests}
                 </div>
                 <div className="text-white/70 text-sm">Tests</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white">
+                <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
                   {platformStats.activeLearners > 0 ? "4.9⭐" : "⭐"}
                 </div>
                 <div className="text-white/70 text-sm">Rating</div>

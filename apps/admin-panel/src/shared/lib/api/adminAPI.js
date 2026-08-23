@@ -1,43 +1,65 @@
 import { apiClient } from "../apiClient.js";
 
+const enc = (v) => encodeURIComponent(String(v));
+const requireId = (id, label = "ID") => {
+  if (id === undefined || id === null || String(id).trim() === "") {
+    throw new Error(`${label} is required`);
+  }
+  return enc(id);
+};
+
 export const adminAPI = {
   apiClient,
   // Users
-  getUsers: () => apiClient.get("/admin/users"),
+  getUsers: (params) => apiClient.get("/admin/users", { params }),
   updateUserProPass: (userId, data) =>
-    apiClient.put(`/admin/users/${userId}/pro-pass`, data),
-  deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
+    apiClient.put(`/admin/users/${requireId(userId, "userId")}/pro-pass`, data),
+  deleteUser: (userId) =>
+    apiClient.delete(`/admin/users/${requireId(userId, "userId")}`),
 
   // Stages
   getStages: () => apiClient.get("/admin/stages/with-test-counts"),
   getStageDetails: (stageId) =>
-    apiClient.get(`/admin/stages/${stageId}/details`),
+    apiClient.get(`/admin/stages/${requireId(stageId, "stageId")}/details`),
   createStage: (data) => apiClient.post("/admin/stages", data),
-  updateStage: (id, data) => apiClient.put(`/admin/stages/${id}`, data),
-  deleteStage: (id) => apiClient.delete(`/admin/stages/${id}`),
+  updateStage: (id, data) =>
+    apiClient.put(`/admin/stages/${requireId(id, "id")}`, data),
+  deleteStage: (id) => apiClient.delete(`/admin/stages/${requireId(id, "id")}`),
 
   // Test Series
-  getTestSeries: (params) => apiClient.get("/admin/test-series", { params }),
+  getTestSeries: (params) =>
+    apiClient.get("/admin/test-series", {
+      params: { includeInactive: true, ...params },
+    }),
   createTestSeries: (data) => apiClient.post("/admin/test-series", data),
   updateTestSeries: (id, data) =>
-    apiClient.put(`/admin/test-series/${id}`, data),
+    apiClient.put(`/admin/test-series/${requireId(id, "id")}`, data),
   deleteTestSeries: (id, permanent = false) =>
-    apiClient.delete(
-      `/admin/test-series/${id}${permanent ? "?permanent=true" : ""}`,
-    ),
+    apiClient.delete(`/admin/test-series/${requireId(id, "id")}`, {
+      params: permanent ? { permanent: true } : {},
+    }),
 
   // Tests
   getTests: (params) => apiClient.get("/admin/tests", { params }),
   getTestCategories: (params) =>
     apiClient.get("/admin/test-categories", { params }),
   createTest: (data) => apiClient.post("/admin/tests", data),
-  updateTest: (id, data) => apiClient.put(`/admin/tests/${id}`, data),
+  updateTest: (id, data) =>
+    apiClient.put(`/admin/tests/${requireId(id, "id")}`, data),
   deleteTest: (id) =>
-    apiClient.delete(`/admin/tests/${id}`, { timeout: 60000 }),
+    apiClient.delete(`/admin/tests/${requireId(id, "id")}`, { timeout: 60000 }),
   publishTest: (id) =>
-    apiClient.post(`/admin/tests/${id}/publish`, {}, { timeout: 60000 }),
+    apiClient.post(
+      `/admin/tests/${requireId(id, "id")}/publish`,
+      {},
+      { timeout: 60000 },
+    ),
   unpublishTest: (id) =>
-    apiClient.post(`/admin/tests/${id}/unpublish`, {}, { timeout: 60000 }),
+    apiClient.post(
+      `/admin/tests/${requireId(id, "id")}/unpublish`,
+      {},
+      { timeout: 60000 },
+    ),
   bulkDeleteTests: (ids) =>
     apiClient.post("/admin/tests/bulk-delete", { ids }, { timeout: 60000 }),
   bulkStatusTests: (ids, status) =>
@@ -48,32 +70,28 @@ export const adminAPI = {
     ),
   bulkUploadTests: (formData) =>
     apiClient.post("/admin/tests/bulk", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 300000,
     }),
   bulkUploadQuizzes: (formData) =>
     apiClient.post("/admin/quizzes/bulk", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       timeout: 300000,
     }),
 
   // Full Test JSON Import
   previewFullTest: (formData) =>
     apiClient.post("/import/full-test/preview", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       timeout: 300000,
     }),
   importFullTest: (formData) =>
     apiClient.post("/import/full-test/import", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       timeout: 300000,
     }),
   uploadFullTestJson: (formData) =>
     apiClient.post("/import/full-test/upload", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       timeout: 300000,
     }),
   previewSingleTest: (index) =>
-    apiClient.get(`/import/full-test/preview-test/${index}`, {
+    apiClient.get(`/import/full-test/preview-test/${enc(index)}`, {
       timeout: 300000,
     }),
   importSelectedTests: (data) =>
@@ -84,8 +102,9 @@ export const adminAPI = {
   // Test Categories
   createTestCategory: (data) => apiClient.post("/admin/test-categories", data),
   updateTestCategory: (id, data) =>
-    apiClient.put(`/admin/test-categories/${id}`, data),
-  deleteTestCategory: (id) => apiClient.delete(`/admin/test-categories/${id}`),
+    apiClient.put(`/admin/test-categories/${requireId(id, "id")}`, data),
+  deleteTestCategory: (id) =>
+    apiClient.delete(`/admin/test-categories/${requireId(id, "id")}`),
 
   // Exams
   getExams: () => apiClient.get("/exams"),
@@ -94,134 +113,148 @@ export const adminAPI = {
   getPaymentStats: () => apiClient.get("/admin/payments/stats"),
   getTransactions: (params) =>
     apiClient.get("/admin/payments/transactions", { params }),
-  refundPayment: (id) => apiClient.post(`/admin/payments/${id}/refund`),
+  refundPayment: (id) =>
+    apiClient.post(`/admin/payments/${requireId(id, "id")}/refund`),
 
-  // Test Sections
-  getSections: (params = {}) => {
-    const query = new URLSearchParams();
-    Object.entries(params || {}).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        query.append(key, value);
-      }
-    });
-    const qs = query.toString();
-    return apiClient.get(`/admin/sections${qs ? `?${qs}` : ""}`, {
-      timeout: 60000,
-    });
-  },
-  getSectionsForTest: (params = {}) => {
-    const query = new URLSearchParams();
-    Object.entries(params || {}).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        query.append(key, value);
-      }
-    });
-    const qs = query.toString();
-    return apiClient.get(`/admin/sections/for-test${qs ? `?${qs}` : ""}`, {
-      timeout: 60000,
-    });
-  },
+  // Test Sections - use axios params to avoid manual URLSearchParams
+  getSections: (params = {}) =>
+    apiClient.get("/admin/sections", { params, timeout: 60000 }),
+  getSectionsForTest: (params = {}) =>
+    apiClient.get("/admin/sections/for-test", { params, timeout: 60000 }),
   createSection: (data) => apiClient.post("/admin/sections", data),
-  updateSection: (id, data) => apiClient.put(`/admin/sections/${id}`, data),
-  deleteSection: (id) => apiClient.delete(`/admin/sections/${id}`),
+  updateSection: (id, data) =>
+    apiClient.put(`/admin/sections/${requireId(id, "id")}`, data),
+  deleteSection: (id) =>
+    apiClient.delete(`/admin/sections/${requireId(id, "id")}`),
   applySectionPreset: (data) => apiClient.post("/admin/sections/preset", data),
   dedupSections: () => apiClient.post("/admin/sections/dedup"),
   getSectionAliases: () => apiClient.get("/admin/sections/aliases"),
   createSectionAlias: (data) => apiClient.post("/admin/sections/aliases", data),
   updateSectionAlias: (id, data) =>
-    apiClient.put(`/admin/sections/aliases/${id}`, data),
-  deleteSectionAlias: (id) => apiClient.delete(`/admin/sections/aliases/${id}`),
+    apiClient.put(`/admin/sections/aliases/${requireId(id, "id")}`, data),
+  deleteSectionAlias: (id) =>
+    apiClient.delete(`/admin/sections/aliases/${requireId(id, "id")}`),
   resolveSectionAlias: (name) =>
-    apiClient.get(`/admin/sections/resolve/${encodeURIComponent(name)}`),
+    apiClient.get(`/admin/sections/resolve/${enc(name)}`),
   seedTemplates: () => apiClient.post("/admin/sections/seed-templates"),
 
   // Study Materials
   getStudyMaterials: (deleted = false) =>
-    apiClient.get(`/admin/study-materials${deleted ? "?deleted=true" : ""}`),
+    apiClient.get("/admin/study-materials", {
+      params: deleted ? { deleted: true } : {},
+    }),
   createStudyMaterial: (data) => apiClient.post("/admin/study-materials", data),
   updateStudyMaterial: (id, data) =>
-    apiClient.put(`/admin/study-materials/${id}`, data),
+    apiClient.put(`/admin/study-materials/${requireId(id, "id")}`, data),
   deleteStudyMaterial: (id, permanent = false) =>
-    apiClient.delete(
-      `/admin/study-materials/${id}${permanent ? "?permanent=true" : ""}`,
-    ),
+    apiClient.delete(`/admin/study-materials/${requireId(id, "id")}`, {
+      params: permanent ? { permanent: true } : {},
+    }),
   restoreStudyMaterial: (id) =>
-    apiClient.put(`/admin/study-materials/${id}/restore`),
-  reorderStudyMaterials: (orderedIds) => {
-    return Promise.all(
-      orderedIds.map((id, index) =>
-        apiClient.put(`/admin/study-materials/${id}`, { order: index }),
-      ),
-    );
+    apiClient.put(`/admin/study-materials/${requireId(id, "id")}/restore`),
+  reorderStudyMaterials: async (orderedIds) => {
+    // Batch reorder to avoid thundering herd; limit concurrency to 3
+    const batchSize = 3;
+    const results = [];
+    for (let i = 0; i < orderedIds.length; i += batchSize) {
+      const batch = orderedIds.slice(i, i + batchSize);
+      const batchResults = await Promise.allSettled(
+        batch.map((id, idx) =>
+          apiClient.put(`/admin/study-materials/${requireId(id, "id")}`, {
+            order: i + idx,
+          }),
+        ),
+      );
+      results.push(...batchResults);
+    }
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length)
+      throw new Error(`Reorder partially failed: ${failed.length} items`);
+    return results;
   },
 
   // Chapters (for study materials)
-  getChapters: (studyMaterialId) => {
-    const query = studyMaterialId ? `?studyMaterialId=${studyMaterialId}` : "";
-    return apiClient.get(`/admin/chapters${query}`);
-  },
+  getChapters: (studyMaterialId) =>
+    apiClient.get("/admin/chapters", {
+      params: studyMaterialId ? { studyMaterialId } : {},
+    }),
   createChapter: (data) => apiClient.post("/admin/chapters", data),
-  updateChapter: (id, data) => apiClient.put(`/admin/chapters/${id}`, data),
-  deleteChapter: (id) => apiClient.delete(`/admin/chapters/${id}`),
+  updateChapter: (id, data) =>
+    apiClient.put(`/admin/chapters/${requireId(id, "id")}`, data),
+  deleteChapter: (id) =>
+    apiClient.delete(`/admin/chapters/${requireId(id, "id")}`),
 
   // Subject Videos
-  getSubjectVideos: (studyMaterialId, chapterId) => {
-    const params = new URLSearchParams();
-    if (studyMaterialId) params.append("studyMaterialId", studyMaterialId);
-    if (chapterId) params.append("chapterId", chapterId);
-    const query = params.toString() ? `?${params.toString()}` : "";
-    return apiClient.get(`/admin/subject-videos${query}`);
-  },
+  getSubjectVideos: (studyMaterialId, chapterId) =>
+    apiClient.get("/admin/subject-videos", {
+      params: {
+        ...(studyMaterialId ? { studyMaterialId } : {}),
+        ...(chapterId ? { chapterId } : {}),
+      },
+    }),
   createSubjectVideo: (data) => apiClient.post("/admin/subject-videos", data),
   updateSubjectVideo: (id, data) =>
-    apiClient.put(`/admin/subject-videos/${id}`, data),
-  deleteSubjectVideo: (id) => apiClient.delete(`/admin/subject-videos/${id}`),
+    apiClient.put(`/admin/subject-videos/${requireId(id, "id")}`, data),
+  deleteSubjectVideo: (id) =>
+    apiClient.delete(`/admin/subject-videos/${requireId(id, "id")}`),
 
   // Subject PDFs
-  getSubjectPdfs: (studyMaterialId, chapterId) => {
-    const params = new URLSearchParams();
-    if (studyMaterialId) params.append("studyMaterialId", studyMaterialId);
-    if (chapterId) params.append("chapterId", chapterId);
-    const query = params.toString() ? `?${params.toString()}` : "";
-    return apiClient.get(`/admin/subject-pdfs${query}`);
-  },
+  getSubjectPdfs: (studyMaterialId, chapterId) =>
+    apiClient.get("/admin/subject-pdfs", {
+      params: {
+        ...(studyMaterialId ? { studyMaterialId } : {}),
+        ...(chapterId ? { chapterId } : {}),
+      },
+    }),
   createSubjectPdf: (data) => apiClient.post("/admin/subject-pdfs", data),
   updateSubjectPdf: (id, data) =>
-    apiClient.put(`/admin/subject-pdfs/${id}`, data),
-  deleteSubjectPdf: (id) => apiClient.delete(`/admin/subject-pdfs/${id}`),
+    apiClient.put(`/admin/subject-pdfs/${requireId(id, "id")}`, data),
+  deleteSubjectPdf: (id) =>
+    apiClient.delete(`/admin/subject-pdfs/${requireId(id, "id")}`),
 
   // Topic Tests
-  getTopicTests: (studyMaterialId, chapterId) => {
-    const params = new URLSearchParams();
-    if (studyMaterialId) params.append("studyMaterialId", studyMaterialId);
-    if (chapterId) params.append("chapterId", chapterId);
-    const query = params.toString() ? `?${params.toString()}` : "";
-    return apiClient.get(`/admin/topic-tests${query}`);
-  },
+  getTopicTests: (studyMaterialId, chapterId) =>
+    apiClient.get("/admin/topic-tests", {
+      params: {
+        ...(studyMaterialId ? { studyMaterialId } : {}),
+        ...(chapterId ? { chapterId } : {}),
+      },
+    }),
   createTopicTest: (data) => apiClient.post("/admin/topic-tests", data),
-  deleteTopicTest: (id) => apiClient.delete(`/admin/topic-tests/${id}`),
+  deleteTopicTest: (id) =>
+    apiClient.delete(`/admin/topic-tests/${requireId(id, "id")}`),
 
   // Trash
   getTrash: () => apiClient.get("/admin/trash"),
   restoreTrashItem: (itemId, table) =>
-    apiClient.put(`/admin/trash/${itemId}/restore`, null, {
+    apiClient.put(`/admin/trash/${requireId(itemId, "itemId")}/restore`, null, {
       params: { table },
     }),
   deleteTrashItem: (itemId, table) =>
-    apiClient.delete(`/admin/trash/${itemId}`, { params: { table } }),
+    apiClient.delete(`/admin/trash/${requireId(itemId, "itemId")}`, {
+      params: { table },
+    }),
   emptyTrash: () => apiClient.delete("/admin/trash"),
 
+  // Users 2FA — for user (student) accounts, not admin personal (global toggle in Settings → Security)
+  getUsersTwoFactorOverview: (params) =>
+    apiClient.get("/admin/users/2fa-overview", { params }),
+  adminDisableUserTwoFactor: (userId) =>
+    apiClient.post(`/admin/users/${requireId(userId, "userId")}/2fa/disable`),
+
   // Questions
-  getQuestions: () => apiClient.get("/admin/questions"),
+  getQuestions: (params) => apiClient.get("/admin/questions", { params }),
   getQuestionCountsByTest: () =>
     apiClient.get("/admin/questions/count-by-test"),
   createQuestion: (data) => apiClient.post("/admin/questions", data),
-  updateQuestion: (id, data) => apiClient.put(`/admin/questions/${id}`, data),
-  deleteQuestion: (id) => apiClient.delete(`/admin/questions/${id}`),
+  updateQuestion: (id, data) =>
+    apiClient.put(`/admin/questions/${requireId(id, "id")}`, data),
+  deleteQuestion: (id) =>
+    apiClient.delete(`/admin/questions/${requireId(id, "id")}`),
   bulkDeleteQuestions: (ids) =>
-    apiClient.delete("/admin/questions/bulk", { data: { ids } }),
+    apiClient.post("/admin/questions/bulk-delete", { ids }),
   bulkUploadQuestions: (formData) =>
-    apiClient.post("/admin/questions/bulk", formData),
+    apiClient.post("/admin/questions/bulk", formData, { timeout: 300000 }),
 
   // Import
   getImportHistory: (limit = 20) =>
@@ -232,17 +265,23 @@ export const adminAPI = {
     apiClient.get("/admin/moderation/doubts", { params }),
   getModerationStats: () => apiClient.get("/admin/moderation/stats"),
   updateDoubtStatus: (id, status) =>
-    apiClient.put(`/admin/moderation/doubts/${id}/status`, { status }),
-  deleteDoubt: (id) => apiClient.delete(`/admin/moderation/doubts/${id}`),
-  deleteModerationDoubt: (id) =>
-    apiClient.delete(`/admin/moderation/doubts/${id}`),
+    apiClient.put(`/admin/moderation/doubts/${requireId(id, "id")}/status`, {
+      status,
+    }),
+  deleteDoubt: (id) =>
+    apiClient.delete(`/admin/moderation/doubts/${requireId(id, "id")}`),
+  // alias kept for backward compat
+  get deleteModerationDoubt() {
+    return this.deleteDoubt;
+  },
 
   // Exam Categories
   getExamCategories: () => apiClient.get("/admin/exam-categories"),
   createExamCategory: (data) => apiClient.post("/admin/exam-categories", data),
   updateExamCategory: (id, data) =>
-    apiClient.put(`/admin/exam-categories/${id}`, data),
-  deleteExamCategory: (id) => apiClient.delete(`/admin/exam-categories/${id}`),
+    apiClient.put(`/admin/exam-categories/${requireId(id, "id")}`, data),
+  deleteExamCategory: (id) =>
+    apiClient.delete(`/admin/exam-categories/${requireId(id, "id")}`),
 
   // Leaderboards
   getLeaderboards: (params) =>
@@ -250,57 +289,68 @@ export const adminAPI = {
   getLeaderboardStats: () => apiClient.get("/admin/leaderboards/stats"),
   createLeaderboard: (data) => apiClient.post("/admin/leaderboards", data),
   updateLeaderboard: (id, data) =>
-    apiClient.put(`/admin/leaderboards/${id}`, data),
-  deleteLeaderboard: (id) => apiClient.delete(`/admin/leaderboards/${id}`),
+    apiClient.put(`/admin/leaderboards/${requireId(id, "id")}`, data),
+  deleteLeaderboard: (id) =>
+    apiClient.delete(`/admin/leaderboards/${requireId(id, "id")}`),
   recalculateLeaderboard: (id) =>
-    apiClient.post(`/admin/leaderboards/${id}/recalculate`),
-  resetLeaderboard: (id) => apiClient.post(`/admin/leaderboards/${id}/reset`),
+    apiClient.post(`/admin/leaderboards/${requireId(id, "id")}/recalculate`),
+  resetLeaderboard: (id) =>
+    apiClient.post(`/admin/leaderboards/${requireId(id, "id")}/reset`),
 
   // Banners
   getBanners: () => apiClient.get("/admin/banners"),
   createBanner: (data) => apiClient.post("/admin/banners", data),
-  updateBanner: (id, data) => apiClient.put(`/admin/banners/${id}`, data),
-  deleteBanner: (id) => apiClient.delete(`/admin/banners/${id}`),
+  updateBanner: (id, data) =>
+    apiClient.put(`/admin/banners/${requireId(id, "id")}`, data),
+  deleteBanner: (id) =>
+    apiClient.delete(`/admin/banners/${requireId(id, "id")}`),
 
   // FAQs
   getFaqs: () => apiClient.get("/admin/faqs"),
   createFaq: (data) => apiClient.post("/admin/faqs", data),
-  updateFaq: (id, data) => apiClient.put(`/admin/faqs/${id}`, data),
-  deleteFaq: (id) => apiClient.delete(`/admin/faqs/${id}`),
+  updateFaq: (id, data) =>
+    apiClient.put(`/admin/faqs/${requireId(id, "id")}`, data),
+  deleteFaq: (id) => apiClient.delete(`/admin/faqs/${requireId(id, "id")}`),
 
   // Promotions
   getPromotions: () => apiClient.get("/admin/promotions"),
   createPromotion: (data) => apiClient.post("/admin/promotions", data),
-  updatePromotion: (id, data) => apiClient.put(`/admin/promotions/${id}`, data),
-  deletePromotion: (id) => apiClient.delete(`/admin/promotions/${id}`),
+  updatePromotion: (id, data) =>
+    apiClient.put(`/admin/promotions/${requireId(id, "id")}`, data),
+  deletePromotion: (id) =>
+    apiClient.delete(`/admin/promotions/${requireId(id, "id")}`),
 
   // Quizzes
   getQuizzes: () => apiClient.get("/admin/quizzes"),
   createQuiz: (data) => apiClient.post("/admin/quizzes", data),
-  updateQuiz: (id, data) => apiClient.put(`/admin/quizzes/${id}`, data),
-  deleteQuiz: (id) => apiClient.delete(`/admin/quizzes/${id}`),
+  updateQuiz: (id, data) =>
+    apiClient.put(`/admin/quizzes/${requireId(id, "id")}`, data),
+  deleteQuiz: (id) => apiClient.delete(`/admin/quizzes/${requireId(id, "id")}`),
 
   // Live Tests
   getLiveTests: () => apiClient.get("/admin/live-tests"),
   createLiveTest: (data) => apiClient.post("/admin/live-tests", data),
-  updateLiveTest: (id, data) => apiClient.put(`/admin/live-tests/${id}`, data),
-  deleteLiveTest: (id) => apiClient.delete(`/admin/live-tests/${id}`),
+  updateLiveTest: (id, data) =>
+    apiClient.put(`/admin/live-tests/${requireId(id, "id")}`, data),
+  deleteLiveTest: (id) =>
+    apiClient.delete(`/admin/live-tests/${requireId(id, "id")}`),
   bulkUploadLiveTests: (data) =>
     apiClient.post("/admin/live-tests/bulk", data, { timeout: 300000 }),
 
   // PYPs (Previous Year Papers)
   getPYPs: () => apiClient.get("/admin/pyp"),
   createPYP: (data) => apiClient.post("/admin/pyp", data),
-  updatePYP: (id, data) => apiClient.put(`/admin/pyp/${id}`, data),
-  deletePYP: (id) => apiClient.delete(`/admin/pyp/${id}`),
+  updatePYP: (id, data) =>
+    apiClient.put(`/admin/pyp/${requireId(id, "id")}`, data),
+  deletePYP: (id) => apiClient.delete(`/admin/pyp/${requireId(id, "id")}`),
   bulkUploadPYP: (data) =>
     apiClient.post("/admin/pyp/bulk", data, { timeout: 300000 }),
 
   // Enrollments
-  getEnrollments: () => apiClient.get("/admin/enrollments"),
+  getEnrollments: (params) => apiClient.get("/admin/enrollments", { params }),
 
   // Results & Activity
-  getResults: () => apiClient.get("/admin/results"),
+  getResults: (params) => apiClient.get("/admin/results", { params }),
   getRecentActivity: () => apiClient.get("/admin/recent-activity"),
   getActivityOrder: () => apiClient.get("/admin/activity-order"),
   getActivityLogs: (params) =>
@@ -309,25 +359,32 @@ export const adminAPI = {
   // User Analytics
   getUserAnalytics: () => apiClient.get("/users/analytics"),
 
-  // Public Leaderboard
-  getLeaderboard: (seriesId) =>
-    apiClient.get(`/leaderboards?testId=${seriesId}`),
+  // Public Leaderboard - fixed encoding and param handling
+  getLeaderboard: (seriesId) => {
+    if (!seriesId) throw new Error("seriesId is required");
+    return apiClient.get("/leaderboards", {
+      params: { testId: String(seriesId) },
+    });
+  },
 
   // Bookmarks
   getBookmarks: () => apiClient.get("/bookmarks"),
   createBookmark: (data) => apiClient.post("/bookmarks", data),
-  updateBookmark: (id, data) => apiClient.put(`/bookmarks/${id}`, data),
-  deleteBookmark: (id) => apiClient.delete(`/bookmarks/${id}`),
+  updateBookmark: (id, data) =>
+    apiClient.put(`/bookmarks/${requireId(id, "id")}`, data),
+  deleteBookmark: (id) => apiClient.delete(`/bookmarks/${requireId(id, "id")}`),
   toggleBookmark: (data) => apiClient.post("/bookmarks/toggle", data),
   checkBookmark: (itemType, itemId) =>
-    apiClient.get(`/bookmarks/check/${itemType}/${itemId}`),
+    apiClient.get(`/bookmarks/check/${enc(itemType)}/${enc(itemId)}`),
 
   // Notifications
   getNotifications: (params) => apiClient.get("/notifications", { params }),
   getUnreadCount: () => apiClient.get("/notifications/unread-count"),
-  markNotificationRead: (id) => apiClient.put(`/notifications/${id}/read`),
+  markNotificationRead: (id) =>
+    apiClient.put(`/notifications/${requireId(id, "id")}/read`),
   markAllNotificationsRead: () => apiClient.put("/notifications/read-all"),
-  deleteNotification: (id) => apiClient.delete(`/notifications/${id}`),
+  deleteNotification: (id) =>
+    apiClient.delete(`/notifications/${requireId(id, "id")}`),
 
   // Achievements
   getAchievements: () => apiClient.get("/achievements"),

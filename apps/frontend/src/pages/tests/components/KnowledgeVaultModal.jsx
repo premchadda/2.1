@@ -83,7 +83,7 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 w-full max-w-lg rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 dark:border-gray-700 overflow-hidden my-auto max-h-[90vh] overflow-y-auto animate-scale-in"
+        className="bg-white dark:bg-gray-800 w-full max-w-[95vw] sm:max-w-lg rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-100 dark:border-gray-700 overflow-hidden my-auto max-h-[90vh] max-h-[90dvh] overflow-y-auto animate-scale-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
@@ -104,7 +104,7 @@ export default function KnowledgeVaultModal({ questionId, isOpen, onClose }) {
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">
               Why are you saving this question?
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {SAVE_REASONS.map((reason) => {
                 const active = selectedReason === reason.id;
                 return (

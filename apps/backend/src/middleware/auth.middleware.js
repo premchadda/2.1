@@ -126,7 +126,7 @@ export async function invalidateUserCache(id) {
 
 /**
  * Clear all in-memory caches. Used by tests to prevent cross-test pollution.
- * @param {boolean} includeRedis — also flush Redis user/session caches
+ * @param {boolean} includeRedis — also flush Redis user/session caches via SCAN (DEL does not support glob)
  */
 export function clearAuthCaches(includeRedis = false) {
   localUserCache.clear();
@@ -135,8 +135,29 @@ export function clearAuthCaches(includeRedis = false) {
   if (includeRedis) {
     const redis = getRedisClient();
     if (redis) {
-      // Best-effort — don't await in the test reset path
-      redis.del("user:cache:*").catch(() => {});
+      // Best-effort async SCAN + DEL — DEL with glob pattern is invalid in Redis
+      (async () => {
+        for (const pattern of ["user:cache:*", "session:*"]) {
+          let cursor = "0";
+          try {
+            do {
+              const [nextCursor, keys] = await redis.scan(
+                cursor,
+                "MATCH",
+                pattern,
+                "COUNT",
+                100,
+              );
+              cursor = nextCursor;
+              if (keys && keys.length > 0) {
+                await redis.del(...keys);
+              }
+            } while (cursor !== "0");
+          } catch (_) {
+            // best-effort; ignore scan errors in test cleanup
+          }
+        }
+      })().catch(() => {});
     }
   }
 }
@@ -151,9 +172,8 @@ export function clearAuthCaches(includeRedis = false) {
 // Activity is persisted to user_sessions.last_active and throttled to one DB
 // write per IDLE_WRITE_THROTTLE_MS per session to avoid a write on every request.
 //
-// FAIL-OPEN: any DB/lookup error is logged and the request is allowed, so a
-// transient DB blip or a missing column can never lock out legitimate traffic.
-// A definitive expiry signal, however, is NOT fail-open — it returns 401.
+// FAIL-CLOSED: any DB/lookup error returns 503 so transient outages do not silently
+// bypass session expiry. A definitive expiry signal returns 401.
 const defaultUserIdleMin = "4320"; // 3 days default inactivity timeout
 const defaultUserRememberMeIdleMin = "10080"; // 7 days when rememberMe is checked
 const defaultAdminIdleMin =
@@ -256,9 +276,9 @@ async function enforceSessionExpiry(decoded, user) {
     );
 
     if (res.rows.length === 0) {
-      // Session row not found — fail open (treat as fresh) and stop tracking.
+      // Session row not found — fail-closed: missing session is treated as expired/revoked.
       idleActivityCache.delete(key);
-      return;
+      throw { sessionExpired: true, reason: "idle" };
     }
 
     const row = res.rows[0];
@@ -293,103 +313,58 @@ async function enforceSessionExpiry(decoded, user) {
     });
   } catch (err) {
     if (err && err.sessionExpired) throw err;
-    // Missing column (Postgres 42703) or any other error → treat as fresh, fail open.
+    // Fail-closed: any DB lookup error after idle cache miss must not silently
+    // extend the session. Surface as 503 so protect() returns SERVICE_UNAVAILABLE.
     if (err && err.code === "42703") {
       console.warn(
-        "[Auth] user_sessions activity columns missing — expiry check disabled until migration runs",
+        "[Auth] user_sessions activity columns missing — failing closed until migration runs",
       );
     } else {
       console.warn(
-        "[Auth] Session expiry lookup failed (fail-open):",
+        "[Auth] Session expiry lookup failed (fail-closed):",
         err && err.message,
       );
     }
-    idleActivityCache.set(key, {
-      activityTs: now,
-      createdAt: now,
-      lastOp: now,
-    });
+    const svcErr = new Error("Session store unavailable");
+    svcErr.code = err && err.code ? err.code : "SERVICE_UNAVAILABLE";
+    svcErr.statusCode = 503;
+    svcErr.isTransient = true;
+    throw svcErr;
   }
 }
 
 // Rate limiter for authentication endpoints
 // In production: 20 attempts per 15 minutes (account lockout also applies)
-// In development: more permissive to avoid blocking tests
-const isProduction = process.env.NODE_ENV === "production";
+// In development: 10x relaxed to avoid blocking local tests (only when NODE_ENV=development)
 const AUTH_RATE_LIMIT_WINDOW_MS = parseInt(
   process.env.AUTH_RATE_LIMIT_WINDOW_MS || "900000",
   10,
 );
+const isDevForRateLimit = process.env.NODE_ENV === "development";
 const AUTH_RATE_LIMIT_MAX = parseInt(
-  process.env.AUTH_RATE_LIMIT_MAX || (isProduction ? "20" : "10000"),
+  process.env.AUTH_RATE_LIMIT_MAX || (isDevForRateLimit ? "200" : "20"),
   10,
 );
 
 /**
- * Helper to check if a request comes from an authenticated Admin or Admin client.
- * Used to bypass rate limiters and lockout for admin users.
+ * Helper to check if a request comes from a verified admin.
+ * ONLY inspects req.user set by protect() after JWT verification.
+ * Origin / jwt.decode bypasses removed - unverified claims must not skip rate limits.
  */
 export const isUserAdminRequest = (req) => {
-  if (!req) return false;
+  if (!req || !req.user) return false;
   try {
-    // 1. Check if user is already attached to req
     if (
-      req.user &&
-      (req.user.isAdmin ||
-        req.user.role === ROLES.ADMIN ||
-        req.user.role === ROLES.SUPER_ADMIN ||
-        req.user.role === "admin" ||
-        req.user.role === "super_admin")
+      req.user.isAdmin === true ||
+      req.user.role === ROLES.ADMIN ||
+      req.user.role === ROLES.SUPER_ADMIN ||
+      req.user.role === "admin" ||
+      req.user.role === "super_admin"
     ) {
       return true;
-    }
-    // 2. Check admin API key header
-    const adminKey =
-      req.headers?.["x-admin-api-key"] || req.headers?.["x-api-key"];
-    if (
-      adminKey &&
-      process.env.ADMIN_API_KEY &&
-      adminKey === process.env.ADMIN_API_KEY
-    ) {
-      return true;
-    }
-    // 3. Check admin origin / referer (admin panel ports :3002, :5173, or configured ADMIN_PANEL_URL)
-    const origin = req.headers?.origin || req.headers?.referer;
-    if (
-      origin &&
-      (origin.includes(":3002") ||
-        origin.includes(":5173") ||
-        (process.env.ADMIN_PANEL_URL &&
-          origin.startsWith(process.env.ADMIN_PANEL_URL)) ||
-        (process.env.ADMIN_ALLOWED_ORIGINS &&
-          process.env.ADMIN_ALLOWED_ORIGINS.split(",").some((o) =>
-            origin.startsWith(o.trim()),
-          )))
-    ) {
-      return true;
-    }
-    // 4. Inspect JWT token in Authorization header or cookie
-    let token = null;
-    if (req.headers?.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies?.token) {
-      token = req.cookies.token;
-    }
-    if (token) {
-      const decoded = jwt.decode(token);
-      if (
-        decoded &&
-        (decoded.role === ROLES.ADMIN ||
-          decoded.role === ROLES.SUPER_ADMIN ||
-          decoded.role === "admin" ||
-          decoded.role === "super_admin" ||
-          decoded.isAdmin)
-      ) {
-        return true;
-      }
     }
   } catch (_) {
-    // fail closed / continue with standard checks
+    // fail closed
   }
   return false;
 };
@@ -586,8 +561,7 @@ export const protect = async (req, res, next) => {
     setCachedUser(decoded.id, userWithoutPassword);
 
     // Server-side session expiry (idle + absolute) for all sessions.
-    // enforceSessionExpiry() is fail-open: any DB/lookup error is swallowed
-    // inside it and the request proceeds. Only an explicit expiry signal rejects.
+    // enforceSessionExpiry() is fail-closed: any DB/lookup error returns 503.
     try {
       await enforceSessionExpiry(decoded, req.user);
     } catch (expiryErr) {
@@ -602,6 +576,18 @@ export const protect = async (req, res, next) => {
             expiryErr.reason === "absolute"
               ? "Session expired. Please sign in again."
               : "Session expired due to inactivity",
+        });
+      }
+      if (
+        expiryErr &&
+        (expiryErr.statusCode === 503 ||
+          expiryErr.code === "SERVICE_UNAVAILABLE" ||
+          expiryErr.isTransient)
+      ) {
+        return res.status(503).json({
+          success: false,
+          code: "SERVICE_UNAVAILABLE",
+          message: "Session validation temporarily unavailable. Please retry.",
         });
       }
       throw expiryErr;

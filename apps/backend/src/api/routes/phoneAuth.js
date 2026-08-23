@@ -7,9 +7,13 @@ import jwt from "jsonwebtoken";
 import EmailService from "../../services/EmailService.js";
 import { lockoutMiddleware } from "../../middleware/lockout.middleware.js";
 import { authRateLimiter } from "../../middleware/auth.middleware.js";
-import { captureSession } from "../../services/SessionCaptureService.js";
+import {
+  captureSession,
+  invalidateSession,
+} from "../../services/SessionCaptureService.js";
 import { getRedisClient } from "../../infrastructure/cache/redisClient.js";
 import logger from "../../infrastructure/logger/logger.js";
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 
 const router = express.Router();
 
@@ -63,12 +67,10 @@ router.post("/send-otp", authRateLimiter, async (req, res) => {
     // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
     const store = resolveOtpStore();
     if (!store) {
-      return res
-        .status(503)
-        .json({
-          success: false,
-          error: "Phone authentication is temporarily unavailable",
-        });
+      return res.status(503).json({
+        success: false,
+        error: "Phone authentication is temporarily unavailable",
+      });
     }
 
     const { phoneNumber } = req.body;
@@ -83,12 +85,10 @@ router.post("/send-otp", authRateLimiter, async (req, res) => {
 
     // Validate phone number (10 digits for India)
     if (!phoneNumber || !phoneNumber.match(/^[0-9]{10}$/)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Invalid phone number format (10 digits required)",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Invalid phone number format (10 digits required)",
+      });
     }
 
     // Check rate limiting (max 3 OTPs per hour)
@@ -156,12 +156,10 @@ router.post("/verify-otp", lockoutMiddleware, async (req, res) => {
     // FIX 2.7: Reject if OTP store unavailable (Redis required in prod)
     const store = resolveOtpStore();
     if (!store) {
-      return res
-        .status(503)
-        .json({
-          success: false,
-          error: "Phone authentication is temporarily unavailable",
-        });
+      return res.status(503).json({
+        success: false,
+        error: "Phone authentication is temporarily unavailable",
+      });
     }
 
     const { phoneNumber, otp, name, email } = req.body;
@@ -209,9 +207,9 @@ router.post("/verify-otp", lockoutMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: "Invalid OTP" });
     }
 
-    // OTP is valid, find or create user
+    // OTP is valid, find or create user — fetch role/limit for session enforcement
     let userResult = await dbHelpers.query(
-      "SELECT id, email, name, phone_verified FROM users WHERE phone = $1",
+      "SELECT id, email, name, phone_verified, role, is_pro_user, session_limit FROM users WHERE phone = $1",
       [phoneNumber],
     );
 
@@ -250,6 +248,79 @@ router.post("/verify-otp", lockoutMiddleware, async (req, res) => {
         "[Phone Auth] Session capture failed (non-fatal):",
         sessErr.message,
       );
+    }
+
+    // Enforce session limit (admin unlimited) — same policy as email/Google login
+    if (sessionId) {
+      try {
+        const userRow = userResult.rows[0] || {};
+        // For newly created phone user, role defaults to 'user' and no pro
+        const role = userRow.role || "user";
+        const isPro = Boolean(
+          userRow.is_pro_user || userRow.isProUser || userRow.is_pro,
+        );
+        const customLimit = userRow.session_limit ?? userRow.sessionLimit;
+        let phoneSessionLimit = 1;
+        if (role === "admin" || role === "super_admin") {
+          phoneSessionLimit = Infinity;
+          if (customLimit !== null && customLimit !== undefined) {
+            phoneSessionLimit = customLimit;
+            if (phoneSessionLimit === null) phoneSessionLimit = Infinity;
+          }
+        } else if (customLimit !== null && customLimit !== undefined) {
+          phoneSessionLimit = customLimit;
+        } else if (isPro) {
+          phoneSessionLimit = 3;
+        }
+        const phoneLimitNum = Number(phoneSessionLimit);
+        if (Number.isFinite(phoneLimitNum)) {
+          const client = await pool.connect();
+          try {
+            await client.query("BEGIN");
+            await client.query(
+              `SELECT 1 FROM user_sessions WHERE user_id = $1 FOR UPDATE`,
+              [String(userId)],
+            );
+            const activeResult = await client.query(
+              `SELECT session_id FROM user_sessions WHERE user_id = $1 AND is_active = true ORDER BY last_active DESC`,
+              [String(userId)],
+            );
+            if (activeResult.rows.length > phoneLimitNum) {
+              const toRevoke = activeResult.rows
+                .filter((s) => s.session_id !== sessionId)
+                .slice(phoneLimitNum - 1);
+              if (toRevoke.length > 0) {
+                const revokeIds = toRevoke.map((s) => s.session_id);
+                await client.query(
+                  `UPDATE user_sessions SET is_active = false WHERE session_id = ANY($1)`,
+                  [revokeIds],
+                );
+                await client.query("COMMIT");
+                for (const row of toRevoke) {
+                  await invalidateSession(
+                    row.session_id,
+                    "system:limit-enforcement",
+                  );
+                }
+              } else {
+                await client.query("COMMIT");
+              }
+            } else {
+              await client.query("COMMIT");
+            }
+          } catch (err) {
+            await client.query("ROLLBACK");
+            throw err;
+          } finally {
+            client.release();
+          }
+        }
+      } catch (limitErr) {
+        logger.warn(
+          "[Phone Auth] Session limit enforcement failed (non-fatal): " +
+            limitErr.message,
+        );
+      }
     }
 
     // Generate JWT token — embed sessionId so protect middleware can validate it.
@@ -340,12 +411,10 @@ router.post("/link-phone", auth, async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Phone already linked to another account",
-        });
+      return res.status(400).json({
+        success: false,
+        error: "Phone already linked to another account",
+      });
     }
 
     // Update user with phone

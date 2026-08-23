@@ -51,7 +51,9 @@ export const traceMiddleware = (req, res, next) => {
           userId: req.user?.id || null,
         },
       });
-    } catch {}
+    } catch {
+      // intentionally empty - log buffer failure should not break request
+    }
   });
 
   next();

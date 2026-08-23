@@ -90,6 +90,8 @@ function CommentItem({ comment, currentUser, onEdit, onDelete }) {
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shrink-0 border-2 border-white dark:border-gray-800 shadow-sm">
         {userAvatar ? (
           <img
+            loading="lazy"
+            decoding="async"
             src={userAvatar}
             alt={userName}
             className="w-full h-full rounded-full object-cover"
@@ -336,6 +338,8 @@ function QuestionDiscussions({
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shrink-0">
               {currentUser?.avatar ? (
                 <img
+                  loading="lazy"
+                  decoding="async"
                   src={currentUser.avatar}
                   alt={currentUser?.name || "User avatar"}
                   className="w-full h-full rounded-full object-cover"

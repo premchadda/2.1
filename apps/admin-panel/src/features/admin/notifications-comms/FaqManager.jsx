@@ -319,11 +319,11 @@ export default function FaqManager() {
                       }
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
                     >
-                      <option value="General">General</option>
-                      <option value="Account">Account</option>
-                      <option value="Tests">Tests & Quizzes</option>
-                      <option value="Payments">Payments & Billing</option>
-                      <option value="Technical">Technical Issues</option>
+                      <option value="general">General</option>
+                      <option value="account">Account</option>
+                      <option value="tests">Tests & Quizzes</option>
+                      <option value="payments">Payments & Billing</option>
+                      <option value="technical">Technical Issues</option>
                     </select>
                   </div>
 

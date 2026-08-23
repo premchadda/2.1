@@ -161,6 +161,8 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
           {contentData?.featuredImage && (
             <div className="w-full h-80 bg-gray-100">
               <img
+                loading="lazy"
+                decoding="async"
                 src={contentData.featuredImage}
                 alt={contentData.title}
                 className="w-full h-full object-cover"
@@ -168,7 +170,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             </div>
           )}
 
-          <div className="p-8 md:p-12">
+          <div className="p-8 md:p-4 sm:p-6">
             {/* Category Badge */}
             {contentData?.category && (
               <div className="mb-4">
@@ -180,7 +182,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             )}
 
             {/* Title */}
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
               {contentData?.title && String(contentData.title).trim() ? (
                 contentData.title
               ) : (
@@ -214,7 +216,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             <div
               className="prose prose-lg max-w-none
                 prose-headings:font-bold prose-headings:text-gray-900
-                prose-h1:text-3xl prose-h2:text-2xl prose-h3:text-xl
+                prose-h1:text-xl sm:text-2xl lg:text-3xl prose-h2:text-2xl prose-h3:text-xl
                 prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-4
                 prose-a:text-brand-start prose-a:no-underline hover:prose-a:underline
                 prose-strong:text-gray-900 prose-strong:font-semibold

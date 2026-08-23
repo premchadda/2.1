@@ -175,6 +175,8 @@ function BottomNav() {
                       }`}
                     >
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={
                           user.avatar.startsWith("data:")
                             ? user.avatar

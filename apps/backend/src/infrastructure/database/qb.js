@@ -40,9 +40,128 @@ export const snakeToCamel = (row) => {
   return out;
 };
 
+const SENSITIVE_USER_COLUMNS = new Set([
+  "password",
+  "refresh_token",
+  "refresh_token_version",
+  "otp",
+  "otp_secret",
+  "email_verification_token",
+  "reset_token",
+]);
+// Safe explicit columns for users table (excludes sensitive)
+const SAFE_USER_COLUMNS = [
+  "id",
+  "name",
+  "email",
+  "role",
+  "is_active",
+  "is_pro_user",
+  "phone",
+  "created_at",
+  "updated_at",
+];
+
+// Safe projections per table to avoid SELECT * leaks
+const SAFE_ATTEMPT_COLUMNS = [
+  "id",
+  "user_id",
+  "test_id",
+  "series_id",
+  "score",
+  "accuracy",
+  "time_spent",
+  "time_spent_seconds",
+  "is_completed",
+  "status",
+  "submitted_at",
+  "created_at",
+  "updated_at",
+];
+const SAFE_TEST_COLUMNS = [
+  "id",
+  "title",
+  "description",
+  "series_id",
+  "subject_id",
+  "duration",
+  "total_marks",
+  "is_active",
+  "status",
+  "created_at",
+  "updated_at",
+];
+const SAFE_SERIES_COLUMNS = [
+  "id",
+  "title",
+  "description",
+  "category",
+  "price",
+  "is_active",
+  "created_at",
+  "updated_at",
+];
+const SAFE_ASSET_COLUMNS = [
+  "id",
+  "name",
+  "type",
+  "category",
+  "url",
+  "size",
+  "metadata",
+  "uploaded_by",
+  "is_active",
+  "created_at",
+  "updated_at",
+];
+
+const SAFE_TABLE_COLUMNS = {
+  users: SAFE_USER_COLUMNS,
+  attempts: SAFE_ATTEMPT_COLUMNS,
+  tests: SAFE_TEST_COLUMNS,
+  test_series: SAFE_SERIES_COLUMNS,
+  series: SAFE_SERIES_COLUMNS,
+  assets: SAFE_ASSET_COLUMNS,
+  media: SAFE_ASSET_COLUMNS,
+};
+
+// ORDER BY allowlist — only these columns may be used for sorting
+// Prevents ORDER BY injection via arbitrary column names and ensures index-friendly sorts
+const ORDER_BY_ALLOWLIST = new Set([
+  "id",
+  "created_at",
+  "updated_at",
+  "name",
+  "email",
+  "title",
+  "score",
+  "accuracy",
+  "time_spent",
+  "time_spent_seconds",
+  "display_order",
+  "order_index",
+  "displayOrder",
+  "orderIndex",
+  "price",
+  "amount",
+  "status",
+  "is_active",
+  "submitted_at",
+  "total_marks",
+  "duration",
+  "category",
+  "type",
+  "series_id",
+  "test_id",
+  "user_id",
+  "exam_id",
+  "study_material_id",
+]);
+const ORDER_BY_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+
 export function qb(table, client = null) {
   let _client = client;
-  let _select = "*";
+  let _select = null;
   let _conditions = [];
   let _params = [];
   let _returning = null;
@@ -70,9 +189,13 @@ export function qb(table, client = null) {
       if (!cols) {
         _select = "*";
       } else if (Array.isArray(cols)) {
-        _select = cols.map((c) => quoteId(c)).join(", ");
+        if (cols.length === 1 && cols[0] === "*") {
+          _select = "*";
+        } else {
+          _select = cols.map((c) => (c === "*" ? "*" : quoteId(c))).join(", ");
+        }
       } else {
-        _select = quoteId(cols);
+        _select = cols === "*" ? "*" : quoteId(cols);
       }
       return api;
     },
@@ -112,7 +235,22 @@ export function qb(table, client = null) {
     },
 
     orderBy(col, dir = "ASC") {
-      _orderBy = `${quoteId(col)} ${String(dir).toUpperCase()}`;
+      const safeDir = String(dir).toUpperCase() === "DESC" ? "DESC" : "ASC";
+      const colStr = String(col).trim();
+      // Allowlist: must be valid identifier and in ORDER_BY_ALLOWLIST (or fallback to regex for unknown tables)
+      // For strict security, enforce allowlist for all tables; unknown columns default to 'id'
+      if (!ORDER_BY_REGEX.test(colStr) || !ORDER_BY_ALLOWLIST.has(colStr)) {
+        // If table has safe columns and col is in its safe list, allow it anyway
+        const safeForTable = SAFE_TABLE_COLUMNS[table];
+        if (!safeForTable || !safeForTable.includes(colStr)) {
+          console.warn(
+            `[qb] Blocked ORDER BY column "${colStr}" not in allowlist — defaulting to "id"`,
+          );
+          _orderBy = `${quoteId("id")} ${safeDir}`;
+          return api;
+        }
+      }
+      _orderBy = `${quoteId(colStr)} ${safeDir}`;
       return api;
     },
 
@@ -127,13 +265,40 @@ export function qb(table, client = null) {
     },
 
     _buildSelect() {
-      let sql = `SELECT ${_select} FROM ${quoteId(table)}`;
+      // Explicit columns required — avoid SELECT * leak. Default to safe projection per table.
+      let selectClause = _select;
+      if (!selectClause) {
+        const safeCols = SAFE_TABLE_COLUMNS[table];
+        if (safeCols) {
+          selectClause = safeCols.map((c) => quoteId(c)).join(", ");
+        } else if (table === "users") {
+          selectClause = SAFE_USER_COLUMNS.map((c) => quoteId(c)).join(", ");
+        } else {
+          // For unknown tables, require explicit .select([...]); fallback to * with warning to avoid breakage
+          console.warn(
+            `[qb] SELECT without explicit columns for table "${table}" — use .select([...]) to avoid SELECT *`,
+          );
+          selectClause = "*";
+        }
+      }
+      // If caller explicitly requested "*" replace with safe list for known tables
+      if (selectClause === "*") {
+        const safeCols = SAFE_TABLE_COLUMNS[table];
+        if (safeCols) {
+          selectClause = safeCols.map((c) => quoteId(c)).join(", ");
+        } else if (table === "users") {
+          selectClause = SAFE_USER_COLUMNS.map((c) => quoteId(c)).join(", ");
+        }
+      }
+      let sql = `SELECT ${selectClause} FROM ${quoteId(table)}`;
       if (_conditions.length > 0) {
         sql += ` WHERE ${_conditions.join(" AND ")}`;
       }
       if (_orderBy) sql += ` ORDER BY ${_orderBy}`;
-      if (_limit !== null && _limit !== undefined) sql += ` LIMIT ${Number(_limit)}`;
-      if (_offset !== null && _offset !== undefined) sql += ` OFFSET ${Number(_offset)}`;
+      if (_limit !== null && _limit !== undefined)
+        sql += ` LIMIT ${Number(_limit)}`;
+      if (_offset !== null && _offset !== undefined)
+        sql += ` OFFSET ${Number(_offset)}`;
       return sql;
     },
 
@@ -161,7 +326,13 @@ export function qb(table, client = null) {
       const cols = keys.map((k) => quoteId(k)).join(", ");
       const placeholders = keys.map((_, i) => `$${i + 1}`).join(", ");
       const values = keys.map((k) => prepared[k]);
-      const ret = _returning || "*";
+      let ret = _returning || "*";
+      if (ret === "*") {
+        const safeCols =
+          SAFE_TABLE_COLUMNS[table] ||
+          (table === "users" ? SAFE_USER_COLUMNS : null);
+        if (safeCols) ret = safeCols.map((c) => quoteId(c)).join(", ");
+      }
       const sql = `INSERT INTO ${quoteId(table)} (${cols}) VALUES (${placeholders}) RETURNING ${ret}`;
       const result = await db.query(sql, values);
       return result.rows[0] || null;
@@ -181,7 +352,13 @@ export function qb(table, client = null) {
       if (_conditions.length > 0) {
         sql += ` WHERE ${_conditions.join(" AND ")}`;
       }
-      const ret = _returning || "*";
+      let ret = _returning || "*";
+      if (ret === "*") {
+        const safeCols =
+          SAFE_TABLE_COLUMNS[table] ||
+          (table === "users" ? SAFE_USER_COLUMNS : null);
+        if (safeCols) ret = safeCols.map((c) => quoteId(c)).join(", ");
+      }
       sql += ` RETURNING ${ret}`;
       const result = await db.query(sql, [...values, ..._params]);
       return _limit === 1 ? result.rows[0] || null : result.rows;

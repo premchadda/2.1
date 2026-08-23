@@ -117,7 +117,9 @@ export const dispatchNotification = async (
     notificationFrequency =
       (await getFullSettings()).notifications?.notificationFrequency ||
       "instant";
-  } catch {}
+  } catch {
+    // intentionally empty - use default instant frequency if settings lookup fails
+  }
   try {
     if (sendEmail) {
       // Map notification types to the corresponding admin toggle

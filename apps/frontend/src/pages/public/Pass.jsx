@@ -427,9 +427,16 @@ function Pass() {
 
   const currentSelectedPlan =
     plans.find((p) => p.id === selectedPlanId) || DEFAULT_PLANS[1];
-  const finalPrice = appliedCoupon
-    ? Math.max(0, currentSelectedPlan.price - appliedCoupon.discount)
-    : currentSelectedPlan.price;
+  // P2 FIX: use server-validated finalAmount when available (includes tax rounding), fallback to client discount calc
+  const finalPrice =
+    appliedCoupon?.finalAmount != null
+      ? Math.max(0, Number(appliedCoupon.finalAmount))
+      : appliedCoupon
+        ? Math.max(
+            0,
+            currentSelectedPlan.price - Number(appliedCoupon.discount || 0),
+          )
+        : currentSelectedPlan.price;
 
   const isMonthlyUser = Boolean(
     user?.subscription_plan === "pro-monthly" ||
@@ -595,7 +602,7 @@ function Pass() {
             </span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-bold mb-4 animate-slide-up text-white">
+          <h1 className="text-xl sm:text-2xl lg:text-3xl md:text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 animate-slide-up text-white">
             {proPass.isAdmin
               ? "Welcome, Administrator"
               : isTopTierUser
@@ -606,7 +613,7 @@ function Pass() {
           </h1>
 
           <p
-            className="text-white/80 text-lg max-w-2xl mx-auto animate-slide-up"
+            className="text-white/80 text-lg max-w-[95vw] sm:max-w-2xl mx-auto animate-slide-up"
             style={{ animationDelay: "0.1s" }}
           >
             {proPass.isAdmin
@@ -659,7 +666,7 @@ function Pass() {
 
       {/* Benefits */}
       <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-10">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-800 p-6 grid grid-cols-2 md:grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {benefits.map((b, i) => (
             <div key={i} className="text-center">
               <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-purple-100 dark:bg-purple-950/50 flex items-center justify-center">
@@ -945,10 +952,10 @@ function Pass() {
 
       {/* Pricing Cards Section */}
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-2xl md:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-3">
+        <h2 className="text-2xl md:text-xl sm:text-2xl lg:text-3xl font-extrabold text-center text-gray-900 dark:text-white mb-3">
           Choose Your Plan
         </h2>
-        <p className="text-center text-gray-500 dark:text-gray-400 text-sm max-w-xl mx-auto mb-10">
+        <p className="text-center text-gray-500 dark:text-gray-400 text-sm max-w-[95vw] sm:max-w-xl mx-auto mb-10">
           Select the perfect plan to elevate your test preparation and unlock
           unlimited mock tests and full solutions.
         </p>
@@ -989,7 +996,7 @@ function Pass() {
                       ₹{plan.originalPrice}
                     </span>
                   )}
-                  <span className="text-3xl font-black text-gray-900 dark:text-white">
+                  <span className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 dark:text-white">
                     ₹{plan.price}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400 text-sm ml-1 font-medium">
@@ -1098,7 +1105,7 @@ function Pass() {
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/75 backdrop-blur-md animate-fade-in">
-            <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[92vh] animate-scale-up">
+            <div className="bg-white dark:bg-gray-900 w-full max-w-4xl rounded-3xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col max-h-[92vh] max-h-[92dvh] animate-scale-up">
               {/* Modal Top Header */}
               <div className="px-6 py-4 bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-700 text-white flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1185,166 +1192,156 @@ function Pass() {
                     </div>
                   </div>
 
-                  {/* 2. Pro Monthly Plan Card */}
-                  <div
-                    onClick={() => setSelectedPlanId("pro-monthly")}
-                    className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                      selectedPlanId === "pro-monthly"
-                        ? "border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 shadow-lg ring-2 ring-purple-500/30"
-                        : "border-gray-200 dark:border-gray-800 hover:border-purple-300"
-                    }`}
-                  >
-                    <div className="absolute -top-3 right-3 px-2 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">
-                      70% OFF
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-extrabold text-gray-900 dark:text-white text-base">
-                          Pro Monthly
-                        </span>
-                        <input
-                          type="radio"
-                          name="plan_choice"
-                          checked={selectedPlanId === "pro-monthly"}
-                          onChange={() => setSelectedPlanId("pro-monthly")}
-                          className="w-4 h-4 text-purple-600 focus:ring-purple-500"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
-                          ₹399
-                        </span>
-                        <span className="text-2xl font-black text-gray-900 dark:text-white">
-                          ₹99
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
-                          monthly
-                        </span>
-                      </div>
-                      <div className="p-2 bg-purple-100/60 dark:bg-purple-900/40 rounded-lg text-[11px] font-bold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-1.5">
-                        <Target className="w-3.5 h-3.5 text-purple-600" />
-                        Unlimited Test Attempts Allowed
-                      </div>
-                      <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Access to all mock tests
+                  {/* P1 FIX: Pro plans rendered dynamically from DB — no hardcoded prices */}
+                  {(() => {
+                    const monthlyPlan =
+                      plans.find((p) => p.id === "pro-monthly") ||
+                      DEFAULT_PLANS[1];
+                    const yearlyPlan =
+                      plans.find((p) => p.id === "pro-yearly") ||
+                      DEFAULT_PLANS[2];
+                    const renderFeatures = (plan, limit = 6) =>
+                      (plan.features || []).slice(0, limit).map((f, i) => (
+                        <li key={i} className="flex items-center gap-1.5">
+                          {f.included === false ? (
+                            <X className="w-3.5 h-3.5 text-gray-300" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5 text-green-500 font-bold" />
+                          )}{" "}
+                          {typeof f === "string" ? f : f.text}
                         </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Previous year papers
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Live test access
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Detailed analytics
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-800">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPlanId("pro-monthly")}
-                        className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${
-                          selectedPlanId === "pro-monthly"
-                            ? "bg-purple-600 text-white shadow-md"
-                            : "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"
-                        }`}
-                      >
-                        {selectedPlanId === "pro-monthly"
-                          ? "Selected Plan"
-                          : "Select Pro Monthly"}
-                      </button>
-                    </div>
-                  </div>
+                      ));
+                    return (
+                      <>
+                        {/* 2. Pro Monthly Plan Card */}
+                        <div
+                          onClick={() => setSelectedPlanId("pro-monthly")}
+                          className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                            selectedPlanId === "pro-monthly"
+                              ? "border-purple-600 bg-purple-50/40 dark:bg-purple-950/20 shadow-lg ring-2 ring-purple-500/30"
+                              : "border-gray-200 dark:border-gray-800 hover:border-purple-300"
+                          }`}
+                        >
+                          {monthlyPlan.savings && (
+                            <div className="absolute -top-3 right-3 px-2 py-0.5 bg-purple-600 text-white text-[10px] font-bold rounded-full">
+                              {monthlyPlan.savings}
+                            </div>
+                          )}
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-extrabold text-gray-900 dark:text-white text-base">
+                                {monthlyPlan.name}
+                              </span>
+                              <input
+                                type="radio"
+                                name="plan_choice"
+                                checked={selectedPlanId === "pro-monthly"}
+                                onChange={() =>
+                                  setSelectedPlanId("pro-monthly")
+                                }
+                                className="w-4 h-4 text-purple-600 focus:ring-purple-500"
+                              />
+                            </div>
+                            <div className="mb-3">
+                              {monthlyPlan.originalPrice && (
+                                <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
+                                  ₹{monthlyPlan.originalPrice}
+                                </span>
+                              )}
+                              <span className="text-2xl font-black text-gray-900 dark:text-white">
+                                ₹{monthlyPlan.price}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
+                                {monthlyPlan.period}
+                              </span>
+                            </div>
+                            <div className="p-2 bg-purple-100/60 dark:bg-purple-900/40 rounded-lg text-[11px] font-bold text-purple-900 dark:text-purple-300 mb-3 flex items-center gap-1.5">
+                              <Target className="w-3.5 h-3.5 text-purple-600" />
+                              {monthlyPlan.attemptsInfo ||
+                                "Unlimited Test Attempts Allowed"}
+                            </div>
+                            <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
+                              {renderFeatures(monthlyPlan, 4)}
+                            </ul>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-purple-200 dark:border-purple-800">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPlanId("pro-monthly")}
+                              className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${selectedPlanId === "pro-monthly" ? "bg-purple-600 text-white shadow-md" : "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200"}`}
+                            >
+                              {selectedPlanId === "pro-monthly"
+                                ? "Selected Plan"
+                                : `Select ${monthlyPlan.name}`}
+                            </button>
+                          </div>
+                        </div>
 
-                  {/* 3. Pro Yearly Plan Card (Highlighted Most Popular) */}
-                  <div
-                    onClick={() => setSelectedPlanId("pro-yearly")}
-                    className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-                      selectedPlanId === "pro-yearly"
-                        ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 shadow-lg ring-2 ring-amber-400/30"
-                        : "border-gray-200 dark:border-gray-800 hover:border-amber-300"
-                    }`}
-                  >
-                    <div className="absolute -top-3 right-3 px-2.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-black tracking-wider uppercase rounded-full shadow-sm">
-                      MOST POPULAR • 80% OFF
-                    </div>
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-extrabold text-gray-900 dark:text-white text-base flex items-center gap-1.5">
-                          <Crown className="w-4 h-4 text-amber-500" />
-                          Pro Yearly
-                        </span>
-                        <input
-                          type="radio"
-                          name="plan_choice"
-                          checked={selectedPlanId === "pro-yearly"}
-                          onChange={() => setSelectedPlanId("pro-yearly")}
-                          className="w-4 h-4 text-amber-500 focus:ring-amber-400"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
-                          ₹599
-                        </span>
-                        <span className="text-2xl font-black text-gray-900 dark:text-white">
-                          ₹199
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
-                          yearly
-                        </span>
-                      </div>
-                      <div className="p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-lg text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-3 flex items-center gap-1.5">
-                        <Flame className="w-3.5 h-3.5 text-amber-600" />
-                        Unlimited Test Attempts Allowed
-                      </div>
-                      <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Access to all mock tests
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Previous year papers
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Live test access
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Detailed analytics
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Priority support
-                        </li>
-                        <li className="flex items-center gap-1.5">
-                          <Check className="w-3.5 h-3.5 text-green-500 font-bold" />{" "}
-                          Download PDFs
-                        </li>
-                      </ul>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-amber-200 dark:border-amber-800">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPlanId("pro-yearly")}
-                        className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${
-                          selectedPlanId === "pro-yearly"
-                            ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md"
-                            : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"
-                        }`}
-                      >
-                        {selectedPlanId === "pro-yearly"
-                          ? "Selected Plan"
-                          : "Select Pro Yearly"}
-                      </button>
-                    </div>
-                  </div>
+                        {/* 3. Pro Yearly Plan Card (Highlighted Most Popular) */}
+                        <div
+                          onClick={() => setSelectedPlanId("pro-yearly")}
+                          className={`relative p-4 rounded-2xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
+                            selectedPlanId === "pro-yearly"
+                              ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 shadow-lg ring-2 ring-amber-400/30"
+                              : "border-gray-200 dark:border-gray-800 hover:border-amber-300"
+                          }`}
+                        >
+                          <div className="absolute -top-3 right-3 px-2.5 py-0.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[10px] font-black tracking-wider uppercase rounded-full shadow-sm">
+                            {yearlyPlan.badge ||
+                              yearlyPlan.savings ||
+                              "MOST POPULAR • 80% OFF"}
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="font-extrabold text-gray-900 dark:text-white text-base flex items-center gap-1.5">
+                                <Crown className="w-4 h-4 text-amber-500" />
+                                {yearlyPlan.name}
+                              </span>
+                              <input
+                                type="radio"
+                                name="plan_choice"
+                                checked={selectedPlanId === "pro-yearly"}
+                                onChange={() => setSelectedPlanId("pro-yearly")}
+                                className="w-4 h-4 text-amber-500 focus:ring-amber-400"
+                              />
+                            </div>
+                            <div className="mb-3">
+                              {yearlyPlan.originalPrice && (
+                                <span className="text-gray-400 line-through text-xs mr-1.5 font-medium">
+                                  ₹{yearlyPlan.originalPrice}
+                                </span>
+                              )}
+                              <span className="text-2xl font-black text-gray-900 dark:text-white">
+                                ₹{yearlyPlan.price}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 font-medium">
+                                {yearlyPlan.period}
+                              </span>
+                            </div>
+                            <div className="p-2 bg-amber-100/60 dark:bg-amber-900/40 rounded-lg text-[11px] font-bold text-amber-900 dark:text-amber-300 mb-3 flex items-center gap-1.5">
+                              <Flame className="w-3.5 h-3.5 text-amber-600" />
+                              {yearlyPlan.attemptsInfo ||
+                                "Unlimited Test Attempts Allowed"}
+                            </div>
+                            <ul className="space-y-1.5 text-xs text-gray-700 dark:text-gray-300">
+                              {renderFeatures(yearlyPlan, 6)}
+                            </ul>
+                          </div>
+                          <div className="mt-4 pt-3 border-t border-amber-200 dark:border-amber-800">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPlanId("pro-yearly")}
+                              className={`w-full py-2 text-xs font-bold rounded-xl transition-all ${selectedPlanId === "pro-yearly" ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md" : "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200"}`}
+                            >
+                              {selectedPlanId === "pro-yearly"
+                                ? "Selected Plan"
+                                : `Select ${yearlyPlan.name}`}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Coupon & Payment Details Bar */}

@@ -179,9 +179,20 @@ export default function SubjectHierarchyManager() {
       } else if (formLevel === "topic") {
         const payload = {
           name: formData.name,
+          slug,
           description: formData.description,
           icon: formData.icon,
-          order: formData.order,
+          order: Number(formData.order) || 0,
+          subjectId:
+            formParentId ||
+            editingItem?.subjectId ||
+            editingItem?.subject ||
+            null,
+          subject:
+            formParentId ||
+            editingItem?.subjectId ||
+            editingItem?.subject ||
+            null,
         };
         if (editingItem) {
           await apiClient.put(
@@ -196,9 +207,20 @@ export default function SubjectHierarchyManager() {
       } else if (formLevel === "subtopic") {
         const payload = {
           name: formData.name,
+          slug,
           description: formData.description,
           icon: formData.icon,
-          order: formData.order,
+          order: Number(formData.order) || 0,
+          parentTopic:
+            formParentId ||
+            editingItem?.parentTopic ||
+            editingItem?.parentId ||
+            null,
+          topicId:
+            formParentId ||
+            editingItem?.parentTopic ||
+            editingItem?.parentId ||
+            null,
         };
         if (editingItem) {
           await apiClient.put(
@@ -291,6 +313,23 @@ export default function SubjectHierarchyManager() {
     );
     return { subjects: matchingSubjects, topics: matchingTopics };
   }, [searchQuery, subjects, topics]);
+
+  // Revived: parentOptions was undefined crash - compute based on formLevel
+  const parentOptions = useMemo(() => {
+    if (formLevel === "topic") {
+      return subjects.map((s) => ({
+        id: String(s._id || s.id),
+        label: s.name || s.title || "Unnamed Subject",
+      }));
+    }
+    if (formLevel === "subtopic") {
+      return topics.map((t) => ({
+        id: String(t._id || t.id),
+        label: t.name || t.title || "Unnamed Topic",
+      }));
+    }
+    return [];
+  }, [formLevel, subjects, topics]);
 
   const renderSubtopicTree = (subtopic, depth = 1, visited = new Set()) => {
     const subtopicId = subtopic.id || subtopic._id;
@@ -721,14 +760,14 @@ export default function SubjectHierarchyManager() {
                         Parent {formLevel === "subtopic" ? "Topic" : "Subject"}
                       </label>
                       <select
-                        value={formData.parentId}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            parentId: e.target.value,
-                          }))
-                        }
+                        value={formParentId || formData.parentId || ""}
+                        onChange={(e) => {
+                          const val = e.target.value || null;
+                          setFormParentId(val);
+                          setFormData((prev) => ({ ...prev, parentId: val }));
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-900 dark:text-white"
+                        aria-label="Parent selection"
                       >
                         <option value="">None (Top Level)</option>
                         {parentOptions.map((opt) => (

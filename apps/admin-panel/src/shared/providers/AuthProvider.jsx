@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { authAPI, userAPI } from "../lib/dataService.js";
 import { logger } from "../lib/logger.js";
 import { mapUserToFrontend } from "../types";
-import { useWebSocket } from "../hooks/useWebSocket";
+import { useWebSocket, clearWebSocket } from "../hooks/useWebSocket";
 import { toast } from "react-hot-toast";
 import { getQueryClient } from "../lib/queryClientRegistry.js";
 import {
@@ -20,29 +20,19 @@ const SESSION_CONFIG = {
   rememberMeInactivityTimeout: 7 * 24 * 60 * 60 * 1000, // 7 days
 };
 
-export const applyAuthSession = ({
-  token,
-  refreshToken,
-  csrfToken,
-  rememberMe = false,
-}) => {
+export const applyAuthSession = ({ csrfToken }) => {
   try {
-    const primaryStorage = rememberMe ? localStorage : sessionStorage;
-    const secondaryStorage = rememberMe ? sessionStorage : localStorage;
-
-    // Purge stale tokens from opposite storage
-    secondaryStorage.removeItem("trstprep_auth_token");
-    secondaryStorage.removeItem("trstprep_token");
-    secondaryStorage.removeItem("trstprep_refresh_token");
-
-    if (token) {
-      primaryStorage.setItem(
-        rememberMe ? "trstprep_token" : "trstprep_auth_token",
-        token,
-      );
-    }
-    if (refreshToken) {
-      primaryStorage.setItem("trstprep_refresh_token", refreshToken);
+    // httpOnly cookies only - do NOT store JWT in localStorage (CRIT-03)
+    // Clean legacy tokens if present (migration from old localStorage flow)
+    try {
+      localStorage.removeItem("trstprep_auth_token");
+      localStorage.removeItem("trstprep_token");
+      localStorage.removeItem("trstprep_refresh_token");
+      sessionStorage.removeItem("trstprep_auth_token");
+      sessionStorage.removeItem("trstprep_token");
+      sessionStorage.removeItem("trstprep_refresh_token");
+    } catch (_e) {
+      void _e;
     }
     if (csrfToken) {
       setCsrfToken(csrfToken);
@@ -56,12 +46,17 @@ export const saveAuthTokens = applyAuthSession;
 
 export const clearAuthTokens = () => {
   try {
-    sessionStorage.removeItem("trstprep_auth_token");
-    sessionStorage.removeItem("trstprep_token");
-    sessionStorage.removeItem("trstprep_refresh_token");
-    localStorage.removeItem("trstprep_token");
-    localStorage.removeItem("trstprep_auth_token");
-    localStorage.removeItem("trstprep_refresh_token");
+    // httpOnly cookies cleared server-side; only clear CSRF and legacy storage
+    try {
+      localStorage.removeItem("trstprep_auth_token");
+      localStorage.removeItem("trstprep_token");
+      localStorage.removeItem("trstprep_refresh_token");
+      sessionStorage.removeItem("trstprep_auth_token");
+      sessionStorage.removeItem("trstprep_token");
+      sessionStorage.removeItem("trstprep_refresh_token");
+    } catch (_e) {
+      void _e;
+    }
     clearCsrfToken();
   } catch (error) {
     void error;
@@ -132,42 +127,24 @@ export function AuthProvider({ children }) {
     const handleUnauthorized = () => {
       clearAuthTokens();
       setUser(null);
+      try {
+        clearWebSocket?.();
+      } catch (_e) {
+        void _e;
+      }
     };
 
     window.addEventListener("unauthorized", handleUnauthorized);
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
   }, []);
 
-  // Refresh token function - memoized
+  // Refresh token function - memoized (httpOnly cookies only, no localStorage)
   const refreshToken = useCallback(async () => {
     try {
-      const isPersistent =
-        typeof window !== "undefined" &&
-        Boolean(
-          localStorage.getItem("trstprep_token") ||
-          localStorage.getItem("trstprep_refresh_token"),
-        );
-      const storedRefreshToken =
-        typeof window !== "undefined"
-          ? localStorage.getItem("trstprep_refresh_token") ||
-            sessionStorage.getItem("trstprep_refresh_token")
-          : null;
-      const response = await authAPI.refreshToken(
-        storedRefreshToken ? { refreshToken: storedRefreshToken } : {},
-      );
-      const {
-        token: newToken,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data?.data || {};
-      const rememberMe =
-        serverRememberMe !== undefined ? serverRememberMe : isPersistent;
+      const response = await authAPI.refreshToken();
+      const { csrfToken: newCsrfToken } = response.data?.data || {};
       applyAuthSession({
-        token: newToken,
-        refreshToken: newRefreshToken,
         csrfToken: newCsrfToken,
-        rememberMe,
       });
       return { success: true };
     } catch (err) {
@@ -211,21 +188,10 @@ export function AuthProvider({ children }) {
         rememberMe,
         botContext,
       );
-      const {
-        user: userData,
-        token,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        rememberMe: serverRememberMe,
-      } = response.data.data;
-      const isRemember =
-        serverRememberMe !== undefined ? serverRememberMe : rememberMe;
+      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
 
       applyAuthSession({
-        token,
-        refreshToken: newRefreshToken,
         csrfToken: newCsrfToken,
-        rememberMe: isRemember,
       });
 
       const frontendUser = mapUserToFrontend(userData);
@@ -276,10 +242,7 @@ export function AuthProvider({ children }) {
 
       if (userData) {
         applyAuthSession({
-          token: payload.token,
-          refreshToken: payload.refreshToken,
           csrfToken: payload.csrfToken,
-          rememberMe: false,
         });
 
         const frontendUser = mapUserToFrontend(userData);
@@ -319,6 +282,11 @@ export function AuthProvider({ children }) {
       clearAuthTokens();
       setUser(null);
       setError(null);
+      try {
+        clearWebSocket?.();
+      } catch (_e) {
+        void _e;
+      }
     }
   };
 

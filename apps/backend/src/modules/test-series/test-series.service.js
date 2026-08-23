@@ -11,7 +11,8 @@ export const testSeriesSchema = createSchema()
   .field("is_pro", { type: "boolean", required: false })
   .field("stages", { type: "array", required: false })
   .field("category", { type: "string", required: false, maxLength: 100 })
-  .field("subcategory", { type: "string", required: false, maxLength: 100 })
+  .field("examId", { type: "string", required: false, maxLength: 100 })
+  .field("exam_id", { type: "string", required: false, maxLength: 100 })
   .field("price", { type: "integer", required: false, min: 0 })
   .field("difficulty", { type: "string", required: false, maxLength: 50 })
   .field("tags", { type: "array", required: false })
@@ -30,13 +31,13 @@ export const testSeriesService = {
 
   async create(data, userId) {
     const maxOrder = await repo.getMaxOrder();
-    const subcategory = data.subcategory || "";
+    const examId = data.examId || data.exam_id || "";
 
     const payload = {
       ...data,
       name: data.name || data.title || "",
-      subcategory,
-      sub_category: subcategory,
+      exam_id: examId,
+      examId: examId,
       stages: Array.isArray(data.stages) ? data.stages : [],
       display_order: maxOrder + 1,
       is_pinned: false,

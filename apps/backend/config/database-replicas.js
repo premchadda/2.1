@@ -25,18 +25,20 @@ const sslConfig =
 
 function sanitizeDatabaseUrl(rawUrl) {
   if (!rawUrl) return rawUrl;
-  if (rawUrl.includes('.supabase.co') && rawUrl.includes('db.')) {
+  if (rawUrl.includes(".supabase.co") && rawUrl.includes("db.")) {
     console.warn(
-      '⚠️ Notice: Supabase Direct Connection (db.<ref>.supabase.co) is IPv6-only. ' +
-      'If you see connect ENETUNREACH, switch DATABASE_URL to Supabase Connection Pooler: ' +
-      'postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres'
+      "⚠️ Notice: Supabase Direct Connection (db.<ref>.supabase.co) is IPv6-only. " +
+        "If you see connect ENETUNREACH, switch DATABASE_URL to Supabase Connection Pooler: " +
+        "postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres",
     );
   }
   return rawUrl;
 }
 
 const writeConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_URL);
-const readConnectionUrl = sanitizeDatabaseUrl(process.env.DATABASE_READ_URL || process.env.DATABASE_URL);
+const readConnectionUrl = sanitizeDatabaseUrl(
+  process.env.DATABASE_READ_URL || process.env.DATABASE_URL,
+);
 
 // Primary pool (read/write) - max 8 connections to stay within Supabase session pool limit (15)
 const writePool = new Pool({
@@ -44,15 +46,15 @@ const writePool = new Pool({
   ssl: sslConfig,
   connectionTimeoutMillis: parsePositiveInt(
     process.env.PG_CONNECTION_TIMEOUT_MS,
-    15000
+    15000,
   ),
   idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 10000),
-  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
+  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 10000),
   max: parsePositiveInt(process.env.PG_POOL_MAX, 8),
   allowExitOnIdle: true,
   keepAlive: true,
   application_name: "trstprep-backend-write",
-  statement_timeout: 30000,
+  statement_timeout: 10000,
 });
 
 // Read replica pool - separate connection for read-heavy operations
@@ -63,18 +65,18 @@ const readPool = process.env.DATABASE_READ_URL
       ssl: sslConfig,
       connectionTimeoutMillis: parsePositiveInt(
         process.env.PG_CONNECTION_TIMEOUT_MS,
-        15000
+        15000,
       ),
       idleTimeoutMillis: parsePositiveInt(
         process.env.PG_IDLE_TIMEOUT_MS,
-        10000
+        10000,
       ),
-      query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 30000),
+      query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 10000),
       max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 4),
       allowExitOnIdle: true,
       keepAlive: true,
       application_name: "trstprep-backend-read",
-      statement_timeout: 30000,
+      statement_timeout: 10000,
     })
   : writePool;
 
@@ -120,7 +122,11 @@ export const writeQuery = async (text, params) => {
 export const checkPoolsHealth = async () => {
   const result = {
     writePool: { healthy: false, latencyMs: 0 },
-    readPool: { healthy: false, latencyMs: 0, isReplica: readPool !== writePool },
+    readPool: {
+      healthy: false,
+      latencyMs: 0,
+      isReplica: readPool !== writePool,
+    },
   };
 
   const startWrite = Date.now();
@@ -161,6 +167,9 @@ export const warmPools = async () => {
     await Promise.all(promises);
     console.log("[DB] Connection pools warmed successfully.");
   } catch (err) {
-    console.warn("[DB] Pool pre-warming encountered an issue (non-fatal):", err.message);
+    console.warn(
+      "[DB] Pool pre-warming encountered an issue (non-fatal):",
+      err.message,
+    );
   }
 };

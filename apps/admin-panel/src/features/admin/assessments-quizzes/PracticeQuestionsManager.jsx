@@ -104,14 +104,17 @@ export default function PracticeQuestionsManager() {
   const [activeFormTab, setActiveFormTab] = useState("english"); // 'english' | 'hindi' | 'scoring'
 
   // Fetch Questions, Chapters, and Topics
-  const fetchAllData = useCallback(async () => {
+  const fetchAllData = useCallback(async (signal) => {
     try {
       setLoading(true);
       const [qRes, cRes, tRes] = await Promise.all([
         adminAPI.apiClient
-          .get("/admin/questions/practice")
+          .get("/admin/questions/practice", { params: { limit: 200 }, signal })
           .catch(() =>
-            adminAPI.apiClient.get("/admin/questions?category=practice"),
+            adminAPI.apiClient.get("/admin/questions", {
+              params: { category: "practice", limit: 200 },
+              signal,
+            }),
           ),
         adminAPI.apiClient
           .get("/admin/chapters")
@@ -138,7 +141,9 @@ export default function PracticeQuestionsManager() {
   }, []);
 
   useEffect(() => {
-    fetchAllData();
+    const controller = new AbortController();
+    fetchAllData(controller.signal);
+    return () => controller.abort();
   }, [fetchAllData]);
 
   // Normalization Helpers
@@ -220,18 +225,23 @@ export default function PracticeQuestionsManager() {
     return { total, active, drafts, subjectsCovered: subjectSet.size };
   }, [questions]);
 
-  // Subject Question Counts for Tabs
+  // Subject Question Counts - O(S+Q) indexed
   const subjectCounts = useMemo(() => {
+    const index = new Map();
+    for (const q of questions) {
+      const key = String(
+        q.subject || q.subject_id || q.subjectId || "",
+      ).toLowerCase();
+      index.set(key, (index.get(key) || 0) + 1);
+    }
     const map = { all: questions.length };
-    subjects.forEach((s) => {
-      const count = questions.filter((q) => {
-        const qSub = String(q.subject || q.subject_id || q.subjectId || "");
-        const sId = String(s.id || s._id || "");
-        const sName = String(s.label || s.name || "").toLowerCase();
-        return qSub === sId || qSub.toLowerCase() === sName;
-      }).length;
-      map[s.id] = count;
-    });
+    for (const s of subjects) {
+      const sId = String(s.id || s._id || "").toLowerCase();
+      const sName = String(s.label || s.name || "").toLowerCase();
+      map[s.id] =
+        (index.get(sId) || 0) +
+        (sName && sName !== sId ? index.get(sName) || 0 : 0);
+    }
     return map;
   }, [questions, subjects]);
 
@@ -554,10 +564,14 @@ export default function PracticeQuestionsManager() {
     }
   };
 
-  // Bulk Selection Handlers
+  // Bulk Selection Handlers - fixed to select filtered when reasonable (100 limit)
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedQuestions(paginatedQuestions.map((q) => q.id || q._id));
+      const ids =
+        filteredQuestions.length <= 100
+          ? filteredQuestions.map((q) => q.id || q._id)
+          : paginatedQuestions.map((q) => q.id || q._id);
+      setSelectedQuestions(ids);
     } else {
       setSelectedQuestions([]);
     }
@@ -739,12 +753,16 @@ export default function PracticeQuestionsManager() {
       q.status || "active",
     ]);
 
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
+    const csvString = [headers.join(","), ...rows.map((e) => e.join(","))].join(
+      "\n",
+    );
+    // Revived dead: use Blob instead of encodeURI (URI limit ~2MB, Blob handles large exports + proper CSV injection handling already done via quoting)
+    const blob = new Blob(["\uFEFF" + csvString], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     link.setAttribute(
       "download",
       `practice_questions_${activeSubjectTab}_${Date.now()}.csv`,
@@ -752,6 +770,7 @@ export default function PracticeQuestionsManager() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast.success("Exported practice questions to CSV");
   };
 
@@ -2062,6 +2081,8 @@ export default function PracticeQuestionsManager() {
                 </p>
                 {previewQuestion.imageUrl && (
                   <img
+                    loading="lazy"
+                    decoding="async"
                     src={previewQuestion.imageUrl}
                     alt="Graphic"
                     className="mt-2 rounded-lg max-h-48 object-contain border"
