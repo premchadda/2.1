@@ -13,18 +13,11 @@ import {
   Sparkles,
   ChevronRight,
   Search,
-  SlidersHorizontal,
   HelpCircle,
   Play,
   List,
   Grid,
   Edit3,
-  ExternalLink,
-  Layers,
-  ArrowRight,
-  Clock,
-  ShieldCheck,
-  Check,
 } from "lucide-react";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { bookmarksAPI, apiClient } from "../../shared/lib/dataService";
@@ -43,7 +36,7 @@ export default function Bookmarks() {
   const [reportsLoading, setReportsLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const [_totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
