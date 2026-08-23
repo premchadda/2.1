@@ -40,7 +40,7 @@ export function useTestTelemetry({
       getCurrentQuestion: () => {
         const qIdx = currentQuestionRef.current;
         const qList = questionsRef.current;
-        return qList[qIdx]?.id || qList[qIdx]?._id || qIdx;
+        return qList[qIdx]?.id || qList[qIdx]?._id || null;
       },
       getTimeLeft: () => timeLeftRef.current,
       onViolation: (type, e) => {
