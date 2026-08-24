@@ -142,12 +142,28 @@ build-out.txt
 build_out*
 build_output*
 build_test.txt
+build_final.txt
+build_step2.txt
 *.lint.out
 lint.out
 eslint_out*
 eslint_output*
 stats.html
 db_live_inventory.txt
+
+# Debug notes and temp text files
+Trstprep Env File.txt
+*.txt
+!AGENTS.md
+!CONTRIBUTING.md
+!CHANGELOG.md
+
+# Data artifacts at root
+SSC_CGL_*.json
+SSC_GK_*.md
+
+# Accidental shell output files
+$(*)
 
 # QMS file (misplaced)
 qms.jsx
