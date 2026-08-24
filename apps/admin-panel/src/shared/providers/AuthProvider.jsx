@@ -94,6 +94,7 @@ export function AuthProvider({ children }) {
       clearAuthTokens();
       saveUserCache(null);
       setUser(null);
+      setLoading(false);
       setAuthResolved(true);
       try {
         clearWebSocket?.();
@@ -106,22 +107,44 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
   }, []);
 
-  // Refresh token function - memoized (httpOnly cookies only, no localStorage)
+  // Refresh token function - memoized (httpOnly cookies + fallback body tokens)
   const refreshToken = useCallback(async () => {
     try {
-      const response = await authAPI.refreshToken();
-      const { csrfToken: newCsrfToken } = response.data?.data || {};
+      // Send stored refresh token as cross-origin fallback (cookies may be blocked)
+      let fallbackRefreshToken;
+      try {
+        fallbackRefreshToken =
+          sessionStorage.getItem("trstprep_refresh_token") ||
+          localStorage.getItem("trstprep_refresh_token") ||
+          undefined;
+      } catch {}
+
+      const body = fallbackRefreshToken
+        ? { refreshToken: fallbackRefreshToken }
+        : {};
+      const response = await authAPI.refreshToken(body);
+      const {
+        csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
+      } = response.data?.data || {};
       applyAuthSession({
         csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
       });
       return { success: true };
     } catch (err) {
       logger.error("Token refresh failed:", err);
-      authSequenceRef.current += 1;
-      clearAuthTokens();
-      saveUserCache(null);
-      setUser(null);
-      return { success: false, error: "Session expired" };
+      const status = err?.response?.status ?? err?.status;
+      if (status === 401 || status === 419) {
+        authSequenceRef.current += 1;
+        clearAuthTokens();
+        saveUserCache(null);
+        setUser(null);
+        return { success: false, error: "Session expired" };
+      }
+      return { success: false, error: "Service temporarily unavailable" };
     }
   }, []);
 
@@ -163,6 +186,8 @@ export function AuthProvider({ children }) {
       const {
         user: userData,
         csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
         sessionId: serverSessionId,
       } = response.data.data || {};
 
@@ -172,6 +197,8 @@ export function AuthProvider({ children }) {
 
       applyAuthSession({
         csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
       });
 
       const frontendUser = mapUserToFrontend(userData);
@@ -227,6 +254,8 @@ export function AuthProvider({ children }) {
         authSequenceRef.current += 1;
         applyAuthSession({
           csrfToken: payload.csrfToken,
+          token: payload.token,
+          refreshToken: payload.refreshToken,
         });
 
         const frontendUser = mapUserToFrontend(userData);
