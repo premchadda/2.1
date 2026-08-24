@@ -5,20 +5,7 @@
  *   - CSRF interceptor (uses the shared getCsrfToken/setCsrfToken store)
  *   - a response interceptor mapping errors to the shared error classes
  *   - 401/419 token-refresh handling with a request queue
- *   - X-Client-App fingerprint header for server-side audit / rate-limit scoping
  *   - isCancel pass-through
- *
- * HTML sanitizer hygiene (ALLOWED_ATTR / ALLOWED_TAGS):
- * This module does NOT sanitize HTML. Sanitization belongs to the companion
- * `htmlSanitizer.js` (shared-config) / `htmlSanitizer.js` (frontend). That
- * module enforces a strict DOMPurify allowlist:
- *   - ALLOWED_TAGS never includes `script`, `iframe`, `object`, `embed`, `form`,
- *     `style`, or `link` — script execution is impossible via sanitized HTML.
- *   - ALLOWED_ATTR is limited to safe attrs (href/src/alt/class/id/title/target/rel
- *     plus SVG/MML presentation attrs). `on*` handlers, `style` for CSS exfiltration,
- *     and `srcdoc` are excluded. See `htmlSanitizer.js` for the canonical list.
- * Keeping sanitization separate ensures apiClient stays framework-agnostic and
- * avoids accidental script execution through API payloads.
  *
  * Each app configures its own baseURL/timeout/auth behavior. No React or
  * window access is performed inside the factory; apps provide the
@@ -75,50 +62,21 @@ export function createApiClient(options = {}) {
     timeout = 30000,
     headers,
     withCredentials = true,
-    // X-Client-App fingerprint: identifies calling app for server audit / rate-limit.
-    // Defaults to 'trstprep-web' for frontend; admin-panel passes 'trstprep-admin'.
-    clientApp = null,
-    authEndpoints = [
-      "/auth/login",
-      "/auth/register",
-      "/auth/refresh",
-      "/api/auth/login",
-      "/api/auth/register",
-      "/api/auth/refresh",
-    ],
+    authEndpoints = ["/auth/login", "/auth/register", "/auth/refresh"],
     refreshUrl = "/auth/refresh",
     authUrlMatch = "includes",
     captureCsrfOnError = false,
     onAuthFailure = null,
   } = options;
 
-  // Merge caller headers with required fingerprints without mutating input
-  const baseHeaders = {
-    "Content-Type": "application/json",
-    ...(headers || {}),
-  };
-  // X-Client-App fingerprint — always sent if known (header names lower-cased by axios)
-  if (clientApp) {
-    baseHeaders["X-Client-App"] = clientApp;
-  } else if (!baseHeaders["X-Client-App"] && !baseHeaders["x-client-app"]) {
-    // Infer from baseURL or default to web when not explicitly provided
-    const inferred = baseURL?.includes("admin")
-      ? "trstprep-admin"
-      : "trstprep-web";
-    baseHeaders["X-Client-App"] = inferred;
-  }
-
   const instance = axios.create({
     baseURL,
     timeout,
-    headers: baseHeaders,
+    headers: headers || { "Content-Type": "application/json" },
     withCredentials,
   });
 
-  // ---- Request interceptor: attach CSRF token + ensure fingerprint ----
-  // SECURITY: No localStorage/sessionStorage JWT fallback — rely exclusively
-  // on httpOnly cookies (withCredentials: true). This prevents XSS exfiltration
-  // of tokens via localStorage.
+  // ---- Request interceptor: attach CSRF token for mutations + Bearer fallback ----
   instance.interceptors.request.use(
     (config) => {
       if (typeof FormData !== "undefined" && config.data instanceof FormData) {
@@ -126,28 +84,22 @@ export function createApiClient(options = {}) {
         delete config.headers["content-type"];
       }
 
-      // Ensure X-Client-App fingerprint survives per-request header overrides
-      if (!config.headers["X-Client-App"] && !config.headers["x-client-app"]) {
-        config.headers["X-Client-App"] =
-          baseHeaders["X-Client-App"] || "trstprep-web";
-      }
-
-      // Attach Authorization token if present in session/local storage for mobile/webview fallback
-      if (!config.headers["Authorization"] && !config.headers["authorization"]) {
+      // Bearer fallback: attach stored access token for cross-origin scenarios
+      // where httpOnly cookies may be blocked (SameSite=None on Safari/Chrome).
+      if (
+        !config.headers["Authorization"] &&
+        !config.headers["authorization"]
+      ) {
         try {
           const token =
             (typeof sessionStorage !== "undefined" &&
-              (sessionStorage.getItem("trstprep_auth_token") ||
-                sessionStorage.getItem("trstprep_token"))) ||
+              sessionStorage.getItem("trstprep_token")) ||
             (typeof localStorage !== "undefined" &&
-              (localStorage.getItem("trstprep_token") ||
-                localStorage.getItem("trstprep_auth_token")));
+              localStorage.getItem("trstprep_token"));
           if (token) {
             config.headers["Authorization"] = `Bearer ${token}`;
           }
-        } catch {
-          // ignore storage access errors in non-browser environments
-        }
+        } catch {}
       }
 
       const method = config.method?.toUpperCase();
@@ -216,66 +168,15 @@ export function createApiClient(options = {}) {
 
       const isAuthEndpoint = authEndpoints.some(matchFn);
 
-      // Handle 403 CSRF mismatch: auto-recover and retry once
-      // FIX: Do not retry if the failing request is itself the refresh endpoint
-      // — otherwise a 403 from /auth/refresh (e.g. invalid CSRF) loops infinitely.
-      if (status === 403) {
-        const errorMsg = String(error.response?.data?.message || "");
-        const isRefreshRequest = url?.includes(refreshUrl);
-        if (
-          errorMsg.toLowerCase().includes("csrf") &&
-          originalRequest &&
-          !originalRequest._csrfRetry &&
-          !isRefreshRequest
-        ) {
-          originalRequest._csrfRetry = true;
-          const freshCsrf =
-            error.response?.headers?.["x-csrf-token"] ||
-            error.response?.headers?.["X-CSRF-Token"] ||
-            error.response?.data?.csrfToken ||
-            error.response?.data?.data?.csrfToken;
-          if (freshCsrf) {
-            setCsrfToken(freshCsrf);
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers["X-CSRF-Token"] = freshCsrf;
-            return instance(originalRequest);
-          }
-        }
-      }
-
       if (status === 401 || status === 419) {
         if (isAuthEndpoint) {
           onAuthFailure?.(error, { isRefreshFailure: false });
-          return Promise.reject(
-            new AuthenticationError(
-              error.response?.data?.message ||
-                error.message ||
-                "Authentication failed",
-              error.response?.data,
-            ),
-          );
-        }
-
-        // Prevent infinite loop when the refresh endpoint itself returns 401/419
-        const isRefreshUrl = url?.includes(refreshUrl);
-        if (isRefreshUrl) {
-          onAuthFailure?.(error, { isRefreshFailure: true });
-          return Promise.reject(
-            new AuthenticationError(
-              error.response?.data?.message || "Session expired",
-              error.response?.data,
-            ),
-          );
+          return Promise.reject(error);
         }
 
         if (originalRequest?._authRefreshAttempted) {
           onAuthFailure?.(error, { isRefreshFailure: false });
-          return Promise.reject(
-            new AuthenticationError(
-              error.response?.data?.message || "Session expired",
-              error.response?.data,
-            ),
-          );
+          return Promise.reject(error);
         }
 
         originalRequest._authRefreshAttempted = true;
@@ -283,78 +184,37 @@ export function createApiClient(options = {}) {
         if (!isRefreshing) {
           isRefreshing = true;
           try {
-            const fallbackRefreshToken =
-              (typeof localStorage !== "undefined" &&
-                localStorage.getItem("trstprep_refresh_token")) ||
-              (typeof sessionStorage !== "undefined" &&
-                sessionStorage.getItem("trstprep_refresh_token")) ||
-              undefined;
-            const refreshPayload = fallbackRefreshToken
+            // Send stored refresh token as cross-origin fallback (cookies may be blocked)
+            let fallbackRefreshToken;
+            try {
+              fallbackRefreshToken =
+                (typeof sessionStorage !== "undefined" &&
+                  sessionStorage.getItem("trstprep_refresh_token")) ||
+                (typeof localStorage !== "undefined" &&
+                  localStorage.getItem("trstprep_refresh_token")) ||
+                undefined;
+            } catch {}
+            const body = fallbackRefreshToken
               ? { refreshToken: fallbackRefreshToken }
               : {};
-            const refreshRes = await instance.post(
-              refreshUrl,
-              refreshPayload,
-              { _authRefreshAttempted: true },
-            );
-            const newAccessToken =
-              refreshRes?.data?.data?.token || refreshRes?.data?.token;
-            const newRefreshToken =
-              refreshRes?.data?.data?.refreshToken ||
-              refreshRes?.data?.refreshToken;
-            if (
-              newAccessToken &&
-              typeof localStorage !== "undefined" &&
-              localStorage.getItem("trstprep_token")
-            ) {
-              localStorage.setItem("trstprep_token", newAccessToken);
-            }
-            if (
-              newRefreshToken &&
-              typeof localStorage !== "undefined" &&
-              localStorage.getItem("trstprep_refresh_token")
-            ) {
-              localStorage.setItem(
-                "trstprep_refresh_token",
-                newRefreshToken,
-              );
-            }
-            if (newAccessToken) {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers["Authorization"] =
-                `Bearer ${newAccessToken}`;
-            }
+            await instance.post(refreshUrl, body);
             isRefreshing = false;
             processQueue(null);
             return instance(originalRequest);
           } catch (refreshError) {
             isRefreshing = false;
-            const authErr = new AuthenticationError(
-              refreshError?.response?.data?.message ||
-                refreshError?.message ||
-                "Session expired",
-              refreshError?.response?.data || refreshError,
-            );
-            authErr.status = refreshError?.response?.status || 401;
-            authErr.cause = refreshError;
-            processQueue(authErr);
+            processQueue(refreshError);
             const refreshStatus = refreshError?.response?.status;
-            if (
-              refreshStatus === 401 ||
-              refreshStatus === 419 ||
-              refreshStatus === 403
-            ) {
+            if (refreshStatus === 401 || refreshStatus === 419) {
               onAuthFailure?.(refreshError, { isRefreshFailure: true });
             }
-            return Promise.reject(authErr);
+            return Promise.reject(refreshError);
           }
         }
 
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
-        })
-          .then(() => instance(originalRequest))
-          .catch((queueError) => Promise.reject(queueError));
+        }).then(() => instance(originalRequest));
       }
 
       if (error.response) {
@@ -370,10 +230,7 @@ export function createApiClient(options = {}) {
             mappedError = new AuthenticationError(message, data);
             break;
           case 403:
-            mappedError = new AuthenticationError(
-              message || "Access forbidden",
-              data,
-            );
+            mappedError = new AuthenticationError("Access forbidden", data);
             break;
           case 404:
             mappedError = new NotFoundError(message, data);
