@@ -275,7 +275,14 @@ export default function UsersManager({ activeTab = "users", setActiveTab }) {
     try {
       const userId = user.id || user._id;
       const res = await api.get(`/admin/enrollments/user/${userId}`);
-      setViewingEnrollments(res.data.data);
+      const payload = res.data.data;
+      const enrollments = Array.isArray(payload)
+        ? payload
+        : payload?.enrollments || [];
+      setViewingEnrollments({
+        enrollments,
+        totalEnrollments: enrollments.length,
+      });
     } catch (error) {
       setViewingEnrollments({ enrollments: [], totalEnrollments: 0 });
     } finally {
