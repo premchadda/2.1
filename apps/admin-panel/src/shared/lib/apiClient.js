@@ -24,13 +24,27 @@ const apiClient = axios.create({
   withCredentials: true, // Enable cookies for httpOnly token storage (Issue #21)
 });
 
-// Request interceptor - httpOnly cookies + CSRF token + Admin API Key (Issue #42)
-// SECURITY: No localStorage token fallback - relying exclusively on httpOnly cookies (Audit Fix #CRIT-03)
+// Request interceptor - httpOnly cookies + Bearer fallback + CSRF token (Issue #42)
 apiClient.interceptors.request.use(
   (config) => {
     if (typeof FormData !== "undefined" && config.data instanceof FormData) {
       delete config.headers["Content-Type"];
       delete config.headers["content-type"];
+    }
+
+    // Bearer fallback: attach stored access token for cross-origin scenarios
+    // where httpOnly cookies may be blocked (SameSite=None on Safari/Chrome).
+    if (!config.headers["Authorization"] && !config.headers["authorization"]) {
+      try {
+        const token =
+          (typeof sessionStorage !== "undefined" &&
+            sessionStorage.getItem("trstprep_token")) ||
+          (typeof localStorage !== "undefined" &&
+            localStorage.getItem("trstprep_token"));
+        if (token) {
+          config.headers["Authorization"] = `Bearer ${token}`;
+        }
+      } catch {}
     }
 
     // Add CSRF token for mutation requests (POST, PUT, DELETE, PATCH)
@@ -153,7 +167,20 @@ apiClient.interceptors.response.use(
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          await apiClient.post("/auth/refresh");
+          // Send stored refresh token as cross-origin fallback (cookies may be blocked)
+          let fallbackRefreshToken;
+          try {
+            fallbackRefreshToken =
+              (typeof sessionStorage !== "undefined" &&
+                sessionStorage.getItem("trstprep_refresh_token")) ||
+              (typeof localStorage !== "undefined" &&
+                localStorage.getItem("trstprep_refresh_token")) ||
+              undefined;
+          } catch {}
+          const body = fallbackRefreshToken
+            ? { refreshToken: fallbackRefreshToken }
+            : {};
+          await apiClient.post("/auth/refresh", body);
           isRefreshing = false;
           processQueue(null);
           return apiClient(originalRequest);

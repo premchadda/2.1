@@ -87,7 +87,7 @@ export const authAPI = {
       headers: sessionId ? { "x-session-id": sessionId } : {},
     }),
   getMe: () => apiClient.get("/auth/me"),
-  refreshToken: () => apiClient.post("/auth/refresh"),
+  refreshToken: (body = {}) => apiClient.post("/auth/refresh", body),
   // Two-factor authentication (TOTP) management
   twoFactorStatus: () => apiClient.get("/auth/2fa/status"),
   twoFactorEnroll: () => apiClient.post("/auth/2fa/enroll"),

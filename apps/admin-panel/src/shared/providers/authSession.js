@@ -29,25 +29,24 @@ export const saveUserCache = (frontendUser) => {
   }
 };
 
-export const applyAuthSession = ({ csrfToken } = {}) => {
+export const applyAuthSession = ({ csrfToken, token, refreshToken } = {}) => {
+  // httpOnly cookies are the primary auth mechanism (XSS protection).
+  // Body tokens are stored as a cross-origin fallback: when the admin panel
+  // (Vercel) and backend (Render) are on different origins, cookies with
+  // SameSite=None may still be blocked by some browsers. The Bearer
+  // fallback in apiClient's request interceptor uses these stored tokens.
+  if (csrfToken) {
+    setCsrfToken(csrfToken);
+  }
   try {
-    // httpOnly cookies only - do NOT store JWT in localStorage (CRIT-03)
-    // Clean legacy tokens if present (migration from old localStorage flow)
-    try {
-      localStorage.removeItem("trstprep_auth_token");
-      localStorage.removeItem("trstprep_token");
-      localStorage.removeItem("trstprep_refresh_token");
-      sessionStorage.removeItem("trstprep_auth_token");
-      sessionStorage.removeItem("trstprep_token");
-      sessionStorage.removeItem("trstprep_refresh_token");
-    } catch (_e) {
-      void _e;
+    if (token) {
+      sessionStorage.setItem("trstprep_token", token);
     }
-    if (csrfToken) {
-      setCsrfToken(csrfToken);
+    if (refreshToken) {
+      sessionStorage.setItem("trstprep_refresh_token", refreshToken);
     }
-  } catch (error) {
-    void error;
+  } catch {
+    // storage may throw in private mode
   }
 };
 
