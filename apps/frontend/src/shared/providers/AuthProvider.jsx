@@ -4,11 +4,13 @@
  * SECURITY UPDATE (Issue #21, #42): httpOnly Cookie Authentication
  * ---------------------------------------------------------------
  * Token storage has been migrated from localStorage to httpOnly cookies.
+ * Body tokens (access + refresh) are stored in sessionStorage as a
+ * cross-origin fallback when SameSite=None cookies are blocked.
  *
  * SECURITY BENEFITS:
  * - httpOnly cookies cannot be accessed by JavaScript (XSS protection)
  * - secure flag ensures HTTPS-only transmission
- * - sameSite='strict' provides CSRF protection
+ * - sameSite='none' allows cross-origin Vercel ↔ Render requests
  */
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
@@ -41,12 +43,31 @@ export function AuthProvider({ children }) {
   const authSequenceRef = useRef(0);
   const currentSessionIdRef = useRef(null);
 
-  // Refresh token function - httpOnly cookie only (no refreshToken in body)
   const refreshToken = useCallback(async () => {
     try {
-      const response = await api.post("/api/auth/refresh", {});
-      const { csrfToken: newCsrfToken } = response.data?.data || {};
-      applyAuthSession({ csrfToken: newCsrfToken });
+      // Send stored refresh token as cross-origin fallback (cookies may be blocked)
+      let fallbackRefreshToken;
+      try {
+        fallbackRefreshToken =
+          sessionStorage.getItem("trstprep_refresh_token") ||
+          localStorage.getItem("trstprep_refresh_token") ||
+          undefined;
+      } catch {}
+
+      const body = fallbackRefreshToken
+        ? { refreshToken: fallbackRefreshToken }
+        : {};
+      const response = await api.post("/api/auth/refresh", body);
+      const {
+        csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
+      } = response.data?.data || {};
+      applyAuthSession({
+        csrfToken: newCsrfToken,
+        token: newToken,
+        refreshToken: newRefreshToken,
+      });
       return { success: true };
     } catch (err) {
       logger.error("Token refresh failed:", err);
@@ -194,6 +215,8 @@ export function AuthProvider({ children }) {
       const {
         user: userData,
         csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
         sessionId: serverSessionId,
       } = response.data.data || {};
 
@@ -201,7 +224,11 @@ export function AuthProvider({ children }) {
         currentSessionIdRef.current = serverSessionId;
       }
 
-      applyAuthSession({ csrfToken: newCsrfToken });
+      applyAuthSession({
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      });
 
       const frontendUser = mapUserToFrontend(userData);
       clearDashboardCache();
@@ -241,9 +268,18 @@ export function AuthProvider({ children }) {
         credential,
         rememberMe,
       });
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      } = response.data.data;
 
-      applyAuthSession({ csrfToken: newCsrfToken });
+      applyAuthSession({
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -284,9 +320,18 @@ export function AuthProvider({ children }) {
       }
 
       const response = await api.post("/api/auth/login/2fa", body);
-      const { user: userData, csrfToken: newCsrfToken } = response.data.data;
+      const {
+        user: userData,
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      } = response.data.data;
 
-      applyAuthSession({ csrfToken: newCsrfToken });
+      applyAuthSession({
+        csrfToken: newCsrfToken,
+        token: accessToken,
+        refreshToken: bodyRefreshToken,
+      });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
@@ -342,7 +387,11 @@ export function AuthProvider({ children }) {
       }
 
       if (userData) {
-        applyAuthSession({ csrfToken: payload.csrfToken });
+        applyAuthSession({
+          csrfToken: payload.csrfToken,
+          token: payload.token,
+          refreshToken: payload.refreshToken,
+        });
 
         await new Promise((resolve) => setTimeout(resolve, 200));
 
