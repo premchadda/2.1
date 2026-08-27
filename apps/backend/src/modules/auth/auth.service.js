@@ -24,6 +24,10 @@ const cookieSameSite =
 const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
 const cookieSecure = process.env.COOKIE_SECURE === "true" || isProduction;
 
+console.info(
+  `[Auth Service] Cookie policy: sameSite="${cookieSameSite}", secure=${cookieSecure}, domain=${cookieDomain || "(host)"}`,
+);
+
 export const CookieOptions = {
   httpOnly: true, // Prevents JavaScript access (XSS protection)
   secure: cookieSecure,

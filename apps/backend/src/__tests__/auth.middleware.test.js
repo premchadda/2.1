@@ -158,16 +158,10 @@ describe('protect middleware', () => {
     expect(res.body.message).toContain('revoked')
   })
 
-  it('fails open (allows request) when the session row is missing after a successful DB query', async () => {
-    // FIX H1: a missing user_sessions row after a *successful* query is not a
-    // transient outage — the DB answered, the row simply isn't there (restart
-    // cleanup / backup restore). Returning 503 here made the frontend retry 12
-    // times and leave users stuck; the valid JWT is allowed through instead.
+  it('fails closed (returns 401) when the session row is missing after DB query', async () => {
     const token = signToken({ id: 1, sessionId: 'sess-789' })
     mockRedisGet.mockResolvedValue(null)
     mockPoolQuery.mockResolvedValue({ rows: [] })
-    // Set explicitly — jest.clearAllMocks() does not reset implementations,
-    // so without this the previous test's inactive-user mock leaks in.
     mockFindById.mockResolvedValue({
       id: 1, isActive: true, isEmailVerified: true, role: 'user', password: 'x',
     })
@@ -177,8 +171,8 @@ describe('protect middleware', () => {
 
     await protect(req, res, next)
 
-    expect(next).toHaveBeenCalled()
-    expect(res.statusCode).toBe(null)
+    expect(res.statusCode).toBe(401)
+    expect(res.body.message).toContain('expired')
   })
 
   it('attaches user to req and calls next on valid token', async () => {

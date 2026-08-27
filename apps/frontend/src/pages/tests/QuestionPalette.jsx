@@ -111,12 +111,17 @@ function QuestionPalette({
                     src={user.avatar || user.avatarUrl}
                     alt={userName}
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      if (e.currentTarget.nextSibling) {
+                        e.currentTarget.nextSibling.style.display = "inline";
+                      }
+                    }}
                   />
-                ) : (
-                  <span className="text-sm font-black text-blue-600 dark:text-blue-300">
-                    {userInitials}
-                  </span>
-                )}
+                ) : null}
+                <span className={`${user?.avatar || user?.avatarUrl ? "hidden" : "inline"} text-sm font-black text-blue-600 dark:text-blue-300`}>
+                  {userInitials}
+                </span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-bold text-gray-900 dark:text-gray-100 leading-tight">

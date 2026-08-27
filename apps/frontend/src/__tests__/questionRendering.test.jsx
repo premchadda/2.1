@@ -113,6 +113,15 @@ describe('Question and Option HTML / Entity Decoding and Sanitization', () => {
       expect(getLocalizedField(field, 'en')).toBe('Option Alpha');
       expect(getLocalizedField(field, 'hi')).toBe('विकल्प अल्फा');
     });
+
+    it('falls back to English options when Hindi options array is empty', () => {
+      const options = {
+        en: ['<p>Weber</p>', '<p>Pascal</p>', '<p>Farad</p>', '<p>Henry</p>'],
+        hi: []
+      };
+      const result = getLocalizedField(options, 'hi');
+      expect(result).toEqual(['Weber', 'Pascal', 'Farad', 'Henry']);
+    });
   });
 
   describe('mapQuestionToFrontend', () => {
@@ -138,6 +147,35 @@ describe('Question and Option HTML / Entity Decoding and Sanitization', () => {
       expect(mapped.options.hi).toEqual(['ऊर्जा', 'दबाव']);
       expect(mapped.explanation.en).toBe('Watt is SI unit of Power.');
       expect(mapped.correct).toBe(1);
+      expect(mapped.correctOption).toBe(1);
+      expect(mapped.correctAnswer).toBe(1);
+      expect(mapped.correct_option).toBe(1);
+    });
+
+    it('correctly maps 0-indexed integer correct_option for Option A (0), Option B (1), Option C (2), Option D (3)', () => {
+      const qA = mapQuestionToFrontend({ id: '1', question: 'Q1', options: ['A', 'B', 'C', 'D'], correct_option: 0 });
+      const qB = mapQuestionToFrontend({ id: '2', question: 'Q2', options: ['A', 'B', 'C', 'D'], correct_option: 1 });
+      const qC = mapQuestionToFrontend({ id: '3', question: 'Q3', options: ['A', 'B', 'C', 'D'], correct_option: 2 });
+      const qD = mapQuestionToFrontend({ id: '4', question: 'Q4', options: ['A', 'B', 'C', 'D'], correct_option: 3 });
+
+      expect(qA.correctOption).toBe(0);
+      expect(qB.correctOption).toBe(1);
+      expect(qC.correctOption).toBe(2);
+      expect(qD.correctOption).toBe(3);
+    });
+
+    it('prioritizes correct_option over legacy correct_answer: 0', () => {
+      const q = mapQuestionToFrontend({
+        id: '36932',
+        question: 'Which of the following is related to the study of fungi?',
+        options: ['Ornithology', 'mycology', 'Reptilian', 'Fisheries'],
+        correct_option: 1, // Option B (mycology)
+        correct_answer: 0, // Legacy fallback column
+      });
+
+      expect(q.correctOption).toBe(1);
+      expect(q.correct).toBe(1);
+      expect(q.correctAnswer).toBe(1);
     });
   });
 

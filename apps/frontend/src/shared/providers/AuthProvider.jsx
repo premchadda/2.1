@@ -153,14 +153,20 @@ export function AuthProvider({ children }) {
   // Listen for unauthorized events
   useEffect(() => {
     const handleUnauthorized = () => {
+      const wasLoggedIn = Boolean(user || getInitialUser());
       clearAuthTokens();
       saveUserCache(null);
       setUser(null);
+      if (wasLoggedIn) {
+        toast.error("Your session has expired. Please sign in again.", {
+          id: "session-expired-toast",
+        });
+      }
     };
 
     window.addEventListener("unauthorized", handleUnauthorized);
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
-  }, []);
+  }, [user]);
 
   // Keep API client's session flag in sync
   useEffect(() => {
@@ -214,6 +220,8 @@ export function AuthProvider({ children }) {
 
       const {
         user: userData,
+        token: accessToken,
+        refreshToken: newRefreshToken,
         csrfToken: newCsrfToken,
         token: accessToken,
         refreshToken: bodyRefreshToken,
@@ -225,15 +233,16 @@ export function AuthProvider({ children }) {
       }
 
       applyAuthSession({
-        csrfToken: newCsrfToken,
         token: accessToken,
-        refreshToken: bodyRefreshToken,
+        refreshToken: bodyRefreshToken || response.data?.data?.refreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
       });
 
       const frontendUser = mapUserToFrontend(userData);
       clearDashboardCache();
       setUser(frontendUser);
-      saveUserCache(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
       setAuthResolved(true);
 
       if (typeof window !== "undefined") {
@@ -276,16 +285,17 @@ export function AuthProvider({ children }) {
       } = response.data.data;
 
       applyAuthSession({
-        csrfToken: newCsrfToken,
         token: accessToken,
         refreshToken: bodyRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
       });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
-      saveUserCache(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
       setAuthResolved(true);
 
       return { success: true, user: frontendUser };
@@ -328,16 +338,17 @@ export function AuthProvider({ children }) {
       } = response.data.data;
 
       applyAuthSession({
-        csrfToken: newCsrfToken,
         token: accessToken,
         refreshToken: bodyRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
       });
 
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const frontendUser = mapUserToFrontend(userData);
       setUser(frontendUser);
-      saveUserCache(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
       setAuthResolved(true);
 
       return { success: true, user: frontendUser };
@@ -388,16 +399,17 @@ export function AuthProvider({ children }) {
 
       if (userData) {
         applyAuthSession({
-          csrfToken: payload.csrfToken,
           token: payload.token,
           refreshToken: payload.refreshToken,
+          csrfToken: payload.csrfToken,
+          rememberMe: false,
         });
 
         await new Promise((resolve) => setTimeout(resolve, 200));
 
         const frontendUser = mapUserToFrontend(userData);
         setUser(frontendUser);
-        saveUserCache(frontendUser);
+        saveUserCache(frontendUser, false);
         setAuthResolved(true);
 
         return {
@@ -461,14 +473,16 @@ export function AuthProvider({ children }) {
     }
   };
 
+
   // Update user profile
   const updateProfile = async (updates) => {
     if (!user) return { success: false, error: "Not authenticated" };
 
     try {
       const response = await api.put("/api/users/profile", updates);
-      const updatedUser = mapUserToFrontend(response.data.data);
+      const updatedUser = mapUserToFrontend(response.data?.data);
       setUser(updatedUser);
+      saveUserCache(updatedUser);
       return { success: true, user: updatedUser };
     } catch (err) {
       return { success: false, error: err.message };

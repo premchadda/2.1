@@ -11,18 +11,18 @@
  * - Hindi language support
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
-import Question from '../../data/models/question/Question.js'
-import { isValidDifficulty, DIFFICULTY_KEYS } from './difficultyConfig.js'
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import Question from "../../data/models/question/Question.js";
+import { isValidDifficulty, DIFFICULTY_KEYS } from "./difficultyConfig.js";
 
 const questionBuilderService = {
   /**
    * Create a single question with full validation.
    */
   async create(data) {
-    const validation = this.validate(data)
+    const validation = this.validate(data);
     if (!validation.valid) {
-      throw new Error(`Validation failed: ${validation.errors.join(', ')}`)
+      throw new Error(`Validation failed: ${validation.errors.join(", ")}`);
     }
 
     const questionData = {
@@ -30,12 +30,21 @@ const questionBuilderService = {
       questionTextHi: data.questionTextHi || data.question_text_hi || null,
       options: data.options || [],
       optionsHi: data.optionsHi || data.options_hi || null,
-      correctOption: data.correctOption ?? data.correct_option ?? 0,
+      correctOption:
+        data.correctOption ??
+        data.correct_option ??
+        data.correctAnswer ??
+        data.correct_answer ??
+        data.correct_option_id ??
+        data.correctOptionId ??
+        data.correct ??
+        data.answer ??
+        0,
       explanation: data.explanation || null,
       marks: data.marks || 1,
       negativeMarks: data.negativeMarks || data.negative_marks || 0.25,
-      difficulty: data.difficulty || 'medium',
-      questionType: data.questionType || data.question_type || 'mcq',
+      difficulty: data.difficulty || "medium",
+      questionType: data.questionType || data.question_type || "mcq",
       section: data.section || null,
       subject: data.subject || null,
       chapter: data.chapter || null,
@@ -47,14 +56,15 @@ const questionBuilderService = {
       seriesId: data.seriesId || data.series_id || null,
       categoryId: data.categoryId || data.category_id || null,
       imageUrl: data.imageUrl || data.image_url || null,
-      solutionImageUrl: data.solutionImageUrl || data.solution_image_url || null,
-      language: data.language || 'en',
+      solutionImageUrl:
+        data.solutionImageUrl || data.solution_image_url || null,
+      language: data.language || "en",
       source: data.source || null,
       isActive: data.isActive !== undefined ? data.isActive : true,
-    }
+    };
 
-    const created = await Question.create(questionData)
-    return { ...created, quality: this.assessQuality(data) }
+    const created = await Question.create(questionData);
+    return { ...created, quality: this.assessQuality(data) };
   },
 
   /**
@@ -67,25 +77,25 @@ const questionBuilderService = {
       failed: 0,
       errors: [],
       questionIds: [],
-    }
+    };
 
-    const client = await pool.connect()
+    const client = await pool.connect();
 
     try {
-      await client.query('BEGIN')
+      await client.query("BEGIN");
 
       for (let i = 0; i < questions.length; i++) {
         try {
-          const question = questions[i]
-          const validation = this.validate(question)
+          const question = questions[i];
+          const validation = this.validate(question);
 
           if (!validation.valid) {
-            results.failed++
+            results.failed++;
             results.errors.push({
               index: i,
-              message: validation.errors.join(', '),
-            })
-            continue
+              message: validation.errors.join(", "),
+            });
+            continue;
           }
 
           const result = await client.query(
@@ -109,12 +119,20 @@ const questionBuilderService = {
               question.questionTextHi || question.question_text_hi || null,
               JSON.stringify(question.options || []),
               JSON.stringify(question.optionsHi || question.options_hi || null),
-              question.correctOption ?? question.correct_option ?? 0,
+              question.correctOption ??
+                question.correct_option ??
+                question.correctAnswer ??
+                question.correct_answer ??
+                question.correct_option_id ??
+                question.correctOptionId ??
+                question.correct ??
+                question.answer ??
+                0,
               question.explanation || null,
               question.marks || 1,
               question.negativeMarks || question.negative_marks || 0.25,
-              question.difficulty || 'medium',
-              question.questionType || question.question_type || 'mcq',
+              question.difficulty || "medium",
+              question.questionType || question.question_type || "mcq",
               question.section || null,
               question.subject || null,
               question.chapter || null,
@@ -127,32 +145,32 @@ const questionBuilderService = {
               question.categoryId || question.category_id || null,
               question.imageUrl || question.image_url || null,
               question.solutionImageUrl || question.solution_image_url || null,
-              question.language || 'en',
+              question.language || "en",
               question.source || null,
               true,
-            ]
-          )
+            ],
+          );
 
-          const questionId = result.rows[0].id
+          const questionId = result.rows[0].id;
 
           // Link to test if provided
           if (question.testId || question.test_id || config.testId) {
-            const testId = question.testId || question.test_id || config.testId
+            const testId = question.testId || question.test_id || config.testId;
             await client.query(
               `INSERT INTO test_questions (test_id, question_id, question_number)
                VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-              [testId, questionId, i + 1]
-            )
+              [testId, questionId, i + 1],
+            );
           }
 
-          results.created++
-          results.questionIds.push(questionId)
+          results.created++;
+          results.questionIds.push(questionId);
         } catch (err) {
-          results.failed++
+          results.failed++;
           results.errors.push({
             index: i,
             message: err.message,
-          })
+          });
         }
       }
 
@@ -164,27 +182,27 @@ const questionBuilderService = {
             total_marks = (SELECT COALESCE(SUM(q.marks), 0) FROM test_questions tq JOIN questions q ON q.id = tq.question_id WHERE tq.test_id = $1),
             updated_at = NOW()
            WHERE id = $1`,
-          [config.testId]
-        )
+          [config.testId],
+        );
       }
 
-      await client.query('COMMIT')
+      await client.query("COMMIT");
     } catch (err) {
-      await client.query('ROLLBACK')
-      throw err
+      await client.query("ROLLBACK");
+      throw err;
     } finally {
-      client.release()
+      client.release();
     }
 
-    return results
+    return results;
   },
 
   /**
    * Clone a question with optional modifications.
    */
   async clone(questionId, modifications = {}) {
-    const original = await Question.findById(questionId)
-    if (!original) throw new Error('Question not found')
+    const original = await Question.findById(questionId);
+    if (!original) throw new Error("Question not found");
 
     const cloneData = {
       ...original,
@@ -194,43 +212,44 @@ const questionBuilderService = {
       publicIdUuid: undefined,
       createdAt: undefined,
       updatedAt: undefined,
-    }
+    };
 
-    return this.create(cloneData)
+    return this.create(cloneData);
   },
 
   /**
    * Update a question with versioning.
    */
   async update(questionId, data, userId = null) {
-    const existing = await Question.findById(questionId)
-    if (!existing) throw new Error('Question not found')
+    const existing = await Question.findById(questionId);
+    if (!existing) throw new Error("Question not found");
 
     // Create a version snapshot before updating
-    await this.createVersion(questionId, existing, userId)
+    await this.createVersion(questionId, existing, userId);
 
     // Update the question
     return Question.updateById(questionId, {
       ...data,
       updatedAt: new Date(),
-    })
+    });
   },
 
   /**
    * Create a version snapshot of a question.
    */
   async createVersion(questionId, questionData, userId = null) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       // Get the next version number
       const versionResult = await client.query(
         `SELECT COALESCE(MAX(version_number), 0) + 1 as next_version
          FROM question_versions WHERE question_id = $1`,
-        [questionId]
-      )
-      const nextVersion = versionResult.rows[0].next_version
+        [questionId],
+      );
+      const nextVersion = versionResult.rows[0].next_version;
 
       await client.query(
         `INSERT INTO question_versions (
@@ -245,29 +264,39 @@ const questionBuilderService = {
         [
           questionId,
           nextVersion,
-          questionData.questionText || questionData.question_text || questionData.text,
+          questionData.questionText ||
+            questionData.question_text ||
+            questionData.text,
           JSON.stringify(questionData.options || []),
-          questionData.correctOption ?? questionData.correct_option ?? questionData.correctAnswer,
+          questionData.correctOption ??
+            questionData.correct_option ??
+            questionData.correctAnswer ??
+            questionData.correct_answer ??
+            questionData.correct_option_id ??
+            questionData.correctOptionId ??
+            questionData.correct ??
+            questionData.answer ??
+            0,
           questionData.explanation,
           questionData.marks || 1,
           questionData.negativeMarks || questionData.negative_marks || 0.25,
-          questionData.difficulty || 'medium',
-          questionData.questionType || questionData.question_type || 'mcq',
+          questionData.difficulty || "medium",
+          questionData.questionType || questionData.question_type || "mcq",
           userId,
-        ]
-      )
+        ],
+      );
 
       // Mark previous versions as not current
       await client.query(
         `UPDATE question_versions
          SET is_current = false
          WHERE question_id = $1 AND version_number < $2`,
-        [questionId, nextVersion]
-      )
+        [questionId, nextVersion],
+      );
 
-      return nextVersion
+      return nextVersion;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -282,67 +311,81 @@ const questionBuilderService = {
    * @returns {{ score: number, flags: string[], passed: boolean }}
    */
   assessQuality(data = {}) {
-    const flags = []
-    let score = 100
+    const flags = [];
+    let score = 100;
 
-    const text = data.questionText || data.question_text || ''
-    const options = Array.isArray(data.options) ? data.options : []
-    const explanation = data.explanation || ''
-    const correct = data.correctOption ?? data.correct_option
+    const text = data.questionText || data.question_text || "";
+    const options = Array.isArray(data.options) ? data.options : [];
+    const explanation = data.explanation || "";
+    const correct =
+      data.correctOption ??
+      data.correct_option ??
+      data.correctAnswer ??
+      data.correct_answer ??
+      data.correct_option_id ??
+      data.correctOptionId ??
+      data.correct ??
+      data.answer;
 
     // 1. Question text presence & length
     if (!text || text.trim().length < 5) {
-      flags.push('Question text is missing or too short')
-      score -= 30
+      flags.push("Question text is missing or too short");
+      score -= 30;
     } else if (text.trim().length < 15) {
-      flags.push('Question text is very short — consider adding context')
-      score -= 10
+      flags.push("Question text is very short — consider adding context");
+      score -= 10;
     }
 
     // 2. Option count
     if (options.length < 2) {
-      flags.push('Fewer than 2 options')
-      score -= 25
+      flags.push("Fewer than 2 options");
+      score -= 25;
     } else if (options.length > 6) {
-      flags.push('More than 6 options')
-      score -= 10
+      flags.push("More than 6 options");
+      score -= 10;
     }
 
     // 3. Duplicate options
-    const normalized = options.map((o) => String(o ?? '').trim().toLowerCase())
-    const dupes = normalized.filter((o, i) => o && normalized.indexOf(o) !== i)
+    const normalized = options.map((o) =>
+      String(o ?? "")
+        .trim()
+        .toLowerCase(),
+    );
+    const dupes = normalized.filter((o, i) => o && normalized.indexOf(o) !== i);
     if (dupes.length > 0) {
-      flags.push('Question has duplicate options')
-      score -= 20
+      flags.push("Question has duplicate options");
+      score -= 20;
     }
 
     // 4. Empty options
-    if (options.some((o) => !String(o ?? '').trim())) {
-      flags.push('One or more options are empty')
-      score -= 15
+    if (options.some((o) => !String(o ?? "").trim())) {
+      flags.push("One or more options are empty");
+      score -= 15;
     }
 
     // 5. Correct option validity
     if (correct === undefined || correct === null) {
-      flags.push('Correct answer is not specified')
-      score -= 25
+      flags.push("Correct answer is not specified");
+      score -= 25;
     } else if (correct < 0 || correct >= options.length) {
-      flags.push('Correct answer index is out of range')
-      score -= 25
+      flags.push("Correct answer index is out of range");
+      score -= 25;
     }
 
     // 6. Option/answer leakage (e.g. one option literally says "Answer:")
-    const leak = options.some((o) => /(^|\b)(answer|correct answer|ans)\s*[:-]/i.test(String(o ?? '')))
+    const leak = options.some((o) =>
+      /(^|\b)(answer|correct answer|ans)\s*[:-]/i.test(String(o ?? "")),
+    );
     if (leak) {
-      flags.push('An option appears to leak the answer')
-      score -= 20
+      flags.push("An option appears to leak the answer");
+      score -= 20;
     }
 
     return {
       isValid: flags.length === 0,
       score: Math.max(0, Math.min(100, score)),
       flags,
-    }
+    };
   },
 
   /**
@@ -350,13 +393,17 @@ const questionBuilderService = {
    * Compares normalized text hash and checks existing active questions.
    */
   async checkForDuplicateContent(questionText, excludeId = null) {
-    if (!questionText || typeof questionText !== 'string') {
-      return { isDuplicate: false }
+    if (!questionText || typeof questionText !== "string") {
+      return { isDuplicate: false };
     }
 
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const normalizedText = questionText.toLowerCase().replace(/[^a-z0-9]/g, '').trim()
-    if (normalizedText.length < 10) return { isDuplicate: false }
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const normalizedText = questionText
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "")
+      .trim();
+    if (normalizedText.length < 10) return { isDuplicate: false };
 
     const query = `
       SELECT id, question_text, test_id 
@@ -365,18 +412,21 @@ const questionBuilderService = {
         AND ($1::int IS NULL OR id != $1)
         AND REGEXP_REPLACE(LOWER(question_text), '[^a-z0-9]', '', 'g') = $2
       LIMIT 1
-    `
-    const { rows } = await pool.query(query, [excludeId ? Number(excludeId) : null, normalizedText])
+    `;
+    const { rows } = await pool.query(query, [
+      excludeId ? Number(excludeId) : null,
+      normalizedText,
+    ]);
 
     if (rows.length > 0) {
       return {
         isDuplicate: true,
         duplicateId: rows[0].id,
         testId: rows[0].test_id,
-        matchingText: rows[0].question_text
-      }
+        matchingText: rows[0].question_text,
+      };
     }
-    return { isDuplicate: false }
+    return { isDuplicate: false };
   },
 
   // 7. Explanation presence
@@ -409,23 +459,24 @@ const questionBuilderService = {
    * requested historical version.
    */
   async restoreVersion(questionId, versionNumber, userId = null) {
-    const current = await Question.findById(questionId)
-    if (!current) throw new Error('Question not found')
+    const current = await Question.findById(questionId);
+    if (!current) throw new Error("Question not found");
 
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
     try {
       const versionResult = await client.query(
         `SELECT * FROM question_versions WHERE question_id = $1 AND version_number = $2`,
-        [questionId, versionNumber]
-      )
+        [questionId, versionNumber],
+      );
       if (versionResult.rows.length === 0) {
-        throw new Error('Version not found')
+        throw new Error("Version not found");
       }
-      const version = versionResult.rows[0]
+      const version = versionResult.rows[0];
 
       // Snapshot current state before overwriting (reversible restore).
-      await this.createVersion(questionId, current, userId)
+      await this.createVersion(questionId, current, userId);
 
       const restored = await client.query(
         `UPDATE questions SET
@@ -454,12 +505,12 @@ const questionBuilderService = {
           version.difficulty,
           version.question_type,
           questionId,
-        ]
-      )
+        ],
+      );
 
-      return restored.rows[0]
+      return restored.rows[0];
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -467,11 +518,12 @@ const questionBuilderService = {
    * Get question with all versions.
    */
   async getWithVersions(questionId) {
-    const question = await Question.findById(questionId)
-    if (!question) throw new Error('Question not found')
+    const question = await Question.findById(questionId);
+    if (!question) throw new Error("Question not found");
 
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       const versions = await client.query(
@@ -480,16 +532,16 @@ const questionBuilderService = {
          LEFT JOIN users u ON qv.changed_by = u.id
          WHERE qv.question_id = $1
          ORDER BY qv.version_number DESC`,
-        [questionId]
-      )
+        [questionId],
+      );
 
       return {
         ...question,
         quality: this.assessQuality(question),
         versions: versions.rows,
-      }
+      };
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -497,8 +549,9 @@ const questionBuilderService = {
    * Get questions with filters for admin.
    */
   async listForAdmin(filters = {}) {
-    const { pool } = await import('../../infrastructure/database/postgres-helpers.js')
-    const client = await pool.connect()
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const client = await pool.connect();
 
     try {
       let sql = `
@@ -511,63 +564,63 @@ const questionBuilderService = {
         LEFT JOIN subjects s ON s.id = t.subject_id
         LEFT JOIN tests ts ON ts.id = q.test_id
         WHERE 1=1
-      `
-      const params = []
-      let paramIndex = 1
+      `;
+      const params = [];
+      let paramIndex = 1;
 
       if (filters.difficulty) {
-        sql += ` AND q.difficulty = $${paramIndex}`
-        params.push(filters.difficulty)
-        paramIndex++
+        sql += ` AND q.difficulty = $${paramIndex}`;
+        params.push(filters.difficulty);
+        paramIndex++;
       }
       if (filters.topicId) {
-        sql += ` AND q.topic_id = $${paramIndex}`
-        params.push(filters.topicId)
-        paramIndex++
+        sql += ` AND q.topic_id = $${paramIndex}`;
+        params.push(filters.topicId);
+        paramIndex++;
       }
       if (filters.subject) {
-        sql += ` AND s.name ILIKE $${paramIndex}`
-        params.push(`%${filters.subject}%`)
-        paramIndex++
+        sql += ` AND s.name ILIKE $${paramIndex}`;
+        params.push(`%${filters.subject}%`);
+        paramIndex++;
       }
       if (filters.testId) {
-        sql += ` AND q.test_id = $${paramIndex}`
-        params.push(filters.testId)
-        paramIndex++
+        sql += ` AND q.test_id = $${paramIndex}`;
+        params.push(filters.testId);
+        paramIndex++;
       }
       if (filters.importedFrom) {
-        sql += ` AND q.imported_from = $${paramIndex}`
-        params.push(filters.importedFrom)
-        paramIndex++
+        sql += ` AND q.imported_from = $${paramIndex}`;
+        params.push(filters.importedFrom);
+        paramIndex++;
       }
       if (filters.search) {
-        sql += ` AND (q.question_text ILIKE $${paramIndex} OR q.explanation ILIKE $${paramIndex})`
-        params.push(`%${filters.search}%`)
-        paramIndex++
+        sql += ` AND (q.question_text ILIKE $${paramIndex} OR q.explanation ILIKE $${paramIndex})`;
+        params.push(`%${filters.search}%`);
+        paramIndex++;
       }
       if (filters.isActive !== undefined) {
-        sql += ` AND q.is_active = $${paramIndex}`
-        params.push(filters.isActive)
-        paramIndex++
+        sql += ` AND q.is_active = $${paramIndex}`;
+        params.push(filters.isActive);
+        paramIndex++;
       }
 
-      sql += ` ORDER BY q.id DESC`
+      sql += ` ORDER BY q.id DESC`;
 
       if (filters.limit) {
-        sql += ` LIMIT $${paramIndex}`
-        params.push(filters.limit)
-        paramIndex++
+        sql += ` LIMIT $${paramIndex}`;
+        params.push(filters.limit);
+        paramIndex++;
       }
       if (filters.offset) {
-        sql += ` OFFSET $${paramIndex}`
-        params.push(filters.offset)
-        paramIndex++
+        sql += ` OFFSET $${paramIndex}`;
+        params.push(filters.offset);
+        paramIndex++;
       }
 
-      const result = await client.query(sql, params)
-      return result.rows
+      const result = await client.query(sql, params);
+      return result.rows;
     } finally {
-      client.release()
+      client.release();
     }
   },
 
@@ -575,47 +628,47 @@ const questionBuilderService = {
    * Validate question data.
    */
   validate(data) {
-    const errors = []
+    const errors = [];
 
     if (!data.questionText && !data.question_text) {
-      errors.push('Question text is required')
+      errors.push("Question text is required");
     }
 
-    const options = data.options || []
+    const options = data.options || [];
     if (options.length < 2) {
-      errors.push('At least 2 options are required')
+      errors.push("At least 2 options are required");
     }
     if (options.length > 6) {
-      errors.push('Maximum 6 options allowed')
+      errors.push("Maximum 6 options allowed");
     }
 
     if (data.correctOption === undefined && data.correct_option === undefined) {
-      errors.push('Correct answer is required')
+      errors.push("Correct answer is required");
     } else {
-      const correct = data.correctOption ?? data.correct_option
+      const correct = data.correctOption ?? data.correct_option;
       if (correct < 0 || correct >= options.length) {
-        errors.push('Correct answer index is out of range')
+        errors.push("Correct answer index is out of range");
       }
     }
 
     if (data.marks !== undefined && (data.marks < 0 || data.marks > 100)) {
-      errors.push('Marks must be between 0 and 100')
+      errors.push("Marks must be between 0 and 100");
     }
 
     if (data.negativeMarks !== undefined && data.negativeMarks < 0) {
-      errors.push('Negative marks cannot be negative')
+      errors.push("Negative marks cannot be negative");
     }
 
-    const validDifficulties = DIFFICULTY_KEYS
+    const validDifficulties = DIFFICULTY_KEYS;
     if (data.difficulty && !isValidDifficulty(data.difficulty)) {
-      errors.push(`Difficulty must be one of: ${validDifficulties.join(', ')}`)
+      errors.push(`Difficulty must be one of: ${validDifficulties.join(", ")}`);
     }
 
     return {
       valid: errors.length === 0,
       errors,
-    }
+    };
   },
-}
+};
 
-export default questionBuilderService
+export default questionBuilderService;

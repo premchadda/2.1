@@ -112,7 +112,7 @@ describe('Submission Pipeline & Score Security', () => {
         }
       });
 
-      score = Math.max(0, score);
+      // Production preserves negative totals (SSC-style); do not floor at 0
       const accuracy = correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
 
       // Assert calculations
@@ -122,6 +122,44 @@ describe('Submission Pipeline & Score Security', () => {
       expect(unattempted).toBe(1); // Question 203 is unattempted
       expect(score).toBe(1.5);     // +2 - 0.5 = 1.5
       expect(accuracy).toBe(50);   // 1 correct out of 2 attempted
+    });
+
+    test('should correctly preserve negative overall score when wrong penalties exceed positive marks', () => {
+      let correct = 0;
+      let wrong = 0;
+      let unattempted = 0;
+      let score = 0;
+
+      const allWrongAnswers = [
+        { questionId: 201, selectedOption: 3 }, // Incorrect: -0.5
+        { questionId: 202, selectedOption: 4 }, // Incorrect: -0.5
+        { questionId: 203, selectedOption: 1 }, // Incorrect: -0.5
+      ];
+
+      mockQuestions.forEach(question => {
+        const answer = allWrongAnswers.find(a => a.questionId === question.id);
+        const selectedOption = answer ? answer.selectedOption : null;
+        const correctOption = question.correctAnswer;
+        const qMarks = Number(question.marks ?? 2);
+        const qNegMarks = Number(question.negativeMarks ?? 0.5);
+
+        if (selectedOption === null) {
+          unattempted++;
+        } else if (selectedOption === correctOption) {
+          correct++;
+          score += qMarks;
+        } else {
+          wrong++;
+          score -= qNegMarks;
+        }
+      });
+
+      const accuracy = correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
+
+      expect(correct).toBe(0);
+      expect(wrong).toBe(3);
+      expect(score).toBe(-1.5); // 3 * -0.5 = -1.5 (not floored to 0)
+      expect(accuracy).toBe(0);
     });
   });
 

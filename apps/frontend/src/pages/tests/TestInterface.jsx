@@ -139,6 +139,71 @@ const clearLocalAnswers = (id) => {
   }
 };
 
+const resolveCorrectIndex = (q) => {
+  if (!q) return null;
+  const raw =
+    q.correctOption ??
+    q.correct_option ??
+    q.correct_option_id ??
+    q.correctOptionId ??
+    q.correctAnswer ??
+    q.correct_answer ??
+    q.correct ??
+    q.answer;
+
+  const opts = Array.isArray(q.options)
+    ? q.options
+    : Array.isArray(q.options?.en)
+      ? q.options.en
+      : [];
+
+  if (Array.isArray(opts)) {
+    const explicitIdx = opts.findIndex(
+      (opt) =>
+        opt &&
+        typeof opt === "object" &&
+        (opt.isCorrect === true ||
+          opt.is_correct === true ||
+          opt.correct === true)
+    );
+    if (explicitIdx >= 0) return explicitIdx;
+  }
+
+  if (raw === undefined || raw === null || raw === "") return null;
+
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return raw;
+  }
+
+  const str = String(raw).trim();
+  if (/^[0-9]+$/.test(str)) {
+    return Number.parseInt(str, 10);
+  }
+
+  // Single letter "A", "B", "C", "D"
+  if (/^[A-Za-z]$/.test(str)) {
+    return str.toUpperCase().charCodeAt(0) - 65;
+  }
+
+  // Match by option text or key
+  if (Array.isArray(opts)) {
+    const matchIdx = opts.findIndex((opt) => {
+      if (!opt) return false;
+      if (typeof opt === "string") return opt.trim() === str;
+      return (
+        opt.text?.trim() === str ||
+        opt.en?.trim() === str ||
+        opt.key?.trim()?.toUpperCase() === str.toUpperCase() ||
+        opt.value?.trim() === str ||
+        String(opt.id) === str
+      );
+    });
+    if (matchIdx >= 0) return matchIdx;
+  }
+
+  return null;
+};
+
 function TestInterface() {
   const routeParams = useParams();
   const testId = routeParams.testId;
@@ -411,15 +476,68 @@ function TestInterface() {
                   _id: q._id || q.id || q.questionId || index,
                   text:
                     typeof q.text === "object"
-                      ? q.text
-                      : { en: q.text || q.questionText || q.question || "" },
-                  options: Array.isArray(q.options)
-                    ? { en: q.options }
-                    : q.options || { en: [] },
+                      ? {
+                          en: q.text?.en || q.questionText || q.question || "",
+                          hi:
+                            q.text?.hi ||
+                            q.questionTextHi ||
+                            q.question_text_hi ||
+                            "",
+                        }
+                      : {
+                          en: q.text || q.questionText || q.question || "",
+                          hi:
+                            q.questionTextHi ||
+                            q.question_text_hi ||
+                            "",
+                        },
+                  options:
+                    typeof q.options === "object" && !Array.isArray(q.options)
+                      ? {
+                          en: Array.isArray(q.options.en) ? q.options.en : [],
+                          hi:
+                            Array.isArray(q.options.hi) &&
+                            q.options.hi.length > 0
+                              ? q.options.hi
+                              : Array.isArray(q.optionsHi) &&
+                                  q.optionsHi.length > 0
+                                ? q.optionsHi
+                                : Array.isArray(q.options_hi) &&
+                                    q.options_hi.length > 0
+                                  ? q.options_hi
+                                  : [],
+                        }
+                      : {
+                          en: Array.isArray(q.options) ? q.options : [],
+                          hi:
+                            Array.isArray(q.optionsHi) &&
+                            q.optionsHi.length > 0
+                              ? q.optionsHi
+                              : Array.isArray(q.options_hi) &&
+                                  q.options_hi.length > 0
+                                ? q.options_hi
+                                : [],
+                        },
                   section: rawSection,
                   subject: q.subject || rawSection,
                   correctOption:
-                    q.correctOption ?? q.correctAnswer ?? q.correct,
+                    q.correctOption ??
+                    q.correct_option ??
+                    q.correct_option_id ??
+                    q.correctOptionId ??
+                    q.correctAnswer ??
+                    q.correct_answer ??
+                    q.correct ??
+                    q.answer,
+                  correctAnswer:
+                    q.correctOption ??
+                    q.correct_option ??
+                    q.correct_option_id ??
+                    q.correctOptionId ??
+                    q.correctAnswer ??
+                    q.correct_answer ??
+                    q.correct ??
+                    q.answer,
                   explanation:
                     typeof q.explanation === "object"
                       ? q.explanation
@@ -2352,15 +2470,17 @@ function TestInterface() {
                         const isSelected =
                           Array.isArray(answers[currentQuestion]) &&
                           answers[currentQuestion].includes(idx);
-                        const resolvedCorrectOption =
+                        const rawCorrect =
                           currentQ.correctOption ??
+                          currentQ.correct_option ??
+                          currentQ.correct_option_id ??
+                          currentQ.correctOptionId ??
                           currentQ.correctAnswer ??
+                          currentQ.correct_answer ??
                           currentQ.correct;
-                        const isCorrectOption = Array.isArray(
-                          resolvedCorrectOption,
-                        )
-                          ? resolvedCorrectOption.includes(idx)
-                          : false;
+                        const isCorrectOption = Array.isArray(rawCorrect)
+                          ? rawCorrect.includes(idx)
+                          : resolveCorrectIndex(currentQ) === idx;
                         const isReviewMode = reviewMode;
                         let optionButtonClass =
                           "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
@@ -2440,10 +2560,16 @@ function TestInterface() {
                   <div className="flex gap-4">
                     {[true, false].map((val) => {
                       const isSelected = answers[currentQuestion] === val;
+                      const rawCorrect =
+                        currentQ.correctOption ??
+                        currentQ.correct_option ??
+                        currentQ.correctAnswer ??
+                        currentQ.correct_answer ??
+                        currentQ.correct;
                       const isCorrectOption =
-                        (currentQ.correctOption ??
-                          currentQ.correctAnswer ??
-                          currentQ.correct) === val;
+                        rawCorrect === val ||
+                        (typeof rawCorrect === "string" &&
+                          rawCorrect.toLowerCase() === String(val));
                       let btnClass =
                         "border-gray-200 dark:border-gray-600 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-gray-50 dark:hover:bg-gray-700";
                       if (reviewMode) {
@@ -2477,15 +2603,14 @@ function TestInterface() {
                     {(getLocalizedField(currentQ?.options, language) || []).map(
                       (option, idx) =>
                         (() => {
-                          const resolvedCorrectOption =
-                            currentQ.correctOption ??
-                            currentQ.correctAnswer ??
-                            currentQ.correct;
+                          const resolvedCorrectIdx = resolveCorrectIndex(currentQ);
                           const originalResponse = answers[currentQuestion];
                           const isSelected = originalResponse === idx;
                           const isCurrentCompared =
                             reviewCurrentResponse === idx;
-                          const isCorrectOption = idx === resolvedCorrectOption;
+                          const isCorrectOption =
+                            resolvedCorrectIdx !== null &&
+                            idx === resolvedCorrectIdx;
                           const hasReviewAttempt =
                             reviewCurrentResponse !== undefined &&
                             reviewCurrentResponse !== null;

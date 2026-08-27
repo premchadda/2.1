@@ -53,6 +53,7 @@ import AdminBottomNav from "./AdminBottomNav.jsx";
 import { filterAndRank, getHighlightedParts } from "../utils/searchUtils";
 import { getResourceFromSegment, hasPermission } from "../lib/rbac";
 import { isSafeImageUrl } from "../lib/sanitizeHtml";
+import { getAssetUrl } from "@trstprep/shared-config";
 
 // Main site URL - can be changed via environment variable
 const MAIN_SITE_URL =
@@ -120,10 +121,10 @@ export default function AdminLayout() {
   // Check if user has a valid avatar URL - now uses isSafeImageUrl
   const hasValidAvatar = isSafeImageUrl(user?.avatar);
 
-  // Resolve avatar URL - use relative path for Vite proxy
+  // Resolve avatar URL - resolves relative paths to backend asset URL
   const getAvatarUrl = (avatar) => {
     if (!isSafeImageUrl(avatar)) return "";
-    return String(avatar).trim();
+    return getAssetUrl(String(avatar).trim());
   };
 
   // Close mobile menu on route change

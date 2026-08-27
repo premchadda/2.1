@@ -83,8 +83,28 @@ export default function LiveTestReview() {
 
           <div className="space-y-3">
             {currentQuestion.options.map((option, index) => {
-              const isCorrectOption = String(option) === String(currentQuestion.correctAnswer)
-              const isSelectedOption = String(option) === String(currentQuestion.userAnswer)
+              const rawCorrect =
+                currentQuestion.correctOption ??
+                currentQuestion.correct_option ??
+                currentQuestion.correct_option_id ??
+                currentQuestion.correctOptionId ??
+                currentQuestion.correctAnswer ??
+                currentQuestion.correct_answer ??
+                currentQuestion.correct ??
+                currentQuestion.answer;
+              const isCorrectOption =
+                rawCorrect !== undefined &&
+                rawCorrect !== null &&
+                rawCorrect !== "" &&
+                (String(option) === String(rawCorrect) ||
+                  index === Number(rawCorrect) ||
+                  String.fromCharCode(65 + index) === String(rawCorrect).toUpperCase());
+              const rawUserAns = currentQuestion.userAnswer ?? currentQuestion.selectedOption
+              const isSelectedOption = rawUserAns !== undefined && rawUserAns !== null && (
+                String(option) === String(rawUserAns) ||
+                index === Number(rawUserAns) ||
+                String.fromCharCode(65 + index) === String(rawUserAns).toUpperCase()
+              )
 
               let optionClasses = 'border-slate-200 bg-white'
               if (isCorrectOption) optionClasses = 'border-green-500 bg-green-50'

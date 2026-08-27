@@ -112,6 +112,9 @@ graphify-out/
 
 # Scratch and temp files
 scratch/
+apps/backend/scratch/
+apps/backend/src/uploads/
+test_login_fetch.js
 New Text Document.txt
 
 # Sensitive backup files

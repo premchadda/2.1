@@ -11,7 +11,7 @@ vi.mock('@react-oauth/google', () => ({
 }))
 
 vi.mock('../shared/providers/AuthContext', () => ({
-  useAuth: () => ({ user: null, loading: false }),
+  useAuth: () => ({ user: null, loading: false, authResolved: true }),
   AuthProvider: ({ children }) => children,
 }))
 

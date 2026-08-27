@@ -25,68 +25,72 @@
  *   ClassX.solution_text → questions.explanation
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
 
-const SOURCE_NAME = 'classx'
+const SOURCE_NAME = "classx";
 
 /**
  * Map a single ClassX JSON row to a TrstPrep question payload.
  * Returns null if the row is invalid (missing question text).
  */
 export function mapClassXToQuestion(row, config = {}) {
-  if (!row || typeof row !== 'object') return null
+  if (!row || typeof row !== "object") return null;
 
-  const questionText = (row.question || row.question_text || '').trim()
-  if (!questionText) return null
+  const questionText = (row.question || row.question_text || "").trim();
+  if (!questionText) return null;
 
   // Build options array from individual columns
-  const options = []
+  const options = [];
   for (let i = 1; i <= 5; i++) {
-    const val = row[`option_${i}`]
-    if (val !== undefined && val !== null && String(val).trim() !== '') {
-      options.push(String(val).trim())
+    const val = row[`option_${i}`];
+    if (val !== undefined && val !== null && String(val).trim() !== "") {
+      options.push(String(val).trim());
     }
   }
 
-  // ClassX uses 1-based answer index, TrstPrep uses 0-based
-  const rawAnswer = parseInt(row.answer || row.correct_option || '0', 10)
-  const correctOption = rawAnswer > 0 ? rawAnswer - 1 : 0
+  // ClassX uses 1-based answer index, TrstPrep uses 0-based.
+  // BUGFIX (first-option-marked-correct): missing/invalid answers fell back
+  // to 0, silently marking Option A correct. Store null (unknown) instead.
+  const rawAnswer = parseInt(row.answer ?? row.correct_option ?? "", 10);
+  const correctOption =
+    Number.isFinite(rawAnswer) && rawAnswer > 0 ? rawAnswer - 1 : null;
 
   return {
-    externalQuestionId: String(row.id || '').trim() || null,
+    externalQuestionId: String(row.id || "").trim() || null,
     questionText,
     options,
     correctOption,
-    explanation: (row.solution_text || row.explanation || '').trim() || null,
+    explanation: (row.solution_text || row.explanation || "").trim() || null,
     marks: parseFloat(row.marks) || config.marks || 1,
-    negativeMarks: parseFloat(row.negative_marks) || config.negativeMarks || 0.25,
-    difficulty: (row.difficulty || config.difficulty || 'medium').toLowerCase(),
-    questionType: row.question_type || config.questionType || 'mcq',
-    language: row.language || config.language || 'en',
+    negativeMarks:
+      parseFloat(row.negative_marks) || config.negativeMarks || 0.25,
+    difficulty: (row.difficulty || config.difficulty || "medium").toLowerCase(),
+    questionType: row.question_type || config.questionType || "mcq",
+    language: row.language || config.language || "en",
     imageUrl: row.image_url || row.question_image || null,
     solutionImageUrl: row.solution_image_url || row.solution_image || null,
     source: row.source || config.source || null,
     importedFrom: SOURCE_NAME,
     // Test linking
-    sourceTestId: String(row.test_id || '').trim() || null,
+    sourceTestId: String(row.test_id || "").trim() || null,
     testId: config.testId || null,
     sectionId: config.sectionId || null,
     topicId: config.topicId || null,
-  }
+  };
 }
 
 /**
  * Check if a question with the same external_question_id + source already exists.
  */
 async function findExistingQuestion(externalId) {
-  if (!externalId) return null
+  if (!externalId) return null;
   const result = await pool.query(
     `SELECT id FROM questions
      WHERE external_question_id = $1 AND imported_from = $2
      LIMIT 1`,
-    [externalId, SOURCE_NAME]
-  )
-  return result.rows[0] || null
+    [externalId, SOURCE_NAME],
+  );
+  return result.rows[0] || null;
 }
 
 /**
@@ -106,8 +110,8 @@ async function findExistingQuestion(externalId) {
  * @returns {Object} Import results summary
  */
 export async function importClassXQuestions(rows, config = {}) {
-  const skipDuplicates = config.skipDuplicates !== false
-  const dryRun = config.dryRun === true
+  const skipDuplicates = config.skipDuplicates !== false;
+  const dryRun = config.dryRun === true;
 
   const results = {
     total: rows.length,
@@ -117,54 +121,56 @@ export async function importClassXQuestions(rows, config = {}) {
     duplicates: 0,
     errors: [],
     questions: [],
-  }
+  };
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    results.errors.push({ index: -1, message: 'No rows to import' })
-    return results
+    results.errors.push({ index: -1, message: "No rows to import" });
+    return results;
   }
 
-  const client = await pool.connect()
+  const client = await pool.connect();
 
   try {
     if (!dryRun) {
-      await client.query('BEGIN')
+      await client.query("BEGIN");
     }
 
     for (let i = 0; i < rows.length; i++) {
       try {
-        const mapped = mapClassXToQuestion(rows[i], config)
+        const mapped = mapClassXToQuestion(rows[i], config);
 
         if (!mapped) {
-          results.skipped++
+          results.skipped++;
           results.errors.push({
             index: i,
             externalId: rows[i]?.id || null,
-            message: 'Invalid or missing question text',
-          })
-          continue
+            message: "Invalid or missing question text",
+          });
+          continue;
         }
 
         // Check for duplicates
         if (skipDuplicates && mapped.externalQuestionId) {
-          const existing = await findExistingQuestion(mapped.externalQuestionId)
+          const existing = await findExistingQuestion(
+            mapped.externalQuestionId,
+          );
           if (existing) {
-            results.duplicates++
-            results.skipped++
-            continue
+            results.duplicates++;
+            results.skipped++;
+            continue;
           }
         }
 
         if (dryRun) {
-          results.imported++
+          results.imported++;
           results.questions.push({
             index: i,
             externalId: mapped.externalQuestionId,
             questionText: mapped.questionText.substring(0, 100),
             optionCount: mapped.options.length,
             correctOption: mapped.correctOption,
-          })
-          continue
+          });
+          continue;
         }
 
         // Insert the question
@@ -200,10 +206,10 @@ export async function importClassXQuestions(rows, config = {}) {
             mapped.topicId,
             mapped.sectionId,
             mapped.testId,
-          ]
-        )
+          ],
+        );
 
-        const questionId = insertResult.rows[0].id
+        const questionId = insertResult.rows[0].id;
 
         // Link to test via test_questions junction table if testId provided
         if (mapped.testId) {
@@ -211,23 +217,23 @@ export async function importClassXQuestions(rows, config = {}) {
             `INSERT INTO test_questions (test_id, question_id, question_number)
              VALUES ($1, $2, $3)
              ON CONFLICT DO NOTHING`,
-            [mapped.testId, questionId, i + 1]
-          )
+            [mapped.testId, questionId, i + 1],
+          );
         }
 
-        results.imported++
+        results.imported++;
         results.questions.push({
           id: questionId,
           index: i,
           externalId: mapped.externalQuestionId,
-        })
+        });
       } catch (err) {
-        results.failed++
+        results.failed++;
         results.errors.push({
           index: i,
           externalId: rows[i]?.id || null,
           message: err.message,
-        })
+        });
       }
     }
 
@@ -239,8 +245,8 @@ export async function importClassXQuestions(rows, config = {}) {
             total_questions = (SELECT COUNT(*) FROM test_questions WHERE test_id = $1),
             updated_at = NOW()
            WHERE id = $1`,
-          [config.testId]
-        )
+          [config.testId],
+        );
       }
 
       // Log the import
@@ -262,22 +268,25 @@ export async function importClassXQuestions(rows, config = {}) {
             topicId: config.topicId,
             duplicates: results.duplicates,
           }),
-        ]
-      )
+        ],
+      );
 
-      await client.query('COMMIT')
+      await client.query("COMMIT");
     }
   } catch (err) {
     if (!dryRun) {
-      await client.query('ROLLBACK')
+      await client.query("ROLLBACK");
     }
-    results.errors.push({ index: -1, message: `Transaction failed: ${err.message}` })
-    throw err
+    results.errors.push({
+      index: -1,
+      message: `Transaction failed: ${err.message}`,
+    });
+    throw err;
   } finally {
-    client.release()
+    client.release();
   }
 
-  return results
+  return results;
 }
 
 /**
@@ -290,28 +299,37 @@ export async function importClassXQuestions(rows, config = {}) {
  * @returns {Object} Import results
  */
 export async function importClassXTestsWithQuestions(data, config = {}) {
-  const { tests = [], questions = [] } = data
+  const { tests = [], questions = [] } = data;
   const results = {
     tests: { total: tests.length, imported: 0, skipped: 0, errors: [] },
-    questions: { total: questions.length, imported: 0, skipped: 0, failed: 0, errors: [] },
+    questions: {
+      total: questions.length,
+      imported: 0,
+      skipped: 0,
+      failed: 0,
+      errors: [],
+    },
     testIdMap: {}, // Maps ClassX test_id → TrstPrep test.id
-  }
+  };
 
-  const client = await pool.connect()
+  const client = await pool.connect();
 
   try {
-    await client.query('BEGIN')
+    await client.query("BEGIN");
 
     // Phase 1: Import tests
     for (const testRow of tests) {
       try {
-        const title = (testRow.title || testRow.name || '').trim()
+        const title = (testRow.title || testRow.name || "").trim();
         if (!title) {
-          results.tests.skipped++
-          continue
+          results.tests.skipped++;
+          continue;
         }
 
-        const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+        const slug = title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
 
         const insertResult = await client.query(
           `INSERT INTO tests (
@@ -332,38 +350,38 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
             parseInt(testRow.total_questions) || 0,
             parseInt(testRow.total_marks) || 0,
             parseFloat(testRow.negative_marking) || 0.25,
-            testRow.difficulty || 'Medium',
-            testRow.is_pro === true || testRow.is_pro === 'true',
+            testRow.difficulty || "Medium",
+            testRow.is_pro === true || testRow.is_pro === "true",
             SOURCE_NAME,
-            String(testRow.id || testRow.test_id || ''),
+            String(testRow.id || testRow.test_id || ""),
             config.seriesId || null,
-          ]
-        )
+          ],
+        );
 
-        const newTestId = insertResult.rows[0].id
-        const sourceTestId = String(testRow.id || testRow.test_id || '')
-        results.testIdMap[sourceTestId] = newTestId
-        results.tests.imported++
+        const newTestId = insertResult.rows[0].id;
+        const sourceTestId = String(testRow.id || testRow.test_id || "");
+        results.testIdMap[sourceTestId] = newTestId;
+        results.tests.imported++;
       } catch (err) {
-        results.tests.errors.push({ testId: testRow.id, message: err.message })
-        results.tests.skipped++
+        results.tests.errors.push({ testId: testRow.id, message: err.message });
+        results.tests.skipped++;
       }
     }
 
     // Phase 2: Import questions linked to their tests
     for (let i = 0; i < questions.length; i++) {
       try {
-        const row = questions[i]
-        const mapped = mapClassXToQuestion(row, config)
+        const row = questions[i];
+        const mapped = mapClassXToQuestion(row, config);
         if (!mapped) {
-          results.questions.skipped++
-          continue
+          results.questions.skipped++;
+          continue;
         }
 
         // Resolve test_id from the map
         const resolvedTestId = mapped.sourceTestId
           ? results.testIdMap[mapped.sourceTestId] || config.testId || null
-          : config.testId || null
+          : config.testId || null;
 
         const insertResult = await client.query(
           `INSERT INTO questions (
@@ -397,10 +415,10 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
             mapped.topicId,
             mapped.sectionId,
             resolvedTestId,
-          ]
-        )
+          ],
+        );
 
-        const questionId = insertResult.rows[0].id
+        const questionId = insertResult.rows[0].id;
 
         // Link via junction table
         if (resolvedTestId) {
@@ -408,14 +426,14 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
             `INSERT INTO test_questions (test_id, question_id, question_number)
              VALUES ($1, $2, $3)
              ON CONFLICT DO NOTHING`,
-            [resolvedTestId, questionId, i + 1]
-          )
+            [resolvedTestId, questionId, i + 1],
+          );
         }
 
-        results.questions.imported++
+        results.questions.imported++;
       } catch (err) {
-        results.questions.failed++
-        results.questions.errors.push({ index: i, message: err.message })
+        results.questions.failed++;
+        results.questions.errors.push({ index: i, message: err.message });
       }
     }
 
@@ -426,8 +444,8 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
           total_questions = (SELECT COUNT(*) FROM test_questions WHERE test_id = $1),
           updated_at = NOW()
          WHERE id = $1`,
-        [testId]
-      )
+        [testId],
+      );
     }
 
     // Log the import
@@ -441,19 +459,21 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
         results.tests.imported + results.questions.imported,
         results.tests.skipped + results.questions.skipped,
         results.questions.failed,
-        JSON.stringify([...results.tests.errors, ...results.questions.errors].slice(0, 100)),
+        JSON.stringify(
+          [...results.tests.errors, ...results.questions.errors].slice(0, 100),
+        ),
         config.userId || null,
         JSON.stringify({ testIdMap: results.testIdMap }),
-      ]
-    )
+      ],
+    );
 
-    await client.query('COMMIT')
+    await client.query("COMMIT");
   } catch (err) {
-    await client.query('ROLLBACK')
-    throw err
+    await client.query("ROLLBACK");
+    throw err;
   } finally {
-    client.release()
+    client.release();
   }
 
-  return results
+  return results;
 }

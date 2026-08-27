@@ -158,6 +158,7 @@ export const sectionValueMatches = (section, value) => {
 export const normalizeQuestion = (q) => ({
   ...q,
   questionText: q.questionText || q.question_text || q.text?.en || q.text || "",
+  questionTextHi: q.questionTextHi || q.question_text_hi || "",
   correctOption:
     q.correctOption ??
     q.correct_option ??
@@ -167,7 +168,12 @@ export const normalizeQuestion = (q) => ({
     q.correctOptionId ??
     q.correct ??
     q.answer ??
-    0,
+    // BUGFIX (first-option-marked-correct): never fabricate index 0
+    // (= Option A) when the real answer is unknown/null — that default
+    // was persisted on save, silently rewriting questions to "first
+    // option correct". Surface as null instead so the audit/missing-
+    // answer guards and preview render truthful state.
+    null,
   negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0,
   options: Array.isArray(q.options) ? q.options : q.options?.en || [],
   optionsHi: q.optionsHi || q.options_hi || [],

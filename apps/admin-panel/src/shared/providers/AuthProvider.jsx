@@ -90,12 +90,18 @@ export function AuthProvider({ children }) {
   // Listen for unauthorized events
   useEffect(() => {
     const handleUnauthorized = () => {
+      const wasLoggedIn = Boolean(user || getInitialUser());
       authSequenceRef.current += 1;
       clearAuthTokens();
       saveUserCache(null);
       setUser(null);
       setLoading(false);
       setAuthResolved(true);
+      if (wasLoggedIn) {
+        toast.error("Your admin session has expired. Please sign in again.", {
+          id: "admin-session-expired-toast",
+        });
+      }
       try {
         clearWebSocket?.();
       } catch (_e) {
@@ -105,7 +111,7 @@ export function AuthProvider({ children }) {
 
     window.addEventListener("unauthorized", handleUnauthorized);
     return () => window.removeEventListener("unauthorized", handleUnauthorized);
-  }, []);
+  }, [user]);
 
   // Refresh token function - memoized (httpOnly cookies + fallback body tokens)
   const refreshToken = useCallback(async () => {
@@ -185,6 +191,8 @@ export function AuthProvider({ children }) {
       );
       const {
         user: userData,
+        token: accessToken,
+        refreshToken: newRefreshToken,
         csrfToken: newCsrfToken,
         token: newToken,
         refreshToken: newRefreshToken,
@@ -196,13 +204,14 @@ export function AuthProvider({ children }) {
       }
 
       applyAuthSession({
-        csrfToken: newCsrfToken,
-        token: newToken,
+        token: accessToken,
         refreshToken: newRefreshToken,
+        csrfToken: newCsrfToken,
+        rememberMe,
       });
 
       const frontendUser = mapUserToFrontend(userData);
-      saveUserCache(frontendUser);
+      saveUserCache(frontendUser, rememberMe);
       setUser(frontendUser);
       setAuthResolved(true);
       setLoading(false);
@@ -253,13 +262,14 @@ export function AuthProvider({ children }) {
       if (userData) {
         authSequenceRef.current += 1;
         applyAuthSession({
-          csrfToken: payload.csrfToken,
           token: payload.token,
           refreshToken: payload.refreshToken,
+          csrfToken: payload.csrfToken,
+          rememberMe: false,
         });
 
         const frontendUser = mapUserToFrontend(userData);
-        saveUserCache(frontendUser);
+        saveUserCache(frontendUser, false);
         setUser(frontendUser);
         setAuthResolved(true);
 
@@ -314,8 +324,9 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await userAPI.updateProfile(updates);
-      const updatedUser = mapUserToFrontend(response.data.data);
+      const updatedUser = mapUserToFrontend(response.data?.data);
       setUser(updatedUser);
+      saveUserCache(updatedUser);
       return { success: true, user: updatedUser };
     } catch (err) {
       return { success: false, error: err.message };

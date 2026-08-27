@@ -304,8 +304,7 @@ function Home() {
       (sum, s) => sum + (Number(s.totalTests) || 0),
       0,
     );
-    if (seriesTestsSum > 0) return Math.max(seriesTestsSum, 230);
-    return 230;
+    return seriesTestsSum > 0 ? seriesTestsSum : 0;
   }, [platformStats.mockTests, testSeriesWithStats]);
 
   const totalCategoriesCount = useMemo(() => {

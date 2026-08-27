@@ -52,6 +52,8 @@ import {
   getRuntimeSecuritySettings,
 } from "../../services/SettingsService.js";
 
+const BCRYPT_SALT_ROUNDS = 12;
+
 const getRefreshSecret = () => {
   if (process.env.JWT_REFRESH_SECRET) return process.env.JWT_REFRESH_SECRET;
   throw new Error(
@@ -598,7 +600,7 @@ export const authController = {
       }
 
       // Hash password
-      const salt = await bcrypt.genSalt(10);
+      const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
       const hashedPassword = await bcrypt.hash(password, salt);
 
       // Email verification is enforced by protect(). The admin feature toggle
@@ -765,7 +767,7 @@ export const authController = {
       } else {
         // Create new user since they don't exist
         isNewUser = true;
-        const salt = await bcrypt.genSalt(12);
+        const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
         // A02: use a cryptographically secure random value, not Math.random(),
         // for the auto-generated password of Google-OAuth-provisioned users.
         const randomPassword = await bcrypt.hash(
@@ -1399,7 +1401,7 @@ export const authController = {
       }
 
       // Hash new password
-      const salt = await bcrypt.genSalt(10);
+      const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
 
       // Update user password
@@ -1495,7 +1497,7 @@ export const authController = {
         });
       }
 
-      const salt = await bcrypt.genSalt(10);
+      const salt = await bcrypt.genSalt(BCRYPT_SALT_ROUNDS);
       const hashedPassword = await bcrypt.hash(newPassword, salt);
 
       await dbHelpers.updateById("users", user._id || user.id, {

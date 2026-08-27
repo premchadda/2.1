@@ -5,6 +5,7 @@ import {
   cleanHtmlWrapper,
   extractBilingualContent,
 } from "../lib/htmlSanitizer.js";
+import { getAssetUrl } from "../config/assets-config.js";
 
 /**
  * User data structure
@@ -105,7 +106,6 @@ import {
  */
 
 // Data mapping functions
-import { getAssetUrl } from "../config/assets-config.js";
 
 /**
  * Maps backend User model to frontend User type
@@ -543,24 +543,35 @@ export function mapQuestionToFrontend(backendQuestion) {
     );
   }
 
-  return {
-    id:
-      backendQuestion.public_id ||
-      String(backendQuestion.id || backendQuestion._id),
-    _id: backendQuestion.id || backendQuestion._id,
-    public_id: backendQuestion.public_id,
-    text: textFormatted,
-    options: optionsFormatted,
-    correct:
-      backendQuestion.correctAnswer !== undefined
-        ? backendQuestion.correctAnswer
-        : backendQuestion.correct_answer !== undefined
-          ? backendQuestion.correct_answer
-          : backendQuestion.correctOption !== undefined
-            ? backendQuestion.correctOption
-            : backendQuestion.correct_option !== undefined
-              ? backendQuestion.correct_option
-              : backendQuestion.correct,
+    const resolvedCorrect =
+      backendQuestion.correctOption !== undefined
+        ? backendQuestion.correctOption
+        : backendQuestion.correct_option !== undefined
+          ? backendQuestion.correct_option
+          : backendQuestion.correct_option_id !== undefined
+            ? backendQuestion.correct_option_id
+            : backendQuestion.correctOptionId !== undefined
+              ? backendQuestion.correctOptionId
+              : backendQuestion.correctAnswer !== undefined
+                ? backendQuestion.correctAnswer
+                : backendQuestion.correct_answer !== undefined
+                  ? backendQuestion.correct_answer
+                  : backendQuestion.correct !== undefined
+                    ? backendQuestion.correct
+                    : backendQuestion.answer;
+
+    return {
+      id:
+        backendQuestion.public_id ||
+        String(backendQuestion.id || backendQuestion._id),
+      _id: backendQuestion.id || backendQuestion._id,
+      public_id: backendQuestion.public_id,
+      text: textFormatted,
+      options: optionsFormatted,
+      correct: resolvedCorrect,
+      correctOption: resolvedCorrect,
+      correctAnswer: resolvedCorrect,
+      correct_option: resolvedCorrect,
     explanation: explanationFormatted,
     section: backendQuestion.section || backendQuestion.subject || "General",
     subject: backendQuestion.subject,

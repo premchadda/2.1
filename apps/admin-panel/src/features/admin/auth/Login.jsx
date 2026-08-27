@@ -88,7 +88,7 @@ function Login() {
   const [conflictSessions, setConflictSessions] = useState([]);
   const [attempts, setAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState(0);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [honeypot, setHoneypot] = useState("");
   const formRenderedAt = useRef(Date.now());
 

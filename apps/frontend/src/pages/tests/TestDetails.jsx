@@ -791,82 +791,41 @@ function TestDetails() {
     return categoryMap;
   }, [stageFilteredTests, allTestCategories]);
 
-  // Aggregate available 3rd-level subcategories for display across all levels
+  // Get available 3rd-level subcategories ONLY when a specific 2nd-level subcategory is selected
   const availableThirdCategories = useMemo(() => {
-    if (!activeMainCategory || !computedCategories[activeMainCategory])
+    if (
+      !activeMainCategory ||
+      !computedCategories[activeMainCategory] ||
+      activeSubCategory === "all" ||
+      !activeSubCategory
+    ) {
       return [];
+    }
     const mainNode = computedCategories[activeMainCategory];
     const subChildren = mainNode.children || [];
-
-    if (activeSubCategory !== "all") {
-      const selectedSub = subChildren.find((s) => s.key === activeSubCategory);
-      return selectedSub?.children || [];
-    }
-
-    // When activeSubCategory is 'all', aggregate all 3rd-level children across all subcategories
-    const aggregated = [];
-    const seenKeys = new Set();
-
-    subChildren.forEach((sub) => {
-      if (Array.isArray(sub.children)) {
-        sub.children.forEach((third) => {
-          if (third.key !== "all" && !seenKeys.has(third.key)) {
-            seenKeys.add(third.key);
-            aggregated.push(third);
-          }
-        });
-      }
-    });
-
-    return aggregated;
+    const selectedSub = subChildren.find((s) => s.key === activeSubCategory);
+    return selectedSub?.children || [];
   }, [computedCategories, activeMainCategory, activeSubCategory]);
 
-  // Aggregate available 4th-level subcategories for display across all levels
+  // Get available 4th-level subcategories ONLY when a specific 3rd-level category is selected
   const availableFourthCategories = useMemo(() => {
-    if (!activeMainCategory || !computedCategories[activeMainCategory])
+    if (
+      !activeMainCategory ||
+      !computedCategories[activeMainCategory] ||
+      activeSubCategory === "all" ||
+      activeThirdCategory === "all" ||
+      !activeThirdCategory
+    ) {
       return [];
+    }
     const mainNode = computedCategories[activeMainCategory];
     const subChildren = mainNode.children || [];
-
-    if (activeThirdCategory !== "all") {
-      let targetThird = null;
-      for (const sub of subChildren) {
-        if (Array.isArray(sub.children)) {
-          const found = sub.children.find((t) => t.key === activeThirdCategory);
-          if (found) {
-            targetThird = found;
-            break;
-          }
-        }
-      }
-      return targetThird?.children || [];
-    }
-
-    // When activeThirdCategory is 'all', aggregate all 4th-level children under activeSubCategory or activeMainCategory
-    const aggregated = [];
-    const seenKeys = new Set();
-
-    const targetSubList =
-      activeSubCategory !== "all"
-        ? subChildren.filter((s) => s.key === activeSubCategory)
-        : subChildren;
-
-    targetSubList.forEach((sub) => {
-      if (Array.isArray(sub.children)) {
-        sub.children.forEach((third) => {
-          if (Array.isArray(third.children)) {
-            third.children.forEach((fourth) => {
-              if (fourth.key !== "all" && !seenKeys.has(fourth.key)) {
-                seenKeys.add(fourth.key);
-                aggregated.push(fourth);
-              }
-            });
-          }
-        });
-      }
-    });
-
-    return aggregated;
+    const selectedSub = subChildren.find((s) => s.key === activeSubCategory);
+    if (!selectedSub?.children) return [];
+    const selectedThird = selectedSub.children.find(
+      (t) => t.key === activeThirdCategory,
+    );
+    return selectedThird?.children || [];
   }, [
     computedCategories,
     activeMainCategory,

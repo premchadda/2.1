@@ -758,12 +758,17 @@ export default function Settings() {
                         src={user.avatar}
                         className="w-full h-full object-cover"
                         alt={user.name}
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextSibling) {
+                            e.currentTarget.nextSibling.style.display = "inline";
+                          }
+                        }}
                       />
-                    ) : (
-                      <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
-                        {user?.name?.[0]?.toUpperCase() || "U"}
-                      </span>
-                    )}
+                    ) : null}
+                    <span className={`${user?.avatar ? "hidden" : "inline"} text-sm font-black text-indigo-600 dark:text-indigo-400`}>
+                      {user?.name?.[0]?.toUpperCase() || "U"}
+                    </span>
                   </div>
                 </div>
                 <div className="min-w-0 flex-1">
@@ -872,12 +877,17 @@ export default function Settings() {
                               src={user.avatar}
                               className="w-full h-full object-cover"
                               alt="Profile"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                if (e.currentTarget.nextSibling) {
+                                  e.currentTarget.nextSibling.style.display = "inline";
+                                }
+                              }}
                             />
-                          ) : (
-                            <span className="text-xl sm:text-2xl lg:text-3xl font-black text-indigo-600 dark:text-indigo-400">
-                              {user?.name?.[0]?.toUpperCase() || "A"}
-                            </span>
-                          )}
+                          ) : null}
+                          <span className={`${user?.avatar ? "hidden" : "inline"} text-xl sm:text-2xl lg:text-3xl font-black text-indigo-600 dark:text-indigo-400`}>
+                            {user?.name?.[0]?.toUpperCase() || "A"}
+                          </span>
                         </div>
                       </div>
                     </div>

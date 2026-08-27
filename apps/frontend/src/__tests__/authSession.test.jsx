@@ -2,45 +2,63 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   applyAuthSession,
   clearAuthTokens,
+  saveUserCache,
+  getInitialUser,
+  USER_CACHE_KEY,
 } from "../shared/providers/AuthContext";
 
-describe("applyAuthSession storage isolation (httpOnly)", () => {
+describe("applyAuthSession & auth storage (dual-storage with rememberMe)", () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
   });
 
-  it("purges legacy tokens from both storages and does not persist new tokens (httpOnly)", () => {
-    // Populate legacy tokens in both storages
-    localStorage.setItem("trstprep_token", "old-access-token");
-    localStorage.setItem("trstprep_refresh_token", "old-refresh-token");
-    localStorage.setItem("trstprep_auth_token", "old-auth-token");
-    sessionStorage.setItem("trstprep_auth_token", "old-session-access");
-    sessionStorage.setItem("trstprep_refresh_token", "old-session-refresh");
-    sessionStorage.setItem("trstprep_token", "old-session-token");
-
-    // applyAuthSession must NOT store tokens — httpOnly cookies handle auth
-    // It should only handle csrfToken and purge legacy keys
+  it("stores fallback tokens in localStorage when rememberMe is true", () => {
     applyAuthSession({
-      csrfToken: "csrf-123",
+      token: "access-token-123",
+      refreshToken: "refresh-token-456",
+      csrfToken: "csrf-789",
+      rememberMe: true,
     });
 
-    // All legacy token keys must be purged (httpOnly migration)
-    expect(sessionStorage.getItem("trstprep_auth_token")).toBeNull();
-    expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_token")).toBe("access-token-123");
+    expect(localStorage.getItem("trstprep_refresh_token")).toBe(
+      "refresh-token-456",
+    );
     expect(sessionStorage.getItem("trstprep_token")).toBeNull();
-    expect(localStorage.getItem("trstprep_token")).toBeNull();
-    expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
-    expect(localStorage.getItem("trstprep_auth_token")).toBeNull();
+    expect(sessionStorage.getItem("trstprep_refresh_token")).toBeNull();
   });
 
-  it("is idempotent when called with no tokens (migration hygiene)", () => {
-    localStorage.setItem("trstprep_token", "legacy");
-    applyAuthSession({ csrfToken: "csrf-456" });
+  it("stores fallback tokens in sessionStorage when rememberMe is false", () => {
+    applyAuthSession({
+      token: "access-token-123",
+      refreshToken: "refresh-token-456",
+      csrfToken: "csrf-789",
+      rememberMe: false,
+    });
+
+    expect(sessionStorage.getItem("trstprep_token")).toBe("access-token-123");
+    expect(sessionStorage.getItem("trstprep_refresh_token")).toBe(
+      "refresh-token-456",
+    );
     expect(localStorage.getItem("trstprep_token")).toBeNull();
-    // Second call with only csrfToken should still purge
-    applyAuthSession({});
-    expect(localStorage.getItem("trstprep_token")).toBeNull();
+    expect(localStorage.getItem("trstprep_refresh_token")).toBeNull();
+  });
+
+  it("stores and retrieves user profile according to rememberMe setting", () => {
+    const user = { id: "1", name: "Test Student", email: "student@test.com" };
+
+    // With rememberMe=true
+    saveUserCache(user, true);
+    expect(localStorage.getItem(USER_CACHE_KEY)).toBe(JSON.stringify(user));
+    expect(sessionStorage.getItem(USER_CACHE_KEY)).toBeNull();
+    expect(getInitialUser()).toEqual(user);
+
+    // With rememberMe=false
+    saveUserCache(user, false);
+    expect(sessionStorage.getItem(USER_CACHE_KEY)).toBe(JSON.stringify(user));
+    expect(localStorage.getItem(USER_CACHE_KEY)).toBeNull();
+    expect(getInitialUser()).toEqual(user);
   });
 
   it("clears both storages and offline buffers on clearAuthTokens", () => {
@@ -67,3 +85,4 @@ describe("applyAuthSession storage isolation (httpOnly)", () => {
     expect(localStorage.getItem("trstprep_user_profile")).toBeNull();
   });
 });
+

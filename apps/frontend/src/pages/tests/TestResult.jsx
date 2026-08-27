@@ -420,12 +420,19 @@ function TestResult() {
     const userAns =
       q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice;
     const correctAns =
-      q.correctAnswer ??
-      q.correct ??
-      q.correct_option ??
       q.correctOption ??
-      q.correct_answer;
-    return Number(userAns) === Number(correctAns);
+      q.correct_option ??
+      q.correct_option_id ??
+      q.correctOptionId ??
+      q.correctAnswer ??
+      q.correct_answer ??
+      q.correct ??
+      q.answer;
+    return (
+      correctAns !== undefined &&
+      correctAns !== null &&
+      Number(userAns) === Number(correctAns)
+    );
   };
 
   const isWrongQuestion = (q) => {
@@ -1895,12 +1902,19 @@ function TestResult() {
                   {getFilteredQuestions().map((q, idx) => {
                     const isCorrect = isCorrectQuestion(q);
                     const isSkipped = isSkippedQuestion(q);
+                    const rawCorrect =
+                      q.correctOption ??
+                      q.correct_option ??
+                      q.correct_option_id ??
+                      q.correctOptionId ??
+                      q.correctAnswer ??
+                      q.correct_answer ??
+                      q.correct ??
+                      q.answer;
                     const correctAnswer =
-                      q.correctAnswer !== undefined
-                        ? q.correctAnswer
-                        : q.correct !== undefined
-                          ? q.correct
-                          : q.correct_option;
+                      rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== ""
+                        ? Number(rawCorrect)
+                        : null;
                     const questionNum =
                       q.originalIndex || questions.indexOf(q) + 1;
                     const isExpanded = expandedSolutions[q.id || q._id || idx];
@@ -2029,8 +2043,13 @@ function TestResult() {
                                 getLocalizedField(q.options, language) || []
                               ).map((opt, optIdx) => {
                                 const isCorrectOpt =
-                                  optIdx === Number(correctAnswer);
+                                  correctAnswer !== null &&
+                                  !isNaN(correctAnswer) &&
+                                  optIdx === correctAnswer;
                                 const isUserChoice =
+                                  q.userAnswer !== undefined &&
+                                  q.userAnswer !== null &&
+                                  q.userAnswer !== "" &&
                                   optIdx === Number(q.userAnswer);
 
                                 return (

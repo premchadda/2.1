@@ -194,10 +194,56 @@ export function createApiClient(options = {}) {
                   localStorage.getItem("trstprep_refresh_token")) ||
                 undefined;
             } catch {}
-            const body = fallbackRefreshToken
+            const refreshPayload = fallbackRefreshToken
               ? { refreshToken: fallbackRefreshToken }
               : {};
-            await instance.post(refreshUrl, body);
+            const refreshRes = await instance.post(
+              refreshUrl,
+              refreshPayload,
+              { _authRefreshAttempted: true },
+            );
+            const newAccessToken =
+              refreshRes?.data?.data?.token || refreshRes?.data?.token;
+            const newRefreshToken =
+              refreshRes?.data?.data?.refreshToken ||
+              refreshRes?.data?.refreshToken;
+            if (newAccessToken) {
+              if (
+                typeof localStorage !== "undefined" &&
+                localStorage.getItem("trstprep_token")
+              ) {
+                localStorage.setItem("trstprep_token", newAccessToken);
+              } else if (
+                typeof sessionStorage !== "undefined" &&
+                sessionStorage.getItem("trstprep_token")
+              ) {
+                sessionStorage.setItem("trstprep_token", newAccessToken);
+              }
+            }
+            if (newRefreshToken) {
+              if (
+                typeof localStorage !== "undefined" &&
+                localStorage.getItem("trstprep_refresh_token")
+              ) {
+                localStorage.setItem(
+                  "trstprep_refresh_token",
+                  newRefreshToken,
+                );
+              } else if (
+                typeof sessionStorage !== "undefined" &&
+                sessionStorage.getItem("trstprep_refresh_token")
+              ) {
+                sessionStorage.setItem(
+                  "trstprep_refresh_token",
+                  newRefreshToken,
+                );
+              }
+            }
+            if (newAccessToken) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers["Authorization"] =
+                `Bearer ${newAccessToken}`;
+            }
             isRefreshing = false;
             processQueue(null);
             return instance(originalRequest);

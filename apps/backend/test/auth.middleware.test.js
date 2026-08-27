@@ -163,9 +163,9 @@ describe('Auth Middleware', () => {
       expect(isUserAdminRequest({ user: { role: 'super_admin' } })).toBe(true)
     })
 
-    it('should return true for admin origin', async () => {
+    it('should return false for unauthenticated admin origin without verified user', async () => {
       const { isUserAdminRequest } = await import('../src/middleware/auth.middleware.js')
-      expect(isUserAdminRequest({ headers: { origin: 'http://localhost:3002' } })).toBe(true)
+      expect(isUserAdminRequest({ headers: { origin: 'http://localhost:3002' } })).toBe(false)
     })
 
     it('should return false for regular user or empty request', async () => {
