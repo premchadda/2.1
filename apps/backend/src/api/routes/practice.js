@@ -163,18 +163,7 @@ async function pickPracticeQuestionIds({
     LIMIT $${idx}
   `;
   params.push(count || 20);
-  let r = await pool.query(sql, params);
-
-  // Fallback: if no questions found for specific topic (only for general modes, not for mistakes)
-  if (r.rows.length === 0 && mode !== "mistakes") {
-    const fallbackSql = `
-      SELECT q.id FROM questions q
-      WHERE ${PRACTICE_Q_WHERE}
-      ORDER BY RANDOM()
-      LIMIT $1
-    `;
-    r = await pool.query(fallbackSql, [count || 20]);
-  }
+  const r = await pool.query(sql, params);
 
   return r.rows.map((row) => row.id);
 }
@@ -194,7 +183,11 @@ async function getSafeQuestion(questionId) {
     [questionId],
   );
   if (!r.rows.length) return null;
-  const row = dbHelpers.toCamel(r.rows[0]);
+  return toSafeQuestion(r.rows[0]);
+}
+
+function toSafeQuestion(rawRow) {
+  const row = dbHelpers.toCamel(rawRow);
   // Strip answer fields
   const {
     correctAnswer,
@@ -207,6 +200,42 @@ async function getSafeQuestion(questionId) {
     ...safe
   } = row;
   return safe;
+}
+
+/**
+ * Hydrate a session's questions in one query while preserving the selected order.
+ */
+async function getSafeQuestions(questionIds = []) {
+  const ids = questionIds.filter((id) => id !== undefined && id !== null);
+  if (!ids.length) return [];
+
+  const r = await pool.query(
+    `
+    SELECT q.id, q.question_text, q.options, q.explanation, q.subject, q.topic,
+           q.difficulty, q.language, q.topic_id, q.subject_id
+    FROM questions q
+    WHERE q.id = ANY($1::int[])
+      AND (q.is_active = true OR q.is_active IS NULL)
+    `,
+    [ids],
+  );
+  const byId = new Map(
+    r.rows.map((row) => [String(row.id), toSafeQuestion(row)]),
+  );
+  return ids.map((id) => byId.get(String(id))).filter(Boolean);
+}
+
+function parsePositiveInt(value) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeOptionIndex(raw) {
+  if (raw === undefined || raw === null || raw === "") return null;
+  const numeric = Number(raw);
+  if (Number.isInteger(numeric) && numeric >= 0) return numeric;
+  const letter = String(raw).trim().toUpperCase();
+  return /^[A-Z]$/.test(letter) ? letter.charCodeAt(0) - 65 : null;
 }
 
 /**
@@ -322,18 +351,34 @@ async function bumpStreak(userId) {
  */
 router.get("/tree", protect, async (req, res) => {
   try {
-    const userId = req.user.id;
-
     // Practice question counts per topic_id
-    const qCounts = await pool.query(`
-      SELECT q.topic_id AS topic_id, COUNT(*)::int AS c,
-             SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy,
-             SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium,
-             SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard
-      FROM questions q
-      WHERE ${PRACTICE_Q_WHERE} AND q.topic_id IS NOT NULL
-      GROUP BY q.topic_id
-    `);
+    // Curriculum metadata is independent of the question aggregate, so run
+    // both reads together. The old implementation did four serial queries.
+    const [qCounts, curriculum] = await Promise.all([
+      pool.query(`
+        SELECT q.topic_id AS topic_id, COUNT(*)::int AS c,
+               SUM(CASE WHEN LOWER(q.difficulty)='easy' THEN 1 ELSE 0 END)::int AS easy,
+               SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium,
+               SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard
+        FROM questions q
+        WHERE ${PRACTICE_Q_WHERE} AND q.topic_id IS NOT NULL
+        GROUP BY q.topic_id
+      `),
+      pool.query(`
+        SELECT s.id AS subject_id, s.name AS subject_title, s.slug AS subject_slug, s.color,
+               c.id AS chapter_id, c.title AS chapter_title, c.slug AS chapter_slug,
+               t.id AS topic_id, t.name AS topic_name, t.slug AS topic_slug
+        FROM subjects s
+        JOIN subject_chapters c
+          ON COALESCE(c.subject_id, c.study_material_id) = s.id
+         AND c.is_active = true
+        JOIN subject_topics t
+          ON t.chapter_id = c.id
+         AND t.is_active = true
+        WHERE s.is_active = true
+        ORDER BY s.sort_order, s.name, c.order_index, c.title, t.order_index, t.name
+      `),
+    ]);
     const topicMap = {};
     for (const r of qCounts.rows) {
       topicMap[r.topic_id] = {
@@ -344,67 +389,49 @@ router.get("/tree", protect, async (req, res) => {
       };
     }
 
-    // All topics that have practice questions
-    const topicIds = Object.keys(topicMap).map(Number);
-    if (!topicIds.length) {
-      return res.json({ success: true, data: { exams: [] } });
+    if (!Object.keys(topicMap).length) {
+      return res.json({ success: true, data: { subjects: [] } });
     }
-
-    // Pull topics → chapters → subjects (via study_material_id) → subjects → exam categories
-    const topics = await pool.query(
-      `
-      SELECT t.id, t.name, t.slug, t.chapter_id
-      FROM subject_topics t WHERE t.id = ANY($1::int[]) AND t.is_active = true
-      ORDER BY t.order_index, t.name
-    `,
-      [topicIds],
-    );
-    const chapterIds = [
-      ...new Set(topics.rows.map((t) => t.chapter_id).filter(Boolean)),
-    ];
-
-    const chapters = await pool.query(
-      `
-      SELECT c.id, c.title, c.slug, COALESCE(c.subject_id, c.study_material_id) as study_material_id
-      FROM subject_chapters c WHERE c.id = ANY($1::int[]) AND c.is_active = true
-      ORDER BY c.order_index, c.title
-    `,
-      [chapterIds],
-    );
-    const subjectIds = [
-      ...new Set(chapters.rows.map((c) => c.study_material_id).filter(Boolean)),
-    ];
-
-    const subjects = await pool.query(
-      `
-      SELECT s.id, s.name AS title, s.slug, s.color
-      FROM subjects s WHERE s.id = ANY($1::int[]) AND s.is_active = true
-      ORDER BY s.sort_order, s.name
-    `,
-      [subjectIds],
-    );
 
     // Build nested tree
+    const subjectsById = {};
     const chaptersBySubject = {};
-    for (const c of chapters.rows) {
-      const key = c.study_material_id;
-      if (!chaptersBySubject[key]) chaptersBySubject[key] = [];
-      chaptersBySubject[key].push(c);
-    }
     const topicsByChapter = {};
-    for (const t of topics.rows) {
-      const key = t.chapter_id;
-      if (!topicsByChapter[key]) topicsByChapter[key] = [];
-      topicsByChapter[key].push(t);
+    for (const row of curriculum.rows) {
+      if (!topicMap[row.topic_id]) continue;
+      if (!subjectsById[row.subject_id]) {
+        subjectsById[row.subject_id] = {
+          id: row.subject_id,
+          title: row.subject_title,
+          slug: row.subject_slug,
+          color: row.color,
+        };
+      }
+      if (!chaptersBySubject[row.subject_id])
+        chaptersBySubject[row.subject_id] = {};
+      if (!chaptersBySubject[row.subject_id][row.chapter_id]) {
+        chaptersBySubject[row.subject_id][row.chapter_id] = {
+          id: row.chapter_id,
+          title: row.chapter_title,
+          slug: row.chapter_slug,
+        };
+      }
+      if (!topicsByChapter[row.chapter_id])
+        topicsByChapter[row.chapter_id] = [];
+      topicsByChapter[row.chapter_id].push({
+        id: row.topic_id,
+        name: row.topic_name,
+        slug: row.topic_slug,
+      });
     }
 
-    const tree = subjects.rows
+    const tree = Object.values(subjectsById)
       .map((s) => ({
         id: s.id,
         name: s.title,
         slug: s.slug,
         color: s.color,
-        chapters: (chaptersBySubject[s.id] || [])
+        chapters: Object.values(chaptersBySubject[s.id] || {})
           .map((c) => ({
             id: c.id,
             name: c.title,
@@ -438,55 +465,67 @@ router.get("/tree", protect, async (req, res) => {
  */
 router.get("/subjects", protect, async (req, res) => {
   try {
-    const [subjectsRes, chaptersRes] = await Promise.all([
-      readQuery(`
-        SELECT s.id, s.name AS title, s.slug, s.color, s.icon,
-               COALESCE(qc.cnt, 0)::int AS question_count
-        FROM subjects s
-        LEFT JOIN (
-          SELECT subject_id, COUNT(*)::int AS cnt
-          FROM questions
-          WHERE is_active = true
-            AND (is_deleted = false OR is_deleted IS NULL)
-          GROUP BY subject_id
-        ) qc ON qc.subject_id = s.id
-        WHERE s.is_active = true AND (s.is_deleted IS NOT TRUE)
-        ORDER BY s.sort_order, s.name
-      `),
-      readQuery(`
-        WITH q_counts AS (
-          SELECT chapter_id, topic_id, COUNT(*) AS cnt
-          FROM questions
-          WHERE (is_deleted = false OR is_deleted IS NULL)
-            AND (is_active = true OR is_active IS NULL)
-          GROUP BY chapter_id, topic_id
-        ),
-        chapter_counts AS (
-          SELECT chapter_id, SUM(cnt)::int AS cnt
-          FROM q_counts
-          WHERE chapter_id IS NOT NULL
-          GROUP BY chapter_id
-        ),
-        topic_chapter_counts AS (
-          SELECT st.chapter_id, SUM(qc.cnt)::int AS cnt
-          FROM q_counts qc
-          JOIN subject_topics st ON st.id = qc.topic_id
-          WHERE qc.chapter_id IS NULL OR qc.chapter_id <> st.chapter_id
-          GROUP BY st.chapter_id
-        )
-        SELECT c.id, c.title, c.slug,
-               COALESCE(c.subject_id, c.study_material_id) AS subject_id,
-               COALESCE(ch.cnt, 0) + COALESCE(tp.cnt, 0) AS question_count
-        FROM subject_chapters c
-        LEFT JOIN chapter_counts ch ON ch.chapter_id = c.id
-        LEFT JOIN topic_chapter_counts tp ON tp.chapter_id = c.id
-        WHERE c.is_active = true
-        ORDER BY c.order_index, c.title
-      `),
-    ]);
+    // Both old queries scanned questions independently. Materialise the
+    // active question projection once and derive subject/chapter totals from
+    // it in one read-pool round trip.
+    const catalogRes = await readQuery(`
+      WITH active_questions AS MATERIALIZED (
+        SELECT subject_id, chapter_id, topic_id
+        FROM questions
+        WHERE is_active = true
+          AND (is_deleted = false OR is_deleted IS NULL)
+      ),
+      subject_counts AS (
+        SELECT subject_id, COUNT(*)::int AS cnt
+        FROM active_questions
+        WHERE subject_id IS NOT NULL
+        GROUP BY subject_id
+      ),
+      chapter_counts AS (
+        SELECT chapter_id, COUNT(*)::int AS cnt
+        FROM active_questions
+        WHERE chapter_id IS NOT NULL
+        GROUP BY chapter_id
+      ),
+      topic_chapter_counts AS (
+        SELECT st.chapter_id, COUNT(*)::int AS cnt
+        FROM active_questions aq
+        JOIN subject_topics st ON st.id = aq.topic_id
+        WHERE aq.topic_id IS NOT NULL
+          AND (aq.chapter_id IS NULL OR aq.chapter_id <> st.chapter_id)
+        GROUP BY st.chapter_id
+      )
+      SELECT 'subject' AS row_type, s.id, s.name AS title, s.slug,
+             s.icon, s.color, NULL::int AS subject_id,
+             COALESCE(sc.cnt, 0)::int AS question_count,
+             s.sort_order, NULL::int AS order_index
+      FROM subjects s
+      LEFT JOIN subject_counts sc ON sc.subject_id = s.id
+      WHERE s.is_active = true AND (s.is_deleted IS NOT TRUE)
+
+      UNION ALL
+
+      SELECT 'chapter' AS row_type, c.id, c.title, c.slug,
+             NULL::text AS icon, NULL::text AS color,
+             COALESCE(c.subject_id, c.study_material_id) AS subject_id,
+             (COALESCE(cc.cnt, 0) + COALESCE(tc.cnt, 0))::int AS question_count,
+             NULL::int AS sort_order, c.order_index
+      FROM subject_chapters c
+      LEFT JOIN chapter_counts cc ON cc.chapter_id = c.id
+      LEFT JOIN topic_chapter_counts tc ON tc.chapter_id = c.id
+      WHERE c.is_active = true
+
+      ORDER BY row_type, sort_order NULLS LAST, order_index NULLS LAST, title
+    `);
 
     const chaptersBySubject = {};
-    for (const c of chaptersRes.rows) {
+    const subjectsRes = [];
+    for (const row of catalogRes.rows) {
+      if (row.row_type === "subject") {
+        subjectsRes.push(row);
+        continue;
+      }
+      const c = row;
       const key = c.subject_id;
       if (!chaptersBySubject[key]) chaptersBySubject[key] = [];
       chaptersBySubject[key].push({
@@ -499,7 +538,7 @@ router.get("/subjects", protect, async (req, res) => {
       });
     }
 
-    const subjects = subjectsRes.rows.map((s) => ({
+    const subjects = subjectsRes.map((s) => ({
       id: s.id,
       title: s.title,
       label: s.title,
@@ -553,7 +592,9 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
              SUM(CASE WHEN LOWER(q.difficulty)='medium' THEN 1 ELSE 0 END)::int AS medium_count,
              SUM(CASE WHEN LOWER(q.difficulty)='hard' THEN 1 ELSE 0 END)::int AS hard_count
       FROM subject_topics t
-      LEFT JOIN questions q ON q.topic_id = t.id AND q.is_active = true
+      LEFT JOIN questions q ON q.topic_id = t.id
+        AND (q.is_active = true OR q.is_active IS NULL)
+        AND (q.is_deleted = false OR q.is_deleted IS NULL)
       WHERE t.chapter_id = $1 AND t.is_active = true AND (t.is_deleted IS NOT TRUE)
       GROUP BY t.id, t.name, t.slug, t.description, t.order_index
       ORDER BY t.order_index NULLS LAST, t.name
@@ -626,24 +667,43 @@ router.get("/chapters/:chapterId/topics", protect, async (req, res) => {
       },
     ];
 
-    const topics = topicsRes.rows.map((t) => ({
-      id: t.id,
-      name: t.name,
-      slug: t.slug,
-      description: t.description,
-      questionCount: t.question_count || 0,
-      easyCount: t.easy_count || 0,
-      mediumCount: t.medium_count || 0,
-      hardCount: t.hard_count || 0,
-      accuracy: masteryMap[t.id]?.accuracy ?? null,
-      attempts: masteryMap[t.id]?.attempts ?? 0,
-      practiceSets: PRACTICE_SETS.filter((ps) => {
-        if (ps.difficulty === "easy") return (t.easy_count || 0) > 0;
-        if (ps.difficulty === "medium") return (t.medium_count || 0) > 0;
-        if (ps.difficulty === "hard") return (t.hard_count || 0) > 0;
-        return (t.question_count || 0) > 0;
-      }),
-    }));
+    const topics = topicsRes.rows
+      .map((t) => {
+        const questionCount = t.question_count || 0;
+        const easyCount = t.easy_count || 0;
+        const mediumCount = t.medium_count || 0;
+        const hardCount = t.hard_count || 0;
+
+        return {
+          id: t.id,
+          name: t.name,
+          slug: t.slug,
+          description: t.description,
+          questionCount,
+          easyCount,
+          mediumCount,
+          hardCount,
+          accuracy: masteryMap[t.id]?.accuracy ?? null,
+          attempts: masteryMap[t.id]?.attempts ?? 0,
+          // These are set types, while count is capped to the questions that
+          // actually exist for this topic and difficulty.
+          practiceSets: PRACTICE_SETS.map((ps) => {
+            const available =
+              ps.difficulty === "easy"
+                ? easyCount
+                : ps.difficulty === "medium"
+                  ? mediumCount
+                  : ps.difficulty === "hard"
+                    ? hardCount
+                    : questionCount;
+            return {
+              ...ps,
+              count: Math.min(ps.count, available),
+            };
+          }).filter((ps) => ps.count > 0),
+        };
+      })
+      .filter((topic) => topic.questionCount > 0);
 
     res.json({
       success: true,
@@ -770,15 +830,18 @@ router.post("/sessions", protect, async (req, res) => {
     const sessionId = ins.rows[0].id;
 
     // For Phase 1: return full question objects (safe) so the frontend has everything in one round-trip
-    const questions = [];
-    for (const qid of questionIds) {
-      const q = await getSafeQuestion(qid);
-      if (q) questions.push(q);
-    }
+    const questions = await getSafeQuestions(questionIds);
 
     res.json({
       success: true,
-      data: { sessionId, questions, total: questions.length },
+      data: {
+        id: sessionId,
+        sessionId,
+        questions,
+        total: questions.length,
+        totalQuestions: questions.length,
+        currentIndex: 0,
+      },
     });
   } catch (err) {
     console.error("POST /api/practice/sessions error:", err);
@@ -805,11 +868,7 @@ router.get("/sessions/active", protect, async (req, res) => {
 
     // Hydrate questions
     const ids = session.questionsJson || [];
-    const questions = [];
-    for (const qid of ids) {
-      const q = await getSafeQuestion(qid);
-      if (q) questions.push(q);
-    }
+    const questions = await getSafeQuestions(ids);
     session.questions = questions;
     delete session.questionsJson;
 
@@ -825,9 +884,16 @@ router.get("/sessions/active", protect, async (req, res) => {
  */
 router.get("/sessions/:id", protect, async (req, res) => {
   try {
+    const sessionId = parsePositiveInt(req.params.id);
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid practice session ID" });
+    }
+
     const r = await pool.query(
       `SELECT id, user_id, exam_id, subject_id, chapter_id, topic_id, mode, difficulty, target_count, time_limit_sec, questions_json, current_index, correct_count, wrong_count, skipped_count, started_at, last_active_at, completed_at, is_active, is_deleted, deleted_at, deleted_by FROM practice_sessions WHERE id = $1 AND user_id = $2`,
-      [req.params.id, req.user.id],
+      [sessionId, req.user.id],
     );
     if (!r.rows.length)
       return res
@@ -835,11 +901,7 @@ router.get("/sessions/:id", protect, async (req, res) => {
         .json({ success: false, error: "Session not found" });
     const session = dbHelpers.toCamel(r.rows[0]);
     const ids = session.questionsJson || [];
-    const questions = [];
-    for (const qid of ids) {
-      const q = await getSafeQuestion(qid);
-      if (q) questions.push(q);
-    }
+    const questions = await getSafeQuestions(ids);
     session.questions = questions;
     delete session.questionsJson;
     res.json({ success: true, data: session });
@@ -856,6 +918,12 @@ router.get("/sessions/:id", protect, async (req, res) => {
  */
 router.patch("/sessions/:id", protect, async (req, res) => {
   try {
+    const sessionId = parsePositiveInt(req.params.id);
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid practice session ID" });
+    }
     const { currentIndex } = req.body;
     await pool.query(
       `
@@ -864,7 +932,7 @@ router.patch("/sessions/:id", protect, async (req, res) => {
         last_active_at = NOW()
       WHERE id = $1 AND user_id = $3
     `,
-      [req.params.id, currentIndex, req.user.id],
+      [sessionId, currentIndex, req.user.id],
     );
     res.json({ success: true });
   } catch (err) {
@@ -879,6 +947,12 @@ router.patch("/sessions/:id", protect, async (req, res) => {
 router.post("/sessions/:id/complete", protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const sessionId = parsePositiveInt(req.params.id);
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid practice session ID" });
+    }
 
     // Authoritative counters — derived from logged answers, never from the client
     const counts = await pool.query(
@@ -889,9 +963,12 @@ router.post("/sessions/:id/complete", protect, async (req, res) => {
         COUNT(*) FILTER (WHERE is_skipped)::int AS skipped_count
       FROM practice_answers WHERE user_id = $1 AND session_id = $2
     `,
-      [userId, req.params.id],
+      [userId, sessionId],
     );
-    const { correctCount, wrongCount, skippedCount } = counts.rows[0];
+    const countRow = counts.rows[0] || {};
+    const correctCount = Number(countRow.correct_count || 0);
+    const wrongCount = Number(countRow.wrong_count || 0);
+    const skippedCount = Number(countRow.skipped_count || 0);
 
     const r = await pool.query(
       `
@@ -904,7 +981,7 @@ router.post("/sessions/:id/complete", protect, async (req, res) => {
       WHERE id = $1 AND user_id = $5 AND completed_at IS NULL
       RETURNING *
     `,
-      [req.params.id, correctCount, wrongCount, skippedCount, userId],
+      [sessionId, correctCount, wrongCount, skippedCount, userId],
     );
     if (!r.rows.length)
       return res.status(404).json({
@@ -966,16 +1043,24 @@ router.post("/sessions/:id/complete", protect, async (req, res) => {
  */
 router.get("/sessions/:id/questions/:idx", protect, async (req, res) => {
   try {
+    const sessionId = parsePositiveInt(req.params.id);
+    const idx = Number(req.params.idx);
+    if (!sessionId || !Number.isInteger(idx) || idx < 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid practice session or question index",
+      });
+    }
+
     const sess = await pool.query(
       `SELECT questions_json FROM practice_sessions WHERE id = $1 AND user_id = $2`,
-      [req.params.id, req.user.id],
+      [sessionId, req.user.id],
     );
     if (!sess.rows.length)
       return res
         .status(404)
         .json({ success: false, error: "Session not found" });
     const ids = sess.rows[0].questions_json;
-    const idx = parseInt(req.params.idx, 10);
     if (idx < 0 || idx >= ids.length)
       return res
         .status(400)
@@ -999,9 +1084,15 @@ router.get("/sessions/:id/questions/:idx", protect, async (req, res) => {
 router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const sessionId = parsePositiveInt(req.params.id);
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid practice session ID" });
+    }
     const sess = await pool.query(
       `SELECT questions_json, mode FROM practice_sessions WHERE id = $1 AND user_id = $2`,
-      [req.params.id, userId],
+      [sessionId, userId],
     );
     if (!sess.rows.length)
       return res
@@ -1015,9 +1106,9 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         .status(400)
         .json({ success: false, error: "Index out of range" });
     const questionId = ids[idx];
-    const selectedOption = req.body.selectedOption;
+    const selectedOption = normalizeOptionIndex(req.body.selectedOption);
 
-    if (selectedOption === null || selectedOption === undefined) {
+    if (selectedOption === null) {
       return res
         .status(400)
         .json({ success: false, error: "No option selected" });
@@ -1037,7 +1128,7 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
     const prev = await pool.query(
       `SELECT is_correct, is_skipped FROM practice_answers
        WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
-      [userId, questionId, req.params.id],
+      [userId, questionId, sessionId],
     );
 
     // Log to practice_answers (upsert per session+question)
@@ -1052,7 +1143,7 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
     `,
       [
         userId,
-        req.params.id,
+        sessionId,
         questionId,
         selectedOption,
         isCorrect,
@@ -1087,7 +1178,7 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
         last_active_at = NOW()
       WHERE id = $1
     `,
-      [req.params.id, correctDelta, wrongDelta, skippedDelta, idx],
+      [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
     );
 
     // If answered correctly during practice/mistake drill, update mastery in wrong_questions and revision_queue
@@ -1131,9 +1222,15 @@ router.post("/sessions/:id/questions/:idx/check", protect, async (req, res) => {
 router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
   try {
     const userId = req.user.id;
+    const sessionId = parsePositiveInt(req.params.id);
+    if (!sessionId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid practice session ID" });
+    }
     const sess = await pool.query(
       `SELECT questions_json, mode FROM practice_sessions WHERE id = $1 AND user_id = $2`,
-      [req.params.id, userId],
+      [sessionId, userId],
     );
     if (!sess.rows.length)
       return res
@@ -1151,7 +1248,7 @@ router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
     const prev = await pool.query(
       `SELECT is_correct, is_skipped FROM practice_answers
        WHERE user_id = $1 AND question_id = $2 AND session_id = $3`,
-      [userId, questionId, req.params.id],
+      [userId, questionId, sessionId],
     );
 
     await pool.query(
@@ -1161,7 +1258,7 @@ router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
       ON CONFLICT (user_id, question_id, session_id) DO UPDATE
         SET is_skipped = true, selected_option = NULL, is_correct = false
     `,
-      [userId, req.params.id, questionId, mode],
+      [userId, sessionId, questionId, mode],
     );
 
     // Adjust counters by delta — skipping an answered question moves it, never double-counts
@@ -1188,7 +1285,7 @@ router.post("/sessions/:id/questions/:idx/skip", protect, async (req, res) => {
         last_active_at = NOW()
       WHERE id = $1
     `,
-      [req.params.id, correctDelta, wrongDelta, skippedDelta, idx],
+      [sessionId, correctDelta, wrongDelta, skippedDelta, idx],
     );
 
     res.json({ success: true });

@@ -854,38 +854,54 @@ export function toPublicTestDTO(test) {
 router.get("/", responseCache("tests-list-v2", 60), async (req, res) => {
   try {
     const { category, seriesId, page, limit, search } = req.query;
-    const { rows } = await dbHelpers.pool.query(
-      `SELECT * FROM tests WHERE is_active = true AND (status = 'published' OR status = 'active' OR status IS NULL)`,
-    );
-    let allTests = rows.map((row) => dbHelpers.toCamel(row));
+    const conditions = [
+      "is_active = true",
+      "(status = 'published' OR status = 'active' OR status IS NULL)",
+    ];
+    const params = [];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
 
-    if (seriesId) {
-      allTests = allTests.filter(
-        (t) =>
-          idsMatch(t.seriesId, seriesId) || idsMatch(t.series_id, seriesId),
-      );
-    }
+    if (seriesId)
+      conditions.push(`series_id::text = ${addParam(String(seriesId))}`);
     if (category && category !== "all") {
-      allTests = allTests.filter(
-        (t) =>
-          String(t.category).toLowerCase() === String(category).toLowerCase(),
-      );
+      const categoryParam = addParam(String(category));
+      conditions.push(`(
+        LOWER(COALESCE(test_type, '')) = LOWER(${categoryParam})
+        OR test_category_id::text = ${categoryParam}
+        OR category_path_names::text ILIKE '%' || ${categoryParam} || '%'
+      )`);
     }
     if (search) {
-      const q = String(search).toLowerCase();
-      allTests = allTests.filter((t) =>
-        String(t.title || "")
-          .toLowerCase()
-          .includes(q),
-      );
+      conditions.push(`title ILIKE '%' || ${addParam(String(search))} || '%'`);
     }
 
-    const totalCount = allTests.length;
-    if (page || limit) {
-      const p = Math.max(1, parseInt(page) || 1);
-      const l = Math.min(100, Math.max(1, parseInt(limit) || 20));
-      allTests = allTests.slice((p - 1) * l, p * l);
-    }
+    const hasPagination = page !== undefined || limit !== undefined;
+    const currentPage = Math.max(1, parseInt(page, 10) || 1);
+    // Keep the no-query-parameters form bounded as well. Callers still get
+    // the exact total and can request later pages explicitly.
+    const pageSize = Math.min(
+      100,
+      Math.max(1, parseInt(limit, 10) || (hasPagination ? 20 : 100)),
+    );
+    const offset = (currentPage - 1) * pageSize;
+    const whereSql = conditions.join(" AND ");
+    const [countRes, testsRes] = await Promise.all([
+      dbHelpers.pool.query(
+        `SELECT COUNT(*)::int AS total FROM tests WHERE ${whereSql}`,
+        params,
+      ),
+      dbHelpers.pool.query(
+        `SELECT * FROM tests WHERE ${whereSql}
+         ORDER BY created_at DESC NULLS LAST, id DESC
+         LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+        [...params, pageSize, offset],
+      ),
+    ]);
+    const allTests = testsRes.rows.map((row) => dbHelpers.toCamel(row));
+    const totalCount = countRes.rows[0]?.total || 0;
 
     const testsWithBanners = await enrichTestsWithBannerAssets(allTests);
     const publicTests = testsWithBanners.map(toPublicTestDTO);
@@ -962,61 +978,72 @@ router.get(
 router.get("/tag/:tag", responseCache("tests-tag-v2", 60), async (req, res) => {
   try {
     const { tag } = req.params;
-
-    const allTests = await dbHelpers.find("tests", { isActive: true });
-    let filteredTests = allTests;
+    const conditions = ["is_active = true"];
+    const params = [];
+    const addParam = (value) => {
+      params.push(value);
+      return `$${params.length}`;
+    };
 
     if (isPypSlug(tag)) {
-      filteredTests = allTests.filter((test) => test.category === "PYPs");
+      conditions.push("is_pyq = true");
     } else {
       switch (tag) {
         case "quizzes":
         case "quiz":
-          filteredTests = allTests.filter(
-            (test) =>
-              String(test.type).toLowerCase() === "quiz" ||
-              String(test.subCategory || test.sub_category)
-                .toLowerCase()
-                .includes("quiz") ||
-              String(test.category).toLowerCase().includes("quiz") ||
-              (Array.isArray(test.tags) &&
-                test.tags.some(
-                  (t) =>
-                    String(t).toLowerCase() === "quizzes" ||
-                    String(t).toLowerCase() === "quiz",
-                )),
-          );
+          conditions.push(`(
+            LOWER(COALESCE(test_type, '')) IN ('quiz', 'quizzes')
+            OR EXISTS (
+              SELECT 1 FROM unnest(COALESCE(tags, ARRAY[]::text[])) tag_value
+              WHERE LOWER(tag_value) IN ('quiz', 'quizzes')
+            )
+          )`);
           break;
         case "live-tests":
-          filteredTests = allTests.filter(
-            (test) =>
-              (test.isLive === true ||
-                test.is_live === true ||
-                String(test.type).toLowerCase() === "live-tests" ||
-                String(test.subCategory || test.sub_category)
-                  .toLowerCase()
-                  .includes("live")) &&
-              String(test.type).toLowerCase() !== "quiz" &&
-              !String(test.subCategory || test.sub_category)
-                .toLowerCase()
-                .includes("quiz"),
-          );
+          conditions.push(`(
+            (is_live = true
+              OR LOWER(COALESCE(test_type, '')) IN ('live-tests', 'live'))
+            AND LOWER(COALESCE(test_type, '')) NOT IN ('quiz', 'quizzes')
+          )`);
           break;
         case "practice":
-          filteredTests = allTests.filter(
-            (test) => test.category === "Practice",
-          );
+          conditions.push(`(
+            LOWER(COALESCE(test_type, '')) = 'practice'
+            OR EXISTS (
+              SELECT 1 FROM unnest(COALESCE(tags, ARRAY[]::text[])) tag_value
+              WHERE LOWER(tag_value) = 'practice'
+            )
+          )`);
           break;
         default:
-          filteredTests = allTests.filter(
-            (test) =>
-              Array.isArray(test.tags) &&
-              test.tags.some((t) => t.toLowerCase() === tag.toLowerCase()),
-          );
+          conditions.push(`EXISTS (
+            SELECT 1 FROM unnest(COALESCE(tags, ARRAY[]::text[])) tag_value
+            WHERE LOWER(tag_value) = LOWER(${addParam(String(tag))})
+          )`);
       }
     }
 
-    const testSeries = await dbHelpers.find("testSeries");
+    const requestedLimit = Math.min(
+      100,
+      Math.max(1, parseInt(req.query.limit, 10) || 100),
+    );
+    const whereSql = conditions.join(" AND ");
+    const { rows } = await dbHelpers.pool.query(
+      `SELECT * FROM tests WHERE ${whereSql}
+       ORDER BY created_at DESC NULLS LAST, id DESC
+       LIMIT $${params.length + 1}`,
+      [...params, requestedLimit],
+    );
+    const filteredTests = rows.map((row) => dbHelpers.toCamel(row));
+
+    // Only hydrate series referenced by this page instead of loading the full
+    // series catalog for every tag request.
+    const seriesIds = Array.from(
+      new Set(filteredTests.map(getTestSeriesId).filter((id) => id != null)),
+    );
+    const testSeries = seriesIds.length
+      ? await dbHelpers.find("testSeries", { id: { $in: seriesIds } })
+      : [];
     const seriesMap = {};
     testSeries.forEach((series) => {
       const seriesKey = series._id || series.id;
@@ -1607,6 +1634,7 @@ router.put("/:testId/submit", protect, async (req, res) => {
       attemptId,
       markedForReview,
       sectionTimers,
+      sectionalTimerEnabled,
       currentSection,
     } = req.body;
 
@@ -1658,6 +1686,7 @@ router.put("/:testId/submit", protect, async (req, res) => {
     // The frontend auto-advances sections at their allotted limit, so a section reporting
     // MORE elapsed time than its server-configured limit indicates clock manipulation / tampering.
     if (
+      sectionalTimerEnabled !== false &&
       sectionTimers &&
       typeof sectionTimers === "object" &&
       !Array.isArray(sectionTimers)
@@ -2180,10 +2209,24 @@ router.get("/:testId/result", protect, async (req, res) => {
     // Get the numeric test ID for matching with attempts
     const numericTestId = test.id || test._id;
 
-    const resultRows = await dbHelpers.find("results", {
+    // The resolved test has a canonical database ID. Use it in the query so
+    // this endpoint does not scan every completed attempt/result for the user.
+    // Keep the full-scan fallback for legacy test records without a numeric ID.
+    const canonicalTestIds = [test.id, test._id]
+      .filter(
+        (id) => id !== undefined && id !== null && /^\d+$/.test(String(id)),
+      )
+      .map(Number)
+      .filter((id, index, ids) => ids.indexOf(id) === index);
+    const attemptFilters = {
       userId: req.user.id,
       isCompleted: true,
-    });
+      ...(canonicalTestIds.length ? { testId: canonicalTestIds[0] } : {}),
+    };
+    const [resultRows, attemptRows] = await Promise.all([
+      dbHelpers.find("results", attemptFilters),
+      dbHelpers.find("attempts", attemptFilters),
+    ]);
     // Match against both the URL param and the resolved numeric ID
     const matchingResults = resultRows.filter(
       (row) =>
@@ -2191,10 +2234,6 @@ router.get("/:testId/result", protect, async (req, res) => {
         idsMatch(row.testId, numericTestId),
     );
 
-    const attemptRows = await dbHelpers.find("attempts", {
-      userId: req.user.id,
-      isCompleted: true,
-    });
     // Match against both the URL param and the resolved numeric ID
     const matchingAttempts = attemptRows.filter(
       (row) =>
@@ -2216,12 +2255,14 @@ router.get("/:testId/result", protect, async (req, res) => {
       });
     }
 
-    const questions = await fetchTestQuestions(test);
-    const rankData = await getRankAndPercentile(
-      numericTestId || test._id || test.id || req.params.testId,
-      attempt,
-      test,
-    );
+    const [questions, rankData] = await Promise.all([
+      fetchTestQuestions(test),
+      getRankAndPercentile(
+        numericTestId || test._id || test.id || req.params.testId,
+        attempt,
+        test,
+      ),
+    ]);
     const result = buildResultPayload(
       test,
       attempt,

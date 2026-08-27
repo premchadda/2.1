@@ -107,7 +107,7 @@ const DEFAULT_TEST_FORM = {
   subCategoryLevel4: "",
   type: "mock-tests",
   duration: 60,
-  negativeMarking: 0.25,
+  negativeMarking: 0.5,
   difficulty: "medium",
   hasSectionalTiming: true,
   isPro: false,
@@ -1265,7 +1265,7 @@ const TestFormModal = ({
                   </div>
                   {[
                     ["duration", "Duration (minutes)", 1, "1"],
-                    ["negativeMarking", "Negative Marking", 0, "0.25"],
+                    ["negativeMarking", "Negative Marking", 0, "0.5"],
                   ].map(([key, label, min, step]) => (
                     <div key={key}>
                       <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -2855,7 +2855,7 @@ function TestsManager() {
       duration: test.duration || test.time_limit || 60,
       totalQuestions: test.totalQuestions || test.total_questions || 0,
       totalMarks: test.totalMarks || test.total_marks || 0,
-      negativeMarking: test.negativeMarking || test.negative_marking || 0.25,
+      negativeMarking: test.negativeMarking ?? test.negative_marking ?? 0.5,
       difficulty: test.difficulty || "medium",
       hasSectionalTiming: Boolean(
         test.hasSectionalTiming ??

@@ -12,7 +12,6 @@ import { toast } from "react-hot-toast";
 import {
   Clock,
   AlertCircle,
-  CheckCircle,
   BookOpen,
   Eye,
   ChevronDown,
@@ -21,7 +20,6 @@ import {
   BarChart3,
   Timer,
   Shield,
-  Monitor,
   Award,
   Zap,
   Construction,
@@ -44,11 +42,6 @@ function TestInstructions() {
   const [loading, setLoading] = useState(true);
   const [agreedToRules, setAgreedToRules] = useState(false);
   const [_showFullInstructions, _setShowFullInstructions] = useState(false);
-  const [systemCheck, setSystemCheck] = useState({
-    browser: true,
-    connection: true,
-    javascript: true,
-  });
 
   const [language, setLanguage] = useState(
     () => localStorage.getItem("test_language") || "EN",
@@ -125,6 +118,8 @@ function TestInstructions() {
     test?.sectionalTiming ||
     test?.enableSectionalTiming,
   );
+  const [sectionalTimerOverride, setSectionalTimerOverride] = useState(null);
+  const sectionalTimerEnabled = sectionalTimerOverride ?? hasSectionalTiming;
 
   const effectiveSections = useMemo(() => {
     if (Array.isArray(test?.sections) && test.sections.length > 0) {
@@ -139,12 +134,11 @@ function TestInstructions() {
           (qCount
             ? qCount * (test.marksPerQuestion || 2)
             : Math.round((test.totalMarks || 200) / test.sections.length));
-        const tLimit =
-          hasSectionalTiming || s.timeLimit !== null || s.time_limit !== null
-            ? (s.timeLimit ??
-              s.time_limit ??
-              Math.round((test.duration || 60) / test.sections.length))
-            : null;
+        const tLimit = sectionalTimerEnabled
+          ? (s.timeLimit ??
+            s.time_limit ??
+            Math.round((test.duration || 60) / test.sections.length))
+          : null;
         return {
           name: s.name || s.section_name || "General Section",
           questionCount: qCount,
@@ -191,7 +185,7 @@ function TestInstructions() {
           name: "Full Test",
           questionCount: totalQs || 0,
           totalMarks: totalM || 0,
-          timeLimit: hasSectionalTiming ? Number(test?.duration || 0) : null,
+          timeLimit: sectionalTimerEnabled ? Number(test?.duration || 0) : null,
         },
       ];
     }
@@ -209,11 +203,11 @@ function TestInstructions() {
         i === names.length - 1
           ? totalM - mPerSec * (names.length - 1)
           : mPerSec,
-      timeLimit: hasSectionalTiming
+      timeLimit: sectionalTimerEnabled
         ? Math.round((test?.duration || 60) / names.length)
         : null,
     }));
-  }, [test, displayQuestionCount, hasSectionalTiming]);
+  }, [test, displayQuestionCount, sectionalTimerEnabled]);
 
   // Check if user came back from test interface with no questions
   useEffect(() => {
@@ -326,28 +320,6 @@ function TestInstructions() {
   const isUserPro = entitlement.isUserPro;
   const isLocked = entitlement.requiresPro;
 
-  // System check
-  useEffect(() => {
-    const handleOnline = () =>
-      setSystemCheck((prev) => ({ ...prev, connection: true }));
-    const handleOffline = () =>
-      setSystemCheck((prev) => ({ ...prev, connection: false }));
-    const checkSystem = () => {
-      setSystemCheck({
-        browser: !/MSIE|Trident/.test(window.navigator.userAgent),
-        connection: navigator.onLine,
-        javascript: true,
-      });
-    };
-    checkSystem();
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
-
   const handleStartTest = () => {
     if (isLocked) {
       toast.error(
@@ -392,7 +364,9 @@ function TestInstructions() {
         testId;
       const searchParams = new URLSearchParams(location.search);
       const currentAttemptNo = searchParams.get("attemptNo") || attemptNo || 1;
-      const targetUrl = `/${slug}/tests/${targetTestId}?attemptNo=${currentAttemptNo}`;
+      searchParams.set("sectionalTimer", sectionalTimerEnabled ? "on" : "off");
+      searchParams.set("attemptNo", currentAttemptNo);
+      const targetUrl = `/${slug}/tests/${targetTestId}?${searchParams.toString()}`;
       navigate(targetUrl, { replace: true });
     }
   }, [
@@ -406,6 +380,7 @@ function TestInstructions() {
     location.search,
     attemptNo,
     isHindi,
+    sectionalTimerEnabled,
   ]);
 
   const _cancelCountdown = useCallback(() => {
@@ -499,7 +474,7 @@ function TestInstructions() {
     {
       icon: BarChart3,
       title: "Marking Scheme",
-      description: `+${test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? test.totalMarks / test.totalQuestions : 2)} correct, -${test?.negativeMarking ?? 0.25} incorrect`,
+      description: `+${test?.marksPerQuestion || (test?.totalMarks && test?.totalQuestions ? Math.round(test.totalMarks / test.totalQuestions) : 2)} correct, -${Number(test?.negativeMarking ?? test?.negative_marking ?? 0.5)} incorrect`,
       detail:
         "Negative marking applies for wrong answers. No marks deducted for unattempted questions.",
     },
@@ -602,7 +577,6 @@ function TestInstructions() {
     );
   }
 
-  const isAllSystemsReady = Object.values(systemCheck).every(Boolean);
   const _isQuestionsReady = !noQuestions && actualQuestionCount > 0;
 
   return (
@@ -736,7 +710,7 @@ function TestInstructions() {
                       {isHindi ? "अनुभाग" : "Sections"}
                     </span>
                   </div>
-                  {hasSectionalTiming ? (
+                  {sectionalTimerEnabled ? (
                     <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                       <Timer className="w-3.5 h-3.5 text-emerald-600" />{" "}
                       {isHindi
@@ -799,8 +773,15 @@ function TestInstructions() {
                         {isHindi ? "अंकन" : "Marking"}
                       </div>
                       <div className="font-bold text-emerald-600 text-xs sm:text-sm">
-                        +{test.marksPerQuestion || 2} / -
-                        {test.negativeMarking || 0.25}
+                        +
+                        {test.marksPerQuestion ||
+                          (test?.totalMarks && test?.totalQuestions
+                            ? Math.round(test.totalMarks / test.totalQuestions)
+                            : 2)}{" "}
+                        / -
+                        {Number(
+                          test.negativeMarking ?? test.negative_marking ?? 0.5,
+                        )}
                       </div>
                     </div>
                   </div>
@@ -934,33 +915,54 @@ function TestInstructions() {
 
             {/* Right Sidebar Column: Desktop Actions & Readiness */}
             <div className="lg:col-span-1 p-4 sm:p-5 border-l border-tcs-border bg-tcs-surface/30 flex flex-col justify-between space-y-3">
-              {/* Exam Readiness Card (Top) */}
+              {/* Sectional Timer Preference Card (Top) */}
               <div className="bg-white p-3.5 rounded-xl border border-tcs-border shadow-2xs">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <Monitor className="w-4 h-4 text-tcs-primary" />
-                  <h3 className="text-xs sm:text-sm font-bold text-tcs-text-primary uppercase tracking-wider">
-                    {isHindi ? "सिस्टम स्थिति जांच" : "Exam System Check"}
-                  </h3>
+                <div className="flex items-center justify-between gap-3 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <Timer className="w-4 h-4 text-tcs-primary" />
+                    <h3 className="text-xs sm:text-sm font-bold text-tcs-text-primary uppercase tracking-wider">
+                      {isHindi ? "अनुभाग टाइमर" : "Sectional Timer"}
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={sectionalTimerEnabled}
+                    aria-label={
+                      isHindi
+                        ? "अनुभाग टाइमर टॉगल करें"
+                        : "Toggle sectional timer"
+                    }
+                    onClick={() =>
+                      setSectionalTimerOverride(!sectionalTimerEnabled)
+                    }
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-tcs-primary/40 focus:ring-offset-2 ${
+                      sectionalTimerEnabled ? "bg-emerald-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                        sectionalTimerEnabled
+                          ? "translate-x-6"
+                          : "translate-x-1"
+                      }`}
+                    />
+                  </button>
                 </div>
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
-                    <span>
-                      {isHindi ? "ब्राउज़र अनुकूलता" : "Browser Compatibility"}
-                    </span>
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
-                    <span>
-                      {isHindi ? "इंटरनेट कनेक्शन" : "Internet Connection"}
-                    </span>
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  </div>
-                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 font-medium">
-                    <span>
-                      {isHindi ? "जावास्क्रिप्ट समर्थन" : "JavaScript Support"}
-                    </span>
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                  </div>
+                <div
+                  className={`rounded-lg border p-2.5 text-xs font-medium ${
+                    sectionalTimerEnabled
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      : "border-gray-200 bg-gray-50 text-gray-700"
+                  }`}
+                >
+                  {sectionalTimerEnabled
+                    ? isHindi
+                      ? "हर अनुभाग की अपनी समय सीमा लागू होगी।"
+                      : "Each section will use its own time limit."
+                    : isHindi
+                      ? `सभी अनुभाग ${test?.duration || 60} मिनट के साझा टाइमर का उपयोग करेंगे।`
+                      : `All sections will use one shared ${test?.duration || 60}-minute timer.`}
                 </div>
               </div>
 
@@ -1057,9 +1059,9 @@ function TestInstructions() {
                 ) : (
                   <button
                     onClick={handleStartTest}
-                    disabled={!agreedToRules || !isAllSystemsReady}
+                    disabled={!agreedToRules}
                     className={`w-full py-3 rounded-lg font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 ${
-                      agreedToRules && isAllSystemsReady
+                      agreedToRules
                         ? "bg-tcs-primary text-white hover:bg-tcs-primary-dark shadow-tcs hover:shadow-tcs-lg active:scale-95"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
                     }`}
@@ -1121,9 +1123,9 @@ function TestInstructions() {
             ) : (
               <button
                 onClick={handleStartTest}
-                disabled={!agreedToRules || !isAllSystemsReady}
+                disabled={!agreedToRules}
                 className={`px-5 py-2 rounded-lg font-bold text-xs transition-all flex items-center gap-1.5 ${
-                  agreedToRules && isAllSystemsReady
+                  agreedToRules
                     ? "bg-tcs-primary text-white hover:bg-tcs-primary-dark shadow-tcs active:scale-95"
                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                 }`}

@@ -204,6 +204,66 @@ const resolveCorrectIndex = (q) => {
   return null;
 };
 
+const normalizeAnswerIndex = (value) => {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const normalized = String(value).trim();
+  if (/^[A-Za-z]$/.test(normalized)) {
+    return normalized.toUpperCase().charCodeAt(0) - 65;
+  }
+  if (/^-?\d+(\.\d+)?$/.test(normalized)) return Number(normalized);
+  return null;
+};
+
+const isReviewAnswerCorrect = (question, answer) => {
+  if (answer === undefined || answer === null || answer === "") return false;
+
+  const rawCorrect =
+    question?.correctOption ??
+    question?.correct_option ??
+    question?.correct_option_id ??
+    question?.correctOptionId ??
+    question?.correctAnswer ??
+    question?.correct_answer ??
+    question?.correct ??
+    question?.answer;
+
+  if (question?.type === "true-false") {
+    return String(answer).toLowerCase() === String(rawCorrect).toLowerCase();
+  }
+
+  if (Array.isArray(answer) || Array.isArray(rawCorrect)) {
+    const selected = (Array.isArray(answer) ? answer : [answer])
+      .map(normalizeAnswerIndex)
+      .filter((value) => value !== null)
+      .sort((a, b) => a - b);
+    const correct = (Array.isArray(rawCorrect) ? rawCorrect : [rawCorrect])
+      .map(normalizeAnswerIndex)
+      .filter((value) => value !== null)
+      .sort((a, b) => a - b);
+    return (
+      selected.length === correct.length &&
+      selected.every((value, index) => value === correct[index])
+    );
+  }
+
+  const selectedIndex = normalizeAnswerIndex(answer);
+  const correctIndex = resolveCorrectIndex(question);
+  return (
+    selectedIndex !== null &&
+    correctIndex !== null &&
+    selectedIndex === correctIndex
+  );
+};
+
+const normalizeReviewAnswer = (question, answer) => {
+  if (question?.type === "msq" && Array.isArray(answer)) {
+    return answer.map(normalizeAnswerIndex).filter((value) => value !== null);
+  }
+  if (question?.type === "true-false") return answer;
+  return normalizeAnswerIndex(answer) ?? answer;
+};
+
 function TestInterface() {
   const routeParams = useParams();
   const testId = routeParams.testId;
@@ -215,6 +275,9 @@ function TestInterface() {
   const isReviewRoute = location.pathname.endsWith("/review");
   const reviewMode = Boolean(location.state?.reviewMode) || isReviewRoute;
   const reviewResultData = location.state?.resultData || null;
+  const sectionalTimerParam = new URLSearchParams(location.search).get(
+    "sectionalTimer",
+  );
 
   // State
   const [test, setTest] = useState(null);
@@ -258,7 +321,9 @@ function TestInterface() {
   useEffect(() => {
     if (user) {
       bookmarksAPI
-        .getAll(1, 100)
+        // The test interface only needs saved item IDs; avoid enriching up to
+        // 100 bookmarks with one database lookup per item.
+        .getAll(1, 100, { includeDetails: false })
         .then((res) => {
           const items = res.data || [];
           const set = new Set(items.map((b) => String(b.itemId || b.item_id)));
@@ -355,6 +420,17 @@ function TestInterface() {
   const [sectionTimers, setSectionTimers] = useState({});
   const questionStartTimeRef = useRef(null);
   const lastSaveRef = useRef(Date.now());
+
+  const configuredSectionalTimer = Boolean(
+    test?.sectionalTimerEnabled ||
+    test?.hasSectionalTiming ||
+    test?.has_sectional_timing ||
+    test?.sectionalTiming ||
+    test?.enableSectionalTiming,
+  );
+  const sectionalTimerEnabled =
+    sectionalTimerParam === "on" ||
+    (sectionalTimerParam !== "off" && configuredSectionalTimer);
 
   // Anti-cheat
   const tabSwitchCountRef = useRef(0);
@@ -570,7 +646,10 @@ function TestInterface() {
                   question.userAnswer !== undefined &&
                   question.userAnswer !== null
                 ) {
-                  acc[index] = question.userAnswer;
+                  acc[index] = normalizeReviewAnswer(
+                    question,
+                    question.userAnswer,
+                  );
                 }
                 return acc;
               }, {}),
@@ -592,18 +671,6 @@ function TestInterface() {
         const testData = await getTestById(testId);
 
         if (testData) {
-          // Parse and normalize section time limits (duration is in minutes; convert to seconds)
-          const sectionTimeLimits = {};
-          if (testData.sections && Array.isArray(testData.sections)) {
-            testData.sections.forEach((s) => {
-              if (s.duration > 0) {
-                const name = s.name || s.subject || "General";
-                sectionTimeLimits[name] = s.duration * 60;
-              }
-            });
-          }
-          testData.sectionTimeLimits = sectionTimeLimits;
-          setTest(testData);
           setTimeLeft((testData.duration || 60) * 60);
 
           const questionsData = await getQuestionsByTestId(
@@ -713,6 +780,51 @@ function TestInterface() {
           finalQuestions.sort(
             (a, b) => getSecOrder(a.section) - getSecOrder(b.section),
           );
+
+          // The instruction-page toggle is carried in the URL so refreshes
+          // preserve the user's choice. When enabled, use configured section
+          // durations and split the overall duration evenly as a safe fallback.
+          const useSectionalTimer =
+            sectionalTimerParam === "on" ||
+            (sectionalTimerParam !== "off" &&
+              Boolean(
+                testData.hasSectionalTiming ||
+                testData.has_sectional_timing ||
+                testData.sectionalTiming ||
+                testData.enableSectionalTiming,
+              ));
+          const configuredSections = Array.isArray(testData.sections)
+            ? testData.sections
+            : [];
+          const questionSectionNames = [
+            ...new Set(finalQuestions.map((q) => q.section || "General")),
+          ];
+          const sectionTimeLimits = {};
+          if (useSectionalTimer) {
+            const fallbackMinutes =
+              (Number(testData.duration) || 60) /
+              Math.max(questionSectionNames.length, 1);
+            questionSectionNames.forEach((sectionName) => {
+              const config = configuredSections.find(
+                (section) =>
+                  String(
+                    section.name || section.title || section.subject || "",
+                  ).toLowerCase() === String(sectionName).toLowerCase(),
+              );
+              const configuredMinutes = Number(
+                config?.duration ??
+                  config?.timeLimit ??
+                  config?.time_limit ??
+                  config?.durationMinutes,
+              );
+              sectionTimeLimits[sectionName] =
+                (configuredMinutes > 0 ? configuredMinutes : fallbackMinutes) *
+                60;
+            });
+          }
+          testData.sectionTimeLimits = sectionTimeLimits;
+          testData.sectionalTimerEnabled = useSectionalTimer;
+          setTest(testData);
 
           setQuestions(finalQuestions);
           if (finalQuestions.length > 0) {
@@ -907,7 +1019,14 @@ function TestInterface() {
     };
     fetchData();
     return () => controller.abort();
-  }, [testId, seriesId, navigate, reviewMode, reviewResultData]);
+  }, [
+    testId,
+    seriesId,
+    navigate,
+    reviewMode,
+    reviewResultData,
+    sectionalTimerParam,
+  ]);
 
   // Timer
   // Uses an absolute deadline so background tab throttling / coalescing
@@ -1230,6 +1349,14 @@ function TestInterface() {
     const isVisited = visitedQuestions.has(index);
     const _isCurrent = currentQuestion === index;
 
+    if (reviewMode) {
+      if (!isAnswered) return isReview ? "p-skipped-review" : "p-skipped";
+      const result = isReviewAnswerCorrect(questions[index], answers[index])
+        ? "p-correct"
+        : "p-wrong";
+      return isReview ? `${result}-review` : result;
+    }
+
     if (isAnswered && isReview) return "p-ans-review";
     if (isReview) return "p-review";
     if (isAnswered) return "p-answered";
@@ -1270,6 +1397,7 @@ function TestInterface() {
           timeSpent: (test.duration || 60) * 60 - timeLeft,
           markedForReview: Array.from(markedForReview),
           sectionTimers: computeSectionTimers(),
+          sectionalTimerEnabled,
           currentSection,
         });
         lastSaveRef.current = Date.now();

@@ -387,7 +387,7 @@ const DEFAULT_TEST_FORM = {
   totalQuestions: 0,
   totalMarks: 100,
   passingMarks: 33,
-  negativeMarking: 0.25,
+  negativeMarking: 0.5,
   difficulty: "medium",
   type: "mock",
   tags: "",
@@ -1941,7 +1941,7 @@ function QuestionsManager() {
       totalQuestions: test.totalQuestions || test.total_questions || 0,
       totalMarks: test.totalMarks || test.total_marks || 100,
       passingMarks: test.passingMarks || test.passing_marks || 33,
-      negativeMarking: test.negativeMarking || test.negative_marking || 0.25,
+      negativeMarking: test.negativeMarking ?? test.negative_marking ?? 0.5,
       difficulty: test.difficulty || "medium",
       type:
         test.type ||

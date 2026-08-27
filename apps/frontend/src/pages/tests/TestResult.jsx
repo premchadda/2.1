@@ -23,6 +23,7 @@ import {
   RotateCcw,
   BookOpen,
   Timer,
+  Clock,
   Zap,
   TrendingUp,
   Award,
@@ -216,7 +217,9 @@ function TestResult() {
                       Number(resultData.negativeMarks) > 0
                     ? resultData.negativeMarks
                     : rawMarks > 0
-                      ? rawMarks * 0.25
+                      ? rawMarks === 2
+                        ? 0.5
+                        : rawMarks * 0.25
                       : 0.5,
               );
 
@@ -410,9 +413,40 @@ function TestResult() {
       ans === undefined ||
       ans === null ||
       ans === "" ||
+      (Array.isArray(ans) && ans.length === 0) ||
       ans === -1 ||
       ans === "-1"
     );
+  };
+
+  const normalizeResultOption = (value) => {
+    if (value === undefined || value === null || value === "") return null;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    const normalized = String(value).trim();
+    if (/^[A-Za-z]$/.test(normalized)) {
+      return normalized.toUpperCase().charCodeAt(0) - 65;
+    }
+    return /^-?\d+(\.\d+)?$/.test(normalized) ? Number(normalized) : null;
+  };
+
+  const answersMatch = (userAns, correctAns) => {
+    if (Array.isArray(userAns) || Array.isArray(correctAns)) {
+      const selected = (Array.isArray(userAns) ? userAns : [userAns])
+        .map(normalizeResultOption)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+      const correct = (Array.isArray(correctAns) ? correctAns : [correctAns])
+        .map(normalizeResultOption)
+        .filter((value) => value !== null)
+        .sort((a, b) => a - b);
+      return (
+        selected.length === correct.length &&
+        selected.every((value, index) => value === correct[index])
+      );
+    }
+    const selected = normalizeResultOption(userAns);
+    const correct = normalizeResultOption(correctAns);
+    return selected !== null && correct !== null && selected === correct;
   };
 
   const isCorrectQuestion = (q) => {
@@ -431,7 +465,7 @@ function TestResult() {
     return (
       correctAns !== undefined &&
       correctAns !== null &&
-      Number(userAns) === Number(correctAns)
+      answersMatch(userAns, correctAns)
     );
   };
 
@@ -454,7 +488,11 @@ function TestResult() {
     const defaultNeg = Number(
       result.negativeMarks ??
         result.negative_marks ??
-        (defaultMarks > 0 ? defaultMarks * 0.25 : 0.5),
+        (defaultMarks > 0
+          ? defaultMarks === 2
+            ? 0.5
+            : defaultMarks * 0.25
+          : 0.5),
     );
 
     result.questions.forEach((q) => {
@@ -473,7 +511,9 @@ function TestResult() {
           ? q.negativeMarks
           : defaultNeg > 0
             ? defaultNeg
-            : qMarks * 0.25,
+            : qMarks === 2
+              ? 0.5
+              : qMarks * 0.25,
       );
 
       if (!breakdown[section]) {
@@ -618,18 +658,18 @@ function TestResult() {
     isSkippedQuestion(q),
   ).length;
 
-  const correctCount =
-    questions.length > 0
-      ? calculatedCorrect
-      : (result.correct ?? result.correctAnswers ?? 0);
-  const wrongCount =
-    questions.length > 0
-      ? calculatedWrong
-      : (result.wrong ?? result.wrongAnswers ?? 0);
-  const skippedCount =
-    questions.length > 0
-      ? calculatedSkipped
-      : (result.unattempted ?? result.skippedQuestions ?? 0);
+  // Prefer backend values when available (they are the authoritative source from the scoring engine)
+  const backendCorrect = result.correct ?? result.correctAnswers ?? 0;
+  const backendWrong = result.wrong ?? result.wrongAnswers ?? 0;
+  const backendUnattempted = result.unattempted ?? result.skippedQuestions ?? 0;
+  const hasBackendCounts =
+    backendCorrect + backendWrong + backendUnattempted > 0;
+
+  const correctCount = hasBackendCounts ? backendCorrect : calculatedCorrect;
+  const wrongCount = hasBackendCounts ? backendWrong : calculatedWrong;
+  const skippedCount = hasBackendCounts
+    ? backendUnattempted
+    : calculatedSkipped;
   const totalQuestions = result.totalQuestions || questions.length || 0;
   const attemptRate =
     totalQuestions > 0
@@ -891,8 +931,7 @@ function TestResult() {
   const formatScoreValue = (val) => {
     if (val === undefined || val === null || isNaN(val)) return "0";
     const num = Number(val);
-    const formatted = Number.isInteger(num) ? num.toString() : num.toFixed(1);
-    return num > 0 ? `+${formatted}` : formatted;
+    return Number.isInteger(num) ? num.toString() : num.toFixed(1);
   };
 
   return (
@@ -1911,12 +1950,9 @@ function TestResult() {
                       q.correct_answer ??
                       q.correct ??
                       q.answer;
-                    const correctAnswer =
-                      rawCorrect !== undefined &&
-                      rawCorrect !== null &&
-                      rawCorrect !== ""
-                        ? Number(rawCorrect)
-                        : null;
+                    const correctAnswer = Array.isArray(rawCorrect)
+                      ? rawCorrect.map(normalizeResultOption)
+                      : normalizeResultOption(rawCorrect);
                     const questionNum =
                       q.originalIndex || questions.indexOf(q) + 1;
                     const isExpanded = expandedSolutions[q.id || q._id || idx];
@@ -2045,14 +2081,18 @@ function TestResult() {
                                 getLocalizedField(q.options, language) || []
                               ).map((opt, optIdx) => {
                                 const isCorrectOpt =
-                                  correctAnswer !== null &&
-                                  !isNaN(correctAnswer) &&
-                                  optIdx === correctAnswer;
+                                  !isSkipped &&
+                                  (Array.isArray(correctAnswer)
+                                    ? correctAnswer.includes(optIdx)
+                                    : optIdx === correctAnswer);
                                 const isUserChoice =
-                                  q.userAnswer !== undefined &&
-                                  q.userAnswer !== null &&
-                                  q.userAnswer !== "" &&
-                                  optIdx === Number(q.userAnswer);
+                                  !isSkipped &&
+                                  (Array.isArray(q.userAnswer)
+                                    ? q.userAnswer
+                                        .map(normalizeResultOption)
+                                        .includes(optIdx)
+                                    : optIdx ===
+                                      normalizeResultOption(q.userAnswer));
 
                                 return (
                                   <div

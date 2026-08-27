@@ -421,6 +421,39 @@ export function mapTestToFrontend(backendTest) {
           (backendTest.is_active !== false && backendTest.isActive !== false
             ? "published"
             : "draft"),
+    marksPerQuestion:
+      backendTest.marksPerQuestion !== undefined
+        ? Number(backendTest.marksPerQuestion)
+        : backendTest.marks_per_question !== undefined
+          ? Number(backendTest.marks_per_question)
+          : 2,
+    negativeMarking:
+      backendTest.negativeMarking !== undefined
+        ? Number(backendTest.negativeMarking)
+        : backendTest.negative_marking !== undefined
+          ? Number(backendTest.negative_marking)
+          : 0.5,
+    negativeMarks:
+      backendTest.negativeMarks !== undefined
+        ? Number(backendTest.negativeMarks)
+        : backendTest.negative_marks !== undefined
+          ? Number(backendTest.negative_marks)
+          : 0.5,
+    passingMarks:
+      backendTest.passingMarks !== undefined
+        ? Number(backendTest.passingMarks)
+        : backendTest.passing_marks !== undefined
+          ? Number(backendTest.passing_marks)
+          : 0,
+    sections: Array.isArray(backendTest.sections) ? backendTest.sections : [],
+    testSections: backendTest.testSections || backendTest.test_sections || null,
+    instructions: backendTest.instructions || null,
+    hasSectionalTiming: Boolean(
+      backendTest.hasSectionalTiming ||
+      backendTest.has_sectional_timing ||
+      backendTest.sectionalTiming ||
+      backendTest.enableSectionalTiming,
+    ),
     createdAt: backendTest.created_at || backendTest.createdAt,
     updatedAt: backendTest.updated_at || backendTest.updatedAt,
   };

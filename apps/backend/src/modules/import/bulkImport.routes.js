@@ -163,7 +163,7 @@ router.post(
         seriesId: req.body.seriesId || req.body.series_id || null,
         marks: parseFloat(req.body.marks) || 1,
         negativeMarks:
-          parseFloat(req.body.negativeMarks || req.body.negative_marks) || 0.25,
+          parseFloat(req.body.negativeMarks || req.body.negative_marks) ?? 0.5,
         difficulty: req.body.difficulty || "medium",
         skipDuplicates: req.body.skipDuplicates !== false,
         fileName: req.file.originalname,
@@ -212,12 +212,10 @@ const fullTestUpload = multer({
 const handleFullTestUploadError = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
     if (err.code === "LIMIT_FILE_SIZE") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "File too large. Maximum size is 150 MB.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "File too large. Maximum size is 150 MB.",
+      });
     }
     return res
       .status(400)
@@ -414,12 +412,10 @@ router.post(
       try {
         json = JSON.parse(req.file.buffer.toString("utf8"));
       } catch (err) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: `Invalid JSON file: ${err.message}`,
-          });
+        return res.status(400).json({
+          success: false,
+          message: `Invalid JSON file: ${err.message}`,
+        });
       }
 
       // Save the file to a temp location on disk to avoid holding it in memory across requests
@@ -497,12 +493,10 @@ router.get(
       try {
         await fs.access(tempPath);
       } catch {
-        return res
-          .status(404)
-          .json({
-            success: false,
-            message: "No uploaded file found. Please upload the file again.",
-          });
+        return res.status(404).json({
+          success: false,
+          message: "No uploaded file found. Please upload the file again.",
+        });
       }
 
       const fileContent = await fs.readFile(tempPath, "utf8");
@@ -569,12 +563,10 @@ router.post("/full-test/import-selected", protect, admin, async (req, res) => {
       await fs.access(tempPath);
     } catch {
       console.error("[Bulk Import] Temp file not found at:", tempPath);
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: "No uploaded file found. Please upload the file again.",
-        });
+      return res.status(404).json({
+        success: false,
+        message: "No uploaded file found. Please upload the file again.",
+      });
     }
 
     const fileContent = await fs.readFile(tempPath, "utf8");

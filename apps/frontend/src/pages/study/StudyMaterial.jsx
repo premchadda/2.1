@@ -586,7 +586,7 @@ function StudyMaterial() {
                   return (
                     <div
                       key={groupName}
-                      className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700/80 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all"
+                      className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700/80 p-5 shadow-sm hover:shadow-md transition-all"
                     >
                       {/* Category Container Header */}
                       <div

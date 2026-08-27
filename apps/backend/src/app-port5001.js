@@ -1,4 +1,4 @@
-import express from "express"; // server-boot-v5
+import express from "express"; // server-boot-v6
 import dns from "dns";
 
 // Force IPv4-first DNS resolution (Supabase IPv6 often fails to resolve locally)
@@ -730,6 +730,17 @@ app.use(
     immutable: true,
     etag: true,
   }),
+  // A profile can reference an asset created by a previous deployment. Serve
+  // a deterministic placeholder instead of leaking a noisy 404 to clients.
+  (req, res) => {
+    res
+      .status(200)
+      .type("svg")
+      .set("Cache-Control", "public, max-age=300")
+      .send(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" role="img" aria-label="User avatar"><rect width="80" height="80" rx="40" fill="#e2e8f0"/><circle cx="40" cy="31" r="14" fill="#64748b"/><path d="M16 70c3-14 12-21 24-21s21 7 24 21" fill="#64748b"/></svg>',
+      );
+  },
 );
 
 app.use(

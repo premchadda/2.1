@@ -15,9 +15,28 @@ export default function PracticeTopicTree({
   onQuickStart,
 }) {
   const subjectList = useMemo(() => {
-    if (Array.isArray(tree)) return tree;
-    if (tree?.subjects) return tree.subjects;
-    return subjects || [];
+    const source = Array.isArray(tree)
+      ? tree
+      : tree?.subjects || subjects || [];
+    return source
+      .map((subject) => ({
+        ...subject,
+        chapters: (subject.chapters || [])
+          .map((chapter) => ({
+            ...chapter,
+            topics: (chapter.topics || []).filter(
+              (topic) =>
+                Number(
+                  topic.questionCount ??
+                    topic.question_count ??
+                    topic.count ??
+                    0,
+                ) > 0,
+            ),
+          }))
+          .filter((chapter) => chapter.topics.length > 0),
+      }))
+      .filter((subject) => subject.chapters.length > 0);
   }, [tree, subjects]);
 
   const [activeSubjectId, setActiveSubjectId] = useState(null);
@@ -90,7 +109,7 @@ export default function PracticeTopicTree({
 
       {/* Subject Navigation Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        {subjects.map((sub) => {
+        {subjectList.map((sub) => {
           const isActive = (currentSubject?.id || subjects[0]?.id) === sub.id;
           return (
             <button
@@ -122,9 +141,9 @@ export default function PracticeTopicTree({
         })}
       </div>
 
-      {/* Chapter & Topic Grid */}
+      {/* Chapter & Topic List: one full-width card per row */}
       {filteredChapters.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 gap-5">
           {filteredChapters.map((chapter) => (
             <div
               key={chapter.id}
@@ -142,7 +161,12 @@ export default function PracticeTopicTree({
                     </h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                       {chapter.topics?.length || 0} Topics •{" "}
-                      {chapter.totalQuestions || 0} Questions
+                      {(chapter.topics || []).reduce(
+                        (total, topic) =>
+                          total + Number(topic.questionCount || 0),
+                        0,
+                      )}{" "}
+                      Questions
                     </p>
                   </div>
                 </div>
@@ -216,7 +240,7 @@ export default function PracticeTopicTree({
 
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                          {topic.questionCount || 20} Qs
+                          {topic.questionCount ?? 0} Qs
                         </span>
                         <div className="w-6 h-6 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all">
                           <ChevronRight className="w-3.5 h-3.5" />

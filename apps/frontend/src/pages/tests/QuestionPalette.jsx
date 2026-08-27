@@ -142,49 +142,87 @@ function QuestionPalette({
 
             {/* Metric / Status Legend Bar */}
             <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-3 shrink-0">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 px-1 font-bold text-gray-700 dark:text-gray-300 shadow-sm">
-                    {stats.notVisited}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
-                    Not Visited
-                  </span>
+              {reviewMode ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">
+                      {stats.correct}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Correct Attempt
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1 font-bold text-white shadow-sm">
+                      {stats.wrong}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Wrong Attempt
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                      {stats.skipped}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Skipped
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                      {stats.review}
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-purple-500 border border-white dark:border-gray-800" />
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Marked for Review
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1 font-bold text-white shadow-sm">
-                    {stats.notAnswered}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
-                    Not Answered
-                  </span>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                      {stats.notVisited}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Not Visited
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                      {stats.notAnswered}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Not Answered
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">
+                      {stats.answered}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Answered
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
+                      {stats.review}
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Marked
+                    </span>
+                  </div>
+                  <div className="col-span-2 flex items-center gap-1.5 pt-0.5">
+                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
+                      {currentSectionStats.answeredReview}
+                      <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white dark:border-gray-800" />
+                    </span>
+                    <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
+                      Answered & Marked
+                    </span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">
-                    {stats.answered}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
-                    Answered
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
-                    {stats.review}
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
-                    Marked
-                  </span>
-                </div>
-                <div className="col-span-2 flex items-center gap-1.5 pt-0.5">
-                  <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
-                    {currentSectionStats.answeredReview}
-                    <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white dark:border-gray-800" />
-                  </span>
-                  <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
-                    Answered & Marked
-                  </span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* All Sections Scrollable Palette */}
@@ -252,17 +290,38 @@ function QuestionPalette({
                     <div className="grid grid-cols-5 gap-2.5 p-3">
                       {sectionQuestionsWithIdx.map(({ index }) => {
                         const status = getQuestionStatus(index);
+                        const statusLabel = isSecExpired
+                          ? "Expired"
+                          : status === "p-correct" ||
+                              status === "p-correct-review"
+                            ? "Correct Attempt"
+                            : status === "p-wrong" ||
+                                status === "p-wrong-review"
+                              ? "Wrong Attempt"
+                              : status === "p-skipped" ||
+                                  status === "p-skipped-review"
+                                ? "Skipped"
+                                : status === "p-answered"
+                                  ? "Answered"
+                                  : status === "p-not-answered"
+                                    ? "Not Answered"
+                                    : status === "p-review"
+                                      ? "Marked for Review"
+                                      : status === "p-ans-review"
+                                        ? "Answered and Marked"
+                                        : "Not Visited";
                         const statusClass = isSecExpired
                           ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900 text-red-300 dark:text-red-700 cursor-not-allowed opacity-50"
-                          : status === "p-answered"
+                          : status === "p-correct" ||
+                              status === "p-correct-review"
                             ? "bg-green-500 border-green-600 text-white"
-                            : status === "p-not-answered"
+                            : status === "p-wrong" ||
+                                status === "p-wrong-review"
                               ? "bg-red-500 border-red-600 text-white"
-                              : status === "p-review"
+                              : status === "p-review" ||
+                                  status === "p-ans-review"
                                 ? "bg-purple-500 border-purple-600 text-white rounded-full"
-                                : status === "p-ans-review"
-                                  ? "bg-purple-500 border-purple-600 text-white rounded-full"
-                                  : "bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-500 text-gray-700 dark:text-gray-300 hover:border-indigo-400 dark:hover:border-indigo-500";
+                                : "bg-white border-gray-400 text-black hover:border-indigo-500";
 
                         return (
                           <button
@@ -278,7 +337,7 @@ function QuestionPalette({
                               }
                             }}
                             disabled={isSecExpired}
-                            aria-label={`Question ${index + 1}, ${isSecExpired ? "Expired" : status === "p-answered" ? "Answered" : status === "p-not-answered" ? "Not Answered" : status === "p-review" ? "Marked for Review" : status === "p-ans-review" ? "Answered and Marked" : "Not Visited"}`}
+                            aria-label={`Question ${index + 1}, ${statusLabel}`}
                             className={`relative w-9 h-9 sm:w-10 sm:h-10 mx-auto rounded-full border flex items-center justify-center text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer ${statusClass} ${
                               currentQuestion === index
                                 ? "ring-2 ring-blue-600 ring-offset-1 border-blue-600 scale-105 z-10"
@@ -291,8 +350,11 @@ function QuestionPalette({
                             }
                           >
                             {index + 1}
-                            {status === "p-ans-review" && (
-                              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border border-white" />
+                            {(status === "p-ans-review" ||
+                              status === "p-correct-review" ||
+                              status === "p-wrong-review" ||
+                              status === "p-skipped-review") && (
+                              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-purple-500 border border-white" />
                             )}
                           </button>
                         );

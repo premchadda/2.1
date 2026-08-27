@@ -491,7 +491,7 @@ export const DEFAULT_TEST_FORM = {
   totalQuestions: 0,
   totalMarks: 100,
   passingMarks: 33,
-  negativeMarking: 0.25,
+  negativeMarking: 0.5,
   difficulty: "medium",
   type: "mock",
   tags: "",
