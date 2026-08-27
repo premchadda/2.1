@@ -156,7 +156,20 @@ const normalizeQuestion = (q) => ({
   ...q,
   questionText: q.questionText || q.question_text || q.text?.en || q.text || "",
   questionTextHi: q.questionTextHi || q.question_text_hi || "",
-  correctOption: q.correctOption ?? q.correct_option ?? q.correct ?? 0,
+  correctOption:
+    q.correctOption ??
+    q.correct_option ??
+    q.correctAnswer ??
+    q.correct_answer ??
+    q.correct_option_id ??
+    q.correctOptionId ??
+    q.correct ??
+    q.answer ??
+    // BUGFIX: never fabricate index 0 (= Option A) when the real answer is
+    // unknown/null — that default was persisted on save, silently rewriting
+    // questions to "first option correct". Surface as null instead so the
+    // audit/missing-answer guards and preview render truthful state.
+    null,
   negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0,
   options: Array.isArray(q.options) ? q.options : q.options?.en || [],
   optionsHi: q.optionsHi || q.options_hi || [],
@@ -353,7 +366,9 @@ const DEFAULT_FORM_DATA = {
   negativeMarks: 0.5,
   options: ["", "", "", ""],
   optionsHi: [],
-  correctOption: 0,
+  // BUGFIX: null (not 0) — requires an explicit correct-option choice;
+  // save is blocked otherwise. See handle-save guard.
+  correctOption: null,
   explanation: "",
   status: "draft",
   tags: [],
@@ -1666,6 +1681,19 @@ function QuestionsManager() {
         questionNumber: data.questionNumber || null,
       };
 
+      // BUGFIX (first-option-marked-correct): reject saves where no correct
+      // option is actually selected instead of coercing null/"" into index 0.
+      if (
+        data.type !== "msq" &&
+        (data.correctOption === null ||
+          data.correctOption === undefined ||
+          data.correctOption === "")
+      ) {
+        toast.error("Select the correct option before saving");
+        setSaving(false);
+        return;
+      }
+
       // If editing, preserve existing test association from form data
       if (editingId) {
         if (data.testId) {
@@ -2173,7 +2201,14 @@ function QuestionsManager() {
             ...q,
             questionText: q.questionText || q.question_text || "",
             questionTextHi: q.questionTextHi || "",
-            correctOption: q.correctOption ?? 0,
+            // BUGFIX: was `?? 0` — restored questions came back with Option A
+            // falsely marked correct whenever the field needed alias mapping.
+            correctOption:
+              q.correctOption ??
+              q.correct_option ??
+              q.correctAnswer ??
+              q.correct_answer ??
+              null,
             negativeMarks: q.negativeMarks ?? 0,
             options: Array.isArray(q.options) ? q.options : [],
             optionsHi: q.optionsHi || q.options_hi || [],

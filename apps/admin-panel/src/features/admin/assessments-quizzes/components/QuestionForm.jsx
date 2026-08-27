@@ -332,7 +332,9 @@ export default function QuestionForm({
                             ...formData,
                             type: nt,
                             options: ["True", "False"],
-                            correctOption: 0,
+                            // BUGFIX: force explicit choice instead of
+                            // pre-ticking "True" (first option).
+                            correctOption: null,
                           });
                         } else if (nt === "msq") {
                           setFormData({
@@ -352,7 +354,8 @@ export default function QuestionForm({
                             options: formData.options?.length
                               ? formData.options
                               : ["", "", "", ""],
-                            correctOption: 0,
+                            // BUGFIX: no silent Option-A default on type switch.
+                            correctOption: null,
                           });
                         }
                       }}

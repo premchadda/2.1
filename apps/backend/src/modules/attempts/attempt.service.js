@@ -1,9 +1,19 @@
 import { AttemptRepository } from "./attempt.repository.js";
 import { TestRepository } from "../tests/test.repository.js";
 import { QuestionRepository } from "../questions/question.repository.js";
-import { addJob, QUEUE_NAMES } from "../../infrastructure/queue/queueManager.js";
+import {
+  addJob,
+  QUEUE_NAMES,
+} from "../../infrastructure/queue/queueManager.js";
 import { emitDomainEvent } from "../../infrastructure/events/eventBus.js";
-import { dbHelpers, pool } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  dbHelpers,
+  pool,
+} from "../../infrastructure/database/postgres-helpers.js";
+import {
+  resolveQuestionMarks,
+  scoreMcqAnswer,
+} from "../../shared/utils/scoreAttempt.js";
 
 const repo = new AttemptRepository();
 const testRepo = new TestRepository();
@@ -25,7 +35,9 @@ export const attemptService = {
 
     const attemptCount = await repo.countByUserAndTest(userId, test.id);
     if (attemptCount >= ATTEMPT_LIMITS.FREE_MAX) {
-      throw new Error("Attempt limit reached. Upgrade to Pro for unlimited attempts.");
+      throw new Error(
+        "Attempt limit reached. Upgrade to Pro for unlimited attempts.",
+      );
     }
 
     const questions = await testRepo.getQuestions(test.id);
@@ -42,14 +54,19 @@ export const attemptService = {
       startedAt: new Date().toISOString(),
     });
 
-    await addJob(QUEUE_NAMES.ANALYTICS, "analytics.test-started", { userId, testId: test.id, attemptId: attempt.id });
+    await addJob(QUEUE_NAMES.ANALYTICS, "analytics.test-started", {
+      userId,
+      testId: test.id,
+      attemptId: attempt.id,
+    });
 
     return { attempt, resumed: false };
   },
 
   async saveProgress(userId, attemptId, data) {
     const attempt = await repo.findById(attemptId);
-    if (!attempt || attempt.userId !== userId) throw new Error("Attempt not found");
+    if (!attempt || attempt.userId !== userId)
+      throw new Error("Attempt not found");
 
     await repo.update(attemptId, {
       answers: data.answers || attempt.answers,
@@ -65,18 +82,26 @@ export const attemptService = {
 
   async pause(userId, attemptId) {
     const attempt = await repo.findById(attemptId);
-    if (!attempt || attempt.userId !== userId) throw new Error("Attempt not found");
+    if (!attempt || attempt.userId !== userId)
+      throw new Error("Attempt not found");
     return repo.update(attemptId, { status: "paused" });
   },
 
   async resume(userId, attemptId) {
     const attempt = await repo.findById(attemptId);
-    if (!attempt || attempt.userId !== userId) throw new Error("Attempt not found");
+    if (!attempt || attempt.userId !== userId)
+      throw new Error("Attempt not found");
     return repo.update(attemptId, { status: "in_progress" });
   },
 
   async submit(userId, testId, data) {
-    const { answers = [], timeSpent = 0, attemptId, markedForReview, sectionTimers } = data;
+    const {
+      answers = [],
+      timeSpent = 0,
+      attemptId,
+      markedForReview,
+      sectionTimers,
+    } = data;
 
     const test = await testRepo.findByIdentifier(testId);
     if (!test) throw new Error("Test not found");
@@ -84,46 +109,106 @@ export const attemptService = {
     const questions = await testRepo.getQuestions(test.id);
     const totalQuestions = questions.length;
     const totalMarks = Number(test.totalMarks ?? totalQuestions * 2);
-    const fallbackMarksPerQ = totalQuestions > 0 ? totalMarks / totalQuestions : 1;
-    const testNegativeMarking = Number(test.negativeMarking ?? test.negativeMarks ?? 0.25);
+    const fallbackMarksPerQ =
+      totalQuestions > 0 ? totalMarks / totalQuestions : 2;
+    const testNegRaw = Number(
+      test.negativeMarking ?? test.negativeMarks ?? test.negative_marks ?? 0,
+    );
+    const testNegativeMarking =
+      testNegRaw > 0
+        ? testNegRaw
+        : fallbackMarksPerQ === 2
+          ? 0.5
+          : fallbackMarksPerQ * 0.25;
 
-    let correct = 0, wrong = 0, unattempted = 0, totalScore = 0;
+    let correct = 0,
+      wrong = 0,
+      unattempted = 0,
+      totalScore = 0;
     const evaluatedAnswers = [];
 
     for (const question of questions) {
-      const answer = answers.find((a) => String(a.questionId) === String(question.id));
-      const selectedOption = answer?.selectedOption !== undefined && answer?.selectedOption !== null
-        ? Number(answer.selectedOption) : null;
-      const correctOption = Number(question.correct_answer ?? question.correctOption ?? question.correct_option ?? -1);
+      const answer = answers.find(
+        (a) => String(a.questionId) === String(question.id),
+      );
+      const selectedOption =
+        answer?.selectedOption !== undefined && answer?.selectedOption !== null
+          ? Number(answer.selectedOption)
+          : null;
+      const rawCorrect =
+        question.correct_option ??
+        question.correctOption ??
+        question.correct_answer ??
+        question.correct;
+      let correctIndex = -1;
+      if (
+        rawCorrect !== undefined &&
+        rawCorrect !== null &&
+        rawCorrect !== ""
+      ) {
+        const asNum = Number(rawCorrect);
+        if (Number.isFinite(asNum)) {
+          correctIndex = asNum;
+        } else {
+          // Legacy imports sometimes store letters ("A".."D") or full option
+          // text. Letters map deterministically; anything else stays -1
+          // (scored wrong) instead of silently collapsing to 0 / Option A.
+          const s = String(rawCorrect).trim();
+          const m = s.match(/^[A-Da-d]$/);
+          correctIndex = m ? s.toUpperCase().charCodeAt(0) - 65 : -1;
+        }
+      }
+      const correctOption = correctIndex;
 
-      const qMarks = Number(question.marks ?? question.junction_marks ?? fallbackMarksPerQ);
-      const qNegMarks = Number(question.negative_marks ?? question.junction_neg_marks ?? question.negMarks ?? testNegativeMarking);
-      const questionType = (question.question_type ?? question.questionType ?? question.type ?? 'mcq').toLowerCase();
+      const { positive: qMarks, negative: qNegMarks } = resolveQuestionMarks(
+        question,
+        {
+          marksPerQuestion: fallbackMarksPerQ,
+          negativeMarking: testNegativeMarking,
+        },
+      );
+      const questionType = (
+        question.question_type ??
+        question.questionType ??
+        question.type ??
+        "mcq"
+      ).toLowerCase();
 
       let isCorrect = false;
       let isWrong = false;
 
       if (selectedOption === null) {
         unattempted++;
-      } else if (questionType === 'msq' && Array.isArray(question.options)) {
+      } else if (questionType === "msq" && Array.isArray(question.options)) {
         const correctOptions = question.options
-          .map((opt, idx) => (opt?.isCorrect || opt?.is_correct || opt?.correct) ? idx : -1)
-          .filter(idx => idx >= 0);
-        const selectedArr = Array.isArray(selectedOption) ? selectedOption : [selectedOption];
+          .map((opt, idx) =>
+            opt?.isCorrect || opt?.is_correct || opt?.correct ? idx : -1,
+          )
+          .filter((idx) => idx >= 0);
+        const selectedArr = Array.isArray(selectedOption)
+          ? selectedOption
+          : [selectedOption];
         const selectedSet = new Set(selectedArr);
         const correctSet = new Set(correctOptions);
 
-        const allCorrectSelected = correctOptions.every(idx => selectedSet.has(idx));
-        const noWrongSelected = selectedArr.every(idx => correctSet.has(idx));
+        const allCorrectSelected = correctOptions.every((idx) =>
+          selectedSet.has(idx),
+        );
+        const noWrongSelected = selectedArr.every((idx) => correctSet.has(idx));
 
-        if (allCorrectSelected && noWrongSelected && selectedArr.length === correctOptions.length) {
+        if (
+          allCorrectSelected &&
+          noWrongSelected &&
+          selectedArr.length === correctOptions.length
+        ) {
           isCorrect = true;
           correct++;
           totalScore += qMarks;
         } else if (noWrongSelected && selectedArr.length > 0) {
-          const partialCount = selectedArr.filter(idx => correctSet.has(idx)).length;
+          const partialCount = selectedArr.filter((idx) =>
+            correctSet.has(idx),
+          ).length;
           const partial = qMarks * (partialCount / correctOptions.length);
-          correct += 0.5;
           totalScore += partial;
         } else {
           isWrong = true;
@@ -131,12 +216,19 @@ export const attemptService = {
           totalScore -= qNegMarks;
         }
       } else {
-        isCorrect = selectedOption !== null && selectedOption === correctOption;
-        isWrong = selectedOption !== null && selectedOption !== correctOption;
+        const scored = scoreMcqAnswer({
+          selectedOption,
+          correctOption,
+          positive: qMarks,
+          negative: qNegMarks,
+        });
 
-        if (isCorrect) { correct++; totalScore += qMarks; }
-        else if (isWrong) { wrong++; totalScore -= qNegMarks; }
-        else { unattempted++; }
+        isCorrect = scored.isCorrect;
+        isWrong = scored.isWrong;
+        correct += scored.correct;
+        wrong += scored.wrong;
+        unattempted += scored.unattempted;
+        totalScore += scored.delta;
       }
 
       evaluatedAnswers.push({
@@ -145,12 +237,13 @@ export const attemptService = {
         isCorrect,
         isWrong,
         timeSpent: answer?.timeSpent || 0,
-        marks: isCorrect ? qMarks : (isWrong ? -qNegMarks : 0),
+        marks: isCorrect ? qMarks : isWrong ? -qNegMarks : 0,
       });
     }
 
     const score = Number(totalScore.toFixed(2));
-    const accuracy = (correct + wrong) > 0 ? (correct / (correct + wrong)) * 100 : 0;
+    const accuracy =
+      correct + wrong > 0 ? (correct / (correct + wrong)) * 100 : 0;
 
     const attemptData = {
       userId,
@@ -192,18 +285,37 @@ export const attemptService = {
       if (sectionTimers) {
         const sectionScores = {};
         for (const [sectionId, timer] of Object.entries(sectionTimers)) {
-          const sectionQuestions = questions.filter((q) => String(q.section_id) === String(sectionId));
+          const sectionQuestions = questions.filter(
+            (q) => String(q.section_id) === String(sectionId),
+          );
           const secCorrect = evaluatedAnswers.filter(
-            (a) => a.isCorrect && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
+            (a) =>
+              a.isCorrect &&
+              sectionQuestions.some(
+                (sq) => String(sq.id) === String(a.questionId),
+              ),
           ).length;
           const secWrong = evaluatedAnswers.filter(
-            (a) => a.isWrong && sectionQuestions.some((sq) => String(sq.id) === String(a.questionId))
+            (a) =>
+              a.isWrong &&
+              sectionQuestions.some(
+                (sq) => String(sq.id) === String(a.questionId),
+              ),
           ).length;
-          const secUnattempted = sectionQuestions.length - secCorrect - secWrong;
+          const secUnattempted =
+            sectionQuestions.length - secCorrect - secWrong;
           const secScore = evaluatedAnswers
-            .filter((a) => sectionQuestions.some((sq) => String(sq.id) === String(a.questionId)))
+            .filter((a) =>
+              sectionQuestions.some(
+                (sq) => String(sq.id) === String(a.questionId),
+              ),
+            )
             .reduce((sum, a) => sum + (a.marks || 0), 0);
-          const secTotalMarks = sectionQuestions.reduce((sum, q) => sum + Number(q.marks ?? q.junction_marks ?? fallbackMarksPerQ), 0);
+          const secTotalMarks = sectionQuestions.reduce(
+            (sum, q) =>
+              sum + Number(q.marks ?? q.junction_marks ?? fallbackMarksPerQ),
+            0,
+          );
           sectionScores[sectionId] = {
             score: Number(secScore.toFixed(2)),
             totalMarks: secTotalMarks,
@@ -224,13 +336,15 @@ export const attemptService = {
       client.release();
     }
 
-    await emitDomainEvent('test_submitted', {
-      userId, testId: test.id, attemptId: attempt.id,
+    await emitDomainEvent("test_submitted", {
+      userId,
+      testId: test.id,
+      attemptId: attempt.id,
       title: "Test Submitted",
       message: `Your ${test.title} result is ready`,
       // Flag live-test submissions so the WS layer can scope leaderboard
       // refreshes to actual live tests (same check as test.routes.js).
-      source: (test.isLive || test.is_live) ? 'live-tests' : undefined,
+      source: test.isLive || test.is_live ? "live-tests" : undefined,
     });
 
     return attempt;
