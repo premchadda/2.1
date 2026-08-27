@@ -12,7 +12,7 @@
     "dev": "turbo dev",
     "dev:seq": "node scripts/dev-sequential.mjs",
     "dev:ordered": "node scripts/dev-sequential.mjs",
-    "build": "echo 'Build completed'",
+    "build": "turbo build",
     "build:all": "turbo build",
     "test": "turbo test",
     "lint": "turbo lint",
