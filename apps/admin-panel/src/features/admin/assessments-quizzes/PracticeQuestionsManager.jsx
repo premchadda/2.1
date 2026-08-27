@@ -60,7 +60,9 @@ const DEFAULT_FORM_DATA = {
   negativeMarks: 0.5,
   options: ["", "", "", ""],
   optionsHi: ["", "", "", ""],
-  correctOption: 0,
+  // BUGFIX: null (not 0) — save guard now requires an explicit correct-option
+  // choice instead of silently defaulting to Option A.
+  correctOption: null,
   explanation: "",
   explanationHi: "",
   hint: "",
@@ -411,7 +413,16 @@ export default function PracticeQuestionsManager() {
   };
 
   const handleOpenEditModal = (q) => {
-    const rawCorrect = q.correctOption ?? q.correct_option ?? 0;
+    const rawCorrect =
+      q.correctOption ??
+      q.correct_option ??
+      q.correctAnswer ??
+      q.correct_answer ??
+      q.correct_option_id ??
+      q.correctOptionId ??
+      q.correct ??
+      q.answer ??
+      0;
     setEditingQuestion(q);
     setFormData({
       questionText: q.questionText || q.question_text || q.text || "",
@@ -452,7 +463,16 @@ export default function PracticeQuestionsManager() {
   };
 
   const handleDuplicateQuestion = (q) => {
-    const rawCorrect = q.correctOption ?? q.correct_option ?? 0;
+    const rawCorrect =
+      q.correctOption ??
+      q.correct_option ??
+      q.correctAnswer ??
+      q.correct_answer ??
+      q.correct_option_id ??
+      q.correctOptionId ??
+      q.correct ??
+      q.answer ??
+      0;
     setEditingQuestion(null);
     setFormData({
       questionText:
@@ -527,6 +547,19 @@ export default function PracticeQuestionsManager() {
       }
     }
 
+    // BUGFIX (first-option-marked-correct): block MCQ saves with no answer
+    // selected rather than letting it persist as index 0 (Option A).
+    if (
+      formData.type !== "msq" &&
+      (formData.correctOption === null ||
+        formData.correctOption === undefined ||
+        formData.correctOption === "" ||
+        !Number.isInteger(Number(formData.correctOption)))
+    ) {
+      toast.error("Select the correct option before saving");
+      return;
+    }
+
     setSaving(true);
     const rawMarks = Number(formData.marks);
     const rawNeg = Number(formData.negativeMarks);
@@ -540,7 +573,13 @@ export default function PracticeQuestionsManager() {
           ? Array.isArray(formData.correctOption)
             ? formData.correctOption
             : [Number(formData.correctOption)]
-          : Number(formData.correctOption) || 0,
+          : // BUGFIX: `Number(x) || 0` coerced missing/invalid answers to
+            // Option A. Null is sent instead and blocked by the guard below.
+            formData.correctOption === null ||
+              formData.correctOption === undefined ||
+              formData.correctOption === ""
+            ? null
+            : Number(formData.correctOption),
       marks: Number.isFinite(rawMarks) ? rawMarks : 2,
       negativeMarks: Number.isFinite(rawNeg) ? rawNeg : 0,
     };
@@ -805,7 +844,15 @@ export default function PracticeQuestionsManager() {
       q.type || "mcq",
       q.difficulty || "medium",
       q.marks || 2,
-      q.correctOption ?? q.correct_option ?? 0,
+      q.correctOption ??
+        q.correct_option ??
+        q.correctAnswer ??
+        q.correct_answer ??
+        q.correct_option_id ??
+        q.correctOptionId ??
+        q.correct ??
+        q.answer ??
+        0,
       `"${(q.options?.[0] || "").replace(/"/g, '""')}"`,
       `"${(q.options?.[1] || "").replace(/"/g, '""')}"`,
       `"${(q.options?.[2] || "").replace(/"/g, '""')}"`,
@@ -1248,7 +1295,16 @@ export default function PracticeQuestionsManager() {
                     DIFFICULTY_LEVELS.find((d) => d.value === diff) ||
                     DIFFICULTY_LEVELS[1];
                   const optList = Array.isArray(q.options) ? q.options : [];
-                  const correctIdx = q.correctOption ?? q.correct_option ?? 0;
+                  const correctIdx =
+                    q.correctOption ??
+                    q.correct_option ??
+                    q.correctAnswer ??
+                    q.correct_answer ??
+                    q.correct_option_id ??
+                    q.correctOptionId ??
+                    q.correct ??
+                    q.answer ??
+                    0;
 
                   return (
                     <tr

@@ -158,8 +158,16 @@ export const sectionValueMatches = (section, value) => {
 export const normalizeQuestion = (q) => ({
   ...q,
   questionText: q.questionText || q.question_text || q.text?.en || q.text || "",
-  questionTextHi: q.questionTextHi || q.question_text_hi || "",
-  correctOption: q.correctOption ?? q.correct_option ?? q.correct ?? 0,
+  correctOption:
+    q.correctOption ??
+    q.correct_option ??
+    q.correctAnswer ??
+    q.correct_answer ??
+    q.correct_option_id ??
+    q.correctOptionId ??
+    q.correct ??
+    q.answer ??
+    0,
   negativeMarks: q.negativeMarks ?? q.negative_marks ?? 0,
   options: Array.isArray(q.options) ? q.options : q.options?.en || [],
   optionsHi: q.optionsHi || q.options_hi || [],
@@ -455,7 +463,10 @@ export const DEFAULT_FORM_DATA = {
   negativeMarks: 0.5,
   options: ["", "", "", ""],
   optionsHi: [],
-  correctOption: 0,
+  // BUGFIX: was 0 — forced Option A unless the author actively changed it,
+  // and forgotten saves persisted that silently. Guard now requires an
+  // explicit choice.
+  correctOption: null,
   explanation: "",
   status: "draft",
   tags: [],
