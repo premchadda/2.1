@@ -24,9 +24,13 @@ export const options = {
 };
 
 function getAuthToken() {
+  const password = __ENV.TEST_PASSWORD;
+  if (!password) {
+    console.warn("TEST_PASSWORD environment variable is not set for load test.");
+  }
   const payload = JSON.stringify({
     email: __ENV.TEST_EMAIL || 'admin@trstprep.com',
-    password: __ENV.TEST_PASSWORD || 'admin123',
+    password: password || '',
   });
 
   const res = __ENV.HTTP

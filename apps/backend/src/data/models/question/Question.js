@@ -83,7 +83,10 @@ class Question {
       updatedAt: new Date().toISOString(),
       isActive: data.isActive !== undefined ? data.isActive : true,
       questionNumber: data.questionNumber || 1,
-      correctOption: data.correctOption !== undefined ? data.correctOption : 0,
+      // BUGFIX (first-option-marked-correct): was `: 0` — questions saved
+      // without an explicit answer were persisted as "Option A correct".
+      // NULL keeps the unknown state truthful for the audit module.
+      correctOption: data.correctOption !== undefined ? data.correctOption : null,
       marks: data.marks || 1,
       negativeMarks: data.negativeMarks || 0,
       difficulty: data.difficulty || 'medium'
@@ -149,7 +152,8 @@ class Question {
       updatedAt: now,
       isActive: data.isActive !== undefined ? data.isActive : true,
       questionNumber: data.questionNumber || 1,
-      correctOption: data.correctOption !== undefined ? data.correctOption : 0,
+      // BUGFIX (first-option-marked-correct): was `: 0` — see create().
+      correctOption: data.correctOption !== undefined ? data.correctOption : null,
       marks: data.marks || 1,
       negativeMarks: data.negativeMarks || 0,
       difficulty: data.difficulty || 'medium',

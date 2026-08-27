@@ -324,7 +324,23 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
                 "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-indigo-300";
 
               if (submission && isLearningMode) {
-                if (idx === submission.correctAnswer) {
+                const rawSubmissionCorrect =
+                  submission.correctOption ??
+                  submission.correct_option ??
+                  submission.correct_option_id ??
+                  submission.correctOptionId ??
+                  submission.correctAnswer ??
+                  submission.correct_answer ??
+                  submission.correct ??
+                  submission.answer;
+                const isCorrectOption =
+                  rawSubmissionCorrect !== undefined &&
+                  rawSubmissionCorrect !== null &&
+                  (idx === Number(rawSubmissionCorrect) ||
+                    String.fromCharCode(65 + idx) === String(rawSubmissionCorrect).toUpperCase() ||
+                    String(optText) === String(rawSubmissionCorrect));
+
+                if (isCorrectOption) {
                   optionStyle =
                     "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 text-emerald-900 dark:text-emerald-200 font-semibold";
                 } else if (isSelected && !submission.isCorrect) {

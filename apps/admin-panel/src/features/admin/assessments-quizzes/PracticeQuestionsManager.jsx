@@ -422,7 +422,10 @@ export default function PracticeQuestionsManager() {
       q.correctOptionId ??
       q.correct ??
       q.answer ??
-      0;
+      // BUGFIX (first-option-marked-correct): was `?? 0` — pre-ticked
+      // Option A for questions whose stored answer field was missing,
+      // and a careless save persisted that fabrication.
+      null;
     setEditingQuestion(q);
     setFormData({
       questionText: q.questionText || q.question_text || q.text || "",
@@ -472,7 +475,10 @@ export default function PracticeQuestionsManager() {
       q.correctOptionId ??
       q.correct ??
       q.answer ??
-      0;
+      // BUGFIX (first-option-marked-correct): was `?? 0` — pre-ticked
+      // Option A for questions whose stored answer field was missing,
+      // and a careless save persisted that fabrication.
+      null;
     setEditingQuestion(null);
     setFormData({
       questionText:
@@ -852,7 +858,9 @@ export default function PracticeQuestionsManager() {
         q.correctOptionId ??
         q.correct ??
         q.answer ??
-        0,
+        // BUGFIX (first-option-marked-correct): export an empty cell,
+        // not a fabricated "0" (Option A), when the answer is unknown.
+        "",
       `"${(q.options?.[0] || "").replace(/"/g, '""')}"`,
       `"${(q.options?.[1] || "").replace(/"/g, '""')}"`,
       `"${(q.options?.[2] || "").replace(/"/g, '""')}"`,
@@ -1304,7 +1312,9 @@ export default function PracticeQuestionsManager() {
                     q.correctOptionId ??
                     q.correct ??
                     q.answer ??
-                    0;
+                    // BUGFIX (first-option-marked-correct): was `?? 0` —
+                    // highlighted Option A when the real answer is unknown.
+                    null;
 
                   return (
                     <tr
@@ -1406,6 +1416,12 @@ export default function PracticeQuestionsManager() {
                                     .join(" | ")}
                                 </span>
                               </>
+                            ) : correctIdx === null ||
+                              correctIdx === undefined ||
+                              correctIdx === "" ? (
+                              <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                                Answer not set
+                              </span>
                             ) : (
                               <>
                                 <span>

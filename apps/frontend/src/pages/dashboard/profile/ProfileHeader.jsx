@@ -96,7 +96,7 @@ function ProfileHeader({
             <div className="flex items-start gap-3.5 sm:gap-4">
               <div className="relative flex-shrink-0">
                 <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full p-1 bg-gradient-to-br from-white/40 to-white/10 shadow-xl">
-                  <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800">
+                  <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center">
                     {user.avatar ? (
                       <img
                         loading="lazy"
@@ -104,12 +104,19 @@ function ProfileHeader({
                         src={user.avatar}
                         alt="Profile"
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          if (e.currentTarget.nextSibling) {
+                            e.currentTarget.nextSibling.style.display = "flex";
+                          }
+                        }}
                       />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-xl sm:text-2xl font-black">
-                        {user.name?.[0]?.toUpperCase()}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className={`${user.avatar ? "hidden" : "flex"} w-full h-full items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-xl sm:text-2xl font-black`}
+                    >
+                      {user.name?.[0]?.toUpperCase() || "U"}
+                    </div>
                   </div>
                 </div>
                 <button
@@ -236,7 +243,7 @@ function ProfileHeader({
               <div className="flex items-start gap-4">
                 <div className="relative flex-shrink-0">
                   <div className="w-20 h-20 md:w-24 md:h-24 rounded-full p-1 bg-gradient-to-br from-white/40 via-white/20 to-white/10 shadow-xl">
-                    <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center">
                       {user.avatar ? (
                         <img
                           loading="lazy"
@@ -244,12 +251,19 @@ function ProfileHeader({
                           src={user.avatar}
                           alt="Profile"
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            if (e.currentTarget.nextSibling) {
+                              e.currentTarget.nextSibling.style.display = "flex";
+                            }
+                          }}
                         />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black">
-                          {user.name?.[0]?.toUpperCase()}
-                        </div>
-                      )}
+                      ) : null}
+                      <div
+                        className={`${user.avatar ? "hidden" : "flex"} w-full h-full items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900 dark:to-purple-900 text-indigo-600 dark:text-indigo-300 text-2xl md:text-xl sm:text-2xl lg:text-3xl font-black`}
+                      >
+                        {user.name?.[0]?.toUpperCase() || "U"}
+                      </div>
                     </div>
                   </div>
                   <button

@@ -104,26 +104,37 @@ const isLoopback = (hostname) => {
 
 const sameOriginHost = (originHost, requestHost) => {
   if (!requestHost) return false;
-  // Compare host with and without explicit port. Handle IPv6 bracketed hosts.
-  const normalizeHost = (host) => {
-    if (!host) return "";
-    // Strip port unless it's IPv6 bracketed [::1]:3000
+  if (originHost === requestHost) return true;
+
+  const getPort = (host) => {
     if (host.startsWith("[")) {
       const close = host.indexOf("]");
-      if (close !== -1) {
-        const after = host.slice(close + 1);
-        if (after.startsWith(":")) return host.slice(0, close + 1);
-        return host;
+      if (close !== -1 && host.slice(close + 1).startsWith(":")) {
+        return host.slice(close + 2);
       }
+      return "";
+    }
+    const parts = host.split(":");
+    return parts.length > 1 ? parts[1] : "";
+  };
+
+  const originPort = getPort(originHost);
+  const requestPort = getPort(requestHost);
+  if (originPort && requestPort && originPort !== requestPort) {
+    return false;
+  }
+
+  const normalizeHost = (host) => {
+    if (!host) return "";
+    if (host.startsWith("[")) {
+      const close = host.indexOf("]");
+      if (close !== -1) return host.slice(0, close + 1);
       return host;
     }
     return host.split(":")[0];
   };
-  return (
-    originHost === requestHost ||
-    normalizeHost(originHost) === normalizeHost(requestHost) ||
-    originHost === normalizeHost(requestHost)
-  );
+
+  return normalizeHost(originHost) === normalizeHost(requestHost);
 };
 
 // Resolve origin with Referer fallback for browsers that suppress Origin on same-origin POST

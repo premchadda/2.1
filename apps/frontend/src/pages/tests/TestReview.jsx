@@ -42,7 +42,15 @@ export default function TestReview() {
               id: q.id || q._id || idx,
               question: q.text || q.questionText || q.question || '',
               options: q.options || [],
-              correctOption: q.correctAnswer !== undefined ? q.correctAnswer : (q.correct !== undefined ? q.correct : q.correct_option),
+              correctOption:
+                q.correctOption ??
+                q.correct_option ??
+                q.correct_option_id ??
+                q.correctOptionId ??
+                q.correctAnswer ??
+                q.correct_answer ??
+                q.correct ??
+                q.answer,
               explanation: q.explanation || '',
               section: q.section || q.subject || 'General',
               difficulty: q.difficulty || 'Medium',
@@ -53,10 +61,18 @@ export default function TestReview() {
             const userAnswers = (rawData.questions || []).map((q) => {
               const ans = q.userAnswer ?? q.selectedOption ?? q.user_answer ?? q.userChoice
               const isSkipped = ans === undefined || ans === null || ans === '' || ans === -1
-              const correct = q.correctAnswer !== undefined ? q.correctAnswer : (q.correct !== undefined ? q.correct : q.correct_option)
+              const correct =
+                q.correctOption ??
+                q.correct_option ??
+                q.correct_option_id ??
+                q.correctOptionId ??
+                q.correctAnswer ??
+                q.correct_answer ??
+                q.correct ??
+                q.answer
               return {
                 selectedOption: isSkipped ? null : Number(ans),
-                isCorrect: !isSkipped && Number(ans) === Number(correct),
+                isCorrect: !isSkipped && correct !== undefined && correct !== null && Number(ans) === Number(correct),
                 timeSpent: q.timeTaken || q.timeSpent || 0,
               }
             })
@@ -130,7 +146,8 @@ export default function TestReview() {
   const isOriginalSkipped = userAnswer?.selectedOption === null || userAnswer?.selectedOption === undefined
   const originalChoiceIndex = isOriginalSkipped ? null : Number(userAnswer?.selectedOption)
   const currentResolveChoice = userReSolveAnswers[currentQuestionIndex]
-  const resolvedCorrectOption = Number(currentQuestion?.correctOption)
+  const rawCorrectOpt = currentQuestion?.correctOption ?? currentQuestion?.correctAnswer ?? currentQuestion?.correct_option ?? currentQuestion?.correct
+  const resolvedCorrectOption = rawCorrectOpt !== undefined && rawCorrectOpt !== null && rawCorrectOpt !== '' ? Number(rawCorrectOpt) : null
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
@@ -341,7 +358,7 @@ export default function TestReview() {
                   const optionLetter = String.fromCharCode(65 + index)
                   const isInitialChoice = originalChoiceIndex === index
                   const isCurrentReSolve = currentResolveChoice === index
-                  const isCorrectOption = index === resolvedCorrectOption
+                  const isCorrectOption = resolvedCorrectOption !== null && !isNaN(resolvedCorrectOption) && index === resolvedCorrectOption
                   
                   let optionClass = 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-indigo-300'
                   let badgeText = null

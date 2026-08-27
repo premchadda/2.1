@@ -48,11 +48,19 @@ const renderRoute = (initialPath, routeChildren) => {
 describe("ProtectedRoute", () => {
   beforeEach(() => {
     mockUser.mockReset();
-    mockUser.mockReturnValue({ user: null, loading: false });
+    mockUser.mockReturnValue({
+      user: null,
+      loading: false,
+      authResolved: true,
+    });
   });
 
   test("redirects unauthenticated users to /login", () => {
-    mockUser.mockReturnValue({ user: null, loading: false });
+    mockUser.mockReturnValue({
+      user: null,
+      loading: false,
+      authResolved: true,
+    });
     renderRoute("/admin");
     expect(screen.getByTestId("login")).toBeInTheDocument();
   });
@@ -61,13 +69,18 @@ describe("ProtectedRoute", () => {
     mockUser.mockReturnValue({
       user: { id: 1, role: "admin", permissions: ["*"] },
       loading: false,
+      authResolved: true,
     });
     renderRoute("/admin");
     expect(screen.getByTestId("admin-child")).toBeInTheDocument();
   });
 
   test("blocks non-admin users from adminOnly routes with a Forbidden page", () => {
-    mockUser.mockReturnValue({ user: { id: 2, role: "user" }, loading: false });
+    mockUser.mockReturnValue({
+      user: { id: 2, role: "user" },
+      loading: false,
+      authResolved: true,
+    });
     renderRoute("/admin");
     expect(
       screen.getByRole("heading", { name: /access denied/i }),
@@ -78,6 +91,7 @@ describe("ProtectedRoute", () => {
     mockUser.mockReturnValue({
       user: { id: 1, role: "moderator" },
       loading: false,
+      authResolved: true,
     });
     renderRoute("/admin");
     expect(
@@ -89,6 +103,7 @@ describe("ProtectedRoute", () => {
     mockUser.mockReturnValue({
       user: { id: 1, role: "admin", permissions: ["users:read"] },
       loading: false,
+      authResolved: true,
     });
     render(
       <QueryClientProvider client={queryClient}>
@@ -119,6 +134,7 @@ describe("ProtectedRoute", () => {
         permissions: ["users:write", "users:read"],
       },
       loading: false,
+      authResolved: true,
     });
     render(
       <QueryClientProvider client={queryClient}>

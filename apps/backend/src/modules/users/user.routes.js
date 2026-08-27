@@ -432,7 +432,7 @@ router.put(
       res.json({
         success: true,
         data: {
-          ...sanitizeUser(user),
+          ...sanitizeUser(decryptedUser),
           enrolledSeries,
         },
       });

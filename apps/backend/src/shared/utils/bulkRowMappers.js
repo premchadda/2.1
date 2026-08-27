@@ -67,7 +67,10 @@ const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
   const matches = rows.filter((row) => {
     if (!row) return false;
 
-    if (parentFilters.subjectId !== undefined && parentFilters.subjectId !== null) {
+    if (
+      parentFilters.subjectId !== undefined &&
+      parentFilters.subjectId !== null
+    ) {
       const subjectMatches = [row.subjectId, row.subject_id, row.subject].some(
         (candidate) =>
           candidate !== undefined &&
@@ -77,7 +80,10 @@ const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
       if (!subjectMatches) return false;
     }
 
-    if (parentFilters.chapterId !== undefined && parentFilters.chapterId !== null) {
+    if (
+      parentFilters.chapterId !== undefined &&
+      parentFilters.chapterId !== null
+    ) {
       const chapterMatches = [row.chapterId, row.chapter_id].some(
         (candidate) =>
           candidate !== undefined &&
@@ -87,7 +93,14 @@ const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
       if (!chapterMatches) return false;
     }
 
-    const candidates = [row.name, row.title, row.label, row.slug, row.public_id, row.publicId]
+    const candidates = [
+      row.name,
+      row.title,
+      row.label,
+      row.slug,
+      row.public_id,
+      row.publicId,
+    ]
       .filter(Boolean)
       .map(normalizeLookupValue);
 
@@ -99,22 +112,38 @@ const resolveNamedEntityId = async (table, value, parentFilters = {}) => {
 };
 
 const resolveCorrectOption = (value, options = []) => {
-  if (value === undefined || value === null || value === "") return 0;
+  // BUGFIX (first-option-marked-correct): missing/unresolvable answers
+  // returned 0, silently marking Option A correct on bulk imports.
+  // Return null so the row is stored with an unknown answer and the
+  // audit module can flag it.
+  if (value === undefined || value === null || value === "") return null;
   const str = String(value).trim().toUpperCase();
-  const letterMap = { A: 0, B: 1, C: 2, D: 3, OPTION1: 0, OPTION2: 1, OPTION3: 2, OPTION4: 3 };
+  const letterMap = {
+    A: 0,
+    B: 1,
+    C: 2,
+    D: 3,
+    OPTION1: 0,
+    OPTION2: 1,
+    OPTION3: 2,
+    OPTION4: 3,
+  };
   if (letterMap[str] !== undefined) return letterMap[str];
   const num = Number(value);
   if (Number.isFinite(num)) {
     if (num >= 1 && num <= options.length && options.length > 0) {
       return num - 1;
     }
-    return Math.max(0, num);
+    return num >= 0 ? num : null;
   }
   if (options.length > 0) {
-    const idx = options.findIndex(o => String(o).trim().toLowerCase() === String(value).trim().toLowerCase());
+    const idx = options.findIndex(
+      (o) =>
+        String(o).trim().toLowerCase() === String(value).trim().toLowerCase(),
+    );
     if (idx !== -1) return idx;
   }
-  return 0;
+  return null;
 };
 
 /**
@@ -122,63 +151,125 @@ const resolveCorrectOption = (value, options = []) => {
  * Returns null when required fields (e.g. question text) are missing.
  */
 export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
-  const questionText = row.questionText || row.question_text || row.question || "";
+  const questionText =
+    row.questionText || row.question_text || row.question || "";
   if (!questionText || !String(questionText).trim()) return null;
 
   const questionTextHi = row.questionTextHi || row.question_text_hi || "";
-  const sectionName = getBulkField(row, ["sectionName", "section_name", "section"]);
+  const sectionName = getBulkField(row, [
+    "sectionName",
+    "section_name",
+    "section",
+  ]);
 
   const subjectId = await resolveNamedEntityId(
     "subjects",
-    getBulkField(row, ["subjectId", "subject_id", "subjectName", "subject_name", "subject"]),
+    getBulkField(row, [
+      "subjectId",
+      "subject_id",
+      "subjectName",
+      "subject_name",
+      "subject",
+    ]),
   );
   const chapterId = await resolveNamedEntityId(
     "chapters",
-    getBulkField(row, ["chapterId", "chapter_id", "chapterName", "chapter_name", "chapter"]),
+    getBulkField(row, [
+      "chapterId",
+      "chapter_id",
+      "chapterName",
+      "chapter_name",
+      "chapter",
+    ]),
     subjectId !== null ? { subjectId } : {},
   );
   const topicId = await resolveNamedEntityId(
     "topics",
-    getBulkField(row, ["topicId", "topic_id", "topicName", "topic_name", "topic"]),
-    chapterId !== null ? { chapterId } : subjectId !== null ? { subjectId } : {},
+    getBulkField(row, [
+      "topicId",
+      "topic_id",
+      "topicName",
+      "topic_name",
+      "topic",
+    ]),
+    chapterId !== null
+      ? { chapterId }
+      : subjectId !== null
+        ? { subjectId }
+        : {},
   );
 
   let options = [];
   if (Array.isArray(row.options)) {
-    options = row.options.map(opt => {
-      if (typeof opt === 'object' && opt !== null) {
-        return opt.text || opt.optionText || opt.option || opt.content || opt.value || '';
-      }
-      return String(opt ?? '').trim();
-    }).filter(Boolean);
+    options = row.options
+      .map((opt) => {
+        if (typeof opt === "object" && opt !== null) {
+          return (
+            opt.text ||
+            opt.optionText ||
+            opt.option ||
+            opt.content ||
+            opt.value ||
+            ""
+          );
+        }
+        return String(opt ?? "").trim();
+      })
+      .filter(Boolean);
   } else {
     options = [
       row.optionA || row.option_a || row.option1 || row.option_1 || "",
       row.optionB || row.option_b || row.option2 || row.option_2 || "",
       row.optionC || row.option_c || row.option3 || row.option_3 || "",
       row.optionD || row.option_d || row.option4 || row.option_4 || "",
-    ].map(o => String(o ?? '').trim()).filter(Boolean);
+    ]
+      .map((o) => String(o ?? "").trim())
+      .filter(Boolean);
   }
 
   let optionsHi = [];
   if (Array.isArray(row.optionsHi || row.options_hi)) {
-    optionsHi = (row.optionsHi || row.options_hi).map(opt => {
-      if (typeof opt === 'object' && opt !== null) {
-        return opt.text || opt.optionText || opt.option || opt.content || opt.value || '';
-      }
-      return String(opt ?? '').trim();
-    }).filter(Boolean);
+    optionsHi = (row.optionsHi || row.options_hi)
+      .map((opt) => {
+        if (typeof opt === "object" && opt !== null) {
+          return (
+            opt.text ||
+            opt.optionText ||
+            opt.option ||
+            opt.content ||
+            opt.value ||
+            ""
+          );
+        }
+        return String(opt ?? "").trim();
+      })
+      .filter(Boolean);
   } else {
     optionsHi = [
       row.optionAHi || row.option_a_hi || "",
       row.optionBHi || row.option_b_hi || "",
       row.optionCHi || row.option_c_hi || "",
       row.optionDHi || row.option_d_hi || "",
-    ].map(o => String(o ?? '').trim()).filter(Boolean);
+    ]
+      .map((o) => String(o ?? "").trim())
+      .filter(Boolean);
   }
 
-  const rawCorrect = row.correctOption ?? row.correct_option ?? row.correctAnswer ?? row.correct_answer ?? row.answer ?? 0;
-  const correctOption = resolveCorrectOption(rawCorrect, options);
+  const type = row.type || "mcq";
+  const rawCorrect =
+    row.correctOption ??
+    row.correct_option ??
+    row.correctAnswer ??
+    row.correct_answer ??
+    row.answer;
+  // Numeric/descriptive answers are values, not option indices — pass them
+  // through untouched (they may be negative or free text).
+  const correctOption =
+    type === "numeric" || type === "descriptive"
+      ? rawCorrect === undefined || rawCorrect === null || rawCorrect === ""
+        ? null
+        : rawCorrect
+      : resolveCorrectOption(rawCorrect, options);
 
   const marks = Number(row.marks || row.positive_marking) || config.marks || 1;
   const negMarks =
@@ -203,7 +294,7 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
     negativeMarks: negMarks,
     negative_marks: negMarks,
     difficulty: row.difficulty || "medium",
-    type: row.type || "mcq",
+    type,
     testId: row.testId || row.test_id || config.testId || null,
     test_id: row.testId || row.test_id || config.testId || null,
     testSeriesId:
@@ -218,8 +309,12 @@ export const mapBulkRowToQuestionPayload = async (row, config = {}) => {
     chapterId,
     topicId,
     section: String(sectionName || "").trim(),
-    questionNumber: Number(row.q_order || row.questionNumber || row.question_number) || undefined,
-    question_number: Number(row.q_order || row.questionNumber || row.question_number) || undefined,
+    questionNumber:
+      Number(row.q_order || row.questionNumber || row.question_number) ||
+      undefined,
+    question_number:
+      Number(row.q_order || row.questionNumber || row.question_number) ||
+      undefined,
     isPractice:
       parseBulkBoolean(row.isPractice || row.is_practice) ||
       row.category === "practice" ||
@@ -285,7 +380,9 @@ export const mapBulkRowToTestPayload = (row = {}, config = {}) => {
     return fallback;
   };
 
-  const title = String(get(["title", "name", "test_title", "testtitle"], "")).trim();
+  const title = String(
+    get(["title", "name", "test_title", "testtitle"], ""),
+  ).trim();
   if (!title) return null;
 
   return {
@@ -296,18 +393,35 @@ export const mapBulkRowToTestPayload = (row = {}, config = {}) => {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, ""),
-    seriesId: config.seriesId || String(get(["seriesid", "series_id"]), "") || null,
+    seriesId:
+      config.seriesId || String(get(["seriesid", "series_id"]), "") || null,
     stageId: config.stageId || String(get(["stageid", "stage_id"]), "") || null,
     category: config.category || String(get(["category"]), ""),
     subCategory:
       config.subCategory || String(get(["subcategory", "sub_category"]), ""),
     testCategoryId:
       config.testCategoryId ||
-      String(get(["testcategoryid", "test_category_id", "categoryid", "category_id"]), "") ||
+      String(
+        get([
+          "testcategoryid",
+          "test_category_id",
+          "categoryid",
+          "category_id",
+        ]),
+        "",
+      ) ||
       null,
     test_category_id:
       config.testCategoryId ||
-      String(get(["testcategoryid", "test_category_id", "categoryid", "category_id"]), "") ||
+      String(
+        get([
+          "testcategoryid",
+          "test_category_id",
+          "categoryid",
+          "category_id",
+        ]),
+        "",
+      ) ||
       null,
     categoryPathIds: config.categoryPathIds || [],
     categoryPathNames: config.categoryPathNames || [],
@@ -319,15 +433,22 @@ export const mapBulkRowToTestPayload = (row = {}, config = {}) => {
       get(["iscomingsoon", "is_coming_soon"], config.isComingSoon || false),
     ),
     comingSoonDate:
-      config.comingSoonDate || get(["coming_soon_date", "comingsoondate"], null) || null,
+      config.comingSoonDate ||
+      get(["coming_soon_date", "comingsoondate"], null) ||
+      null,
     duration: Number(get(["duration"], config.duration || 60)) || 60,
     totalQuestions:
-      Number(get(["totalquestions", "total_questions"], config.totalQuestions || 0)) || 0,
-    totalMarks: Number(get(["totalmarks", "total_marks"], config.totalMarks || 0)) || 0,
+      Number(
+        get(["totalquestions", "total_questions"], config.totalQuestions || 0),
+      ) || 0,
+    totalMarks:
+      Number(get(["totalmarks", "total_marks"], config.totalMarks || 0)) || 0,
     passingMarks: Number(get(["passingmarks", "passing_marks"], 0)) || 0,
     negativeMarking:
       Number(get(["negativemarking", "negative_marking"], 0.25)) || 0.25,
-    difficulty: String(get(["difficulty"], config.difficulty || "Medium")).trim(),
+    difficulty: String(
+      get(["difficulty"], config.difficulty || "Medium"),
+    ).trim(),
     bannerAssetId: config.bannerAssetId || null,
     promotionBannerAssetId: config.promotionBannerAssetId || null,
     languages: (() => {
@@ -351,7 +472,8 @@ export const mapBulkRowToTestPayload = (row = {}, config = {}) => {
           : [];
     })(),
     isLive: parseBulkBoolean(get(["islive", "is_live"], false)),
-    subjectId: config.subjectId || String(get(["subjectid", "subject_id"]), "") || null,
+    subjectId:
+      config.subjectId || String(get(["subjectid", "subject_id"]), "") || null,
     description: String(get(["description"], "")).trim(),
     isActive: true,
     createdAt: new Date().toISOString(),

@@ -152,7 +152,13 @@ export default function CommandPalette({ isOpen, onClose }) {
         type: "action",
         keywords: ["portal", "frontend", "student", "site", "live"],
         action: () => {
-          window.open("http://localhost:3000", "_blank", "noopener,noreferrer");
+          const portalUrl =
+            import.meta.env.VITE_STUDENT_PORTAL_URL ||
+            import.meta.env.VITE_FRONTEND_URL ||
+            (import.meta.env.DEV
+              ? "http://localhost:3000"
+              : "https://trstprep.vercel.app");
+          window.open(portalUrl, "_blank", "noopener,noreferrer");
         },
       },
       {

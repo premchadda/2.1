@@ -29,8 +29,27 @@ import {
 import ComingSoon from "../../shared/components/common/ComingSoon";
 import SearchBox from "../../shared/components/common/SearchBox";
 
-// Display order for "Browse by Category" groups (subjects without a group stay standalone/Featured)
-const GROUP_ORDER = ["General Awareness", "General Science"];
+// Display order and metadata for "Browse by Category" groups
+const GROUP_ORDER = [
+  "General Knowledge",
+  "General Science",
+  "Specialized Papers",
+];
+
+const GROUP_META = {
+  "General Knowledge": {
+    icon: "🏛️",
+    gradient: "from-amber-500 to-orange-600",
+  },
+  "General Science": {
+    icon: "🔬",
+    gradient: "from-emerald-500 to-teal-600",
+  },
+  "Specialized Papers": {
+    icon: "📊",
+    gradient: "from-purple-500 to-indigo-600",
+  },
+};
 
 function StudyMaterial() {
   const { user } = useAuth();
@@ -38,7 +57,11 @@ function StudyMaterial() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [_lastUpdated, setLastUpdated] = useState(null);
-  const [expandedGroups, setExpandedGroups] = useState({});
+  const [expandedGroups, setExpandedGroups] = useState({
+    "General Knowledge": true,
+    "General Science": true,
+    "Specialized Papers": true,
+  });
   const [searchTerm, setSearchTerm] = useState("");
   const [studyHistory, setStudyHistory] = useState([]);
   const [popularMaterials, setPopularMaterials] = useState([]);
@@ -530,9 +553,9 @@ function StudyMaterial() {
               </section>
             )}
 
-            {/* Grouped Subject Sections */}
-            <section>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+            {/* Grouped Subject Containers */}
+            <section className="space-y-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
                 <FolderOpen className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                 Browse by Category
               </h2>
@@ -546,7 +569,11 @@ function StudyMaterial() {
                   return ia - ib;
                 })
                 .map(([groupName, groupSubs]) => {
-                  const isExpanded = expandedGroups[groupName];
+                  const isExpanded = expandedGroups[groupName] !== false;
+                  const meta = GROUP_META[groupName] || {
+                    icon: "📚",
+                    gradient: "from-indigo-500 to-purple-600",
+                  };
                   const totalChapters = groupSubs.reduce(
                     (s, sub) => s + (sub.chapters || 0),
                     0,
@@ -557,36 +584,42 @@ function StudyMaterial() {
                   );
 
                   return (
-                    <div key={groupName} className="mb-6">
-                      {/* Group Header */}
-                      <button
+                    <div
+                      key={groupName}
+                      className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700/80 p-5 sm:p-6 shadow-sm hover:shadow-md transition-all"
+                    >
+                      {/* Category Container Header */}
+                      <div
                         onClick={() => toggleGroup(groupName)}
-                        className="w-full flex items-center justify-between bg-white dark:bg-gray-800 rounded-2xl p-3 border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group"
+                        className="flex items-center justify-between cursor-pointer select-none group"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
-                            <FolderOpen className="w-6 h-6 text-white" />
+                        <div className="flex items-center gap-3.5 sm:gap-4">
+                          <div
+                            className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br ${meta.gradient} flex items-center justify-center text-xl shadow-md text-white flex-shrink-0 group-hover:scale-105 transition-transform`}
+                          >
+                            {meta.icon}
                           </div>
-                          <div className="text-left">
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                          <div>
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white group-hover:text-brand-start transition-colors">
                               {groupName}
-                            </h2>
-                            <p className="text-gray-500 dark:text-gray-400 text-[10px] font-medium mt-0.5">
-                              {groupSubs.length} subjects • {totalChapters}{" "}
-                              chapters • {totalVideos} videos
+                            </h3>
+                            <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
+                              {groupSubs.length} subjects • {totalChapters} chapters • {totalVideos} videos
                             </p>
                           </div>
                         </div>
                         <div
-                          className={`w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-900 flex items-center justify-center transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+                          className={`w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center transition-transform duration-300 ${
+                            isExpanded ? "rotate-180" : ""
+                          }`}
                         >
-                          <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-400" />
                         </div>
-                      </button>
+                      </div>
 
-                      {/* Group Content - Sub-subject Cards */}
+                      {/* Subject Cards inside Container */}
                       {isExpanded && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pl-0 animate-slide-in-up">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-5 mt-4 border-t border-gray-100 dark:border-gray-700/60 animate-slide-in-up">
                           {groupSubs.map((subject, idx) => (
                             <SubjectCard
                               key={

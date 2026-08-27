@@ -209,8 +209,25 @@ export default function PracticeWorkspace({ session, onComplete }) {
             let style =
               "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50";
 
+            const rawCheckCorrect =
+              checkResult?.correctOption ??
+              checkResult?.correct_option ??
+              checkResult?.correct_option_id ??
+              checkResult?.correctOptionId ??
+              checkResult?.correctAnswer ??
+              checkResult?.correct_answer ??
+              checkResult?.correct ??
+              checkResult?.answer;
+            const isCorrectOption =
+              isChecked &&
+              rawCheckCorrect !== undefined &&
+              rawCheckCorrect !== null &&
+              (optKey === String(rawCheckCorrect).toUpperCase() ||
+                i === Number(rawCheckCorrect) ||
+                (typeof opt === "object" ? opt.text === String(rawCheckCorrect) : String(opt) === String(rawCheckCorrect)));
+
             if (isChecked) {
-              if (optKey === checkResult?.correctAnswer) {
+              if (isCorrectOption) {
                 style =
                   "border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold";
               } else if (isSelected) {

@@ -313,13 +313,11 @@ export default function Leaderboard() {
       1,
       Math.min(100, Math.round((rankNum / totalParticipants) * 100)),
     );
-    const percentile = Math.max(
-      0,
-      Math.min(
-        100,
-        Math.round(((totalParticipants - userIndex) / totalParticipants) * 100),
-      ),
-    );
+    // Align with backend leaderboardService: ((total - rank) / (total - 1)) * 100
+    const percentile =
+      totalParticipants > 1
+        ? Math.round(((totalParticipants - rankNum) / (totalParticipants - 1)) * 100)
+        : 100;
 
     const usersAbove = rankings.slice(0, userIndex);
     const avgScoreAbove =
@@ -380,9 +378,9 @@ export default function Leaderboard() {
     return perfData.subjectWise.map((s) => ({
       subject: s.name,
       solved: s.attempted || 0,
-      avgPeer: Math.round((s.attempted || 0) * 0.8),
+      avgPeer: s.peerAttempted ?? s.avgPeer ?? null,
       accuracy: s.accuracy || 0,
-      peerAccuracy: Math.round((s.accuracy || 0) * 0.9),
+      peerAccuracy: s.peerAccuracy ?? null,
     }));
   }, [perfData]);
 
@@ -390,7 +388,7 @@ export default function Leaderboard() {
     return practiceSubjects.map((s) => ({
       subject: (s.subject || "").split(" ")[0].substring(0, 8),
       you: s.accuracy,
-      peer: s.peerAccuracy,
+      peer: s.peerAccuracy ?? 0,
     }));
   }, [practiceSubjects]);
 
@@ -1190,9 +1188,9 @@ export default function Leaderboard() {
                 rows={practiceSubjects.map((s) => [
                   s.subject,
                   s.solved,
-                  s.avgPeer,
+                  s.avgPeer != null ? s.avgPeer : "—",
                   `${s.accuracy}%`,
-                  `${s.peerAccuracy}%`,
+                  s.peerAccuracy != null ? `${s.peerAccuracy}%` : "—",
                 ])}
                 filename="practice-breakdown"
               />
@@ -1209,7 +1207,7 @@ export default function Leaderboard() {
                         {s.subject}
                       </p>
                       <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
-                        {s.solved} solved • peer avg {s.avgPeer}
+                        {s.solved} solved {s.avgPeer != null ? `• peer avg ${s.avgPeer}` : ""}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1222,14 +1220,14 @@ export default function Leaderboard() {
                               fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
-                            {s.solved} vs {s.avgPeer}
+                            {s.avgPeer != null ? `${s.solved} vs ${s.avgPeer}` : s.solved}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
                           <div
                             className="h-full bg-indigo-600"
                             style={{
-                              width: `${Math.min(100, (s.solved / Math.max(1, s.avgPeer * 1.6)) * 100)}%`,
+                              width: `${Math.min(100, (s.solved / Math.max(1, (s.avgPeer || s.solved) * 1.6)) * 100)}%`,
                             }}
                           />
                         </div>
@@ -1243,7 +1241,7 @@ export default function Leaderboard() {
                               fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
-                            {s.accuracy}% vs {s.peerAccuracy}%
+                            {s.peerAccuracy != null ? `${s.accuracy}% vs ${s.peerAccuracy}%` : `${s.accuracy}%`}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">

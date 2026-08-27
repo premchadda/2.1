@@ -41,7 +41,14 @@ const LiveTestResults = () => {
   const totalMarks = result.totalMarks || 0
   const totalQuestions = result.totalQuestions || 0
   const scorePercentage = totalMarks > 0 ? Math.round((result.score / totalMarks) * 100) : 0
-  const accuracy = totalQuestions > 0 ? Math.round((result.correct / totalQuestions) * 100) : 0
+  const attempted =
+    Number(result.correct || 0) + Number(result.wrong || result.incorrect || 0)
+  const accuracy =
+    typeof result.accuracy === "number" && !Number.isNaN(result.accuracy)
+      ? Math.round(result.accuracy)
+      : attempted > 0
+        ? Math.round((Number(result.correct || 0) / attempted) * 100)
+        : 0
 
   return (
     <div className="test-results-container">

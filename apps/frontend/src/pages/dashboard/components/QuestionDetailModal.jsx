@@ -166,10 +166,11 @@ export default function QuestionDetailModal({
   // Normalize Correct Answer
   const getCorrectKey = () => {
     const rawAns =
-      item.correct_answer ||
-      item.correctAnswer ||
-      item.correct_option ||
-      item.correctOption ||
+      item.correct_answer ??
+      item.correctAnswer ??
+      item.correct_option ??
+      item.correctOption ??
+      item.correct ??
       item.answer;
     if (rawAns === undefined || rawAns === null) return null;
     const str = String(rawAns).trim();
@@ -177,12 +178,10 @@ export default function QuestionDetailModal({
     // Check if directly a letter (A, B, C, D)
     if (/^[A-Da-d]$/.test(str)) return str.toUpperCase();
 
-    // Check if 0-indexed integer (0 -> A, 1 -> B)
+    // Check if 0-indexed integer (0 -> A, 1 -> B, 2 -> C, 3 -> D)
     const num = parseInt(str, 10);
-    if (!isNaN(num) && num >= 0 && num < 10) {
-      if (num >= 1 && num <= 4 && optionsList.length <= 4) {
-        return String.fromCharCode(64 + num);
-      }
+    if (!isNaN(num) && num >= 0) {
+      if (optionsList[num]?.key) return optionsList[num].key;
       return String.fromCharCode(65 + num);
     }
 

@@ -60,8 +60,14 @@ export const getLocalizedField = (field, lang = 'en') => {
   }
 
   if (typeof field === 'object') {
+    const isPresent = (val) => {
+      if (val === null || val === undefined) return false
+      if (Array.isArray(val)) return val.length > 0
+      return String(val).trim() !== ''
+    }
+
     const preferred = field[lang]
-    if (preferred !== null && preferred !== undefined && (Array.isArray(preferred) || String(preferred).trim() !== '')) {
+    if (isPresent(preferred)) {
       if (Array.isArray(preferred)) {
         return preferred.map((item) => getLocalizedField(item, lang))
       }
@@ -69,7 +75,7 @@ export const getLocalizedField = (field, lang = 'en') => {
     }
 
     const fallback = lang === 'hi' ? field.en : field.hi
-    if (fallback !== null && fallback !== undefined && (Array.isArray(fallback) || String(fallback).trim() !== '')) {
+    if (isPresent(fallback)) {
       if (Array.isArray(fallback)) {
         return fallback.map((item) => getLocalizedField(item, lang))
       }
@@ -78,7 +84,7 @@ export const getLocalizedField = (field, lang = 'en') => {
 
     // Last resort: whichever language key or text key has content
     const any = field.en || field.hi || field.text || field.value
-    if (any !== null && any !== undefined) {
+    if (isPresent(any)) {
       if (Array.isArray(any)) {
         return any.map((item) => getLocalizedField(item, lang))
       }

@@ -327,9 +327,11 @@ export function getAssetUrl(path) {
     // VITE_API_URL may be a relative `/api` path when the app and backend
     // share an origin, or an absolute API URL when they are deployed apart.
     // Asset paths are served beside `/api`, so strip that suffix before
-    // joining. A relative API setting intentionally keeps the path relative
-    // so Vite/reverse proxies can route `/assets` to the backend.
-    const configuredApiUrl = import.meta.env.VITE_API_URL || "";
+    // joining. In production builds, fall back to the live backend URL if unset.
+    const configuredApiUrl =
+      import.meta.env.VITE_API_URL ||
+      import.meta.env.VITE_BACKEND_URL ||
+      (import.meta.env.PROD ? "https://trstprep-v-1.onrender.com" : "");
     const baseUrl = /^https?:\/\//i.test(configuredApiUrl)
       ? configuredApiUrl.replace(/\/api\/?$/, "").replace(/\/+$/, "")
       : "";

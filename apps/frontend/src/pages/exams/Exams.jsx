@@ -439,7 +439,7 @@ function Exams() {
 
     return {
       exams: examsCount > 0 ? `${examsCount}` : "2+",
-      tests: mockTests > 0 ? `${mockTests}+` : "230+",
+      tests: mockTests > 0 ? `${mockTests}+` : "0+",
       aspirants: activeLearners > 0 ? `${activeLearners}+` : "25+",
       free: freeTestsCount > 0 ? `${freeTestsCount}` : "Free",
     };

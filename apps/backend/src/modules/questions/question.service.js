@@ -4,35 +4,71 @@ import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 
 const repo = new QuestionRepository();
 
-const createVersionForQuestion = async (questionId, data, versionNumber, snapshotType = 'admin_edit', userId = null, changeSummary = null) => {
-  await dbHelpers.insertOne('questionVersions', {
+const createVersionForQuestion = async (
+  questionId,
+  data,
+  versionNumber,
+  snapshotType = "admin_edit",
+  userId = null,
+  changeSummary = null,
+) => {
+  await dbHelpers.insertOne("questionVersions", {
     questionId,
     versionNumber,
-    text: data.questionText || data.question_text || data.text || '',
+    text: data.questionText || data.question_text || data.text || "",
     options: data.options || [],
-    correctAnswer: data.correctAnswer ?? data.correctOption ?? data.correct_option ?? data.correct ?? 0,
+    correctAnswer:
+      data.correctAnswer ??
+      data.correctOption ??
+      data.correct_option ??
+      data.correct_answer ??
+      data.correct_option_id ??
+      data.correctOptionId ??
+      data.correct ??
+      data.answer ??
+      0,
     explanation: data.explanation ?? null,
     marks: data.marks ?? 1,
     negativeMarks: data.negativeMarks ?? data.negative_marks ?? 0,
-    difficulty: data.difficulty ?? 'medium',
-    questionType: data.questionType ?? data.question_type ?? data.type ?? 'single_correct',
+    difficulty: data.difficulty ?? "medium",
+    questionType:
+      data.questionType ?? data.question_type ?? data.type ?? "single_correct",
     isCurrent: true,
     snapshotType,
     changeSummary,
     changedBy: userId,
     createdAt: new Date().toISOString(),
-  })
-}
+  });
+};
 
 export const questionSchema = createSchema()
-  .field("question_text", { type: "string", required: true, minLength: 5, maxLength: 5000 })
-  .field("questionText", { type: "string", required: false, minLength: 5, maxLength: 5000 })
+  .field("question_text", {
+    type: "string",
+    required: true,
+    minLength: 5,
+    maxLength: 5000,
+  })
+  .field("questionText", {
+    type: "string",
+    required: false,
+    minLength: 5,
+    maxLength: 5000,
+  })
   .field("options", { type: "array", required: true, minLength: 2 })
-  .field("correct_option", { type: "integer", required: true, min: 0 })
+  .field("correct_option", { type: "integer", required: false, min: 0 })
   .field("correctOption", { type: "integer", required: false, min: 0 })
-  .field("correctAnswer", { type: "integer", required: false, min: 0 })
-  .field("type", { type: "string", required: false, enum: ["mcq", "msq", "numerical", "descriptive"] })
-  .field("difficulty", { type: "string", required: false, enum: ["easy", "medium", "hard", "Easy", "Medium", "Hard"] })
+  .field("correct_answer", { type: "any", required: false })
+  .field("correctAnswer", { type: "any", required: false })
+  .field("type", {
+    type: "string",
+    required: false,
+    enum: ["mcq", "msq", "numerical", "descriptive"],
+  })
+  .field("difficulty", {
+    type: "string",
+    required: false,
+    enum: ["easy", "medium", "hard", "Easy", "Medium", "Hard"],
+  })
   .field("marks", { type: "integer", required: false, min: 0 })
   .field("negative_marks", { type: "integer", required: false, min: 0 })
   .field("explanation", { type: "string", required: false, maxLength: 5000 });
@@ -55,7 +91,16 @@ export const questionService = {
     const payload = {
       questionText: data.questionText || data.question_text,
       options: data.options,
-      correctAnswer: data.correctAnswer ?? data.correct_option ?? data.correctOption,
+      correctAnswer:
+        data.correctAnswer ??
+        data.correctOption ??
+        data.correct_option ??
+        data.correct_answer ??
+        data.correct_option_id ??
+        data.correctOptionId ??
+        data.correct ??
+        data.answer ??
+        0,
       explanation: data.explanation,
       marks: data.marks,
       negMarks: data.negativeMarks || data.negative_marks,
@@ -71,13 +116,20 @@ export const questionService = {
     const question = await repo.insert(payload);
 
     if (question?.id) {
-      await createVersionForQuestion(question.id, payload, 1, 'admin_edit', data.createdBy || null, 'Initial version')
+      await createVersionForQuestion(
+        question.id,
+        payload,
+        1,
+        "admin_edit",
+        data.createdBy || null,
+        "Initial version",
+      );
     }
 
     if (payload.testId) {
       await repo.executeRaw(
         "INSERT INTO test_questions (test_id, question_id, order_index) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-        [payload.testId, question.id, payload.questionNumber]
+        [payload.testId, question.id, payload.questionNumber],
       );
       await syncTestStats(payload.testId);
     }
@@ -102,14 +154,31 @@ export const questionService = {
 
     const updated = await repo.update(id, payload);
 
-    const existingVersion = await dbHelpers.findOne('questionVersions', { questionId: id, isCurrent: true })
+    const existingVersion = await dbHelpers.findOne("questionVersions", {
+      questionId: id,
+      isCurrent: true,
+    });
     if (existingVersion) {
-      await dbHelpers.updateById('questionVersions', existingVersion.id || existingVersion._id, { isCurrent: false })
+      await dbHelpers.updateById(
+        "questionVersions",
+        existingVersion.id || existingVersion._id,
+        { isCurrent: false },
+      );
     }
-    const nextVersion = (existingVersion?.versionNumber ?? 0) + 1
-    await createVersionForQuestion(id, { ...existing, ...payload }, nextVersion, 'admin_edit', data.updatedBy || null, 'Edited')
+    const nextVersion = (existingVersion?.versionNumber ?? 0) + 1;
+    await createVersionForQuestion(
+      id,
+      { ...existing, ...payload },
+      nextVersion,
+      "admin_edit",
+      data.updatedBy || null,
+      "Edited",
+    );
 
-    const junction = await repo.queryOneRaw("SELECT test_id FROM test_questions WHERE question_id = $1", [id]);
+    const junction = await repo.queryOneRaw(
+      "SELECT test_id FROM test_questions WHERE question_id = $1",
+      [id],
+    );
     if (junction?.test_id) await syncTestStats(junction.test_id);
 
     if (data.tagIds) {
@@ -123,7 +192,10 @@ export const questionService = {
     const existing = await repo.findById(id);
     if (!existing) return null;
 
-    const junction = await repo.queryOneRaw("SELECT test_id FROM test_questions WHERE question_id = $1", [id]);
+    const junction = await repo.queryOneRaw(
+      "SELECT test_id FROM test_questions WHERE question_id = $1",
+      [id],
+    );
     const deleted = await repo.softDelete(id);
     if (junction?.test_id) await syncTestStats(junction.test_id);
     return deleted;
@@ -146,13 +218,16 @@ export const questionService = {
     const question = await repo.findById(questionId);
     if (!question) return null;
 
-    const junction = await repo.queryOneRaw("SELECT test_id FROM test_questions WHERE question_id = $1", [questionId]);
+    const junction = await repo.queryOneRaw(
+      "SELECT test_id FROM test_questions WHERE question_id = $1",
+      [questionId],
+    );
     const testId = junction?.test_id;
     if (!testId) return { error: "Question not linked to a test" };
 
     const questions = await repo.queryRaw(
       "SELECT q.* FROM questions q JOIN test_questions tq ON q.id = tq.question_id WHERE tq.test_id = $1 AND q.is_active = true ORDER BY q.question_number",
-      [testId]
+      [testId],
     );
     questions.sort((a, b) => (a.questionNumber || 0) - (b.questionNumber || 0));
 
@@ -172,7 +247,8 @@ export const questionService = {
 
 async function syncTestStats(testId) {
   if (!testId) return;
-  const { TestRepository } = await import("../../modules/tests/test.repository.js");
+  const { TestRepository } =
+    await import("../../modules/tests/test.repository.js");
   const tr = new TestRepository();
   await tr.syncStats(testId);
 }

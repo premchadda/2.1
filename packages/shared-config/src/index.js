@@ -160,11 +160,36 @@ export function getImageSizes(seed) {
 
 export function getAssetUrl(path) {
   if (!path) return "";
-  if (path.startsWith("http://") || path.startsWith("https://")) return path;
-  if (path.startsWith("//")) return window.location.protocol + path;
+  if (
+    path.startsWith("data:") ||
+    path.startsWith("blob:") ||
+    path.startsWith("http://") ||
+    path.startsWith("https://")
+  ) {
+    return path;
+  }
+  if (path.startsWith("//")) {
+    if (typeof window !== "undefined") return window.location.protocol + path;
+    return "https:" + path;
+  }
   if (path.startsWith("/")) {
-    const baseUrl =
-      (typeof process !== "undefined" && process?.env?.VITE_API_URL) || "";
+    let apiHost = "";
+    if (typeof import.meta !== "undefined" && import.meta.env) {
+      apiHost =
+        import.meta.env.VITE_API_URL ||
+        import.meta.env.VITE_BACKEND_URL ||
+        (import.meta.env.PROD ? "https://trstprep-v-1.onrender.com" : "");
+    } else if (typeof process !== "undefined" && process?.env) {
+      apiHost =
+        process.env.VITE_API_URL ||
+        process.env.VITE_BACKEND_URL ||
+        (process.env.NODE_ENV === "production"
+          ? "https://trstprep-v-1.onrender.com"
+          : "");
+    }
+    const baseUrl = /^https?:\/\//i.test(apiHost)
+      ? apiHost.replace(/\/api\/?$/, "").replace(/\/+$/, "")
+      : "";
     return `${baseUrl}${path}`;
   }
   return `/uploads/${path}`;

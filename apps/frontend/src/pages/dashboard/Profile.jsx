@@ -781,14 +781,27 @@ function Profile({ initialTab = "personal" }) {
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 rounded-3xl w-full max-w-xs overflow-hidden shadow-2xl">
               <div className="p-6">
-                <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-gray-100 dark:border-gray-700 p-1">
-                  <img
-                    loading="lazy"
-                    decoding="async"
-                    src={user.avatar}
-                    alt="Profile"
-                    className="w-full h-full rounded-full object-cover"
-                  />
+                <div className="w-20 h-20 mx-auto mb-4 rounded-full border-2 border-gray-100 dark:border-gray-700 p-1 flex items-center justify-center overflow-hidden">
+                  {user.avatar ? (
+                    <img
+                      loading="lazy"
+                      decoding="async"
+                      src={user.avatar}
+                      alt="Profile"
+                      className="w-full h-full rounded-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                        if (e.currentTarget.nextSibling) {
+                          e.currentTarget.nextSibling.style.display = "flex";
+                        }
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`${user.avatar ? "hidden" : "flex"} w-full h-full rounded-full items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xl font-bold`}
+                  >
+                    {user.name?.[0]?.toUpperCase() || "U"}
+                  </div>
                 </div>
                 <h3 className="text-center font-bold text-gray-900 dark:text-white mb-6">
                   Profile Picture
