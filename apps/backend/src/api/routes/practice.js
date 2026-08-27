@@ -32,6 +32,7 @@ import {
   pool,
   dbHelpers,
 } from "../../infrastructure/database/postgres-helpers.js";
+import { readQuery } from "../../../config/database-replicas.js";
 import { protect, admin } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { recordPracticeAnalytics } from "../../services/core/analyticsService.js";
@@ -437,31 +438,52 @@ router.get("/tree", protect, async (req, res) => {
  */
 router.get("/subjects", protect, async (req, res) => {
   try {
-    const subjectsRes = await pool.query(`
-      SELECT s.id, s.name AS title, s.slug, s.color, s.icon,
-             (
-               SELECT COUNT(*)::int FROM questions q
-               WHERE q.subject_id = s.id
-                 AND q.is_active = true
-             ) AS question_count
-      FROM subjects s
-      WHERE s.is_active = true AND (s.is_deleted IS NOT TRUE)
-      ORDER BY s.sort_order, s.name
-    `);
-
-    // Fetch chapters per subject from DB
-    const chaptersRes = await pool.query(`
-      SELECT c.id, c.title, c.slug, COALESCE(c.subject_id, c.study_material_id) AS subject_id,
-             (
-               SELECT COUNT(*)::int FROM questions q
-               WHERE (q.chapter_id = c.id OR q.topic_id IN (SELECT id FROM subject_topics WHERE chapter_id = c.id))
-                 AND (q.is_deleted = false OR q.is_deleted IS NULL)
-                 AND (q.is_active = true OR q.is_active IS NULL)
-             ) AS question_count
-      FROM subject_chapters c
-      WHERE c.is_active = true
-      ORDER BY c.order_index, c.title
-    `);
+    const [subjectsRes, chaptersRes] = await Promise.all([
+      readQuery(`
+        SELECT s.id, s.name AS title, s.slug, s.color, s.icon,
+               COALESCE(qc.cnt, 0)::int AS question_count
+        FROM subjects s
+        LEFT JOIN (
+          SELECT subject_id, COUNT(*)::int AS cnt
+          FROM questions
+          WHERE is_active = true
+            AND (is_deleted = false OR is_deleted IS NULL)
+          GROUP BY subject_id
+        ) qc ON qc.subject_id = s.id
+        WHERE s.is_active = true AND (s.is_deleted IS NOT TRUE)
+        ORDER BY s.sort_order, s.name
+      `),
+      readQuery(`
+        WITH q_counts AS (
+          SELECT chapter_id, topic_id, COUNT(*) AS cnt
+          FROM questions
+          WHERE (is_deleted = false OR is_deleted IS NULL)
+            AND (is_active = true OR is_active IS NULL)
+          GROUP BY chapter_id, topic_id
+        ),
+        chapter_counts AS (
+          SELECT chapter_id, SUM(cnt)::int AS cnt
+          FROM q_counts
+          WHERE chapter_id IS NOT NULL
+          GROUP BY chapter_id
+        ),
+        topic_chapter_counts AS (
+          SELECT st.chapter_id, SUM(qc.cnt)::int AS cnt
+          FROM q_counts qc
+          JOIN subject_topics st ON st.id = qc.topic_id
+          WHERE qc.chapter_id IS NULL OR qc.chapter_id <> st.chapter_id
+          GROUP BY st.chapter_id
+        )
+        SELECT c.id, c.title, c.slug,
+               COALESCE(c.subject_id, c.study_material_id) AS subject_id,
+               COALESCE(ch.cnt, 0) + COALESCE(tp.cnt, 0) AS question_count
+        FROM subject_chapters c
+        LEFT JOIN chapter_counts ch ON ch.chapter_id = c.id
+        LEFT JOIN topic_chapter_counts tp ON tp.chapter_id = c.id
+        WHERE c.is_active = true
+        ORDER BY c.order_index, c.title
+      `),
+    ]);
 
     const chaptersBySubject = {};
     for (const c of chaptersRes.rows) {
@@ -885,12 +907,10 @@ router.post("/sessions/:id/complete", protect, async (req, res) => {
       [req.params.id, correctCount, wrongCount, skippedCount, userId],
     );
     if (!r.rows.length)
-      return res
-        .status(404)
-        .json({
-          success: false,
-          error: "Session not found or already completed",
-        });
+      return res.status(404).json({
+        success: false,
+        error: "Session not found or already completed",
+      });
     const session = dbHelpers.toCamel(r.rows[0]);
 
     // Update streak
