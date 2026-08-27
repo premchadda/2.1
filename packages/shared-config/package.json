@@ -17,6 +17,7 @@
     "src/"
   ],
   "peerDependencies": {
+    "axios": "^1.18.0",
     "react": ">=18.0.0"
   }
 }
