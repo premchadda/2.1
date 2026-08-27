@@ -347,7 +347,9 @@ const mapBulkRowToTestPayload = (row, config) => {
     totalQuestions: Number(row.totalQuestions) || config.totalQuestions || 0,
     totalMarks: Number(row.totalMarks) || config.totalMarks || 0,
     negativeMarking:
-      Number(row.negativeMarking) || config.negativeMarking || 0.25,
+      row.negativeMarking != null
+        ? Number(row.negativeMarking)
+        : (config.negativeMarking ?? 0.5),
     difficulty: row.difficulty || config.difficulty || "Medium",
     isPro: row.isPro === "true" || row.isPro === true || config.isPro,
     isComingSoon:
@@ -1479,7 +1481,10 @@ router.post(
         totalQuestions: Number(req.body.totalQuestions) || 0,
         totalMarks: Number(req.body.totalMarks) || 0,
         passingMarks: Number(req.body.passingMarks) || 0,
-        negativeMarking: Number(req.body.negativeMarking) || 0.25,
+        negativeMarking:
+          req.body.negativeMarking != null
+            ? Number(req.body.negativeMarking)
+            : 0.5,
         difficulty: req.body.difficulty || "Medium",
         languages: (() => {
           if (!req.body.languages) return [];

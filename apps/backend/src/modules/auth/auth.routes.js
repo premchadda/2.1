@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
 import { Router } from "express";
 import {
   generateCsrfToken,
@@ -24,6 +27,18 @@ import { responseCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = Router();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Local profile assets are ephemeral on cloud deployments. Do not advertise a
+// stale path that will make every client request a guaranteed 404.
+const availableProfileAsset = (asset) => {
+  if (typeof asset !== "string" || !asset.startsWith("/assets/avatar/")) {
+    return asset;
+  }
+  const filename = path.basename(asset);
+  const localPath = path.join(__dirname, "../../../uploads/avatars", filename);
+  return fs.existsSync(localPath) ? asset : null;
+};
 
 // Middleware: block registration if userRegistration feature is disabled
 const requireRegistrationEnabled = async (req, res, next) => {
@@ -371,6 +386,10 @@ router.get("/me", protect, responseCache("auth-me", 30), async (req, res) => {
       emailVerificationToken: ____,
       ...safeUser
     } = user;
+
+    if (safeUser.avatar) {
+      safeUser.avatar = availableProfileAsset(safeUser.avatar);
+    }
 
     // Generate and store CSRF token for the session
     let csrfToken = null;

@@ -261,10 +261,15 @@ function normalizeComingSoon(raw) {
 let cachedSiteConfig = null;
 let cachedSiteConfigExpiresAt = 0;
 const SITE_CONFIG_CACHE_TTL_MS = 15_000;
+let cachedPublicSettings = null;
+let cachedPublicSettingsExpiresAt = 0;
+const PUBLIC_SETTINGS_CACHE_TTL_MS = 15_000;
 
 const invalidateSettingsCache = () => {
   cachedSiteConfig = null;
   cachedSiteConfigExpiresAt = 0;
+  cachedPublicSettings = null;
+  cachedPublicSettingsExpiresAt = 0;
   runtimeSecurityCache = null;
   runtimeSecurityCacheExpiresAt = 0;
 };
@@ -476,8 +481,22 @@ async function getComingSoonConfig() {
  * time for backwards compatibility with rows written before the fix.
  */
 async function getPublicSettings() {
-  const settings = await getFullSettings();
-  const comingSoonConfig = await getComingSoonConfig();
+  if (cachedPublicSettings && Date.now() < cachedPublicSettingsExpiresAt) {
+    return cachedPublicSettings;
+  }
+
+  // These reads are independent. Serialising them made a cold public page
+  // pay for three database round trips before it could render.
+  const [settings, comingSoonConfig, siteConfigUpdatedAt] = await Promise.all([
+    getFullSettings(),
+    getComingSoonConfig(),
+    pool
+      .query(
+        `SELECT updated_at FROM app_settings WHERE is_active = true ORDER BY id ASC LIMIT 1`,
+      )
+      .then((r) => r.rows[0]?.updated_at || null)
+      .catch(() => null),
+  ]);
 
   const maintenance = {
     enabled: settings.maintenance?.enabled || false,
@@ -496,15 +515,6 @@ async function getPublicSettings() {
   // updated value — if coming_soon_config is newer than site_config, let it
   // win; otherwise site_config wins. Fallback to old "coming_soon wins" only
   // when timestamps are unavailable.
-  let siteConfigUpdatedAt = null;
-  try {
-    const r = await pool.query(
-      `SELECT updated_at FROM app_settings WHERE is_active = true ORDER BY id ASC LIMIT 1`,
-    );
-    siteConfigUpdatedAt = r.rows[0]?.updated_at || null;
-  } catch {
-    // intentionally empty - timestamp lookup is best-effort for merge logic
-  }
   const comingSoonUpdatedAt = comingSoonConfig.updatedAt || null;
   const comingSoonIsNewer =
     comingSoonUpdatedAt &&
@@ -572,7 +582,7 @@ async function getPublicSettings() {
       }
     : { trackingId: null, facebookPixelId: null };
 
-  return {
+  const publicSettings = {
     siteName: settings.siteName || "Trstprep",
     contactEmail: settings.contactEmail || "support@trstprep.com",
     contactPhone: settings.contactPhone || "+91 98765 43210",
@@ -587,6 +597,9 @@ async function getPublicSettings() {
     notifications:
       settings.notifications || DEFAULT_SETTINGS.notifications || null,
   };
+  cachedPublicSettings = publicSettings;
+  cachedPublicSettingsExpiresAt = Date.now() + PUBLIC_SETTINGS_CACHE_TTL_MS;
+  return publicSettings;
 }
 
 async function isFeatureEnabled(featureKey) {

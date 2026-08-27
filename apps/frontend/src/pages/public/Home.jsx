@@ -191,8 +191,8 @@ function Home() {
     queryKey: ["home-live", isAuthenticated],
     queryFn: async () => {
       const [liveRes, quizRes, testimonialsRes] = await Promise.all([
-        testsAPI.getByTag("live-tests"),
-        testsAPI.getByTag("quizzes"),
+        testsAPI.getByTag("live-tests", { limit: 12 }),
+        testsAPI.getByTag("quizzes", { limit: 12 }),
         fetchFromAPI("/api/testimonials?limit=3"),
       ]);
       return { liveRes, quizRes, testimonialsRes };

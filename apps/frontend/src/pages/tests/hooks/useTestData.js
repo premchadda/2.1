@@ -226,8 +226,30 @@ export function useTestData({
             "english comprehension": 4,
             english: 4,
           };
-          const getSecOrder = (name) =>
-            standardOrderMap[(name || "").toLowerCase().trim()] ?? 99;
+
+          const configuredOrderMap = {};
+          if (
+            Array.isArray(testData?.sections) &&
+            testData.sections.length > 0
+          ) {
+            testData.sections.forEach((s, idx) => {
+              const name =
+                s.name ||
+                s.title ||
+                s.subject ||
+                (typeof s === "string" ? s : "");
+              if (name) {
+                const order =
+                  s.display_order ?? s.displayOrder ?? s.order ?? idx + 1;
+                configuredOrderMap[name.toLowerCase().trim()] = Number(order);
+              }
+            });
+          }
+
+          const getSecOrder = (name) => {
+            const key = (name || "").toLowerCase().trim();
+            return configuredOrderMap[key] ?? standardOrderMap[key] ?? 99;
+          };
           finalQuestions.sort(
             (a, b) => getSecOrder(a.section) - getSecOrder(b.section),
           );

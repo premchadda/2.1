@@ -20,13 +20,16 @@ import {
   Eye,
 } from "lucide-react";
 
-export default function PracticeWorkspace({ session, onComplete }) {
+export default function PracticeWorkspace({ session, onComplete, onExit }) {
   const [currentIdx, setCurrentIdx] = useState(session?.currentIndex || 0);
   const [question, setQuestion] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isChecked, setIsChecked] = useState(false);
   const [checkResult, setCheckResult] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [skipping, setSkipping] = useState(false);
+  const [answerResults, setAnswerResults] = useState({});
 
   // Learning System Tabs & Data
   const [activeExplTab, setActiveExplTab] = useState("text"); // text | visual | video | formula
@@ -44,12 +47,23 @@ export default function PracticeWorkspace({ session, onComplete }) {
   const [newApproachType, setNewApproachType] = useState("fastest");
   const [showSubmitApproach, setShowSubmitApproach] = useState(false);
 
+  const totalQuestions = Number(
+    session?.totalQuestions ?? session?.questions?.length ?? 0,
+  );
+  const answeredCount = Object.keys(answerResults).length;
+  const correctCount = Object.values(answerResults).filter(Boolean).length;
+  const accuracy =
+    answeredCount > 0 ? Math.round((correctCount / answeredCount) * 100) : 0;
+
   useEffect(() => {
     loadQuestion(currentIdx);
   }, [currentIdx]);
 
   const loadQuestion = async (idx) => {
     try {
+      if (!session?.id) {
+        throw new Error("Practice session ID is missing");
+      }
       setLoading(true);
       setIsChecked(false);
       setCheckResult(null);
@@ -78,12 +92,17 @@ export default function PracticeWorkspace({ session, onComplete }) {
   };
 
   const handleCheckAnswer = async () => {
-    if (!selectedOption) return;
+    if (selectedOption === null || selectedOption === undefined) return;
     try {
+      if (!session?.id) throw new Error("Practice session ID is missing");
       const res = await practiceAPI.checkAnswer(session.id, currentIdx, {
         selectedOption: selectedOption,
       });
       setCheckResult(res);
+      setAnswerResults((prev) => ({
+        ...prev,
+        [currentIdx]: Boolean(res?.isCorrect),
+      }));
       setIsChecked(true);
     } catch {
       toast.error("Failed to check answer");
@@ -137,11 +156,73 @@ export default function PracticeWorkspace({ session, onComplete }) {
     }
   };
 
-  const handleNextQuestion = () => {
-    if (currentIdx + 1 < (session?.totalQuestions || 10)) {
+  const handleFinishSession = async () => {
+    if (finishing) return;
+
+    try {
+      if (!session?.id) throw new Error("Practice session ID is missing");
+      setFinishing(true);
+      const result = await practiceAPI.completeSession(session.id);
+      const completedSession = result?.session || {};
+      const completedCorrect = Number(completedSession.correctCount || 0);
+      const completedWrong = Number(completedSession.wrongCount || 0);
+      const completedSkipped = Number(completedSession.skippedCount || 0);
+      const completedTotal =
+        completedCorrect + completedWrong + completedSkipped;
+      const answered = completedCorrect + completedWrong;
+      const timeSpent = Number(
+        completedSession.timeSpentSec ??
+          completedSession.timeSpent ??
+          completedSession.timeTaken ??
+          0,
+      );
+
+      onComplete?.({
+        ...result,
+        questionsAttempted: completedTotal,
+        correctCount: completedCorrect,
+        wrongCount: completedWrong,
+        skippedCount: completedSkipped,
+        accuracy:
+          answered > 0 ? Math.round((completedCorrect / answered) * 100) : 0,
+        avgTimeSeconds:
+          completedTotal > 0 && timeSpent > 0
+            ? Math.round(timeSpent / completedTotal)
+            : 0,
+        conceptsMastered: [],
+        conceptsNeedsPractice: [],
+      });
+    } catch {
+      toast.error("Failed to complete practice session. Please try again.");
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  const handleNextQuestion = async () => {
+    if (currentIdx + 1 < totalQuestions) {
       setCurrentIdx((prev) => prev + 1);
     } else {
-      if (onComplete) onComplete();
+      await handleFinishSession();
+    }
+  };
+
+  const handleSkipQuestion = async () => {
+    if (skipping || finishing) return;
+
+    try {
+      if (!session?.id) throw new Error("Practice session ID is missing");
+      setSkipping(true);
+      await practiceAPI.skipQuestion(session.id, currentIdx);
+      if (currentIdx + 1 < totalQuestions) {
+        setCurrentIdx((prev) => prev + 1);
+      } else {
+        await handleFinishSession();
+      }
+    } catch {
+      toast.error("Failed to skip question. Please try again.");
+    } finally {
+      setSkipping(false);
     }
   };
 
@@ -160,22 +241,31 @@ export default function PracticeWorkspace({ session, onComplete }) {
         <div className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
           <span className="text-indigo-600 font-bold">Practice</span>
           <span>→</span>
-          <span>{question.subject || "Quant"}</span>
+          <span>{question.subject || "Subject"}</span>
           <span>→</span>
-          <span>{question.topic || "Percentage"}</span>
+          <span>{question.topic || "Topic"}</span>
           <span>→</span>
           <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono">
-            {question.difficulty || "Medium"}
+            {question.difficulty || "Difficulty not set"}
           </span>
         </div>
 
         <div className="flex items-center gap-4 text-xs font-bold">
           <span className="text-slate-600">
-            Question {currentIdx + 1} / {session?.totalQuestions || 10}
+            Question {currentIdx + 1} / {totalQuestions}
           </span>
           <span className="text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
-            Accuracy: 80%
+            Accuracy: {accuracy}%
           </span>
+          {onExit && (
+            <button
+              type="button"
+              onClick={onExit}
+              className="text-xs font-bold text-slate-500 hover:text-slate-800"
+            >
+              Exit
+            </button>
+          )}
         </div>
       </div>
 
@@ -205,7 +295,7 @@ export default function PracticeWorkspace({ session, onComplete }) {
         <div className="space-y-3 mb-8">
           {question.options?.map((opt, i) => {
             const optKey = String.fromCharCode(65 + i);
-            const isSelected = selectedOption === optKey;
+            const isSelected = selectedOption === i;
             let style =
               "border-slate-200 bg-white hover:border-indigo-300 hover:bg-slate-50";
 
@@ -246,7 +336,7 @@ export default function PracticeWorkspace({ session, onComplete }) {
               <button
                 key={i}
                 disabled={isChecked}
-                onClick={() => setSelectedOption(optKey)}
+                onClick={() => setSelectedOption(i)}
                 className={`w-full text-left p-4 rounded-xl border transition-all flex items-start ${style}`}
               >
                 <span className="w-6 h-6 rounded-full border border-current flex items-center justify-center text-xs font-bold mr-3 flex-shrink-0 mt-0.5">
@@ -264,18 +354,32 @@ export default function PracticeWorkspace({ session, onComplete }) {
 
         {/* Check Answer Button / Transition */}
         {!isChecked ? (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
             <button
-              onClick={handleCheckAnswer}
-              disabled={!selectedOption}
-              className={`px-6 py-3 rounded-xl font-bold text-sm transition ${
-                selectedOption
-                  ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
-                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
+              onClick={handleSkipQuestion}
+              disabled={skipping || finishing}
+              className="px-5 py-3 rounded-xl font-bold text-sm border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
-              Check Answer (Assessment → Learning)
+              {skipping ? "Skipping…" : "Skip Question"}
             </button>
+            <div className="flex justify-end">
+              <button
+                onClick={handleCheckAnswer}
+                disabled={
+                  selectedOption === null ||
+                  selectedOption === undefined ||
+                  skipping ||
+                  finishing
+                }
+                className={`px-6 py-3 rounded-xl font-bold text-sm transition ${
+                  selectedOption !== null && selectedOption !== undefined
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                }`}
+              >
+                Check Answer (Assessment → Learning)
+              </button>
+            </div>
           </div>
         ) : (
           <div
@@ -296,7 +400,15 @@ export default function PracticeWorkspace({ session, onComplete }) {
               </span>
             </div>
             <span className="text-xs font-medium">
-              Correct Choice: Option {checkResult?.correctAnswer}
+              Correct Choice: Option{" "}
+              {(() => {
+                const value =
+                  checkResult?.correctOption ?? checkResult?.correctAnswer;
+                const numeric = Number(value);
+                return Number.isInteger(numeric) && numeric >= 0
+                  ? String.fromCharCode(65 + numeric)
+                  : value || "Unavailable";
+              })()}
             </span>
           </div>
         )}
@@ -555,6 +667,7 @@ export default function PracticeWorkspace({ session, onComplete }) {
           <div className="flex justify-end pt-4">
             <button
               onClick={handleNextQuestion}
+              disabled={finishing || skipping}
               className="px-8 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition inline-flex items-center"
             >
               Next Question →

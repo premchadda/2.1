@@ -35,7 +35,6 @@ import {
   ShieldCheck,
   Lock,
   Gift,
-  Compass,
   RotateCcw,
 } from "lucide-react";
 
@@ -75,24 +74,23 @@ const EXAM_OPTIONS = [
   },
 ];
 
-const SUBJECT_FILTERS = [
-  { id: "all", label: "All Subjects", icon: "📚" },
-  { id: "english", label: "English", icon: "📖" },
-  { id: "gk", label: "General Knowledge", icon: "🏛️" },
-  { id: "science", label: "General Science", icon: "🧪" },
-  { id: "reasoning", label: "Logical Reasoning", icon: "🧩" },
-  { id: "quant", label: "Quantitative Aptitude", icon: "🔢" },
-  { id: "ca", label: "Current Affairs", icon: "📰" },
-  { id: "hindi", label: "Hindi", icon: "📙" },
-  { id: "computer", label: "Computer Knowledge", icon: "💻" },
-  { id: "pyq", label: "Previous Year Questions", icon: "🏆" },
-];
+const getQuestionCount = (item) =>
+  Number(item?.questionCount ?? item?.question_count ?? item?.count ?? 0);
+
+const getSubjectIcon = (subject) => {
+  const name = String(subject?.name || subject?.title || "").toLowerCase();
+  if (name.includes("quant") || name.includes("math")) return "🔢";
+  if (name.includes("reason")) return "🧩";
+  if (name.includes("science")) return "🧪";
+  if (name.includes("computer")) return "💻";
+  if (name.includes("gk") || name.includes("general knowledge")) return "🏛️";
+  return "📖";
+};
 
 export default function PracticeLab() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [screen, setScreen] = useState("dashboard"); // dashboard | setup | session | fundamentals | complete | exam_practice | chapter_detail
-  const [setupConfig, setSetupConfig] = useState(null);
   const [activeSession, setActiveSession] = useState(null);
   const [completeSummary, setCompleteSummary] = useState(null);
   const [selectedChapter, setSelectedChapter] = useState(null);
@@ -130,7 +128,7 @@ export default function PracticeLab() {
         chapterId: config.chapterId,
         topicId: config.topicId,
         testId: config.testId,
-        difficulty: config.difficulty || "medium",
+        difficulty: config.difficulty || "mixed",
         targetCount: config.count || 20,
       });
       setActiveSession(session);
@@ -201,10 +199,7 @@ export default function PracticeLab() {
           user={user}
           selectedExam={selectedExam}
           onOpenExamPractice={handleOpenExamPractice}
-          onOpenSetup={(config) => {
-            setSetupConfig(config);
-            setScreen("setup");
-          }}
+          onStartSession={handleStartSession}
           onOpenFundamentals={() => setScreen("fundamentals")}
           onLaunchSmart={handleLaunchSmartEntry}
           onResume={async (session) => {
@@ -245,7 +240,6 @@ export default function PracticeLab() {
       {/* Screen 2: Setup Wizard */}
       {screen === "setup" && (
         <PracticeSetupWizard
-          initialConfig={setupConfig}
           onBack={() => setScreen("dashboard")}
           onStart={(config) => handleStartSession(config)}
         />
@@ -262,29 +256,8 @@ export default function PracticeLab() {
           session={activeSession}
           onExit={() => setScreen("dashboard")}
           onComplete={(summary) => {
-            const attempted =
-              activeSession?.answers?.length || activeSession?.targetCount || 0;
-            const correct =
-              activeSession?.answers?.filter((a) => a.isCorrect)?.length || 0;
-            const wrong = Math.max(0, attempted - correct);
-            const calcAccuracy =
-              attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-            const avgTime =
-              activeSession?.timeSpent && attempted > 0
-                ? Math.round(activeSession.timeSpent / attempted)
-                : 35;
-
-            setCompleteSummary(
-              summary || {
-                questionsAttempted: attempted,
-                correctCount: correct,
-                wrongCount: wrong,
-                accuracy: calcAccuracy,
-                avgTimeSeconds: avgTime,
-                conceptsMastered: [],
-                conceptsNeedsPractice: [],
-              },
-            );
+            if (!summary) return;
+            setCompleteSummary(summary);
             setScreen("complete");
           }}
         />
@@ -296,7 +269,6 @@ export default function PracticeLab() {
           summary={completeSummary}
           onDashboard={() => setScreen("dashboard")}
           onRestartSession={() => setScreen("setup")}
-          onPracticeWeakTopic={() => handleLaunchSmartEntry("weak_topic")}
         />
       )}
     </div>
@@ -383,58 +355,76 @@ function ExamPracticeHub({
   onBack,
   onStartChapter,
 }) {
-  const { data: dbSubjects, isLoading: subjectsLoading } = useQuery({
-    queryKey: ["practice-subjects"],
-    queryFn: practiceAPI.getSubjects,
+  const { data: treeData, isLoading: subjectsLoading } = useQuery({
+    queryKey: ["practice-tree", "exam-practice"],
+    queryFn: practiceAPI.getTree,
     staleTime: 5 * 60 * 1000,
   });
 
-  // Dynamic DB Subjects with icons & chapter mappings
-  const subjectsList =
-    dbSubjects && dbSubjects.length > 0
-      ? [
-          { id: "all", label: "All Subjects", icon: "📚" },
-          ...dbSubjects.map((s) => ({
-            id: String(s.id),
-            label: s.title || s.label,
-            icon:
-              s.icon ||
-              (s.title?.toLowerCase().includes("quant") ||
-              s.title?.toLowerCase().includes("math")
-                ? "🔢"
-                : s.title?.toLowerCase().includes("reason")
-                  ? "🧩"
-                  : s.title?.toLowerCase().includes("science")
-                    ? "🧪"
-                    : "📖"),
-            chapters: s.chapters || [],
-          })),
-        ]
-      : SUBJECT_FILTERS;
+  // The tree is pruned by the backend to subjects, chapters, and topics that
+  // contain active practice questions. Keep the UI on that same source of truth.
+  const dbSubjects = Array.isArray(treeData?.subjects) ? treeData.subjects : [];
+  const subjectsList = [
+    {
+      id: "all",
+      label: "All Subjects",
+      icon: "📚",
+      questionCount: dbSubjects.reduce(
+        (total, subject) =>
+          total +
+          (subject.chapters || []).reduce(
+            (chapterTotal, chapter) =>
+              chapterTotal +
+              (chapter.topics || []).reduce(
+                (topicTotal, topic) => topicTotal + getQuestionCount(topic),
+                0,
+              ),
+            0,
+          ),
+        0,
+      ),
+    },
+    ...dbSubjects.map((subject) => ({
+      id: String(subject.id),
+      label: subject.name || subject.title || "Untitled subject",
+      icon: subject.icon || getSubjectIcon(subject),
+      chapters: subject.chapters || [],
+      questionCount: (subject.chapters || []).reduce(
+        (total, chapter) =>
+          total +
+          (chapter.topics || []).reduce(
+            (topicTotal, topic) => topicTotal + getQuestionCount(topic),
+            0,
+          ),
+        0,
+      ),
+    })),
+  ];
 
   const [activeSubject, setActiveSubject] = useState("all");
 
-  // Collect chapters based on active subject filter from live DB subjects
-  const getFilteredChapters = () => {
-    if (!dbSubjects || dbSubjects.length === 0) {
-      return [];
-    }
-
-    if (activeSubject === "all") {
-      return dbSubjects.flatMap((s) => s.chapters || []);
-    }
-
-    const matchedSubject = dbSubjects.find(
-      (s) =>
-        String(s.id) === String(activeSubject) ||
-        s.slug === activeSubject ||
-        s.title?.toLowerCase() === String(activeSubject).toLowerCase(),
-    );
-
-    return matchedSubject?.chapters || [];
-  };
-
-  const chaptersList = getFilteredChapters();
+  const sourceSubjects =
+    activeSubject === "all"
+      ? dbSubjects
+      : dbSubjects.filter(
+          (subject) => String(subject.id) === String(activeSubject),
+        );
+  const chaptersList = sourceSubjects
+    .flatMap((subject) => subject.chapters || [])
+    .map((chapter) => {
+      const count = (chapter.topics || []).reduce(
+        (total, topic) => total + getQuestionCount(topic),
+        0,
+      );
+      return {
+        ...chapter,
+        title: chapter.name || chapter.title || "Untitled chapter",
+        count,
+        badge: count > 30 ? "High Yield" : "Core Concept",
+        tag: count > 50 ? "Most Asked" : "Essential",
+      };
+    })
+    .filter((chapter) => chapter.count > 0);
   const currentSubjectObj =
     subjectsList.find((s) => String(s.id) === String(activeSubject)) ||
     subjectsList[1] ||
@@ -543,39 +533,57 @@ function ExamPracticeHub({
             </span>
           </div>
 
-          {/* Chapter Cards Grid — scrollable */}
+          {/* Chapter Cards — one full-width card per row */}
           <div className="overflow-y-auto flex-1 pr-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {chaptersList.map((ch, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => onStartChapter(ch)}
-                  className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition cursor-pointer flex flex-col justify-between group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">
-                        {ch.badge}
-                      </span>
-                      <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
-                        {ch.tag}
-                      </span>
+            {subjectsLoading ? (
+              <div className="flex items-center justify-center py-16 text-sm text-slate-400 dark:text-gray-500">
+                <div className="w-5 h-5 mr-2 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                Loading live subjects and chapters…
+              </div>
+            ) : chaptersList.length > 0 ? (
+              <div className="space-y-4">
+                {chaptersList.map((ch) => (
+                  <div
+                    key={ch.id}
+                    onClick={() => onStartChapter(ch)}
+                    className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-5 md:p-6 hover:border-indigo-400 dark:hover:border-indigo-800 hover:shadow-md transition cursor-pointer flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 group"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2.5 py-1 rounded-full">
+                          {ch.badge}
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
+                          {ch.tag}
+                        </span>
+                      </div>
+                      <h4 className="font-extrabold text-slate-900 dark:text-white text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                        {ch.title}
+                      </h4>
+                      <p className="text-xs font-bold text-slate-400 dark:text-gray-500">
+                        {ch.count} Practice Questions
+                      </p>
                     </div>
-                    <h4 className="font-extrabold text-slate-900 dark:text-white text-base mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-                      {ch.title}
-                    </h4>
-                    <p className="text-xs font-bold text-slate-400 dark:text-gray-500">
-                      {ch.count} Practice Questions
-                    </p>
-                  </div>
 
-                  <button className="w-full mt-6 py-2.5 bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center gap-1.5">
-                    <Play className="w-3.5 h-3.5 fill-current" /> Start Practice
-                    →
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <button className="w-full sm:w-auto sm:min-w-[170px] py-2.5 px-4 bg-slate-50 dark:bg-gray-900 text-slate-800 dark:text-gray-200 rounded-xl text-xs font-bold group-hover:bg-indigo-600 group-hover:text-white transition flex items-center justify-center gap-1.5">
+                      <Play className="w-3.5 h-3.5 fill-current" /> Start
+                      Practice →
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700">
+                <BookOpen className="w-10 h-10 text-slate-300 dark:text-gray-600 mx-auto mb-3" />
+                <h4 className="text-base font-bold text-slate-800 dark:text-white">
+                  No practice chapters available
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                  This subject currently has no active questions in the practice
+                  bank.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -620,61 +628,6 @@ function ExamPracticeHub({
           Upgrade to Pass →
         </button>
       </div>
-
-      {/* EXPLORE SIMILAR PRACTICE — full width below both columns */}
-      <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-6 shadow-xs space-y-4">
-        <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center">
-          <Compass className="w-4 h-4 text-indigo-600 dark:text-indigo-400 mr-2" />{" "}
-          Explore Similar Practice
-        </h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div
-            onClick={() => onStartChapter({ title: "Percentage Change" })}
-            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
-          >
-            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-              🔥 Similar Concept
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm">
-              Percentage Increase & Decrease
-            </div>
-            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-              15 Practice Questions
-            </div>
-          </div>
-
-          <div
-            onClick={() => onStartChapter({ title: "Profit & Loss" })}
-            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
-          >
-            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-              🧠 Linked Topic
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm">
-              Discount & Marked Price
-            </div>
-            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-              20 Practice Questions
-            </div>
-          </div>
-
-          <div
-            onClick={() => onStartChapter({ title: "Ratio & Proportion" })}
-            className="p-4 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-700 rounded-2xl hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition"
-          >
-            <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-              📖 Recommended PYQ
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm">
-              Ratio & Proportion SSC PYQs
-            </div>
-            <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">
-              25 Official Qs
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -694,133 +647,93 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
     staleTime: 5 * 60 * 1000,
   });
 
-  // DB topics if available, else build fallback from chapter data
-  const topics =
-    chapterData?.topics && chapterData.topics.length > 0
-      ? chapterData.topics
-      : chapter.topics || [
-          {
-            id: "intro",
-            name: "Introduction & Basics",
-            questionCount: 30,
-            easyCount: 15,
-            mediumCount: 10,
-            hardCount: 5,
-            accuracy: null,
-            attempts: 0,
-          },
-          {
-            id: "core",
-            name: "Core Concepts",
-            questionCount: 45,
-            easyCount: 10,
-            mediumCount: 25,
-            hardCount: 10,
-            accuracy: null,
-            attempts: 0,
-          },
-          {
-            id: "advanced",
-            name: "Advanced Problems",
-            questionCount: 35,
-            easyCount: 5,
-            mediumCount: 15,
-            hardCount: 15,
-            accuracy: null,
-            attempts: 0,
-          },
-          {
-            id: "pyq",
-            name: "Previous Year Questions",
-            questionCount: 40,
-            easyCount: 8,
-            mediumCount: 22,
-            hardCount: 10,
-            accuracy: null,
-            attempts: 0,
-          },
-        ];
+  // The chapter endpoint is authoritative once it has loaded. The tree is
+  // used only while loading or if the chapter endpoint has no response; it is
+  // already pruned to topics with active questions.
+  const rawTopics = chapterData?.topics ?? chapter?.topics ?? [];
+  const topics = rawTopics
+    .map((topic) => ({
+      ...topic,
+      id: topic.id ?? topic.topicId ?? topic.topic_id,
+      name: topic.name ?? topic.title ?? "Untitled topic",
+      questionCount: getQuestionCount(topic),
+      easyCount: Number(topic.easyCount ?? topic.easy ?? 0),
+      mediumCount: Number(topic.mediumCount ?? topic.medium ?? 0),
+      hardCount: Number(topic.hardCount ?? topic.hard ?? 0),
+    }))
+    .filter(
+      (topic) =>
+        topic.id !== null && topic.id !== undefined && topic.questionCount > 0,
+    );
 
   // Auto-select first topic
-  const currentTopic = activeTopic || topics[0] || null;
+  const currentTopic =
+    topics.find((topic) => topic.id === activeTopic?.id) || topics[0] || null;
 
-  const PRACTICE_SETS = [
-    {
-      id: "quick",
-      label: "⚡ Quick Practice",
-      desc: "10 questions · Mixed levels",
-      count: 10,
-      difficulty: "mixed",
-      color: "indigo",
+  const practiceSetStyles = {
+    quick: {
       bg: "bg-indigo-50 dark:bg-indigo-900/30",
       border: "border-indigo-200 dark:border-indigo-800",
       text: "text-indigo-700 dark:text-indigo-300",
       btn: "bg-indigo-600 hover:bg-indigo-700",
     },
-    {
-      id: "easy",
-      label: "🟢 Easy Set",
-      desc: "15 easy questions · Build confidence",
-      count: 15,
-      difficulty: "easy",
-      color: "emerald",
+    easy: {
       bg: "bg-emerald-50 dark:bg-emerald-900/20",
       border: "border-emerald-200 dark:border-emerald-800",
       text: "text-emerald-700 dark:text-emerald-300",
       btn: "bg-emerald-600 hover:bg-emerald-700",
     },
-    {
-      id: "medium",
-      label: "🟡 Medium Set",
-      desc: "15 medium questions · Exam level",
-      count: 15,
-      difficulty: "medium",
-      color: "amber",
+    medium: {
       bg: "bg-amber-50 dark:bg-amber-900/20",
       border: "border-amber-200 dark:border-amber-800",
       text: "text-amber-700 dark:text-amber-300",
       btn: "bg-amber-500 hover:bg-amber-600",
     },
-    {
-      id: "hard",
-      label: "🔴 Hard Set",
-      desc: "10 hard questions · Challenge mode",
-      count: 10,
-      difficulty: "hard",
-      color: "red",
+    hard: {
       bg: "bg-red-50 dark:bg-red-900/20",
       border: "border-red-200 dark:border-red-800",
       text: "text-red-700 dark:text-red-300",
       btn: "bg-red-600 hover:bg-red-700",
     },
-    {
-      id: "full",
-      label: "🎯 Full Chapter Practice",
-      desc: "25 questions · All levels",
-      count: 25,
-      difficulty: "mixed",
-      color: "purple",
+    full: {
       bg: "bg-purple-50 dark:bg-purple-900/20",
       border: "border-purple-200 dark:border-purple-800",
       text: "text-purple-700 dark:text-purple-300",
       btn: "bg-purple-600 hover:bg-purple-700",
     },
-  ];
+  };
 
   const getAvailableSets = (topic) => {
-    if (!topic) return PRACTICE_SETS;
-    return PRACTICE_SETS.filter((ps) => {
-      if (ps.difficulty === "easy")
-        return (topic.easyCount || 0) > 0 || !chapterData;
-      if (ps.difficulty === "medium")
-        return (topic.mediumCount || 0) > 0 || !chapterData;
-      if (ps.difficulty === "hard")
-        return (topic.hardCount || 0) > 0 || !chapterData;
-      return (topic.questionCount || 0) > 0 || !chapterData;
-    });
+    if (!topic || !chapterData || !Array.isArray(topic.practiceSets)) return [];
+
+    return topic.practiceSets
+      .map((practiceSet) => {
+        const available =
+          practiceSet.difficulty === "easy"
+            ? topic.easyCount
+            : practiceSet.difficulty === "medium"
+              ? topic.mediumCount
+              : practiceSet.difficulty === "hard"
+                ? topic.hardCount
+                : topic.questionCount;
+        const count = Math.min(Number(practiceSet.count) || 0, available);
+        return {
+          ...practiceSet,
+          ...practiceSetStyles[practiceSet.id],
+          label: `${practiceSet.icon || ""} ${practiceSet.label}`.trim(),
+          count,
+          desc: `${count} question${count === 1 ? "" : "s"} · ${practiceSet.description || "Practice from this topic"}`,
+        };
+      })
+      .filter((practiceSet) => practiceSet.count > 0);
   };
 
   const handleStartSet = (practiceSet) => {
+    if (!currentTopic?.id || !practiceSet?.count) {
+      toast.error("No practice questions are available for this selection.");
+      return;
+    }
+
     onStartSession({
       mode: "learn",
       chapterId: chapter.id,
@@ -869,12 +782,17 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
             {[
               {
                 label: "Topics",
-                value: chapterData?.totalTopics || topics.length,
+                value: chapterData?.totalTopics ?? topics.length,
                 icon: "📋",
               },
               {
                 label: "Questions",
-                value: chapterData?.totalQuestions || chapter.count || "—",
+                value:
+                  chapterData?.totalQuestions ??
+                  topics.reduce(
+                    (total, topic) => total + topic.questionCount,
+                    0,
+                  ),
                 icon: "❓",
               },
             ].map((stat) => (
@@ -907,61 +825,71 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
           </div>
 
           <div className="p-3 space-y-1 max-h-[65vh] overflow-y-auto">
-            {topics.map((topic, idx) => {
-              const isActive =
-                currentTopic?.id === topic.id || (!activeTopic && idx === 0);
-              const hasAccuracy = topic.accuracy !== null && topic.attempts > 0;
-              return (
-                <button
-                  key={topic.id || idx}
-                  onClick={() => setActiveTopic(topic)}
-                  className={`w-full p-3.5 rounded-2xl text-left transition group ${
-                    isActive
-                      ? "bg-indigo-600 text-white shadow-sm"
-                      : "hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={`font-bold text-sm leading-snug ${isActive ? "text-white" : "text-slate-900 dark:text-white"}`}
-                      >
-                        {topic.name}
+            {topics.length > 0 ? (
+              topics.map((topic, idx) => {
+                const isActive =
+                  currentTopic?.id === topic.id || (!activeTopic && idx === 0);
+                const hasAccuracy =
+                  topic.accuracy !== null && topic.attempts > 0;
+                return (
+                  <button
+                    key={topic.id || idx}
+                    onClick={() => setActiveTopic(topic)}
+                    className={`w-full p-3.5 rounded-2xl text-left transition group ${
+                      isActive
+                        ? "bg-indigo-600 text-white shadow-sm"
+                        : "hover:bg-slate-50 dark:hover:bg-gray-700 text-slate-700 dark:text-gray-200"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={`font-bold text-sm leading-snug ${isActive ? "text-white" : "text-slate-900 dark:text-white"}`}
+                        >
+                          {topic.name}
+                        </div>
+                        <div
+                          className={`text-xs mt-0.5 ${isActive ? "text-indigo-200" : "text-slate-400 dark:text-gray-500"}`}
+                        >
+                          {topic.questionCount || 0} questions
+                        </div>
                       </div>
-                      <div
-                        className={`text-xs mt-0.5 ${isActive ? "text-indigo-200" : "text-slate-400 dark:text-gray-500"}`}
-                      >
-                        {topic.questionCount || 0} questions
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        {hasAccuracy ? (
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                              topic.accuracy >= 80
+                                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
+                                : topic.accuracy >= 50
+                                  ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
+                                  : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
+                            } ${isActive ? "opacity-90" : ""}`}
+                          >
+                            {topic.accuracy}%
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-indigo-100" : "bg-slate-100 dark:bg-gray-700 text-slate-400 dark:text-gray-500"}`}
+                          >
+                            New
+                          </span>
+                        )}
+                        <ArrowRight
+                          className={`w-3.5 h-3.5 transition ${isActive ? "text-white" : "text-slate-300 dark:text-gray-500 opacity-0 group-hover:opacity-100"}`}
+                        />
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                      {hasAccuracy ? (
-                        <span
-                          className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                            topic.accuracy >= 80
-                              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
-                              : topic.accuracy >= 50
-                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300"
-                                : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                          } ${isActive ? "opacity-90" : ""}`}
-                        >
-                          {topic.accuracy}%
-                        </span>
-                      ) : (
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-white/20 text-indigo-100" : "bg-slate-100 dark:bg-gray-700 text-slate-400 dark:text-gray-500"}`}
-                        >
-                          New
-                        </span>
-                      )}
-                      <ArrowRight
-                        className={`w-3.5 h-3.5 transition ${isActive ? "text-white" : "text-slate-300 dark:text-gray-500 opacity-0 group-hover:opacity-100"}`}
-                      />
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })
+            ) : (
+              <div className="px-3 py-8 text-center">
+                <BookOpen className="w-8 h-8 text-slate-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400">
+                  No active topics with practice questions.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1025,35 +953,52 @@ function ChapterDetailView({ chapter, selectedExam, onBack, onStartSession }) {
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-400 dark:text-gray-500 mb-3 px-1">
               Choose a Practice Set
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {getAvailableSets(currentTopic).map((ps) => (
-                <div
-                  key={ps.id}
-                  onClick={() => handleStartSet(ps)}
-                  className={`${ps.bg} border ${ps.border} rounded-3xl p-5 cursor-pointer hover:shadow-md transition group`}
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h4 className={`font-extrabold text-base ${ps.text}`}>
-                      {ps.label}
-                    </h4>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider ${ps.text} bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 rounded-lg`}
-                    >
-                      {ps.count} Qs
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 leading-relaxed">
-                    {ps.desc}
-                  </p>
-                  <button
-                    className={`w-full py-2.5 ${ps.btn} text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5`}
+            {isLoading ? (
+              <div className="rounded-3xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center text-sm text-slate-500 dark:text-gray-400">
+                Loading available question sets…
+              </div>
+            ) : getAvailableSets(currentTopic).length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {getAvailableSets(currentTopic).map((ps) => (
+                  <div
+                    key={ps.id}
+                    onClick={() => handleStartSet(ps)}
+                    className={`${ps.bg} border ${ps.border} rounded-3xl p-5 cursor-pointer hover:shadow-md transition group`}
                   >
-                    <Play className="w-3.5 h-3.5 fill-current" /> Start Practice
-                    →
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-start justify-between mb-3">
+                      <h4 className={`font-extrabold text-base ${ps.text}`}>
+                        {ps.label}
+                      </h4>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider ${ps.text} bg-white/60 dark:bg-gray-800/60 px-2 py-0.5 rounded-lg`}
+                      >
+                        {ps.count} Qs
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-gray-400 mb-4 leading-relaxed">
+                      {ps.desc}
+                    </p>
+                    <button
+                      className={`w-full py-2.5 ${ps.btn} text-white rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5`}
+                    >
+                      <Play className="w-3.5 h-3.5 fill-current" /> Start
+                      Practice →
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-8 text-center">
+                <AlertCircle className="w-8 h-8 text-slate-300 dark:text-gray-600 mx-auto mb-2" />
+                <h4 className="text-sm font-bold text-slate-800 dark:text-white">
+                  No practice sets available
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                  This topic has no active questions for the available
+                  difficulty levels.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Info note */}
@@ -1077,7 +1022,7 @@ function PracticeHubDashboard({
   user: _user,
   selectedExam,
   onOpenExamPractice,
-  onOpenSetup,
+  onStartSession,
   onOpenFundamentals,
   onLaunchSmart,
   onResume,
@@ -1109,8 +1054,26 @@ function PracticeHubDashboard({
   }
 
   const streak = dash.streak || {};
-  const goal = dash.todaysGoal || { done: 12, target: 20 };
   const mistakeCount = Number(mistakesData?.count ?? dash?.mistakesCount ?? 0);
+  const curriculumTopics = (treeData?.subjects || []).flatMap((subject) =>
+    (subject.chapters || []).flatMap((chapter) =>
+      (chapter.topics || []).map((topic) => ({
+        ...topic,
+        subjectName: subject.name,
+        chapterName: chapter.name,
+        subjectId: subject.id,
+        chapterId: chapter.id,
+      })),
+    ),
+  );
+  const weakTopics = Array.isArray(dash.weakTopics) ? dash.weakTopics : [];
+  const weakTopicMap = new Map(
+    weakTopics.map((topic) => [String(topic.topicId), topic]),
+  );
+  const recommendedTopics = [
+    ...curriculumTopics.filter((topic) => weakTopicMap.has(String(topic.id))),
+    ...curriculumTopics.filter((topic) => !weakTopicMap.has(String(topic.id))),
+  ].slice(0, 4);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 space-y-8">
@@ -1131,7 +1094,7 @@ function PracticeHubDashboard({
             <Flame className="w-5 h-5 text-orange-500" />
             <div>
               <div className="text-lg font-black text-slate-900 dark:text-white leading-none">
-                {streak.currentStreak || 1}
+                {streak.currentStreak ?? 0}
               </div>
               <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
                 Day streak
@@ -1142,7 +1105,7 @@ function PracticeHubDashboard({
             <Star className="w-5 h-5 text-indigo-500" />
             <div>
               <div className="text-lg font-black text-slate-900 dark:text-white leading-none">
-                {streak.totalCorrect || 42}
+                {streak.totalCorrect ?? 0}
               </div>
               <div className="text-[10px] text-slate-400 dark:text-gray-500 font-bold uppercase tracking-wider">
                 Correct Total
@@ -1153,6 +1116,29 @@ function PracticeHubDashboard({
       </div>
 
       {/* 📖 Mistake Book (गलती सुधार) 1-Click Banner */}
+      {dash.activeSession && (
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900/60 dark:bg-indigo-900/20">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-300">
+              Practice session in progress
+            </p>
+            <p className="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-200">
+              Resume question {Number(dash.activeSession.currentIndex || 0) + 1}
+              {dash.activeSession.targetCount
+                ? ` of ${dash.activeSession.targetCount}`
+                : ""}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onResume(dash.activeSession)}
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-indigo-700"
+          >
+            Resume Practice
+          </button>
+        </div>
+      )}
+
       <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 border border-amber-500/20 rounded-3xl p-5 md:p-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 flex-shrink-0">
@@ -1279,87 +1265,43 @@ function PracticeHubDashboard({
           Recommended Entry Points
         </h3>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div
-            onClick={() => onLaunchSmart("weak_topic")}
-            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-rose-300 dark:hover:border-rose-800 cursor-pointer transition shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-rose-600 dark:text-rose-400 flex items-center">
-                🔥 Weak Topic
-              </span>
-              <span className="text-[10px] font-mono bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 px-2 py-0.5 rounded">
-                42% Accuracy
-              </span>
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
-              Percentage Change
-            </div>
-            <p className="text-xs text-slate-400 dark:text-gray-500">
-              Needs reinforcement before next test
-            </p>
+        {recommendedTopics.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recommendedTopics.map((topic) => {
+              const weakTopic = weakTopicMap.get(String(topic.id));
+              const mode = weakTopic ? "weak_topic" : "learn";
+              return (
+                <div
+                  key={topic.id}
+                  onClick={() => onLaunchSmart(mode, topic.id)}
+                  className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition shadow-2xs"
+                >
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">
+                      {weakTopic ? "🔥 Weak Topic" : "📚 Available Topic"}
+                    </span>
+                    <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded whitespace-nowrap">
+                      {weakTopic?.accuracy !== null &&
+                      weakTopic?.accuracy !== undefined
+                        ? `${weakTopic.accuracy}% Accuracy`
+                        : `${getQuestionCount(topic)} Questions`}
+                    </span>
+                  </div>
+                  <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
+                    {topic.name}
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-gray-500 truncate">
+                    {topic.subjectName} · {topic.chapterName}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-
-          <div
-            onClick={() => onLaunchSmart("learn")}
-            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-800 cursor-pointer transition shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center">
-                🧠 Continue Learning
-              </span>
-              <span className="text-[10px] font-mono bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded">
-                In Progress
-              </span>
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
-              Profit & Loss
-            </div>
-            <p className="text-xs text-slate-400 dark:text-gray-500">
-              Chapter 4 of Arithmetic
-            </p>
+        ) : (
+          <div className="p-6 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 text-sm text-slate-500 dark:text-gray-400">
+            No active practice topics are available yet.
           </div>
-
-          <div
-            onClick={() => onLaunchSmart("mistakes")}
-            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-amber-300 dark:hover:border-amber-800 cursor-pointer transition shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center">
-                📖 Revision Due
-              </span>
-              <span className="text-[10px] font-mono bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded">
-                8 Questions
-              </span>
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
-              Ratio & Proportion
-            </div>
-            <p className="text-xs text-slate-400 dark:text-gray-500">
-              Spaced repetition interval due
-            </p>
-          </div>
-
-          <div
-            onClick={() => onLaunchSmart("bookmark")}
-            className="p-4 bg-white dark:bg-gray-800 rounded-2xl border border-slate-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-800 cursor-pointer transition shadow-2xs"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center">
-                ⭐ Knowledge Vault
-              </span>
-              <span className="text-[10px] font-mono bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded">
-                12 Saved
-              </span>
-            </div>
-            <div className="font-bold text-slate-900 dark:text-white text-sm mb-1">
-              Hard Quant Collection
-            </div>
-            <p className="text-xs text-slate-400 dark:text-gray-500">
-              Practice your saved items
-            </p>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* TOPIC TREE BROWSER */}
@@ -1372,10 +1314,12 @@ function PracticeHubDashboard({
           <PracticeTopicTree
             tree={treeData}
             onSelectTopic={(topic) =>
-              onOpenSetup({
+              onStartSession({
                 mode: "learn",
                 topicId: topic.id,
                 subjectId: topic.subjectId,
+                count: 20,
+                difficulty: "mixed",
               })
             }
           />
@@ -1389,13 +1333,80 @@ function PracticeHubDashboard({
 // SCREEN 2: PRACTICE SETUP WIZARD
 // ════════════════════════════════════════════════════════════════════════════
 function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
-  const [exam, setExam] = useState("ssc_cgl");
-  const [subject, setSubject] = useState("quant");
-  const [topic, setTopic] = useState("percentage");
+  const { data: treeData, isLoading } = useQuery({
+    queryKey: ["practice-tree", "setup"],
+    queryFn: practiceAPI.getTree,
+    staleTime: 5 * 60 * 1000,
+  });
+  const subjects = Array.isArray(treeData?.subjects) ? treeData.subjects : [];
+  const [subjectId, setSubjectId] = useState(
+    initialConfig?.subjectId !== null && initialConfig?.subjectId !== undefined
+      ? String(initialConfig.subjectId)
+      : "",
+  );
+  const [chapterId, setChapterId] = useState(
+    initialConfig?.chapterId !== null && initialConfig?.chapterId !== undefined
+      ? String(initialConfig.chapterId)
+      : "",
+  );
+  const [topicId, setTopicId] = useState(
+    initialConfig?.topicId !== null && initialConfig?.topicId !== undefined
+      ? String(initialConfig.topicId)
+      : "",
+  );
   const [difficulty, setDifficulty] = useState(
     initialConfig?.difficulty || "medium",
   );
   const [count, setCount] = useState(initialConfig?.count || 20);
+
+  useEffect(() => {
+    if (!subjects.length) return;
+    setSubjectId((current) => {
+      if (
+        current &&
+        subjects.some((subject) => String(subject.id) === current)
+      ) {
+        return current;
+      }
+      return String(subjects[0].id);
+    });
+  }, [subjects]);
+
+  const selectedSubject = subjects.find(
+    (subject) => String(subject.id) === String(subjectId),
+  );
+  const chapters = selectedSubject?.chapters || [];
+  const selectedChapter = chapters.find(
+    (chapter) => String(chapter.id) === String(chapterId),
+  );
+  const topics = (selectedChapter?.topics || []).filter(
+    (topic) => getQuestionCount(topic) > 0,
+  );
+
+  useEffect(() => {
+    setChapterId((current) => {
+      if (
+        current &&
+        chapters.some((chapter) => String(chapter.id) === current)
+      ) {
+        return current;
+      }
+      return chapters[0] ? String(chapters[0].id) : "";
+    });
+  }, [subjectId, treeData]);
+
+  useEffect(() => {
+    setTopicId((current) => {
+      if (current && topics.some((topic) => String(topic.id) === current)) {
+        return current;
+      }
+      return topics[0] ? String(topics[0].id) : "";
+    });
+  }, [chapterId, treeData]);
+
+  const canStart = Boolean(
+    topicId && topics.some((topic) => String(topic.id) === topicId),
+  );
 
   return (
     <div className="max-w-[95vw] sm:max-w-xl mx-auto py-10 px-4">
@@ -1419,34 +1430,44 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">
-              Exam Target
+              Subject
             </label>
             <select
-              value={exam}
-              onChange={(e) => setExam(e.target.value)}
+              value={subjectId}
+              onChange={(e) => {
+                setSubjectId(e.target.value);
+                setChapterId("");
+                setTopicId("");
+              }}
+              disabled={isLoading || subjects.length === 0}
               className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200"
             >
-              <option value="ssc_cgl">SSC CGL Tier 1 & Tier 2</option>
-              <option value="railway_ntpc">Railway NTPC & Group D</option>
-              <option value="banking_ibps">Banking IBPS PO & Clerk</option>
+              {subjects.map((subject) => (
+                <option key={subject.id} value={subject.id}>
+                  {subject.name}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-gray-200 uppercase tracking-wider mb-1.5">
-              Subject
+              Chapter
             </label>
             <select
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
+              value={chapterId}
+              onChange={(e) => {
+                setChapterId(e.target.value);
+                setTopicId("");
+              }}
+              disabled={!chapters.length}
               className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200"
             >
-              <option value="quant">Quantitative Aptitude</option>
-              <option value="reasoning">
-                General Intelligence & Reasoning
-              </option>
-              <option value="english">English Language</option>
-              <option value="gk">General Knowledge</option>
+              {chapters.map((chapter) => (
+                <option key={chapter.id} value={chapter.id}>
+                  {chapter.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1455,16 +1476,16 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
               Topic & Concept
             </label>
             <select
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              value={topicId}
+              onChange={(e) => setTopicId(e.target.value)}
+              disabled={!topics.length}
               className="w-full p-3 rounded-xl border border-slate-200 dark:border-gray-700 text-sm font-semibold dark:bg-gray-800 dark:text-gray-200"
             >
-              <option value="percentage">
-                Percentage → Successive Percentage
-              </option>
-              <option value="profit_loss">Profit & Loss → Discount</option>
-              <option value="ratio">Ratio & Proportion → Mixture</option>
-              <option value="time_work">Time & Work → Pipes & Cisterns</option>
+              {topics.map((topic) => (
+                <option key={topic.id} value={topic.id}>
+                  {topic.name} ({getQuestionCount(topic)} questions)
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1512,10 +1533,24 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
         </div>
 
         <button
-          onClick={() => onStart({ mode: "learn", difficulty, count })}
-          className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 transition shadow-sm"
+          onClick={() =>
+            onStart({
+              mode: "learn",
+              subjectId,
+              chapterId,
+              topicId,
+              difficulty,
+              count,
+            })
+          }
+          disabled={!canStart || isLoading}
+          className="w-full py-3.5 bg-indigo-600 text-white rounded-2xl font-bold text-sm hover:bg-indigo-700 transition shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed"
         >
-          Start Concept Practice →
+          {isLoading
+            ? "Loading live topics…"
+            : canStart
+              ? "Start Concept Practice →"
+              : "No practice topics available"}
         </button>
       </div>
     </div>
@@ -1525,12 +1560,25 @@ function PracticeSetupWizard({ initialConfig, onBack, onStart }) {
 // ════════════════════════════════════════════════════════════════════════════
 // SCREEN 5: END OF PRACTICE SESSION MASTERY SCREEN
 // ════════════════════════════════════════════════════════════════════════════
-function PracticeCompleteScreen({
-  summary,
-  onDashboard,
-  onRestartSession,
-  onPracticeWeakTopic,
-}) {
+function PracticeCompleteScreen({ summary, onDashboard, onRestartSession }) {
+  const conceptUpdates = [
+    ...(summary.conceptsMastered || []).map((concept) => ({
+      label: `✓ ${concept.name || concept.topicName || concept}`,
+      status: "Mastered 🏆",
+      className:
+        "text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/20",
+    })),
+    ...(summary.conceptsNeedsPractice || []).map((concept) => ({
+      label: `⚠️ ${concept.name || concept.topicName || concept}`,
+      status:
+        concept.accuracy !== null && concept.accuracy !== undefined
+          ? `Needs Practice (${concept.accuracy}%)`
+          : "Needs Practice",
+      className:
+        "text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-900/20",
+    })),
+  ];
+
   return (
     <div className="max-w-[95vw] sm:max-w-2xl mx-auto py-10 px-4 text-center">
       <div className="bg-white dark:bg-gray-800 rounded-3xl border border-slate-200 dark:border-gray-700 p-8 shadow-sm space-y-6">
@@ -1543,7 +1591,7 @@ function PracticeCompleteScreen({
             Practice Complete 🎯
           </h2>
           <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
-            You solved {summary.questionsAttempted || 20} questions in this
+            You solved {summary.questionsAttempted ?? 0} questions in this
             session.
           </p>
         </div>
@@ -1555,7 +1603,7 @@ function PracticeCompleteScreen({
               Accuracy
             </div>
             <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-              {summary.accuracy || 75}%
+              {summary.accuracy ?? 0}%
             </div>
           </div>
           <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
@@ -1563,14 +1611,19 @@ function PracticeCompleteScreen({
               Avg Speed
             </div>
             <div className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
-              {summary.avgTimeSeconds || 42}s
+              {summary.avgTimeSeconds ?? 0}s
             </div>
           </div>
           <div className="p-4 bg-slate-50 dark:bg-gray-900 rounded-2xl border border-slate-100 dark:border-gray-700">
             <div className="text-[10px] uppercase font-bold text-slate-400 dark:text-gray-500">
               Concept Mastery
             </div>
-            <div className="text-2xl font-black text-amber-500 mt-0.5">+8%</div>
+            <div className="text-2xl font-black text-amber-500 mt-0.5">
+              {summary.masteryChange !== null &&
+              summary.masteryChange !== undefined
+                ? `${summary.masteryChange > 0 ? "+" : ""}${summary.masteryChange}%`
+                : "—"}
+            </div>
           </div>
         </div>
 
@@ -1579,29 +1632,26 @@ function PracticeCompleteScreen({
           <h4 className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-gray-200 mb-3">
             Concept Mastery Update
           </h4>
-          <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-xl">
-            <span>✓ Percentage Basics</span>
-            <span>Mastered 🏆</span>
-          </div>
-          <div className="flex items-center justify-between text-xs font-semibold text-emerald-800 dark:text-emerald-200 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 rounded-xl">
-            <span>✓ Percentage Increase & Decrease</span>
-            <span>Mastered 🏆</span>
-          </div>
-          <div className="flex items-center justify-between text-xs font-semibold text-rose-800 dark:text-rose-200 bg-rose-50 dark:bg-rose-900/20 px-3 py-2 rounded-xl">
-            <span>⚠️ Successive Percentage Change</span>
-            <span>Needs Practice (42%)</span>
-          </div>
+          {conceptUpdates.length > 0 ? (
+            conceptUpdates.map((concept, index) => (
+              <div
+                key={`${concept.label}-${index}`}
+                className={`flex items-center justify-between text-xs font-semibold px-3 py-2 rounded-xl ${concept.className}`}
+              >
+                <span>{concept.label}</span>
+                <span>{concept.status}</span>
+              </div>
+            ))
+          ) : (
+            <p className="text-xs text-slate-500 dark:text-gray-400">
+              Topic mastery will appear here after topic-level analytics are
+              available.
+            </p>
+          )}
         </div>
 
-        {/* Next Recommended CTAs */}
+        {/* Next steps */}
         <div className="pt-2 space-y-3">
-          <button
-            onClick={onPracticeWeakTopic}
-            className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition"
-          >
-            Practice 10 Similar (Successive Percentage)
-          </button>
-
           <div className="flex gap-3">
             <button
               onClick={onRestartSession}

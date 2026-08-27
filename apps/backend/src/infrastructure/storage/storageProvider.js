@@ -81,7 +81,7 @@ const cleanupTempFile = async (file) => {
 
 const UPLOADS_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../../uploads'
+  '../../../uploads'
 )
 
 const ensureDir = async (dir) => {
@@ -114,16 +114,20 @@ const uploadLocal = async (file, scope = {}) => {
     fullPath = path.join(destDir, fileName)
   }
 
-  // Move from multer's destination to the scoped folder (if different)
-  const currentPath = file.path ? path.resolve(file.path) : null
-  const targetPath = path.resolve(fullPath)
-  if (currentPath && currentPath !== targetPath) {
-    try {
-      await fs.rename(currentPath, targetPath)
-    } catch {
-      // cross-device rename — fall back to copy+unlink
-      await fs.copyFile(currentPath, targetPath)
-      await fs.unlink(currentPath).catch(() => {})
+  // Move from multer's destination to the scoped folder (if different) or write buffer
+  if (file.buffer) {
+    await fs.writeFile(fullPath, file.buffer)
+  } else {
+    const currentPath = file.path ? path.resolve(file.path) : null
+    const targetPath = path.resolve(fullPath)
+    if (currentPath && currentPath !== targetPath) {
+      try {
+        await fs.rename(currentPath, targetPath)
+      } catch {
+        // cross-device rename — fall back to copy+unlink
+        await fs.copyFile(currentPath, targetPath)
+        await fs.unlink(currentPath).catch(() => {})
+      }
     }
   }
 

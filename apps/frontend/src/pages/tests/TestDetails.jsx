@@ -39,6 +39,8 @@ import {
   getUserAnalytics,
   userAPI,
 } from "../../shared/lib/dataService";
+import { seriesAPI } from "../../shared/lib/seriesAPI.js";
+import { mapTestSeriesToFrontend } from "../../shared/types/index.js";
 import api from "../../shared/lib/api";
 import { toast } from "react-hot-toast";
 
@@ -54,6 +56,17 @@ import {
   checkIsQuiz,
   checkIsPermanentTest,
 } from "../../shared/utils/testClassification";
+
+const identifierKeys = (...values) =>
+  values
+    .filter((value) => value !== undefined && value !== null && value !== "")
+    .map((value) => String(value).trim().toLowerCase())
+    .filter(Boolean);
+
+const hasMatchingIdentifier = (values, candidates) => {
+  const candidateSet = new Set(identifierKeys(...candidates));
+  return identifierKeys(...values).some((value) => candidateSet.has(value));
+};
 
 function TestDetails() {
   const routeParams = useParams();
@@ -988,7 +1001,13 @@ function TestDetails() {
       tests.length === 0
     )
       return null;
-    const currentSeriesId = String(series._id || series.id);
+    const currentSeriesIdentifiers = [
+      series._id,
+      series.id,
+      series.dbId,
+      series.publicId,
+      series.public_id,
+    ];
     const currentSeriesSlug = series.slug;
 
     // Set of test IDs that the user has already completed
@@ -1000,13 +1019,35 @@ function TestDetails() {
             a.isCompleted ||
             a.is_completed,
         )
-        .map((a) => String(a.testId || a.test_id)),
+        .flatMap((a) =>
+          identifierKeys(
+            a.testId,
+            a.test_id,
+            a.testPublicId,
+            a.test_public_id,
+            a.testUuid,
+            a.test_uuid,
+            a.testSlug,
+            a.test_slug,
+          ),
+        ),
     );
 
     const seriesIncomplete = incompleteAttempts.filter((attempt) => {
       const matchSeries =
-        String(attempt.seriesId) === currentSeriesId ||
-        (attempt.seriesSlug && attempt.seriesSlug === currentSeriesSlug);
+        hasMatchingIdentifier(
+          [
+            attempt.seriesId,
+            attempt.series_id,
+            attempt.seriesPublicId,
+            attempt.series_public_id,
+          ],
+          currentSeriesIdentifiers,
+        ) ||
+        hasMatchingIdentifier(
+          [attempt.seriesSlug, attempt.series_slug],
+          [currentSeriesSlug],
+        );
       const isPausedOrInProgress =
         attempt.status === "PAUSED" ||
         attempt.status === "IN_PROGRESS" ||
@@ -1014,8 +1055,19 @@ function TestDetails() {
         attempt.status === "paused" ||
         !attempt.status;
 
-      const testId = String(attempt.testId);
-      const isCompletedTest = completedTestIds.has(testId);
+      const attemptTestIdentifiers = identifierKeys(
+        attempt.testId,
+        attempt.test_id,
+        attempt.testPublicId,
+        attempt.test_public_id,
+        attempt.testUuid,
+        attempt.test_uuid,
+        attempt.testSlug,
+        attempt.test_slug,
+      );
+      const isCompletedTest = attemptTestIdentifiers.some((id) =>
+        completedTestIds.has(id),
+      );
       const hasAnsweredQs = (attempt.answeredQuestions || 0) > 0;
 
       // If user completed this test and the incomplete draft has 0 answered questions, ignore it
@@ -1029,8 +1081,21 @@ function TestDetails() {
     for (const attempt of seriesIncomplete) {
       const matchedTest = tests.find(
         (t) =>
-          String(t._id || t.id) === String(attempt.testId) ||
-          (attempt.testSlug && t.slug === attempt.testSlug),
+          hasMatchingIdentifier(
+            [t._id, t.id, t.publicId, t.public_id, t.public_id_uuid, t.uuid],
+            [
+              attempt.testId,
+              attempt.test_id,
+              attempt.testPublicId,
+              attempt.test_public_id,
+              attempt.testUuid,
+              attempt.test_uuid,
+            ],
+          ) ||
+          hasMatchingIdentifier(
+            [t.slug],
+            [attempt.testSlug, attempt.test_slug],
+          ),
       );
       if (matchedTest && testBelongsToActiveCategory(matchedTest)) {
         return {
@@ -1055,31 +1120,73 @@ function TestDetails() {
     if (categoryResumeTest) return null;
     if (!user || !series || tests.length === 0) return null;
 
-    const currentSeriesId = String(series._id || series.id);
     const currentSeriesSlug = series.slug;
 
     // Filter attempts to find tests the user has actually attempted in this series
     const seriesAttemptRows = attemptRows.filter(
       (a) =>
-        String(a.seriesId) === currentSeriesId ||
-        (a.seriesSlug && a.seriesSlug === currentSeriesSlug),
+        hasMatchingIdentifier(
+          [a.seriesId, a.series_id, a.seriesPublicId, a.series_public_id],
+          [
+            series._id,
+            series.id,
+            series.dbId,
+            series.publicId,
+            series.public_id,
+          ],
+        ) ||
+        hasMatchingIdentifier(
+          [a.seriesSlug, a.series_slug],
+          [currentSeriesSlug],
+        ),
     );
 
     // REAL RECOMMENDATION: Only show "Next Recommended Test" if user HAS ATTEMPTED at least one test in this series
     if (seriesAttemptRows.length === 0) return null;
 
     const attemptedTestIds = new Set(
-      seriesAttemptRows.map((a) => String(a.testId)).filter(Boolean),
+      seriesAttemptRows.flatMap((a) =>
+        identifierKeys(
+          a.testId,
+          a.test_id,
+          a.testPublicId,
+          a.test_public_id,
+          a.testUuid,
+          a.test_uuid,
+        ),
+      ),
+    );
+    const attemptedTestSlugs = new Set(
+      seriesAttemptRows.flatMap((a) => identifierKeys(a.testSlug, a.test_slug)),
     );
 
     const isAvailable = (t) =>
       t.status !== "archived" && !t.isComingSoon && t.isActive !== false;
 
-    const next = tests
+    const next = [...tests]
       .filter(isAvailable)
       .filter((t) => testBelongsToActiveCategory(t))
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .find((t) => !attemptedTestIds.has(String(t._id || t.id)));
+      .sort((a, b) => {
+        const orderDiff = (a.order || 0) - (b.order || 0);
+        if (orderDiff !== 0) return orderDiff;
+        return String(a.title || a.slug || a.id || "").localeCompare(
+          String(b.title || b.slug || b.id || ""),
+        );
+      })
+      .find((t) => {
+        const testIds = identifierKeys(
+          t.id,
+          t._id,
+          t.publicId,
+          t.public_id,
+          t.uuid,
+        );
+        const testSlug = identifierKeys(t.slug);
+        return (
+          !testIds.some((id) => attemptedTestIds.has(id)) &&
+          !testSlug.some((slug) => attemptedTestSlugs.has(slug))
+        );
+      });
 
     if (next) {
       return { test: next, series, isQuiz: false };
@@ -1290,10 +1397,11 @@ function TestDetails() {
       try {
         let seriesData = null;
         let lookupId = seriesId;
+        let allSeries = [];
 
         if (isMyView || !lookupId || lookupId === "my") {
           // Resolve series for 'my' route or examSlug
-          const allSeries = await getTestSeries();
+          allSeries = await getTestSeries();
           let matched = null;
           if (examSlug) {
             const slugLower = String(examSlug).toLowerCase();
@@ -1338,6 +1446,10 @@ function TestDetails() {
               // Not found
             }
           }
+        }
+
+        if (allSeries.length === 0) {
+          allSeries = await getTestSeries();
         }
 
         setSeries(seriesData);
@@ -1487,19 +1599,30 @@ function TestDetails() {
 
   const examLabel = useMemo(() => {
     const examRef = series?.examId || series?.exam_id;
-    if (!examRef) return "";
+    const directName = series?.examName || series?.exam_name;
+    if (directName) return directName;
     if (exams.length) {
-      const exam = exams.find(
-        (e) =>
-          e.exam_id === examRef ||
-          e.slug === examRef ||
-          String(e.id) === String(examRef),
+      const exam = exams.find((e) =>
+        identifierKeys(e.exam_id, e.examId, e.slug, e.id).some((value) =>
+          identifierKeys(examRef).includes(value),
+        ),
       );
-      if (exam?.title) return exam.title;
+      if (exam?.title || exam?.name) return exam.title || exam.name;
     }
-    // Format slug to title: "ssc-cgl" → "SSC CGL"
-    return String(examRef).replace(/-/g, " ").toUpperCase();
-  }, [series, exams]);
+
+    const fallbackRef =
+      examSlug ||
+      series?.examSlug ||
+      series?.exam_slug ||
+      series?.categoryName ||
+      series?.category_name ||
+      series?.category;
+    if (!fallbackRef || /^\d+$/.test(String(fallbackRef).trim())) {
+      return "Exam";
+    }
+    // Format a slug to title: "ssc-cgl" → "SSC CGL".
+    return String(fallbackRef).replace(/-/g, " ").toUpperCase();
+  }, [series, exams, examSlug]);
 
   // Unified recursive filtering logic for 4 layers (using stage-filtered tests as base)
   const filteredTests = useMemo(() => {

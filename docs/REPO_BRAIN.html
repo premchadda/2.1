@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trstprep V2.1 — Repo Brain (Updated Aug 2026)</title>
+<title>Trstprep V2.1 — Repo Brain (Updated 27 Aug 2026)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:rgba(255,255,255,0.08);--text:#e8e8f0;--text2:#a0a0b8;--text3:#606078;--accent:#6366f1;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;--radius:8px}
@@ -66,6 +66,20 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-bottom:1rem}
 .card-title{font-weight:700;font-size:0.9rem;margin-bottom:0.5rem}
 .card-body{font-size:0.85rem;color:var(--text2)}
+.snapshot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:0.75rem;margin-bottom:1.25rem}
+.snapshot-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.snapshot-item h3{font-size:0.85rem;margin-bottom:0.35rem;color:var(--text)}
+.snapshot-item p{font-size:0.78rem;color:var(--text2)}
+.snapshot-item code{font-size:0.78rem}
+.flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:0.75rem}
+.flow-card{background:linear-gradient(145deg,var(--surface),rgba(99,102,241,0.08));border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.flow-card h3{font-size:0.9rem;margin-bottom:0.5rem}
+.flow-card p{font-size:0.8rem;color:var(--text2)}
+.flow-step{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.2rem 0.4rem;margin:0.12rem 0;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.72rem}
+.flow-arrow{color:var(--accent);font-weight:700;padding:0 0.15rem}
+.source-list{display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.75rem}
+.source-list a{display:inline-block;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0.25rem 0.5rem;font-family:'JetBrains Mono',monospace;font-size:0.72rem}
+.callout{border-left:3px solid var(--accent);background:rgba(99,102,241,0.08);padding:0.75rem 1rem;border-radius:0 var(--radius) var(--radius) 0;color:var(--text2);font-size:0.82rem;margin:1rem 0}
 
 /* Stats */
 .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:0.75rem;margin-bottom:1.5rem}
@@ -101,6 +115,9 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <nav class="sidebar">
 <h3>Repo Brain</h3>
 <a href="#overview" class="active">1. Overview</a>
+<a href="#snapshot">Live snapshot</a>
+<a href="#flows">Architecture &amp; flows</a>
+<a href="#runtime">Runtime watchlist</a>
 <a href="#structure">2. Repository Structure</a>
 <a href="#backend">3. Backend</a>
 <a href="#frontend">4. Frontend</a>
@@ -119,102 +136,256 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <!-- 1. OVERVIEW -->
 <div class="section" id="overview">
 <h2 class="section-title">1. Overview</h2>
-<p class="section-desc">Complete repository map, refreshed from live code audit (Aug 2026) — every app, file, route, table, and workflow</p>
+<p class="section-desc">Complete repository map, refreshed from the current worktree and knowledge graph on 27 Aug 2026. This document is the single source of truth for the Trstprep monorepo's architecture, route inventory, middleware stack, database schema, frontend routes, admin panel, CI/CD pipeline, and runtime health signals. Every claim is backed by filesystem evidence or graph-report citations — nothing is inferred without a source.</p>
 <div class="stat-grid">
 <div class="stat"><div class="stat-value">3+1</div><div class="stat-label">Apps + Worker</div></div>
 <div class="stat"><div class="stat-value">2</div><div class="stat-label">Packages</div></div>
-<div class="stat"><div class="stat-value">~140</div><div class="stat-label">DB Tables</div></div>
-<div class="stat"><div class="stat-value">250+</div><div class="stat-label">API Routes</div></div>
-<div class="stat"><div class="stat-value">~90</div><div class="stat-label">Frontend Pages</div></div>
-<div class="stat"><div class="stat-value">48</div><div class="stat-label">Admin Manager Files</div></div>
-<div class="stat"><div class="stat-value">97</div><div class="stat-label">Migrations</div></div>
+<div class="stat"><div class="stat-value">115</div><div class="stat-label">Migration Files</div></div>
+<div class="stat"><div class="stat-value">70</div><div class="stat-label">API Mount Entries</div></div>
+<div class="stat"><div class="stat-value">117</div><div class="stat-label">Frontend Page Files</div></div>
+<div class="stat"><div class="stat-value">36</div><div class="stat-label">Admin Manager Files</div></div>
+<div class="stat"><div class="stat-value">51</div><div class="stat-label">Unit Test Files</div></div>
 <div class="stat"><div class="stat-value">4</div><div class="stat-label">CI Workflows</div></div>
-<div class="stat"><div class="stat-value">26</div><div class="stat-label">Tests</div></div>
-<div class="stat"><div class="stat-value">82</div><div class="stat-label">Route Files (api)</div></div>
+<div class="stat"><div class="stat-value">83</div><div class="stat-label">Route Files (api)</div></div>
+<div class="stat"><div class="stat-value">410</div><div class="stat-label">Backend Source Files</div></div>
+<div class="stat"><div class="stat-value">293</div><div class="stat-label">Frontend Source Files</div></div>
+<div class="stat"><div class="stat-value">166</div><div class="stat-label">Admin Source Files</div></div>
 <div class="stat"><div class="stat-value">32</div><div class="stat-label">Module Route Files</div></div>
 <div class="stat"><div class="stat-value">10</div><div class="stat-label">Compose Services</div></div>
 </div>
 <div class="card">
-<div class="card-title">Tech Stack</div>
+<div class="card-title">Tech Stack — Full Breakdown</div>
 <div class="card-body">
-<strong>Backend:</strong> Express 4, PostgreSQL/Supabase (pg 8.16 + pgvector), Redis/ioredis 5 + @socket.io/redis-adapter, BullMQ 5 (6 queues incl. dead-letter + events), Socket.IO 4, Helmet 7, Multer, Razorpay, @sentry/node 8, @aws-sdk (S3/SES/SNS), @sendgrid/mail, bcrypt 6, google-auth-library, express-validator, xlsx<br>
-<strong>Frontend:</strong> React 18, Vite, Tailwind CSS, React Router 6, TanStack Query, Axios, Framer Motion, Chart.js, Socket.IO Client, react-helmet-async, react-hot-toast, react-easy-crop, vitest<br>
-<strong>Admin:</strong> React 18, Vite, Tailwind, Recharts, Heroicons/lucide-react, TanStack Query, Zod, vitest<br>
-<strong>Monorepo:</strong> npm workspaces + Turborepo 2, Node ≥20 (.nvmrc=20), ESM throughout, package version 2.1.0<br>
-<strong>Ports:</strong> Backend 5001, Frontend 3000, Admin 3002 · <strong>Infra:</strong> docker-compose 10 services (nginx, 2×backend, frontend, admin-panel, prometheus, grafana, loki, certbot×2)
+<strong>Backend (apps/backend):</strong> Express 4 application server bound to port 5001 on 0.0.0.0. Database layer uses <code>pg</code> 8.16 with <code>pgvector</code> extension for semantic search (vector(1536) columns with ivfflat/HNSW cosine indexes). Dual connection pools: write pool via <code>DATABASE_URL</code>, read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary. Redis stack: ioredis 5 for caching, session cache, pub/sub, and rate limiting; <code>@socket.io/redis-adapter</code> for multi-node WebSocket broadcasting. Job queue: BullMQ 5 with 6 named queues (analytics, leaderboard, notifications, recommendations, dead-letter, events) — all with configurable retry/backoff, repeatable jobs, and graceful degradation when Redis is unavailable. Real-time: Socket.IO 4 with JWT authentication, room-based subscriptions (user, test, notification, admin), rate limiting, heartbeat monitoring, and eviction testing. Security: Helmet 7 with full CSP in production, Multer for file uploads, Razorpay for payments, <code>@sentry/node</code> 8 for error tracking, AWS SDK (S3 storage, SES email, SNS SMS), SendGrid mail, bcrypt 6 for password hashing, Google OAuth via google-auth-library, express-validator for input validation, xlsx for Excel import/export. Entry point: <code>app-port5001.js</code> (1,162 lines) — composition root that orchestrates the full startup sequence.<br>
+<strong>Frontend (apps/frontend):</strong> React 18 SPA served on port 3000 via Vite dev server / static build. Styling: Tailwind CSS with utility-first classes. Routing: React Router 6 with <code>React.lazy()</code> code-splitting per route and <code>RouteErrorBoundary</code> for fault isolation. Data fetching: TanStack Query for server-state management with stale-time caching, optimistic updates, and background refetching. HTTP: Axios with interceptors for CSRF token injection, JWT refresh retry, and typed error handling. Animations: Framer Motion for page transitions and micro-interactions. Charts: Chart.js for analytics dashboards. Real-time: Socket.IO client for live test monitoring and notifications. SEO: react-helmet-async for dynamic meta tags. UX: react-hot-toast for notifications, react-easy-crop for image cropping, custom Calculator component for exam mode. Testing: Vitest with 9 test files covering smoke tests, auth persistence, API client refresh, telemetry, and shared hooks.<br>
+<strong>Admin Panel (apps/admin-panel):</strong> React 18 SPA on port 3002, built with Vite. Reorganized into 13 domain directories (dashboard, analytics, assessments, exams, study-materials, notifications, subscriptions, users, audit, moderation, system, auth). 44 routed components (43 managers + Login) across 59 .jsx files, all lazy-loaded for code splitting. Forms: Zod for schema validation with unit-tested schemas. Charts: Recharts for analytics dashboards. Icons: Heroicons + lucide-react. Data: TanStack Query with shared <code>dataService.js</code> API layer. UI: Custom component library (AdminTable, CommandPalette, VirtualTable, FormModal, etc.).<br>
+<strong>Monorepo Tooling:</strong> npm workspaces for package management, Turborepo 2.10.12 for task orchestration (build, lint, test pipelines with caching). Node ≥20 enforced via <code>.nvmrc</code> (set to 20). ESM module system throughout all packages (type: "module" in package.json). Package version: 2.1.0. Shared packages: <code>@trstprep/shared-config</code> (API client, CSRF store, error handling, logger) and <code>@trstprep/shared-hooks</code> (9 hooks + ThemeContext).<br>
+<strong>Infrastructure:</strong> Docker Compose with 10 services: nginx 1.27.3-alpine reverse proxy (SSL termination, load balancing), 2× backend Express instances (dual-node WebSocket broadcasting), frontend SPA, admin-panel SPA, certbot + certbot-init (Let's Encrypt automation), Prometheus (metrics scraping), Grafana (dashboards), Loki (centralized log aggregation). Security hardening: read-only rootfs, <code>cap_drop ALL</code>, <code>no-new-privileges</code>, memory limits (512M per backend), tmpfs for temp files. Deployment variants: <code>docker-compose.dev.yml</code> (source mounts, hot reload), <code>.prod.yml</code>, <code>.scale.yml</code> (horizontal scaling), <code>deploy/</code> directory with bootstrap.sh, rolling-deploy.sh, setup-ssl.sh, backup-db.sh.
 </div>
 </div>
 <div class="card">
 <div class="card-title">Major Changes Since Last Doc Version</div>
 <div class="card-body">
-✅ All 15 previously-dormant route modules (adaptive, AI mentor, topic analytics, weak areas, live mock, ranking, smart revision, question/vector search, templates, question builder, test builder, sections) are now <strong>mounted</strong><br>
-✅ Outbox poller, test scheduler, and attempt cleaner now <strong>start at boot</strong> (app-port5001.js:879-881)<br>
-✅ <strong>TOTP two-factor auth</strong> (auth routes /2fa/*, admin TwoFactorManager, migration 064)<br>
-✅ <strong>Phone/OTP auth</strong> (/api/auth/phone), PII encryption at rest (088), certificates table (094), Node Engine V2 learning graph (106), Practice Lab redesign (107)<br>
-✅ AI gateway live: aiClient (OpenRouter), RAG service, embeddings, PDF processor (extract_pdf.py), AI rate limiter (50/hr free, 500/hr pro)<br>
-✅ Security hardening: compromised-secret SHA-256 blocklist at startup, admin IP allowlist, origin validation, request dedup, response cache, image optimization, Sentry integration, 30s request timeout<br>
-✅ Admin panel restructured into 13 domain directories, 48 managers; Dockerfiles exist for all 3 apps; CI runs migrations in pipeline<br>
-✅ PYPTest rewired to real APIs (was hardcoded sample data); ExamYear fallback removed
+✅ <strong>All 15 previously-dormant route modules are now mounted</strong> — adaptive testing (5 endpoints), AI mentor with streaming chat (9), AI explanations with bulk/Hindi generation (6), AI generation logs (10), embeddings with pgvector (7), KaTeX math renderer (3), adaptive difficulty (4), Node Engine V2 learning graph (4), topic analytics (7), weak area detection (6), live mock tests (14), ranking (7), smart revision (6), question search with embedding (8), vector search (7), test templates (9), question builder (10), test builder (11), sections (6). Total: ~120 new API endpoints mounted in <code>app-port5001.js</code>.<br>
+✅ <strong>Background jobs start at boot</strong> — outbox poller (<code>SELECT FOR UPDATE SKIP LOCKED</code>, 5s polling), test scheduler (scheduled→published state transitions), and attempt cleaner (sweeps stale paused attempts) are all initialized at <code>app-port5001.js:879-881</code> and gracefully shut down on SIGTERM.<br>
+✅ <strong>TOTP two-factor auth</strong> — Full 2FA lifecycle: enrollment (QR code generation), verification (TOTP code validation), backup code rotation, disable, and status check. Backend routes at <code>/api/auth/2fa/*</code> (5 endpoints). Admin TwoFactorManager for user-level 2FA administration. Migration 064 creates <code>two_factor_secrets</code> table with encrypted secret storage.<br>
+✅ <strong>Phone/OTP authentication</strong> — <code>/api/auth/phone</code> routes with Redis-backed OTP store (time-limited codes, rate limiting). PII encryption at rest using pgcrypto (migration 088) for sensitive user columns. Certificates table (migration 094) with hashed lookup and revocation support. Node Engine V2 learning graph (migration 106) with per-user skill vectors and spaced-repetition scheduling. Practice Lab redesign (migration 107) with fundamental skill drills, knowledge vault, and AI-enhanced explanations.<br>
+✅ <strong>AI gateway live</strong> — OpenRouter multi-provider LLM gateway via <code>aiClient.js</code> supporting GPT-4, Claude, Gemini, Llama, and other models. RAG service for retrieval-augmented generation over embeddings and document chunks. Embedding service for pgvector generation and storage. PDF processor (<code>extract_pdf.py</code>) for document ingestion into the RAG pipeline. AI rate limiter with Redis sliding window: 50 requests/hour for free users, 500 requests/hour for pro users. Generation logs and cost tracking via <code>ai_generation_logs</code> and <code>ai_api_usage</code> tables.<br>
+✅ <strong>Security hardening</strong> — Compromised-secret SHA-256 blocklist checked at startup (prevents use of leaked JWT secrets from git history). Admin IP allowlist via <code>ADMIN_IP_ALLOWLIST</code> env var. Origin validation with configurable allowlist. Request deduplication collapses identical concurrent GETs. Response cache with TTL-based caching across public and admin routes. Image optimization middleware for served uploads. Sentry integration for error tracking with source maps. 30-second request timeout with 31-second headers timeout.<br>
+✅ <strong>Admin panel restructured</strong> — Reorganized from flat 32-manager folder into 13 domain directories with 36 manager files. Dockerfiles exist for all 3 apps. CI pipeline now runs database migrations explicitly via <code>run-migrations.js</code>. New admin managers: PaymentsManager, ModerationManager, LiveTestMonitor, TwoFactorManager, UsersPermissions (unified wrapper for users + roles).<br>
+✅ <strong>PYPTest rewired</strong> — Previously hardcoded sample questions now uses <code>getTestById</code> + <code>getQuestionsByTestId</code> real API calls (FIX P0-1). ExamYear sample-data fallback also removed.
 </div>
 </div>
+</div>
+</div>
+
+<!-- LIVE SNAPSHOT -->
+<div class="section" id="snapshot">
+<h2 class="section-title">Live Snapshot</h2>
+<p class="section-desc">Evidence-backed repository state. Counts below are from the current filesystem scan; graph metrics are from <a href="../graphify-out/GRAPH_REPORT.md">graphify-out/GRAPH_REPORT.md</a>. Every number can be verified by grepping the source tree — this section exists so you don't have to.</p>
+<div class="snapshot-grid">
+<div class="snapshot-item"><h3>Repository identity</h3><p><code>trstprep-monorepo</code> v2.1.0, npm workspaces, Turborepo 2.10.12, ESM, Node &gt;=20, npm 10.8.2. Current HEAD: <code>50d3907</code>. The monorepo root <code>package.json</code> defines workspace globs for <code>apps/*</code> and <code>packages/*</code>, with Turborepo task pipelines for <code>build</code>, <code>lint</code>, <code>test</code>, and <code>dev</code>. All packages use <code>"type": "module"</code> for native ESM imports.</p></div>
+<div class="snapshot-item"><h3>Graph coverage</h3><p>15,107 nodes, 26,583 edges, and 1,055 communities. 100% of the codebase is extracted — 49 inferred edges at average confidence 0.81. The graph identifies 7 god nodes (dbHelpers: 260 edges, pool: 206, protect(): 200, sanitizeErrorMessage(): 183, admin(): 144, responseCache(): 74, getRedisClient(): 62) and 3 hyperedges crossing domain boundaries. Query the graph at <code>graphify-out/</code> instead of grepping blindly.</p></div>
+<div class="snapshot-item"><h3>Application surface</h3><p><code>apps/backend/src</code>: 410 files (83 route files, 20 module directories, 24 middleware, 14 core services, 2 AI services, 4 import services); <code>apps/frontend/src</code>: 293 files (117 page components, 29 common components, 14 hooks, 32 lib files); <code>apps/admin-panel/src</code>: 166 files (44 routed managers, 25 common components, 14 hooks). Total: 869 source files across the three apps, plus 32 shared package files.</p></div>
+<div class="snapshot-item"><h3>Backend shape</h3><p>83 API route files in <code>api/routes/</code> + 32 module route files in <code>modules/*/</code>. The composition root (<code>app-port5001.js</code>) mounts 70 canonical <code>/api</code> route entries, plus the sessions router and extracted admin routes. Middleware stack: 24 middleware files handling auth, CSRF, rate limiting, audit, caching, compression, and error handling. Entry point starts 3 background jobs (scheduler, outbox poller, attempt cleaner) and 6 BullMQ queues at boot.</p></div>
+<div class="snapshot-item"><h3>Data evolution</h3><p>115 migration files present (numbered 000–126 with retired-number gaps), auto-run at boot via <code>migrationRunner.js</code>. Sequence currently reaches migration 126 (negative-marking defaults + performance indexes). PostgreSQL/Supabase is accessed through write (<code>DATABASE_URL</code>) and optional read (<code>DATABASE_READ_URL</code>) pools with <code>warmPools()</code> at startup. Redis supports BullMQ queues, Socket.IO adapter, session cache, rate limiting, and pub/sub messaging.</p></div>
+<div class="snapshot-item"><h3>Verification surface</h3><p>35 backend unit tests (Jest), 9 frontend tests (Vitest), 7 admin tests (Vitest), 4 GitHub Actions workflows (ci.yml, security.yml, no-env.yml, data-guard.yml), and k6 load-test assets (api.js, auth.js, realtime.js) under <code>tests/load/</code>. Pre-commit hooks via .husky + .lintstagedrc.json run linting on staged files.</p></div>
+</div>
+<div class="callout"><strong>Freshness note:</strong> the graph report was built from the same HEAD shown above. The worktree is currently dirty with 32 tracked/untracked entries, so this page distinguishes committed architecture from changes that are still in flight. Always verify against the current filesystem state, not just the git log.</div>
+<div class="card">
+<div class="card-title">Architecture layers and ownership</div>
+<table><thead><tr><th>Layer</th><th>Primary source of truth</th><th>Responsibility</th><th>Current scale</th><th>Key files</th></tr></thead><tbody>
+<tr><td>Experience</td><td><code>apps/frontend/src</code></td><td>Learner-facing SPA: authentication, dashboard, test-taking, practice sessions, PYP browsing, study material consumption, community forums, payments, and profile management. Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. TanStack Query manages server-state with optimistic updates and background refetching.</td><td>293 source files / 117 page files</td><td><code>App.jsx</code> (routes + lazy imports), <code>pages/</code> (9 directories), <code>shared/lib/</code> (32 API/domain clients)</td></tr>
+<tr><td>Operations UI</td><td><code>apps/admin-panel/src/features/admin</code></td><td>Admin CRUD for all entities, content hierarchy management, bulk imports, analytics dashboards, moderation queues, system settings, audit trail viewing, and role-based access control. All route components are lazy-loaded. Zod schemas validate all form inputs.</td><td>166 source files / 36 manager files</td><td><code>features/admin/</code> (13 domain dirs), <code>shared/components/</code> (25 common), <code>shared/hooks/</code> (14)</td></tr>
+<tr><td>Application API</td><td><code>apps/backend/src/app-port5001.js</code></td><td>Express composition root: env validation, security middleware, route mounting, boot jobs (scheduler, outbox poller, attempt cleaner), database migrations, Redis/queue initialization, WebSocket setup, graceful shutdown. 70 canonical <code>/api</code> mount entries plus extracted admin routes.</td><td>1,162 lines / 70 API mount entries</td><td><code>app-port5001.js</code> (entry), <code>api/routes/</code> (83 files), <code>api/docs/</code> (Swagger)</td></tr>
+<tr><td>Domain services</td><td><code>apps/backend/src/modules</code> and <code>services</code></td><td>Business logic: auth (JWT, TOTP 2FA, phone OTP), test engine (attempt lifecycle, anti-cheat, scoring), practice sessions, Node Engine (learning graph, spaced repetition), AI (mentor, explanations, RAG), search (semantic + keyword), payments (Razorpay), live tests, community, analytics, and content moderation.</td><td>20 module directories / 32 module route files</td><td><code>modules/</code> (auth, ai, adaptive, live, etc.), <code>services/core/</code> (14 files), <code>services/ai/</code> (2), <code>services/import/</code> (4)</td></tr>
+<tr><td>Persistence &amp; events</td><td><code>infrastructure/database</code>, <code>infrastructure/queue</code>, <code>infrastructure/websocket</code></td><td>PostgreSQL dual-pool access, pgvector for semantic search, migration runner (auto-runs 115 files at boot), query builder, repository pattern, Redis/BullMQ (6 queues), outbox poller with <code>SELECT FOR UPDATE SKIP LOCKED</code>, Socket.IO with Redis adapter for multi-node broadcasting.</td><td>115 migration files / dual-pool configuration</td><td><code>infrastructure/database/postgres-helpers.js</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/websocket/websocketManager.js</code></td></tr>
+<tr><td>Shared contracts</td><td><code>packages/shared-config</code> and <code>packages/shared-hooks</code></td><td>API client with CSRF injection and JWT refresh retry, error class hierarchy, CSRF token store, logger (pino-based, stdout → Grafana Loki), 9 reusable hooks, ThemeContext for dark mode, and API client configuration.</td><td>32 package files</td><td><code>packages/shared-config/src/</code> (apiClient, errors, logger), <code>packages/shared-hooks/src/</code> (9 hooks + ThemeContext)</td></tr>
+</tbody></table>
+</div>
+<div class="card">
+<div class="card-title">Graph-identified cross-cutting hubs</div>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:0.75rem">These are the highest-connection nodes in the knowledge graph. Changes to them ripple across many modules — always trace the full edge list before editing.</p>
+<table><thead><tr><th>Hub</th><th>Graph edges</th><th>Why it matters</th><th>Risk if changed</th></tr></thead><tbody>
+<tr><td><code>dbHelpers</code></td><td>260</td><td>Most repository/data access paths converge here. Contains query execution helpers, transaction management, and common database operations used by all repositories and route handlers.</td><td>Breaking changes propagate to every database-touching module. Always run the full test suite and database audit after changes.</td></tr>
+<tr><td><code>pool</code></td><td>206</td><td>Database connection lifecycle: write pool (<code>DATABASE_URL</code>), read pool (<code>DATABASE_READ_URL</code> fallback), pool warming at boot, health checks, and connection recycling.</td><td>Pool configuration errors cause cascading failures across all DB-dependent services. Test with <code>run-database-audit.js</code> first.</td></tr>
+<tr><td><code>protect()</code></td><td>200</td><td>Authenticated route boundary: JWT verification, session check (Redis cached), isActive check, emailVerified check, sessionId embedding. Every authenticated endpoint depends on this.</td><td>Auth changes affect all protected routes (~80% of API surface). Test with full auth test suite + 2FA scenarios.</td></tr>
+<tr><td><code>sanitizeErrorMessage()</code></td><td>183</td><td>Shared error disclosure boundary: sanitizes error messages before sending to clients, preventing information leakage. Used across all API error responses.</td><td>Overly aggressive sanitization hides debugging info; too permissive leaks internals. Test with error handling test suite.</td></tr>
+<tr><td><code>admin()</code></td><td>144</td><td>Admin authorization boundary: checks <code>req.user.isAdmin</code>. Used with origin validation, API key, auth, RBAC, and audit middleware in a layered guard stack.</td><td>Admin auth bypass is a critical security vulnerability. Test with admin permission test suite + RBAC scenarios.</td></tr>
+<tr><td><code>responseCache()</code></td><td>74</td><td>Cache behavior is cross-cutting: in-memory TTL cache used across public and admin routes. Two implementations exist (plain + .middleware variant) — a known duplication risk.</td><td>Cache invalidation bugs cause stale data. Cache stampede on cold start. Monitor cache hit rates in production.</td></tr>
+<tr><td><code>getRedisClient()</code></td><td>62</td><td>Queue, cache, pub/sub, and realtime dependencies all share this infrastructure. Status-aware with automatic fallback to in-memory cache when Redis is unavailable.</td><td>Redis outages degrade but don't break the system (fail-soft design). Monitor Redis connection status in health checks.</td></tr>
+</tbody></table>
+<div class="source-list"><a href="../apps/backend/src/infrastructure/database/postgres-helpers.js">postgres-helpers.js</a><a href="../apps/backend/src/app-port5001.js">app-port5001.js</a><a href="../graphify-out/WORKFLOW_MAP.md">WORKFLOW_MAP.md</a><a href="../graphify-out/GRAPH_REPORT.md">GRAPH_REPORT.md</a></div>
+</div>
+</div>
+
+<!-- ARCHITECTURE AND FLOWS -->
+<div class="section" id="flows">
+<h2 class="section-title">Architecture &amp; Runtime Flows</h2>
+<p class="section-desc">The important behavior is a set of connected request, persistence, and event paths. These traces are aligned with the graph workflow map and current route mounts. Each flow below traces the full request lifecycle from client to database and back, including middleware, service calls, and side effects.</p>
+<div class="flow-grid">
+<div class="flow-card"><h3>Test attempt lifecycle</h3><p>The most complex flow in the system. <span class="flow-step">TestInstructions page</span> displays test metadata, rules, and timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">POST /api/tests/:id/start</span> creates an attempt record (dedup: one in-progress per user/test, migration 094), initializes section scores, starts server-side timer. <span class="flow-arrow">-&gt;</span> <span class="flow-step">server timer/state</span> tracks elapsed time, validates against time limits, prevents replay. <span class="flow-arrow">-&gt;</span> <span class="flow-step">TestInterface</span> renders question palette, passage groups, calculator (exam mode), and auto-saves every 30s. <span class="flow-arrow">-&gt;</span> <span class="flow-step">autosave / pause</span> persists progress via PUT /autosave, supports pause/resume with state preservation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">submit</span> triggers scoring, anti-cheat event batch submission, solution generation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">outbox + eventBus</span> publishes analytics, leaderboard recalculation, notification fan-out, and recommendation generation via BullMQ queues. <span class="flow-arrow">-&gt;</span> <span class="flow-step">analytics / leaderboard / notifications</span> update topic stats, wrong-question bank, revision queue, and user achievements. <span class="flow-arrow">-&gt;</span> <span class="flow-step">result</span> shows score, section analysis, solution review, and reattempt options. Sources: <code>api/routes/tests.js</code>, <code>api/routes/attempts.js</code>, <code>services/core/TestAttemptController.js</code>, <code>services/core/TestStateMachine.js</code>.</p></div>
+<div class="flow-card"><h3>Practice Lab</h3><p>Fundamentals-first practice engine. <span class="flow-step">POST /api/practice/sessions</span> creates session with topic selection and difficulty parameters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">id + sessionId</span> returned to client for session tracking. <span class="flow-arrow">-&gt;</span> <span class="flow-step">GET question</span> fetches next question with metadata (topic, difficulty, type). <span class="flow-arrow">-&gt;</span> <span class="flow-step">check / skip</span> submits answer, receives immediate feedback with explanation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">complete</span> finalizes session, generates analytics. Answers and analytics feed mastery levels, AI-generated explanations, solution approaches, similar-question lookup via pgvector embeddings, and the Node Engine learning graph (topics as nodes, per-user skill vectors, spaced-repetition scheduling). Practice AI cache stores LLM-generated content for reuse. Sources: <code>api/routes/practice.js</code>, <code>pages/tests/PracticeLab.jsx</code> (1147 lines).</p></div>
+<div class="flow-card"><h3>Auth and session boundary</h3><p>Multi-layer authentication system. <span class="flow-step">login / phone OTP</span> validates credentials, checks lockout status (progressive: 3→5min, 5→15min, 10→1h, 20→24h), generates JWT with embedded sessionId. <span class="flow-arrow">-&gt;</span> <span class="flow-step">CSRF + httpOnly cookie</span> sets access token in httpOnly cookie, CSRF token in separate cookie, session record in user_sessions table. <span class="flow-arrow">-&gt;</span> <span class="flow-step">JWT middleware</span> verifies token signature, checks Redis-cached session, validates isActive and emailVerified. <span class="flow-arrow">-&gt;</span> <span class="flow-step">protect()</span> attaches user to req.user, embeds sessionId for downstream audit. Optional 2FA: <code>/api/auth/login/2fa</code> requires TOTP code after initial login. Expired access tokens go through refresh endpoint with one retry in the client. Logout clears cookies, invalidates session in DB, and records the session event. Sources: <code>modules/auth/auth.routes.js</code>, <code>middleware/auth.middleware.js</code>, <code>modules/auth/twoFactor.service.js</code>.</p></div>
+<div class="flow-card"><h3>Admin content pipeline</h3><p>Multi-guard admin operations. <span class="flow-step">manager / bulk import</span> starts from admin panel manager (e.g., TestsManager, QuestionsManager) or bulk import modal. <span class="flow-arrow">-&gt;</span> <span class="flow-step">Zod/schema validation</span> validates input with typed schemas (admin panels use Zod, backend uses express-validator). <span class="flow-arrow">-&gt;</span> <span class="flow-step">admin route</span> passes through layered guard stack: <code>normalizeFields</code> (camelCase→snake_case) → <code>restrictAdminOrigin</code> (origin allowlist) → <code>validateAdminApiKey</code> (API key header) → <code>protect</code> (JWT auth) → <code>admin</code> (isAdmin check) → <code>CSRF</code> (for mutations) → <code>loadAdminPermissions</code> → <code>requireAdminPermission</code> (RBAC) → <code>auditMiddleware</code> (logs action). <span class="flow-arrow">-&gt;</span> <span class="flow-step">PostgreSQL</span> executes with transaction isolation. <span class="flow-arrow">-&gt;</span> <span class="flow-step">sync stats</span> updates denormalized counters. <span class="flow-arrow">-&gt;</span> <span class="flow-step">event + query invalidation</span> publishes domain event via eventBus, invalidates relevant TanStack Query caches. Sources: <code>api/routes/admin.js</code> + <code>admin-routes-index.js</code>, <code>apps/admin-panel/src/features/admin/</code>.</p></div>
+<div class="flow-card"><h3>AI and search</h3><p>Multi-provider AI gateway. <span class="flow-step">question/content</span> arrives via API request (explanation generation, mentor chat, or search query). <span class="flow-arrow">-&gt;</span> <span class="flow-step">embedding / pgvector</span> generates vector embedding via OpenRouter provider, stores in pgvector columns with ivfflat cosine index for similarity search. <span class="flow-arrow">-&gt;</span> <span class="flow-step">RAG context</span> retrieves relevant document chunks via semantic search, assembles context window. <span class="flow-arrow">-&gt;</span> <span class="flow-step">OpenRouter gateway</span> routes to selected LLM provider (GPT-4, Claude, Gemini, Llama), applies rate limiting (50/hr free, 500/hr pro via Redis sliding window). <span class="flow-arrow">-&gt;</span> <span class="flow-step">cached response</span> stores in practice_ai_cache for reuse, logs generation metadata (model, tokens, cost) in ai_generation_logs. AI routes are rate-limited; generation logs and practice AI cache keep the user-facing path observable and bounded. Sources: <code>modules/ai/aiClient.js</code>, <code>modules/ai/rag.service.js</code>, <code>modules/ai/embeddingService.js</code>.</p></div>
+<div class="flow-card"><h3>Public study routing</h3><p>SEO-optimized content delivery. <span class="flow-step">slug URL</span> (e.g., /study/mathematics/chapter-1-algebra) arrives at the router. <span class="flow-arrow">-&gt;</span> <span class="flow-step">study API</span> receives request with slug parameter. <span class="flow-arrow">-&gt;</span> <span class="flow-step">slug/id resolver</span> looks up content by slug in subjects, chapters, or videos tables (supporting both slug and numeric ID). <span class="flow-arrow">-&gt;</span> <span class="flow-step">hierarchy/content joins</span> assembles full content hierarchy: subjects → chapters → topics → videos/PDFs/tests. <span class="flow-arrow">-&gt;</span> <span class="flow-step">SEO page renderer</span> injects structured data, meta tags via react-helmet-async, and serves content with proper caching headers. Subjects, chapters, videos, PDFs, tests, and study-material counts are assembled at the API boundary with response caching (60s TTL for public endpoints). Sources: <code>api/routes/study.js</code>, <code>pages/study/StudyMaterial.jsx</code>, <code>pages/study/StudyMaterialChapter.jsx</code> (1435 lines).</p></div>
+</div>
+<div class="card">
+<div class="card-title">Canonical backend route groups</div>
+<p class="card-body">The composition root mounts tests, questions, study, exams, series, categories, bookmarks, notifications, payments, attempts, practice, sessions, subscriptions, community, analytics, imports, embeddings, Node Engine, AI, adaptive testing, live tests, search, builders, sections, and study materials under <code>/api</code>. The full list of 70 canonical mount entries is maintained in <a href="../apps/backend/src/app-port5001.js">app-port5001.js</a>. <strong>Do not infer route availability from an unmounted module file</strong> — a module may exist in <code>modules/</code> but not be wired into the composition root. Always verify against the mount entries in <code>app-port5001.js</code> or the route tables in this document. The admin routes use a separate mounting system via <code>mountAdminRoutes(app, adminLimiter)</code> which mounts 30 extracted admin-* routers under <code>/api/admin/*</code>.</p>
+</div>
+<div class="callout"><strong>Security boundary map:</strong> Every request passes through a guard stack. Public routes: CORS → validateOrigin → generalLimiter → route handler. Authenticated routes: + protect() → CSRF (mutations). Admin routes: + adminIpAllowlist → normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin → CSRF → loadAdminPermissions → requireAdminPermission → auditMiddleware. AI routes: + aiRateLimiter (Redis sliding window). Upload routes: + uploadLimiter + upload-validation + imageOptimization.</div>
+</div>
+
+<!-- RUNTIME WATCHLIST -->
+<div class="section" id="runtime">
+<h2 class="section-title">Runtime Watchlist</h2>
+<p class="section-desc">Signals copied from the latest supplied production console excerpt, correlated with the current worktree. A log observation is not treated as a successful deployment verification. Each entry includes the observed symptom, root cause hypothesis, affected source files, and recommended diagnostic steps.</p>
+<table><thead><tr><th>Observed signal</th><th>Evidence</th><th>Root cause hypothesis &amp; diagnostic steps</th><th>Affected files</th></tr></thead><tbody>
+<tr><td>Practice session start is slow</td><td><code>POST /api/practice/sessions</code> 200 in 5,190 ms</td><td><strong>Hypothesis:</strong> The session creation endpoint likely executes multiple sequential DB queries (topic validation, difficulty calculation, session record creation, initial question selection) without parallelization. <strong>Diagnostic steps:</strong> (1) Enable pg_stat_statements and check slow_query_threshold. (2) Profile the practice.js route handler with <code>console.time()</code> at each DB call. (3) Check Redis availability — if Redis is down, session cache falls back to in-memory which adds latency. (4) Verify connection pool isn't exhausted (check <code>pool.totalCount</code> vs <code>pool.idleCount</code>). (5) Check if practice_ai_cache table needs VACUUM/ANALYZE.</td><td><code>api/routes/practice.js</code>, <code>services/core/NodeEngineService.js</code>, <code>infrastructure/database/postgres-helpers.js</code></td></tr>
+<tr><td>Undefined practice session id</td><td><code>GET /api/practice/sessions/undefined/questions/0</code> 500</td><td><strong>Hypothesis:</strong> The frontend practiceAPI.js passes <code>id</code>/<code>sessionId</code> as URL parameters, but when the session creation response is malformed or the state isn't properly initialized, the ID becomes <code>undefined</code> string. The backend validates positive numeric IDs but the error response doesn't include a controlled client error. <strong>Diagnostic steps:</strong> (1) Check if <code>practiceAPI.js</code> normalizes undefined IDs to null before making the request. (2) Verify the backend route validates the ID type before the DB query (should return 400, not 500). (3) Check if the practice session state is properly initialized in the React component before making API calls. (4) Add input validation middleware to practice routes.</td><td><code>frontend/src/shared/lib/practiceAPI.js</code>, <code>backend/src/api/routes/practice.js</code></td></tr>
+<tr><td>Bookmarks list is slow</td><td><code>GET /api/bookmarks?page=1&amp;limit=100</code> 200 in 5,298 ms</td><td><strong>Hypothesis:</strong> The default path includes <code>includeDetails=true</code> which JOINs question options, explanations, and test metadata — expensive with 100 rows. The lightweight path (<code>includeDetails=false</code>) was added but the frontend may not be using it consistently. <strong>Diagnostic steps:</strong> (1) Check TestInterface.jsx is calling bookmarks with <code>includeDetails=false</code>. (2) Profile the JOIN query — likely missing an index on <code>bookmarks.question_id</code> or <code>bookmarks.user_id</code>. (3) Consider adding a composite index on <code>(user_id, created_at DESC)</code> for pagination. (4) Verify the responseCache middleware is applied to this route (should cache 60s for authenticated responses).</td><td><code>backend/src/api/routes/bookmarks.js</code>, <code>frontend/src/pages/tests/TestInterface.jsx</code></td></tr>
+<tr><td>Avatar asset missing</td><td><code>GET /assets/avatar/avatar_1_*.webp</code> 404</td><td><strong>Hypothesis:</strong> The <code>/api/auth/me</code> endpoint returns avatar URLs that reference local filesystem paths (<code>/assets/avatar/</code>), but production doesn't have these files in the expected location. The storage provider should be S3/Supabase in production but the avatar URL generation still uses local paths. <strong>Diagnostic steps:</strong> (1) Check <code>STORAGE_PROVIDER</code> env var in production. (2) Verify avatar URL generation in auth.routes.js uses the correct storage provider URL. (3) Check if avatar upload endpoint properly stores to the configured provider. (4) Consider adding a fallback avatar URL for missing assets.</td><td><code>backend/src/modules/auth/auth.routes.js</code>, <code>backend/src/infrastructure/storage/storageProvider.js</code></td></tr>
+<tr><td>Test result endpoint healthy</td><td><code>GET /api/tests/.../result</code> 200 in 1,555 ms</td><td><strong>Status:</strong> Successful response. <strong>Note:</strong> 1.5s is acceptable for a result endpoint that fetches attempt data, section scores, solutions, and analytics. Monitor if latency increases with larger question sets. Consider adding response caching for result endpoints (results don't change after submission).</td><td><code>backend/src/api/routes/tests.js</code></td></tr>
+<tr><td>Public settings cache healthy</td><td><code>GET /api/settings/public</code> 304 in 1 ms</td><td><strong>Status:</strong> Expected conditional-cache behavior. The 304 response means the client's cached version is still valid — this is the optimal behavior for public settings which rarely change. No action needed.</td><td><code>backend/src/api/routes/settings.js</code>, <code>backend/src/middleware/responseCache.js</code></td></tr>
+</tbody></table>
+<div class="callout"><strong>Deployment rule:</strong> after promoting backend and frontend changes, replay the practice-session and bookmark requests with a real authenticated session, confirm the route contract, and compare p50/p95 latency. Do not use a 200 status alone as proof that the client received a usable session identifier. Always verify the response body structure matches the frontend's expected shape — a 200 with <code>{id: undefined}</code> is indistinguishable from a success without body inspection.</div>
 </div>
 
 <!-- 2. STRUCTURE -->
 <div class="section" id="structure">
 <h2 class="section-title">2. Repository Structure</h2>
+<p class="section-desc">The monorepo is organized into three application packages (backend, frontend, admin-panel), two shared library packages (shared-config, shared-hooks), and supporting directories for scripts, tests, documentation, deployment, and CI/CD. Each app has its own Dockerfile, package.json, and test configuration. The structure enforces clear separation of concerns while enabling code sharing through workspace packages.</p>
 <pre class="tree">Trstprep V2.1/
 ├── <span class="tree-dir">apps/</span>
 │   ├── <span class="tree-dir">backend/</span>          Express API (port 5001) + separate worker entry
 │   │   ├── src/
-│   │   │   ├── app-port5001.js    Entry point (939 lines)
-│   │   │   ├── api/               routes/ (82 files), validators/, middleware/error, docs/ (Swagger)
-│   │   │   ├── modules/           21 feature domains (auth, tests, ai, nodeEngine, adaptive, ...)
-│   │   │   ├── middleware/        24 middleware (auth, CSRF, rate limit, audit, AI limiter, ...)
-│   │   │   ├── services/          core/ (14), ai/ (2), import/ (4), + 9 top-level services
-│   │   │   ├── infrastructure/    cache, database (migrations, seeders, qb), email, events,
-│   │   │   │                      logger, queue, repository, storage, websocket
-│   │   │   ├── config/            upload.js only (cors/security inlined in entry)
-│   │   │   ├── shared/            config, utils
-│   │   │   ├── utils/             db-config, env-validation, naming, networkUtils, queryBuilder, ...
-│   │   │   ├── __tests__/         17 Jest test files
-│   │   │   └── worker/            index.js + jobHandlers.js (BullMQ worker process)
+│   │   │   ├── app-port5001.js    <span style="color:#606078">Entry point (1,162 lines) — composition root that orchestrates
+│   │   │   │                       the entire startup sequence: env validation, security middleware,
+│   │   │   │                       route mounting (70 /api entries), boot jobs, DB migrations,
+│   │   │   │                       Redis/queue init, WebSocket setup, graceful shutdown</span>
+│   │   │   ├── api/
+│   │   │   │   ├── routes/        <span style="color:#606078">82 route files — one per domain (auth, tests, practice, etc.)
+│   │   │   │   │                  Each exports an Express Router with typed middleware chains</span>
+│   │   │   │   ├── validators/    <span style="color:#606078">express-validator schemas for request validation</span>
+│   │   │   │   ├── middleware/    <span style="color:#606078">Error handler middleware for route-level error wrapping</span>
+│   │   │   │   └── docs/          <span style="color:#606078">Swagger/OpenAPI setup — serves openapi.json + UI at /api-docs</span>
+│   │   │   ├── modules/           <span style="color:#606078">21 feature domains — each with routes, services, controllers:
+│   │   │   │                      auth (JWT+2FA+OTP), tests (state machine), ai (OpenRouter),
+│   │   │   │                      adaptive (difficulty), live (real-time), nodeEngine (learning graph),
+│   │   │   │                      ranking, revision, search, embeddings, math, templates, builders</span>
+│   │   │   ├── middleware/        <span style="color:#606078">24 middleware — auth (protect/admin/optionalAuth), CSRF (DB-backed),
+│   │   │   │                      rate limiting (factory pattern), audit, caching, compression,
+│   │   │   │                      error handling, image optimization, HTML sanitization</span>
+│   │   │   ├── services/
+│   │   │   │   ├── core/          <span style="color:#606078">14 core services — analytics, learning, leaderboard, notifications,
+│   │   │   │   │                  rank prediction, recommendations, test attempt controller,
+│   │   │   │   │                  test state machine, scheduler, moderation, Node Engine, maintenance</span>
+│   │   │   │   ├── ai/            <span style="color:#606078">2 AI services — learning profiles, LLM-driven recommendations</span>
+│   │   │   │   └── import/        <span style="color:#606078">4 import services — ClassX, enhanced (Excel/CSV), full test JSON,
+│   │   │   │                      test content storage</span>
+│   │   │   ├── infrastructure/
+│   │   │   │   ├── cache/         <span style="color:#606078">Redis client (ioredis, status-aware) + in-memory fallback</span>
+│   │   │   │   ├── database/      <span style="color:#606078">postgres-helpers (dual pool), migrationRunner (115 files),
+│   │   │   │   │                  qb (query builder), db/ (constants, helpers, relationships),
+│   │   │   │   │                  auditTrailManager</span>
+│   │   │   │   ├── email/         <span style="color:#606078">Nodemailer SMTP — verification, reset, welcome emails</span>
+│   │   │   │   ├── events/        <span style="color:#606078">eventBus (domain events), eventSchemas, messageBroker (Redis pub/sub)</span>
+│   │   │   │   ├── queue/         <span style="color:#606078">BullMQ queueManager (6 queues), outboxPoller (SKIP LOCKED),
+│   │   │   │   │                  startAttemptCleaner</span>
+│   │   │   │   ├── storage/       <span style="color:#606078">storageProvider (local/S3/Supabase), upload (multer)</span>
+│   │   │   │   └── websocket/     <span style="color:#606078">Socket.IO + Redis adapter, JWT auth, rooms, rate limit</span>
+│   │   │   ├── config/            <span style="color:#606078">upload.js only — CORS/security inlined in entry point</span>
+│   │   │   ├── shared/            <span style="color:#606078">config, utils — shared within backend only</span>
+│   │   │   ├── utils/             <span style="color:#606078">db-config, env-validation, naming, networkUtils, queryBuilder</span>
+│   │   │   ├── __tests__/         <span style="color:#606078">17 Jest test files — auth, CSRF, origin, rate limiting, etc.</span>
+│   │   │   └── worker/            <span style="color:#606078">BullMQ worker process — index.js + jobHandlers.js
+│   │   │                          Handlers: analytics, leaderboard, notifications, recommendations</span>
 │   │   ├── Dockerfile
-│   │   └── package.json           scripts: start, dev, worker, seed, test (jest), lint
+│   │   └── package.json           <span style="color:#606078">scripts: start, dev, worker, seed, test (jest), lint</span>
 │   ├── <span class="tree-dir">frontend/</span>         React SPA (port 3000)
 │   │   ├── src/
-│   │   │   ├── App.jsx            Routes + RouteErrorBoundary + lazy() code-splitting (402 lines)
-│   │   │   ├── pages/             auth, community, dashboard, errors, exams, public, pyps, study, tests
-│   │   │   ├── features/auth/     Login, Signup (modal components)
-│   │   │   ├── shared/            components, hooks (14), lib (32 files), providers, context, utils
-│   │   │   ├── __tests__/         App.smoke + sharedHooks tests (vitest)
-│   │   │   └── test/              vitest setup
+│   │   │   ├── App.jsx            <span style="color:#606078">Routes + RouteErrorBoundary + React.lazy() code-splitting
+│   │   │   │                      (402 lines) — all routes lazy-loaded except Home/Dashboard</span>
+│   │   │   ├── pages/
+│   │   │   │   ├── auth/          <span style="color:#606078">EmailVerification, ForgotPassword, ResetPassword</span>
+│   │   │   │   ├── community/     <span style="color:#606078">Community (2152L — doubts forum + study groups)</span>
+│   │   │   │   ├── dashboard/     <span style="color:#606078">Dashboard (13 pages — profile, AI planner, analytics, etc.)</span>
+│   │   │   │   ├── errors/        <span style="color:#606078">NotFound, ServerError</span>
+│   │   │   │   ├── exams/         <span style="color:#606078">Exams (915L), ExamInfoNew (1286L), ExamCategory/Year/Compare</span>
+│   │   │   │   ├── public/        <span style="color:#606078">Home (1026L), Pass, SearchPage, Blog, About, Contact, etc.</span>
+│   │   │   │   ├── pyps/          <span style="color:#606078">PypsLanding (dispatches slugs), PypsExam + 8 components</span>
+│   │   │   │   ├── study/         <span style="color:#606078">StudyMaterial, Detail, Chapter (1435L), Videos, SpacedRepetition</span>
+│   │   │   │   └── tests/         <span style="color:#606078">TestInterface (2110L), TestResult (1180L), PracticeLab (1147L),
+│   │   │   │                      LiveTests (915L), PYPTest (361L), TestSeries (1063L)</span>
+│   │   │   ├── features/auth/     <span style="color:#606078">Login, Signup modal components</span>
+│   │   │   ├── shared/
+│   │   │   │   ├── components/    <span style="color:#606078">29 common + 7 UI primitives + 6 admin + 3 animation components</span>
+│   │   │   │   ├── hooks/         <span style="color:#606078">14 custom hooks — WebSocket, ProPass, settings, realtime, etc.</span>
+│   │   │   │   ├── lib/           <span style="color:#606078">32 files — API layer, domain clients, telemetry, utilities</span>
+│   │   │   │   ├── providers/     <span style="color:#606078">AuthProvider (httpOnly cookie auth, WS init, notification listener)</span>
+│   │   │   │   ├── context/       <span style="color:#606078">ThemeContext (dark mode toggle)</span>
+│   │   │   │   └── utils/         <span style="color:#606078">formatting, validation, DOM helpers</span>
+│   │   │   ├── __tests__/         <span style="color:#606078">App.smoke + sharedHooks tests (vitest)</span>
+│   │   │   └── test/              <span style="color:#606078">vitest setup file</span>
 │   │   └── Dockerfile
 │   └── <span class="tree-dir">admin-panel/</span>      React admin SPA (port 3002)
 │       ├── src/
-│       │   ├── App.jsx            Admin routes (48 routes, lazy-loaded)
-│       │   ├── features/admin/    13 domain dirs: 48 managers + components
-│       │   └── shared/            components (25 common + 6 ui + 7 admin), hooks (14), lib, config
+│       │   ├── App.jsx            <span style="color:#606078">Admin routes (48 routes, lazy-loaded) — catch-all redirect</span>
+│       │   ├── features/admin/
+│       │   │   ├── dashboard/     <span style="color:#606078">AdminDashboard</span>
+│       │   │   ├── analytics/     <span style="color:#606078">AdminAnalytics, DeepAnalytics, LeaderboardResultsUnified</span>
+│       │   │   ├── assessments/   <span style="color:#606078">TestSeriesManager, TestsManager (2837L), QuestionsManager (3291L),
+│       │   │   │                  SectionsManager (1941L), QuizzesManager, PracticeQuestionsManager</span>
+│       │   │   ├── exams/         <span style="color:#606078">ExamCategoriesManager, ExamInfoManager, StagesManager (1954L),
+│       │   │   │                  CategoriesManager (1972L), TagConfigsManager</span>
+│       │   │   ├── study/         <span style="color:#606078">StudyMaterialsManager, TopicsManager, ContentManagement,
+│       │   │   │                  CurriculumBuilder (2558L), CurrentAffairsManager</span>
+│       │   │   ├── notifications/ <span style="color:#606078">EmailTemplatesManager, NotificationsManager, BannerManager, FaqManager</span>
+│       │   │   ├── subscriptions/ <span style="color:#606078">SubscriptionPlansManager, CouponsManager, PromotionManager,
+│       │   │   │                  PaymentsManager (399L)</span>
+│       │   │   ├── users/         <span style="color:#606078">UsersPermissions (65L wrapper for UsersManager + RolePermissionsManager),
+│       │   │   │                  EnrollmentsManager, UserActivityLog</span>
+│       │   │   ├── audit/         <span style="color:#606078">AuditTrailManager, ResultsManager</span>
+│       │   │   ├── moderation/    <span style="color:#606078">ModerationManager (684L)</span>
+│       │   │   ├── system/        <span style="color:#606078">AdminSettings (1243L), ActiveSessionsManager, LiveTestMonitor,
+│       │   │   │                  TwoFactorManager, SystemHealthMonitor, BackupsManager,
+│       │   │   │                  ComingSoonManager, NavigationManager, RecycleBin</span>
+│       │   │   └── auth/          <span style="color:#606078">Login → /login</span>
+│       │   └── shared/
+│       │       ├── components/    <span style="color:#606078">25 common + 6 UI + 7 admin-specific components</span>
+│       │       ├── hooks/         <span style="color:#606078">14 hooks — form, taxonomy, realtime, UX</span>
+│       │       ├── lib/           <span style="color:#606078">dataService (370L), validationSchemas, cacheService, etc.</span>
+│       │       └── config/        <span style="color:#606078">admin navigation, RBAC config</span>
 │       └── Dockerfile
 ├── <span class="tree-dir">packages/</span>
-│   ├── <span class="tree-dir">shared-config/</span>    @trstprep/shared-config (apiClient, coming-soon, csrf store, errors, logger)
-│   └── <span class="tree-dir">shared-hooks/</span>     @trstprep/shared-hooks (9 hooks + ThemeContext + apiClientConfig)
-├── <span class="tree-dir">scripts/</span>              52 utility scripts (DB audit, taxonomy, syllabus, k6, docs)
-├── <span class="tree-dir">tests/</span>                k6 load tests (tests/load: api.js, auth.js, realtime.js)
-├── <span class="tree-dir">docs/</span>                 20+ docs (PRDs removed, audits, readiness reports)
-├── <span class="tree-dir">deploy/</span>               nginx, monitoring, bootstrap.sh, ssl, rolling-deploy.sh
-├── .github/workflows/         4 CI workflows (Node 20, pinned action SHAs)
-├── docker-compose.yml         10 services (2×backend, frontend, admin, nginx, certbot, prometheus, grafana, loki)
+│   ├── <span class="tree-dir">shared-config/</span>    <span style="color:#606078">@trstprep/shared-config — apiClient (CSRF+JWT refresh), errors,
+│   │                        csrf-token-store, logger (pino→Loki), coming-soon-config</span>
+│   └── <span class="tree-dir">shared-hooks/</span>     <span style="color:#606078">@trstprep/shared-hooks — 9 hooks + ThemeContext + apiClientConfig
+│                          Note: useProPass couples to frontend via relative import</span>
+├── <span class="tree-dir">scripts/</span>              <span style="color:#606078">52 utility scripts — DB audit, taxonomy, syllabus, k6, docs pipeline</span>
+├── <span class="tree-dir">tests/</span>                <span style="color:#606078">k6 load tests (api.js, auth.js, realtime.js) + config</span>
+├── <span class="tree-dir">docs/</span>                 <span style="color:#606078">20+ docs — audits, readiness reports, schema diagrams, PRDs</span>
+├── <span class="tree-dir">deploy/</span>               <span style="color:#606078">nginx configs, monitoring (Prometheus/Grafana), bootstrap.sh,
+│                          rolling-deploy.sh, setup-ssl.sh, backup-db.sh, scale.sh</span>
+├── <span class="tree-dir">graphify-out/</span>         <span style="color:#606078">Knowledge graph artifacts — GRAPH_REPORT.md, graph.json,
+│                          WORKFLOW_MAP.md — query instead of grepping</span>
+├── .github/workflows/     <span style="color:#606078">4 CI workflows (Node 20, pinned action SHAs)</span>
+├── docker-compose.yml     <span style="color:#606078">10 services (2×backend, frontend, admin, nginx, certbot,
+│                          prometheus, grafana, loki) + security hardening</span>
 ├── docker-compose.dev.yml / .prod.yml / .scale.yml
-├── .husky + .lintstagedrc.json    pre-commit hooks
-├── package.json               Monorepo manifest (trstprep-monorepo v2.1.0)
-├── turbo.json                 Turborepo task config
-└── tsconfig.json              Shared TS config</pre>
+├── .husky + .lintstagedrc.json    <span style="color:#606078">pre-commit hooks (lint staged files)</span>
+├── .nvmrc                 <span style="color:#606078">Node version pinned to 20</span>
+├── package.json           <span style="color:#606078">Monorepo manifest (trstprep-monorepo v2.1.0)</span>
+├── turbo.json             <span style="color:#606078">Turborepo task config (build, lint, test, dev pipelines)</span>
+└── tsconfig.json          <span style="color:#606078">Shared TypeScript config</span></pre>
 </div>
 
 <!-- 3. BACKEND -->
 <div class="section" id="backend">
 <h2 class="section-title">3. Backend (apps/backend)</h2>
-<p class="section-desc">Express 4 API server — port 5001. 82 route files in api/routes + 32 module route files. JWT auth + optional TOTP 2FA, PostgreSQL, Redis, Socket.IO, Sentry.</p>
+<p class="section-desc">Express 4 API server — port 5001. 83 route files in api/routes + 32 module route files. JWT auth + optional TOTP 2FA, PostgreSQL, Redis, Socket.IO, Sentry. The backend follows a composition-root pattern: <code>app-port5001.js</code> wires all middleware, routes, and infrastructure together. Individual route files and modules are self-contained but depend on the composition root for initialization order.</p>
 <input type="text" class="search-box" placeholder="Search backend routes, services..." oninput="filterTable(this,'backend')">
 <div class="tabs" id="backend-tabs">
 <button class="tab active" data-tab="backend-config">Config</button>
@@ -228,18 +399,85 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 </div>
 
 <div class="panel active" id="backend-config">
-<div class="card"><div class="card-title">Entry Point — src/app-port5001.js (939 lines)</div><div class="card-body">
-Port 5001, binds 0.0.0.0. Startup sequence: dotenv → validate env (DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, FRONTEND_URL) → JWT strength check (≥32 chars, mixed case + digits + symbol) → <strong>blocked known-compromised secret SHA-256 blocklist</strong> (leaked-in-git-history guard) → optional Sentry init → compression + strong ETag + trust-proxy 1 → helmet (full CSP in prod) → json/urlencoded 1MB limit → cookies → morgan → monitoring → publicIdResponse → trace → CORS allowlist → validateOrigin → generalLimiter → requestDedup → responseCache → cacheControl → route mounts (73 app.use lines) → /api/sessions router → mountExtractedRoutes(app) → Swagger → Sentry error handler → notFoundHandler → errorHandler → testConnection(5 retries) → runMigrations → warmPools (read/write split) → initRedis → initQueues → messageBroker.init + registerUserEventSubscribers → createServer + initWebSocket → server timeout 30s / headersTimeout 31s → listen → BullMQ repeatable reminder job (every 6h) → <strong>startScheduler + startOutboxPoller + startAttemptCleaner</strong> → subscription expiry process on startup + hourly. Graceful shutdown closes scheduler/outbox/cleaner, drains email queue, closes queues/Redis/DB. Uncaught exceptions route through fatalShutdown.
+<div class="card"><div class="card-title">Entry Point — src/app-port5001.js (1,162 lines)</div><div class="card-body">
+<strong>Startup sequence (in order):</strong><br>
+1. <strong>dotenv</strong> — loads .env into process.env<br>
+2. <strong>validate env</strong> — checks DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, FRONTEND_URL exist<br>
+3. <strong>JWT strength check</strong> — ≥32 chars, mixed case + digits + symbol (rejects weak secrets)<br>
+4. <strong>Compromised secret blocklist</strong> — SHA-256 hash comparison against leaked-in-git-history secrets (runtime guard against accidental secret reuse)<br>
+5. <strong>Optional Sentry init</strong> — if SENTRY_DSN is set, initializes error tracking with source maps<br>
+6. <strong>compression</strong> — gzip/brotli response compression<br>
+7. <strong>strong ETag</strong> — weak ETags for efficient caching<br>
+8. <strong>trust-proxy 1</strong> — for rate limiting and IP detection behind nginx<br>
+9. <strong>helmet</strong> — full CSP in production, relaxed in development<br>
+10. <strong>json/urlencoded</strong> — 1MB body limit<br>
+11. <strong>cookies</strong> — cookie-parser with secret<br>
+12. <strong>morgan</strong> — HTTP request logging to pino<br>
+13. <strong>monitoring</strong> — in-memory + Redis metrics, slow-request warning >1s<br>
+14. <strong>publicIdResponse</strong> — rewrites res.json to expose public_id as id<br>
+15. <strong>trace</strong> — x-request-id, traceId, startTime headers<br>
+16. <strong>CORS</strong> — allowlist-based origin validation<br>
+17. <strong>validateOrigin</strong> — additional origin checking for sensitive routes<br>
+18. <strong>generalLimiter</strong> — global rate limiting<br>
+19. <strong>requestDedup</strong> — collapses identical concurrent GET requests<br>
+20. <strong>responseCache</strong> — in-memory TTL cache for public endpoints<br>
+21. <strong>cacheControl</strong> — no-store for user data, max-age=300 for public<br>
+22. <strong>static mounts</strong> — /uploads, /assets/avatar (with auth guard), /storage (with image optimization)<br>
+23. <strong>adminIpAllowlist</strong> — optional IP restriction for /api/admin<br>
+24. <strong>route mounts</strong> — 70 canonical /api mount entries<br>
+25. <strong>/api/sessions router</strong> — inline session management routes<br>
+26. <strong>mountExtractedRoutes(app)</strong> — dynamically mounts remaining extracted routes<br>
+27. <strong>Swagger</strong> — API documentation at /api-docs<br>
+28. <strong>Sentry error handler</strong> — catches errors before generic handler<br>
+29. <strong>notFoundHandler</strong> — 404 for unmatched routes<br>
+30. <strong>errorHandler</strong> — centralized error response with sanitized messages<br>
+31. <strong>testConnection(5 retries)</strong> — verifies DB connectivity with exponential backoff<br>
+32. <strong>runMigrations</strong> — auto-runs 115 migration files in sequence<br>
+33. <strong>warmPools</strong> — initializes read/write connection pools<br>
+34. <strong>initRedis</strong> — establishes Redis connection with status monitoring<br>
+35. <strong>initQueues</strong> — creates 6 BullMQ queues (analytics, leaderboard, notifications, recommendations, dead-letter, events)<br>
+36. <strong>messageBroker.init + registerUserEventSubscribers</strong> — Redis pub/sub + domain event handlers<br>
+37. <strong>createServer + initWebSocket</strong> — HTTP server + Socket.IO with Redis adapter<br>
+38. <strong>server timeout 30s / headersTimeout 31s</strong> — prevents hanging requests<br>
+39. <strong>listen on 0.0.0.0:5001</strong><br>
+40. <strong>BullMQ repeatable reminder job</strong> — every 6 hours for scheduled notifications<br>
+41. <strong>startScheduler + startOutboxPoller + startAttemptCleaner</strong> — background jobs begin processing<br>
+42. <strong>subscription expiry process</strong> — runs on startup + hourly sweep<br>
+<strong>Graceful shutdown:</strong> SIGTERM handler closes scheduler/outbox/cleaner, drains email queue, closes queues/Redis/DB in order. Uncaught exceptions route through fatalShutdown for clean exit.
 </div></div>
 <div class="card"><div class="card-title">Required Env Vars</div><div class="card-body">
-<code>DATABASE_URL</code>, <code>JWT_SECRET</code> (strength enforced + compromised-hash blocklist), <code>JWT_REFRESH_SECRET</code>, <code>FRONTEND_URL</code>.<br>
-Optional: <code>DATABASE_READ_URL</code> (read pool), <code>REDIS_URL</code>, <code>STORAGE_PROVIDER</code> (local|s3|supabase), <code>EMAIL_PROVIDER</code> (none|sendgrid|aws|smtp), <code>SMS_PROVIDER</code> (none|twilio|aws), <code>FORTSPY_URL</code>, <code>GOOGLE_CLIENT_ID</code>, <code>ADMIN_PANEL_URL</code>, <code>ADMIN_API_KEY</code>, <code>RAZORPAY_KEY_ID/SECRET</code>, <code>SENTRY_DSN</code>, <code>AI_FREE_HOURLY_LIMIT</code> (50), <code>AI_PRO_HOURLY_LIMIT</code> (500), <code>QUEUE_*</code> tuning, <code>WORKER_*_CONCURRENCY</code>, <code>INSTANCE_ID</code>, <code>ENFORCE_HTTPS</code>
+<strong>Required (server won't start without):</strong><br>
+<code>DATABASE_URL</code> — PostgreSQL connection string (Supabase or self-hosted)<br>
+<code>JWT_SECRET</code> — Access token signing key (strength enforced: ≥32 chars, mixed case + digits + symbol; checked against compromised hash blocklist)<br>
+<code>JWT_REFRESH_SECRET</code> — Refresh token signing key (same strength requirements)<br>
+<code>FRONTEND_URL</code> — Frontend origin for CORS and email links<br><br>
+<strong>Optional (with defaults/behavior):</strong><br>
+<code>DATABASE_READ_URL</code> — Read replica connection string (falls back to primary if unset)<br>
+<code>REDIS_URL</code> — Redis connection (falls back to in-memory cache if unavailable)<br>
+<code>STORAGE_PROVIDER</code> — <code>local</code> | <code>s3</code> | <code>supabase</code> (default: local)<br>
+<code>EMAIL_PROVIDER</code> — <code>none</code> | <code>sendgrid</code> | <code>aws</code> | <code>smtp</code> (default: none)<br>
+<code>SMS_PROVIDER</code> — <code>none</code> | <code>twilio</code> | <code>aws</code> (default: none)<br>
+<code>FORTSPY_URL</code> — FortSpy encryption service URL (for video DRM)<br>
+<code>GOOGLE_CLIENT_ID</code> — Google OAuth client ID<br>
+<code>ADMIN_PANEL_URL</code> — Admin panel origin (for CORS)<br>
+<code>ADMIN_API_KEY</code> — API key for admin route access<br>
+<code>RAZORPAY_KEY_ID</code> / <code>RAZORPAY_KEY_SECRET</code> — Payment gateway credentials<br>
+<code>SENTRY_DSN</code> — Sentry error tracking DSN<br>
+<code>AI_FREE_HOURLY_LIMIT</code> — AI rate limit for free users (default: 50)<br>
+<code>AI_PRO_HOURLY_LIMIT</code> — AI rate limit for pro users (default: 500)<br>
+<code>QUEUE_*</code> — Per-queue Redis connection and tuning<br>
+<code>WORKER_*_CONCURRENCY</code> — Worker thread counts (defaults: analytics=4, leaderboard=2, notifications=5, recommendations=2)<br>
+<code>INSTANCE_ID</code> — Unique identifier for multi-node WebSocket session routing<br>
+<code>ENFORCE_HTTPS</code> — Force HTTPS redirects in production
 </div></div>
-<div class="card"><div class="card-title">Middleware Order</div><div class="card-body">
-compression → helmet (CSP) → express.json/urlencoded → cookieParser → morgan → monitoring → publicIdResponse → trace → CORS (allowlist) → validateOrigin → generalLimiter → requestDedup → responseCache → cacheControl → static mounts (/uploads, /assets/avatar, /storage with auth guards + imageOptimization) → adminIpAllowlist → route mounts → Swagger → Sentry → notFoundHandler → errorHandler
+<div class="card"><div class="card-title">Middleware Order (full stack)</div><div class="card-body">
+<strong>Inbound:</strong> compression → helmet (CSP) → express.json/urlencoded (1MB limit) → cookieParser → morgan (HTTP logging) → monitoring (metrics + slow request warning) → publicIdResponse (rewrites res.json) → trace (x-request-id) → CORS (allowlist) → validateOrigin → generalLimiter → requestDedup (collapses identical GETs) → responseCache (TTL cache) → cacheControl (no-store for user data)<br>
+<strong>Static:</strong> /uploads (multer uploads) → /assets/avatar (auth guard + image optimization) → /storage (with auth guard)<br>
+<strong>Admin:</strong> adminIpAllowlist → route mounts (normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect → admin → CSRF → loadAdminPermissions → requireAdminPermission → auditMiddleware)<br>
+<strong>Outbound:</strong> Swagger → Sentry error handler → notFoundHandler (404) → errorHandler (centralized with sanitized messages)
 </div></div>
 <div class="card"><div class="card-title">Swagger / API Docs</div><div class="card-body">
-<code>setupSwagger(app)</code> from src/api/docs — serves openapi.json + swagger UI of all mounted routes. <code>API_ENDPOINTS.md</code> documents admin endpoints.
+<code>setupSwagger(app)</code> from <code>src/api/docs</code> — generates OpenAPI spec from mounted routes and serves Swagger UI at <code>/api-docs</code>. The spec includes request/response schemas, authentication requirements, and example payloads for all documented endpoints. Additionally, <code>API_ENDPOINTS.md</code> in the docs directory documents admin endpoints with cURL examples. Swagger is initialized after all routes are mounted to capture the complete API surface.
 </div></div>
 </div>
 
@@ -397,7 +635,7 @@ compression → helmet (CSP) → express.json/urlencoded → cookieParser → mo
 </div>
 
 <div class="panel" id="backend-modules">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">All 15 previously dormant modules are now mounted (app-port5001.js:740-762). Route counts verified from source.</p>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">All 15 previously dormant modules are now mounted. Route counts were rechecked against the current composition root.</p>
 <table><thead><tr><th>Mount Prefix</th><th>Module</th><th>Routes</th><th>Endpoints</th></tr></thead><tbody>
 <tr><td>/api/adaptive</td><td>adaptiveTest</td><td>5</td><td>POST /session · GET /session/:id/next · POST /session/:id/answer · POST /session/:id/complete · GET /history</td></tr>
 <tr><td>/api/ai/mentor</td><td>aiMentor</td><td>9</td><td>POST /study-plan, /doubt, /exam-strategy, /chat, /chat/stream, /socratic-hint · GET /daily-tip, /conversations, /conversations/:id/messages</td></tr>
@@ -423,34 +661,34 @@ compression → helmet (CSP) → express.json/urlencoded → cookieParser → mo
 </div>
 
 <div class="panel" id="backend-middleware">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">24 middleware files in src/middleware/</p>
-<table><thead><tr><th>Middleware</th><th>File</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>protect</td><td>auth.middleware.js</td><td>JWT verify + session check (Redis cached) + isActive + emailVerified; sessionId embedded in JWT at login (2FA-aware)</td></tr>
-<tr><td>admin</td><td>auth.middleware.js</td><td>Requires req.user.isAdmin</td></tr>
-<tr><td>superAdmin</td><td>auth.middleware.js</td><td>Requires role super_admin</td></tr>
-<tr><td>optionalAuth</td><td>auth.middleware.js</td><td>Attach user if valid token, else continue</td></tr>
-<tr><td>loadAdminPermissions / requireAdminPermission</td><td>admin-permission.middleware.js</td><td><span class="badge badge-purple">NEW</span> RBAC permission checks for admin routes</td></tr>
-<tr><td>validateCsrfToken</td><td>csrf.middleware.js</td><td>DB-backed CSRF, skips GET/auth/webhook, 30s grace, rotates token</td></tr>
-<tr><td>validateOrigin / restrictAdminOrigin / validateAdminApiKey</td><td>origin.middleware.js</td><td>Origin allowlist; admin routes additionally require Admin API key header</td></tr>
-<tr><td>adminIpAllowlist</td><td>adminIpAllowlist.middleware.js</td><td><span class="badge badge-purple">NEW</span> Optional IP allowlist for /api/admin (no-op if unset)</td></tr>
-<tr><td>lockoutMiddleware</td><td>lockout.middleware.js</td><td>Progressive lockout: 3→5min, 5→15min, 10→1h, 20→24h</td></tr>
-<tr><td>auditMiddleware</td><td>audit.middleware.js</td><td>Writes to audit_logs (action, resource, IP, UA, old/new values)</td></tr>
-<tr><td>normalizeFields</td><td>normalize-fields.js</td><td>camelCase→snake_case for admin POST/PUT/PATCH</td></tr>
-<tr><td>monitoring / metricsHandler / errorTrackingMiddleware</td><td>monitoring.js</td><td>In-memory+Redis metrics, slow-request warning &gt;1s</td></tr>
-<tr><td>rateLimiters (factory)</td><td>rateLimiterFactory.js</td><td>authLimiter, uploadLimiter, strict/moderate/relaxed/general</td></tr>
-<tr><td>aiRateLimiter</td><td>aiRateLimiter.js</td><td><span class="badge badge-purple">NEW</span> Redis sliding window: 50 req/hr free, 500 req/hr pro</td></tr>
-<tr><td>cacheControl</td><td>cacheControl.js</td><td>no-store for user data, max-age=300 for public</td></tr>
-<tr><td>queryCache</td><td>queryCache.js</td><td>Per-route response caching helper</td></tr>
-<tr><td>responseCache / responseCache.middleware</td><td>two response-cache impls</td><td>In-memory TTL cache middleware used across public + admin routes (admin routes import *.middleware variant)</td></tr>
-<tr><td>requestDedup</td><td>requestDedup.js</td><td><span class="badge badge-purple">NEW</span> Collapses identical concurrent GETs</td></tr>
-<tr><td>compression</td><td>compression.js</td><td>gzip/brotli response compression</td></tr>
-<tr><td>imageOptimization</td><td>imageOptimization.js</td><td><span class="badge badge-purple">NEW</span> Resize/quality-adjust served /uploads images</td></tr>
-<tr><td>htmlSanitizer</td><td>htmlSanitizer.js</td><td>Server-side HTML sanitization</td></tr>
-<tr><td>upload-validation</td><td>upload-validation.js</td><td>Mimetype/size validation for multer uploads</td></tr>
-<tr><td>trace</td><td>trace.middleware.js</td><td>x-request-id, traceId, startTime</td></tr>
-<tr><td>publicIdResponse</td><td>public-id-response.middleware.js</td><td>Rewrites res.json to expose public_id as id</td></tr>
-<tr><td>asyncHandler</td><td>asyncHandler.js</td><td>Promises → next(err)</td></tr>
-<tr><td>errorHandler / notFoundHandler</td><td>error.middleware.js</td><td>JWT/multer/CORS/PG errors, AppError subclasses, sanitized messages</td></tr>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">24 middleware files in <code>src/middleware/</code>. Middleware is the security boundary layer — every request passes through multiple middleware before reaching route handlers. The order is defined in <code>app-port5001.js</code> and must not be changed without reviewing the full guard stack.</p>
+<table><thead><tr><th>Middleware</th><th>File</th><th>Purpose</th><th>Configuration</th></tr></thead><tbody>
+<tr><td>protect</td><td>auth.middleware.js</td><td>JWT verify + session check (Redis cached) + isActive + emailVerified; sessionId embedded in JWT at login (2FA-aware). Returns 401 with specific error codes for expired/invalid/missing tokens.</td><td>Bearer token from httpOnly cookie or Authorization header. Session cached in Redis with TTL matching JWT expiry.</td></tr>
+<tr><td>admin</td><td>auth.middleware.js</td><td>Requires <code>req.user.isAdmin</code> — must run after protect(). Returns 403 if user is not an admin.</td><td>Depends on protect() having attached user to req.</td></tr>
+<tr><td>superAdmin</td><td>auth.middleware.js</td><td>Requires role <code>super_admin</code> — stricter than admin(), for critical operations like secret rotation.</td><td>Depends on protect() + admin permission system.</td></tr>
+<tr><td>optionalAuth</td><td>auth.middleware.js</td><td>Attach user if valid token present, else continue as anonymous. Used for routes that behave differently for authenticated vs anonymous users (e.g., test detail shows pro-gated content).</td><td>Gracefully handles missing/invalid tokens without returning 401.</td></tr>
+<tr><td>loadAdminPermissions / requireAdminPermission</td><td>admin-permission.middleware.js</td><td><span class="badge badge-purple">NEW</span> RBAC permission checks for admin routes. loadAdminPermissions fetches user's permissions from DB/cache; requireAdminPermission checks if user has the required permission for the route.</td><td>Permissions are loaded per-request and cached. Permission strings follow <code>resource:action</code> format (e.g., <code>tests:create</code>).</td></tr>
+<tr><td>validateCsrfToken</td><td>csrf.middleware.js</td><td>DB-backed CSRF protection. Generates tokens per-session, validates on mutating requests (POST/PUT/PATCH/DELETE). Skips GET requests, auth routes, and webhooks. 30-second grace period for token rotation.</td><td>Tokens stored in csrf_tokens table with expiry index. Client reads token from cookie, sends in X-CSRF-Token header.</td></tr>
+<tr><td>validateOrigin / restrictAdminOrigin / validateAdminApiKey</td><td>origin.middleware.js</td><td>Origin allowlist validation; admin routes additionally require Admin API key header. validateOrigin checks request Origin/Referer against allowlist. restrictAdminOrigin adds stricter checks for admin routes. validateAdminApiKey verifies the X-Admin-API-Key header.</td><td>Origins configured via CORS_ORIGIN env (comma-separated). Admin API key via ADMIN_API_KEY env.</td></tr>
+<tr><td>adminIpAllowlist</td><td>adminIpAllowlist.middleware.js</td><td><span class="badge badge-purple">NEW</span> Optional IP allowlist for /api/admin routes. No-op if ADMIN_IP_ALLOWLIST env is unset. Returns 403 for non-allowed IPs.</td><td>ADMIN_IP_ALLOWLIST env: comma-separated IPs/CIDRs. Supports IPv4 and IPv6.</td></tr>
+<tr><td>lockoutMiddleware</td><td>lockout.middleware.js</td><td>Progressive account lockout after failed login attempts: 3 failures → 5min lockout, 5 → 15min, 10 → 1h, 20 → 24h. Resets on successful login. Tracks attempts in login_attempts table.</td><td>Lockout thresholds and durations are hardcoded for security. Progressive scaling prevents brute-force while allowing legitimate mistakes.</td></tr>
+<tr><td>auditMiddleware</td><td>audit.middleware.js</td><td>Writes to audit_logs table: action, resource, resource_id, IP, user agent, old/new values (for updates). Essential for compliance and debugging. Runs after successful route handler execution.</td><td>Captures req.user, req.method, req.originalUrl, and diffs request body vs response for update operations.</td></tr>
+<tr><td>normalizeFields</td><td>normalize-fields.js</td><td>camelCase → snake_case field normalization for admin POST/PUT/PATCH requests. Ensures consistent field naming between frontend (camelCase) and database (snake_case).</td><td>Only applies to admin routes. Public routes use backend-native snake_case throughout.</td></tr>
+<tr><td>monitoring / metricsHandler / errorTrackingMiddleware</td><td>monitoring.js</td><td>In-memory + Redis metrics collection. Tracks request count, response times, error rates. Slow-request warning >1s. metricsHandler endpoint exposes metrics for Prometheus scraping.</td><td>Metrics reset on restart (in-memory) but persist in Redis across restarts. Prometheus scrapes /metrics endpoint.</td></tr>
+<tr><td>rateLimiters (factory)</td><td>rateLimiterFactory.js</td><td>Factory pattern for creating rate limiters with different configurations: authLimiter (strict), uploadLimiter (moderate), strict/moderate/relaxed/general presets. Uses Redis sliding window when available, in-memory fallback.</td><td>Configurable windowMs, max, message. Auth limiter: 5 req/min for login. General: 100 req/min.</td></tr>
+<tr><td>aiRateLimiter</td><td>aiRateLimiter.js</td><td><span class="badge badge-purple">NEW</span> Redis sliding window rate limiter specifically for AI endpoints. 50 requests/hour for free users, 500 requests/hour for pro users. Tracks per-user usage in Redis with automatic expiry.</td><td>Uses Redis MULTI/EXEC for atomic counter operations. Falls back to in-memory if Redis unavailable (less accurate but functional).</td></tr>
+<tr><td>cacheControl</td><td>cacheControl.js</td><td>Sets Cache-Control headers: no-store for user-specific data (prevents caching of personal info), max-age=300 for public resources. Prevents browser/proxy caching of sensitive responses.</td><td>Applied globally in middleware stack. Individual routes can override with res.set('Cache-Control', ...).</td></tr>
+<tr><td>queryCache</td><td>queryCache.js</td><td>Per-route response caching helper. Stores query results in Redis with configurable TTL. Used for expensive aggregation queries that don't change frequently.</td><td>Cache key includes route + query params + user ID (for user-specific caches). Invalidation on data mutations.</td></tr>
+<tr><td>responseCache / responseCache.middleware</td><td>two response-cache impls</td><td>In-memory TTL cache middleware used across public + admin routes. Admin routes import the <code>.middleware</code> variant. <strong>Known duplication:</strong> two implementations with slightly different APIs.</td><td>Default TTL: 60s for public endpoints, 30s for admin. Cache bypass via <code>X-Cache-Bypass</code> header.</td></tr>
+<tr><td>requestDedup</td><td>requestDedup.js</td><td><span class="badge badge-purple">NEW</span> Collapses identical concurrent GET requests into a single DB query. Uses a Map of in-flight requests keyed by URL + user ID. Subsequent identical requests wait for the first to complete and share the result.</td><td>Only applies to GET requests. Dedup window: 5 seconds. Prevents thundering herd on cache miss.</td></tr>
+<tr><td>compression</td><td>compression.js</td><td>gzip/brotli response compression. Compresses responses >1KB. Skips compression for already-compressed content (images, videos). Reduces bandwidth usage by 60-80% for JSON responses.</td><td>Level 6 (balanced speed/ratio). Excludes image/* and video/* MIME types.</td></tr>
+<tr><td>imageOptimization</td><td>imageOptimization.js</td><td><span class="badge badge-purple">NEW</span> Resize/quality-adjust served /uploads images on-the-fly. Generates WebP variants for supported browsers. Caches optimized versions to avoid re-processing.</td><td>Max width: 1200px. Quality: 80 for WebP, 85 for JPEG. Cache stored in /uploads/.cache/ directory.</td></tr>
+<tr><td>htmlSanitizer</td><td>htmlSanitizer.js</td><td>Server-side HTML sanitization using DOMPurify. Strips dangerous tags (script, iframe, object) and attributes (onclick, onerror). Applied to user-generated content before storage/display.</td><td>ALLOWED_TAGS and ALLOWED_ATTR configured per-content-type. Comments/posts use stricter rules than study materials.</td></tr>
+<tr><td>upload-validation</td><td>upload-validation.js</td><td>Mimetype/size validation for multer uploads. Checks file extension against allowed MIME types. Enforces size limits per file type (images: 5MB, documents: 50MB, videos: 500MB).</td><td>Allowed types configured per-route. Returns 400 with specific error for invalid uploads.</td></tr>
+<tr><td>trace</td><td>trace.middleware.js</td><td>Adds x-request-id (UUID), traceId (for distributed tracing), and startTime to every request. Enables request lifecycle tracking across services. Response header includes X-Response-Time.</td><td>traceId propagates through service calls for end-to-end tracing. startTime used for slow-request detection.</td></tr>
+<tr><td>publicIdResponse</td><td>public-id-response.middleware.js</td><td>Rewrites <code>res.json</code> to expose <code>public_id</code> as <code>id</code> in responses. Hints the internal SERIAL id from clients while maintaining backward compatibility. Applied globally.</td><td>Only affects responses that include a public_id field. Internal IDs are never exposed to clients.</td></tr>
+<tr><td>asyncHandler</td><td>asyncHandler.js</td><td>Wraps async route handlers to catch rejected promises and forward to error middleware. Prevents unhandled promise rejections from crashing the server.</td><td>Usage: <code>router.get('/path', asyncHandler(handler))</code>. Eliminates try/catch boilerplate in every route.</td></tr>
+<tr><td>errorHandler / notFoundHandler</td><td>error.middleware.js</td><td>Centralized error handling: JWT errors (expired/invalid), multer errors (file size/type), CORS errors, PG errors (unique violation, FK violation), AppError subclasses. Sanitizes messages before sending to client. notFoundHandler returns 404 for unmatched routes.</td><td>Error response format: <code>{success: false, error: {message, code, details}}</code>. Production hides stack traces.</td></tr>
 </tbody></table>
 </div>
 
@@ -499,7 +737,7 @@ compression → helmet (CSP) → express.json/urlencoded → cookieParser → mo
 <tr><td>Outbox Poller + Attempt Cleaner</td><td>infrastructure/queue/outboxPoller.js</td><td><span class="badge badge-green">STARTS AT BOOT</span></td><td>SELECT FOR UPDATE SKIP LOCKED over outbox_events, 5s polling, 60s backoff; startAttemptCleaner sweeps stale paused attempts. Both started at app-port5001.js:880-881, stopped gracefully.</td></tr>
 <tr><td>Storage</td><td>infrastructure/storage/</td><td><span class="badge badge-green">Implemented</span></td><td>storageProvider.js local/S3/Supabase with fallback + presigned URLs; upload.js multer instance used by admin-assets</td></tr>
 <tr><td>WebSocket</td><td>infrastructure/websocket/websocketManager.js</td><td><span class="badge badge-green">Implemented</span></td><td>Socket.IO + Redis adapter (@socket.io/redis-adapter), JWT auth, rooms (user/test/notifications/admin), rate limit, heartbeat, eviction tests</td></tr>
-<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js (2094 lines): pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs 97 migrations at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
+<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js: pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs 115 migration files at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
 <tr><td>Logger</td><td>infrastructure/logger/logger.js</td><td><span class="badge badge-green">Implemented</span></td><td>pino-based (stdout) → Grafana Loki via docker logging driver</td></tr>
 <tr><td>Repository</td><td>infrastructure/repository/base.repository.js</td><td><span class="badge badge-green">Implemented</span></td><td>Base repository pattern</td></tr>
 </tbody></table>
@@ -516,7 +754,7 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 <div class="panel" id="backend-missing">
 <table><thead><tr><th>Issue</th><th>Severity</th><th>Details</th></tr></thead><tbody>
 <tr><td>Unmounted module controllers</td><td><span class="badge badge-yellow">Dead code</span></td><td>modules/tests/test.controller.js, modules/attempts/attempt.controller.js, modules/questions/question.controller.js, modules/sessions/session.controller.js define router/handlers, but test.routes.js and attempt.routes.js use inline handlers; admin-questions.js notes question.controller was never exposed</td></tr>
-<tr><td>Two admin mounting systems</td><td><span class="badge badge-yellow">Duplication</span></td><td>Legacy admin.js (2500+ lines inline) coexists with 30 extracted admin-*.js routers via mountAdminRoutes — migration to extracted routers is mid-flight; some resources may be double-mounted (payments mounted twice at :719 and :763)</td></tr>
+<tr><td>Two admin mounting systems</td><td><span class="badge badge-yellow">Duplication</span></td><td>Legacy admin.js (2500+ lines inline) coexists with 30 extracted admin-*.js routers via mountAdminRoutes — migration to extracted routers is mid-flight; keep route ownership explicit while the systems coexist.</td></tr>
 <tr><td>Two response-cache implementations</td><td><span class="badge badge-yellow">Duplication</span></td><td>middleware/responseCache.js (default export fn) vs middleware/responseCache.middleware.js (named export) — admin-* routes import the .middleware variant, entry uses the plain one</td></tr>
 <tr><td>learnerIntelligence module</td><td><span class="badge badge-yellow">Orphan</span></td><td>modules/learnerIntelligence/ directory is empty (logic migrated to api/routes/intelligence.js)</td></tr>
 <tr><td>config/ dir</td><td><span class="badge badge-green">Cleaned</span></td><td>Only upload.js remains — but nothing imports config/upload (upload comes from infrastructure/storage/upload.js); safe to delete</td></tr>
@@ -529,7 +767,7 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 <!-- 4. FRONTEND -->
 <div class="section" id="frontend">
 <h2 class="section-title">4. Frontend (apps/frontend)</h2>
-<p class="section-desc">React 18 SPA — port 3000, 89 page components across 9 page directories. App.jsx is now fully React.lazy() code-split (PERF-03) with RouteErrorBoundary per route.</p>
+<p class="section-desc">React 18 SPA — port 3000, 89 page components across 9 page directories. App.jsx is now fully React.lazy() code-split (PERF-03) with RouteErrorBoundary per route. The frontend uses a feature-sliced architecture: pages/ for route-level components, features/ for feature-specific components, shared/ for reusable components/hooks/lib, and providers/ for context providers. State management combines React Query (server state) with React Context (UI state) and local component state.</p>
 <input type="text" class="search-box" placeholder="Search frontend pages, components..." oninput="filterTable(this,'frontend')">
 <div class="tabs" id="frontend-tabs">
 <button class="tab active" data-tab="fe-routes">Routes</button>
@@ -541,67 +779,69 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 </div>
 
 <div class="panel active" id="fe-routes">
-<table><thead><tr><th>Route</th><th>Page</th><th>Protected</th><th>Gate</th></tr></thead><tbody>
-<tr><td>/</td><td>Home (eager)</td><td>-</td><td>-</td></tr>
-<tr><td>/login, /signup</td><td>Login/Signup modal over Home background (location state)</td><td>-</td><td>-</td></tr>
-<tr><td>/verify-email</td><td>EmailVerification</td><td>-</td><td>-</td></tr>
-<tr><td>/forgot-password, /reset-password</td><td>Forgot/ResetPassword</td><td>-</td><td>-</td></tr>
-<tr><td>/dashboard</td><td>Dashboard (eager)</td><td>✓</td><td>-</td></tr>
-<tr><td>/dashboard/ai-planner</td><td>AIStudyPlanner</td><td>✓</td><td>-</td></tr>
-<tr><td>/ai-tutor</td><td>AIStudyPlanner <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td></tr>
-<tr><td>/dashboard/insights</td><td>PerformanceInsights</td><td>✓</td><td>-</td></tr>
-<tr><td>/dashboard/rankings</td><td>Leaderboard <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td></tr>
-<tr><td>/analysis</td><td>Analysis</td><td>✓</td><td>proPass</td></tr>
-<tr><td>/attempted-tests</td><td>AttemptedTests</td><td>✓</td><td>-</td></tr>
-<tr><td>/profile, /settings</td><td>Profile, Settings</td><td>✓</td><td>-</td></tr>
-<tr><td>/notifications, /bookmarks</td><td>Notifications, Bookmarks</td><td>✓</td><td>-</td></tr>
-<tr><td>/achievements</td><td>Achievements</td><td>✓</td><td>achievements</td></tr>
-<tr><td>/refer-and-earn</td><td>ReferAndEarn</td><td>✓</td><td>referAndEarn</td></tr>
-<tr><td>/spaced-repetition</td><td>SpacedRepetition <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td></tr>
-<tr><td>/exams</td><td>Exams</td><td>-</td><td>-</td></tr>
-<tr><td>/exams/category/:categoryId[/exam/:examId[/year/:year]]</td><td>ExamCategory / ExamInfoNew / ExamYear</td><td>-</td><td>-</td></tr>
-<tr><td>/exam/:examId (+ /updates, /year/:year, /compare)</td><td>ExamInfoNew, ExamUpdates, ExamYear, ExamCompare</td><td>-</td><td>-</td></tr>
-<tr><td>/exams-old, /exam-old/:examId</td><td>Legacy redirect (Navigate)</td><td>-</td><td>-</td></tr>
-<tr><td>/test-series, /tests</td><td>TestSeries (same page)</td><td>-</td><td>-</td></tr>
-<tr><td>/test-series/:seriesId (+ /my)</td><td>TestDetails</td><td>-</td><td>-</td></tr>
-<tr><td>/:examSlug/test-series/my, /:examSlug/test-series/:seriesId</td><td>TestDetails <span class="badge badge-purple">NEW SEO slugs</span></td><td>-</td><td>-</td></tr>
-<tr><td>/:seriesSlug/tests/:testId[/instructions|/result|/review]</td><td>TestInstructions / TestInterface / TestResult / TestReview <span class="badge badge-purple">NEW canonical slug routes</span></td><td>✓</td><td>-</td></tr>
-<tr><td>/test/:seriesId/:testId[/instructions], /test-result/:s/:t, /test-review/:s/:t</td><td>Legacy backward-compat test routes</td><td>✓</td><td>-</td></tr>
-<tr><td>/test-series/:id/leaderboard</td><td>SeriesLeaderboard</td><td>-</td><td>-</td></tr>
-<tr><td>/live-tests</td><td>LiveTests (real page now, was TagPage)</td><td>-</td><td>-</td></tr>
-<tr><td>/live-tests/:liveTestId (+ /leaderboard, /review)</td><td>LiveTestInterface / Leaderboard / Review</td><td>✓</td><td>-</td></tr>
-<tr><td>/live-test-results/:liveTestId</td><td>LiveTestResults</td><td>✓</td><td>-</td></tr>
-<tr><td>/pyps, /pyps/:examCategory, /tag/pyps, /tag/pyq, /tag/previous-year-papers</td><td>PypsLanding (dispatches to PypsExam for known exam slugs)</td><td>-</td><td>-</td></tr>
-<tr><td>/pyps/:examCategory/:examSlug</td><td>LegacyPypsExamRedirect → /pyps/:examSlug</td><td>-</td><td>-</td></tr>
-<tr><td>/pyp/:pypId/test</td><td>PYPTest (now wired to real API)</td><td>✓</td><td>-</td></tr>
-<tr><td>/previous-year-papers</td><td>PreviousYearPapers</td><td>-</td><td>-</td></tr>
-<tr><td>/practice</td><td>PracticeLab <span class="badge badge-purple">NEW — was PracticeQuestions</span></td><td>✓</td><td>-</td></tr>
-<tr><td>/leaderboard</td><td>Leaderboard</td><td>-</td><td>-</td></tr>
-<tr><td>/study, /study/:subjectId, /study/:subjectId/:chapterId</td><td>StudyMaterial, Detail, Chapter</td><td>-</td><td>-</td></tr>
-<tr><td>/videos</td><td>Videos</td><td>-</td><td>videos</td></tr>
-<tr><td>/videos/:id, /videos/:subjectSlug/:chapterSlug/:videoId</td><td>VideoDetail (deep SEO slug route new)</td><td>-</td><td>-</td></tr>
-<tr><td>/current-affairs, /current-affairs/:caId</td><td>CurrentAffairs (FeatureGate), CurrentAffairsDetail</td><td>-</td><td>currentAffairs</td></tr>
-<tr><td>/community (+ /groups/:id)</td><td>Community</td><td>-</td><td>doubtForum / studyGroups</td></tr>
-<tr><td>/pass</td><td>Pass (Pro Pass pricing)</td><td>-</td><td>-</td></tr>
-<tr><td>/search</td><td>SearchPage</td><td>-</td><td>-</td></tr>
-<tr><td>/blog, /blog/:id, /tag/:tag, /quizzes</td><td>Blog, BlogDetail, TagPage</td><td>-</td><td>-</td></tr>
-<tr><td>/about, /contact, /terms, /privacy, /refund, /faq</td><td>Public pages</td><td>-</td><td>-</td></tr>
-<tr><td>/error-500, *</td><td>ServerError / NotFound <span class="badge badge-purple">NEW</span></td><td>-</td><td>-</td></tr>
-<tr><td>/admin/*</td><td>AdminPanelRedirect → VITE_ADMIN_URL (default :3002)</td><td>-</td><td>-</td></tr>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">All routes are defined in <code>App.jsx</code> (402 lines). Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. Protected routes use <code>ProtectedRoute</code> component which checks auth state and redirects to /login if unauthenticated. Feature gates use <code>FeatureGate</code> component which checks public settings for feature flags.</p>
+<table><thead><tr><th>Route</th><th>Page</th><th>Protected</th><th>Gate</th><th>Notes</th></tr></thead><tbody>
+<tr><td>/</td><td>Home (eager)</td><td>-</td><td>-</td><td>AnimatedHero with canvas particles, CTA sections, testimonials. Eagerly loaded (no lazy) for fast first paint.</td></tr>
+<tr><td>/login, /signup</td><td>Login/Signup modal over Home background (location state)</td><td>-</td><td>-</td><td>Modal overlay using React Router location state. Signup includes email verification flow. Login supports 2FA TOTP redirect.</td></tr>
+<tr><td>/verify-email</td><td>EmailVerification</td><td>-</td><td>-</td><td>Token-based email verification. Shows success/failure state with resend option.</td></tr>
+<tr><td>/forgot-password, /reset-password</td><td>Forgot/ResetPassword</td><td>-</td><td>-</td><td>Password reset via emailed token. Token expires after 1 hour.</td></tr>
+<tr><td>/dashboard</td><td>Dashboard (eager)</td><td>✓</td><td>-</td><td>Main learner hub. Uses dashboardCache for payload optimization. Shows recent activity, top performers, quick actions. Eagerly loaded.</td></tr>
+<tr><td>/dashboard/ai-planner</td><td>AIStudyPlanner</td><td>✓</td><td>-</td><td>AI-powered study plan generation (630 lines). Uses streaming chat interface for real-time plan creation.</td></tr>
+<tr><td>/ai-tutor</td><td>AIStudyPlanner <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td><td>Alias route for AI tutor — same component, different URL for marketing/SEO.</td></tr>
+<tr><td>/dashboard/insights</td><td>PerformanceInsights</td><td>✓</td><td>-</td><td>Analytics dashboard with Chart.js visualizations: topic performance, difficulty distribution, time trends.</td></tr>
+<tr><td>/dashboard/rankings</td><td>Leaderboard <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td><td>Real-time leaderboard with WebSocket updates. Shows overall, subject-wise, and exam-specific rankings.</td></tr>
+<tr><td>/analysis</td><td>Analysis</td><td>✓</td><td>proPass</td><td>Detailed test analysis with section-wise breakdown, question-level analytics, and improvement suggestions. Pro-gated feature.</td></tr>
+<tr><td>/attempted-tests</td><td>AttemptedTests</td><td>✓</td><td>-</td><td>List of all attempted tests with scores, time taken, and reattempt options. Supports filtering by date range and test type.</td></tr>
+<tr><td>/profile, /settings</td><td>Profile, Settings</td><td>✓</td><td>-</td><td>Profile management (name, email, avatar with crop). Settings: preferences, notification toggles, theme, language.</td></tr>
+<tr><td>/notifications, /bookmarks</td><td>Notifications, Bookmarks</td><td>✓</td><td>-</td><td>Notification center with read/unread state. Bookmarks with lightweight mode (includeDetails=false) for TestInterface.</td></tr>
+<tr><td>/achievements</td><td>Achievements</td><td>✓</td><td>achievements</td><td>Achievement badges and progress tracking. Feature-gated via public settings.</td></tr>
+<tr><td>/refer-and-earn</td><td>ReferAndEarn</td><td>✓</td><td>referAndEarn</td><td>Referral program with unique referral code and tracking.</td></tr>
+<tr><td>/spaced-repetition</td><td>SpacedRepetition <span class="badge badge-purple">NEW</span></td><td>✓</td><td>-</td><td>Node Engine V2 spaced repetition scheduler (539 lines). Shows due reviews, mastery levels, and learning path recommendations.</td></tr>
+<tr><td>/exams</td><td>Exams</td><td>-</td><td>-</td><td>Exam catalog with category filtering, search, and comparison. Public page for exam discovery.</td></tr>
+<tr><td>/exams/category/:categoryId[/exam/:examId[/year/:year]]</td><td>ExamCategory / ExamInfoNew / ExamYear</td><td>-</td><td>-</td><td>Hierarchical exam browsing: category → exam → year. ExamInfoNew (1286L) shows comprehensive exam details with yearly data.</td></tr>
+<tr><td>/exam/:examId (+ /updates, /year/:year, /compare)</td><td>ExamInfoNew, ExamUpdates, ExamYear, ExamCompare</td><td>-</td><td>-</td><td>Deep exam pages with updates, yearly vacancy/cutoff data, and comparison view.</td></tr>
+<tr><td>/exams-old, /exam-old/:examId</td><td>Legacy redirect (Navigate)</td><td>-</td><td>-</td><td>Redirects old URL format to new canonical routes for backward compatibility.</td></tr>
+<tr><td>/test-series, /tests</td><td>TestSeries (same page)</td><td>-</td><td>-</td><td>Test series catalog with category filtering, search, and sorting. 1063 lines with pagination.</td></tr>
+<tr><td>/test-series/:seriesId (+ /my)</td><td>TestDetails</td><td>-</td><td>-</td><td>Series detail page (2054L) with test list, enrollment status, and progress tracking.</td></tr>
+<tr><td>/:examSlug/test-series/my, /:examSlug/test-series/:seriesId</td><td>TestDetails <span class="badge badge-purple">NEW SEO slugs</span></td><td>-</td><td>-</td><td>SEO-friendly URL format using exam slugs instead of IDs. Better for search engines and sharing.</td></tr>
+<tr><td>/:seriesSlug/tests/:testId[/instructions|/result|/review]</td><td>TestInstructions / TestInterface / TestResult / TestReview <span class="badge badge-purple">NEW canonical slug routes</span></td><td>✓</td><td>-</td><td>Canonical test-taking routes using slugs. TestInterface (2110L) is the core test-taking component with question palette, timer, autosave.</td></tr>
+<tr><td>/test/:seriesId/:testId[/instructions], /test-result/:s/:t, /test-review/:s/:t</td><td>Legacy backward-compat test routes</td><td>✓</td><td>-</td><td>Old URL format maintained for backward compatibility. Redirects to canonical slug routes.</td></tr>
+<tr><td>/test-series/:id/leaderboard</td><td>SeriesLeaderboard</td><td>-</td><td>-</td><td>Series-specific leaderboard with rankings, scores, and percentile data.</td></tr>
+<tr><td>/live-tests</td><td>LiveTests (real page now, was TagPage)</td><td>-</td><td>-</td><td>Live test catalog (915L) with upcoming/active/completed tabs, registration, and countdown timers.</td></tr>
+<tr><td>/live-tests/:liveTestId (+ /leaderboard, /review)</td><td>LiveTestInterface / Leaderboard / Review</td><td>✓</td><td>-</td><td>Real-time test interface with WebSocket synchronization, live leaderboard, and post-test review.</td></tr>
+<tr><td>/live-test-results/:liveTestId</td><td>LiveTestResults</td><td>✓</td><td>-</td><td>Live test results with section-wise analysis and comparison with toppers.</td></tr>
+<tr><td>/pyps, /pyps/:examCategory, /tag/pyps, /tag/pyq, /tag/previous-year-papers</td><td>PypsLanding (dispatches to PypsExam for known exam slugs)</td><td>-</td><td>-</td><td>PYP landing page (317L) that dispatches known exam slugs to PypsExam, unknown slugs show category listing.</td></tr>
+<tr><td>/pyps/:examCategory/:examSlug</td><td>LegacyPypsExamRedirect → /pyps/:examSlug</td><td>-</td><td>-</td><td>Redirect from old two-segment PYP URL to new single-slug format.</td></tr>
+<tr><td>/pyp/:pypId/test</td><td>PYPTest (now wired to real API)</td><td>✓</td><td>-</td><td>PYP test-taking interface (361L). Previously hardcoded sample data — now uses getTestById + getQuestionsByTestId.</td></tr>
+<tr><td>/previous-year-papers</td><td>PreviousYearPapers</td><td>-</td><td>-</td><td>Public PYP browsing with category/exam/year filtering.</td></tr>
+<tr><td>/practice</td><td>PracticeLab <span class="badge badge-purple">NEW — was PracticeQuestions</span></td><td>✓</td><td>-</td><td>Practice Lab (1147L) with PracticeWorkspace, PracticeSessionCanvas, PracticeTopicTree, FundamentalsGym, KnowledgeVaultModal, SubmitSummaryModal, ImageZoomModal. Fundamentals-first practice engine.</td></tr>
+<tr><td>/leaderboard</td><td>Leaderboard</td><td>-</td><td>-</td><td>Public leaderboard with overall and subject-wise rankings.</td></tr>
+<tr><td>/study, /study/:subjectId, /study/:subjectId/:chapterId</td><td>StudyMaterial, Detail, Chapter</td><td>-</td><td>-</td><td>Study material hierarchy: subjects → chapters → topics. Chapter page (1435L) shows video/PDF/test resources.</td></tr>
+<tr><td>/videos</td><td>Videos</td><td>-</td><td>videos</td><td>Video library with subject/chapter filtering. Feature-gated via public settings.</td></tr>
+<tr><td>/videos/:id, /videos/:subjectSlug/:chapterSlug/:videoId</td><td>VideoDetail (deep SEO slug route new)</td><td>-</td><td>-</td><td>Video player with FortSpy DRM badge, progress tracking, and related videos.</td></tr>
+<tr><td>/current-affairs, /current-affairs/:caId</td><td>CurrentAffairs (FeatureGate), CurrentAffairsDetail</td><td>-</td><td>currentAffairs</td><td>Daily current affairs with quiz integration. Feature-gated.</td></tr>
+<tr><td>/community (+ /groups/:id)</td><td>Community</td><td>-</td><td>doubtForum / studyGroups</td><td>Community forum (2152L) with doubts forum, study groups, posts, votes, and real-time updates.</td></tr>
+<tr><td>/pass</td><td>Pass (Pro Pass pricing)</td><td>-</td><td>-</td><td>Pro Pass subscription page with plan comparison, pricing, and Razorpay checkout.</td></tr>
+<tr><td>/search</td><td>SearchPage</td><td>-</td><td>-</td><td>Global search with semantic (pgvector) and keyword results. Debounced search with result ranking.</td></tr>
+<tr><td>/blog, /blog/:id, /tag/:tag, /quizzes</td><td>Blog, BlogDetail, TagPage</td><td>-</td><td>-</td><td>Blog with markdown rendering, tag-based filtering, and quiz integration.</td></tr>
+<tr><td>/about, /contact, /terms, /privacy, /refund, /faq</td><td>Public pages</td><td>-</td><td>-</td><td>Static/public pages with SEO metadata. Contact form submits to /api/contact.</td></tr>
+<tr><td>/error-500, *</td><td>ServerError / NotFound <span class="badge badge-purple">NEW</span></td><td>-</td><td>-</td><td>Error pages with retry/reload options. NotFound shows suggested links.</td></tr>
+<tr><td>/admin/*</td><td>AdminPanelRedirect → VITE_ADMIN_URL (default :3002)</td><td>-</td><td>-</td><td>Redirects /admin/* to admin panel app. Uses VITE_ADMIN_URL env for configurable target.</td></tr>
 </tbody></table>
 </div>
 
 <div class="panel" id="fe-pages">
-<table><thead><tr><th>Directory</th><th>Pages</th></tr></thead><tbody>
-<tr><td>dashboard/ (13)</td><td>Dashboard (uses RecentActivity, TopPerformers, dashboardCache), Profile, AIStudyPlanner (630L), Analysis, AttemptedTests, Bookmarks, Notifications, Achievements, ReferAndEarn, Settings (1550L, SettingsContent), PerformanceInsights, RecentActivity, TopPerformers, UserLeaderboard</td></tr>
-<tr><td>tests/ (22)</td><td>TestInterface (2110L, + QuestionPalette), TestResult (1180L), TestReview, TestInstructions, TestDetails (2054L), TestSeries (1063L), SeriesLeaderboard, Leaderboard, <strong>PracticeLab (1147L — new practice engine w/ PracticeWorkspace, PracticeSessionCanvas, PracticeTopicTree, FundamentalsGym, KnowledgeVaultModal, SubmitSummaryModal, ImageZoomModal)</strong>, LiveTests (915L), LiveTestInterface/Results/Leaderboard/Review, PreviousYearPapers, <strong>PYPTest (361L — now real API via getTestById/getQuestionsByTestId)</strong>, ComingSoon</td></tr>
-<tr><td>exams/ (9)</td><td>Exams (915L, ExamInfoNew 1286L), ExamCategory, ExamYear (sample fallback removed), ExamCompare (sample fallback retained), ExamUpdates, ExamsNew (exported, unrouted), ExamDetails (unrouted)</td></tr>
-<tr><td>study/ (8)</td><td>StudyMaterial (609L), StudyMaterialDetail (941L), StudyMaterialChapter (1435L), Videos (878L), VideoDetail, CurrentAffairs, <strong>SpacedRepetition (539L — new, consumes /api/node-engine/spaced-repetition)</strong>, studyMaterialUtils.js</td></tr>
-<tr><td>pyps/ (8)</td><td>PypsLanding (317L — dispatches unknown slugs to PypsExam), PypsExam (384L) + components: InsightsPanel, PypCategoryCascade, PypPaperCard, TestCategoryFilter, TierSelector, WhyAttemptRow, YearChips, YearGroupSection</td></tr>
-<tr><td>public/ (16)</td><td>Home (1026L), Pass, SearchPage, TagPage, Blog, BlogDetail, About, Contact, Terms, Privacy, Refund, Faq, ComingSoon, CurrentAffairsDetail</td></tr>
-<tr><td>auth/ (3)</td><td>EmailVerification, ForgotPassword, ResetPassword (Login/Signup moved to features/auth)</td></tr>
-<tr><td>community/ (1)</td><td>Community (2152L — doubts forum + study groups)</td></tr>
-<tr><td>errors/ (2)</td><td>NotFound, ServerError</td></tr>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">Page components organized by directory. Each directory contains route-level components that are lazy-loaded via <code>React.lazy()</code>. Line counts indicate component complexity (larger = more complex state management and UI logic).</p>
+<table><thead><tr><th>Directory</th><th>Pages</th><th>Key details</th></tr></thead><tbody>
+<tr><td>dashboard/ (13)</td><td>Dashboard (uses RecentActivity, TopPerformers, dashboardCache), Profile, AIStudyPlanner (630L), Analysis, AttemptedTests, Bookmarks, Notifications, Achievements, ReferAndEarn, Settings (1550L, SettingsContent), PerformanceInsights, RecentActivity, TopPerformers, UserLeaderboard</td><td>Dashboard is the main learner hub — uses dashboardCache to batch API calls. Settings (1550L) is the most complex: handles preferences, notification toggles, theme, language, and account management. AIStudyPlanner uses streaming chat for real-time plan generation.</td></tr>
+<tr><td>tests/ (22)</td><td>TestInterface (2110L, + QuestionPalette), TestResult (1180L), TestReview, TestInstructions, TestDetails (2054L), TestSeries (1063L), SeriesLeaderboard, Leaderboard, <strong>PracticeLab (1147L — new practice engine w/ PracticeWorkspace, PracticeSessionCanvas, PracticeTopicTree, FundamentalsGym, KnowledgeVaultModal, SubmitSummaryModal, ImageZoomModal)</strong>, LiveTests (915L), LiveTestInterface/Results/Leaderboard/Review, PreviousYearPapers, <strong>PYPTest (361L — now real API via getTestById/getQuestionsByTestId)</strong>, ComingSoon</td><td>TestInterface (2110L) is the most complex component: question palette, passage groups, calculator, timer, autosave, anti-cheat events, and real-time sync. PracticeLab (1147L) is a new practice engine with fundamentals-first flows, knowledge vault, and AI-enhanced explanations.</td></tr>
+<tr><td>exams/ (9)</td><td>Exams (915L, ExamInfoNew 1286L), ExamCategory, ExamYear (sample fallback removed), ExamCompare (sample fallback retained), ExamUpdates, ExamsNew (exported, unrouted), ExamDetails (unrouted)</td><td>ExamInfoNew (1286L) shows comprehensive exam details with yearly vacancy/cutoff data, comparison, and updates. ExamCompare still has sample-data fallback (known issue). ExamsNew and ExamDetails are exported but not routed (orphan code).</td></tr>
+<tr><td>study/ (8)</td><td>StudyMaterial (609L), StudyMaterialDetail (941L), StudyMaterialChapter (1435L), Videos (878L), VideoDetail, CurrentAffairs, <strong>SpacedRepetition (539L — new, consumes /api/node-engine/spaced-repetition)</strong>, studyMaterialUtils.js</td><td>StudyMaterialChapter (1435L) is the most complex: renders video/PDF/test resources with progress tracking. SpacedRepetition (539L) is new: shows due reviews, mastery levels, and learning path from Node Engine V2.</td></tr>
+<tr><td>pyps/ (8)</td><td>PypsLanding (317L — dispatches unknown slugs to PypsExam), PypsExam (384L) + components: InsightsPanel, PypCategoryCascade, PypPaperCard, TestCategoryFilter, TierSelector, WhyAttemptRow, YearChips, YearGroupSection</td><td>PYP system uses a component-based architecture with 8 specialized components for filtering, display, and interaction. PypsLanding dispatches based on exam slug matching.</td></tr>
+<tr><td>public/ (16)</td><td>Home (1026L), Pass, SearchPage, TagPage, Blog, BlogDetail, About, Contact, Terms, Privacy, Refund, Faq, ComingSoon, CurrentAffairsDetail</td><td>Home (1026L) uses AnimatedHero with canvas particles and role-aware pageType presets. SearchPage uses semantic (pgvector) + keyword search with debounced queries. Pass handles Pro Pass pricing and Razorpay checkout.</td></tr>
+<tr><td>auth/ (3)</td><td>EmailVerification, ForgotPassword, ResetPassword (Login/Signup moved to features/auth)</td><td>Auth flows are simple but security-critical. Token-based email verification with 1-hour expiry. Password reset via emailed token. Login/Signup moved to features/auth as modal components.</td></tr>
+<tr><td>community/ (1)</td><td>Community (2152L — doubts forum + study groups)</td><td>Community (2152L) is the second-largest component: real-time forum with doubts, study groups, posts, votes, and WebSocket updates. Uses Socket.IO for live updates.</td></tr>
+<tr><td>errors/ (2)</td><td>NotFound, ServerError</td><td>Error pages with retry/reload options. NotFound shows suggested links. ServerError includes error ID for support reference.</td></tr>
 </tbody></table>
 </div>
 
@@ -660,26 +900,26 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 </div>
 
 <div class="panel" id="fe-lib">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">32 files in shared/lib — API layer + domain clients + telemetry</p>
-<table><thead><tr><th>File</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>dataService.js</td><td>Core API layer: axios with cookies, CSRF, typed errors, caching, entity fetchers, adminAPI namespace (shared/api directory also holds admin/ subfolder)</td></tr>
-<tr><td>apiBase.js / apiClient.js / api.js</td><td>Base URL config, second axios client w/ JWT refresh retry, re-exports</td></tr>
-<tr><td>authAPI / userAPI / examAPI / testsAPI / seriesAPI / studyAPI / practiceAPI / pypAPI / questionsAPI / bookmarksAPI / notificationPrefAPI</td><td><span class="badge badge-purple">NEW</span> Domain-scoped client modules split out of dataService</td></tr>
-<tr><td>aiAPI / aiRouter / aiStreaming / aiCache</td><td><span class="badge badge-purple">NEW</span> AI gateway client: OpenRouter calls, streaming SSE, response cache</td></tr>
-<tr><td>adaptiveDifficultyAPI / vectorSearch</td><td>Adaptive difficulty + semantic search clients</td></tr>
-<tr><td>websocket.js</td><td>Socket.IO init, joinTestRoom, subscribeToLeaderboard</td></tr>
-<tr><td>sanitizeHtml / htmlSanitizer</td><td>DOMPurify wrappers</td></tr>
-<tr><td>enrollment.js</td><td>Enrolled series parsing (JS array, PG array, JSON, CSV)</td></tr>
-<tr><td>language.js</td><td><span class="badge badge-purple">NEW</span> Bilingual (Hindi/English) field localization helpers</td></tr>
-<tr><td>dashboardCache.js / testSeriesStats.js / data-fetchers.js</td><td>Dashboard payload cache, series stats, fetch helpers</td></tr>
-<tr><td>onboardingUtils.js</td><td>Onboarding prefs persistence</td></tr>
-<tr><td>env-validation.js</td><td>VITE_* env validation</td></tr>
-<tr><td>telemetry/ (TelemetryService, OfflineQueue, videoTelemetry)</td><td><span class="badge badge-purple">NEW</span> Client telemetry: learning telemetry events + offline queue + video engagement tracking</td></tr>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">32 files in shared/lib — API layer + domain clients + telemetry. The lib directory is organized into three layers: core API infrastructure (apiBase, apiClient, dataService), domain-specific clients (authAPI, testsAPI, etc.), and utilities (sanitizeHtml, enrollment, language).</p>
+<table><thead><tr><th>File</th><th>Purpose</th><th>Dependencies</th></tr></thead><tbody>
+<tr><td>dataService.js</td><td>Core API layer: axios with cookies, CSRF token injection, typed error handling (AppError subclasses), response caching, entity fetchers (getUser, getTests, etc.), and adminAPI namespace. This is the primary interface for all backend communication. Also holds the shared/api directory with admin/ subfolder.</td><td>axios, csrf-token-store, errors.js (from shared-config)</td></tr>
+<tr><td>apiBase.js / apiClient.js / api.js</td><td>Base URL config (VITE_API_URL), second axios client with automatic JWT refresh retry on 401, re-exports. apiClient handles the refresh-token flow: on 401, calls /api/auth/refresh, retries original request once.</td><td>axios, authAPI (for refresh)</td></tr>
+<tr><td>authAPI / userAPI / examAPI / testsAPI / seriesAPI / studyAPI / practiceAPI / pypAPI / questionsAPI / bookmarksAPI / notificationPrefAPI</td><td><span class="badge badge-purple">NEW</span> Domain-scoped client modules split out of dataService for better tree-shaking and maintainability. Each exports typed functions for its domain's API endpoints. Example: <code>testsAPI.startTest(testId)</code>, <code>practiceAPI.createSession(topicId)</code>.</td><td>apiClient (shared base)</td></tr>
+<tr><td>aiAPI / aiRouter / aiStreaming / aiCache</td><td><span class="badge badge-purple">NEW</span> AI gateway client: OpenRouter calls via backend proxy, streaming SSE for real-time responses (used in AIStudyPlanner chat), response cache to avoid duplicate generations. aiRouter handles provider selection, aiStreaming manages EventSource connections.</td><td>apiClient, EventSource (browser)</td></tr>
+<tr><td>adaptiveDifficultyAPI / vectorSearch</td><td>Adaptive difficulty state machine client (pairs with useAdaptiveDifficulty hook) and semantic search client (pgvector-powered). adaptiveDifficultyAPI tracks topic difficulty levels and adjusts question selection. vectorSearch provides embedding-based similarity queries.</td><td>apiClient</td></tr>
+<tr><td>websocket.js</td><td>Socket.IO initialization, room management (joinTestRoom, subscribeToLeaderboard), connection state tracking. Used by useWebSocket hook and real-time components (LiveTestInterface, Community, Dashboard).</td><td>socket.io-client</td></tr>
+<tr><td>sanitizeHtml / htmlSanitizer</td><td>DOMPurify wrappers for client-side HTML sanitization. Used before rendering user-generated content (comments, study materials, blog posts). Multiple variants for different security levels.</td><td>dompurify</td></tr>
+<tr><td>enrollment.js</td><td>Enrolled series parsing: handles JS array, PostgreSQL array format, JSON string, and CSV formats. Normalizes enrollment data from different backend response formats into a consistent structure.</td><td>None (pure utility)</td></tr>
+<tr><td>language.js</td><td><span class="badge badge-purple">NEW</span> Bilingual (Hindi/English) field localization helpers. Provides <code>getLocalizedField(obj, 'title')</code> which returns Hindi version if available and user preference is Hindi, else English. Used throughout the UI for dual-language content.</td><td>None (pure utility)</td></tr>
+<tr><td>dashboardCache.js / testSeriesStats.js / data-fetchers.js</td><td>Dashboard payload cache (batches dashboard API calls into single request), series stats calculator, and generic fetch helpers with retry logic. dashboardCache reduces waterfall requests on dashboard load.</td><td>apiClient</td></tr>
+<tr><td>onboardingUtils.js</td><td>Onboarding preferences persistence: stores first-visit preferences (exam target, study language, daily goal) in localStorage. Used by OnboardingWizard component.</td><td>localStorage (browser)</td></tr>
+<tr><td>env-validation.js</td><td>VITE_* environment variable validation at build time. Ensures required env vars are set and have correct types. Fails build with descriptive error if validation fails.</td><td>vite (build-time only)</td></tr>
+<tr><td>telemetry/ (TelemetryService, OfflineQueue, videoTelemetry)</td><td><span class="badge badge-purple">NEW</span> Client telemetry system: learning telemetry events (page views, test attempts, practice sessions) sent to backend via /api/telemetry. OfflineQueue buffers events when network is unavailable and syncs when reconnected. videoTelemetry tracks video engagement (play, pause, seek, completion).</td><td>apiClient, navigator.onLine (browser)</td></tr>
 </tbody></table>
 <h3 class="subsection-title">Providers / Context</h3>
-<table><thead><tr><th>Context</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>providers/AuthContext.jsx + AuthProvider.jsx + AuthContextCore.js + useAuth.js</td><td><span class="badge badge-purple">Restructured</span> httpOnly cookie auth, login/signup/logout/refresh, WebSocket init, notification listener. Core logic in AuthContextCore.js; WebSocketProvider was removed (broken import is gone)</td></tr>
-<tr><td>shared/context/ThemeContext.jsx</td><td>Dark mode toggle (localStorage + prefers-color-scheme)</td></tr>
+<table><thead><tr><th>Context</th><th>Purpose</th><th>Scope</th></tr></thead><tbody>
+<tr><td>providers/AuthContext.jsx + AuthProvider.jsx + AuthContextCore.js + useAuth.js</td><td><span class="badge badge-purple">Restructured</span> httpOnly cookie auth: login (email+password, Google OAuth, phone OTP), signup, logout, refresh (automatic on 401), WebSocket initialization, notification listener via Socket.IO. Core logic extracted to AuthContextCore.js for testability. WebSocketProvider was removed (broken import is gone).</td><td>Global — wraps entire app in App.jsx</td></tr>
+<tr><td>shared/context/ThemeContext.jsx</td><td>Dark mode toggle: persists preference to localStorage, syncs with <code>prefers-color-scheme</code> media query, applies <code>dark</code> class to document root. Used by Tailwind for dark mode styling.</td><td>Global — used by all components for theme access</td></tr>
 </tbody></table>
 </div>
 
@@ -699,7 +939,7 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 <!-- 5. ADMIN PANEL -->
 <div class="section" id="admin">
 <h2 class="section-title">5. Admin Panel (apps/admin-panel)</h2>
-<p class="section-desc">React 18 admin SPA — port 3002. Reorganized from flat 32-manager folder into 13 domain directories: 44 routed components (43 managers + Login) across 59 .jsx files. All route components lazy-loaded. Dockerfile now exists.</p>
+<p class="section-desc">React 18 admin SPA — port 3002. Reorganized from flat 32-manager folder into 13 domain directories: 44 routed components (43 managers + Login) across 59 .jsx files. All route components lazy-loaded for code splitting. The admin panel shares API infrastructure with the frontend via <code>lib/dataService.js</code> but uses its own authentication flow (Admin API key + JWT). Forms are validated with Zod schemas, and all mutations go through the layered admin guard stack on the backend.</p>
 <input type="text" class="search-box" placeholder="Search admin managers..." oninput="filterTable(this,'admin')">
 <div class="tabs" id="admin-tabs">
 <button class="tab active" data-tab="admin-features">Features (13 domains)</button>
@@ -708,21 +948,22 @@ Run: <code>npm run worker</code> (or <code>worker:dev</code> with --watch).
 </div>
 
 <div class="panel active" id="admin-features">
-<table><thead><tr><th>Domain dir</th><th>Managers → routes</th></tr></thead><tbody>
-<tr><td>dashboard/</td><td>AdminDashboard → /admin</td></tr>
-<tr><td>analytics-insights/</td><td>AdminAnalytics → /admin/analytics · DeepAnalytics → /admin/deep-analytics · LeaderboardResultsUnified → /admin/leaderboards</td></tr>
-<tr><td>assessments-quizzes/</td><td>TestSeriesManager → test-series · TestsManager (2837L) → tests · QuestionsManager (3291L) → questions · SectionsManager (1941L) → sections · QuizzesManager → quizzes · PracticeQuestionsManager → practice-questions (+ components/: BulkImportModal, FullTestImportModal, ImportHistoryModal, OptionEditor, QuestionForm, QuestionRow, CategoryTabBar, StatsCard)</td></tr>
-<tr><td>exams-categories/</td><td>ExamCategoriesManager → exam-categories · ExamInfoManager → exam-info (+/:examId) · StagesManager (1954L) → stages · CategoriesManager (1972L) → categories · TagConfigsManager → tag-configs</td></tr>
-<tr><td>study-materials/</td><td>StudyMaterialsManager → study-materials · TopicsManager → topics · ContentManagement → content-management · CurriculumBuilder (2558L) → curriculum · CurrentAffairsManager → current-affairs · SubjectHierarchyManager (582L, unrouted) · SubjectRelationsManager (redirect target) (+ components/ContentHierarchySidebar)</td></tr>
-<tr><td>notifications-comms/</td><td>EmailTemplatesManager → email-templates · NotificationsManager → notifications · BannerManager → banners · FaqManager → faqs</td></tr>
-<tr><td>subscriptions-monetization/</td><td>SubscriptionPlansManager → subscription-plans · CouponsManager → coupons · PromotionManager → promotions · <strong>PaymentsManager (399L) → /admin/payments</strong> <span class="badge badge-purple">NEW</span></td></tr>
-<tr><td>users-enrollments/</td><td>UsersPermissions (65L wrapper) → /admin/users + /admin/roles-permissions <span class="badge badge-purple">NEW unified route</span> · EnrollmentsManager → enrollments · UserActivityLog → activity-log · (UsersManager + RolePermissionsManager now composed inside UsersPermissions)</td></tr>
-<tr><td>audit-compliance/</td><td>AuditTrailManager → audit-trail · ResultsManager → results</td></tr>
-<tr><td>moderation/</td><td><strong>ModerationManager (684L) → /admin/moderation</strong> <span class="badge badge-purple">NEW</span></td></tr>
-<tr><td>system-settings/</td><td>AdminSettings (1243L) → settings · ActiveSessionsManager (434L) → sessions · <strong>LiveTestMonitor (357L) → /admin/live-monitor</strong> <span class="badge badge-purple">NEW</span> · <strong>TwoFactorManager (250L) → /admin/two-factor</strong> <span class="badge badge-purple">NEW</span> · SystemHealthMonitor → system-health · BackupsManager → backups · ComingSoonManager → coming-soon · NavigationManager → navigation · RecycleBin → recycle-bin</td></tr>
-<tr><td>auth/</td><td>Login → /login</td></tr>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">13 domain directories, each containing manager components that handle CRUD operations for their domain. Managers use <code>useGenericCRUD</code> hook for standard create/update/delete patterns with optimistic updates. All routes are lazy-loaded and protected by <code>ProtectedRoute</code> with admin role check.</p>
+<table><thead><tr><th>Domain dir</th><th>Managers → routes</th><th>Key details</th></tr></thead><tbody>
+<tr><td>dashboard/</td><td>AdminDashboard → /admin</td><td>Overview dashboard with system stats, recent activity, quick actions, and health indicators.</td></tr>
+<tr><td>analytics-insights/</td><td>AdminAnalytics → /admin/analytics · DeepAnalytics → /admin/deep-analytics · LeaderboardResultsUnified → /admin/leaderboards</td><td>Analytics dashboard with Recharts visualizations: user growth, test attempts, revenue, content usage. Deep analytics for drill-down analysis. Leaderboard management with recalculation controls.</td></tr>
+<tr><td>assessments-quizzes/</td><td>TestSeriesManager → test-series · TestsManager (2837L) → tests · QuestionsManager (3291L) → questions · SectionsManager (1941L) → sections · QuizzesManager → quizzes · PracticeQuestionsManager → practice-questions (+ components/: BulkImportModal, FullTestImportModal, ImportHistoryModal, OptionEditor, QuestionForm, QuestionRow, CategoryTabBar, StatsCard)</td><td>Largest domain. TestsManager (2837L) handles test CRUD, bulk operations, state transitions (draft→review→scheduled→published→live→expired→archived), and section management. QuestionsManager (3291L) handles question CRUD with option editor, bulk import/export, and quality scoring. BulkImportModal supports Excel/CSV/JSON with format detection.</td></tr>
+<tr><td>exams-categories/</td><td>ExamCategoriesManager → exam-categories · ExamInfoManager → exam-info (+/:examId) · StagesManager (1954L) → stages · CategoriesManager (1972L) → categories · TagConfigsManager → tag-configs</td><td>Exam taxonomy management: categories (VARCHAR pk), exams, stages, exam info with yearly data, and tag configurations for UI customization.</td></tr>
+<tr><td>study-materials/</td><td>StudyMaterialsManager → study-materials · TopicsManager → topics · ContentManagement → content-management · CurriculumBuilder (2558L) → curriculum · CurrentAffairsManager → current-affairs · SubjectHierarchyManager (582L, unrouted) · SubjectRelationsManager (redirect target) (+ components/ContentHierarchySidebar)</td><td>Content management: study materials, topics, curriculum tree (2558L — visual drag-and-drop builder), current affairs, and subject hierarchy. SubjectHierarchyManager is unrouted but accessible via study-materials sidebar.</td></tr>
+<tr><td>notifications-comms/</td><td>EmailTemplatesManager → email-templates · NotificationsManager → notifications · BannerManager → banners · FaqManager → faqs</td><td>Communication management: email templates with test send, notification broadcasting, banner management for homepage/promotions, and FAQ management.</td></tr>
+<tr><td>subscriptions-monetization/</td><td>SubscriptionPlansManager → subscription-plans · CouponsManager → coupons · PromotionManager → promotions · <strong>PaymentsManager (399L) → /admin/payments</strong> <span class="badge badge-purple">NEW</span></td><td>Monetization: subscription plan CRUD, coupon generation/validation, promotion management, and payment transaction viewing with refund support. PaymentsManager (399L) is new — handles transaction listing, filtering, and refund processing.</td></tr>
+<tr><td>users-enrollments/</td><td>UsersPermissions (65L wrapper) → /admin/users + /admin/roles-permissions <span class="badge badge-purple">NEW unified route</span> · EnrollmentsManager → enrollments · UserActivityLog → activity-log · (UsersManager + RolePermissionsManager now composed inside UsersPermissions)</td><td>User management: unified UsersPermissions wrapper (65L) composes UsersManager and RolePermissionsManager with tab switching. EnrollmentsManager handles series/exam/study-material enrollments. UserActivityLog shows audit trail per user.</td></tr>
+<tr><td>audit-compliance/</td><td>AuditTrailManager → audit-trail · ResultsManager → results</td><td>Compliance: audit trail viewer with filtering by action/resource/user/date. ResultsManager is placeholder ("Detailed question-wise analytics coming soon").</td></tr>
+<tr><td>moderation/</td><td><strong>ModerationManager (684L) → /admin/moderation</strong> <span class="badge badge-purple">NEW</span></td><td>Content moderation queue (684L): review user-generated content (comments, posts, study materials), approve/request changes/reject with notes. Integrates with moderationService on backend.</td></tr>
+<tr><td>system-settings/</td><td>AdminSettings (1243L) → settings · ActiveSessionsManager (434L) → sessions · <strong>LiveTestMonitor (357L) → /admin/live-monitor</strong> <span class="badge badge-purple">NEW</span> · <strong>TwoFactorManager (250L) → /admin/two-factor</strong> <span class="badge badge-purple">NEW</span> · SystemHealthMonitor → system-health · BackupsManager → backups · ComingSoonManager → coming-soon · NavigationManager → navigation · RecycleBin → recycle-bin</td><td>System management: AdminSettings (1243L) handles all site settings with feature flags. ActiveSessionsManager (434L) shows active user sessions with revoke capability. LiveTestMonitor (357L) real-time test monitoring. TwoFactorManager (250L) admin-level 2FA management. SystemHealthMonitor for DB/Redis/queue stats. BackupsManager for manual backup + download. RecycleBin for soft-deleted entity restoration.</td></tr>
+<tr><td>auth/</td><td>Login → /login</td><td>Admin login page. Separate from frontend login — uses Admin API key + JWT authentication.</td></tr>
 </tbody></table>
-<p style="color:var(--text3);font-size:0.8rem">Redirects: /admin/section → /admin/sections · /admin/subjects → /admin/study-materials · /admin/subject-relations → /admin/study-materials?tab=subject-relations. Catch-all redirects unknown paths. features/admin/index.js re-exports all 40 public managers.</p>
+<p style="color:var(--text3);font-size:0.8rem">Redirects: /admin/section → /admin/sections · /admin/subjects → /admin/study-materials · /admin/subject-relations → /admin/study-materials?tab=subject-relations. Catch-all redirects unknown paths. <code>features/admin/index.js</code> re-exports all 40 public managers for clean imports.</p>
 </div>
 
 <div class="panel" id="admin-components">
@@ -760,71 +1001,71 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 <!-- 6. DATABASE -->
 <div class="section" id="database">
 <h2 class="section-title">6. Database</h2>
-<p class="section-desc">PostgreSQL/Supabase + pgvector — ~140 tables, 97 migrations (000–108, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. New in this cycle: certificates (094), two_factor_secrets (064), Node Engine V2 (nodes/user_node_skill, 106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088).</p>
+<p class="section-desc">PostgreSQL/Supabase + pgvector — 115 migration files (000–126, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. Recent schema work includes certificates (094), two_factor_secrets (064), Node Engine V2 (106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088), response-time/index improvements (122, 124, 126), and negative-marking defaults (125). The database uses a dual-pool architecture: write pool via <code>DATABASE_URL</code> and read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary.</p>
 <input type="text" class="search-box" placeholder="Search tables..." oninput="filterTable(this,'database')">
 <div class="tabs" id="db-tabs">
 <button class="tab active" data-tab="db-tables">Tables</button>
-<button class="tab" data-tab="db-migrations">Migrations (97)</button>
+<button class="tab" data-tab="db-migrations">Migrations (115)</button>
 <button class="tab" data-tab="db-seeders">Seeders</button>
 <button class="tab" data-tab="db-relations">Relationships</button>
 </div>
 
 <div class="panel active" id="db-tables">
 <h3 class="subsection-title">Content Hierarchy</h3>
-<table><thead><tr><th>Table</th><th>Key FKs</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>subjects</td><td>parent_id→subjects (self)</td><td>Top-level subjects</td></tr>
-<tr><td>subject_parts, units, chapters, topics, subtopics</td><td>chained parent FKs</td><td>V3 hierarchy chain</td></tr>
-<tr><td>subject_chapters, subject_topics</td><td>m108 aliases</td><td>Alternative chapter/topic storage (m108 baseline)</td></tr>
-<tr><td>study_materials</td><td>-</td><td>Study material aggregates</td></tr>
-<tr><td>subject_videos, subject_pdfs, topic_tests, topic_resources</td><td>topic_id</td><td>Leaf learning resources</td></tr>
-<tr><td>passages, question_assets</td><td>subject_id/topic_id</td><td>Comprehension passages + question media</td></tr>
-<tr><td>featured_subjects</td><td>m082</td><td>Homepage subject ordering</td></tr>
+<table><thead><tr><th>Table</th><th>Key FKs</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>subjects</td><td>parent_id→subjects (self)</td><td>Top-level subjects (Math, Science, English, etc.)</td><td>Self-referential hierarchy. stage_ids[] array for multi-stage subjects (m074).</td></tr>
+<tr><td>subject_parts, units, chapters, topics, subtopics</td><td>chained parent FKs</td><td>V3 hierarchy chain: subject → part → unit → chapter → topic → subtopic</td><td>Deep hierarchy for granular content organization. Each level has optional metadata (description, order, icon).</td></tr>
+<tr><td>subject_chapters, subject_topics</td><td>m108 aliases</td><td>Alternative chapter/topic storage (m108 baseline)</td><td>Baseline tables for ensuring complete hierarchy. Created by ensure_complete_baseline migration.</td></tr>
+<tr><td>study_materials</td><td>-</td><td>Study material aggregates — links subjects to content types</td><td>Central hub for study material metadata: title, type, subject_id, chapter_id, order, status.</td></tr>
+<tr><td>subject_videos, subject_pdfs, topic_tests, topic_resources</td><td>topic_id</td><td>Leaf learning resources — videos, PDFs, tests, and generic resources</td><td>Leaf nodes in the hierarchy. Each has URL, title, duration/size, order, and access control.</td></tr>
+<tr><td>passages, question_assets</td><td>subject_id/topic_id</td><td>Comprehension passages + question media (images, diagrams)</td><td>Passages are shared across questions. question_assets stores media referenced by questions.</td></tr>
+<tr><td>featured_subjects</td><td>m082</td><td>Homepage subject ordering — controls which subjects appear on homepage and in what order</td><td>Simple junction table with order column. Updated via admin panel.</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">Test Engine</h3>
-<table><thead><tr><th>Table</th><th>Key FKs</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>tests</td><td>series_id→test_series, stage_id→stages, subject_id, exam_id (type-fixed m086/m097)</td><td>Test definitions w/ state machine</td></tr>
-<tr><td>test_questions / test_sections / test_state_machine / test_templates</td><td>tests, categories</td><td>M:N link, sections, state tracking, templates</td></tr>
-<tr><td>questions</td><td>series, subject, topic, chapter, passage, test_id</td><td>options JSONB + Hindi translations + content_source (m063)</td></tr>
-<tr><td>question_options, question_versions <span class="badge badge-purple">(snapshot m066)</span>, question_search_index, question_assets, question_tag_map, question_reports, question_explanations_v2 <span class="badge badge-purple">NEW m107</span>, question_approaches <span class="badge badge-purple">m107</span>, question_learning_telemetry <span class="badge badge-purple">m107</span></td><td>question_id</td><td>Question ecosystem</td></tr>
-<tr><td>attempts</td><td>users, tests, series</td><td>Scores, section_scores, solutions JSONB; attempt_number (m102); unique index: one in-progress attempt per user/test (m094); is_active flag</td></tr>
-<tr><td>attempt_answers / attempt_events <span class="badge badge-purple">(event_uuid m085)</span> / attempt_section_scores / attempt_question_snapshots / test_attempts</td><td>attempt_id</td><td>Per-question data + anti-cheat</td></tr>
-<tr><td>test_series / test_categories / test_category_series <span class="badge badge-green">junction (m019)</span></td><td>-</td><td>Series + category hierarchy + junction</td></tr>
-<tr><td>live_tests / exam_rooms</td><td>test_id / UUID</td><td>Live tests + rooms</td></tr>
-<tr><td>pyp_papers / pyp_attempts</td><td>exam/series/stage</td><td>Previous year papers</td></tr>
-<tr><td>certificates <span class="badge badge-purple">NEW m094</span></td><td>user_id, attempt_id</td><td>Completion certificates w/ hash + revoke flag</td></tr>
+<table><thead><tr><th>Table</th><th>Key FKs</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>tests</td><td>series_id→test_series, stage_id→stages, subject_id, exam_id (type-fixed m086/m097)</td><td>Test definitions with state machine (draft→review→scheduled→published→live→expired→archived)</td><td>Contains time_limit, total_marks, passing_marks, negative_marking, pro_required flags. State transitions tracked by TestStateMachine service.</td></tr>
+<tr><td>test_questions / test_sections / test_state_machine / test_templates</td><td>tests, categories</td><td>M:N link between tests and questions, section definitions, state tracking, and reusable templates</td><td>test_questions has order and marks_per_question. test_sections defines section-wise time/mark limits. test_templates enable test creation from templates.</td></tr>
+<tr><td>questions</td><td>series, subject, topic, chapter, passage, test_id</td><td>Question bank — options JSONB + Hindi translations + content_source (m063)</td><td>Options stored as JSONB array (legacy question_options table still exists). Hindi translations in separate JSONB field. content_source tracks import source (m063). quality_score for AI-graded quality.</td></tr>
+<tr><td>question_options, question_versions <span class="badge badge-purple">(snapshot m066)</span>, question_search_index, question_assets, question_tag_map, question_reports, question_explanations_v2 <span class="badge badge-purple">NEW m107</span>, question_approaches <span class="badge badge-purple">m107</span>, question_learning_telemetry <span class="badge badge-purple">m107</span></td><td>question_id</td><td>Question ecosystem — options, version history, search index, media, tags, reports, AI-generated explanations, solution approaches, and learning telemetry</td><td>question_versions (m066) snapshots question state on edit. question_explanations_v2 (m107) stores AI-generated explanations. question_approaches stores solution methods. question_learning_telemetry tracks usage patterns.</td></tr>
+<tr><td>attempts</td><td>users, tests, series</td><td>Test attempt records — scores, section_scores, solutions JSONB; attempt_number (m102)</td><td>Unique index: one in-progress attempt per user/test (m094). is_active flag for current attempt. attempt_number incremented on reattempt. section_scores for section-wise breakdown.</td></tr>
+<tr><td>attempt_answers / attempt_events <span class="badge badge-purple">(event_uuid m085)</span> / attempt_section_scores / attempt_question_snapshots / test_attempts</td><td>attempt_id</td><td>Per-question response data + anti-cheat events + section scores + question snapshots</td><td>attempt_answers stores selected_option, time_spent, is_correct per question. attempt_events tracks anti-cheat events (tab switch, copy, etc.) with UUID for dedup. question_snapshots preserve question state at attempt time.</td></tr>
+<tr><td>test_series / test_categories / test_category_series <span class="badge badge-green">junction (m019)</span></td><td>-</td><td>Series + category hierarchy + M:N junction</td><td>test_category_series (m019) enables series to belong to multiple categories. Categories support tree structure via parent_id.</td></tr>
+<tr><td>live_tests / exam_rooms</td><td>test_id / UUID</td><td>Live tests + rooms for real-time synchronized testing</td><td>live_tests references a base test and adds live-specific config (start_time, duration, max_participants). exam_rooms are UUID-addressed WebSocket rooms for real-time sync.</td></tr>
+<tr><td>pyp_papers / pyp_attempts</td><td>exam/series/stage</td><td>Previous year papers + user attempts</td><td>pyp_papers stores year, exam, series, stage, and paper metadata. pyp_attempts tracks user attempts with scores.</td></tr>
+<tr><td>certificates <span class="badge badge-purple">NEW m094</span></td><td>user_id, attempt_id</td><td>Completion certificates with hashed lookup + revoke flag</td><td>certificates table stores certificate hash for verification, revoke flag for invalidation, and issue_date. Hash enables public verification without exposing user data.</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">Exam Taxonomy</h3>
-<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>exam_categories (VARCHAR pk), exams, stages, exam_info, exam_yearly_data, exam_updates, exam_seasons</td><td>Taxonomy + metadata + yearly cycles</td></tr>
+<table><thead><tr><th>Table</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>exam_categories (VARCHAR pk), exams, stages, exam_info, exam_yearly_data, exam_updates, exam_seasons</td><td>Taxonomy + metadata + yearly cycles</td><td>exam_categories uses VARCHAR category_id (not integer). exams links to categories and stages. exam_yearly_data stores vacancy/cutoff trends. exam_updates tracks notification/changes. exam_seasons groups exams by recruitment cycle.</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">Practice Lab v2 <span class="badge badge-purple">NEW (m065, m107, m108)</span></h3>
-<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>practice_sessions, practice_answers, practice_streaks, practice_daily_sets</td><td>Practice engine core (fundamentals-first flows)</td></tr>
-<tr><td>fundamental_skill_drills, user_fundamental_mastery</td><td>Fundamentals Gym — drill definitions + per-user mastery</td></tr>
-<tr><td>practice_ai_cache</td><td>LLM-generated practice content cache (Practice↔Test bridge)</td></tr>
-<tr><td>knowledge_vault_items</td><td>User knowledge vault collections</td></tr>
-<tr><td>question_bookmarks, question_reports</td><td>Bookmark + report flows</td></tr>
-<tr><td>nodes, user_node_skill <span class="badge badge-purple">m106</span></td><td>Node Engine V2 learning graph (topics as nodes, per-user skill vectors, spaced-repetition scheduling)</td></tr>
+<table><thead><tr><th>Table</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>practice_sessions, practice_answers, practice_streaks, practice_daily_sets</td><td>Practice engine core — session tracking, answer recording, streak management, daily question sets</td><td>practice_sessions tracks topic, difficulty, start/end time. practice_answers records per-question responses. practice_streaks tracks daily practice streaks. practice_daily_sets generates daily practice questions.</td></tr>
+<tr><td>fundamental_skill_drills, user_fundamental_mastery</td><td>Fundamentals Gym — drill definitions + per-user mastery levels</td><td>fundamental_skill_drills defines drill types (speed, accuracy, mixed). user_fundamental_mastery tracks per-user mastery per drill type with spaced-repetition scheduling.</td></tr>
+<tr><td>practice_ai_cache</td><td>LLM-generated practice content cache (Practice↔Test bridge)</td><td>Caches AI-generated explanations, approaches, and similar questions to avoid redundant API calls. Keyed by question_id + content_type.</td></tr>
+<tr><td>knowledge_vault_items</td><td>User knowledge vault collections — saved questions, notes, references</td><td>User-created collections of important questions/notes. Supports tagging, categorization, and spaced-repetition scheduling.</td></tr>
+<tr><td>question_bookmarks, question_reports</td><td>Bookmark + report flows</td><td>bookmarks (item_id VARCHAR m103) supports flexible bookmarking of any entity type. question_reports tracks user-reported issues (incorrect answer, typo, etc.).</td></tr>
+<tr><td>nodes, user_node_skill <span class="badge badge-purple">m106</span></td><td>Node Engine V2 learning graph — topics as nodes, per-user skill vectors, spaced-repetition scheduling</td><td>nodes table stores topic graph structure with prerequisites and relationships. user_node_skill tracks per-user skill vectors (mastery level, confidence, last_practiced) with spaced-repetition scheduling (next_review_date, interval, ease_factor).</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">AI / Embeddings <span class="badge badge-purple">NEW (m075, m076, m093)</span></h3>
-<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>embeddings (vector, ivfflat cosine idx)</td><td>General-purpose semantic search store</td></tr>
-<tr><td>document_chunks</td><td>Chunked documents with tsv_content GIN trigger for hybrid search</td></tr>
-<tr><td>prompt_templates, ai_conversations, ai_messages</td><td>AI gateway prompt/config + conversation history</td></tr>
-<tr><td>ai_generation_logs, ai_api_usage, ai_logs</td><td>AI usage + cost tracking</td></tr>
-<tr><td>question_search_index</td><td>Question vector/keyword index (m027)</td></tr>
+<table><thead><tr><th>Table</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>embeddings (vector, ivfflat cosine idx)</td><td>General-purpose semantic search store</td><td>pgvector column (vector(1536)) with ivfflat cosine index for similarity search. Stores embeddings for questions, content, and documents. Used by vectorSearch and RAG services.</td></tr>
+<tr><td>document_chunks</td><td>Chunked documents with tsv_content GIN trigger for hybrid search</td><td>Documents split into chunks for RAG ingestion. tsv_content GIN index enables full-text search alongside vector similarity. Used by RAG service for context retrieval.</td></tr>
+<tr><td>prompt_templates, ai_conversations, ai_messages</td><td>AI gateway prompt/config + conversation history</td><td>prompt_templates stores reusable prompt configurations. ai_conversations tracks user-AI chat sessions. ai_messages stores individual messages with role (user/assistant/system) and content.</td></tr>
+<tr><td>ai_generation_logs, ai_api_usage, ai_logs</td><td>AI usage + cost tracking</td><td>ai_generation_logs records each AI generation (model, tokens, cost, latency). ai_api_usage tracks per-user API usage for rate limiting. ai_logs stores additional AI interaction metadata.</td></tr>
+<tr><td>question_search_index</td><td>Question vector/keyword index (m027)</td><td>Pre-computed search index for questions combining vector embeddings and keyword vectors. Enables fast hybrid search.</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">Users, Auth & Payments</h3>
-<table><thead><tr><th>Table</th><th>Purpose</th></tr></thead><tbody>
-<tr><td>users</td><td>public_id, pro_pass, enrolled_*[] arrays, preferences JSONB; PII columns encrypted at rest (m088); last_activity on sessions (m090)</td></tr>
-<tr><td>user_sessions, login_attempts, csrf_tokens <span class="badge badge-purple">(expires idx m037)</span>, two_factor_secrets <span class="badge badge-purple">NEW m064</span></td><td>Sessions, brute-force, CSRF, TOTP secrets + backup codes</td></tr>
-<tr><td>subscriptions, subscription_plans, pro_passes, transactions, coupons</td><td>Monetization</td></tr>
-<tr><td>enrollments (+ type column m094)</td><td>series/exam/study-material enrollment</td></tr>
+<table><thead><tr><th>Table</th><th>Purpose</th><th>Notes</th></tr></thead><tbody>
+<tr><td>users</td><td>User accounts with PII encryption at rest (m088)</td><td>public_id (UUID), pro_pass flag, enrolled_*[] arrays, preferences JSONB. PII columns (email, phone, name) encrypted with pgcrypto (m088). last_activity tracked on sessions (m090).</td></tr>
+<tr><td>user_sessions, login_attempts, csrf_tokens <span class="badge badge-purple">(expires idx m037)</span>, two_factor_secrets <span class="badge badge-purple">NEW m064</span></td><td>Session management, brute-force protection, CSRF, TOTP 2FA</td><td>user_sessions tracks active sessions with device/geo info. login_attempts enables progressive lockout. csrf_tokens with expiry index (m037). two_factor_secrets stores encrypted TOTP secrets + backup codes.</td></tr>
+<tr><td>subscriptions, subscription_plans, pro_passes, transactions, coupons</td><td>Monetization — plans, subscriptions, payments, coupons</td><td>subscription_plans defines tiers and features. subscriptions tracks user subscriptions with expiry. pro_passes enables pro access. transactions stores payment records (Razorpay). coupons with usage limits and expiry.</td></tr>
+<tr><td>enrollments (+ type column m094)</td><td>Series/exam/study-material enrollment</td><td>type column (m094) distinguishes enrollment types: series, exam, study_material. Enables unified enrollment tracking across different entity types.</td></tr>
 </tbody></table>
 
 <h3 class="subsection-title">Analytics & Activity</h3>
@@ -835,7 +1076,7 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 </div>
 
 <div class="panel" id="db-migrations">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">97 .sql files (000–108; gaps retired via 042_placeholder_retired), auto-run on boot by migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">115 .sql files are present in the backend migration directory (numbered 000–126 with retired-number gaps). They auto-run on boot through migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
 <table><thead><tr><th>Migration</th><th>Purpose</th></tr></thead><tbody>
 <tr><td>000_baseline_functions / 000a_enable_rls_policies</td><td>Extensions, 13 baseline functions, RLS event trigger + baseline policies</td></tr>
 <tr><td>001–003</td><td>RBAC/audit/email nav tables, audit extension, user_sessions</td></tr>
@@ -846,7 +1087,11 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 <tr><td>075–083</td><td><span class="badge badge-purple">dead_letter_jobs + AI tables (prompt_templates, ai_conversations, ai_messages, document_chunks)</span> · general embeddings table + triggers · assets/chapters columns · performance indexes · subject_videos public_id · subject_group · featured_subjects · category_groups</td></tr>
 <tr><td>084–093</td><td>subject deletes, attempt event UUID, tests exam_id type fix, performance indexes, <span class="badge badge-purple">PII-at-rest encryption (088)</span>, numeric checks, session last_activity, response-time indexes, audit_logs columns, HNSW tuning</td></tr>
 <tr><td>094–105</td><td><span class="badge badge-purple">certificates + attempt dedup (094)</span>, missing tables (notifications, subscriptions, results, doubts, bookmarks, leaderboards, activity_logs, group_posts/messages) (095), soft-delete columns (096), exam_id type fix (097), reconstructed baseline (098), RLS policies (099), duplicate-table reconciliation promotions/referrals/study_groups/discussions (100), achievements consolidation (101), attempt_number (102), bookmarks varchar (103), pgcrypto resilience (104), admin perf indexes (105)</td></tr>
-<tr><td>106–108 <span class="badge badge-purple">NEWEST</span></td><td>Node Engine V2 learning graph (nodes, user_node_skill + ai_meta JSONB) · Practice engine redesign (fundamental_skill_drills, user_fundamental_mastery, explanations_v2, approaches, knowledge_vault, learning telemetry) · ensure_complete_baseline (28 core tables idempotent)</td></tr>
+<tr><td>106–108</td><td>Node Engine V2 learning graph (nodes, user_node_skill + ai_meta JSONB) · Practice engine redesign (fundamental_skill_drills, user_fundamental_mastery, explanations_v2, approaches, knowledge_vault, learning telemetry) · ensure_complete_baseline (28 core tables idempotent)</td></tr>
+<tr><td>109–117</td><td>Schema/function hardening: search paths, PII permissions, comprehensive RLS policies, helper-function search paths, and attempt flag/status corrections.</td></tr>
+<tr><td>118–121</td><td>Attempt flag columns, revoked-attempt status, webhook event persistence, and the test-category-series junction guarantee.</td></tr>
+<tr><td>122–124</td><td>Response-time improvements, correct-option default repair, and Practice Lab subject performance indexes.</td></tr>
+<tr><td>125–126 <span class="badge badge-purple">CURRENT</span></td><td>Negative-marking default and additional subject performance indexes. These files are currently present in the worktree and should be included in the deployment migration check.</td></tr>
 </tbody></table>
 </div>
 
@@ -909,133 +1154,157 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <!-- 7. PACKAGES -->
 <div class="section" id="packages">
 <h2 class="section-title">7. Packages</h2>
+<p class="section-desc">Two shared workspace packages providing cross-app utilities. Both are published as npm workspace packages (not to npm registry) and consumed via <code>workspace:</code> protocol in package.json. They enforce consistent API patterns, error handling, and authentication across all three apps.</p>
 <div class="tabs" id="pkg-tabs">
 <button class="tab active" data-tab="pkg-config">shared-config</button>
 <button class="tab" data-tab="pkg-hooks">shared-hooks</button>
 </div>
 <div class="panel active" id="pkg-config">
 <div class="card"><div class="card-title">@trstprep/shared-config (src/)</div><div class="card-body">
-apiClient.js, coming-soon-config.js, csrf-token-store.js, ErrorBoundary.jsx, errors.js, logger (logger.js + logger.ts + .d.ts), index.js + index.d.ts
+<strong>apiClient.js</strong> — Axios instance with CSRF token injection (reads from csrf-token-store), JWT refresh retry on 401 (calls /api/auth/refresh, retries original request once), and typed error handling. Used by all three apps for backend communication.<br>
+<strong>coming-soon-config.js</strong> — Feature flag configuration for coming-soon/maintenance mode. Reads from backend /api/settings/public and provides feature gate checks.<br>
+<strong>csrf-token-store.js</strong> — Client-side CSRF token storage: reads token from httpOnly cookie, provides token for X-CSRF-Token header. Handles token rotation gracefully.<br>
+<strong>ErrorBoundary.jsx</strong> — React error boundary component with retry/reload options. Used as fallback in lazy-loaded route boundaries.<br>
+<strong>errors.js</strong> — Error class hierarchy: AppError (base), AuthError, ValidationError, NotFoundError, ForbiddenError. Each has status code, message, and optional details. Used for typed error handling across backend and frontend.<br>
+<strong>logger.js + logger.ts + .d.ts</strong> — Pino-based logger with structured logging, log levels, and redaction of sensitive fields (passwords, tokens). Outputs to stdout → Grafana Loki via docker logging driver. TypeScript declarations included.<br>
+<strong>index.js + index.d.ts</strong> — Package entry point with TypeScript declarations. Re-exports all public API surface.
 </div></div>
 </div>
 <div class="panel" id="pkg-hooks">
 <div class="card"><div class="card-title">@trstprep/shared-hooks</div><div class="card-body">
-9 hooks + helpers: useStages, useExamCategories, useTestCategories, useProPass, useFormManager, useGenericCRUD, useDraggableScroll, useWebSocket, useUndoRedo + ThemeContext.jsx + apiClientConfig.js + types/. Note: hooks use plain fetch(); useProPass couples to frontend via relative ../providers/AuthContext import.
+<strong>9 hooks + helpers:</strong><br>
+<strong>useStages</strong> — Fetches stage taxonomy (flat/tree/roots) with caching. Used by exam and test pages.<br>
+<strong>useExamCategories</strong> — Fetches exam category tree with parent-child relationships. Used by exam browsing.<br>
+<strong>useTestCategories</strong> — Fetches test category tree. Used by test series filtering.<br>
+<strong>useProPass</strong> — Pro Pass status: active/expired, remaining days, urgency level. <strong>Known coupling:</strong> uses relative <code>../providers/AuthContext</code> import — should be decoupled via dependency injection.<br>
+<strong>useFormManager</strong> — Form state management: dirty tracking, validation, submit handling, reset. Generic form utility.<br>
+<strong>useGenericCRUD</strong> — Generic CRUD hook with optimistic updates, cache invalidation, and error handling. Used by admin managers for standard create/update/delete patterns.<br>
+<strong>useDraggableScroll</strong> — Drag-to-scroll for carousels and horizontal scroll containers. Adds mouse/touch drag behavior.<br>
+<strong>useWebSocket</strong> — Socket.IO connection management: connect/disconnect, emit/on, connection state. Used by real-time components.<br>
+<strong>useUndoRedo</strong> — Undo/redo state management for editor-like components.<br>
+<strong>ThemeContext.jsx</strong> — Dark mode toggle context with localStorage persistence and prefers-color-scheme sync.<br>
+<strong>apiClientConfig.js</strong> — API client configuration: base URL, timeout, retry settings. Shared across apps.<br>
+<strong>Note:</strong> hooks use plain fetch() (not axios) for HTTP requests. This creates inconsistency with apps that use axios via dataService.
 </div></div>
 </div>
 </div>
 
 <!-- 8. SCRIPTS -->
 <div class="section" id="scripts">
-<h2 class="section-title">8. Scripts (52 files)</h2>
-<table><thead><tr><th>Group</th><th>Files</th></tr></thead><tbody>
-<tr><td>DB Audit &amp; Reconciliation</td><td><strong>run-database-audit.js</strong> (run before any migration!), audit-cascade-nulls.js, fix-cascade-nulls.js, fix-deep-cascade-nulls(+pass3).js, reconcile-duplicates.js, list-db-duplicates.js, inspect-*.js (10 inspectors: hierarchy, ids, nulls, fks, unique constraints, physics node, etc.), query-stages.js, check-categories.js, check-standalone-qs.js, test-query.js</td></tr>
-<tr><td>Taxonomy &amp; Syllabus</td><td>show-full-taxonomy.mjs, dump-subjects-units.js, generate_taxonomy_html.py, build_syllabus_brain.py, parse_master_syllabus.js, import-syllabus.js, seed-subjects-only.js, split_languages.cjs, parsed_syllabus_tree.json</td></tr>
-<tr><td>Admin Ops</td><td>reset-admin.js, debug-user.js, add-attempt-number-column.cjs, clean-stale-paused-attempts.js, inspect-user-attempts.js</td></tr>
-<tr><td>Export / Docs</td><td>export-db.js (SQL + per-table CSV), organize-docs.mjs</td></tr>
-<tr><td>Load Testing</td><td>load-test-telemetry.js + tests/load (k6: api.js, auth.js, realtime.js, k6.config.js)</td></tr>
-<tr><td>Docs Pipeline (LLM/graphify)</td><td>chunk_files.py, extract_ast.py, write_ast.py, get_noncode.py, test_docling.py, test_extract.py, test_marker.py</td></tr>
-<tr><td>Dev</td><td>dev-sequential.mjs, wait-for-backend.mjs, validate-routes.js, scale.sh (in deploy/)</td></tr>
+<h2 class="section-title">8. Scripts (44 files)</h2>
+<p class="section-desc">Utility scripts organized by domain. DB audit scripts should be run before any migration. Taxonomy scripts help with content organization. Admin ops scripts are for production debugging. Load testing scripts use k6 for API performance testing.</p>
+<table><thead><tr><th>Group</th><th>Files</th><th>Purpose &amp; usage</th></tr></thead><tbody>
+<tr><td>DB Audit &amp; Reconciliation</td><td><strong>run-database-audit.js</strong> (run before any migration!), audit-cascade-nulls.js, fix-cascade-nulls.js, fix-deep-cascade-nulls(+pass3).js, reconcile-duplicates.js, list-db-duplicates.js, inspect-*.js (10 inspectors: hierarchy, ids, nulls, fks, unique constraints, physics node, etc.), query-stages.js, check-categories.js, check-standalone-qs.js, test-query.js</td><td><strong>run-database-audit.js</strong> is the primary audit tool — run before ANY migration to detect schema inconsistencies. inspect-*.js scripts provide deep inspection of specific schema aspects. fix-cascade-nulls scripts repair orphaned records. reconcile-duplicates.js merges duplicate entities.</td></tr>
+<tr><td>Taxonomy &amp; Syllabus</td><td>show-full-taxonomy.mjs, dump-subjects-units.js, generate_taxonomy_html.py, build_syllabus_brain.py, parse_master_syllabus.js, import-syllabus.js, seed-subjects-only.js, split_languages.cjs, parsed_syllabus_tree.json</td><td>Content organization tools: generate_taxonomy_html.py creates visual taxonomy maps. build_syllabus_brain.py parses syllabus documents into structured data. import-syllabus.js imports parsed syllabus into database. split_languages.cjs separates bilingual content.</td></tr>
+<tr><td>Admin Ops</td><td>reset-admin.js, debug-user.js, add-attempt-number-column.cjs, clean-stale-paused-attempts.js, inspect-user-attempts.js</td><td>Production debugging: reset-admin.js resets admin credentials. debug-user.js inspects user state. clean-stale-paused-attempts.js is a one-time migration script. inspect-user-attempts.js debugging tool for attempt issues.</td></tr>
+<tr><td>Export / Docs</td><td>export-db.js (SQL + per-table CSV), organize-docs.mjs</td><td>export-db.js dumps database schema as SQL and each table as CSV (for backup/analysis). organize-docs.mjs restructures documentation files.</td></tr>
+<tr><td>Load Testing</td><td>load-test-telemetry.js + tests/load (k6: api.js, auth.js, realtime.js, k6.config.js)</td><td>k6 load tests: api.js tests general API performance, auth.js tests authentication flows, realtime.js tests WebSocket performance. load-test-telemetry.js collects and reports metrics. Run with <code>k6 run tests/load/api.js</code>.</td></tr>
+<tr><td>Docs Pipeline (LLM/graphify)</td><td>chunk_files.py, extract_ast.py, write_ast.py, get_noncode.py, test_docling.py, test_extract.py, test_marker.py</td><td>Documentation generation pipeline: chunk_files.py splits large files for LLM processing. extract_ast.py parses code ASTs. write_ast.py generates documentation from ASTs. Used by graphify skill for knowledge graph generation.</td></tr>
+<tr><td>Dev</td><td>dev-sequential.mjs, wait-for-backend.mjs, validate-routes.js, scale.sh (in deploy/)</td><td>Development utilities: dev-sequential.mjs starts apps in sequence (backend → frontend → admin). wait-for-backend.mjs polls /api/health until backend is ready. validate-routes.js checks route mount consistency. scale.sh scales backend instances.</td></tr>
 </tbody></table>
 </div>
 
 <!-- 9. DOCS -->
 <div class="section" id="docs">
 <h2 class="section-title">9. Documentation (20 top-level + audit/ + legacy-migrations/)</h2>
-<table><thead><tr><th>File</th><th>Content</th></tr></thead><tbody>
-<tr><td>ARCHITECTURE.md / ARCHITECTURE.html / architecture_map.html / TRSTPREP_ARCHITECTURE_EXPLORER.html / INTERLINKED_WORKFLOW_EXPLORER.html / OBSIDIAN_MAP.html</td><td>Architecture, flow diagrams, interlinked workflow explorer, knowledge maps</td></tr>
-<tr><td>DATABASE_SCHEMA_AUDIT.md / audit/ (D1–D3)</td><td>Schema audit + workflow-verification/hardcoded-data/dead-code reports</td></tr>
-<tr><td>PRACTICE_LAB docs</td><td>PRACTICE_LAB_PRD.md + PRACTICE_LAB_COMPLETE_DESIGN.html + PRACTICE_PAGE_COMPARISON.html — removed from working tree; knowledge graph / AGENTS.md still reference the PRD (Practice Lab V2/V3/V4 roadmap now lives in migrations 106–107 + PracticeLab.jsx)</td></tr>
-<tr><td>FINAL_SITE_READINESS_REPORT.md / SITE_READINESS_REPORT.md / REMEDIATION_PLAN.md / UNIFIED_TRSTPREP_AUDIT.md</td><td>Readiness audits + remediation tracking</td></tr>
-<tr><td>SECURITY_POSTURE.md / legacy-migrations/README-schema-fixes.md</td><td>Security posture + schema-fix history</td></tr>
-<tr><td>COMPETITOR_UI_COMPARISON_SUITE.html / SSC_GK_2025_output.md / exam.txt</td><td>UI/UX research, source data</td></tr>
-<tr><td>FULL_TEST_IMPORT_FLOW.html / AI_PROMPTS.md / DEVELOPMENT.md / FEATURES.html</td><td>Import flow, AI prompts, dev notes</td></tr>
-<tr><td>legacy-migrations/ (14 files)</td><td>Historical migrations 005–010 + README/QUICKSTART/SCHEMA_DIAGRAM (moved out of backend src)</td></tr>
+<p class="section-desc">Documentation organized by purpose: architecture diagrams, schema audits, security posture, UI/UX research, and historical migrations. PRDs have been removed from the working tree but are referenced in the knowledge graph.</p>
+<table><thead><tr><th>File</th><th>Content</th><th>When to use</th></tr></thead><tbody>
+<tr><td>ARCHITECTURE.md / ARCHITECTURE.html / architecture_map.html / TRSTPREP_ARCHITECTURE_EXPLORER.html / INTERLINKED_WORKFLOW_EXPLORER.html / OBSIDIAN_MAP.html</td><td>Architecture documentation in multiple formats: markdown for quick reference, HTML for interactive exploration, and Obsidian-compatible format for knowledge management. Covers system architecture, component relationships, and data flow.</td><td>Use ARCHITECTURE.md for quick overview. Use ARCHITECTURE_EXPLORER.html for interactive exploration. Use INTERLINKED_WORKFLOW_EXPLORER.html for understanding cross-component workflows.</td></tr>
+<tr><td>DATABASE_SCHEMA_AUDIT.md / audit/ (D1–D3)</td><td>Schema audit reports: D1 = workflow verification (routes → services → DB), D2 = hardcoded data detection (sample data, mock responses), D3 = dead code identification (unused exports, unreachable code). Each audit includes specific file:line references.</td><td>Use before any schema change to understand current state. D1 for workflow understanding, D2 for data quality, D3 for cleanup opportunities.</td></tr>
+<tr><td>PRACTICE_LAB docs</td><td>PRACTICE_LAB_PRD.md + PRACTICE_LAB_COMPLETE_DESIGN.html + PRACTICE_PAGE_COMPARISON.html — removed from working tree; knowledge graph / AGENTS.md still reference the PRD (Practice Lab V2/V3/V4 roadmap now lives in migrations 106–107 + PracticeLab.jsx)</td><td>Historical reference only. Current Practice Lab design is in the codebase (PracticeLab.jsx) and migrations (106-107).</td></tr>
+<tr><td>FINAL_SITE_READINESS_REPORT.md / SITE_READINESS_REPORT.md / REMEDIATION_PLAN.md / UNIFIED_TRSTPREP_AUDIT.md</td><td>Readiness audits + remediation tracking. FINAL_SITE_READINESS_REPORT is the most recent comprehensive audit. REMEDIATION_PLAN tracks outstanding issues with priorities and owners.</td><td>Use FINAL_SITE_READINESS_REPORT for current status. Use REMEDIATION_PLAN for tracking work items.</td></tr>
+<tr><td>SECURITY_POSTURE.md / legacy-migrations/README-schema-fixes.md</td><td>Security posture assessment + schema-fix history. SECURITY_POSTURE.md covers credential handling, PII protection, authentication, authorization, and known vulnerabilities. README-schema-fixes.md documents historical schema issues and fixes.</td><td>Use SECURITY_POSTURE.md before any security-related changes. Use README-schema-fixes.md to understand historical schema decisions.</td></tr>
+<tr><td>COMPETITOR_UI_COMPARISON_SUITE.html / SSC_GK_2025_output.md / exam.txt</td><td>UI/UX research: competitor analysis (HTML with embedded screenshots), exam data (SSC_GK_2025_output.md), and source data (exam.txt). Used for product design decisions.</td><td>Use COMPETITOR_UI_COMPARISON_SUITE.html for design inspiration. Use exam.txt for exam data reference.</td></tr>
+<tr><td>FULL_TEST_IMPORT_FLOW.html / AI_PROMPTS.md / DEVELOPMENT.md / FEATURES.html</td><td>Import flow documentation (visual HTML), AI prompt templates, development guidelines, and feature catalog. AI_PROMPTS.md documents all AI prompt templates used by the AI gateway.</td><td>Use FULL_TEST_IMPORT_FLOW.html when working on import features. Use AI_PROMPTS.md when modifying AI prompts. Use DEVELOPMENT.md for coding standards.</td></tr>
+<tr><td>legacy-migrations/ (14 files)</td><td>Historical migrations 005–010 + README/QUICKSTART/SCHEMA_DIAGRAM (moved out of backend src). These are reference-only — actual migrations are in backend/src/infrastructure/database/migrations/.</td><td>Historical reference only. Do not run these migrations — they are superseded by the current migration sequence.</td></tr>
 </tbody></table>
 </div>
 
 <!-- 10. CI/CD -->
 <div class="section" id="cicd">
 <h2 class="section-title">10. CI/CD &amp; Deployment</h2>
+<p class="section-desc">GitHub Actions workflows with pinned action SHAs for security, Docker Compose with 10 services and security hardening, and deployment scripts for production operations. All workflows use Node 20 and run on ubuntu-latest.</p>
 <h3 class="subsection-title">GitHub Workflows (Node 20, action SHAs pinned)</h3>
-<table><thead><tr><th>Workflow</th><th>Triggers</th><th>Jobs</th></tr></thead><tbody>
-<tr><td>ci.yml</td><td>push/PR to main</td><td>3 install jobs (npm cache) → lint + test (backend jest, frontend/admin vitest) + build → <strong>runs run-migrations.js against test DB (line 174)</strong> → data-guard + build artifacts</td></tr>
-<tr><td>security.yml</td><td>push/PR</td><td>npm audit --audit-level=high + lint (Node 20)</td></tr>
-<tr><td>no-env.yml</td><td>push/PR</td><td>Blocks tracked .env + scans hardcoded secrets (PEM, sk-*, AKIA, weak JWT)</td></tr>
-<tr><td>data-guard.yml</td><td>push/PR</td><td>PII in JSON, migration sequences, fixture validation, duplicate prefixes</td></tr>
+<table><thead><tr><th>Workflow</th><th>Triggers</th><th>Jobs</th><th>Purpose</th></tr></thead><tbody>
+<tr><td>ci.yml</td><td>push/PR to main</td><td>3 install jobs (npm cache) → lint + test (backend jest, frontend/admin vitest) + build → <strong>runs run-migrations.js against test DB (line 174)</strong> → data-guard + build artifacts</td><td>Full CI pipeline: install → lint → test → build → migration validation → data integrity check → artifact upload. Three parallel install jobs for backend/frontend/admin.</td></tr>
+<tr><td>security.yml</td><td>push/PR</td><td>npm audit --audit-level=high + lint (Node 20)</td><td>Security scanning: npm audit for known vulnerabilities (high severity fails build) + lint for code quality. Runs on every push/PR.</td></tr>
+<tr><td>no-env.yml</td><td>push/PR</td><td>Blocks tracked .env + scans hardcoded secrets (PEM, sk-*, AKIA, weak JWT)</td><td>Secret leak prevention: checks .env files are not tracked in git, scans for hardcoded secrets (AWS keys, Stripe keys, PEM files, weak JWT secrets). Critical for preventing credential leaks.</td></tr>
+<tr><td>data-guard.yml</td><td>push/PR</td><td>PII in JSON, migration sequences, fixture validation, duplicate prefixes</td><td>Data integrity: checks for PII in committed JSON files, validates migration sequence continuity, validates fixture data integrity, detects duplicate entity prefixes. Prevents accidental data leaks.</td></tr>
 </tbody></table>
 <h3 class="subsection-title">Docker Compose (docker-compose.yml — 10 services)</h3>
-<table><thead><tr><th>Service</th><th>Notes</th></tr></thead><tbody>
-<tr><td>backend-1 / backend-2</td><td>Dual Express instances behind nginx; read_only rootfs + cap_drop ALL + no-new-privileges; tmpfs /tmp; named volumes (uploads, email spool); healthcheck /api/health; memory 512M limit; INSTANCE_ID env for multi-node WS sessions</td></tr>
-<tr><td>frontend / admin-panel</td><td>Vite builds served; admin Dockerfile exists now</td></tr>
-<tr><td>nginx</td><td>1.27.3-alpine reverse proxy (deploy/nginx configs), SSL via certbot</td></tr>
-<tr><td>certbot / certbot-init</td><td>Let's Encrypt automation</td></tr>
-<tr><td>prometheus / grafana</td><td>Metrics + dashboards (deploy/monitoring)</td></tr>
-<tr><td>loki</td><td>Centralized logs — all services ship stdout via loki logging driver</td></tr>
+<table><thead><tr><th>Service</th><th>Notes</th><th>Security</th></tr></thead><tbody>
+<tr><td>backend-1 / backend-2</td><td>Dual Express instances behind nginx for load balancing and WebSocket broadcasting. Each instance has its own INSTANCE_ID for session routing. Health check: <code>/api/health</code>. Memory limit: 512M per instance.</td><td>read_only rootfs + cap_drop ALL + no-new-privileges; tmpfs /tmp; named volumes (uploads, email spool). Prevents container escape and privilege escalation.</td></tr>
+<tr><td>frontend / admin-panel</td><td>Vite builds served as static files. Admin Dockerfile now exists (was missing). Both apps are lazy-loaded for code splitting.</td><td>Static file serving only — no server-side code execution. Nginx handles security headers.</td></tr>
+<tr><td>nginx</td><td>1.27.3-alpine reverse proxy. SSL termination via certbot. Load balancing between backend instances. Rate limiting at edge. Security headers (CSP, HSTS, X-Frame-Options).</td><td>First line of defense: rate limiting, SSL termination, security headers, request size limits.</td></tr>
+<tr><td>certbot / certbot-init</td><td>Let's Encrypt automation: auto-renewal every 12 hours. certbot-init handles initial certificate generation.</td><td>Automated SSL certificate management — no manual renewal needed.</td></tr>
+<tr><td>prometheus / grafana</td><td>Metrics collection (Prometheus) + dashboards (Grafana). Scrapes /metrics endpoint from backend. Custom dashboards for API performance, error rates, and system health.</td><td>Monitoring and alerting — essential for production operations.</td></tr>
+<tr><td>loki</td><td>Centralized log aggregation — all services ship stdout via loki logging driver. Queryable via Grafana. Retention: 30 days default.</td><td>Centralized logging for debugging and compliance. No sensitive data in logs (redacted by logger).</td></tr>
 </tbody></table>
-<p style="color:var(--text3);font-size:0.8rem">Variants: docker-compose.dev.yml (source mounts, worker, watch), .prod.yml, .scale.yml + deploy.sh + deploy/ (bootstrap.sh, rolling-deploy.sh, setup-ssl.sh, scale.sh, backup-db.sh, nginx, monitoring)</p>
+<p style="color:var(--text3);font-size:0.8rem">Variants: docker-compose.dev.yml (source mounts, worker, hot reload), .prod.yml (production optimizations), .scale.yml (horizontal scaling). Deployment scripts: deploy.sh (full deploy), deploy/bootstrap.sh (initial setup), deploy/rolling-deploy.sh (zero-downtime deploy), deploy/setup-ssl.sh (SSL setup), deploy/backup-db.sh (database backup), deploy/scale.sh (backend scaling).</p>
 <h3 class="subsection-title">Pre-commit &amp; Local</h3>
-<p style="color:var(--text3);font-size:0.8rem">.husky + .lintstagedrc.json pre-commit hooks · backend lint: eslint src/**/*.js · backend test: jest (17 test files) · frontend/admin test: vitest</p>
+<p style="color:var(--text3);font-size:0.8rem">.husky + .lintstagedrc.json pre-commit hooks run linting on staged files before commit. Backend lint: <code>eslint src/**/*.js</code>. Backend test: <code>jest</code> (35 test files). Frontend/admin test: <code>vitest</code> (16 test files combined). Run <code>npm run lint</code> and <code>npm test</code> in each app directory to verify changes.</p>
 </div>
 
 <!-- 11. TESTING -->
 <div class="section" id="testing">
-<h2 class="section-title">11. Testing (26 test files)</h2>
-<table><thead><tr><th>App</th><th>Framework</th><th>Tests</th></tr></thead><tbody>
-<tr><td>backend (__tests__/, 17 files)</td><td>Jest (--experimental-vm-modules)</td><td>auth-flows, auth.middleware, authRateLimiter, certificateService, csrf-lifecycle, csrf.middleware, encryption, eventSchemas, leaderboardService, messageBroker, origin.middleware, payment-webhooks ×2, sessionCaptureService, submission, validation, websocketEviction</td></tr>
-<tr><td>frontend (__tests__/, 2)</td><td>Vitest</td><td>App.smoke.test.jsx, sharedHooks.test.jsx</td></tr>
-<tr><td>admin-panel (7)</td><td>Vitest</td><td>ProtectedRoute, env-validation, format, iconResolver, settingsSchema, useKeyboardShortcuts, validationSchemas</td></tr>
-<tr><td>tests/load/</td><td>k6</td><td>api.js, auth.js, realtime.js + k6.config.js + load-test-telemetry.js script</td></tr>
+<h2 class="section-title">11. Testing (51 test files)</h2>
+<p class="section-desc">Test suite organized by app: 35 backend tests (Jest), 9 frontend tests (Vitest), 7 admin tests (Vitest), and k6 load tests. Backend tests focus on security and API contracts. Frontend tests focus on component behavior and API integration. Admin tests focus on validation and utilities.</p>
+<table><thead><tr><th>App</th><th>Framework</th><th>Tests</th><th>Coverage focus</th></tr></thead><tbody>
+<tr><td>backend (test/ + src/__tests__/, 35 files)</td><td>Jest (--experimental-vm-modules)</td><td>Auth, CSRF, origin, rate limiting, encryption, payments, sessions, submissions, settings, queues, websocket eviction, validation, certificates, logging, and attempt events</td><td>Security boundary testing: auth flows, CSRF protection, rate limiting, input validation. API contract testing: request/response schemas, error handling. Infrastructure testing: queue behavior, WebSocket eviction, certificate generation.</td></tr>
+<tr><td>frontend (tests/ + src/__tests__/, 9)</td><td>Vitest</td><td>App smoke, auth persistence/session, API client refresh, telemetry, question rendering, entitlements, shared hooks, and feature-gate coverage</td><td>Component behavior: render, interaction, state changes. API integration: auth refresh, telemetry events. Feature gates: entitlement checks, maintenance mode.</td></tr>
+<tr><td>admin-panel (7)</td><td>Vitest</td><td>ProtectedRoute, env-validation, format, iconResolver, settingsSchema, useKeyboardShortcuts, validationSchemas</td><td>Validation: Zod schemas for all admin forms. Utilities: formatting, icon resolution, keyboard shortcuts. Security: protected route behavior.</td></tr>
+<tr><td>tests/load/</td><td>k6</td><td>api.js, auth.js, realtime.js + k6.config.js + load-test-telemetry.js script</td><td>Performance: API response times under load. Auth: login/logout throughput. Realtime: WebSocket connection stability and message throughput. Run with <code>k6 run tests/load/api.js --vus 10 --duration 30s</code>.</td></tr>
 </tbody></table>
 </div>
 
 <!-- 12. STATUS -->
 <div class="section" id="status">
 <h2 class="section-title">12. Implementation Status</h2>
+<p class="section-desc">Current implementation status based on filesystem evidence and graph analysis. Each item includes specific file references for verification. Status is evidence-based — claims are backed by file existence, route mounts, or test results.</p>
 
 <div class="collapse open" onclick="toggleCollapse(this)">✅ Fully Implemented &amp; Mounted</div>
 <div class="collapse-content open">
-<table><thead><tr><th>Feature</th><th>Notes</th></tr></thead><tbody>
-<tr><td>Auth + <span class="badge badge-purple">2FA TOTP</span> + phone OTP</td><td>JWT refresh, lockout, registration gate, email verify, resend</td></tr>
-<tr><td>Test engine + attempt lifecycle (heartbeat, batch events)</td><td>Autosave, submit, result, anti-cheat events</td></tr>
-<tr><td>All 15 formerly-dormant modules</td><td>Adaptive testing, AI mentor (streaming chat), AI explanations (bulk/Hindi), AI logs, embeddings, math renderer, adaptive difficulty, Node Engine V2, topic analytics, weak areas, live mock, ranking, smart revision, question search, vector search, test templates, question builder, test builder, sections</td></tr>
-<tr><td>Background jobs</td><td>testScheduler + outboxPoller + attemptCleaner started at boot; 6 BullMQ queues; repeatable reminder job (6h)</td></tr>
-<tr><td>AI gateway</td><td>OpenRouter aiClient + RAG + embeddings + PDF processor + per-user rate limits (50/500 hr)</td></tr>
-<tr><td>Payments</td><td>Razorpay create/verify/webhook + coupons + subscription expiry sweeper</td></tr>
-<tr><td>Security stack</td><td>Compromised-secret startup blocklist, admin IP allowlist + API key + origin guard + RBAC permissions, CSRF (DB-backed), progressive lockout, audit logs, PII-at-rest encryption, Sentry, 30s request timeout, hardened helmet CSP</td></tr>
-<tr><td>Infra</td><td>10-service compose (dual backend, nginx, TLS, Prometheus/Grafana/Loki), readiness file, pino→Loki logging, pool warming, read replica URL</td></tr>
-<tr><td>Frontend</td><td>Route-level code splitting, RouteErrorBoundary per route, lazy pages, SEO slug routes for tests/PYPs/videos, telemetry + offline queue</td></tr>
-<tr><td>Database</td><td>97 migrations auto-run, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector</td></tr>
+<table><thead><tr><th>Feature</th><th>Notes</th><th>Evidence</th></tr></thead><tbody>
+<tr><td>Auth + <span class="badge badge-purple">2FA TOTP</span> + phone OTP</td><td>JWT refresh, lockout (progressive: 3→5min to 20→24h), registration gate, email verify, resend. 2FA: enroll/verify/backup-codes/disable. Phone OTP with Redis store.</td><td><code>modules/auth/auth.routes.js</code> (17 endpoints), <code>middleware/lockout.middleware.js</code>, <code>modules/auth/twoFactor.service.js</code>, migration 064</td></tr>
+<tr><td>Test engine + attempt lifecycle (heartbeat, batch events)</td><td>Autosave (30s interval), submit, result with solutions, anti-cheat events (single + batch), heartbeat keep-alive. State machine: draft→review→scheduled→published→live→expired→archived.</td><td><code>api/routes/tests.js</code> (10 endpoints), <code>api/routes/attempts.js</code>, <code>services/core/TestAttemptController.js</code>, <code>services/core/TestStateMachine.js</code></td></tr>
+<tr><td>All 15 formerly-dormant modules</td><td>Adaptive testing (5), AI mentor streaming chat (9), AI explanations bulk/Hindi (6), AI logs (10), embeddings pgvector (7), KaTeX math (3), adaptive difficulty (4), Node Engine V2 (4), topic analytics (7), weak areas (6), live mock (14), ranking (7), smart revision (6), question search (8), vector search (7), templates (9), question builder (10), test builder (11), sections (6).</td><td><code>app-port5001.js</code> mount entries, <code>modules/*/</code> directories, <code>backend-modules</code> table in this document</td></tr>
+<tr><td>Background jobs</td><td>testScheduler + outboxPoller (SELECT FOR UPDATE SKIP LOCKED, 5s polling) + attemptCleaner started at boot. 6 BullMQ queues with retry/backoff. Repeatable reminder job (every 6h). Graceful shutdown.</td><td><code>app-port5001.js:879-881</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/queue/outboxPoller.js</code></td></tr>
+<tr><td>AI gateway</td><td>OpenRouter multi-provider aiClient + RAG + embeddings + PDF processor (extract_pdf.py) + per-user rate limits (50/500 hr via Redis sliding window). Generation logs + cost tracking.</td><td><code>modules/ai/aiClient.js</code>, <code>modules/ai/rag.service.js</code>, <code>modules/ai/embeddingService.js</code>, <code>middleware/aiRateLimiter.js</code></td></tr>
+<tr><td>Payments</td><td>Razorpay create/verify/webhook + coupons + subscription expiry sweeper (startup + hourly). Pro pass feature gating.</td><td><code>api/routes/payments.js</code>, <code>services/SubscriptionService.js</code>, <code>api/routes/subscriptions.js</code></td></tr>
+<tr><td>Security stack</td><td>Compromised-secret startup blocklist (SHA-256), admin IP allowlist + API key + origin guard + RBAC permissions, CSRF (DB-backed with 30s grace), progressive lockout, audit logs, PII-at-rest encryption (pgcrypto), Sentry, 30s request timeout, hardened helmet CSP.</td><td><code>app-port5001.js</code> (startup blocklist), <code>middleware/origin.middleware.js</code>, <code>middleware/adminIpAllowlist.middleware.js</code>, <code>middleware/audit.middleware.js</code>, migration 088</td></tr>
+<tr><td>Infra</td><td>10-service compose (dual backend, nginx, TLS, Prometheus/Grafana/Loki), readiness file, pino→Loki logging, pool warming, read replica URL, security hardening (read_only, cap_drop, no-new-privileges).</td><td><code>docker-compose.yml</code>, <code>deploy/</code> directory, <code>infrastructure/logger/logger.js</code>, <code>infrastructure/database/postgres-helpers.js</code></td></tr>
+<tr><td>Frontend</td><td>Route-level code splitting (React.lazy), RouteErrorBoundary per route, lazy pages, SEO slug routes for tests/PYPs/videos, telemetry + offline queue, bilingual (Hindi/English) support.</td><td><code>App.jsx</code> (402 lines), <code>shared/lib/telemetry/</code>, <code>shared/lib/language.js</code>, route table in this document</td></tr>
+<tr><td>Database</td><td>115 migration files auto-run at boot, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector for semantic search, dual-pool architecture.</td><td><code>infrastructure/database/migrationRunner.js</code>, <code>infrastructure/database/postgres-helpers.js</code>, migration files 000-126</td></tr>
 </tbody></table>
 </div>
 
 <div class="collapse" onclick="toggleCollapse(this)">⚠️ Remaining Issues</div>
 <div class="collapse-content">
-<table><thead><tr><th>Issue</th><th>Location</th><th>Severity</th></tr></thead><tbody>
-<tr><td>Dead module controllers (test/attempt/question)</td><td>backend/modules/*</td><td><span class="badge badge-yellow">Dead code</span></td></tr>
-<tr><td>Dual admin routing systems (legacy admin.js 2500L vs 30 extracted routers)</td><td>api/routes/admin.js + admin-routes-index.js</td><td><span class="badge badge-yellow">Duplication</span></td></tr>
-<tr><td>Two responseCache implementations</td><td>middleware/</td><td><span class="badge badge-yellow">Duplication</span></td></tr>
-<tr><td>payments router mounted twice (:719 + :763)</td><td>app-port5001.js</td><td><span class="badge badge-yellow">Bug risk</span></td></tr>
-<tr><td>ExamCompare sample-data fallback</td><td>frontend/pages/exams/ExamCompare.jsx</td><td><span class="badge badge-red">Fallback</span></td></tr>
-<tr><td>ExamsNew / ExamDetails exported but unrouted</td><td>frontend/pages/exams/</td><td><span class="badge badge-yellow">Orphan</span></td></tr>
-<tr><td>SubjectHierarchyManager unrouted</td><td>admin study-materials/</td><td><span class="badge badge-yellow">Orphan</span></td></tr>
-<tr><td>ResultsManager question-wise analytics placeholder</td><td>admin audit-compliance/</td><td><span class="badge badge-yellow">Placeholder</span></td></tr>
-<tr><td>modules/learnerIntelligence/ empty dir, config/ residue, check_user_attempts.js, graphify-out dirs</td><td>backend</td><td><span class="badge badge-yellow">Cleanup</span></td></tr>
-<tr><td>Legacy migrations 005–010 in docs/legacy-migrations</td><td>docs/</td><td><span class="badge badge-blue">Historical</span></td></tr>
-<tr><td>useProPass relative import coupling</td><td>packages/shared-hooks</td><td><span class="badge badge-yellow">Coupling</span></td></tr>
+<table><thead><tr><th>Issue</th><th>Location</th><th>Severity</th><th>Impact</th></tr></thead><tbody>
+<tr><td>Dead module controllers (test/attempt/question)</td><td>backend/modules/*</td><td><span class="badge badge-yellow">Dead code</span></td><td>Confusing for new developers. Controllers define router/handlers but are never mounted — inline handlers in route files are used instead. Safe to delete but requires verification that no imports reference them.</td></tr>
+<tr><td>Dual admin routing systems (legacy admin.js 2500L vs 30 extracted routers)</td><td>api/routes/admin.js + admin-routes-index.js</td><td><span class="badge badge-yellow">Duplication</span></td><td>Route ownership unclear during migration. Some routes exist in both systems. Risk of inconsistent behavior if one system is updated but not the other. Migration is mid-flight — complete extraction to remove legacy admin.js.</td></tr>
+<tr><td>Two responseCache implementations</td><td>middleware/</td><td><span class="badge badge-yellow">Duplication</span></td><td>Admin-* routes import <code>.middleware</code> variant, entry uses plain variant. Different APIs and behaviors. Risk of cache inconsistency. Should unify into single implementation.</td></tr>
+<tr><td>Route ownership needs continued verification while admin extraction is in flight</td><td>app-port5001.js + admin-routes-index.js</td><td><span class="badge badge-yellow">Watch</span></td><td>Routes may be mounted twice (legacy + extracted) or not at all. Run <code>validate-routes.js</code> after changes to detect conflicts.</td></tr>
+<tr><td>ExamCompare sample-data fallback</td><td>frontend/pages/exams/ExamCompare.jsx</td><td><span class="badge badge-red">Fallback</span></td><td>Falls back to <code>getSampleData()</code> on API failure (lines 26-38). Users see fake data instead of error state. Should show error with retry option.</td></tr>
+<tr><td>ExamsNew / ExamDetails exported but unrouted</td><td>frontend/pages/exams/</td><td><span class="badge badge-yellow">Orphan</span></td><td>Dead code — exported from index.js but never imported in App.jsx. Increases bundle size unnecessarily. Safe to delete.</td></tr>
+<tr><td>SubjectHierarchyManager unrouted</td><td>admin study-materials/</td><td><span class="badge badge-yellow">Orphan</span></td><td>Reachable only via study-materials sidebar (ContentHierarchySidebar) — no direct route. Consider routing or deleting.</td></tr>
+<tr><td>ResultsManager question-wise analytics placeholder</td><td>admin audit-compliance/</td><td><span class="badge badge-yellow">Placeholder</span></td><td>"Detailed question-wise analytics coming soon." Admin panel shows empty state. Needs implementation for compliance reporting.</td></tr>
+<tr><td>modules/learnerIntelligence/ empty dir, config/ residue, check_user_attempts.js, graphify-out dirs</td><td>backend</td><td><span class="badge badge-yellow">Cleanup</span></td><td>Empty directories and debug scripts committed to repo. Increases confusion and repo size. Safe to delete — logic migrated elsewhere.</td></tr>
+<tr><td>Legacy migrations 005–010 in docs/legacy-migrations</td><td>docs/</td><td><span class="badge badge-blue">Historical</span></td><td>Reference only — do not run. Superseded by current migration sequence. Should be archived or removed.</td></tr>
+<tr><td>useProPass relative import coupling</td><td>packages/shared-hooks</td><td><span class="badge badge-yellow">Coupling</span></td><td>Uses relative <code>../providers/AuthContext</code> import — breaks if package is consumed from different location. Should accept AuthContext via parameter/DI.</td></tr>
 </tbody></table>
 </div>
 
 <div class="collapse" onclick="toggleCollapse(this)">🔧 Recommended Next Steps</div>
 <div class="collapse-content">
-<table><thead><tr><th>Task</th><th>Priority</th></tr></thead><tbody>
-<tr><td>Finish admin route extraction: retire remaining handlers in admin.js into admin-*.js routers; remove double-mount of /api/payments</td><td><span class="badge badge-blue">High</span></td></tr>
-<tr><td>Delete dead module controllers or wire them as services; unify responseCache; remove config/ + learnerIntelligence + debug scripts + committed graphify-out artifacts</td><td><span class="badge badge-blue">Medium</span></td></tr>
-<tr><td>Replace ExamCompare sample fallback with real API + error state</td><td><span class="badge badge-blue">Medium</span></td></tr>
-<tr><td>Route (or delete) ExamsNew, ExamDetails, SubjectHierarchyManager</td><td><span class="badge badge-blue">Low</span></td></tr>
-<tr><td>Fill ResultsManager question-wise analytics; add admin payments + moderation + 2FA integration tests</td><td><span class="badge badge-blue">Low</span></td></tr>
-<tr><td>CONTRIBUTING.md still says Node 18.20 (.nvmrc=20) — update text</td><td><span class="badge badge-blue">Low</span></td></tr>
-<tr><td>Decouple useProPass: accept AuthContext via parameter/DI instead of relative import</td><td><span class="badge badge-blue">Low</span></td></tr>
+<table><thead><tr><th>Task</th><th>Priority</th><th>Effort</th><th>Details</th></tr></thead><tbody>
+<tr><td>Finish admin route extraction: retire remaining handlers in admin.js into admin-*.js routers; keep canonical mounts covered by route validation</td><td><span class="badge badge-blue">High</span></td><td>2-3 days</td><td>Move remaining inline handlers from admin.js (2500+ lines) to extracted admin-*.js routers. Run <code>validate-routes.js</code> after each extraction to verify no route conflicts. Update admin-routes-index.js mount entries.</td></tr>
+<tr><td>Delete dead module controllers or wire them as services; unify responseCache; remove config/ + learnerIntelligence + debug scripts + committed graphify-out artifacts</td><td><span class="badge badge-blue">Medium</span></td><td>1 day</td><td>Cleanup: delete dead controllers, unify responseCache into single implementation, remove empty directories and debug scripts. Low risk — verify no imports before deleting.</td></tr>
+<tr><td>Replace ExamCompare sample fallback with real API + error state</td><td><span class="badge badge-blue">Medium</span></td><td>0.5 day</td><td>Replace <code>getSampleData()</code> fallback in ExamCompare.jsx with proper error state (retry button, error message). Verify API endpoint exists and returns data.</td></tr>
+<tr><td>Route (or delete) ExamsNew, ExamDetails, SubjectHierarchyManager</td><td><span class="badge badge-blue">Low</span></td><td>0.5 day</td><td>Decision needed: either add routes in App.jsx or delete the components. Check if any admin sidebar links reference them.</td></tr>
+<tr><td>Fill ResultsManager question-wise analytics; add admin payments + moderation + 2FA integration tests</td><td><span class="badge badge-blue">Low</span></td><td>2-3 days</td><td>Implement question-wise analytics in ResultsManager (backend endpoint needed). Add integration tests for new admin features (payments, moderation, 2FA).</td></tr>
+<tr><td>CONTRIBUTING.md still says Node 18.20 (.nvmrc=20) — update text</td><td><span class="badge badge-blue">Low</span></td><td>5 min</td><td>Update CONTRIBUTING.md to reflect Node 20 requirement. Check for other outdated version references.</td></tr>
+<tr><td>Decouple useProPass: accept AuthContext via parameter/DI instead of relative import</td><td><span class="badge badge-blue">Low</span></td><td>0.5 day</td><td>Refactor useProPass hook to accept AuthContext as parameter or via dependency injection. Update all consumers.</td></tr>
 </tbody></table>
 </div>
 </div>

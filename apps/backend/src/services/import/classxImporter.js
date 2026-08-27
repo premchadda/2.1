@@ -63,7 +63,7 @@ export function mapClassXToQuestion(row, config = {}) {
     explanation: (row.solution_text || row.explanation || "").trim() || null,
     marks: parseFloat(row.marks) || config.marks || 1,
     negativeMarks:
-      parseFloat(row.negative_marks) || config.negativeMarks || 0.25,
+      parseFloat(row.negative_marks) ?? config.negativeMarks ?? 0.5,
     difficulty: (row.difficulty || config.difficulty || "medium").toLowerCase(),
     questionType: row.question_type || config.questionType || "mcq",
     language: row.language || config.language || "en",
@@ -349,7 +349,7 @@ export async function importClassXTestsWithQuestions(data, config = {}) {
             parseInt(testRow.duration) || config.duration || 60,
             parseInt(testRow.total_questions) || 0,
             parseInt(testRow.total_marks) || 0,
-            parseFloat(testRow.negative_marking) || 0.25,
+            parseFloat(testRow.negative_marking) ?? 0.5,
             testRow.difficulty || "Medium",
             testRow.is_pro === true || testRow.is_pro === "true",
             SOURCE_NAME,

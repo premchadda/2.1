@@ -9,6 +9,10 @@ import {
   responseCache,
   invalidateResponseCache,
 } from "../../middleware/responseCache.middleware.js";
+import {
+  storeUploadedAssetFile,
+  deleteStoredAssetFile,
+} from "../../infrastructure/storage/storageProvider.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -55,6 +59,34 @@ import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
+const recordIdentifierValues = (record, fields) =>
+  fields
+    .flatMap((field) => [record?.[field]])
+    .filter((value) => value !== undefined && value !== null && value !== "")
+    .map((value) => String(value));
+
+const addLookupAliases = (lookup, record, fields) => {
+  for (const value of recordIdentifierValues(record, fields)) {
+    lookup[value] = record;
+    if (/^\d+$/.test(value)) lookup[Number(value)] = record;
+  }
+};
+
+const findLookupRecord = (lookup, values) => {
+  for (const value of values) {
+    if (lookup[value] !== undefined) return lookup[value];
+    const stringValue = String(value);
+    if (lookup[stringValue] !== undefined) return lookup[stringValue];
+    if (
+      /^\d+$/.test(stringValue) &&
+      lookup[Number(stringValue)] !== undefined
+    ) {
+      return lookup[Number(stringValue)];
+    }
+  }
+  return null;
+};
+
 // M14: decrypt PII shadow columns back into the user object for API responses.
 // No-ops (returns the input unchanged) when PII encryption is not enabled.
 const decryptUserPii = (user) => {
@@ -100,7 +132,28 @@ const profileUpdateSchema = createSchema()
 const deleteOldProfileAsset = (oldPath) => {
   if (!oldPath || typeof oldPath !== "string") return;
 
-  // Only delete files from our avatar directory (security check)
+  // Full URLs (Supabase/S3) — try to extract storage key and delete via provider
+  if (oldPath.startsWith("http://") || oldPath.startsWith("https://")) {
+    try {
+      const url = new URL(oldPath);
+      // Supabase public URL pattern: /storage/v1/object/public/<bucket>/<key>
+      const publicMatch = url.pathname.match(
+        /\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/,
+      );
+      if (publicMatch) {
+        const storageKey = decodeURIComponent(publicMatch[2]);
+        // Build a synthetic asset object for deleteStoredAssetFile
+        deleteStoredAssetFile({
+          metadata: { provider: "supabase", storageKey },
+        }).catch(() => {});
+      }
+    } catch {
+      // Not a valid URL — ignore
+    }
+    return;
+  }
+
+  // Legacy local paths under /assets/avatar/
   if (!oldPath.startsWith("/assets/avatar/")) return;
 
   const fileName = path.basename(oldPath);
@@ -109,7 +162,6 @@ const deleteOldProfileAsset = (oldPath) => {
   try {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      console.log(`🗑️  [assetDeleted] Removed old ${fileName}`);
     }
   } catch (error) {
     console.error(
@@ -141,37 +193,59 @@ const saveProfileAsset = async (imageData, userId, prefix, oldPath = null) => {
     deleteOldProfileAsset(oldPath);
   }
 
+  const ext = matches[1] === "jpeg" ? "jpg" : matches[1];
   const base64Data = matches[2];
   const buffer = Buffer.from(base64Data, "base64");
-  const fileName = `${prefix}_${userId}_${Date.now()}.webp`;
-  const uploadDir = path.join(__dirname, "../../../uploads/avatars");
-  const filePath = path.join(uploadDir, fileName);
-
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  const fileName = `${prefix}_${userId}_${Date.now()}.${ext}`;
 
   // Compress to keep files small: avatars are square thumbnails, banners are wide.
   const maxWidth = prefix === "banner" ? 1280 : 256;
   const maxHeight = prefix === "banner" ? 480 : 256;
+  let compressedBuffer = buffer;
+  let mimetype = `image/${matches[1] === "jpeg" ? "jpeg" : matches[1]}`;
 
   try {
     const sharp = (await import("sharp")).default;
-    await sharp(buffer)
+    compressedBuffer = await sharp(buffer)
       .rotate()
       .resize(maxWidth, maxHeight, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
-      .toFile(filePath);
+      .toBuffer();
+    mimetype = "image/webp";
   } catch (error) {
     console.error(
       `❌ [assetSaveError] Failed to compress ${fileName}:`,
       error.message,
     );
-    // Fallback: write the original buffer so the upload still succeeds
-    await fs.promises.writeFile(filePath, buffer);
   }
 
-  return `/assets/avatar/${fileName}`;
+  // Build a synthetic file object for the storage provider
+  const syntheticFile = {
+    buffer: compressedBuffer,
+    mimetype,
+    originalname: fileName,
+    filename: fileName,
+  };
+
+  try {
+    const result = await storeUploadedAssetFile(syntheticFile, {
+      category: "avatars",
+    });
+    return result.publicUrl;
+  } catch (error) {
+    console.error(
+      `❌ [assetSaveError] Storage provider failed for ${fileName}:`,
+      error.message,
+    );
+    // Fallback: write to local disk
+    const uploadDir = path.join(__dirname, "../../../uploads/avatars");
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const filePath = path.join(uploadDir, fileName);
+    await fs.promises.writeFile(filePath, compressedBuffer);
+    return `/assets/avatar/${fileName}`;
+  }
 };
 
 // @route   GET /api/users/profile
@@ -272,6 +346,7 @@ router.get("/profile", protect, async (req, res) => {
 // @access  Private
 router.put(
   "/profile",
+  express.json({ limit: "10mb" }),
   protect,
   validateBody(profileUpdateSchema),
   async (req, res) => {
@@ -1208,7 +1283,18 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
           const st = String(a.status || "").toUpperCase();
           return st === "COMPLETED" || a.isCompleted || a.is_completed;
         })
-        .map((a) => String(a.testId || a.test_id)),
+        .flatMap((a) =>
+          recordIdentifierValues(a, [
+            "testId",
+            "test_id",
+            "testPublicId",
+            "test_public_id",
+            "testUuid",
+            "test_uuid",
+            "testSlug",
+            "test_slug",
+          ]),
+        ),
     );
 
     const incompleteAttempts = userAttempts.filter((a) => {
@@ -1218,11 +1304,17 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
       if (!isPausedOrInProgress) return false;
 
       const testId = String(a.testId || a.test_id);
-      const answersArr = Array.isArray(a.answers)
-        ? a.answers
-        : typeof a.answers === "string"
-          ? JSON.parse(a.answers || "[]")
-          : [];
+      let answersArr = [];
+      if (Array.isArray(a.answers)) {
+        answersArr = a.answers;
+      } else if (typeof a.answers === "string" && a.answers.trim()) {
+        try {
+          const parsed = JSON.parse(a.answers);
+          answersArr = Array.isArray(parsed) ? parsed : [];
+        } catch {
+          answersArr = [];
+        }
+      }
 
       // If the test has already been completed and this incomplete attempt has 0 answers, ignore it
       if (
@@ -1249,38 +1341,69 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
     const series = await dbHelpers.find("testSeries");
 
     const testMap = {};
-    tests.forEach((test) => {
-      const id = test._id ?? test.id;
-      if (id !== undefined) {
-        testMap[id] = test;
-        testMap[String(id)] = test;
-        testMap[Number(id)] = test;
-      }
-    });
+    tests.forEach((test) =>
+      addLookupAliases(testMap, test, [
+        "_id",
+        "id",
+        "publicId",
+        "public_id",
+        "publicIdUuid",
+        "public_id_uuid",
+        "uuid",
+        "slug",
+      ]),
+    );
 
     const seriesMap = {};
-    series.forEach((entry) => {
-      const id = entry._id ?? entry.id;
-      if (id !== undefined) {
-        seriesMap[id] = entry;
-        seriesMap[String(id)] = entry;
-        seriesMap[Number(id)] = entry;
-      }
-    });
+    series.forEach((entry) =>
+      addLookupAliases(seriesMap, entry, [
+        "_id",
+        "id",
+        "publicId",
+        "public_id",
+        "publicIdUuid",
+        "public_id_uuid",
+        "uuid",
+        "slug",
+      ]),
+    );
 
     const formatted = incompleteAttempts.map((attempt) => {
       const test =
-        testMap[attempt.testId] ||
-        testMap[String(attempt.testId)] ||
-        testMap[Number(attempt.testId)] ||
-        {};
+        findLookupRecord(
+          testMap,
+          recordIdentifierValues(attempt, [
+            "testId",
+            "test_id",
+            "testPublicId",
+            "test_public_id",
+            "testUuid",
+            "test_uuid",
+            "testSlug",
+            "test_slug",
+          ]),
+        ) || {};
       const resolvedSeriesId =
-        attempt.seriesId || test.seriesId || test.series_id;
+        attempt.seriesId ||
+        attempt.series_id ||
+        attempt.seriesPublicId ||
+        attempt.series_public_id ||
+        test.seriesId ||
+        test.series_id;
       const testSeries =
-        seriesMap[resolvedSeriesId] ||
-        seriesMap[String(resolvedSeriesId)] ||
-        seriesMap[Number(resolvedSeriesId)] ||
-        {};
+        findLookupRecord(
+          seriesMap,
+          recordIdentifierValues(test, ["seriesId", "series_id"]).concat(
+            recordIdentifierValues(attempt, [
+              "seriesId",
+              "series_id",
+              "seriesPublicId",
+              "series_public_id",
+              "seriesSlug",
+              "series_slug",
+            ]),
+          ),
+        ) || {};
 
       const totalDuration = test.duration
         ? test.duration * 60
@@ -1302,16 +1425,17 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
           dbHelpers,
           "tests",
           test,
-          attempt.testId || test.id || test._id,
+          attempt.testId || attempt.test_id || test.id || test._id,
         ),
-        testSlug: test.slug || null,
+        testSlug: test.slug || attempt.testSlug || attempt.test_slug || null,
         seriesId: getPublicResponseId(
           dbHelpers,
           "testSeries",
           testSeries,
-          attempt.seriesId || test.seriesId || test.series_id,
+          resolvedSeriesId,
         ),
-        seriesSlug: testSeries.slug || null,
+        seriesSlug:
+          testSeries.slug || attempt.seriesSlug || attempt.series_slug || null,
         title: attempt.testTitle || test.title || "Unknown Test",
         seriesTitle: testSeries.title || "Unknown Series",
         status: attempt.status,
@@ -1378,9 +1502,18 @@ router.get(
       );
 
       // Collect ONLY the specific test and series IDs needed for completed attempts
-      const rawTestIds = completedAttempts
-        .map((a) => a.testId || a.test_id)
-        .filter(Boolean);
+      const rawTestIds = completedAttempts.flatMap((a) =>
+        recordIdentifierValues(a, [
+          "testId",
+          "test_id",
+          "testPublicId",
+          "test_public_id",
+          "testUuid",
+          "test_uuid",
+          "testSlug",
+          "test_slug",
+        ]),
+      );
       const numTestIds = rawTestIds
         .filter((id) => typeof id === "number" || /^\d+$/.test(id))
         .map(Number);
@@ -1401,9 +1534,20 @@ router.get(
       const tests = [...numTests, ...strTests];
 
       const rawSeriesIds = [
-        ...completedAttempts.map((a) => a.seriesId || a.series_id),
-        ...tests.map((t) => t.seriesId || t.series_id),
-      ].filter(Boolean);
+        ...completedAttempts.flatMap((a) =>
+          recordIdentifierValues(a, [
+            "seriesId",
+            "series_id",
+            "seriesPublicId",
+            "series_public_id",
+            "seriesSlug",
+            "series_slug",
+          ]),
+        ),
+        ...tests.flatMap((t) =>
+          recordIdentifierValues(t, ["seriesId", "series_id"]),
+        ),
+      ];
       const numSeriesIds = rawSeriesIds
         .filter((id) => typeof id === "number" || /^\d+$/.test(id))
         .map(Number);
@@ -1426,41 +1570,72 @@ router.get(
       const series = [...numSeries, ...strSeries];
 
       const testMap = {};
-      tests.forEach((test) => {
-        const testId = test._id || test.id;
-        testMap[testId] = test;
-        if (test._id !== undefined) testMap[String(test._id)] = test;
-        if (test._id !== undefined) testMap[Number(test._id)] = test;
-        if (test.id !== undefined) testMap[String(test.id)] = test;
-        if (test.id !== undefined) testMap[Number(test.id)] = test;
-      });
+      tests.forEach((test) =>
+        addLookupAliases(testMap, test, [
+          "_id",
+          "id",
+          "publicId",
+          "public_id",
+          "publicIdUuid",
+          "public_id_uuid",
+          "uuid",
+          "slug",
+        ]),
+      );
 
       const seriesMap = {};
-      series.forEach((entry) => {
-        const seriesId = entry._id || entry.id;
-        seriesMap[seriesId] = entry;
-        if (entry._id !== undefined) seriesMap[String(entry._id)] = entry;
-        if (entry._id !== undefined) seriesMap[Number(entry._id)] = entry;
-        if (entry.id !== undefined) seriesMap[String(entry.id)] = entry;
-        if (entry.id !== undefined) seriesMap[Number(entry.id)] = entry;
-      });
+      series.forEach((entry) =>
+        addLookupAliases(seriesMap, entry, [
+          "_id",
+          "id",
+          "publicId",
+          "public_id",
+          "publicIdUuid",
+          "public_id_uuid",
+          "uuid",
+          "slug",
+        ]),
+      );
 
       // Format attempts with test and series details
       const formattedAttempts = completedAttempts.map((attempt) => {
-        const attemptTestId = attempt.testId;
+        const attemptTestId = attempt.testId || attempt.test_id;
         const test =
-          testMap[attemptTestId] ||
-          testMap[String(attemptTestId)] ||
-          testMap[Number(attemptTestId)] ||
-          {};
+          findLookupRecord(
+            testMap,
+            recordIdentifierValues(attempt, [
+              "testId",
+              "test_id",
+              "testPublicId",
+              "test_public_id",
+              "testUuid",
+              "test_uuid",
+              "testSlug",
+              "test_slug",
+            ]),
+          ) || {};
 
         const resolvedSeriesId =
-          attempt.seriesId || test.seriesId || test.series_id;
+          attempt.seriesId ||
+          attempt.series_id ||
+          attempt.seriesPublicId ||
+          attempt.series_public_id ||
+          test.seriesId ||
+          test.series_id;
         const testSeries =
-          seriesMap[resolvedSeriesId] ||
-          seriesMap[String(resolvedSeriesId)] ||
-          seriesMap[Number(resolvedSeriesId)] ||
-          {};
+          findLookupRecord(
+            seriesMap,
+            recordIdentifierValues(test, ["seriesId", "series_id"]).concat(
+              recordIdentifierValues(attempt, [
+                "seriesId",
+                "series_id",
+                "seriesPublicId",
+                "series_public_id",
+                "seriesSlug",
+                "series_slug",
+              ]),
+            ),
+          ) || {};
 
         const formatted = {
           id: getPublicResponseId(
@@ -1473,16 +1648,20 @@ router.get(
             dbHelpers,
             "tests",
             test,
-            attempt.testId || test.id || test._id,
+            attempt.testId || attempt.test_id || test.id || test._id,
           ),
-          testSlug: test.slug || null,
+          testSlug: test.slug || attempt.testSlug || attempt.test_slug || null,
           seriesId: getPublicResponseId(
             dbHelpers,
             "testSeries",
             testSeries,
-            attempt.seriesId || test.seriesId || test.series_id,
+            resolvedSeriesId,
           ),
-          seriesSlug: testSeries.slug || null,
+          seriesSlug:
+            testSeries.slug ||
+            attempt.seriesSlug ||
+            attempt.series_slug ||
+            null,
           title: attempt.testTitle || test.title || "Unknown Test",
           seriesTitle: testSeries.title || "Unknown Series",
           score: attempt.score || 0,

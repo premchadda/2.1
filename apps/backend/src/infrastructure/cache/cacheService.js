@@ -1,21 +1,30 @@
-import { getRedisClient, isRedisReady } from './redisClient.js'
-import fs from 'fs'
-import path from 'path'
+import { getRedisClient, isRedisReady } from "./redisClient.js";
+import fs from "fs";
+import path from "path";
 
-const localCache = new Map()
-const LOCAL_CACHE_MAX = 1000
-const MEMORY_CACHE_TTL = 5 * 60 * 1000
+const localCache = new Map();
+const LOCAL_CACHE_MAX = 1000;
+const MEMORY_CACHE_TTL = 5 * 60 * 1000;
+const CACHE_IO_TIMEOUT_MS = Math.min(
+  Math.max(Number.parseInt(process.env.CACHE_IO_TIMEOUT_MS, 10) || 750, 100),
+  5000,
+);
 
-const toNamespacedKey = (namespace, key) => `${namespace}:${key}`
+const toNamespacedKey = (namespace, key) => `${namespace}:${key}`;
 
-let hasLoggedMemoryFallbackWarning = false
+let hasLoggedMemoryFallbackWarning = false;
 
 const logMemoryFallbackWarningIfNeeded = () => {
-  if (!hasLoggedMemoryFallbackWarning && process.env.NODE_ENV === 'production') {
-    hasLoggedMemoryFallbackWarning = true
-    console.warn('[Cache] WARNING: Redis is unavailable. Falling back to local in-memory cache. This will cause cache incoherence in multi-instance deployments.')
+  if (
+    !hasLoggedMemoryFallbackWarning &&
+    process.env.NODE_ENV === "production"
+  ) {
+    hasLoggedMemoryFallbackWarning = true;
+    console.warn(
+      "[Cache] WARNING: Redis is unavailable. Falling back to local in-memory cache. This will cause cache incoherence in multi-instance deployments.",
+    );
   }
-}
+};
 
 // ============================================================
 // File-backed cache persistence (dev/non-Redis only).
@@ -33,215 +42,253 @@ const logMemoryFallbackWarningIfNeeded = () => {
 // ============================================================
 const isFileCacheEnabled = () =>
   !isRedisReady() &&
-  process.env.NODE_ENV !== 'production' &&
-  process.env.FILE_CACHE_ENABLED !== 'false'
+  process.env.NODE_ENV !== "production" &&
+  process.env.FILE_CACHE_ENABLED !== "false";
 
 const FILE_CACHE_PATH =
   process.env.FILE_CACHE_PATH ||
-  path.join(process.cwd(), '.cache', 'response-cache.json')
+  path.join(process.cwd(), ".cache", "response-cache.json");
 
-let fileCacheLoaded = false
-let flushTimer = null
+let fileCacheLoaded = false;
+let flushTimer = null;
 
 const loadFileCache = () => {
-  if (fileCacheLoaded) return
-  fileCacheLoaded = true
-  if (!isFileCacheEnabled()) return
+  if (fileCacheLoaded) return;
+  fileCacheLoaded = true;
+  if (!isFileCacheEnabled()) return;
   try {
     if (fs.existsSync(FILE_CACHE_PATH)) {
-      const raw = fs.readFileSync(FILE_CACHE_PATH, 'utf8')
-      const obj = JSON.parse(raw)
-      const now = Date.now()
-      let restored = 0
+      const raw = fs.readFileSync(FILE_CACHE_PATH, "utf8");
+      const obj = JSON.parse(raw);
+      const now = Date.now();
+      let restored = 0;
       for (const [k, v] of Object.entries(obj)) {
-        if (v && typeof v.expiresAt === 'number' && v.expiresAt > now) {
-          localCache.set(k, v)
-          restored += 1
+        if (v && typeof v.expiresAt === "number" && v.expiresAt > now) {
+          localCache.set(k, v);
+          restored += 1;
         }
       }
       if (restored > 0) {
-        console.log(`[Cache] Restored ${restored} cached entries from ${FILE_CACHE_PATH}`)
+        console.log(
+          `[Cache] Restored ${restored} cached entries from ${FILE_CACHE_PATH}`,
+        );
       }
     }
   } catch (err) {
     // Corrupt/unreadable cache file — start fresh, never fatal.
-    console.warn('[Cache] Could not load file cache, starting empty:', err.message)
+    console.warn(
+      "[Cache] Could not load file cache, starting empty:",
+      err.message,
+    );
   }
-}
+};
 
 const flushFileCache = () => {
-  if (!isFileCacheEnabled()) return
+  if (!isFileCacheEnabled()) return;
   try {
-    const dir = path.dirname(FILE_CACHE_PATH)
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
-    const obj = {}
-    const now = Date.now()
+    const dir = path.dirname(FILE_CACHE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const obj = {};
+    const now = Date.now();
     for (const [k, v] of localCache) {
-      if (v && typeof v.expiresAt === 'number' && v.expiresAt > now) obj[k] = v
+      if (v && typeof v.expiresAt === "number" && v.expiresAt > now) obj[k] = v;
     }
-    fs.writeFileSync(FILE_CACHE_PATH, JSON.stringify(obj))
+    fs.writeFileSync(FILE_CACHE_PATH, JSON.stringify(obj));
   } catch (err) {
-    console.warn('[Cache] Failed to flush file cache:', err.message)
+    console.warn("[Cache] Failed to flush file cache:", err.message);
   }
-}
+};
 
 const scheduleFlush = () => {
-  if (flushTimer || !isFileCacheEnabled()) return
+  if (flushTimer || !isFileCacheEnabled()) return;
   flushTimer = setTimeout(() => {
-    flushTimer = null
-    flushFileCache()
-  }, 2000)
-  if (typeof flushTimer.unref === 'function') flushTimer.unref()
-}
+    flushTimer = null;
+    flushFileCache();
+  }, 2000);
+  if (typeof flushTimer.unref === "function") flushTimer.unref();
+};
 
 // Best-effort flush so a clean shutdown (Ctrl-C, deploy) doesn't lose the cache.
-const flushOnExit = () => flushFileCache()
-process.once('SIGINT', flushOnExit)
-process.once('SIGTERM', flushOnExit)
+const flushOnExit = () => flushFileCache();
+process.once("SIGINT", flushOnExit);
+process.once("SIGTERM", flushOnExit);
 
 function setMemoryCache(key, value, ttlMs = MEMORY_CACHE_TTL) {
   if (localCache.size >= LOCAL_CACHE_MAX) {
-    const firstKey = localCache.keys().next().value
-    localCache.delete(firstKey)
+    const firstKey = localCache.keys().next().value;
+    localCache.delete(firstKey);
   }
-  localCache.set(key, { value, expiresAt: Date.now() + ttlMs })
-  if (isFileCacheEnabled()) scheduleFlush()
+  localCache.set(key, { value, expiresAt: Date.now() + ttlMs });
+  if (isFileCacheEnabled()) scheduleFlush();
 }
 
 function getMemoryCache(key) {
-  const entry = localCache.get(key)
-  if (!entry) return null
+  const entry = localCache.get(key);
+  if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
-    localCache.delete(key)
-    return null
+    localCache.delete(key);
+    return null;
   }
-  return entry.value
+  return entry.value;
 }
 
-const LOCAL_CACHE_CLEANUP_MS = 60 * 1000
+const LOCAL_CACHE_CLEANUP_MS = 60 * 1000;
 
 const cleanupTimer = setInterval(() => {
-  const now = Date.now()
+  const now = Date.now();
   for (const [key, val] of localCache) {
     if (now > val.expiresAt) {
-      localCache.delete(key)
+      localCache.delete(key);
     }
   }
-}, LOCAL_CACHE_CLEANUP_MS)
+}, LOCAL_CACHE_CLEANUP_MS);
 
-cleanupTimer.unref()
+cleanupTimer.unref();
 
 const parseCachedValue = (value) => {
   if (value == null) {
-    return null
+    return null;
   }
 
   try {
-    return JSON.parse(value)
+    return JSON.parse(value);
   } catch {
-    return value
+    return value;
   }
-}
+};
 
 const serializeCachedValue = (value) => {
-  if (typeof value === 'string') {
-    return value
+  if (typeof value === "string") {
+    return value;
   }
-  return JSON.stringify(value)
-}
+  return JSON.stringify(value);
+};
+
+const withCacheTimeout = (promise, fallback) =>
+  Promise.race([
+    promise,
+    new Promise((resolve) =>
+      setTimeout(() => resolve(fallback), CACHE_IO_TIMEOUT_MS),
+    ),
+  ]);
 
 export const getCache = async (namespace, key) => {
-  const cacheKey = toNamespacedKey(namespace, key)
+  const cacheKey = toNamespacedKey(namespace, key);
 
-  if (isFileCacheEnabled()) loadFileCache()
+  if (isFileCacheEnabled()) loadFileCache();
 
   if (isRedisReady()) {
-    const redis = getRedisClient()
-    const value = await redis.get(cacheKey)
-    return parseCachedValue(value)
+    const redis = getRedisClient();
+    try {
+      const value = await withCacheTimeout(redis.get(cacheKey), null);
+      return parseCachedValue(value);
+    } catch {
+      return null;
+    }
   }
 
-  logMemoryFallbackWarningIfNeeded()
-  const cached = getMemoryCache(cacheKey)
+  logMemoryFallbackWarningIfNeeded();
+  const cached = getMemoryCache(cacheKey);
   if (cached === null) {
-    return null
+    return null;
   }
 
-  return cached
-}
+  return cached;
+};
 
 export const setCache = async (namespace, key, value, ttlSeconds = 300) => {
-  const cacheKey = toNamespacedKey(namespace, key)
+  const cacheKey = toNamespacedKey(namespace, key);
 
   if (isRedisReady()) {
-    const redis = getRedisClient()
-    await redis.set(cacheKey, serializeCachedValue(value), 'EX', ttlSeconds)
-    return true
+    const redis = getRedisClient();
+    try {
+      const result = await withCacheTimeout(
+        redis.set(cacheKey, serializeCachedValue(value), "EX", ttlSeconds),
+        false,
+      );
+      return result !== false;
+    } catch {
+      return false;
+    }
   }
 
-  logMemoryFallbackWarningIfNeeded()
-  setMemoryCache(cacheKey, value, ttlSeconds * 1000)
-  return true
-}
+  logMemoryFallbackWarningIfNeeded();
+  setMemoryCache(cacheKey, value, ttlSeconds * 1000);
+  return true;
+};
 
 export const deleteCache = async (namespace, key) => {
-  const cacheKey = toNamespacedKey(namespace, key)
+  const cacheKey = toNamespacedKey(namespace, key);
 
   if (isRedisReady()) {
-    const redis = getRedisClient()
-    await redis.del(cacheKey)
-    return
-  }
-
-  logMemoryFallbackWarningIfNeeded()
-  localCache.delete(cacheKey)
-}
-
-export const deleteCacheByPrefix = async (namespace, prefix = '') => {
-  const namespacedPrefix = toNamespacedKey(namespace, prefix)
-
-  if (isRedisReady()) {
-    const redis = getRedisClient()
-    let cursor = '0'
-    const keys = []
-    do {
-      const [newCursor, foundKeys] = await redis.scan(cursor, 'MATCH', `${namespacedPrefix}*`, 'COUNT', 100)
-      cursor = newCursor
-      keys.push(...foundKeys)
-    } while (cursor !== '0')
-    if (keys.length > 0) {
-      await redis.del(...keys)
+    const redis = getRedisClient();
+    try {
+      await withCacheTimeout(redis.del(cacheKey), 0);
+    } catch {
+      // Cache invalidation is best effort.
     }
-    return keys.length
+    return;
   }
 
-  logMemoryFallbackWarningIfNeeded()
-  let deleted = 0
+  logMemoryFallbackWarningIfNeeded();
+  localCache.delete(cacheKey);
+};
+
+export const deleteCacheByPrefix = async (namespace, prefix = "") => {
+  const namespacedPrefix = toNamespacedKey(namespace, prefix);
+
+  if (isRedisReady()) {
+    const redis = getRedisClient();
+    let cursor = "0";
+    const keys = [];
+    do {
+      const [newCursor, foundKeys] = await redis.scan(
+        cursor,
+        "MATCH",
+        `${namespacedPrefix}*`,
+        "COUNT",
+        100,
+      );
+      cursor = newCursor;
+      keys.push(...foundKeys);
+    } while (cursor !== "0");
+    if (keys.length > 0) {
+      await redis.del(...keys);
+    }
+    return keys.length;
+  }
+
+  logMemoryFallbackWarningIfNeeded();
+  let deleted = 0;
   for (const key of localCache.keys()) {
     if (key.startsWith(namespacedPrefix)) {
-      localCache.delete(key)
-      deleted += 1
+      localCache.delete(key);
+      deleted += 1;
     }
   }
-  return deleted
-}
+  return deleted;
+};
 
-export const cacheWithFallback = async (namespace, key, ttlSeconds, resolver) => {
-  const cached = await getCache(namespace, key)
+export const cacheWithFallback = async (
+  namespace,
+  key,
+  ttlSeconds,
+  resolver,
+) => {
+  const cached = await getCache(namespace, key);
   if (cached !== null) {
     return {
       value: cached,
-      hit: true
-    }
+      hit: true,
+    };
   }
 
-  const value = await resolver()
-  await setCache(namespace, key, value, ttlSeconds)
+  const value = await resolver();
+  await setCache(namespace, key, value, ttlSeconds);
   return {
     value,
-    hit: false
-  }
-}
+    hit: false,
+  };
+};
 
 export const clearCache = deleteCacheByPrefix;
-

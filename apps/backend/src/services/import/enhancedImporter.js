@@ -13,40 +13,48 @@
  * - Batch processing with configurable chunk sizes
  */
 
-import { pool } from '../../infrastructure/database/postgres-helpers.js'
-import { importClassXQuestions, importClassXTestsWithQuestions, mapClassXToQuestion } from './classxImporter.js'
+import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  importClassXQuestions,
+  importClassXTestsWithQuestions,
+  mapClassXToQuestion,
+} from "./classxImporter.js";
 
 const SOURCE_NAMES = {
-  classx: 'classx',
-  excel: 'excel',
-  csv: 'csv',
-  custom: 'custom',
-}
+  classx: "classx",
+  excel: "excel",
+  csv: "csv",
+  custom: "custom",
+};
 
 /**
  * Validate a question payload before import.
  * Returns { valid: boolean, errors: string[] }
  */
 export function validateQuestion(question, index = 0) {
-  const errors = []
+  const errors = [];
 
   if (!question.questionText && !question.question_text && !question.question) {
-    errors.push(`Q${index + 1}: Missing question text`)
+    errors.push(`Q${index + 1}: Missing question text`);
   }
 
-  const options = question.options || []
+  const options = question.options || [];
   if (options.length < 2) {
-    errors.push(`Q${index + 1}: At least 2 options required`)
+    errors.push(`Q${index + 1}: At least 2 options required`);
   }
 
-  if (question.correctOption === undefined && question.correct_option === undefined && question.answer === undefined) {
-    errors.push(`Q${index + 1}: Missing correct answer`)
+  if (
+    question.correctOption === undefined &&
+    question.correct_option === undefined &&
+    question.answer === undefined
+  ) {
+    errors.push(`Q${index + 1}: Missing correct answer`);
   }
 
   return {
     valid: errors.length === 0,
     errors,
-  }
+  };
 }
 
 /**
@@ -54,25 +62,25 @@ export function validateQuestion(question, index = 0) {
  * Expects columns: question, option_1, option_2, option_3, option_4, answer, explanation
  */
 export async function parseExcelData(buffer, filename) {
-  const XLSX = await import('xlsx-js-style')
-  const workbook = XLSX.read(buffer, { type: 'buffer' })
-  const sheetName = workbook.SheetNames[0]
-  const sheet = workbook.Sheets[sheetName]
-  const data = XLSX.utils.sheet_to_json(sheet)
+  const XLSX = await import("xlsx-js-style");
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const data = XLSX.utils.sheet_to_json(sheet);
 
   return data.map((row, i) => ({
     id: String(i + 1),
-    question: row.question || row.Question || row.question_text || '',
-    option_1: row.option_1 || row.Option1 || row.option_a || row.A || '',
-    option_2: row.option_2 || row.Option2 || row.option_b || row.B || '',
-    option_3: row.option_3 || row.Option3 || row.option_c || row.C || '',
-    option_4: row.option_4 || row.Option4 || row.option_d || row.D || '',
-    answer: row.answer || row.Answer || row.correct || '',
-    solution_text: row.explanation || row.solution || row.solution_text || '',
-    difficulty: row.difficulty || row.Difficulty || 'medium',
+    question: row.question || row.Question || row.question_text || "",
+    option_1: row.option_1 || row.Option1 || row.option_a || row.A || "",
+    option_2: row.option_2 || row.Option2 || row.option_b || row.B || "",
+    option_3: row.option_3 || row.Option3 || row.option_c || row.C || "",
+    option_4: row.option_4 || row.Option4 || row.option_d || row.D || "",
+    answer: row.answer || row.Answer || row.correct || "",
+    solution_text: row.explanation || row.solution || row.solution_text || "",
+    difficulty: row.difficulty || row.Difficulty || "medium",
     marks: row.marks || row.Marks || 1,
-    negative_marks: row.negative_marks || row.negativeMarks || 0.25,
-  }))
+    negative_marks: row.negative_marks ?? row.negativeMarks ?? 0.5,
+  }));
 }
 
 /**
@@ -80,16 +88,20 @@ export async function parseExcelData(buffer, filename) {
  * Returns array of objects keyed by header names.
  */
 export function parseCSVBuffer(buffer) {
-  const content = buffer.toString("utf-8")
-  const lines = content.split(/\r?\n/).filter((l) => l.trim())
-  if (lines.length < 2) return []
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""))
+  const content = buffer.toString("utf-8");
+  const lines = content.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0]
+    .split(",")
+    .map((h) => h.trim().replace(/^"|"$/g, ""));
   return lines.slice(1).map((line) => {
-    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""))
-    const row = {}
-    headers.forEach((h, i) => { row[h] = values[i] || "" })
-    return row
-  })
+    const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+    const row = {};
+    headers.forEach((h, i) => {
+      row[h] = values[i] || "";
+    });
+    return row;
+  });
 }
 
 /**
@@ -99,7 +111,7 @@ export function parseCSVBuffer(buffer) {
 export function parseJSONBuffer(buffer) {
   try {
     let str = buffer.toString("utf-8");
-    if (str.charCodeAt(0) === 0xFEFF) {
+    if (str.charCodeAt(0) === 0xfeff) {
       str = str.slice(1);
     }
     return JSON.parse(str.trim());
@@ -132,13 +144,22 @@ export function extractQuestionsFromParsedJSON(data) {
   if (Array.isArray(data.tests) && data.tests[0]) {
     return extractQuestionsFromParsedJSON(data.tests[0]);
   }
-  if (Array.isArray(data.data)) return extractQuestionsFromParsedJSON(data.data);
-  if (Array.isArray(data.items)) return extractQuestionsFromParsedJSON(data.items);
+  if (Array.isArray(data.data))
+    return extractQuestionsFromParsedJSON(data.data);
+  if (Array.isArray(data.items))
+    return extractQuestionsFromParsedJSON(data.items);
 
   for (const key of Object.keys(data)) {
     if (Array.isArray(data[key]) && data[key].length > 0) {
       const sample = data[key][0];
-      if (sample && typeof sample === "object" && (sample.question || sample.questionText || sample.question_text || sample.options)) {
+      if (
+        sample &&
+        typeof sample === "object" &&
+        (sample.question ||
+          sample.questionText ||
+          sample.question_text ||
+          sample.options)
+      ) {
         return data[key];
       }
     }
@@ -151,70 +172,70 @@ export function extractQuestionsFromParsedJSON(data) {
  * Returns array of objects keyed by header names.
  */
 export async function parseSpreadsheetBuffer(buffer) {
-  const XLSX = await import('xlsx')
-  const workbook = XLSX.read(buffer, { type: "buffer" })
-  const sheet = workbook.Sheets[workbook.SheetNames[0]]
-  return XLSX.utils.sheet_to_json(sheet, { defval: "" })
+  const XLSX = await import("xlsx");
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(sheet, { defval: "" });
 }
 
 /**
  * Parse CSV string into question objects.
  */
 export function parseCSVData(csvString) {
-  const lines = csvString.split('\n').filter(line => line.trim())
-  if (lines.length < 2) return []
+  const lines = csvString.split("\n").filter((line) => line.trim());
+  if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-  const questions = []
+  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const questions = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim())
-    const row = {}
+    const values = lines[i].split(",").map((v) => v.trim());
+    const row = {};
     headers.forEach((h, idx) => {
-      row[h] = values[idx] || ''
-    })
+      row[h] = values[idx] || "";
+    });
 
     questions.push({
       id: String(i),
-      question: row.question || row.question_text || '',
-      option_1: row.option_1 || row.option_a || '',
-      option_2: row.option_2 || row.option_b || '',
-      option_3: row.option_3 || row.option_c || '',
-      option_4: row.option_4 || row.option_d || '',
-      answer: row.answer || row.correct || '',
-      solution_text: row.explanation || row.solution || '',
-      difficulty: row.difficulty || 'medium',
+      question: row.question || row.question_text || "",
+      option_1: row.option_1 || row.option_a || "",
+      option_2: row.option_2 || row.option_b || "",
+      option_3: row.option_3 || row.option_c || "",
+      option_4: row.option_4 || row.option_d || "",
+      answer: row.answer || row.correct || "",
+      solution_text: row.explanation || row.solution || "",
+      difficulty: row.difficulty || "medium",
       marks: parseFloat(row.marks) || 1,
-      negative_marks: parseFloat(row.negative_marks) || 0.25,
-    })
+      negative_marks: parseFloat(row.negative_marks) ?? 0.5,
+    });
   }
 
-  return questions
+  return questions;
 }
 
 /**
  * Detect import format from file extension or content.
  */
 export function detectFormat(filename, data) {
-  const ext = filename?.toLowerCase().split('.').pop()
+  const ext = filename?.toLowerCase().split(".").pop();
 
-  if (ext === 'json') {
+  if (ext === "json") {
     // Check if it's ClassX format
     if (Array.isArray(data) && data[0]?.question && data[0]?.option_1) {
-      return 'classx'
+      return "classx";
     }
-    return 'custom'
+    return "custom";
   }
 
-  if (ext === 'xlsx' || ext === 'xls') return 'excel'
-  if (ext === 'csv') return 'csv'
+  if (ext === "xlsx" || ext === "xls") return "excel";
+  if (ext === "csv") return "csv";
 
   // Try to detect from content
-  if (typeof data === 'string') {
-    if (data.includes(',') && data.includes('\n')) return 'csv'
+  if (typeof data === "string") {
+    if (data.includes(",") && data.includes("\n")) return "csv";
   }
 
-  return 'custom'
+  return "custom";
 }
 
 /**
@@ -222,19 +243,19 @@ export function detectFormat(filename, data) {
  */
 export function normalizeToClassX(data, format) {
   switch (format) {
-    case 'classx':
-      return Array.isArray(data) ? data : data.questions || []
-    case 'excel':
-    case 'csv':
-      return Array.isArray(data) ? data : []
-    case 'custom':
+    case "classx":
+      return Array.isArray(data) ? data : data.questions || [];
+    case "excel":
+    case "csv":
+      return Array.isArray(data) ? data : [];
+    case "custom":
       // Try to normalize custom JSON
-      if (Array.isArray(data)) return data
-      if (data.questions) return data.questions
-      if (data.data) return Array.isArray(data.data) ? data.data : []
-      return []
+      if (Array.isArray(data)) return data;
+      if (data.questions) return data.questions;
+      if (data.data) return Array.isArray(data.data) ? data.data : [];
+      return [];
     default:
-      return []
+      return [];
   }
 }
 
@@ -247,7 +268,7 @@ export function normalizeToClassX(data, format) {
  * @returns {Object} Import results
  */
 export async function batchImport(rows, config = {}, onProgress = null) {
-  const BATCH_SIZE = config.batchSize || 100
+  const BATCH_SIZE = config.batchSize || 100;
   const results = {
     total: rows.length,
     imported: 0,
@@ -256,37 +277,37 @@ export async function batchImport(rows, config = {}, onProgress = null) {
     duplicates: 0,
     errors: [],
     questions: [],
-  }
+  };
 
-  const client = await pool.connect()
+  const client = await pool.connect();
 
   try {
-    await client.query('BEGIN')
+    await client.query("BEGIN");
 
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-      const batch = rows.slice(i, i + BATCH_SIZE)
+      const batch = rows.slice(i, i + BATCH_SIZE);
 
       for (let j = 0; j < batch.length; j++) {
-        const globalIndex = i + j
+        const globalIndex = i + j;
         try {
-          const row = batch[j]
-          const mapped = mapClassXToQuestion(row, config)
+          const row = batch[j];
+          const mapped = mapClassXToQuestion(row, config);
 
           if (!mapped) {
-            results.skipped++
-            continue
+            results.skipped++;
+            continue;
           }
 
           // Check duplicates
           if (config.skipDuplicates !== false && mapped.externalQuestionId) {
             const existing = await client.query(
               `SELECT id FROM questions WHERE external_question_id = $1 AND imported_from = $2 LIMIT 1`,
-              [mapped.externalQuestionId, config.source || 'classx']
-            )
+              [mapped.externalQuestionId, config.source || "classx"],
+            );
             if (existing.rows.length > 0) {
-              results.duplicates++
-              results.skipped++
-              continue
+              results.duplicates++;
+              results.skipped++;
+              continue;
             }
           }
 
@@ -322,38 +343,38 @@ export async function batchImport(rows, config = {}, onProgress = null) {
               mapped.topicId,
               mapped.sectionId,
               mapped.testId,
-            ]
-          )
+            ],
+          );
 
-          const questionId = insertResult.rows[0].id
+          const questionId = insertResult.rows[0].id;
 
           // Link to test
           if (mapped.testId) {
             await client.query(
               `INSERT INTO test_questions (test_id, question_id, question_number)
                VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
-              [mapped.testId, questionId, globalIndex + 1]
-            )
+              [mapped.testId, questionId, globalIndex + 1],
+            );
           }
 
-          results.imported++
+          results.imported++;
           results.questions.push({
             id: questionId,
             index: globalIndex,
             externalId: mapped.externalQuestionId,
-          })
+          });
         } catch (err) {
-          results.failed++
+          results.failed++;
           results.errors.push({
             index: globalIndex,
             message: err.message,
-          })
+          });
         }
       }
 
       // Report progress
       if (onProgress) {
-        onProgress(Math.min(i + BATCH_SIZE, rows.length), rows.length)
+        onProgress(Math.min(i + BATCH_SIZE, rows.length), rows.length);
       }
     }
 
@@ -364,8 +385,8 @@ export async function batchImport(rows, config = {}, onProgress = null) {
           total_questions = (SELECT COUNT(*) FROM test_questions WHERE test_id = $1),
           updated_at = NOW()
          WHERE id = $1`,
-        [config.testId]
-      )
+        [config.testId],
+      );
     }
 
     // Log import
@@ -373,7 +394,7 @@ export async function batchImport(rows, config = {}, onProgress = null) {
       `INSERT INTO import_logs (source, file_name, total_records, imported, skipped, failed, errors, imported_by, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
-        config.source || 'batch',
+        config.source || "batch",
         config.fileName || null,
         results.total,
         results.imported,
@@ -386,45 +407,49 @@ export async function batchImport(rows, config = {}, onProgress = null) {
           format: config.format,
           batchSize: BATCH_SIZE,
         }),
-      ]
-    )
+      ],
+    );
 
-    await client.query('COMMIT')
+    await client.query("COMMIT");
   } catch (err) {
-    await client.query('ROLLBACK')
-    throw err
+    await client.query("ROLLBACK");
+    throw err;
   } finally {
-    client.release()
+    client.release();
   }
 
-  return results
+  return results;
 }
 
 /**
  * Unified import endpoint that handles any format.
  */
 export async function universalImport(fileBuffer, filename, config = {}) {
-  let data
-  let format
+  let data;
+  let format;
 
-  if (filename.endsWith('.json')) {
-    data = JSON.parse(fileBuffer.toString('utf-8'))
-    format = detectFormat(filename, data)
-  } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
-    data = await parseExcelData(fileBuffer, filename)
-    format = 'excel'
-  } else if (filename.endsWith('.csv')) {
-    data = parseCSVData(fileBuffer.toString('utf-8'))
-    format = 'csv'
+  if (filename.endsWith(".json")) {
+    data = JSON.parse(fileBuffer.toString("utf-8"));
+    format = detectFormat(filename, data);
+  } else if (filename.endsWith(".xlsx") || filename.endsWith(".xls")) {
+    data = await parseExcelData(fileBuffer, filename);
+    format = "excel";
+  } else if (filename.endsWith(".csv")) {
+    data = parseCSVData(fileBuffer.toString("utf-8"));
+    format = "csv";
   } else {
-    throw new Error('Unsupported file format. Use JSON, Excel, or CSV.')
+    throw new Error("Unsupported file format. Use JSON, Excel, or CSV.");
   }
 
-  const rows = normalizeToClassX(data, format)
+  const rows = normalizeToClassX(data, format);
 
   if (rows.length === 0) {
-    throw new Error('No questions found in the file')
+    throw new Error("No questions found in the file");
   }
 
-  return batchImport(rows, { ...config, source: format, format }, config.onProgress)
+  return batchImport(
+    rows,
+    { ...config, source: format, format },
+    config.onProgress,
+  );
 }

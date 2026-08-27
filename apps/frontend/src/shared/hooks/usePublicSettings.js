@@ -65,7 +65,10 @@ export function usePublicSettings() {
     queryKey: ["public-settings"],
     queryFn: async () => {
       try {
-        const res = await api.get("/api/settings/public", { timeout: 8000 });
+        // Public settings have a safe local fallback. Do not retry an
+        // unavailable backend here: an 8s timeout plus one retry made a
+        // public page wait ~16s before rendering the fallback.
+        const res = await api.get("/api/settings/public", { timeout: 4000 });
         return res.data?.data || FALLBACK_SETTINGS;
       } catch (err) {
         return FALLBACK_SETTINGS;
@@ -74,7 +77,7 @@ export function usePublicSettings() {
     placeholderData: FALLBACK_SETTINGS,
     staleTime: 1000 * 60,
     refetchInterval: 1000 * 60,
-    retry: 1,
+    retry: 0,
     refetchOnMount: true,
     refetchOnWindowFocus: true,
   });

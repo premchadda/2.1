@@ -444,8 +444,10 @@ export const mapBulkRowToTestPayload = (row = {}, config = {}) => {
     totalMarks:
       Number(get(["totalmarks", "total_marks"], config.totalMarks || 0)) || 0,
     passingMarks: Number(get(["passingmarks", "passing_marks"], 0)) || 0,
-    negativeMarking:
-      Number(get(["negativemarking", "negative_marking"], 0.25)) || 0.25,
+    negativeMarking: (() => {
+      const raw = get(["negativemarking", "negative_marking"]);
+      return raw != null ? Number(raw) : 0.5;
+    })(),
     difficulty: String(
       get(["difficulty"], config.difficulty || "Medium"),
     ).trim(),
