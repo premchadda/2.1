@@ -4,6 +4,7 @@ import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
 import LeftSidebar from "./LeftSidebar";
 import BottomNav from "./BottomNav";
+import Footer from "./Footer";
 import { useAuth } from "../../providers/AuthContext";
 import PageTransition from "../animations/PageTransition.jsx";
 
@@ -138,8 +139,8 @@ function Layout() {
       {/* Mobile Bottom Navigation */}
       <BottomNav />
 
-      {/* Content information */}
-      <footer role="contentinfo"></footer>
+      {/* Content information / Site-wide Footer */}
+      {!isAuthPage && <Footer isLeftNavMode={isLeftNavMode} />}
     </div>
   );
 }

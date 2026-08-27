@@ -137,4 +137,21 @@ describe("App route smoke tests", () => {
     );
     expect(bottomNav).toHaveClass("fixed", "bottom-0");
   }, 15000);
+
+  it("handles /dashboard/rankings redirect without crashing", async () => {
+    const { container } = renderRoute("/dashboard/rankings");
+    expectNoRenderedError(container);
+  });
+
+  it("handles /tag/pyps redirect without crashing", async () => {
+    const { container } = renderRoute("/tag/pyps");
+    expectNoRenderedError(container);
+  });
+
+  it("renders global footer with role contentinfo", async () => {
+    const { container } = renderRoute("/terms");
+    expectNoRenderedError(container);
+    const footer = container.querySelector('footer[role="contentinfo"]');
+    expect(footer).toBeInTheDocument();
+  });
 });

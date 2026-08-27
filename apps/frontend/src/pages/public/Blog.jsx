@@ -22,7 +22,8 @@ import { useEffect } from "react";
 export default function Blog() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
-  const [learnerCount, setLearnerCount] = useState("50,000+");
+  const [learnerCount, setLearnerCount] = useState(null);
+  const [learnersFetched, setLearnersFetched] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -30,17 +31,14 @@ export default function Blog() {
       try {
         const stats = await getPublicStats();
         if (controller.signal.aborted) return;
-        if (stats && stats.activeLearners) {
-          // Convert e.g. "5L+" to "5,00,000+"
-          setLearnerCount(
-            String(stats.activeLearners)
-              .replace("L+", ",00,000+")
-              .replace("k+", ",000+"),
-          );
-        }
+        const learners = Number(stats?.activeLearners) || 0;
+        setLearnerCount(learners);
+        setLearnersFetched(true);
       } catch (error) {
         if (error.name !== "AbortError")
           console.error("Failed to fetch stats:", error);
+        setLearnerCount(0);
+        setLearnersFetched(true);
       }
     };
     fetchStats();
@@ -384,8 +382,9 @@ export default function Blog() {
               out on.
             </h2>
             <p className="text-gray-400 dark:text-gray-500 text-lg font-medium mb-12">
-              Join {learnerCount} aspirants receiving curated exam strategies
-              and notification alerts every Monday morning.
+              {learnersFetched && learnerCount > 0
+                ? `Join ${learnerCount.toLocaleString()}+ aspirants receiving curated exam strategies and notification alerts every Monday morning.`
+                : "Join aspirants receiving curated exam strategies and notification alerts every Monday morning."}
             </p>
 
             <form className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto bg-white/5 p-2 rounded-[2rem] border border-white/10 group focus-within:border-white/20 transition-all">

@@ -15,6 +15,8 @@ import {
   Trophy,
   Users,
   Crown,
+  Award,
+  Gift,
 } from "lucide-react";
 
 /**
@@ -99,6 +101,18 @@ export const userNavSections = [
         path: "/leaderboard",
         Icon: Trophy,
         color: "text-yellow-500",
+      },
+      {
+        label: "Achievements",
+        path: "/achievements",
+        Icon: Award,
+        color: "text-amber-500",
+      },
+      {
+        label: "Refer & Earn",
+        path: "/refer-and-earn",
+        Icon: Gift,
+        color: "text-emerald-500",
       },
       {
         label: "Community",

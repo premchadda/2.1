@@ -1177,7 +1177,7 @@ router.get(
       const totalUsersResult = await dbHelpers.pool.query(
         "SELECT COUNT(*)::int as count FROM users",
       );
-      const totalUsers = totalUsersResult.rows[0]?.count || 1;
+      const totalUsers = Number(totalUsersResult.rows[0]?.count) || 0;
       const percentile =
         totalTests > 0
           ? Math.round(((totalUsers - rank) / totalUsers) * 100)
@@ -1194,54 +1194,22 @@ router.get(
         skipped: totalSkipped,
         avgAccuracy,
         avgScore,
-        rank: rank > 0 ? rank : 1,
-        percentile: totalTests > 0 ? Math.max(50, Math.min(99, percentile)) : 0,
+        rank: rank > 0 ? rank : null,
+        totalUsers,
+        percentile:
+          totalTests > 0 && rank > 0 && totalUsers > 0
+            ? Math.max(0, Math.min(100, percentile))
+            : null,
         timePerQuestion:
-          totalQuestions > 0 ? Math.round(totalTimeSpent / totalQuestions) : 45,
+          totalQuestions > 0
+            ? Math.round(totalTimeSpent / totalQuestions)
+            : null,
         streak: streak.currentStreak,
         bestStreak: streak.bestStreak,
-        strongSubjects:
-          strongSubjects.length > 0
-            ? strongSubjects
-            : sortedSubjects[0]
-              ? [sortedSubjects[0].name]
-              : [],
-        weakSubjects:
-          weakSubjects.length > 0
-            ? weakSubjects
-            : sortedSubjects[sortedSubjects.length - 1]
-              ? [sortedSubjects[sortedSubjects.length - 1].name]
-              : [],
+        strongSubjects,
+        weakSubjects,
         recentTests,
-        subjectWise:
-          subjectWise.length > 0
-            ? subjectWise
-            : [
-                {
-                  name: "Quantitative Aptitude",
-                  accuracy: avgAccuracy,
-                  attempted: Math.round(totalQuestions / 4),
-                  icon: "📊",
-                },
-                {
-                  name: "Reasoning",
-                  accuracy: Math.min(100, avgAccuracy + 5),
-                  attempted: Math.round(totalQuestions / 4),
-                  icon: "🧠",
-                },
-                {
-                  name: "English",
-                  accuracy: Math.max(0, avgAccuracy - 3),
-                  attempted: Math.round(totalQuestions / 4),
-                  icon: "📝",
-                },
-                {
-                  name: "General Awareness",
-                  accuracy: Math.max(0, avgAccuracy - 8),
-                  attempted: Math.round(totalQuestions / 4),
-                  icon: "🌍",
-                },
-              ],
+        subjectWise,
         topicWise,
         weakTopics: topicWise
           .filter((t) => t.accuracy < 50)

@@ -33,6 +33,10 @@ const LiveTestInterface = () => {
       const response = await api.get(`/api/live-tests/${liveTestId}/live-rank`);
       setLiveRank(response.data?.data || null);
     } catch (error) {
+      if (error.response?.status === 404) {
+        setLiveRank(null);
+        return;
+      }
       console.error("Error fetching rank:", error);
     }
   }, [liveTestId]);

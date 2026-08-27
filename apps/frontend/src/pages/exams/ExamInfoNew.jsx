@@ -313,6 +313,8 @@ function ExamInfoNew() {
   const [selectedYear, setSelectedYear] = useState("2026");
   const [yearlyData, setYearlyData] = useState({});
   const [updates, setUpdates] = useState([]);
+  const [faqs, setFaqs] = useState([]);
+  const [pypPapers, setPypPapers] = useState([]);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -354,6 +356,32 @@ function ExamInfoNew() {
 
       const updatesList = updatesData.data?.data || [];
       const yearlyMap = yearlyRes.data?.data || {};
+
+      // Fetch real previous-year papers for this exam from the PYP API
+      try {
+        const pypRes = await api.get(
+          `/api/previous-year-papers?exam=${encodeURIComponent(examId)}&limit=50`,
+        );
+        if (!signal?.aborted) {
+          const pypData = pypRes.data?.data || pypRes.data || [];
+          setPypPapers(Array.isArray(pypData) ? pypData : []);
+        }
+      } catch (pypErr) {
+        console.warn("Failed to fetch previous year papers", pypErr);
+        if (!signal?.aborted) setPypPapers([]);
+      }
+
+      // Fetch real FAQs from the public API — no hardcoded fallback
+      try {
+        const faqRes = await api.get("/api/faqs");
+        if (!signal?.aborted) {
+          const faqData = faqRes.data?.data || faqRes.data || [];
+          setFaqs(Array.isArray(faqData) ? faqData : []);
+        }
+      } catch (faqErr) {
+        console.warn("Failed to fetch FAQs", faqErr);
+        if (!signal?.aborted) setFaqs([]);
+      }
 
       let allExamInfo = [];
       try {
@@ -1647,100 +1675,48 @@ function ExamInfoNew() {
                   </div>
                 )}
 
-                {/* Daily Quiz widget with countdown */}
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl border border-indigo-100 dark:border-indigo-800/60 p-4 sm:p-6">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                    <PlayCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    Daily Quizzes
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
-                    Fresh questions every day — attempt before they expire!
-                  </p>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-4">
-                    Sample data — quizzes will be available soon.
-                  </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {[
-                      {
-                        title: "Daily Current Affairs Quiz",
-                        q: 10,
-                        time: 7,
-                        expires: "1 day left",
-                      },
-                      {
-                        title: "Quant Practice Mini",
-                        q: 10,
-                        time: 7,
-                        expires: "2 days left",
-                      },
-                      {
-                        title: "English Vocabulary Drill",
-                        q: 10,
-                        time: 5,
-                        expires: "1 day left",
-                      },
-                      {
-                        title: "Reasoning Speed Test",
-                        q: 15,
-                        time: 10,
-                        expires: "3 days left",
-                      },
-                    ].map((quiz, _idx) => (
-                      <div
-                        key={quiz.title}
-                        className="bg-white dark:bg-gray-800 rounded-xl p-3 border border-indigo-100 dark:border-indigo-800/60 hover:border-purple-300 dark:hover:border-purple-800 hover:shadow-sm transition cursor-pointer"
-                      >
-                        <p className="font-semibold text-gray-900 dark:text-white text-sm">
-                          {quiz.title}
-                        </p>
-                        <div className="flex items-center justify-between mt-1.5 text-xs text-gray-500 dark:text-gray-400">
-                          <span>
-                            {quiz.q} Questions · {quiz.time} min
-                          </span>
-                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
-                            <Clock3 className="w-3 h-3" /> {quiz.expires}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Practice Tests */}
+                {/* Practice Tests & Quizzes — driven by real test-series DB data */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 sm:p-6">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
                     <PlayCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                     Practice Tests &amp; Quizzes
                   </h2>
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-4">
-                    Sample data — practice tests will be available soon.
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        Daily Quizzes
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        30 Questions • 15 min
+                  {testSeriesData.length > 0 ? (
+                    <>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                        Attempt the available test series for this exam.
                       </p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        Sectional Tests
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        25 Questions • 20 min
-                      </p>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">
-                        Topic Tests
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        20 Questions • 15 min
-                      </p>
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {testSeriesData.slice(0, 6).map((series) => (
+                          <Link
+                            key={series._id || series.id}
+                            to={`/test-series/${series.slug || series._id || series.id}`}
+                            className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition group"
+                          >
+                            <div className="flex items-center justify-between mb-1.5">
+                              <span className="px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-[10px] font-medium rounded">
+                                {series.title ||
+                                  `Test Series ${series._id || series.id}`}
+                              </span>
+                              {series.isFree && (
+                                <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-[10px] font-bold rounded">
+                                  FREE
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1.5">
+                              {series.totalTests || 0} Tests
+                            </p>
+                          </Link>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      No practice tests are available for this exam yet. They
+                      will appear here once published.
+                    </p>
+                  )}
                 </div>
 
                 {/* Study Material */}
@@ -1889,46 +1865,33 @@ function ExamInfoNew() {
                   Vacancy Details
                 </h2>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                        12,000+
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        Total Posts
+                  {currentYearData?.vacancy ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="bg-indigo-50 dark:bg-indigo-900/30 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                          {Number(currentYearData.vacancy).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          Total Vacancies ({selectedYear})
+                        </p>
+                      </div>
+                      <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {currentYearData?.result ? "Declared" : "Awaiting"}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          Result Status
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                        Vacancy details have not been published yet. They will
+                        appear here once officially released.
                       </p>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        3,000+
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        General
-                      </p>
-                    </div>
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                        2,000+
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        OBC
-                      </p>
-                    </div>
-                    <div className="bg-red-50 dark:bg-red-900/20 rounded-xl p-4 text-center">
-                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                        1,500+
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        SC/ST
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl">
-                    <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                      Sample data — vacancy details will be updated once
-                      officially released.
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1994,32 +1957,42 @@ function ExamInfoNew() {
                   Previous Year Papers
                 </h2>
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 sm:gap-4">
-                    {[2025, 2024, 2023, 2022, 2021, 2020].map((year) => (
-                      <div
-                        key={year}
-                        className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition cursor-pointer"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              {year} Question Paper
-                            </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              Tier-I, Tier-II Available
-                            </p>
-                          </div>
-                          <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      Sample data — click to download previous year papers with
-                      answer keys.
-                    </p>
-                  </div>
+                  {pypPapers.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 sm:gap-4">
+                      {pypPapers.map((paper) => {
+                        const paperYear = paper.pyqYear || paper.year;
+                        const paperSlug = paper.slug || paper.id;
+                        return (
+                          <Link
+                            key={paper.id || paperSlug}
+                            to={`/tests/${paperSlug}`}
+                            className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition group"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-white group-hover:text-indigo-700 dark:group-hover:text-indigo-400">
+                                  {paper.title ||
+                                    `${paperYear || ""} Question Paper`}
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                  {paper.totalQuestions || 0} Questions ·{" "}
+                                  {paper.duration || 0} min
+                                </p>
+                              </div>
+                              <Download className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        Previous year papers have not been published for this
+                        exam yet. They will appear here once uploaded.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -2031,47 +2004,35 @@ function ExamInfoNew() {
                   <HelpCircle className="w-5 h-5 text-orange-500" />
                   Frequently Asked Questions
                 </h2>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-4">
-                  Sample data — FAQs will be updated with real data.
-                </p>
                 <div className="space-y-4">
-                  {[
-                    {
-                      q: "What is the minimum eligibility for this exam?",
-                      a: "The minimum eligibility is a bachelor's degree from a recognized university.",
-                    },
-                    {
-                      q: "What is the age limit for this exam?",
-                      a: "The age limit varies from 18-32 years depending on the category and post.",
-                    },
-                    {
-                      q: "How many attempts are allowed?",
-                      a: "There is no limit on the number of attempts for most posts.",
-                    },
-                    {
-                      q: "What is the exam mode?",
-                      a: "The exam is conducted in online (CBT) mode for Tier-I and Tier-II.",
-                    },
-                    {
-                      q: "Is there negative marking?",
-                      a: "Negative marking details vary by exam. Please refer to the official notification for this examination.",
-                    },
-                  ].map((faq, _idx) => (
-                    <div
-                      key={faq.q}
-                      className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
-                    >
-                      <details className="group">
-                        <summary className="p-4 cursor-pointer flex items-center justify-between font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
-                          {faq.q}
-                          <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 group-open:rotate-180 transition" />
-                        </summary>
-                        <div className="px-4 pb-4 text-gray-600 dark:text-gray-300">
-                          {faq.a}
+                  {faqs.length > 0 ? (
+                    faqs.map((faq) => {
+                      const q = faq.question || faq.q || faq.title;
+                      const a = faq.answer || faq.a || faq.content;
+                      if (!q || !a) return null;
+                      return (
+                        <div
+                          key={faq.id || faq._id || q}
+                          className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
+                        >
+                          <details className="group">
+                            <summary className="p-4 cursor-pointer flex items-center justify-between font-medium text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700">
+                              {q}
+                              <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400 group-open:rotate-180 transition" />
+                            </summary>
+                            <div className="px-4 pb-4 text-gray-600 dark:text-gray-300">
+                              {a}
+                            </div>
+                          </details>
                         </div>
-                      </details>
-                    </div>
-                  ))}
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      FAQs have not been published for this exam yet. Please
+                      refer to the official notification for accurate details.
+                    </p>
+                  )}
                 </div>
               </div>
             )}

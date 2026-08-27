@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, ChevronDown } from "lucide-react";
+import { Search, X, ChevronDown, ArrowRight } from "lucide-react";
 import { searchAll, isCancel } from "../../lib/dataService";
 
 /**
@@ -243,6 +243,14 @@ export default function NavbarSearch({ isOpen, onClose }) {
             className="flex-1 text-lg outline-none bg-transparent dark:text-white dark:placeholder-gray-400"
             autoFocus
             aria-label="Search input"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && searchQuery.trim()) {
+                e.preventDefault();
+                handleSearchResultClick(
+                  `/search?q=${encodeURIComponent(searchQuery.trim())}`,
+                );
+              }
+            }}
           />
           {searchQuery && (
             <button
@@ -327,6 +335,24 @@ export default function NavbarSearch({ isOpen, onClose }) {
                   Try searching for test names, subjects, or exams
                 </p>
               </div>
+            )}
+
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleSearchResultClick(
+                    `/search?q=${encodeURIComponent(searchQuery.trim())}`,
+                  )
+                }
+                className="w-full py-2.5 px-4 text-center text-xs font-semibold text-brand-start hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-900/20 hover:bg-indigo-100/60 dark:hover:bg-indigo-900/40 transition border-t border-gray-100 dark:border-gray-700 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>
+                  View all results for &ldquo;{searchQuery.trim()}&rdquo; on
+                  Search page
+                </span>
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
             )}
           </div>
         )}

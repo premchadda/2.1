@@ -4,7 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { useAuth } from "../../shared/providers/AuthContext";
 import { useTheme } from "../../shared/context/ThemeContext";
 import useProPass from "../../shared/hooks/useProPass";
-import { authAPI, userAPI } from "../../shared/lib/dataService";
+import { authAPI, userAPI, getPublicStats } from "../../shared/lib/dataService";
 import { APP_VERSION, APP_BUILD_DATE } from "../../shared/config/version.js";
 import {
   User,
@@ -150,6 +150,36 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'success' | 'error' | null
   const [isDirty, setIsDirty] = useState(false);
+
+  // Platform stats fetched from DB (for real mock test counts etc.)
+  const [platformStats, setPlatformStats] = useState({
+    mockTests: 0,
+    activeLearners: 0,
+  });
+
+  useEffect(() => {
+    let ignore = false;
+    const fetchPlatformStats = async () => {
+      try {
+        const stats = await getPublicStats();
+        if (!ignore && stats) {
+          setPlatformStats({
+            mockTests: Number(stats.mockTests) || 0,
+            activeLearners: Number(stats.activeLearners) || 0,
+          });
+        }
+      } catch (err) {
+        // Silently fail — component will show generic text
+        if (!ignore) {
+          console.error("Failed to fetch platform stats:", err);
+        }
+      }
+    };
+    fetchPlatformStats();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Active sessions state
   const [sessions, setSessions] = useState([]);
@@ -849,8 +879,12 @@ export default function Settings() {
                   <Crown className="w-4 h-4" /> Trstprep Pro
                 </div>
                 <p className="text-xs text-slate-300 mb-3 leading-relaxed">
-                  Unlock all 500+ mock tests, previous year papers, and instant
-                  AI doubt solving.
+                  Unlock all{" "}
+                  {platformStats.mockTests > 0
+                    ? `${platformStats.mockTests.toLocaleString()}+`
+                    : "500+"}{" "}
+                  mock tests, previous year papers, and instant AI doubt
+                  solving.
                 </p>
                 <Link
                   to="/pass"
@@ -1951,7 +1985,7 @@ export default function Settings() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                     {[
-                      "500+ Full-Length & Sectional Mock Tests",
+                      `${platformStats.mockTests > 0 ? `${platformStats.mockTests.toLocaleString()}+` : "500+"} Full-Length & Sectional Mock Tests`,
                       "Official Previous Year Papers (PYPs) with Shift Solutions",
                       "Real-Time National Rank & Percentile Prediction",
                       "Unlimited Re-Attempt Mode in Practice Lab",

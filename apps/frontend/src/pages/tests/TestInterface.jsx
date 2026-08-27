@@ -61,7 +61,7 @@ import {
 } from "lucide-react";
 
 const DEFAULT_MARKS_PER_QUESTION = 2;
-const DEFAULT_NEGATIVE_MARKS = 0.25;
+const DEFAULT_NEGATIVE_MARKS = 0.5;
 
 // Local offline buffer key for in-progress answers. Uses the URL param testId
 // so it is stable and available at restore time (before numeric DB id resolves).
@@ -2444,13 +2444,23 @@ function TestInterface() {
 
                     {/* Negative marking badge */}
                     {!reviewMode &&
-                    (test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS) > 0 ? (
+                    Number(
+                      currentQuestion?.negative_marks ??
+                        currentQuestion?.negativeMarks ??
+                        test?.negativeMarking ??
+                        test?.negativeMarks ??
+                        DEFAULT_NEGATIVE_MARKS,
+                    ) > 0 ? (
                       <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-[10px] sm:text-[11px] font-bold shrink-0">
                         <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400 shrink-0" />
                         <span>
                           -
-                          {(
-                            test?.negativeMarking ?? DEFAULT_NEGATIVE_MARKS
+                          {Number(
+                            currentQuestion?.negative_marks ??
+                              currentQuestion?.negativeMarks ??
+                              test?.negativeMarking ??
+                              test?.negativeMarks ??
+                              DEFAULT_NEGATIVE_MARKS,
                           ).toFixed(2)}{" "}
                           for wrong
                         </span>

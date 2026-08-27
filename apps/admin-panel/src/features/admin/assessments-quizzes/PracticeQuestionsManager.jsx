@@ -2061,7 +2061,7 @@ export default function PracticeQuestionsManager() {
                       </label>
                       <input
                         type="number"
-                        step="0.25"
+                        step="any"
                         value={formData.negativeMarks}
                         onChange={(e) =>
                           setFormData((prev) => ({

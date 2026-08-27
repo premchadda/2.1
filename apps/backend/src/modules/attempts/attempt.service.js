@@ -119,7 +119,9 @@ export const attemptService = {
         ? testNegRaw
         : fallbackMarksPerQ === 2
           ? 0.5
-          : fallbackMarksPerQ * 0.25;
+          : fallbackMarksPerQ === 1
+            ? 0.33
+            : fallbackMarksPerQ * 0.25;
 
     let correct = 0,
       wrong = 0,

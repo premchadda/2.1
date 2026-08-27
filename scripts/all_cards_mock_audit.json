@@ -1,0 +1,8 @@
+[
+  {
+    "file": "apps/frontend/src/pages/tests/LiveTestResults.jsx",
+    "type": "Inline Static Array .map() or Hardcoded Card Pattern",
+    "count": 1,
+    "snippet": "<div className=\"test-results-card primary\"> <div className=\"test-results-circle\"> <svg viewBox=\"0 0 100 100\"> <..."
+  }
+]

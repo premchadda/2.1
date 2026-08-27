@@ -1758,7 +1758,9 @@ router.put("/:testId/submit", protect, async (req, res) => {
         ? testNeg
         : marksPerQuestion === 2
           ? 0.5
-          : marksPerQuestion * 0.25;
+          : marksPerQuestion === 1
+            ? 0.33
+            : marksPerQuestion * 0.25;
 
     let calculatedTotalScore = 0;
 

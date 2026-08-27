@@ -600,8 +600,11 @@ function ExamPracticeHub({
             Unlock All Practice of All Exams with Pass!
           </h3>
           <p className="text-xs text-amber-100 mt-1 max-w-lg">
-            Get unlimited access to 50,000+ questions, official PYPs, re-attempt
-            mode, and AI doubt support.
+            Get unlimited access to{" "}
+            {subjectsList[0]?.questionCount > 0
+              ? `${subjectsList[0].questionCount.toLocaleString()}+ questions,`
+              : "thousands of"}{" "}
+            official PYPs, re-attempt mode, and AI doubt support.
           </p>
 
           <div className="flex flex-wrap gap-2 mt-4">

@@ -1,0 +1,327 @@
+[
+  {
+    "file": "apps/frontend/src/pages/dashboard/AttemptedTests.jsx",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 113,
+        "snippet": "const mocks = attemptedTests.filter((t) => t.type !== \"quiz\").length;"
+      }
+    ]
+  },
+  {
+    "file": "apps/frontend/src/pages/exams/Exams.jsx",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 431,
+        "snippet": "const mockTests ="
+      }
+    ]
+  },
+  {
+    "file": "apps/frontend/src/__tests__/sharedHooks.test.jsx",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 7,
+        "snippet": "const mockClient = { get: vi.fn() }"
+      },
+      {
+        "line": 13,
+        "snippet": "const mockData = { success: true, data: [{ id: 1, name: 'Stage 1' }] }"
+      },
+      {
+        "line": 14,
+        "snippet": "const mockClient = {"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/api/routes/payments.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 355,
+        "snippet": "const mockOrderId = `order_mock_${Date.now()}_${req.user.id}`;"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/app_settings.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/BaseSeeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/exam_rooms.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/live_tests.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/questions.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/subjects.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/infrastructure/database/seeders/tests.seeder.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/modules/live/liveMock.routes.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/modules/live/liveMock.service.js",
+    "isMockFile": true,
+    "findings": []
+  },
+  {
+    "file": "apps/backend/src/modules/sessions/session.controller.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 669,
+        "snippet": "const fakeReq = {"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/services/import/enhancedImporter.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 154,
+        "snippet": "const sample = data[key][0];"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/services/import/fullTestImporter.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 1273,
+        "snippet": "const sample = Array.isArray(json)"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/attemptEvents.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 13,
+        "snippet": "const mockInsertOne = jest.fn().mockResolvedValue({ id: 1 })"
+      },
+      {
+        "line": 14,
+        "snippet": "const mockFindById = jest.fn().mockResolvedValue({ id: 42, questionText: 'Sample' })"
+      },
+      {
+        "line": 16,
+        "snippet": "const mockDbHelpers = {"
+      },
+      {
+        "line": 46,
+        "snippet": "const mockInsertOne = jest.fn().mockResolvedValue({ id: 2 })"
+      },
+      {
+        "line": 47,
+        "snippet": "const mockDbHelpers = {"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/audit.middleware.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/auth-flows.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 10,
+        "snippet": "const mockReq = (body = {}, headers = {}) => ({"
+      },
+      {
+        "line": 17,
+        "snippet": "const mockRes = () => {"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/auth.middleware.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 7,
+        "snippet": "const mockFindById = jest.fn()"
+      },
+      {
+        "line": 8,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      },
+      {
+        "line": 9,
+        "snippet": "const mockRedisGet = jest.fn()"
+      },
+      {
+        "line": 10,
+        "snippet": "const mockRedisSet = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/authRateLimiter.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockIncr = jest.fn()"
+      },
+      {
+        "line": 4,
+        "snippet": "const mockExpire = jest.fn()"
+      },
+      {
+        "line": 5,
+        "snippet": "const mockGetRedisClient = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/certificateService.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/comingSoonConfig.route.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 5,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      },
+      {
+        "line": 6,
+        "snippet": "const mockFind = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/leaderboardService.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/maintenance.middleware.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 4,
+        "snippet": "const mockGetPublicSettings = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/sessionCaptureService.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      },
+      {
+        "line": 4,
+        "snippet": "const mockGetIO = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/sessionController.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      },
+      {
+        "line": 4,
+        "snippet": "const mockInvalidateSession = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/settingsService.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockPoolQuery = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/smsService.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 3,
+        "snippet": "const mockIsFeatureEnabled = jest.fn()"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/submission.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 72,
+        "snippet": "return mockDb.attempts[idx];"
+      }
+    ]
+  },
+  {
+    "file": "apps/backend/src/__tests__/websocketEviction.test.js",
+    "isMockFile": false,
+    "findings": [
+      {
+        "line": 32,
+        "snippet": "const mockSocketsMap = new Map(["
+      }
+    ]
+  }
+]
