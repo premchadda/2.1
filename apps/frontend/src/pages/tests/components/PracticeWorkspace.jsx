@@ -224,7 +224,9 @@ export default function PracticeWorkspace({ session, onComplete }) {
               rawCheckCorrect !== null &&
               (optKey === String(rawCheckCorrect).toUpperCase() ||
                 i === Number(rawCheckCorrect) ||
-                (typeof opt === "object" ? opt.text === String(rawCheckCorrect) : String(opt) === String(rawCheckCorrect)));
+                (typeof opt === "object"
+                  ? opt.text === String(rawCheckCorrect)
+                  : String(opt) === String(rawCheckCorrect)));
 
             if (isChecked) {
               if (isCorrectOption) {

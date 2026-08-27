@@ -164,7 +164,7 @@ const resolveCorrectIndex = (q) => {
         typeof opt === "object" &&
         (opt.isCorrect === true ||
           opt.is_correct === true ||
-          opt.correct === true)
+          opt.correct === true),
     );
     if (explicitIdx >= 0) return explicitIdx;
   }
@@ -486,10 +486,7 @@ function TestInterface() {
                         }
                       : {
                           en: q.text || q.questionText || q.question || "",
-                          hi:
-                            q.questionTextHi ||
-                            q.question_text_hi ||
-                            "",
+                          hi: q.questionTextHi || q.question_text_hi || "",
                         },
                   options:
                     typeof q.options === "object" && !Array.isArray(q.options)
@@ -510,8 +507,7 @@ function TestInterface() {
                       : {
                           en: Array.isArray(q.options) ? q.options : [],
                           hi:
-                            Array.isArray(q.optionsHi) &&
-                            q.optionsHi.length > 0
+                            Array.isArray(q.optionsHi) && q.optionsHi.length > 0
                               ? q.optionsHi
                               : Array.isArray(q.options_hi) &&
                                   q.options_hi.length > 0
@@ -2603,7 +2599,8 @@ function TestInterface() {
                     {(getLocalizedField(currentQ?.options, language) || []).map(
                       (option, idx) =>
                         (() => {
-                          const resolvedCorrectIdx = resolveCorrectIndex(currentQ);
+                          const resolvedCorrectIdx =
+                            resolveCorrectIndex(currentQ);
                           const originalResponse = answers[currentQuestion];
                           const isSelected = originalResponse === idx;
                           const isCurrentCompared =

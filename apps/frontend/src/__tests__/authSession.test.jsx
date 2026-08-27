@@ -85,4 +85,3 @@ describe("applyAuthSession & auth storage (dual-storage with rememberMe)", () =>
     expect(localStorage.getItem("trstprep_user_profile")).toBeNull();
   });
 });
-

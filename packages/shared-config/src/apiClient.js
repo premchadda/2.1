@@ -84,8 +84,18 @@ export function createApiClient(options = {}) {
         delete config.headers["content-type"];
       }
 
+<<<<<<< HEAD
       // Bearer fallback: attach stored access token for cross-origin scenarios
       // where httpOnly cookies may be blocked (SameSite=None on Safari/Chrome).
+=======
+      // Ensure X-Client-App fingerprint survives per-request header overrides
+      if (!config.headers["X-Client-App"] && !config.headers["x-client-app"]) {
+        config.headers["X-Client-App"] =
+          baseHeaders["X-Client-App"] || "trstprep-web";
+      }
+
+      // Attach Authorization token if present in session/local storage for mobile/webview fallback
+>>>>>>> 52718b2 (style: apply prettier formatting on frontend files)
       if (
         !config.headers["Authorization"] &&
         !config.headers["authorization"]
@@ -197,11 +207,9 @@ export function createApiClient(options = {}) {
             const refreshPayload = fallbackRefreshToken
               ? { refreshToken: fallbackRefreshToken }
               : {};
-            const refreshRes = await instance.post(
-              refreshUrl,
-              refreshPayload,
-              { _authRefreshAttempted: true },
-            );
+            const refreshRes = await instance.post(refreshUrl, refreshPayload, {
+              _authRefreshAttempted: true,
+            });
             const newAccessToken =
               refreshRes?.data?.data?.token || refreshRes?.data?.token;
             const newRefreshToken =
@@ -225,10 +233,7 @@ export function createApiClient(options = {}) {
                 typeof localStorage !== "undefined" &&
                 localStorage.getItem("trstprep_refresh_token")
               ) {
-                localStorage.setItem(
-                  "trstprep_refresh_token",
-                  newRefreshToken,
-                );
+                localStorage.setItem("trstprep_refresh_token", newRefreshToken);
               } else if (
                 typeof sessionStorage !== "undefined" &&
                 sessionStorage.getItem("trstprep_refresh_token")

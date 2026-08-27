@@ -316,7 +316,9 @@ export default function Leaderboard() {
     // Align with backend leaderboardService: ((total - rank) / (total - 1)) * 100
     const percentile =
       totalParticipants > 1
-        ? Math.round(((totalParticipants - rankNum) / (totalParticipants - 1)) * 100)
+        ? Math.round(
+            ((totalParticipants - rankNum) / (totalParticipants - 1)) * 100,
+          )
         : 100;
 
     const usersAbove = rankings.slice(0, userIndex);
@@ -1207,7 +1209,8 @@ export default function Leaderboard() {
                         {s.subject}
                       </p>
                       <span className="text-xs text-gray-500 dark:text-gray-400 font-semibold">
-                        {s.solved} solved {s.avgPeer != null ? `• peer avg ${s.avgPeer}` : ""}
+                        {s.solved} solved{" "}
+                        {s.avgPeer != null ? `• peer avg ${s.avgPeer}` : ""}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1220,7 +1223,9 @@ export default function Leaderboard() {
                               fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
-                            {s.avgPeer != null ? `${s.solved} vs ${s.avgPeer}` : s.solved}
+                            {s.avgPeer != null
+                              ? `${s.solved} vs ${s.avgPeer}`
+                              : s.solved}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
@@ -1241,7 +1246,9 @@ export default function Leaderboard() {
                               fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
-                            {s.peerAccuracy != null ? `${s.accuracy}% vs ${s.peerAccuracy}%` : `${s.accuracy}%`}
+                            {s.peerAccuracy != null
+                              ? `${s.accuracy}% vs ${s.peerAccuracy}%`
+                              : `${s.accuracy}%`}
                           </span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">

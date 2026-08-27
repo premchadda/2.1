@@ -1912,7 +1912,9 @@ function TestResult() {
                       q.correct ??
                       q.answer;
                     const correctAnswer =
-                      rawCorrect !== undefined && rawCorrect !== null && rawCorrect !== ""
+                      rawCorrect !== undefined &&
+                      rawCorrect !== null &&
+                      rawCorrect !== ""
                         ? Number(rawCorrect)
                         : null;
                     const questionNum =
