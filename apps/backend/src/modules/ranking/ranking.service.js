@@ -132,14 +132,24 @@ const rankingService = {
             THEN ROUND(SUM(uts.correct_answers)::numeric / SUM(uts.total_attempts) * 100, 2)
             ELSE 0
           END as accuracy,
-          RANK() OVER (ORDER BY SUM(uts.correct_answers) DESC) as rank
+          RANK() OVER (
+            ORDER BY (
+              CASE
+                WHEN SUM(uts.total_attempts) > 0
+                THEN (SUM(uts.correct_answers)::numeric / SUM(uts.total_attempts) * 100)
+                ELSE 0
+              END
+            ) DESC,
+            SUM(uts.correct_answers) DESC,
+            SUM(uts.total_attempts) DESC
+          ) as rank
         FROM users u
         JOIN user_topic_stats uts ON uts.user_id = u.id
         JOIN subject_topics t ON (t.id = uts.topic_id OR (uts.topic_id IS NULL AND LOWER(t.name) = LOWER(uts.topic)))
         WHERE t.subject_id = $1
           AND uts.total_attempts > 0
         GROUP BY u.id, u.name, u.avatar_url
-        ORDER BY correct_answers DESC
+        ORDER BY accuracy DESC, correct_answers DESC, total_questions DESC
         LIMIT $2
       `,
         [subjectId, limit],
@@ -176,7 +186,7 @@ const rankingService = {
           RANK() OVER (ORDER BY AVG(CASE WHEN a.total_marks > 0
             THEN a.score / a.total_marks * 100
             ELSE 0
-          END) DESC) as rank
+          END) DESC, COUNT(DISTINCT a.id) DESC) as rank
         FROM users u
         JOIN attempts a ON a.user_id = u.id
         JOIN tests t ON t.id = a.test_id
@@ -184,7 +194,7 @@ const rankingService = {
           AND a.is_active = true
           AND t.exam_id = $1
         GROUP BY u.id, u.name, u.avatar_url
-        ORDER BY avg_percentage DESC
+        ORDER BY avg_percentage DESC, total_tests DESC
         LIMIT $2
       `,
         [examId, limit],
