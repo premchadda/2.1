@@ -219,7 +219,9 @@ function TestResult() {
                     : rawMarks > 0
                       ? rawMarks === 2
                         ? 0.5
-                        : rawMarks * 0.25
+                        : rawMarks === 1
+                          ? 0.33
+                          : Number((rawMarks * 0.25).toFixed(2))
                       : 0.5,
               );
 
@@ -491,7 +493,9 @@ function TestResult() {
         (defaultMarks > 0
           ? defaultMarks === 2
             ? 0.5
-            : defaultMarks * 0.25
+            : defaultMarks === 1
+              ? 0.33
+              : Number((defaultMarks * 0.25).toFixed(2))
           : 0.5),
     );
 
@@ -513,7 +517,9 @@ function TestResult() {
             ? defaultNeg
             : qMarks === 2
               ? 0.5
-              : qMarks * 0.25,
+              : qMarks === 1
+                ? 0.33
+                : Number((qMarks * 0.25).toFixed(2)),
       );
 
       if (!breakdown[section]) {

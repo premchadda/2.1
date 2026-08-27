@@ -48,8 +48,14 @@ function AnimatedCounter({ end, duration = 1500, suffix = "" }) {
 
   return (
     <span ref={countRef}>
-      {count > 0 ? count.toLocaleString() : hasStarted ? end : 0}
-      {suffix}
+      {end === null || end === undefined
+        ? "—"
+        : count > 0
+          ? count.toLocaleString()
+          : hasStarted
+            ? end
+            : 0}
+      {end !== null && end !== undefined && suffix}
     </span>
   );
 }
@@ -82,7 +88,9 @@ function StatsSection({
               Numbers that speak for us
             </h2>
             <p className="text-purple-200/70 text-xs sm:text-sm">
-              Join millions of aspirants preparing with Trstprep
+              {totalActiveLearnersCount > 0
+                ? `Join ${totalActiveLearnersCount.toLocaleString()}+ aspirants preparing with Trstprep`
+                : "Join aspirants preparing with Trstprep"}
             </p>
           </div>
         </ScrollReveal>
@@ -91,7 +99,7 @@ function StatsSection({
           {[
             {
               value: totalActiveLearnersCount,
-              suffix: totalActiveLearnersCount >= 1000 ? "K+" : "+",
+              suffix: totalActiveLearnersCount > 0 ? "+" : "",
               label: "Active Learners",
               icon: Users,
               color: "from-blue-500/20 to-indigo-500/20",
@@ -99,7 +107,7 @@ function StatsSection({
             },
             {
               value: totalMockTestsCount,
-              suffix: "+",
+              suffix: totalMockTestsCount > 0 ? "+" : "",
               label: "Mock Tests",
               icon: Target,
               color: "from-purple-500/20 to-pink-500/20",
@@ -107,7 +115,7 @@ function StatsSection({
             },
             {
               value: totalCategoriesCount,
-              suffix: "+",
+              suffix: totalCategoriesCount > 0 ? "+" : "",
               label: "Exam Categories",
               icon: BookOpen,
               color: "from-amber-500/20 to-orange-500/20",

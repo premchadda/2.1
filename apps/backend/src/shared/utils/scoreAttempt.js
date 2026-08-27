@@ -22,7 +22,14 @@ export function resolveQuestionMarks(question, testDefaults = {}) {
       testDefaults.negative_marks ??
       0,
   );
-  const negative = negRaw > 0 ? negRaw : positive === 2 ? 0.5 : positive * 0.25;
+  const negative =
+    negRaw > 0
+      ? negRaw
+      : positive === 2
+        ? 0.5
+        : positive === 1
+          ? 0.33
+          : Number((positive * 0.25).toFixed(2));
   return { positive, negative };
 }
 

@@ -94,6 +94,7 @@ function Login() {
   const [platformStats, setPlatformStats] = useState({
     activeLearners: 0,
     mockTests: 0,
+    satisfaction: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -118,6 +119,7 @@ function Login() {
           setPlatformStats({
             activeLearners: stats.activeLearners || 0,
             mockTests: stats.mockTests || 0,
+            satisfaction: stats.satisfaction ?? null,
           });
         }
       } catch (error) {
@@ -817,7 +819,9 @@ function Login() {
               </div>
               <div className="text-center">
                 <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-white">
-                  {platformStats.activeLearners > 0 ? "4.9⭐" : "⭐"}
+                  {platformStats.satisfaction != null
+                    ? `${Number(platformStats.satisfaction).toFixed(1)}⭐`
+                    : "—"}
                 </div>
                 <div className="text-white/70 text-sm">Rating</div>
               </div>

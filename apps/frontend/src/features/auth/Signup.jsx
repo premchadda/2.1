@@ -48,10 +48,8 @@ function Signup() {
         const stats = await getPublicStats();
         if (stats) {
           setPlatformStats({
-            activeLearners: stats.activeLearners
-              ? String(stats.activeLearners).replace("L+", " Lakh+")
-              : "5 Lakh+",
-            mockTests: stats.mockTests || "50+",
+            activeLearners: Number(stats.activeLearners) || 0,
+            mockTests: Number(stats.mockTests) || 0,
           });
         }
       } catch (error) {
@@ -526,7 +524,9 @@ function Signup() {
           <div className="max-w-lg text-center p-8">
             <div className="text-8xl mb-8 animate-float">🚀</div>
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-4 animate-slide-up">
-              Join {platformStats.activeLearners} Students
+              {platformStats.activeLearners > 0
+                ? `Join ${platformStats.activeLearners.toLocaleString()} Students`
+                : "Join Students"}
             </h2>
             <p
               className="text-white/80 text-lg mb-8 animate-slide-up"
@@ -542,7 +542,11 @@ function Signup() {
               style={{ animationDelay: "0.2s" }}
             >
               {[
-                `${platformStats.mockTests} Free Mock Tests`,
+                `${
+                  platformStats.mockTests > 0
+                    ? `${platformStats.mockTests.toLocaleString()} Free Mock Tests`
+                    : "Free Mock Tests"
+                }`,
                 "Detailed Performance Analysis",
                 "All India Ranking",
                 "Free Study Materials",

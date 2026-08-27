@@ -431,16 +431,16 @@ function Exams() {
     const mockTests =
       publicStats?.mockTests ||
       allExams.reduce((sum, e) => sum + (e.totalTests || e.testsCount || 0), 0);
-    const activeLearners = publicStats?.activeLearners || 25;
+    const activeLearners = publicStats?.activeLearners || 0;
     const freeTestsCount = allExams.reduce(
       (sum, e) => sum + (e.freeTests || 0),
       0,
     );
 
     return {
-      exams: examsCount > 0 ? `${examsCount}` : "2+",
-      tests: mockTests > 0 ? `${mockTests}+` : "0+",
-      aspirants: activeLearners > 0 ? `${activeLearners}+` : "25+",
+      exams: examsCount > 0 ? `${examsCount}` : "0",
+      tests: mockTests > 0 ? `${mockTests}+` : "0",
+      aspirants: activeLearners > 0 ? `${activeLearners}+` : "0",
       free: freeTestsCount > 0 ? `${freeTestsCount}` : "Free",
     };
   }, [allExams, examCategories, publicStats]);
@@ -726,8 +726,18 @@ function Exams() {
                   Practice mocks without spending a single rupee.
                 </h2>
                 <p className="text-indigo-200/70 text-xs md:text-sm max-w-[95vw] sm:max-w-xl mb-5 md:mb-8">
-                  Get access to 10K+ verified questions under the most realistic
-                  test interface in the industry.
+                  {(() => {
+                    const qCount = Number(publicStats?.practiceQuestions) || 0;
+                    const tests = Number(publicStats?.mockTests) || 0;
+                    if (qCount > 0 && tests > 0) {
+                      const qLabel =
+                        qCount >= 1000
+                          ? `${(qCount / 1000).toFixed(qCount % 1000 === 0 ? 0 : 1)}K+`
+                          : `${qCount}+`;
+                      return `Get access to ${qLabel} verified questions across ${tests}+ mock tests under the most realistic test interface in the industry.`;
+                    }
+                    return "Practice mocks under the most realistic test interface in the industry. Explore verified questions from the question bank.";
+                  })()}
                 </p>
                 <div className="flex flex-wrap gap-3 justify-center md:justify-start">
                   <Link

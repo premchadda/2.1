@@ -9,6 +9,7 @@ import {
   Clock,
   FileText,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import api from "../../shared/lib/dataService";
 
@@ -16,6 +17,7 @@ export default function ExamCompare() {
   const { examId } = useParams();
   const [examData, setExamData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
   const [selectedYears, _setSelectedYears] = useState(["2026", "2025"]);
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export default function ExamCompare() {
   const fetchExamData = async (signal) => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const response = await api.get(
         `/api/exams/${examId}/compare?years=${selectedYears.join(",")}`,
         { signal },
@@ -35,70 +38,39 @@ export default function ExamCompare() {
       if (response.data?.success) {
         setExamData(response.data.data);
       } else {
-        setExamData(getSampleData());
+        setExamData(null);
+        setErrorMessage(
+          response.data?.message ||
+            "Comparison data is not available for this exam yet.",
+        );
       }
     } catch (error) {
       if (error.name !== "AbortError") {
         console.error("Failed to fetch exam compare data:", error);
-        setExamData(getSampleData());
+        setExamData(null);
+        setErrorMessage(
+          "Comparison data could not be loaded. Please try again.",
+        );
       }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
   };
 
-  const getSampleData = () => ({
-    examName: examId.replace(/-/g, " ").toUpperCase(),
-    years: [
-      {
-        year: "2026",
-        notification: "June 2025",
-        applicationStart: "2025-07-01",
-        applicationEnd: "2025-07-25",
-        examDate: "2025-09-15",
-        vacancy: 9374,
-        eligibility: "Bachelor's degree",
-        ageLimit: "18-32 years",
-        papers: 2,
-        totalMarks: 400,
-      },
-      {
-        year: "2025",
-        notification: "June 2024",
-        applicationStart: "2024-07-01",
-        applicationEnd: "2024-07-25",
-        examDate: "2024-09-15",
-        vacancy: 8500,
-        eligibility: "Bachelor's degree",
-        ageLimit: "18-32 years",
-        papers: 2,
-        totalMarks: 400,
-      },
-      {
-        year: "2024",
-        notification: "June 2023",
-        applicationStart: "2023-07-01",
-        applicationEnd: "2023-07-25",
-        examDate: "2023-09-15",
-        vacancy: 7500,
-        eligibility: "Bachelor's degree",
-        ageLimit: "18-32 years",
-        papers: 2,
-        totalMarks: 400,
-      },
-    ],
-    comparisonFields: [
-      { label: "Notification Date", key: "notification" },
-      { label: "Application Start", key: "applicationStart", isDate: true },
-      { label: "Application End", key: "applicationEnd", isDate: true },
-      { label: "Exam Date", key: "examDate", isDate: true },
-      { label: "Total Vacancy", key: "vacancy", isNumber: true },
-      { label: "Eligibility", key: "eligibility" },
-      { label: "Age Limit", key: "ageLimit" },
-      { label: "Number of Papers", key: "papers", isNumber: true },
-      { label: "Total Marks", key: "totalMarks", isNumber: true },
-    ],
-  });
+  const getRetry = () => {
+    const controller = new AbortController();
+    setLoading(true);
+    fetchExamData(controller.signal).finally(() => setLoading(false));
+  };
+
+  const comparisonFields = [
+    { label: "Notification Date", key: "notificationDate" },
+    { label: "Application Start", key: "applicationStart", isDate: true },
+    { label: "Application End", key: "applicationEnd", isDate: true },
+    { label: "Exam Date", key: "examDateStart", isDate: true },
+    { label: "Result Date", key: "resultDate", isDate: true },
+    { label: "Total Vacancy", key: "vacancies", isNumber: true },
+  ];
 
   const getValue = (yearData, field) => {
     if (!yearData) return "-";
@@ -179,6 +151,26 @@ export default function ExamCompare() {
               ))}
             </div>
           </div>
+        ) : errorMessage ||
+          !Array.isArray(examData) ||
+          examData.length === 0 ? (
+          /* Error / Empty State — no fabricated fallback data */
+          <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden p-8 text-center">
+            <AlertCircle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Comparison data unavailable
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+              {errorMessage ||
+                "Yearly comparison data has not been published for this exam yet."}
+            </p>
+            <button
+              onClick={getRetry}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg hover:bg-indigo-700 transition"
+            >
+              Try Again
+            </button>
+          </div>
         ) : (
           /* Comparison Table */
           <div className="bg-white dark:bg-gray-800 rounded-xl overflow-hidden">
@@ -189,9 +181,9 @@ export default function ExamCompare() {
                     <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 dark:text-white">
                       Parameter
                     </th>
-                    {examData?.years?.map((year) => (
+                    {examData.map((year) => (
                       <th
-                        key={year.year}
+                        key={String(year.year)}
                         className="px-6 py-4 text-center text-sm font-semibold text-gray-900 dark:text-white"
                       >
                         <div className="flex flex-col items-center">
@@ -208,7 +200,7 @@ export default function ExamCompare() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {examData?.comparisonFields?.map((field, idx) => (
+                  {comparisonFields.map((field, idx) => (
                     <tr
                       key={field.key}
                       className={
@@ -219,7 +211,7 @@ export default function ExamCompare() {
                     >
                       <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                         <div className="flex items-center gap-2">
-                          {field.key === "eligibility" ? (
+                          {field.key === "vacancies" ? (
                             <Check className="w-4 h-4 text-green-500" />
                           ) : null}
                           {field.key === "ageLimit" ? (
@@ -228,11 +220,11 @@ export default function ExamCompare() {
                           {field.label}
                         </div>
                       </td>
-                      {examData?.years?.map((year, yearIdx) => {
+                      {examData.map((year, yearIdx) => {
                         const currentValue = getValue(year, field);
                         const previousValue =
-                          yearIdx < examData.years.length - 1
-                            ? getValue(examData.years[yearIdx + 1], field)
+                          yearIdx < examData.length - 1
+                            ? getValue(examData[yearIdx + 1], field)
                             : null;
                         const change = getChangeIndicator(
                           currentValue,
@@ -240,7 +232,10 @@ export default function ExamCompare() {
                         );
 
                         return (
-                          <td key={year.year} className="px-6 py-4 text-center">
+                          <td
+                            key={String(year.year)}
+                            className="px-6 py-4 text-center"
+                          >
                             <div className="flex items-center justify-center gap-2">
                               <span className="text-sm text-gray-600 dark:text-gray-300">
                                 {currentValue}

@@ -312,7 +312,7 @@ function Home() {
       ? examCategories.length
       : platformStats.examsCovered > 0
         ? platformStats.examsCovered
-        : 2;
+        : 0;
   }, [examCategories, platformStats.examsCovered]);
 
   const totalActiveLearnersCount = useMemo(() => {
@@ -324,7 +324,7 @@ function Home() {
           : Number(s.users) || 0;
       return sum + u;
     }, 0);
-    return enrolledUsersSum > 0 ? enrolledUsersSum : 16;
+    return enrolledUsersSum > 0 ? enrolledUsersSum : 0;
   }, [platformStats.activeLearners, testSeriesWithStats]);
 
   const getExamIcon = (categoryId) => {

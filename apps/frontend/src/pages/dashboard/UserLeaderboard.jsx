@@ -183,28 +183,24 @@ export default function UserLeaderboard() {
 
       // Set current user profile from real analytics
       if (analytics) {
-        const rank =
-          analytics.rank !== null && analytics.rank !== undefined
-            ? `#${analytics.rank}`
-            : "-";
+        const rank = analytics.rank ?? null;
         const percentile =
           analytics.percentile !== null && analytics.percentile !== undefined
             ? analytics.percentile
-            : 0;
+            : null;
         const streak =
           analytics.streak !== null && analytics.streak !== undefined
             ? analytics.streak
             : 0;
-        const examCategory =
-          analytics.strongSubjects?.[0]?.name || "General Prep";
+        const examCategory = analytics.strongSubjects?.[0]?.name || "—";
 
         setCurrentUser({
-          name: user.name || analytics.name || "Student",
+          name: user.name || analytics.name || "—",
           handle:
             user.handle || "@" + (user.email || "").split("@")[0] || "user",
-          avatar: user.initialials ? user.initialials.substring(0, 2) : "U",
+          avatar: user.initialials ? user.initialials.substring(0, 2) : "—",
           overallRank: rank,
-          totalUsers: analytics.totalUsers || 12450,
+          totalUsers: analytics.totalUsers ?? null,
           percentile,
           streak,
           examCategory,
@@ -220,10 +216,13 @@ export default function UserLeaderboard() {
             name: a.title || a.testTitle || "Test",
             date: a.submittedAt || a.date,
             score: a.score || 0,
-            maxScore: a.totalMarks || 200,
-            rank: a.rank !== "-" && a.rank !== null ? `#${a.rank}` : "-",
-            totalParticipants: a.totalParticipants || 0,
-            percentile: a.percentile !== null ? analytics.percentile || 0 : 0,
+            maxScore: a.totalMarks ?? null,
+            rank:
+              a.rank !== "-" && a.rank !== null && a.rank !== undefined
+                ? `#${a.rank}`
+                : "—",
+            totalParticipants: a.totalParticipants ?? null,
+            percentile: a.percentile ?? analytics.percentile ?? null,
             timeTaken:
               a.timeTaken ||
               (a.timeSpent ? `${Math.round(a.timeSpent / 60)}m` : null),
@@ -253,7 +252,7 @@ export default function UserLeaderboard() {
         const radar = analytics.subjectWise.map((s) => ({
           subject: s.name || s.subject || "Subject",
           you: s.accuracy !== null ? s.accuracy : 0,
-          peer: 0, // peer avg not available from this endpoint; will show your accuracy
+          peer: null,
         }));
         setRadarData(radar);
       }
@@ -437,18 +436,22 @@ export default function UserLeaderboard() {
                     className="w-11 h-11 rounded-xl bg-cyan-400/10 border border-cyan-400/30 flex items-center justify-center text-cyan-300 font-black text-sm shadow-inner"
                     style={{ fontFamily: "'JetBrains Mono', monospace" }}
                   >
-                    #{currentUser?.overallRank || 1}
+                    {currentUser?.overallRank != null
+                      ? `#${currentUser.overallRank}`
+                      : "—"}
                   </div>
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                       Overall Rank
                     </p>
                     <p className="text-xs font-black text-white whitespace-nowrap">
-                      of {(currentUser?.totalUsers || 4).toLocaleString()}{" "}
-                      aspirants ·{" "}
+                      {currentUser?.totalUsers != null
+                        ? `of ${currentUser.totalUsers.toLocaleString()} aspirants · `
+                        : "Participant data unavailable · "}
                       <span className="text-cyan-300">
                         Top{" "}
-                        {currentUser?.overallRank && currentUser?.totalUsers
+                        {currentUser?.overallRank != null &&
+                        currentUser?.totalUsers
                           ? Math.max(
                               1,
                               Math.min(
@@ -460,8 +463,11 @@ export default function UserLeaderboard() {
                                 ),
                               ),
                             )
-                          : 25}
-                        %
+                          : "—"}
+                        {currentUser?.overallRank != null &&
+                        currentUser?.totalUsers
+                          ? "%"
+                          : ""}
                       </span>
                     </p>
                   </div>
@@ -644,7 +650,7 @@ export default function UserLeaderboard() {
 
               <GlassCard className="p-5">
                 <h3 className="text-sm font-semibold text-white mb-4">
-                  You vs Peer Average
+                  Subject Accuracy
                 </h3>
                 <ResponsiveContainer width="100%" height={220}>
                   {radarData.length > 0 ? (
@@ -662,15 +668,6 @@ export default function UserLeaderboard() {
                         fill="#22d3ee"
                         fillOpacity={0.3}
                       />
-                      {radarData.length > 0 && (
-                        <Radar
-                          name="Your Accuracy"
-                          dataKey="you"
-                          stroke="#22d3ee"
-                          fill="#22d3ee"
-                          fillOpacity={0.15}
-                        />
-                      )}
                     </RadarChart>
                   ) : (
                     <p className="text-xs text-slate-500 mt-1">
@@ -822,7 +819,7 @@ export default function UserLeaderboard() {
                               fontFamily: "'JetBrains Mono', monospace",
                             }}
                           >
-                            {t.score}/{t.maxScore}
+                            {t.score}/{t.maxScore ?? "—"}
                           </td>
                           <td className="py-3">
                             <span className="text-cyan-300 font-medium">
@@ -830,11 +827,13 @@ export default function UserLeaderboard() {
                             </span>
                             <span className="text-slate-500 text-xs">
                               {" "}
-                              /{t.totalParticipants.toLocaleString()}
+                              {t.totalParticipants != null
+                                ? ` /${t.totalParticipants.toLocaleString()}`
+                                : ""}
                             </span>
                           </td>
                           <td className="py-3 text-slate-300">
-                            {t.percentile}%
+                            {t.percentile != null ? `${t.percentile}%` : "—"}
                           </td>
                           <td className="py-3">
                             <div className="flex items-center gap-2">

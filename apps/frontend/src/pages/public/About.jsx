@@ -168,7 +168,9 @@ export default function About() {
             Start Your Journey Today
           </h2>
           <p className="text-indigo-100 mb-8 text-lg">
-            Join thousands of successful students
+            {stats[0]?.value > 0
+              ? `Join ${Number(stats[0].value).toLocaleString()}+ successful students`
+              : "Join successful students preparing for their dream careers"}
           </p>
           <a
             href="/signup"

@@ -1,0 +1,3453 @@
+[
+  {
+    "oldId": 432,
+    "newId": 1,
+    "title": "CGL Tier I - English - Sectional Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 428,
+    "newId": 2,
+    "title": "CGL Tier I - English - Sectional Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 425,
+    "newId": 3,
+    "title": "CGL Tier I - English - Sectional Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 439,
+    "newId": 4,
+    "title": "CGL Tier I - English - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 435,
+    "newId": 5,
+    "title": "CGL Tier I - English - Sectional Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 436,
+    "newId": 6,
+    "title": "CGL Tier I - English - Sectional Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 440,
+    "newId": 7,
+    "title": "CGL Tier I - English - Sectional Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 449,
+    "newId": 8,
+    "title": "CGL Tier I - English - Sectional Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 454,
+    "newId": 9,
+    "title": "CGL Tier I - English - Sectional Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 447,
+    "newId": 10,
+    "title": "CGL Tier I - English - Sectional Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 448,
+    "newId": 11,
+    "title": "CGL Tier I - GA - Sectional Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 452,
+    "newId": 12,
+    "title": "CGL Tier I - GA - Sectional Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 442,
+    "newId": 13,
+    "title": "CGL Tier I - GA - Sectional Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 424,
+    "newId": 14,
+    "title": "CGL Tier I - GA - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 464,
+    "newId": 15,
+    "title": "CGL Tier I - GA - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 420,
+    "newId": 16,
+    "title": "CGL Tier I - GA - Sectional Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 457,
+    "newId": 17,
+    "title": "CGL Tier I - GA - Sectional Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 453,
+    "newId": 18,
+    "title": "CGL Tier I - GA - Sectional Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 422,
+    "newId": 19,
+    "title": "CGL Tier I - GA - Sectional Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 461,
+    "newId": 20,
+    "title": "CGL Tier I - GA - Sectional Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 462,
+    "newId": 21,
+    "title": "CGL Tier I - GA - Sectional Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 455,
+    "newId": 22,
+    "title": "CGL Tier I - GA - Sectional Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 459,
+    "newId": 23,
+    "title": "CGL Tier I - GA - Sectional Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 427,
+    "newId": 24,
+    "title": "CGL Tier I - Quant - Sectional Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 426,
+    "newId": 25,
+    "title": "CGL Tier I - Quant - Sectional Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 429,
+    "newId": 26,
+    "title": "CGL Tier I - Quant - Sectional Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 430,
+    "newId": 27,
+    "title": "CGL Tier I - Quant - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 433,
+    "newId": 28,
+    "title": "CGL Tier I - Quant - Sectional Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 438,
+    "newId": 29,
+    "title": "CGL Tier I - Quant - Sectional Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 444,
+    "newId": 30,
+    "title": "CGL Tier I - Quant - Sectional Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 431,
+    "newId": 31,
+    "title": "CGL Tier I - Quant - Sectional Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 437,
+    "newId": 32,
+    "title": "CGL Tier I - Quant - Sectional Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 434,
+    "newId": 33,
+    "title": "CGL Tier I - Quant - Sectional Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 460,
+    "newId": 34,
+    "title": "CGL Tier I - Reasoning - Sectional Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 421,
+    "newId": 35,
+    "title": "CGL Tier I - Reasoning - Sectional Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 445,
+    "newId": 36,
+    "title": "CGL Tier I - Reasoning - Sectional Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 451,
+    "newId": 37,
+    "title": "CGL Tier I - Reasoning - Sectional Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 423,
+    "newId": 38,
+    "title": "CGL Tier I - Reasoning - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 463,
+    "newId": 39,
+    "title": "CGL Tier I - Reasoning - Sectional Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 441,
+    "newId": 40,
+    "title": "CGL Tier I - Reasoning - Sectional Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 443,
+    "newId": 41,
+    "title": "CGL Tier I - Reasoning - Sectional Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 456,
+    "newId": 42,
+    "title": "CGL Tier I - Reasoning - Sectional Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 458,
+    "newId": 43,
+    "title": "CGL Tier I - Reasoning - Sectional Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 446,
+    "newId": 44,
+    "title": "CGL Tier I - Reasoning - Sectional Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 450,
+    "newId": 45,
+    "title": "CGL Tier I - Reasoning - Sectional Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 407,
+    "newId": 46,
+    "title": "SSC CGL Tier I 2025 - Free Test",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 396,
+    "newId": 47,
+    "title": "SSC CGL Tier I 2025 - Full Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 402,
+    "newId": 48,
+    "title": "SSC CGL Tier I 2025 - Full Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 415,
+    "newId": 49,
+    "title": "SSC CGL Tier I 2025 - Full Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 417,
+    "newId": 50,
+    "title": "SSC CGL Tier I 2025 - Full Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 405,
+    "newId": 51,
+    "title": "SSC CGL Tier I 2025 - Full Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 412,
+    "newId": 52,
+    "title": "SSC CGL Tier I 2025 - Full Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 401,
+    "newId": 53,
+    "title": "SSC CGL Tier I 2025 - Full Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 406,
+    "newId": 54,
+    "title": "SSC CGL Tier I 2025 - Full Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 397,
+    "newId": 55,
+    "title": "SSC CGL Tier I 2025 - Full Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 394,
+    "newId": 56,
+    "title": "SSC CGL Tier I 2025 - Full Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 399,
+    "newId": 57,
+    "title": "SSC CGL Tier I 2025 - Full Test 11",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 409,
+    "newId": 58,
+    "title": "SSC CGL Tier I 2025 - Full Test 12",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 403,
+    "newId": 59,
+    "title": "SSC CGL Tier I 2025 - Full Test 13",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 413,
+    "newId": 60,
+    "title": "SSC CGL Tier I 2025 - Full Test 14",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 408,
+    "newId": 61,
+    "title": "SSC CGL Tier I 2025 - Full Test 15",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 411,
+    "newId": 62,
+    "title": "SSC CGL Tier I 2025 - Full Test 16",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 414,
+    "newId": 63,
+    "title": "SSC CGL Tier I 2025 - Full Test 17",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 416,
+    "newId": 64,
+    "title": "SSC CGL Tier I 2025 - Full Test 18",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 418,
+    "newId": 65,
+    "title": "SSC CGL Tier I 2025 - Full Test 19",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 410,
+    "newId": 66,
+    "title": "SSC CGL Tier I 2025 - Full Test 20",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 384,
+    "newId": 67,
+    "title": "SSC CGL Tier I 2026 - Free Mock Test",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 379,
+    "newId": 68,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 380,
+    "newId": 69,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 385,
+    "newId": 70,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 387,
+    "newId": 71,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 381,
+    "newId": 72,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 5",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 386,
+    "newId": 73,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 6",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 392,
+    "newId": 74,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 7",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 383,
+    "newId": 75,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 8",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 378,
+    "newId": 76,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 9",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 390,
+    "newId": 77,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 10",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 389,
+    "newId": 78,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 11",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 382,
+    "newId": 79,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 12",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 393,
+    "newId": 80,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 13",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 388,
+    "newId": 81,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 14",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 391,
+    "newId": 82,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 15",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 398,
+    "newId": 83,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 16",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 400,
+    "newId": 84,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 17",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 404,
+    "newId": 85,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 18",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 395,
+    "newId": 86,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 19",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 419,
+    "newId": 87,
+    "title": "SSC CGL Tier I 2026 - Full Mock Test 20",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 325,
+    "newId": 88,
+    "title": "SSC CGL 2019 Tier 1 - 4 June 2019 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 328,
+    "newId": 89,
+    "title": "SSC CGL 2019 Tier 1 - 4 June 2019 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 331,
+    "newId": 90,
+    "title": "SSC CGL 2019 Tier 1 - 4 June 2019 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 343,
+    "newId": 91,
+    "title": "SSC CGL 2019 Tier 1 - 6 June 2019 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 334,
+    "newId": 92,
+    "title": "SSC CGL 2019 Tier 1 - 6 June 2019 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 336,
+    "newId": 93,
+    "title": "SSC CGL 2019 Tier 1 - 6 June 2019 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 344,
+    "newId": 94,
+    "title": "SSC CGL 2019 Tier 1 - 7 June 2019 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 346,
+    "newId": 95,
+    "title": "SSC CGL 2019 Tier 1 - 7 June 2019 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 277,
+    "newId": 96,
+    "title": "SSC CGL 2019 Tier 1 - 10 June 2019 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 279,
+    "newId": 97,
+    "title": "SSC CGL 2019 Tier 1 - 11 June 2019 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 276,
+    "newId": 98,
+    "title": "SSC CGL 2019 Tier 1 - 12 June 2019 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 278,
+    "newId": 99,
+    "title": "SSC CGL 2019 Tier 1 - 13 June 2019 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 324,
+    "newId": 100,
+    "title": "SSC CGL 2020 Tier 1 - 3 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 326,
+    "newId": 101,
+    "title": "SSC CGL 2020 Tier 1 - 3 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 330,
+    "newId": 102,
+    "title": "SSC CGL 2020 Tier 1 - 3 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 332,
+    "newId": 103,
+    "title": "SSC CGL 2020 Tier 1 - 4 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 335,
+    "newId": 104,
+    "title": "SSC CGL 2020 Tier 1 - 4 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 333,
+    "newId": 105,
+    "title": "SSC CGL 2020 Tier 1 - 4 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 337,
+    "newId": 106,
+    "title": "SSC CGL 2020 Tier 1 - 5 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 338,
+    "newId": 107,
+    "title": "SSC CGL 2020 Tier 1 - 5 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 340,
+    "newId": 108,
+    "title": "SSC CGL 2020 Tier 1 - 5 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 339,
+    "newId": 109,
+    "title": "SSC CGL 2020 Tier 1 - 6 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 341,
+    "newId": 110,
+    "title": "SSC CGL 2020 Tier 1 - 6 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 345,
+    "newId": 111,
+    "title": "SSC CGL 2020 Tier 1 - 6 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 347,
+    "newId": 112,
+    "title": "SSC CGL 2020 Tier 1 - 7 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 342,
+    "newId": 113,
+    "title": "SSC CGL 2020 Tier 1 - 7 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 349,
+    "newId": 114,
+    "title": "SSC CGL 2020 Tier 1 - 7 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 348,
+    "newId": 115,
+    "title": "SSC CGL 2020 Tier 1 - 9 March 2020 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 350,
+    "newId": 116,
+    "title": "SSC CGL 2020 Tier 1 - 9 March 2020 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 351,
+    "newId": 117,
+    "title": "SSC CGL 2020 Tier 1 - 9 March 2020 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 176,
+    "newId": 118,
+    "title": "SSC CGL 2021 Tier 1 - 13 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 178,
+    "newId": 119,
+    "title": "SSC CGL 2021 Tier 1 - 13 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 181,
+    "newId": 120,
+    "title": "SSC CGL 2021 Tier 1 - 13 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 186,
+    "newId": 121,
+    "title": "SSC CGL 2021 Tier 1 - 16 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 189,
+    "newId": 122,
+    "title": "SSC CGL 2021 Tier 1 - 16 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 192,
+    "newId": 123,
+    "title": "SSC CGL 2021 Tier 1 - 16 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 195,
+    "newId": 124,
+    "title": "SSC CGL 2021 Tier 1 - 17 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 188,
+    "newId": 125,
+    "title": "SSC CGL 2021 Tier 1 - 17 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 191,
+    "newId": 126,
+    "title": "SSC CGL 2021 Tier 1 - 17 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 204,
+    "newId": 127,
+    "title": "SSC CGL 2021 Tier 1 - 18 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 207,
+    "newId": 128,
+    "title": "SSC CGL 2021 Tier 1 - 18 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 210,
+    "newId": 129,
+    "title": "SSC CGL 2021 Tier 1 - 18 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 229,
+    "newId": 130,
+    "title": "SSC CGL 2021 Tier 1 - 20 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 231,
+    "newId": 131,
+    "title": "SSC CGL 2021 Tier 1 - 20 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 234,
+    "newId": 132,
+    "title": "SSC CGL 2021 Tier 1 - 20 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 242,
+    "newId": 133,
+    "title": "SSC CGL 2021 Tier 1 - 23 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 245,
+    "newId": 134,
+    "title": "SSC CGL 2021 Tier 1 - 23 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 243,
+    "newId": 135,
+    "title": "SSC CGL 2021 Tier 1 - 23 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 255,
+    "newId": 136,
+    "title": "SSC CGL 2021 Tier 1 - 24 Aug 2021 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 244,
+    "newId": 137,
+    "title": "SSC CGL 2021 Tier 1 - 24 Aug 2021 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 247,
+    "newId": 138,
+    "title": "SSC CGL 2021 Tier 1 - 24 Aug 2021 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 360,
+    "newId": 139,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 354,
+    "newId": 140,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 361,
+    "newId": 141,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 355,
+    "newId": 142,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 362,
+    "newId": 143,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 356,
+    "newId": 144,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 363,
+    "newId": 145,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 357,
+    "newId": 146,
+    "title": "SSC CGL 2022 Tier 1 - 01 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 364,
+    "newId": 147,
+    "title": "SSC CGL 2022 Tier 1 - 02 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 358,
+    "newId": 148,
+    "title": "SSC CGL 2022 Tier 1 - 02 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 365,
+    "newId": 149,
+    "title": "SSC CGL 2022 Tier 1 - 02 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 366,
+    "newId": 150,
+    "title": "SSC CGL 2022 Tier 1 - 02 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 367,
+    "newId": 151,
+    "title": "SSC CGL 2022 Tier 1 - 02 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 368,
+    "newId": 152,
+    "title": "SSC CGL 2022 Tier 1 - 03 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 369,
+    "newId": 153,
+    "title": "SSC CGL 2022 Tier 1 - 03 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 370,
+    "newId": 154,
+    "title": "SSC CGL 2022 Tier 1 - 03 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 371,
+    "newId": 155,
+    "title": "SSC CGL 2022 Tier 1 - 03 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 372,
+    "newId": 156,
+    "title": "SSC CGL 2022 Tier 1 - 05 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 373,
+    "newId": 157,
+    "title": "SSC CGL 2022 Tier 1 - 05 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 374,
+    "newId": 158,
+    "title": "SSC CGL 2022 Tier 1 - 05 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 156,
+    "newId": 159,
+    "title": "SSC CGL 2022 Tier 1 - 05 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 375,
+    "newId": 160,
+    "title": "SSC CGL 2022 Tier 1 - 05 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 158,
+    "newId": 161,
+    "title": "SSC CGL 2022 Tier 1 - 06 Dec 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 160,
+    "newId": 162,
+    "title": "SSC CGL 2022 Tier 1 - 06 Dec 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 163,
+    "newId": 163,
+    "title": "SSC CGL 2022 Tier 1 - 06 Dec 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 166,
+    "newId": 164,
+    "title": "SSC CGL 2022 Tier 1 - 06 Dec 2022 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 157,
+    "newId": 165,
+    "title": "SSC CGL 2022 Tier 1 - 11 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 161,
+    "newId": 166,
+    "title": "SSC CGL 2022 Tier 1 - 11 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 164,
+    "newId": 167,
+    "title": "SSC CGL 2022 Tier 1 - 11 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 174,
+    "newId": 168,
+    "title": "SSC CGL 2022 Tier 1 - 12 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 177,
+    "newId": 169,
+    "title": "SSC CGL 2022 Tier 1 - 12 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 180,
+    "newId": 170,
+    "title": "SSC CGL 2022 Tier 1 - 12 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 179,
+    "newId": 171,
+    "title": "SSC CGL 2022 Tier 1 - 13 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 182,
+    "newId": 172,
+    "title": "SSC CGL 2022 Tier 1 - 13 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 172,
+    "newId": 173,
+    "title": "SSC CGL 2022 Tier 1 - 13 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 211,
+    "newId": 174,
+    "title": "SSC CGL 2022 Tier 1 - 18 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 200,
+    "newId": 175,
+    "title": "SSC CGL 2022 Tier 1 - 18 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 202,
+    "newId": 176,
+    "title": "SSC CGL 2022 Tier 1 - 18 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 220,
+    "newId": 177,
+    "title": "SSC CGL 2022 Tier 1 - 19 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 223,
+    "newId": 178,
+    "title": "SSC CGL 2022 Tier 1 - 19 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 226,
+    "newId": 179,
+    "title": "SSC CGL 2022 Tier 1 - 19 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 224,
+    "newId": 180,
+    "title": "SSC CGL 2022 Tier 1 - 20 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 227,
+    "newId": 181,
+    "title": "SSC CGL 2022 Tier 1 - 20 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 228,
+    "newId": 182,
+    "title": "SSC CGL 2022 Tier 1 - 20 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 235,
+    "newId": 183,
+    "title": "SSC CGL 2022 Tier 1 - 21 April 2022 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 238,
+    "newId": 184,
+    "title": "SSC CGL 2022 Tier 1 - 21 April 2022 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 241,
+    "newId": 185,
+    "title": "SSC CGL 2022 Tier 1 - 21 April 2022 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 190,
+    "newId": 186,
+    "title": "SSC CGL 2023 Tier 1 - 14 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 194,
+    "newId": 187,
+    "title": "SSC CGL 2023 Tier 1 - 14 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 197,
+    "newId": 188,
+    "title": "SSC CGL 2023 Tier 1 - 14 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 185,
+    "newId": 189,
+    "title": "SSC CGL 2023 Tier 1 - 14 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 193,
+    "newId": 190,
+    "title": "SSC CGL 2023 Tier 1 - 17 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 196,
+    "newId": 191,
+    "title": "SSC CGL 2023 Tier 1 - 17 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 198,
+    "newId": 192,
+    "title": "SSC CGL 2023 Tier 1 - 17 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 199,
+    "newId": 193,
+    "title": "SSC CGL 2023 Tier 1 - 17 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 203,
+    "newId": 194,
+    "title": "SSC CGL 2023 Tier 1 - 18 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 206,
+    "newId": 195,
+    "title": "SSC CGL 2023 Tier 1 - 18 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 208,
+    "newId": 196,
+    "title": "SSC CGL 2023 Tier 1 - 18 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 212,
+    "newId": 197,
+    "title": "SSC CGL 2023 Tier 1 - 18 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 215,
+    "newId": 198,
+    "title": "SSC CGL 2023 Tier 1 - 19 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 216,
+    "newId": 199,
+    "title": "SSC CGL 2023 Tier 1 - 19 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 219,
+    "newId": 200,
+    "title": "SSC CGL 2023 Tier 1 - 19 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 222,
+    "newId": 201,
+    "title": "SSC CGL 2023 Tier 1 - 19 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 237,
+    "newId": 202,
+    "title": "SSC CGL 2023 Tier 1 - 20 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 239,
+    "newId": 203,
+    "title": "SSC CGL 2023 Tier 1 - 20 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 230,
+    "newId": 204,
+    "title": "SSC CGL 2023 Tier 1 - 20 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 232,
+    "newId": 205,
+    "title": "SSC CGL 2023 Tier 1 - 20 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 233,
+    "newId": 206,
+    "title": "SSC CGL 2023 Tier 1 - 21 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 311,
+    "newId": 207,
+    "title": "SSC CGL 2023 Tier 1 - 21 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 236,
+    "newId": 208,
+    "title": "SSC CGL 2023 Tier 1 - 21 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 240,
+    "newId": 209,
+    "title": "SSC CGL 2023 Tier 1 - 21 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 250,
+    "newId": 210,
+    "title": "SSC CGL 2023 Tier 1 - 24 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 253,
+    "newId": 211,
+    "title": "SSC CGL 2023 Tier 1 - 24 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 256,
+    "newId": 212,
+    "title": "SSC CGL 2023 Tier 1 - 24 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 249,
+    "newId": 213,
+    "title": "SSC CGL 2023 Tier 1 - 24 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 259,
+    "newId": 214,
+    "title": "SSC CGL 2023 Tier 1 - 25 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 258,
+    "newId": 215,
+    "title": "SSC CGL 2023 Tier 1 - 25 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 262,
+    "newId": 216,
+    "title": "SSC CGL 2023 Tier 1 - 25 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 264,
+    "newId": 217,
+    "title": "SSC CGL 2023 Tier 1 - 25 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 261,
+    "newId": 218,
+    "title": "SSC CGL 2023 Tier 1 - 26 Jul 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 265,
+    "newId": 219,
+    "title": "SSC CGL 2023 Tier 1 - 26 Jul 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 267,
+    "newId": 220,
+    "title": "SSC CGL 2023 Tier 1 - 26 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 271,
+    "newId": 221,
+    "title": "SSC CGL 2023 Tier 1 - 26 July 2023 - Shift 4",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 272,
+    "newId": 222,
+    "title": "SSC CGL 2023 Tier 1 - 27 July 2023 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 273,
+    "newId": 223,
+    "title": "SSC CGL 2023 Tier 1 - 27 July 2023 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 274,
+    "newId": 224,
+    "title": "SSC CGL 2023 Tier 1 - 27 July 2023 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 353,
+    "newId": 225,
+    "title": "SSC CGL 2024 Tier 1 - 09 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 159,
+    "newId": 226,
+    "title": "SSC CGL 2024 Tier 1 - 09 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 162,
+    "newId": 227,
+    "title": "SSC CGL 2024 Tier 1 - 09 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 165,
+    "newId": 228,
+    "title": "SSC CGL 2024 Tier 1 - 10 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 168,
+    "newId": 229,
+    "title": "SSC CGL 2024 Tier 1 - 10 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 154,
+    "newId": 230,
+    "title": "SSC CGL 2024 Tier 1 - 10 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 167,
+    "newId": 231,
+    "title": "SSC CGL 2024 Tier 1 - 11 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 171,
+    "newId": 232,
+    "title": "SSC CGL 2024 Tier 1 - 11 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 169,
+    "newId": 233,
+    "title": "SSC CGL 2024 Tier 1 - 11 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 170,
+    "newId": 234,
+    "title": "SSC CGL 2024 Tier 1 - 12 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 173,
+    "newId": 235,
+    "title": "SSC CGL 2024 Tier 1 - 12 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 175,
+    "newId": 236,
+    "title": "SSC CGL 2024 Tier 1 - 12 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 183,
+    "newId": 237,
+    "title": "SSC CGL 2024 Tier 1 - 13 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 184,
+    "newId": 238,
+    "title": "SSC CGL 2024 Tier 1 - 13 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 187,
+    "newId": 239,
+    "title": "SSC CGL 2024 Tier 1 - 13 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 201,
+    "newId": 240,
+    "title": "SSC CGL 2024 Tier 1 - 17 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 205,
+    "newId": 241,
+    "title": "SSC CGL 2024 Tier 1 - 17 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 209,
+    "newId": 242,
+    "title": "SSC CGL 2024 Tier 1 - 17 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 213,
+    "newId": 243,
+    "title": "SSC CGL 2024 Tier 1 - 18 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 214,
+    "newId": 244,
+    "title": "SSC CGL 2024 Tier 1 - 18 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 217,
+    "newId": 245,
+    "title": "SSC CGL 2024 Tier 1 - 18 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 225,
+    "newId": 246,
+    "title": "SSC CGL 2024 Tier 1 - 19 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 218,
+    "newId": 247,
+    "title": "SSC CGL 2024 Tier 1 - 19 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 221,
+    "newId": 248,
+    "title": "SSC CGL 2024 Tier 1 - 19 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 246,
+    "newId": 249,
+    "title": "SSC CGL 2024 Tier 1 - 23 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 248,
+    "newId": 250,
+    "title": "SSC CGL 2024 Tier 1 - 23 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 252,
+    "newId": 251,
+    "title": "SSC CGL 2024 Tier 1 - 23 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 251,
+    "newId": 252,
+    "title": "SSC CGL 2024 Tier 1 - 24 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 254,
+    "newId": 253,
+    "title": "SSC CGL 2024 Tier 1 - 24 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 257,
+    "newId": 254,
+    "title": "SSC CGL 2024 Tier 1 - 24 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 266,
+    "newId": 255,
+    "title": "SSC CGL 2024 Tier 1 - 25 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 269,
+    "newId": 256,
+    "title": "SSC CGL 2024 Tier 1 - 25 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 260,
+    "newId": 257,
+    "title": "SSC CGL 2024 Tier 1 - 25 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 263,
+    "newId": 258,
+    "title": "SSC CGL 2024 Tier 1 - 26 Sep 2024 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 268,
+    "newId": 259,
+    "title": "SSC CGL 2024 Tier 1 - 26 Sep 2024 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 270,
+    "newId": 260,
+    "title": "SSC CGL 2024 Tier 1 - 26 Sep 2024 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 281,
+    "newId": 261,
+    "title": "SSC CGL 2025 Tier 1 - 12 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 286,
+    "newId": 262,
+    "title": "SSC CGL 2025 Tier 1 - 12 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 275,
+    "newId": 263,
+    "title": "SSC CGL 2025 Tier 1 - 12 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 280,
+    "newId": 264,
+    "title": "SSC CGL 2025 Tier 1 - 13 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 282,
+    "newId": 265,
+    "title": "SSC CGL 2025 Tier 1 - 13 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 284,
+    "newId": 266,
+    "title": "SSC CGL 2025 Tier 1 - 13 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 283,
+    "newId": 267,
+    "title": "SSC CGL 2025 Tier 1 - 14 Oct 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 285,
+    "newId": 268,
+    "title": "SSC CGL 2025 Tier 1 - 14 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 287,
+    "newId": 269,
+    "title": "SSC CGL 2025 Tier 1 - 14 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 290,
+    "newId": 270,
+    "title": "SSC CGL 2025 Tier 1 - 14 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 288,
+    "newId": 271,
+    "title": "SSC CGL 2025 Tier 1 - 15 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 291,
+    "newId": 272,
+    "title": "SSC CGL 2025 Tier 1 - 15 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 293,
+    "newId": 273,
+    "title": "SSC CGL 2025 Tier 1 - 15 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 296,
+    "newId": 274,
+    "title": "SSC CGL 2025 Tier 1 - 16 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 299,
+    "newId": 275,
+    "title": "SSC CGL 2025 Tier 1 - 16 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 289,
+    "newId": 276,
+    "title": "SSC CGL 2025 Tier 1 - 16 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 292,
+    "newId": 277,
+    "title": "SSC CGL 2025 Tier 1 - 17 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 294,
+    "newId": 278,
+    "title": "SSC CGL 2025 Tier 1 - 17 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 297,
+    "newId": 279,
+    "title": "SSC CGL 2025 Tier 1 - 17 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 300,
+    "newId": 280,
+    "title": "SSC CGL 2025 Tier 1 - 18 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 295,
+    "newId": 281,
+    "title": "SSC CGL 2025 Tier 1 - 18 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 298,
+    "newId": 282,
+    "title": "SSC CGL 2025 Tier 1 - 18 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 301,
+    "newId": 283,
+    "title": "SSC CGL 2025 Tier 1 - 19 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 302,
+    "newId": 284,
+    "title": "SSC CGL 2025 Tier 1 - 19 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 304,
+    "newId": 285,
+    "title": "SSC CGL 2025 Tier 1 - 19 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 305,
+    "newId": 286,
+    "title": "SSC CGL 2025 Tier 1 - 20 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 306,
+    "newId": 287,
+    "title": "SSC CGL 2025 Tier 1 - 20 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 308,
+    "newId": 288,
+    "title": "SSC CGL 2025 Tier 1 - 20 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 315,
+    "newId": 289,
+    "title": "SSC CGL 2025 Tier 1 - 21 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 303,
+    "newId": 290,
+    "title": "SSC CGL 2025 Tier 1 - 21 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 307,
+    "newId": 291,
+    "title": "SSC CGL 2025 Tier 1 - 21 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 310,
+    "newId": 292,
+    "title": "SSC CGL 2025 Tier 1 - 22 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 312,
+    "newId": 293,
+    "title": "SSC CGL 2025 Tier 1 - 22 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 314,
+    "newId": 294,
+    "title": "SSC CGL 2025 Tier 1 - 22 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 309,
+    "newId": 295,
+    "title": "SSC CGL 2025 Tier 1 - 23 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 313,
+    "newId": 296,
+    "title": "SSC CGL 2025 Tier 1 - 23 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 316,
+    "newId": 297,
+    "title": "SSC CGL 2025 Tier 1 - 23 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 317,
+    "newId": 298,
+    "title": "SSC CGL 2025 Tier 1 - 24 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 318,
+    "newId": 299,
+    "title": "SSC CGL 2025 Tier 1 - 24 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 319,
+    "newId": 300,
+    "title": "SSC CGL 2025 Tier 1 - 24 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 321,
+    "newId": 301,
+    "title": "SSC CGL 2025 Tier 1 - 25 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 323,
+    "newId": 302,
+    "title": "SSC CGL 2025 Tier 1 - 25 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 327,
+    "newId": 303,
+    "title": "SSC CGL 2025 Tier 1 - 25 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 329,
+    "newId": 304,
+    "title": "SSC CGL 2025 Tier 1 - 26 Sep 2025 - Shift 1",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 320,
+    "newId": 305,
+    "title": "SSC CGL 2025 Tier 1 - 26 Sep 2025 - Shift 2",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 322,
+    "newId": 306,
+    "title": "SSC CGL 2025 Tier 1 - 26 Sep 2025 - Shift 3",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 89,
+    "newId": 307,
+    "title": "Banking Awareness & Financial GK Speed Battle",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Quizzes"
+  },
+  {
+    "oldId": 85,
+    "newId": 308,
+    "title": "Daily Current Affairs Speed Quiz — 16 August 2026",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Quizzes"
+  },
+  {
+    "oldId": 88,
+    "newId": 309,
+    "title": "General Intelligence & Reasoning Speed Sprint",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Quizzes"
+  },
+  {
+    "oldId": 86,
+    "newId": 310,
+    "title": "Quantitative Aptitude Blitz: Percentage & Profit-Loss",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Quizzes"
+  },
+  {
+    "oldId": 90,
+    "newId": 311,
+    "title": "Weekly Static GK Master Quiz — Indian Polity & History",
+    "series": "SSC CGL Mock Test Series 2026",
+    "category": "Quizzes"
+  },
+  {
+    "oldId": 87,
+    "newId": 312,
+    "title": "RRB NTPC 2026 CBT-1 National Live Challenge",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Live Tests"
+  },
+  {
+    "oldId": 622,
+    "newId": 313,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 620,
+    "newId": 314,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 627,
+    "newId": 315,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 626,
+    "newId": 316,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 4",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 633,
+    "newId": 317,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 5",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 623,
+    "newId": 318,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 6",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 628,
+    "newId": 319,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 7",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 621,
+    "newId": 320,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 8",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 629,
+    "newId": 321,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 9",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 625,
+    "newId": 322,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 10",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 619,
+    "newId": 323,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 11",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 631,
+    "newId": 324,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 12",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 630,
+    "newId": 325,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 13",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 636,
+    "newId": 326,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 14",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 632,
+    "newId": 327,
+    "title": "RRB NTPC CBT1 (Graduate) - Full Test 15",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 624,
+    "newId": 328,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 640,
+    "newId": 329,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 642,
+    "newId": 330,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 647,
+    "newId": 331,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 4",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 643,
+    "newId": 332,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 5",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 637,
+    "newId": 333,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 6",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 639,
+    "newId": 334,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 7",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 635,
+    "newId": 335,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 8",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 648,
+    "newId": 336,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 9",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 644,
+    "newId": 337,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 10",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 645,
+    "newId": 338,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 11",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 638,
+    "newId": 339,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 12",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 646,
+    "newId": 340,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 13",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 641,
+    "newId": 341,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 14",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 634,
+    "newId": 342,
+    "title": "RRB NTPC CBT1 (Undergraduate) - Full Test 15",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 556,
+    "newId": 343,
+    "title": "NTPC - 3 April 2016 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 540,
+    "newId": 344,
+    "title": "NTPC - 04 Jan 2021 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 543,
+    "newId": 345,
+    "title": "NTPC - 04 Jan 2021 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 565,
+    "newId": 346,
+    "title": "NTPC - 5 April 2016 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 546,
+    "newId": 347,
+    "title": "NTPC - 05 Jan 2021 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 539,
+    "newId": 348,
+    "title": "NTPC - 07 Jan 2021 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 542,
+    "newId": 349,
+    "title": "NTPC - 07 Jan 2021 Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 544,
+    "newId": 350,
+    "title": "NTPC - 08 Jan 2021 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 553,
+    "newId": 351,
+    "title": "NTPC - 9 April 2016 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 547,
+    "newId": 352,
+    "title": "NTPC - 09 Jan 2021 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 550,
+    "newId": 353,
+    "title": "NTPC - 09 Jan 2021 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 552,
+    "newId": 354,
+    "title": "NTPC - 11 April 2016 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 557,
+    "newId": 355,
+    "title": "NTPC - 12 April 2016 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 560,
+    "newId": 356,
+    "title": "NTPC - 16 April 2016 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 554,
+    "newId": 357,
+    "title": "NTPC - 18 April 2016 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 559,
+    "newId": 358,
+    "title": "NTPC - 30 March 2016 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 561,
+    "newId": 359,
+    "title": "NTPC - 31 March 2016 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 555,
+    "newId": 360,
+    "title": "NTPC 2016 29th March - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 563,
+    "newId": 361,
+    "title": "RRB NTPC (Graduate) - 05/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 558,
+    "newId": 362,
+    "title": "RRB NTPC (Graduate) - 05/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 562,
+    "newId": 363,
+    "title": "RRB NTPC (Graduate) - 05/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 579,
+    "newId": 364,
+    "title": "RRB NTPC (Graduate) - 06/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 564,
+    "newId": 365,
+    "title": "RRB NTPC (Graduate) - 06/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 574,
+    "newId": 366,
+    "title": "RRB NTPC (Graduate) - 06/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 566,
+    "newId": 367,
+    "title": "RRB NTPC (Graduate) - 06/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 576,
+    "newId": 368,
+    "title": "RRB NTPC (Graduate) - 06/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 568,
+    "newId": 369,
+    "title": "RRB NTPC (Graduate) - 09/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 573,
+    "newId": 370,
+    "title": "RRB NTPC (Graduate) - 09/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 583,
+    "newId": 371,
+    "title": "RRB NTPC (Graduate) - 09/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 587,
+    "newId": 372,
+    "title": "RRB NTPC (Graduate) - 09/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 582,
+    "newId": 373,
+    "title": "RRB NTPC (Graduate) - 10/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 575,
+    "newId": 374,
+    "title": "RRB NTPC (Graduate) - 10/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 580,
+    "newId": 375,
+    "title": "RRB NTPC (Graduate) - 10/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 577,
+    "newId": 376,
+    "title": "RRB NTPC (Graduate) - 11/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 585,
+    "newId": 377,
+    "title": "RRB NTPC (Graduate) - 11/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 567,
+    "newId": 378,
+    "title": "RRB NTPC (Graduate) - 11/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 572,
+    "newId": 379,
+    "title": "RRB NTPC (Graduate) - 11/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 584,
+    "newId": 380,
+    "title": "RRB NTPC (Graduate) - 12/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 581,
+    "newId": 381,
+    "title": "RRB NTPC (Graduate) - 12/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 592,
+    "newId": 382,
+    "title": "RRB NTPC (Graduate) - 13/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 586,
+    "newId": 383,
+    "title": "RRB NTPC (Graduate) - 13/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 588,
+    "newId": 384,
+    "title": "RRB NTPC (Graduate) - 13/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 595,
+    "newId": 385,
+    "title": "RRB NTPC (Graduate) - 14/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 597,
+    "newId": 386,
+    "title": "RRB NTPC (Graduate) - 14/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 465,
+    "newId": 387,
+    "title": "RRB NTPC (Graduate) - 16/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 469,
+    "newId": 388,
+    "title": "RRB NTPC (Graduate) - 16/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 471,
+    "newId": 389,
+    "title": "RRB NTPC (Graduate) - 16/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 593,
+    "newId": 390,
+    "title": "RRB NTPC (Graduate) - 16/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 600,
+    "newId": 391,
+    "title": "RRB NTPC (Graduate) - 16/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 590,
+    "newId": 392,
+    "title": "RRB NTPC (Graduate) - 16/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 473,
+    "newId": 393,
+    "title": "RRB NTPC (Graduate) - 17/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 475,
+    "newId": 394,
+    "title": "RRB NTPC (Graduate) - 17/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 466,
+    "newId": 395,
+    "title": "RRB NTPC (Graduate) - 17/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 602,
+    "newId": 396,
+    "title": "RRB NTPC (Graduate) - 17/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 596,
+    "newId": 397,
+    "title": "RRB NTPC (Graduate) - 17/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 599,
+    "newId": 398,
+    "title": "RRB NTPC (Graduate) - 17/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 468,
+    "newId": 399,
+    "title": "RRB NTPC (Graduate) - 18/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 470,
+    "newId": 400,
+    "title": "RRB NTPC (Graduate) - 18/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 472,
+    "newId": 401,
+    "title": "RRB NTPC (Graduate) - 18/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 594,
+    "newId": 402,
+    "title": "RRB NTPC (Graduate) - 18/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 589,
+    "newId": 403,
+    "title": "RRB NTPC (Graduate) - 18/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 591,
+    "newId": 404,
+    "title": "RRB NTPC (Graduate) - 18/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 474,
+    "newId": 405,
+    "title": "RRB NTPC (Graduate) - 19/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 617,
+    "newId": 406,
+    "title": "RRB NTPC (Graduate) - 19/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 477,
+    "newId": 407,
+    "title": "RRB NTPC (Graduate) - 19/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 604,
+    "newId": 408,
+    "title": "RRB NTPC (Graduate) - 19/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 598,
+    "newId": 409,
+    "title": "RRB NTPC (Graduate) - 19/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 601,
+    "newId": 410,
+    "title": "RRB NTPC (Graduate) - 19/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 614,
+    "newId": 411,
+    "title": "RRB NTPC (Graduate) - 20/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 607,
+    "newId": 412,
+    "title": "RRB NTPC (Graduate) - 20/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 609,
+    "newId": 413,
+    "title": "RRB NTPC (Graduate) - 20/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 608,
+    "newId": 414,
+    "title": "RRB NTPC (Graduate) - 21/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 615,
+    "newId": 415,
+    "title": "RRB NTPC (Graduate) - 21/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 605,
+    "newId": 416,
+    "title": "RRB NTPC (Graduate) - 21/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 480,
+    "newId": 417,
+    "title": "RRB NTPC (Graduate) - 22/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 483,
+    "newId": 418,
+    "title": "RRB NTPC (Graduate) - 22/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 484,
+    "newId": 419,
+    "title": "RRB NTPC (Graduate) - 22/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 616,
+    "newId": 420,
+    "title": "RRB NTPC (Graduate) - 23/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 610,
+    "newId": 421,
+    "title": "RRB NTPC (Graduate) - 23/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 613,
+    "newId": 422,
+    "title": "RRB NTPC (Graduate) - 23/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 476,
+    "newId": 423,
+    "title": "RRB NTPC (Graduate) - 24/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 478,
+    "newId": 424,
+    "title": "RRB NTPC (Graduate) - 24/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 481,
+    "newId": 425,
+    "title": "RRB NTPC (Graduate) - 24/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 611,
+    "newId": 426,
+    "title": "RRB NTPC (Graduate) - 24/06/2025 - (4:30 PM - 06:00 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 603,
+    "newId": 427,
+    "title": "RRB NTPC (Graduate) - 24/06/2025 - (09:00 AM - 10:30 AM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 606,
+    "newId": 428,
+    "title": "RRB NTPC (Graduate) - 24/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 486,
+    "newId": 429,
+    "title": "RRB NTPC (Graduate) - 25/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 487,
+    "newId": 430,
+    "title": "RRB NTPC (Graduate) - 25/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 479,
+    "newId": 431,
+    "title": "RRB NTPC (Graduate) - 25/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 482,
+    "newId": 432,
+    "title": "RRB NTPC (Graduate) - 27/03/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 485,
+    "newId": 433,
+    "title": "RRB NTPC (Graduate) - 27/03/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 488,
+    "newId": 434,
+    "title": "RRB NTPC (Graduate) - 27/03/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 612,
+    "newId": 435,
+    "title": "RRB NTPC (Graduate)- 12/06/2025 - (12:45 PM - 02:15 PM)",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 489,
+    "newId": 436,
+    "title": "RRB NTPC (UG) - 07/05/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 578,
+    "newId": 437,
+    "title": "RRB NTPC (UG) - 07/05/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 618,
+    "newId": 438,
+    "title": "RRB NTPC (UG) - 07/05/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 493,
+    "newId": 439,
+    "title": "RRB NTPC (UG) - 07/05/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 497,
+    "newId": 440,
+    "title": "RRB NTPC (UG) - 08/05/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 499,
+    "newId": 441,
+    "title": "RRB NTPC (UG) - 08/05/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 503,
+    "newId": 442,
+    "title": "RRB NTPC (UG) - 08/05/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 491,
+    "newId": 443,
+    "title": "RRB NTPC (UG) - 09/05/2026 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 495,
+    "newId": 444,
+    "title": "RRB NTPC (UG) - 09/05/2026 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 500,
+    "newId": 445,
+    "title": "RRB NTPC (UG) - 09/05/2026 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 502,
+    "newId": 446,
+    "title": "RRB NTPC (Undergraduate) - 01/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 504,
+    "newId": 447,
+    "title": "RRB NTPC (Undergraduate) - 01/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 492,
+    "newId": 448,
+    "title": "RRB NTPC (Undergraduate) - 01/09/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 494,
+    "newId": 449,
+    "title": "RRB NTPC (Undergraduate) - 02/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 496,
+    "newId": 450,
+    "title": "RRB NTPC (Undergraduate) - 02/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 498,
+    "newId": 451,
+    "title": "RRB NTPC (Undergraduate) - 02/09/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 501,
+    "newId": 452,
+    "title": "RRB NTPC (Undergraduate) - 03/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 506,
+    "newId": 453,
+    "title": "RRB NTPC (Undergraduate) - 03/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 507,
+    "newId": 454,
+    "title": "RRB NTPC (Undergraduate) - 04/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 510,
+    "newId": 455,
+    "title": "RRB NTPC (Undergraduate) - 04/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 513,
+    "newId": 456,
+    "title": "RRB NTPC (Undergraduate) - 04/09/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 516,
+    "newId": 457,
+    "title": "RRB NTPC (Undergraduate) - 08/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 505,
+    "newId": 458,
+    "title": "RRB NTPC (Undergraduate) - 08/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 509,
+    "newId": 459,
+    "title": "RRB NTPC (Undergraduate) - 08/09/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 511,
+    "newId": 460,
+    "title": "RRB NTPC (Undergraduate) - 09/09/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 514,
+    "newId": 461,
+    "title": "RRB NTPC (Undergraduate) - 09/09/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 517,
+    "newId": 462,
+    "title": "RRB NTPC (Undergraduate) - 09/09/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 508,
+    "newId": 463,
+    "title": "RRB NTPC (Undergraduate) - 13/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 512,
+    "newId": 464,
+    "title": "RRB NTPC (Undergraduate) - 13/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 515,
+    "newId": 465,
+    "title": "RRB NTPC (Undergraduate) - 13/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 518,
+    "newId": 466,
+    "title": "RRB NTPC (Undergraduate) - 14/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 519,
+    "newId": 467,
+    "title": "RRB NTPC (Undergraduate) - 14/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 521,
+    "newId": 468,
+    "title": "RRB NTPC (Undergraduate) - 14/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 523,
+    "newId": 469,
+    "title": "RRB NTPC (Undergraduate) - 18/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 527,
+    "newId": 470,
+    "title": "RRB NTPC (Undergraduate) - 18/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 529,
+    "newId": 471,
+    "title": "RRB NTPC (Undergraduate) - 18/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 532,
+    "newId": 472,
+    "title": "RRB NTPC (Undergraduate) - 19/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 520,
+    "newId": 473,
+    "title": "RRB NTPC (Undergraduate) - 19/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 522,
+    "newId": 474,
+    "title": "RRB NTPC (Undergraduate) - 19/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 525,
+    "newId": 475,
+    "title": "RRB NTPC (Undergraduate) - 20/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 528,
+    "newId": 476,
+    "title": "RRB NTPC (Undergraduate) - 20/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 531,
+    "newId": 477,
+    "title": "RRB NTPC (Undergraduate) - 20/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 524,
+    "newId": 478,
+    "title": "RRB NTPC (Undergraduate) - 21/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 526,
+    "newId": 479,
+    "title": "RRB NTPC (Undergraduate) - 21/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 530,
+    "newId": 480,
+    "title": "RRB NTPC (Undergraduate) - 21/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 533,
+    "newId": 481,
+    "title": "RRB NTPC (Undergraduate) - 22/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 534,
+    "newId": 482,
+    "title": "RRB NTPC (Undergraduate) - 22/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 536,
+    "newId": 483,
+    "title": "RRB NTPC (Undergraduate) - 22/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 538,
+    "newId": 484,
+    "title": "RRB NTPC (Undergraduate) - 28/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 541,
+    "newId": 485,
+    "title": "RRB NTPC (Undergraduate) - 28/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 545,
+    "newId": 486,
+    "title": "RRB NTPC (Undergraduate) - 28/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 548,
+    "newId": 487,
+    "title": "RRB NTPC (Undergraduate) - 29/08/2025 - Shift 1",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 535,
+    "newId": 488,
+    "title": "RRB NTPC (Undergraduate) - 29/08/2025 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 537,
+    "newId": 489,
+    "title": "RRB NTPC (Undergraduate) - 29/08/2025 - Shift 3",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 549,
+    "newId": 490,
+    "title": "RRB NTPC 2021 - 05 Jan 2021 - Shift 2",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 551,
+    "newId": 491,
+    "title": "RRB NTPC 2021 - Previous Year 7",
+    "series": "RRB NTPC 2026 Mega Test Series",
+    "category": "PYPs"
+  },
+  {
+    "oldId": 376,
+    "newId": 492,
+    "title": "SSC CGL 2026 - Tier 1 - Prelims Mocks Full (42 tests, 4200 questions)",
+    "series": "No Series",
+    "category": "Mock Tests"
+  },
+  {
+    "oldId": 377,
+    "newId": 493,
+    "title": "SSC CGL 2026 - Tier 1 - Prelims Mocks Full (42 tests, 4200 questions)",
+    "series": "No Series",
+    "category": "Mock Tests"
+  }
+]

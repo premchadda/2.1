@@ -1,22 +1,25 @@
-import express from 'express';
-import { pool, dbHelpers } from '../../infrastructure/database/postgres-helpers.js';
-import { responseCache } from '../../middleware/responseCache.middleware.js';
-import { sanitizeErrorMessage } from '../../utils/sanitizeError.js';
+import express from "express";
+import {
+  pool,
+  dbHelpers,
+} from "../../infrastructure/database/postgres-helpers.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
 
 // @route   GET /api/public-stats
-router.get('/', responseCache("public-stats", 120), async (req, res) => {
+router.get("/", responseCache("public-stats", 120), async (req, res) => {
   try {
-    const userCount = await dbHelpers.count('users');
-    const testSeriesCount = await dbHelpers.count('testSeries');
-    const testCount = await dbHelpers.count('tests');
-    const questionCount = await dbHelpers.count('questions');
-    const examCatCount = await dbHelpers.count('examCategories');
+    const userCount = await dbHelpers.count("users");
+    const testSeriesCount = await dbHelpers.count("testSeries");
+    const testCount = await dbHelpers.count("tests");
+    const questionCount = await dbHelpers.count("questions");
+    const examCatCount = await dbHelpers.count("examCategories");
 
     // Get real total attempts and test counts from test_series
     const attemptRes = await pool.query(
-      'SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false',
+      "SELECT COALESCE(SUM(total_attempts), 0) as count, COALESCE(SUM(total_tests), 0) as series_tests FROM test_series WHERE is_active = true AND is_deleted = false",
     );
     const totalAttempts = parseInt(attemptRes.rows[0]?.count) || 0;
     const seriesTests = parseInt(attemptRes.rows[0]?.series_tests) || 0;
@@ -25,20 +28,28 @@ router.get('/', responseCache("public-stats", 120), async (req, res) => {
     const successStories = Math.floor(activeLearners / 50);
 
     // Fetch overrides from appSettings
-    const settingsList = await dbHelpers.find('appSettings');
+    const settingsList = await dbHelpers.find("appSettings");
     const appSettings = settingsList[0] || {};
     const statsOverride = appSettings.stats || {};
-
-    const totalAvailableTests = Math.max(testCount, seriesTests, 230);
-    const finalActiveLearners = Number(statsOverride.activeLearners) || (activeLearners > 0 ? activeLearners : 16);
-    const finalMockTests = Number(statsOverride.mockTests) || totalAvailableTests;
-    const finalPracticeQuestions = Number(statsOverride.practiceQuestions) || (questionCount > 0 ? questionCount : 2500);
-    const finalSuccessStories = Number(statsOverride.successStories) || successStories;
-    const finalExamsCovered = Number(statsOverride.examsCovered) || (examCatCount > 0 ? examCatCount : 6);
-    const finalSatisfaction = statsOverride.satisfaction !== undefined ? Number(statsOverride.satisfaction) : null;
+    const totalAvailableTests = testCount || seriesTests || 0;
+    const finalActiveLearners =
+      Number(statsOverride.activeLearners) || activeLearners || 0;
+    const finalMockTests =
+      Number(statsOverride.mockTests) || totalAvailableTests;
+    const finalPracticeQuestions =
+      Number(statsOverride.practiceQuestions) || questionCount || 0;
+    const finalSuccessStories =
+      Number(statsOverride.successStories) || successStories;
+    const finalExamsCovered =
+      Number(statsOverride.examsCovered) || examCatCount || 0;
+    const finalSatisfaction =
+      statsOverride.satisfaction !== undefined
+        ? Number(statsOverride.satisfaction)
+        : null;
 
     // Import validation utility
-    const { validateStats } = await import('../../shared/utils/stats-validation.js');
+    const { validateStats } =
+      await import("../../shared/utils/stats-validation.js");
 
     const validatedStats = validateStats({
       users: userCount,
@@ -66,8 +77,10 @@ router.get('/', responseCache("public-stats", 120), async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Get public stats error:', error);
-    res.status(500).json({ success: false, message: sanitizeErrorMessage(error) });
+    console.error("Get public stats error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: sanitizeErrorMessage(error) });
   }
 });
 
