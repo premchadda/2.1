@@ -181,7 +181,7 @@ function QuestionPalette({
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-2.5 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white dark:bg-gray-700 border border-gray-400 px-1 font-bold text-black dark:text-white shadow-sm">
                       {stats.notVisited}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -189,7 +189,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-white border border-gray-400 px-1 font-bold text-black shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 border border-red-600 px-1 font-bold text-white shadow-sm">
                       {stats.notAnswered}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -197,7 +197,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 px-1 font-bold text-white shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-green-500 border border-green-600 px-1 font-bold text-white shadow-sm">
                       {stats.answered}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -205,7 +205,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
+                    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 border border-purple-600 px-1 font-bold text-white shadow-sm">
                       {stats.review}
                     </span>
                     <span className="text-gray-700 dark:text-gray-300 font-medium leading-tight">
@@ -213,7 +213,7 @@ function QuestionPalette({
                     </span>
                   </div>
                   <div className="col-span-2 flex items-center gap-1.5 pt-0.5">
-                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 px-1 font-bold text-white shadow-sm">
+                    <span className="relative inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-purple-500 border border-purple-600 px-1 font-bold text-white shadow-sm">
                       {currentSectionStats.answeredReview}
                       <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white dark:border-gray-800" />
                     </span>
@@ -318,10 +318,14 @@ function QuestionPalette({
                             : status === "p-wrong" ||
                                 status === "p-wrong-review"
                               ? "bg-red-500 border-red-600 text-white"
-                              : status === "p-review" ||
-                                  status === "p-ans-review"
-                                ? "bg-purple-500 border-purple-600 text-white rounded-full"
-                                : "bg-white border-gray-400 text-black hover:border-indigo-500";
+                              : status === "p-ans-review" ||
+                                  status === "p-review"
+                                ? "bg-purple-500 border-purple-600 text-white"
+                                : status === "p-answered"
+                                  ? "bg-green-500 border-green-600 text-white"
+                                  : status === "p-not-answered"
+                                    ? "bg-red-500 border-red-600 text-white"
+                                    : "bg-white dark:bg-gray-700 border-gray-400 dark:border-gray-500 text-gray-900 dark:text-white hover:border-indigo-500";
 
                         return (
                           <button
@@ -350,11 +354,13 @@ function QuestionPalette({
                             }
                           >
                             {index + 1}
-                            {(status === "p-ans-review" ||
-                              status === "p-correct-review" ||
+                            {status === "p-ans-review" && (
+                              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 border border-white dark:border-gray-800" />
+                            )}
+                            {(status === "p-correct-review" ||
                               status === "p-wrong-review" ||
                               status === "p-skipped-review") && (
-                              <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-purple-500 border border-white" />
+                              <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-purple-500 border border-white dark:border-gray-800" />
                             )}
                           </button>
                         );

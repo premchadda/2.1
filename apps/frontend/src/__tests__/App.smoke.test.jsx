@@ -148,10 +148,19 @@ describe("App route smoke tests", () => {
     expectNoRenderedError(container);
   });
 
-  it("renders global footer with role contentinfo", async () => {
-    const { container } = renderRoute("/terms");
-    expectNoRenderedError(container);
-    const footer = container.querySelector('footer[role="contentinfo"]');
-    expect(footer).toBeInTheDocument();
+  it("renders global footer with role contentinfo on homepage only", async () => {
+    const { container: homeContainer } = renderRoute("/");
+    expectNoRenderedError(homeContainer);
+    const homeFooter = homeContainer.querySelector(
+      'footer[role="contentinfo"]',
+    );
+    expect(homeFooter).toBeInTheDocument();
+
+    const { container: termsContainer } = renderRoute("/terms");
+    expectNoRenderedError(termsContainer);
+    const termsFooter = termsContainer.querySelector(
+      'footer[role="contentinfo"]',
+    );
+    expect(termsFooter).not.toBeInTheDocument();
   });
 });

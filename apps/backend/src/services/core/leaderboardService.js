@@ -4,8 +4,6 @@ import {
 } from "../../infrastructure/database/postgres-helpers.js";
 import { idsMatch, safeNumber } from "./common.js";
 
-const ATTEMPT_SELECT_COLS = `"id", "user_id", "test_id", "series_id", "score", "accuracy", "time_spent", "time_spent_seconds", "is_completed", "status", "submitted_at", "created_at", "updated_at"`;
-
 const getCompletedAttempts = async (filter = {}) => {
   // Build a targeted WHERE clause with parameterized bindings (SQLi-safe via $ placeholders).
   // `filter` accepts: { testId, seriesId, startDate, endDate }
@@ -13,43 +11,64 @@ const getCompletedAttempts = async (filter = {}) => {
   const params = [];
   let paramIdx = 1;
 
-  // Status conditions — match isCompleted flag OR status text
+  // Status conditions — match completed/submitted status text or presence of submitted_at
   conditions.push(
-    `(is_completed = true OR LOWER(status) IN ('completed', 'submitted'))`,
+    `(LOWER(a.status) IN ('completed', 'submitted') OR a.submitted_at IS NOT NULL)`,
   );
 
   if (filter.testId !== undefined && filter.testId !== null) {
-    conditions.push(`"test_id" = $${paramIdx++}`);
+    conditions.push(`a.test_id = $${paramIdx++}`);
     params.push(filter.testId);
   }
   if (filter.seriesId !== undefined && filter.seriesId !== null) {
-    conditions.push(`"series_id" = $${paramIdx++}`);
+    conditions.push(`t.series_id = $${paramIdx++}`);
     params.push(filter.seriesId);
   }
   if (filter.startDate) {
-    conditions.push(`"submitted_at" >= $${paramIdx++}`);
+    conditions.push(`a.submitted_at >= $${paramIdx++}`);
     params.push(filter.startDate);
   }
   if (filter.endDate) {
-    conditions.push(`"submitted_at" <= $${paramIdx++}`);
+    conditions.push(`a.submitted_at <= $${paramIdx++}`);
     params.push(filter.endDate);
   }
 
   const whereClause =
     conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const query = `SELECT ${ATTEMPT_SELECT_COLS} FROM "attempts" ${whereClause}`;
+  const query = `
+    SELECT 
+      a.id,
+      a.user_id,
+      a.test_id,
+      t.series_id,
+      COALESCE(a.score, 0) AS score,
+      COALESCE(a.accuracy, 0) AS accuracy,
+      COALESCE(a.time_spent, 0) AS time_spent,
+      COALESCE(a.time_spent, 0) AS time_spent_seconds,
+      a.status,
+      a.submitted_at,
+      a.created_at,
+      a.updated_at
+    FROM attempts a
+    LEFT JOIN tests t ON a.test_id = t.id
+    ${whereClause}
+  `;
 
-  const { rows } = await pool.query(query, params);
-  return rows.map((row) => ({
-    ...row,
-    // Normalize camelCase aliases for downstream code that expects them
-    userId: row.user_id ?? row.userId,
-    testId: row.test_id ?? row.testId,
-    seriesId: row.series_id ?? row.seriesId,
-    isCompleted: row.is_completed ?? row.isCompleted,
-    timeSpent: row.time_spent ?? row.timeSpent,
-    timeSpentSeconds: row.time_spent_seconds ?? row.timeSpentSeconds,
-  }));
+  try {
+    const { rows } = await pool.query(query, params);
+    return rows.map((row) => ({
+      ...row,
+      userId: row.user_id,
+      testId: row.test_id,
+      seriesId: row.series_id,
+      isCompleted: true,
+      timeSpent: Number(row.time_spent) || 0,
+      timeSpentSeconds: Number(row.time_spent_seconds) || 0,
+    }));
+  } catch (error) {
+    console.error("[getCompletedAttempts] Database error:", error.message);
+    return [];
+  }
 };
 
 const getBestAttemptByUser = (attempts) => {
@@ -212,24 +231,43 @@ const buildAttemptLeaderboard = ({
 };
 
 const withUserNames = async (leaderboard) => {
+  if (!leaderboard || !Array.isArray(leaderboard.entries)) {
+    return leaderboard || { entries: [], total: 0 };
+  }
+
   // Fetch only the user IDs present in the leaderboard (not ALL users).
-  const userIds = [
-    ...new Set(
-      leaderboard.entries.map((e) => String(e.userId)).filter(Boolean),
-    ),
+  const rawUserIds = [
+    ...new Set(leaderboard.entries.map((e) => e.userId).filter(Boolean)),
   ];
-  if (userIds.length === 0) {
+  if (rawUserIds.length === 0) {
     return {
       ...leaderboard,
       entries: leaderboard.entries.map((e) => ({ ...e, userName: "User" })),
     };
   }
 
-  const { rows } = await pool.query(
-    `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
-    [userIds.map(Number).filter((n) => !Number.isNaN(n))],
-  );
-  const userMap = new Map(rows.map((user) => [String(user.id), user]));
+  const numericIds = rawUserIds
+    .map((id) => Number(id))
+    .filter((n) => Number.isInteger(n) && n > 0);
+
+  const userMap = new Map();
+  if (numericIds.length > 0) {
+    try {
+      const { rows } = await pool.query(
+        `SELECT id, name FROM users WHERE id = ANY($1::int[])`,
+        [numericIds],
+      );
+      rows.forEach((user) => {
+        userMap.set(String(user.id), user);
+      });
+    } catch (e) {
+      console.error(
+        "[Leaderboard withUserNames] Error fetching users:",
+        e.message,
+      );
+    }
+  }
+
   return {
     ...leaderboard,
     entries: leaderboard.entries.map((entry) => {

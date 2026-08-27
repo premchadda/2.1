@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../shared/providers/AuthContext";
 import {
@@ -6,6 +6,8 @@ import {
   getTestSeries,
   getTestById,
   getTestsBySeriesId,
+  getQuestionsByTestId,
+  apiClient,
 } from "../../shared/lib/dataService";
 import Breadcrumb from "../../shared/components/common/Breadcrumb";
 import { toast } from "react-hot-toast";
@@ -319,6 +321,7 @@ function TestInstructions() {
   const isTestPro = entitlement.accessType === "PRO";
   const isUserPro = entitlement.isUserPro;
   const isLocked = entitlement.requiresPro;
+  const prefetchPromiseRef = useRef(null);
 
   const handleStartTest = () => {
     if (isLocked) {
@@ -331,6 +334,44 @@ function TestInstructions() {
       return;
     }
     if (agreedToRules && !noQuestions) {
+      const targetTestId =
+        test?.public_id_uuid ||
+        test?.public_id ||
+        test?.id ||
+        test?._id ||
+        testId;
+      const isReattempt = Boolean(
+        location.state?.isReattempt ||
+        new URLSearchParams(location.search).get("attempt") ||
+        user?.attemptedTestIds?.includes(String(test?.id || test?._id)),
+      );
+
+      // Pre-fetch questions and session initialization in parallel during the countdown
+      prefetchPromiseRef.current = (async () => {
+        try {
+          const [fetchedTestData, fetchedQuestions, attemptRes] =
+            await Promise.all([
+              getTestById(targetTestId).catch(() => test),
+              getQuestionsByTestId(test?._id || targetTestId).catch(() => []),
+              apiClient
+                .post(
+                  `/api/tests/${test?._id || test?.id || targetTestId}/start`,
+                  { isReattempt },
+                )
+                .catch(() => null),
+            ]);
+          return {
+            preloadedTest: fetchedTestData || test,
+            preloadedQuestions: fetchedQuestions || [],
+            preloadedAttemptData: attemptRes?.data?.data || null,
+            isReattempt,
+          };
+        } catch (err) {
+          console.warn("Preload test error:", err);
+          return null;
+        }
+      })();
+
       setCountdown(3);
     } else if (!noQuestions) {
       toast.error(
@@ -351,23 +392,46 @@ function TestInstructions() {
     }
 
     if (countdown === 0) {
-      setCountdown(null);
-      const slug =
-        series?.slug ||
-        routeParams.seriesSlug ||
-        (seriesId && seriesId !== "undefined" ? seriesId : "test");
-      const targetTestId =
-        test?.public_id_uuid ||
-        test?.public_id ||
-        test?.id ||
-        test?._id ||
-        testId;
-      const searchParams = new URLSearchParams(location.search);
-      const currentAttemptNo = searchParams.get("attemptNo") || attemptNo || 1;
-      searchParams.set("sectionalTimer", sectionalTimerEnabled ? "on" : "off");
-      searchParams.set("attemptNo", currentAttemptNo);
-      const targetUrl = `/${slug}/tests/${targetTestId}?${searchParams.toString()}`;
-      navigate(targetUrl, { replace: true });
+      let isSubscribed = true;
+      (async () => {
+        const preloaded = prefetchPromiseRef.current
+          ? await prefetchPromiseRef.current
+          : null;
+        if (!isSubscribed) return;
+        setCountdown(null);
+        const slug =
+          series?.slug ||
+          routeParams.seriesSlug ||
+          (seriesId && seriesId !== "undefined" ? seriesId : "test");
+        const targetTestId =
+          test?.public_id_uuid ||
+          test?.public_id ||
+          test?.id ||
+          test?._id ||
+          testId;
+        const searchParams = new URLSearchParams(location.search);
+        const currentAttemptNo =
+          searchParams.get("attemptNo") || attemptNo || 1;
+        searchParams.set(
+          "sectionalTimer",
+          sectionalTimerEnabled ? "on" : "off",
+        );
+        searchParams.set("attemptNo", currentAttemptNo);
+        const targetUrl = `/${slug}/tests/${targetTestId}?${searchParams.toString()}`;
+        navigate(targetUrl, {
+          replace: true,
+          state: {
+            ...location.state,
+            preloadedTest: preloaded?.preloadedTest || test,
+            preloadedQuestions: preloaded?.preloadedQuestions || null,
+            preloadedAttemptData: preloaded?.preloadedAttemptData || null,
+            isReattempt: preloaded?.isReattempt || false,
+          },
+        });
+      })();
+      return () => {
+        isSubscribed = false;
+      };
     }
   }, [
     countdown,
@@ -378,6 +442,7 @@ function TestInstructions() {
     test,
     testId,
     location.search,
+    location.state,
     attemptNo,
     isHindi,
     sectionalTimerEnabled,
@@ -1144,24 +1209,97 @@ function TestInstructions() {
         </div>
       </div>
 
-      {/* Fullscreen Countdown Overlay */}
-      {countdown !== null && countdown > 0 && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in">
-          <div className="text-center space-y-4 max-w-sm px-6">
+      {/* Unified Fullscreen Countdown & Preparation Overlay */}
+      {countdown !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center text-white animate-fade-in select-none">
+          <div className="text-center space-y-5 max-w-md px-6 flex flex-col items-center">
+            {/* Countdown Ring + Ambient Glow */}
             <div className="relative inline-flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin" />
-              <span className="absolute text-3xl sm:text-4xl lg:text-5xl font-black text-white font-mono animate-scale-in">
-                {countdown}
+              <div className="absolute w-36 h-36 rounded-full bg-indigo-500/20 animate-ping opacity-60 pointer-events-none" />
+              <div className="absolute w-28 h-28 rounded-full bg-purple-500/20 blur-md pointer-events-none" />
+
+              <svg
+                className="w-28 h-28 -rotate-90 transform"
+                viewBox="0 0 100 100"
+              >
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  stroke="currentColor"
+                  strokeWidth="5"
+                  className="text-slate-800"
+                  fill="transparent"
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  stroke="url(#countdownGradient)"
+                  strokeWidth="5"
+                  strokeDasharray="264"
+                  strokeDashoffset={
+                    countdown === 3
+                      ? "0"
+                      : countdown === 2
+                        ? "88"
+                        : countdown === 1
+                          ? "176"
+                          : "264"
+                  }
+                  strokeLinecap="round"
+                  className="transition-all duration-1000 ease-linear"
+                  fill="transparent"
+                />
+                <defs>
+                  <linearGradient
+                    id="countdownGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="50%" stopColor="#8b5cf6" />
+                    <stop offset="100%" stopColor="#ec4899" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              <span className="absolute text-4xl sm:text-5xl font-black text-white font-mono tracking-tight animate-scale-in drop-shadow-md">
+                {countdown > 0 ? countdown : "GO!"}
               </span>
             </div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">
-              {isHindi ? "परीक्षण शुरू हो रहा है..." : "Test Starting..."}
-            </h2>
-            <p className="text-sm text-indigo-200">
-              {isHindi
-                ? "कृपया तैयार हो जाइए। शुभकामनाएँ!"
-                : "Get ready! Good luck with your test."}
-            </p>
+
+            {/* Dynamic Status Text */}
+            <div className="space-y-1.5">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                {countdown === 3
+                  ? isHindi
+                    ? "परीक्षा वातावरण तैयार हो रहा है..."
+                    : "Preparing Assessment..."
+                  : countdown === 2
+                    ? isHindi
+                      ? "प्रश्न और टाइमर लोड हो रहे हैं..."
+                      : "Synchronizing Questions & Timer..."
+                    : isHindi
+                      ? "सब तैयार! परीक्षा शुरू हो रही है..."
+                      : "Ready! Starting Immediately..."}
+              </h2>
+              <p className="text-xs sm:text-sm text-indigo-200/80 font-medium">
+                {isHindi
+                  ? "कृपया तैयार रहें। शुभकामनाएँ!"
+                  : "All data pre-loaded. Entering test..."}
+              </p>
+            </div>
+
+            {/* Test Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/90 border border-indigo-500/40 text-indigo-300 text-xs font-mono shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="truncate max-w-[240px]">
+                {test?.title || "Assessment"}
+              </span>
+            </div>
           </div>
         </div>
       )}
