@@ -194,8 +194,6 @@ export function AuthProvider({ children }) {
         token: accessToken,
         refreshToken: newRefreshToken,
         csrfToken: newCsrfToken,
-        token: newToken,
-        refreshToken: newRefreshToken,
         sessionId: serverSessionId,
       } = response.data.data || {};
 

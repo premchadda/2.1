@@ -221,10 +221,8 @@ export function AuthProvider({ children }) {
       const {
         user: userData,
         token: accessToken,
-        refreshToken: newRefreshToken,
-        csrfToken: newCsrfToken,
-        token: accessToken,
         refreshToken: bodyRefreshToken,
+        csrfToken: newCsrfToken,
         sessionId: serverSessionId,
       } = response.data.data || {};
 
