@@ -32,7 +32,7 @@
     "load-test:realtime": "k6 run tests/load/realtime.js"
   },
   "dependencies": {
-    "turbo": "^2.10.5"
+    "turbo": "^2.10.12"
   },
   "devDependencies": {
     "chokidar": "^3.6.0",
