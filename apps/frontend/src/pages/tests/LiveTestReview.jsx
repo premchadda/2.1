@@ -1,24 +1,30 @@
-import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Loader2 } from 'lucide-react'
-import { api } from '../../shared/lib/dataService'
-import sanitizeHtml from '../../shared/lib/sanitizeHtml'
-import MathRenderer from '../../shared/components/MathRenderer'
-
+import { useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle,
+  XCircle,
+  Loader2,
+} from "lucide-react";
+import { api } from "../../shared/lib/dataService";
+import sanitizeHtml from "../../shared/lib/sanitizeHtml";
+import MathRenderer from "../../shared/components/MathRenderer";
 
 export default function LiveTestReview() {
-  const { liveTestId } = useParams()
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
+  const { liveTestId } = useParams();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   const { data: result, isLoading } = useQuery({
-    queryKey: ['live-test-review', liveTestId],
+    queryKey: ["live-test-review", liveTestId],
     queryFn: async () => {
-      const response = await api.get(`/api/live-tests/${liveTestId}/result`)
-      return response.data?.data || null
+      const response = await api.get(`/api/live-tests/${liveTestId}/result`);
+      return response.data?.data || null;
     },
     staleTime: 1000 * 60,
-  })
+  });
 
   if (isLoading) {
     return (
@@ -28,30 +34,38 @@ export default function LiveTestReview() {
           <p className="text-slate-500">Loading review...</p>
         </div>
       </div>
-    )
+    );
   }
 
-  const questions = result?.questions || []
-  const currentQuestion = questions[currentQuestionIndex]
+  const questions = result?.questions || [];
+  const currentQuestion = questions[currentQuestionIndex];
 
   if (!result || !currentQuestion) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-slate-600 font-semibold mb-4">Review data is not available.</p>
-          <Link to={`/live-test-results/${liveTestId}`} className="text-indigo-600 hover:text-indigo-700 font-semibold">
+          <p className="text-slate-600 font-semibold mb-4">
+            Review data is not available.
+          </p>
+          <Link
+            to={`/live-test-results/${liveTestId}`}
+            className="text-indigo-600 hover:text-indigo-700 font-semibold"
+          >
             Back to Results
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 py-8 px-4">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
-          <Link to={`/live-test-results/${liveTestId}`} className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium">
+          <Link
+            to={`/live-test-results/${liveTestId}`}
+            className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900 font-medium"
+          >
             <ArrowLeft className="w-4 h-4" />
             Back to Results
           </Link>
@@ -72,13 +86,21 @@ export default function LiveTestReview() {
               </div>
             )}
             <div>
-              <div className="text-sm font-bold uppercase tracking-widest text-slate-400">{currentQuestion.subject}</div>
-              <div className="text-xl font-black text-slate-900">{currentQuestion.isCorrect ? 'Correct Answered' : currentQuestion.answered ? 'Incorrect Answered' : 'Skipped Question'}</div>
+              <div className="text-sm font-bold uppercase tracking-widest text-slate-400">
+                {currentQuestion.subject}
+              </div>
+              <div className="text-xl font-black text-slate-900">
+                {currentQuestion.isCorrect
+                  ? "Correct Answered"
+                  : currentQuestion.answered
+                    ? "Incorrect Answered"
+                    : "Skipped Question"}
+              </div>
             </div>
           </div>
 
           <div className="text-slate-800 text-base sm:text-lg mb-8 leading-relaxed">
-            <MathRenderer text={sanitizeHtml(currentQuestion.text || '')} />
+            <MathRenderer text={sanitizeHtml(currentQuestion.text || "")} />
           </div>
 
           <div className="space-y-3">
@@ -98,48 +120,66 @@ export default function LiveTestReview() {
                 rawCorrect !== "" &&
                 (String(option) === String(rawCorrect) ||
                   index === Number(rawCorrect) ||
-                  String.fromCharCode(65 + index) === String(rawCorrect).toUpperCase());
-              const rawUserAns = currentQuestion.userAnswer ?? currentQuestion.selectedOption
-              const isSelectedOption = rawUserAns !== undefined && rawUserAns !== null && (
-                String(option) === String(rawUserAns) ||
-                index === Number(rawUserAns) ||
-                String.fromCharCode(65 + index) === String(rawUserAns).toUpperCase()
-              )
+                  String.fromCharCode(65 + index) ===
+                    String(rawCorrect).toUpperCase());
+              const rawUserAns =
+                currentQuestion.userAnswer ?? currentQuestion.selectedOption;
+              const isSelectedOption =
+                rawUserAns !== undefined &&
+                rawUserAns !== null &&
+                (String(option) === String(rawUserAns) ||
+                  index === Number(rawUserAns) ||
+                  String.fromCharCode(65 + index) ===
+                    String(rawUserAns).toUpperCase());
 
-              let optionClasses = 'border-slate-200 bg-white'
-              if (isCorrectOption) optionClasses = 'border-green-500 bg-green-50'
-              if (isSelectedOption && !currentQuestion.isCorrect) optionClasses = 'border-red-500 bg-red-50'
+              let optionClasses = "border-slate-200 bg-white";
+              if (isCorrectOption)
+                optionClasses = "border-green-500 bg-green-50";
+              if (isSelectedOption && !currentQuestion.isCorrect)
+                optionClasses = "border-red-500 bg-red-50";
 
               return (
-                <div key={index} className={`rounded-2xl border-2 px-4 py-4 ${optionClasses}`}>
+                <div
+                  key={index}
+                  className={`rounded-2xl border-2 px-4 py-4 ${optionClasses}`}
+                >
                   <div className="flex items-start justify-between gap-4">
                     <div className="text-slate-800 flex-1 min-w-0">
                       <MathRenderer text={sanitizeHtml(option)} />
                     </div>
                     <div className="flex items-center gap-2 text-xs font-semibold shrink-0">
-                      {isCorrectOption && <span className="text-green-600">Correct</span>}
-                      {isSelectedOption && <span className="text-indigo-600">Your Answer</span>}
+                      {isCorrectOption && (
+                        <span className="text-green-600">Correct</span>
+                      )}
+                      {isSelectedOption && (
+                        <span className="text-indigo-600">Your Answer</span>
+                      )}
                     </div>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
           {currentQuestion.explanation && (
             <div className="mt-8 rounded-2xl bg-slate-50 border border-slate-200 p-5">
-              <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Explanation</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">
+                Explanation
+              </div>
               <div className="text-slate-700 leading-relaxed">
-                <MathRenderer text={sanitizeHtml(currentQuestion.explanation)} />
+                <MathRenderer
+                  text={sanitizeHtml(currentQuestion.explanation)}
+                />
               </div>
             </div>
           )}
         </div>
 
-
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-4 flex items-center justify-between">
           <button
-            onClick={() => setCurrentQuestionIndex((index) => Math.max(0, index - 1))}
+            onClick={() =>
+              setCurrentQuestionIndex((index) => Math.max(0, index - 1))
+            }
             disabled={currentQuestionIndex === 0}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl border border-slate-200 text-slate-700 font-medium disabled:opacity-50"
           >
@@ -154,12 +194,12 @@ export default function LiveTestReview() {
                 onClick={() => setCurrentQuestionIndex(index)}
                 className={`w-9 h-9 rounded-xl text-sm font-bold ${
                   index === currentQuestionIndex
-                    ? 'bg-indigo-600 text-white'
+                    ? "bg-indigo-600 text-white"
                     : question.isCorrect
-                      ? 'bg-green-100 text-green-700'
+                      ? "bg-green-100 text-green-700"
                       : question.answered
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-slate-100 text-slate-700'
+                        ? "bg-red-100 text-red-700"
+                        : "bg-slate-100 text-slate-700"
                 }`}
               >
                 {index + 1}
@@ -168,7 +208,11 @@ export default function LiveTestReview() {
           </div>
 
           <button
-            onClick={() => setCurrentQuestionIndex((index) => Math.min(questions.length - 1, index + 1))}
+            onClick={() =>
+              setCurrentQuestionIndex((index) =>
+                Math.min(questions.length - 1, index + 1),
+              )
+            }
             disabled={currentQuestionIndex === questions.length - 1}
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl border border-slate-200 text-slate-700 font-medium disabled:opacity-50"
           >
@@ -178,5 +222,5 @@ export default function LiveTestReview() {
         </div>
       </div>
     </div>
-  )
+  );
 }

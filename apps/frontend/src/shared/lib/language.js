@@ -1,4 +1,8 @@
-import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from './htmlSanitizer'
+import {
+  decodeHtmlEntities,
+  cleanHtmlWrapper,
+  extractBilingualContent,
+} from "./htmlSanitizer";
 
 // QUESTION ENGINE FIX #6 (MEDIUM): robust Hindi/English (mixed) rendering.
 //
@@ -8,11 +12,13 @@ import { decodeHtmlEntities, cleanHtmlWrapper, extractBilingualContent } from '.
 // These helpers detect Devanagari script and always resolve to *some* value by
 // falling back to the other language when the requested one is missing.
 
-const DEVANAGARI_RE = /[\u0900-\u097F]/
+const DEVANAGARI_RE = /[\u0900-\u097F]/;
 
-export const hasDevanagari = (text) => typeof text === 'string' && DEVANAGARI_RE.test(text)
+export const hasDevanagari = (text) =>
+  typeof text === "string" && DEVANAGARI_RE.test(text);
 
-export const hasLatin = (text) => typeof text === 'string' && /[A-Za-z]/.test(text)
+export const hasLatin = (text) =>
+  typeof text === "string" && /[A-Za-z]/.test(text);
 
 /**
  * Detect which language a piece of text is primarily written in.
@@ -20,15 +26,14 @@ export const hasLatin = (text) => typeof text === 'string' && /[A-Za-z]/.test(te
  * @returns {'hi' | 'en' | 'mixed' | 'unknown'}
  */
 export const detectScript = (text) => {
-  if (!text || typeof text !== 'string') return 'unknown'
-  const hi = hasDevanagari(text)
-  const en = hasLatin(text)
-  if (hi && en) return 'mixed'
-  if (hi) return 'hi'
-  if (en) return 'en'
-  return 'unknown'
-}
-
+  if (!text || typeof text !== "string") return "unknown";
+  const hi = hasDevanagari(text);
+  const en = hasLatin(text);
+  if (hi && en) return "mixed";
+  if (hi) return "hi";
+  if (en) return "en";
+  return "unknown";
+};
 
 /**
  * Resolve a localized field given the user's chosen language, with graceful
@@ -39,62 +44,62 @@ export const detectScript = (text) => {
  * @param {'en'|'hi'} lang - preferred language ('en' | 'hi').
  * @returns {string|Array}
  */
-export const getLocalizedField = (field, lang = 'en') => {
-  if (field === null || field === undefined) return ''
+export const getLocalizedField = (field, lang = "en") => {
+  if (field === null || field === undefined) return "";
 
   // If array of options, resolve each option item individually
   if (Array.isArray(field)) {
-    return field.map((item) => getLocalizedField(item, lang))
+    return field.map((item) => getLocalizedField(item, lang));
   }
 
-  if (typeof field === 'string') {
+  if (typeof field === "string") {
     // Check if the string contains embedded <span class="eqt"> / <span class="hqt">
     if (/<span[^>]*class=["'][^"']*(?:eqt|hqt)[^"']*["'][^>]*>/i.test(field)) {
-      const { en, hi } = extractBilingualContent(field)
-      if (lang === 'hi') {
-        return hi && hi.trim() !== '' ? hi : en
+      const { en, hi } = extractBilingualContent(field);
+      if (lang === "hi") {
+        return hi && hi.trim() !== "" ? hi : en;
       }
-      return en && en.trim() !== '' ? en : hi
+      return en && en.trim() !== "" ? en : hi;
     }
-    return cleanHtmlWrapper(decodeHtmlEntities(field))
+    return cleanHtmlWrapper(decodeHtmlEntities(field));
   }
 
-  if (typeof field === 'object') {
+  if (typeof field === "object") {
     const isPresent = (val) => {
-      if (val === null || val === undefined) return false
-      if (Array.isArray(val)) return val.length > 0
-      return String(val).trim() !== ''
-    }
+      if (val === null || val === undefined) return false;
+      if (Array.isArray(val)) return val.length > 0;
+      return String(val).trim() !== "";
+    };
 
-    const preferred = field[lang]
+    const preferred = field[lang];
     if (isPresent(preferred)) {
       if (Array.isArray(preferred)) {
-        return preferred.map((item) => getLocalizedField(item, lang))
+        return preferred.map((item) => getLocalizedField(item, lang));
       }
-      return getLocalizedField(preferred, lang)
+      return getLocalizedField(preferred, lang);
     }
 
-    const fallback = lang === 'hi' ? field.en : field.hi
+    const fallback = lang === "hi" ? field.en : field.hi;
     if (isPresent(fallback)) {
       if (Array.isArray(fallback)) {
-        return fallback.map((item) => getLocalizedField(item, lang))
+        return fallback.map((item) => getLocalizedField(item, lang));
       }
-      return getLocalizedField(fallback, lang)
+      return getLocalizedField(fallback, lang);
     }
 
     // Last resort: whichever language key or text key has content
-    const any = field.en || field.hi || field.text || field.value
+    const any = field.en || field.hi || field.text || field.value;
     if (isPresent(any)) {
       if (Array.isArray(any)) {
-        return any.map((item) => getLocalizedField(item, lang))
+        return any.map((item) => getLocalizedField(item, lang));
       }
-      return getLocalizedField(any, lang)
+      return getLocalizedField(any, lang);
     }
-    return ''
+    return "";
   }
 
-  return cleanHtmlWrapper(decodeHtmlEntities(String(field)))
-}
+  return cleanHtmlWrapper(decodeHtmlEntities(String(field)));
+};
 
 /**
  * Given a question object with `text`/`options`/`explanation` localized fields,
@@ -105,17 +110,28 @@ export const getLocalizedField = (field, lang = 'en') => {
  * @returns {'en'|'hi'}
  */
 export const pickDefaultLanguage = (question) => {
-  if (!question) return 'en'
-  const enScore =
-    [...(question.text?.en ? [question.text.en] : []), ...(question.options?.en || []), question.explanation?.en]
-      .filter(Boolean)
-      .join('').length
-  const hiScore =
-    [...(question.text?.hi ? [question.text.hi] : []), ...(question.options?.hi || []), question.explanation?.hi]
-      .filter(Boolean)
-      .join('').length
-  return hiScore > enScore ? 'hi' : 'en'
-}
+  if (!question) return "en";
+  const enScore = [
+    ...(question.text?.en ? [question.text.en] : []),
+    ...(question.options?.en || []),
+    question.explanation?.en,
+  ]
+    .filter(Boolean)
+    .join("").length;
+  const hiScore = [
+    ...(question.text?.hi ? [question.text.hi] : []),
+    ...(question.options?.hi || []),
+    question.explanation?.hi,
+  ]
+    .filter(Boolean)
+    .join("").length;
+  return hiScore > enScore ? "hi" : "en";
+};
 
-export default { hasDevanagari, hasLatin, detectScript, getLocalizedField, pickDefaultLanguage }
-
+export default {
+  hasDevanagari,
+  hasLatin,
+  detectScript,
+  getLocalizedField,
+  pickDefaultLanguage,
+};

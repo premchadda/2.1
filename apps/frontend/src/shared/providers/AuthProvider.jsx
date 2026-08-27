@@ -473,7 +473,6 @@ export function AuthProvider({ children }) {
     }
   };
 
-
   // Update user profile
   const updateProfile = async (updates) => {
     if (!user) return { success: false, error: "Not authenticated" };

@@ -119,7 +119,9 @@ function QuestionPalette({
                     }}
                   />
                 ) : null}
-                <span className={`${user?.avatar || user?.avatarUrl ? "hidden" : "inline"} text-sm font-black text-blue-600 dark:text-blue-300`}>
+                <span
+                  className={`${user?.avatar || user?.avatarUrl ? "hidden" : "inline"} text-sm font-black text-blue-600 dark:text-blue-300`}
+                >
                   {userInitials}
                 </span>
               </div>

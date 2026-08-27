@@ -254,7 +254,8 @@ function ProfileHeader({
                           onError={(e) => {
                             e.currentTarget.style.display = "none";
                             if (e.currentTarget.nextSibling) {
-                              e.currentTarget.nextSibling.style.display = "flex";
+                              e.currentTarget.nextSibling.style.display =
+                                "flex";
                             }
                           }}
                         />

@@ -761,12 +761,15 @@ export default function Settings() {
                         onError={(e) => {
                           e.currentTarget.style.display = "none";
                           if (e.currentTarget.nextSibling) {
-                            e.currentTarget.nextSibling.style.display = "inline";
+                            e.currentTarget.nextSibling.style.display =
+                              "inline";
                           }
                         }}
                       />
                     ) : null}
-                    <span className={`${user?.avatar ? "hidden" : "inline"} text-sm font-black text-indigo-600 dark:text-indigo-400`}>
+                    <span
+                      className={`${user?.avatar ? "hidden" : "inline"} text-sm font-black text-indigo-600 dark:text-indigo-400`}
+                    >
                       {user?.name?.[0]?.toUpperCase() || "U"}
                     </span>
                   </div>
@@ -880,12 +883,15 @@ export default function Settings() {
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 if (e.currentTarget.nextSibling) {
-                                  e.currentTarget.nextSibling.style.display = "inline";
+                                  e.currentTarget.nextSibling.style.display =
+                                    "inline";
                                 }
                               }}
                             />
                           ) : null}
-                          <span className={`${user?.avatar ? "hidden" : "inline"} text-xl sm:text-2xl lg:text-3xl font-black text-indigo-600 dark:text-indigo-400`}>
+                          <span
+                            className={`${user?.avatar ? "hidden" : "inline"} text-xl sm:text-2xl lg:text-3xl font-black text-indigo-600 dark:text-indigo-400`}
+                          >
                             {user?.name?.[0]?.toUpperCase() || "A"}
                           </span>
                         </div>

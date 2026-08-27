@@ -337,7 +337,8 @@ export default function PracticeSessionCanvas({ session, onExit, onComplete }) {
                   rawSubmissionCorrect !== undefined &&
                   rawSubmissionCorrect !== null &&
                   (idx === Number(rawSubmissionCorrect) ||
-                    String.fromCharCode(65 + idx) === String(rawSubmissionCorrect).toUpperCase() ||
+                    String.fromCharCode(65 + idx) ===
+                      String(rawSubmissionCorrect).toUpperCase() ||
                     String(optText) === String(rawSubmissionCorrect));
 
                 if (isCorrectOption) {

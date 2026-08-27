@@ -604,7 +604,8 @@ function StudyMaterial() {
                               {groupName}
                             </h3>
                             <p className="text-gray-500 dark:text-gray-400 text-xs font-medium mt-0.5">
-                              {groupSubs.length} subjects • {totalChapters} chapters • {totalVideos} videos
+                              {groupSubs.length} subjects • {totalChapters}{" "}
+                              chapters • {totalVideos} videos
                             </p>
                           </div>
                         </div>

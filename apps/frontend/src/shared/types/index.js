@@ -543,35 +543,35 @@ export function mapQuestionToFrontend(backendQuestion) {
     );
   }
 
-    const resolvedCorrect =
-      backendQuestion.correctOption !== undefined
-        ? backendQuestion.correctOption
-        : backendQuestion.correct_option !== undefined
-          ? backendQuestion.correct_option
-          : backendQuestion.correct_option_id !== undefined
-            ? backendQuestion.correct_option_id
-            : backendQuestion.correctOptionId !== undefined
-              ? backendQuestion.correctOptionId
-              : backendQuestion.correctAnswer !== undefined
-                ? backendQuestion.correctAnswer
-                : backendQuestion.correct_answer !== undefined
-                  ? backendQuestion.correct_answer
-                  : backendQuestion.correct !== undefined
-                    ? backendQuestion.correct
-                    : backendQuestion.answer;
+  const resolvedCorrect =
+    backendQuestion.correctOption !== undefined
+      ? backendQuestion.correctOption
+      : backendQuestion.correct_option !== undefined
+        ? backendQuestion.correct_option
+        : backendQuestion.correct_option_id !== undefined
+          ? backendQuestion.correct_option_id
+          : backendQuestion.correctOptionId !== undefined
+            ? backendQuestion.correctOptionId
+            : backendQuestion.correctAnswer !== undefined
+              ? backendQuestion.correctAnswer
+              : backendQuestion.correct_answer !== undefined
+                ? backendQuestion.correct_answer
+                : backendQuestion.correct !== undefined
+                  ? backendQuestion.correct
+                  : backendQuestion.answer;
 
-    return {
-      id:
-        backendQuestion.public_id ||
-        String(backendQuestion.id || backendQuestion._id),
-      _id: backendQuestion.id || backendQuestion._id,
-      public_id: backendQuestion.public_id,
-      text: textFormatted,
-      options: optionsFormatted,
-      correct: resolvedCorrect,
-      correctOption: resolvedCorrect,
-      correctAnswer: resolvedCorrect,
-      correct_option: resolvedCorrect,
+  return {
+    id:
+      backendQuestion.public_id ||
+      String(backendQuestion.id || backendQuestion._id),
+    _id: backendQuestion.id || backendQuestion._id,
+    public_id: backendQuestion.public_id,
+    text: textFormatted,
+    options: optionsFormatted,
+    correct: resolvedCorrect,
+    correctOption: resolvedCorrect,
+    correctAnswer: resolvedCorrect,
+    correct_option: resolvedCorrect,
     explanation: explanationFormatted,
     section: backendQuestion.section || backendQuestion.subject || "General",
     subject: backendQuestion.subject,
