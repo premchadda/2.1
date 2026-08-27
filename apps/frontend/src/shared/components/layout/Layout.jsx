@@ -139,8 +139,8 @@ function Layout() {
       {/* Mobile Bottom Navigation */}
       <BottomNav />
 
-      {/* Content information / Site-wide Footer */}
-      {!isAuthPage && <Footer isLeftNavMode={isLeftNavMode} />}
+      {/* Content information / Site-wide Footer (homepage only) */}
+      {location.pathname === "/" && <Footer isLeftNavMode={isLeftNavMode} />}
     </div>
   );
 }

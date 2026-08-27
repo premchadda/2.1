@@ -334,10 +334,16 @@ router.post("/resume", protect, async (req, res) => {
         .json({ success: false, message: "Not authorized" });
     }
 
-    if (attempt.status !== ATTEMPT_STATUS.PAUSED) {
+    if (
+      attempt.status !== ATTEMPT_STATUS.PAUSED &&
+      attempt.status !== ATTEMPT_STATUS.IN_PROGRESS
+    ) {
       return res
         .status(400)
-        .json({ success: false, message: "Attempt is not paused" });
+        .json({
+          success: false,
+          message: `Attempt cannot be resumed (status: ${attempt.status})`,
+        });
     }
 
     // Calculate additional time spent during pause
@@ -345,12 +351,19 @@ router.post("/resume", protect, async (req, res) => {
       ? Math.floor((new Date() - new Date(attempt.pausedAt)) / 1000)
       : 0;
 
-    // Update attempt with resumed state
-    const updated = await dbHelpers.updateById("attempts", internalAttemptId, {
-      status: ATTEMPT_STATUS.IN_PROGRESS,
-      resumedAt: new Date().toISOString(),
-      lastActivityAt: new Date().toISOString(),
-    });
+    // Update attempt with resumed state if it was paused
+    let updated = attempt;
+    if (attempt.status === ATTEMPT_STATUS.PAUSED) {
+      updated = await dbHelpers.updateById("attempts", internalAttemptId, {
+        status: ATTEMPT_STATUS.IN_PROGRESS,
+        resumedAt: new Date().toISOString(),
+        lastActivityAt: new Date().toISOString(),
+      });
+    } else {
+      updated = await dbHelpers.updateById("attempts", internalAttemptId, {
+        lastActivityAt: new Date().toISOString(),
+      });
+    }
 
     // Get question attempts for this attempt
     const questionAttempts = await dbHelpers.find("questionAttempts", {
@@ -369,7 +382,19 @@ router.post("/resume", protect, async (req, res) => {
         entry.questionId,
       ),
     }));
-    const parsedAnswers = attempt.answers ? JSON.parse(attempt.answers) : [];
+    const parsedAnswers = Array.isArray(attempt.answers)
+      ? attempt.answers
+      : typeof attempt.answers === "string"
+        ? (() => {
+            try {
+              return JSON.parse(attempt.answers);
+            } catch {
+              return [];
+            }
+          })()
+        : Array.isArray(attempt.answers?.answers)
+          ? attempt.answers.answers
+          : [];
     const serializedAnswers = Array.isArray(parsedAnswers)
       ? parsedAnswers.map((entry) => ({
           ...entry,
@@ -648,9 +673,17 @@ router.get("/:attemptId/state", protect, async (req, res) => {
         remainingTime: attempt.remainingTimeSeconds,
         totalTimeSpent: attempt.totalTimeSpent,
         answers: serializedAnswers,
-        markedForReview: attempt.markedForReview
-          ? JSON.parse(attempt.markedForReview)
-          : [],
+        markedForReview: Array.isArray(attempt.markedForReview)
+          ? attempt.markedForReview
+          : typeof attempt.markedForReview === "string"
+            ? (() => {
+                try {
+                  return JSON.parse(attempt.markedForReview);
+                } catch {
+                  return [];
+                }
+              })()
+            : [],
         questionAttempts: serializedQuestionAttempts,
         startedAt: attempt.startTime,
         pausedAt: attempt.pausedAt,
@@ -751,51 +784,41 @@ router.post("/:attemptId/events", protect, async (req, res) => {
     // 1. Request string size validation (max 512KB)
     const payloadStr = JSON.stringify(req.body);
     if (payloadStr.length > 512 * 1024) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Payload too large. Maximum size is 512KB.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Payload too large. Maximum size is 512KB.",
+      });
     }
 
     // 2. Request nesting depth validation (max 5)
     if (getObjectDepth(req.body) > 5) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Payload nested too deeply. Maximum JSON depth is 5.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Payload nested too deeply. Maximum JSON depth is 5.",
+      });
     }
 
     if (!Array.isArray(events)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid events payload. Expected array.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid events payload. Expected array.",
+      });
     }
 
     if (events.length > 100) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Payload too large. Maximum 100 events allowed per batch.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Payload too large. Maximum 100 events allowed per batch.",
+      });
     }
 
     // 3. Event metadata validation
     for (const e of events) {
       if (e.metadata && JSON.stringify(e.metadata).length > 4096) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "Event metadata size limit exceeded (maximum 4096 bytes).",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "Event metadata size limit exceeded (maximum 4096 bytes).",
+        });
       }
     }
 

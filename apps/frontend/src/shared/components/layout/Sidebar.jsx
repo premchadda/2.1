@@ -5,6 +5,7 @@ import { useAuth } from "../../providers/AuthContext";
 import { Logo } from "../index";
 import {
   userNavSections,
+  moreNavItems,
   premiumNavItem,
   getDashboardLink,
 } from "../../config/userNavConfig";
@@ -117,6 +118,28 @@ function Sidebar({ isOpen, onClose }) {
               </div>
             </div>
           ))}
+
+          {moreNavItems.length > 0 && (
+            <div>
+              <h3 className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2">
+                More
+              </h3>
+              <div className="space-y-0.5">
+                {moreNavItems.map(({ label, path, Icon, color }) => (
+                  <Link
+                    key={path}
+                    to={path}
+                    onClick={handleNavClick}
+                    aria-current={isActive(path) ? "page" : undefined}
+                    className={`flex items-center gap-3 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/60 text-gray-700 dark:text-gray-200 transition ${isActive(path) ? "bg-gray-50 dark:bg-gray-800 font-semibold" : ""}`}
+                  >
+                    <Icon className={`w-4 h-4 ${color}`} aria-hidden="true" />
+                    <span className="text-sm font-medium">{label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <Link

@@ -40,6 +40,7 @@ import DifficultyBadge from "../../shared/components/common/DifficultyBadge";
 import QuestionPalette from "./QuestionPalette";
 import SubmitSummaryModal from "./components/SubmitSummaryModal";
 import ImageZoomModal from "./components/ImageZoomModal";
+import { normalizeTestQuestions } from "../../shared/utils/testClassification";
 import {
   Clock,
   ChevronLeft,
@@ -279,18 +280,128 @@ function TestInterface() {
     "sectionalTimer",
   );
 
+  const preloadedQuestions = location.state?.preloadedQuestions;
+  const preloadedTest = location.state?.preloadedTest;
+  const preloadedAttemptData = location.state?.preloadedAttemptData;
+
+  const initialQuestions = useMemo(() => {
+    if (
+      !reviewMode &&
+      Array.isArray(preloadedQuestions) &&
+      preloadedQuestions.length > 0
+    ) {
+      return normalizeTestQuestions(preloadedQuestions, preloadedTest);
+    }
+    return [];
+  }, [reviewMode, preloadedQuestions, preloadedTest]);
+
   // State
-  const [test, setTest] = useState(null);
-  const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [test, setTest] = useState(() => {
+    if (!reviewMode && preloadedTest) {
+      const configuredSections = Array.isArray(preloadedTest.sections)
+        ? preloadedTest.sections
+        : [];
+      const questionSectionNames = [
+        ...new Set(initialQuestions.map((q) => q.section || "General")),
+      ];
+      const useSectionalTimer =
+        sectionalTimerParam === "on" ||
+        (sectionalTimerParam !== "off" &&
+          Boolean(
+            preloadedTest.hasSectionalTiming ||
+            preloadedTest.has_sectional_timing ||
+            preloadedTest.sectionalTiming ||
+            preloadedTest.enableSectionalTiming,
+          ));
+      const sectionTimeLimits = {};
+      if (useSectionalTimer) {
+        const fallbackMinutes =
+          (Number(preloadedTest.duration) || 60) /
+          Math.max(questionSectionNames.length, 1);
+        questionSectionNames.forEach((sectionName) => {
+          const config = configuredSections.find(
+            (section) =>
+              String(
+                section.name || section.title || section.subject || "",
+              ).toLowerCase() === String(sectionName).toLowerCase(),
+          );
+          const configuredMinutes = Number(
+            config?.duration ??
+              config?.timeLimit ??
+              config?.time_limit ??
+              config?.durationMinutes,
+          );
+          sectionTimeLimits[sectionName] =
+            (configuredMinutes > 0 ? configuredMinutes : fallbackMinutes) * 60;
+        });
+      }
+      return {
+        ...preloadedTest,
+        sectionTimeLimits,
+        sectionalTimerEnabled: useSectionalTimer,
+      };
+    }
+    return null;
+  });
+  const [questions, setQuestions] = useState(() => initialQuestions);
+  const [loading, setLoading] = useState(() => {
+    if (reviewMode) return true;
+    if (initialQuestions.length > 0) return false;
+    return true;
+  });
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [currentSection, setCurrentSection] = useState("");
-  const [answers, setAnswers] = useState({});
-  const [markedForReview, setMarkedForReview] = useState(new Set());
-  const [visitedQuestions, setVisitedQuestions] = useState(new Set([0]));
-  const [timeLeft, setTimeLeft] = useState(0);
+  const [currentSection, setCurrentSection] = useState(
+    () => initialQuestions[0]?.section || "",
+  );
+  const [answers, setAnswers] = useState(() => {
+    if (
+      preloadedAttemptData?.answers &&
+      preloadedAttemptData.answers.length > 0
+    ) {
+      const restoredAnswers = {};
+      preloadedAttemptData.answers.forEach((a) => {
+        restoredAnswers[a.questionIndex] = a.selectedOption;
+      });
+      return restoredAnswers;
+    }
+    return {};
+  });
+  const [markedForReview, setMarkedForReview] = useState(() => {
+    if (
+      preloadedAttemptData?.markedForReview &&
+      preloadedAttemptData.markedForReview.length > 0
+    ) {
+      return new Set(preloadedAttemptData.markedForReview);
+    }
+    return new Set();
+  });
+  const [visitedQuestions, setVisitedQuestions] = useState(() => {
+    if (
+      preloadedAttemptData?.answers &&
+      preloadedAttemptData.answers.length > 0
+    ) {
+      const visited = new Set([0]);
+      preloadedAttemptData.answers.forEach((a) => {
+        visited.add(a.questionIndex);
+      });
+      return visited;
+    }
+    return new Set([0]);
+  });
+  const [timeLeft, setTimeLeft] = useState(() => {
+    if (!reviewMode && preloadedTest?.duration) {
+      if (preloadedAttemptData?.timeSpent > 0) {
+        return Math.max(
+          1,
+          (preloadedTest.duration || 60) * 60 - preloadedAttemptData.timeSpent,
+        );
+      }
+      return (Number(preloadedTest.duration) || 60) * 60;
+    }
+    return 0;
+  });
   const [showPalette, setShowPalette] = useState(false);
   const [language, setLanguage] = useState(() => {
     const saved = localStorage.getItem("trstprep_language");
@@ -301,7 +412,9 @@ function TestInterface() {
   const [_showInstructions, _setShowInstructions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [attemptId, setAttemptId] = useState(null);
+  const [attemptId, setAttemptId] = useState(
+    () => preloadedAttemptData?.attemptId || null,
+  );
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [interactiveReviewEnabled, _setInteractiveReviewEnabled] =
     useState(false);
@@ -668,169 +781,71 @@ function TestInterface() {
           }
         }
 
-        const testData = await getTestById(testId);
+        let testData = test;
+        let finalQuestions = questions;
 
-        if (testData) {
-          setTimeLeft((testData.duration || 60) * 60);
+        if (!testData || finalQuestions.length === 0) {
+          testData = await getTestById(testId);
 
-          const questionsData = await getQuestionsByTestId(
-            testData._id || testId,
-          );
-          let finalQuestions = Array.isArray(questionsData)
-            ? questionsData
-            : [];
+          if (testData) {
+            setTimeLeft((testData.duration || 60) * 60);
 
-          const testSections =
-            Array.isArray(testData?.sections) && testData.sections.length > 0
+            const questionsData = await getQuestionsByTestId(
+              testData._id || testId,
+            );
+            finalQuestions = normalizeTestQuestions(questionsData, testData);
+
+            const useSectionalTimer =
+              sectionalTimerParam === "on" ||
+              (sectionalTimerParam !== "off" &&
+                Boolean(
+                  testData.hasSectionalTiming ||
+                  testData.has_sectional_timing ||
+                  testData.sectionalTiming ||
+                  testData.enableSectionalTiming,
+                ));
+            const configuredSections = Array.isArray(testData.sections)
               ? testData.sections
-              : typeof testData?.testSections === "string" &&
-                  testData.testSections.trim()
-                ? testData.testSections
-                    .split(",")
-                    .map((s) => ({ name: s.trim() }))
-                : testData?.totalQuestions === 100 ||
-                    finalQuestions.length === 100
-                  ? [
-                      {
-                        name: "General Intelligence & Reasoning",
-                        questionCount: 25,
-                      },
-                      { name: "General Awareness", questionCount: 25 },
-                      { name: "Quantitative Aptitude", questionCount: 25 },
-                      { name: "English Comprehension", questionCount: 25 },
-                    ]
-                  : null;
+              : [];
+            const questionSectionNames = [
+              ...new Set(finalQuestions.map((q) => q.section || "General")),
+            ];
+            const sectionTimeLimits = {};
+            if (useSectionalTimer) {
+              const fallbackMinutes =
+                (Number(testData.duration) || 60) /
+                Math.max(questionSectionNames.length, 1);
+              questionSectionNames.forEach((sectionName) => {
+                const config = configuredSections.find(
+                  (section) =>
+                    String(
+                      section.name || section.title || section.subject || "",
+                    ).toLowerCase() === String(sectionName).toLowerCase(),
+                );
+                const configuredMinutes = Number(
+                  config?.duration ??
+                    config?.timeLimit ??
+                    config?.time_limit ??
+                    config?.durationMinutes,
+                );
+                sectionTimeLimits[sectionName] =
+                  (configuredMinutes > 0
+                    ? configuredMinutes
+                    : fallbackMinutes) * 60;
+              });
+            }
+            testData.sectionTimeLimits = sectionTimeLimits;
+            testData.sectionalTimerEnabled = useSectionalTimer;
+            setTest(testData);
 
-          const hasExplicitSections = finalQuestions.some(
-            (q) =>
-              q.section && q.section !== "General" && q.section !== "Full Test",
-          );
-
-          if (
-            !hasExplicitSections &&
-            testSections &&
-            testSections.length > 1 &&
-            finalQuestions.length > 0
-          ) {
-            const totalQ = finalQuestions.length;
-            const qPerSec = Math.floor(totalQ / testSections.length);
-
-            finalQuestions = finalQuestions.map((q, idx) => {
-              let accumulated = 0;
-              let assignedSection =
-                testSections[testSections.length - 1]?.name ||
-                (typeof testSections[testSections.length - 1] === "string"
-                  ? testSections[testSections.length - 1]
-                  : "General");
-              for (let sIdx = 0; sIdx < testSections.length; sIdx++) {
-                const secCount =
-                  testSections[sIdx]?.questionCount ||
-                  (sIdx === testSections.length - 1
-                    ? totalQ - qPerSec * (testSections.length - 1)
-                    : qPerSec);
-                if (idx < accumulated + secCount) {
-                  assignedSection =
-                    testSections[sIdx]?.name ||
-                    (typeof testSections[sIdx] === "string"
-                      ? testSections[sIdx]
-                      : "General");
-                  break;
-                }
-                accumulated += secCount;
-              }
-              return {
-                ...q,
-                section: assignedSection,
-                subject: q.subject || assignedSection,
-              };
-            });
-          } else {
-            finalQuestions = finalQuestions.map((q) => {
-              const rawSection = q.section || q.subject || "General";
-              return {
-                ...q,
-                section: rawSection,
-                subject: q.subject || rawSection,
-              };
-            });
+            setQuestions(finalQuestions);
+            if (finalQuestions.length > 0) {
+              setCurrentSection(finalQuestions[0].section);
+            }
           }
+        }
 
-          const standardOrderMap = {
-            reasoning: 1,
-            "general intelligence & reasoning": 1,
-            "general intelligence and reasoning": 1,
-            "general intelligence": 1,
-            "logical reasoning": 1,
-            "general awareness": 2,
-            "general knowledge": 2,
-            gk: 2,
-            "current affairs": 2,
-            "quantitative aptitude": 3,
-            mathematics: 3,
-            math: 3,
-            maths: 3,
-            arithmetic: 3,
-            "english language": 4,
-            "english comprehension": 4,
-            english: 4,
-          };
-          const getSecOrder = (name) =>
-            standardOrderMap[(name || "").toLowerCase().trim()] ?? 99;
-
-          finalQuestions.sort(
-            (a, b) => getSecOrder(a.section) - getSecOrder(b.section),
-          );
-
-          // The instruction-page toggle is carried in the URL so refreshes
-          // preserve the user's choice. When enabled, use configured section
-          // durations and split the overall duration evenly as a safe fallback.
-          const useSectionalTimer =
-            sectionalTimerParam === "on" ||
-            (sectionalTimerParam !== "off" &&
-              Boolean(
-                testData.hasSectionalTiming ||
-                testData.has_sectional_timing ||
-                testData.sectionalTiming ||
-                testData.enableSectionalTiming,
-              ));
-          const configuredSections = Array.isArray(testData.sections)
-            ? testData.sections
-            : [];
-          const questionSectionNames = [
-            ...new Set(finalQuestions.map((q) => q.section || "General")),
-          ];
-          const sectionTimeLimits = {};
-          if (useSectionalTimer) {
-            const fallbackMinutes =
-              (Number(testData.duration) || 60) /
-              Math.max(questionSectionNames.length, 1);
-            questionSectionNames.forEach((sectionName) => {
-              const config = configuredSections.find(
-                (section) =>
-                  String(
-                    section.name || section.title || section.subject || "",
-                  ).toLowerCase() === String(sectionName).toLowerCase(),
-              );
-              const configuredMinutes = Number(
-                config?.duration ??
-                  config?.timeLimit ??
-                  config?.time_limit ??
-                  config?.durationMinutes,
-              );
-              sectionTimeLimits[sectionName] =
-                (configuredMinutes > 0 ? configuredMinutes : fallbackMinutes) *
-                60;
-            });
-          }
-          testData.sectionTimeLimits = sectionTimeLimits;
-          testData.sectionalTimerEnabled = useSectionalTimer;
-          setTest(testData);
-
-          setQuestions(finalQuestions);
-          if (finalQuestions.length > 0) {
-            setCurrentSection(finalQuestions[0].section);
-          }
-
+        if (testData && finalQuestions.length > 0) {
           const isReattempt = Boolean(
             location.state?.isReattempt ||
             new URLSearchParams(location.search).get("attempt"),
@@ -839,12 +854,16 @@ function TestInterface() {
             clearLocalAnswers(testId);
           }
 
-          const attemptResponse = await apiClient.post(
-            `/api/tests/${testData._id || testData.id || testId}/start`,
-            { isReattempt },
-            { signal: controller.signal },
-          );
-          const attemptData = attemptResponse.data?.data;
+          let attemptData = preloadedAttemptData;
+          if (!attemptData?.attemptId && !attemptId) {
+            const attemptResponse = await apiClient.post(
+              `/api/tests/${testData._id || testData.id || testId}/start`,
+              { isReattempt },
+              { signal: controller.signal },
+            );
+            attemptData = attemptResponse.data?.data;
+          }
+
           if (attemptData?.attemptId) {
             setAttemptId(attemptData.attemptId);
             questionStartTimeRef.current = Date.now();
@@ -1344,7 +1363,10 @@ function TestInterface() {
 
   // Question status
   const getQuestionStatus = (index) => {
-    const isAnswered = answers[index] !== undefined;
+    const isAnswered =
+      answers[index] !== undefined &&
+      answers[index] !== null &&
+      answers[index] !== "";
     const isReview = markedForReview.has(index);
     const isVisited = visitedQuestions.has(index);
     const _isCurrent = currentQuestion === index;
