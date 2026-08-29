@@ -13,23 +13,27 @@ export function resolveQuestionMarks(question, testDefaults = {}) {
       testDefaults.marks ??
       2,
   );
-  const negRaw = Number(
+
+  // `0` is a valid configuration: it means negative marking is disabled.
+  // Do not use `> 0` to decide whether a configured value exists, otherwise
+  // an explicit zero silently becomes the default penalty.
+  const configuredNegative =
     question?.negativeMarks ??
-      question?.negative_marks ??
-      question?.junction_neg_marks ??
-      testDefaults.negativeMarking ??
-      testDefaults.negativeMarks ??
-      testDefaults.negative_marks ??
-      0,
-  );
+    question?.negative_marks ??
+    question?.junction_neg_marks ??
+    testDefaults.negativeMarking ??
+    testDefaults.negativeMarks ??
+    testDefaults.negative_marks;
+
   const negative =
-    negRaw > 0
-      ? negRaw
+    configuredNegative !== undefined && configuredNegative !== null && configuredNegative !== ""
+      ? Math.max(0, Number(configuredNegative))
       : positive === 2
         ? 0.5
         : positive === 1
           ? 0.33
           : Number((positive * 0.25).toFixed(2));
+
   return { positive, negative };
 }
 
