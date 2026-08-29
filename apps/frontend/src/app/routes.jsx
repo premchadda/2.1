@@ -1,7 +1,21 @@
 import React from "react";
+import { Navigate } from "react-router-dom";
 import RouteErrorBoundary from "../shared/components/common/RouteErrorBoundary.jsx";
 import ProtectedRoute from "../shared/components/auth/ProtectedRoute.jsx";
 import FeatureGate from "../shared/components/common/FeatureGate.jsx";
+import { PageSkeleton } from "../shared/components/common/LoadingSkeleton.jsx";
+import { useAuth } from "../shared/providers/AuthContext";
+
+/**
+ * Root route resolver: do not render the public Home page while authentication
+ * is still being resolved. This prevents the Home -> Dashboard flash on
+ * revisits when the existing session is restored asynchronously.
+ */
+function RootRoute({ element }) {
+  const { isAuthenticated, authResolved } = useAuth();
+  if (!authResolved) return <PageSkeleton />;
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : element;
+}
 
 /**
  * Wraps a page element with the standard route boundaries.
@@ -22,32 +36,23 @@ export function wrapElement(element, opts = {}) {
   if (isProtected) {
     wrapped = <ProtectedRoute>{wrapped}</ProtectedRoute>;
   }
-  // RouteErrorBoundary is always outermost — it must catch chunk errors from
-  // lazy-loaded pages even when auth/feature gates reject.
   return <RouteErrorBoundary>{wrapped}</RouteErrorBoundary>;
 }
 
 /**
  * Creates a route config object with boundaries already applied.
- * Use to de-duplicate the repetitive `<RouteErrorBoundary><ProtectedRoute><FeatureGate>` nesting.
- * Keeps App.jsx declarative and compact vs 7-line <Route> blocks per entry.
- *
- * @param {string} path - react-router path
- * @param {React.ReactNode} element - page element
- * @param {{ protected?: boolean, featureKey?: string, pageKey?: string }} opts
- * @returns {{ path: string, element: React.ReactNode }}
+ * The root path gets a small auth-aware resolver so authenticated users never
+ * briefly render the public Home page before being sent to the dashboard.
  */
 export function createRoute(path, element, opts) {
-  return { path, element: wrapElement(element, opts) };
+  const routeElement = path === "/" ? <RootRoute element={element} /> : element;
+  return { path, element: wrapElement(routeElement, opts) };
 }
 
 /**
  * Helper to render an array of route configs as <Route> elements.
- * Keeps App.jsx's <Routes> JSX minimal.
  */
 export function renderRoutes(routeConfigs) {
-  // This is a plain helper re-exported for convenience; callers can also
-  // map inline. Keeping it here co-locates route utilities.
   return routeConfigs;
 }
 
