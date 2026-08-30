@@ -232,7 +232,7 @@ const bulkImportService = {
           explanation: '2 + 2 = 4',
           difficulty: 'easy',
           marks: 1,
-          negative_marks: 0.25,
+          negative_marks: 0.5,
           subject: 'Mathematics',
           topic: 'Basic Arithmetic',
         },

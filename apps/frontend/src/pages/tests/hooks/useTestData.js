@@ -88,13 +88,40 @@ export function useTestData({
                 (rawResultData.timeSpent || rawResultData.timeTaken || 0) / 60,
               ),
             });
-            setQuestions(normalizedQuestions);
-            setCurrentSection(normalizedQuestions[0]?.section || "General");
+            // Keep review order aligned with live test section order
+            const standardOrderMap = {
+              reasoning: 1,
+              "general intelligence & reasoning": 1,
+              "general intelligence and reasoning": 1,
+              "general intelligence": 1,
+              "logical reasoning": 1,
+              "general awareness": 2,
+              "general knowledge": 2,
+              gk: 2,
+              "current affairs": 2,
+              "quantitative aptitude": 3,
+              mathematics: 3,
+              math: 3,
+              maths: 3,
+              arithmetic: 3,
+              "english language": 4,
+              "english comprehension": 4,
+              english: 4,
+            };
+            const getSecOrder = (name) => {
+              const key = (name || "").toLowerCase().trim();
+              return standardOrderMap[key] ?? 99;
+            };
+            const orderedReview = [...normalizedQuestions].sort(
+              (a, b) => getSecOrder(a.section) - getSecOrder(b.section),
+            );
+            setQuestions(orderedReview);
+            setCurrentSection(orderedReview[0]?.section || "General");
             setVisitedQuestions(
-              new Set(normalizedQuestions.map((_, index) => index)),
+              new Set(orderedReview.map((_, index) => index)),
             );
             setAnswers(
-              normalizedQuestions.reduce((acc, question, index) => {
+              orderedReview.reduce((acc, question, index) => {
                 if (
                   question.userAnswer !== undefined &&
                   question.userAnswer !== null
@@ -105,7 +132,7 @@ export function useTestData({
             );
             setMarkedForReview(
               new Set(
-                normalizedQuestions.reduce((acc, question, index) => {
+                orderedReview.reduce((acc, question, index) => {
                   if (question.isMarked) acc.push(index);
                   return acc;
                 }, []),
