@@ -465,7 +465,8 @@ export default function SubmitSummaryModal({
           </button>
           <button
             onClick={() => {
-              onClose();
+              // Keep modal open until submit succeeds (navigates away) or fails
+              // (isSubmitting resets and user can retry / return to test)
               onSubmit();
             }}
             disabled={isSubmitting}
