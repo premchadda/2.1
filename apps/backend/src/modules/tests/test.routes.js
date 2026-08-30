@@ -1,13 +1,11 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
-import { protect, optionalAuth } from "../../middleware/auth.middleware.js";
+import { optionalAuth } from "../../middleware/auth.middleware.js";
 import { responseCache } from "../../middleware/responseCache.middleware.js";
-import { idsMatch, parseNumericId } from "../../shared/utils/db-utils.js";
 import {
   findEntityByIdentifier,
   getInternalId,
 } from "../../shared/utils/identifier-utils.js";
-import { getPublicResponseId } from "../../shared/utils/public-id-response.js";
 
 const router = express.Router();
 
@@ -58,15 +56,15 @@ export function toPublicTestDTO(test) {
     ),
     isFree: Boolean(
       test.isFree ||
-      test.is_free ||
-      test.type === "Free" ||
-      test.type === "free",
+        test.is_free ||
+        test.type === "Free" ||
+        test.type === "free",
     ),
     is_free: Boolean(
       test.is_free ||
-      test.isFree ||
-      test.type === "Free" ||
-      test.type === "free",
+        test.isFree ||
+        test.type === "Free" ||
+        test.type === "free",
     ),
     price: Number(test.price) || 0,
     difficulty: test.difficulty || "Medium",
@@ -134,21 +132,109 @@ export function toPublicTestDTO(test) {
   };
 }
 
-// Minimal health/list so app does not 404 everything while full restore is applied
-router.get("/", optionalAuth, responseCache("tests-list-temp", 30), async (req, res) => {
-  try {
-    const tests = await dbHelpers.find("tests");
-    const active = (tests || []).filter((t) => t.isActive !== false && t.is_active !== false);
-    res.json({ success: true, count: active.length, data: active.map(toPublicTestDTO) });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
+const findTestById = (id) =>
+  findEntityByIdentifier(dbHelpers, "tests", id, { slugFields: ["slug"] });
 
+const findSeriesById = (id) =>
+  findEntityByIdentifier(dbHelpers, "testSeries", id, { slugFields: ["slug"] });
+
+// List tests
+router.get(
+  "/",
+  optionalAuth,
+  responseCache("tests-list-temp", 30),
+  async (req, res) => {
+    try {
+      const tests = await dbHelpers.find("tests");
+      const active = (tests || []).filter(
+        (t) => t.isActive !== false && t.is_active !== false,
+      );
+      res.json({
+        success: true,
+        count: active.length,
+        data: active.map(toPublicTestDTO),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+);
+
+// MUST be before /:id — otherwise "series" is captured as an id
+// @route   GET /api/tests/series/:seriesId
+// @desc    Published tests for a series (series detail page)
+// @access  Public
+router.get(
+  "/series/:seriesId",
+  responseCache("tests-series-v2", 60),
+  async (req, res) => {
+    try {
+      const { seriesId } = req.params;
+      const { page, limit } = req.query;
+
+      const series = await findSeriesById(seriesId);
+      const internalId = getInternalId(series) ?? seriesId;
+      const slug = series?.slug || seriesId;
+
+      let tests = [];
+      try {
+        const result = await dbHelpers.pool.query(
+          `SELECT * FROM tests
+           WHERE is_active = true
+             AND (status = 'published' OR status = 'active' OR status IS NULL)
+             AND (
+               series_id::text = $1
+               OR series_id::text = $2
+               OR series_id::text = $3
+             )`,
+          [String(internalId), String(seriesId), String(slug)],
+        );
+        tests = (result.rows || []).map((row) =>
+          typeof dbHelpers.toCamel === "function"
+            ? dbHelpers.toCamel(row)
+            : row,
+        );
+      } catch (qErr) {
+        const all = await dbHelpers.find("tests");
+        tests = (all || []).filter((t) => {
+          if (t.isActive === false || t.is_active === false) return false;
+          const sid = String(t.series_id ?? t.seriesId ?? "");
+          return (
+            sid === String(internalId) ||
+            sid === String(seriesId) ||
+            sid === String(slug)
+          );
+        });
+      }
+
+      const totalCount = tests.length;
+      if (page && limit) {
+        const p = Math.max(1, parseInt(page, 10) || 1);
+        const l = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+        tests = tests.slice((p - 1) * l, p * l);
+      }
+
+      res.json({
+        success: true,
+        count: tests.length,
+        total: totalCount,
+        data: tests.map(toPublicTestDTO),
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+);
+
+// Single test by id/slug/public_id
 router.get("/:id", optionalAuth, async (req, res) => {
   try {
-    const test = await findEntityByIdentifier("tests", req.params.id);
-    if (!test) return res.status(404).json({ success: false, message: "Test not found" });
+    const test = await findTestById(req.params.id);
+    if (!test) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Test not found" });
+    }
     res.json({ success: true, data: toPublicTestDTO(test) });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
