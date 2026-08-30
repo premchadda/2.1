@@ -1,1 +1,1 @@
-FILE://home/workdir/artifacts/Dashboard.jsx
+@file:/home/workdir/artifacts/Dashboard.jsx
