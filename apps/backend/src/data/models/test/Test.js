@@ -66,7 +66,10 @@ class Test {
       totalQuestions: data.totalQuestions || 0,
       totalMarks: data.totalMarks || 0,
       duration: data.duration || 60,
-      negativeMarking: data.negativeMarking || 0.25,
+      negativeMarking:
+        data.negativeMarking !== undefined && data.negativeMarking !== null
+          ? data.negativeMarking
+          : 0.5,
       // V3 schema fields
       shuffleQuestions: data.shuffleQuestions ?? false,
       shuffleOptions: data.shuffleOptions ?? false,

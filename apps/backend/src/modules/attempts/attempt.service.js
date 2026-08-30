@@ -152,9 +152,6 @@ export const attemptService = {
         if (Number.isFinite(asNum)) {
           correctIndex = asNum;
         } else {
-          // Legacy imports sometimes store letters ("A".."D") or full option
-          // text. Letters map deterministically; anything else stays -1
-          // (scored wrong) instead of silently collapsing to 0 / Option A.
           const s = String(rawCorrect).trim();
           const m = s.match(/^[A-Da-d]$/);
           correctIndex = m ? s.toUpperCase().charCodeAt(0) - 65 : -1;
@@ -266,11 +263,6 @@ export const attemptService = {
       submittedAt: new Date().toISOString(),
     };
 
-    // DATA-INTEGRITY FIX (H17): the attempt row, its answers, and its section
-    // scores must be written atomically. Previously these were three separate
-    // statements with no transaction, so a failure after the attempt insert
-    // left a "completed" attempt with missing/partial answers. Wrap all writes
-    // in a single transaction and only emit the domain event after COMMIT.
     const client = await pool.connect();
     let attempt;
     try {
@@ -287,9 +279,16 @@ export const attemptService = {
       if (sectionTimers) {
         const sectionScores = {};
         for (const [sectionId, timer] of Object.entries(sectionTimers)) {
-          const sectionQuestions = questions.filter(
-            (q) => String(q.section_id) === String(sectionId),
-          );
+          // FE keys sectionTimers by section name; DB may use section_id.
+          // Match either so section scorecards stay accurate.
+          const sectionQuestions = questions.filter((q) => {
+            const key = String(sectionId);
+            if (String(q.section_id ?? q.sectionId ?? "") === key) return true;
+            const name = String(
+              q.section || q.subject || q.section_name || "",
+            ).trim();
+            return name.toLowerCase() === key.toLowerCase();
+          });
           const secCorrect = evaluatedAnswers.filter(
             (a) =>
               a.isCorrect &&
@@ -344,8 +343,6 @@ export const attemptService = {
       attemptId: attempt.id,
       title: "Test Submitted",
       message: `Your ${test.title} result is ready`,
-      // Flag live-test submissions so the WS layer can scope leaderboard
-      // refreshes to actual live tests (same check as test.routes.js).
       source: test.isLive || test.is_live ? "live-tests" : undefined,
     });
 
