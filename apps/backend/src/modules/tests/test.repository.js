@@ -58,7 +58,7 @@ export class TestRepository extends BaseRepository {
        FROM questions q
        JOIN test_questions tq ON q.id = tq.question_id
        WHERE tq.test_id = $1 AND q.is_active = true
-       ORDER BY tq.order_index`,
+       ORDER BY tq.order_index, tq.id`,
       [testId]
     );
   }
@@ -116,7 +116,7 @@ export class TestRepository extends BaseRepository {
 
   async syncStats(testId) {
     const stats = await this.queryOneRaw(
-      `SELECT COUNT(*) as q_count, COALESCE(SUM(COALESCE(marks, 0)), 0) as total_marks
+      `SELECT COUNT(*) as q_count, COALESCE(SUM(COALESCE(tq.marks, q.marks, 0)), 0) as total_marks
        FROM questions q
        JOIN test_questions tq ON q.id = tq.question_id
        WHERE tq.test_id = $1 AND q.is_active = true`,
