@@ -29,7 +29,7 @@ const bulkImportService = {
           SUM(skipped) as total_skipped,
           SUM(failed) as total_failed,
           MAX(created_at) as last_import
-        FROM import_logs
+        from import_logs
         GROUP BY source
         ORDER BY last_import DESC
       `)
