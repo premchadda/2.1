@@ -1961,11 +1961,14 @@ function ExamInfoNew() {
                     <div className="grid grid-cols-1 md:grid-cols-2 sm:gap-4">
                       {pypPapers.map((paper) => {
                         const paperYear = paper.pyqYear || paper.year;
-                        const paperSlug = paper.slug || paper.id;
+                        const paperId = paper.id || paper._id || paper.publicId;
+                        const attemptHref = paper.seriesId
+                          ? `/test/${paper.seriesId}/${paperId}/instructions`
+                          : `/pyp/${paperId}/test`;
                         return (
                           <Link
-                            key={paper.id || paperSlug}
-                            to={`/tests/${paperSlug}`}
+                            key={paper.id || paper._id || paper.slug || paperId}
+                            to={attemptHref}
                             className="p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-indigo-300 dark:hover:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition group"
                           >
                             <div className="flex items-center justify-between">

@@ -346,7 +346,7 @@ export default function ContentReader({ isOpen, onClose, contentData }) {
             </p>
             <div className="mt-4">
               <a
-                href={`/discussions/${contentData.id}`}
+                href="/community"
                 className="inline-flex items-center px-4 py-2 bg-brand-start text-white rounded-lg hover:bg-brand-end transition-colors"
               >
                 View Discussion
