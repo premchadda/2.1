@@ -20,7 +20,7 @@ router.get('/', responseCache({ ttl: 60, prefix: 'res:public:test-series:' }), a
     const total = parseInt(countRes.rows[0].total, 10) || 0;
 
     const seriesRes = await readQuery(
-      `SELECT id, title, slug, description, is_pro, is_active, price, exam_category_id, created_at, updated_at, banner_asset_id, total_tests, total_questions
+      `SELECT id, title, slug, description, is_pro, is_active, price, exam_category_id, created_at, updated_at, banner_asset_id, total_tests
        FROM test_series WHERE is_pro = $1 AND is_deleted IS NOT TRUE
        ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
       [isProFilter, parsedLimit, offset]
