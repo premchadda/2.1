@@ -34,7 +34,11 @@ jest.unstable_mockModule('../src/infrastructure/cache/redisClient.js', () => ({
   getRedisClient: () => ({
     get: jest.fn().mockResolvedValue(null),
     set: jest.fn().mockResolvedValue('OK'),
-  })
+  }),
+  isRedisReady: () => false,
+  isRedisHealthy: () => false,
+  recordRedisFailure: () => {},
+  recordRedisSuccess: () => {},
 }))
 
 describe('Auth Middleware', () => {

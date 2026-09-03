@@ -31,6 +31,7 @@ import {
   getTestEndDate,
   getTimeUntil,
 } from "../../utils/testClassification";
+import { parseLanguageList } from "../../lib/language";
 
 // Badge configuration for test & quiz cards
 const badgeConfig = {
@@ -348,16 +349,7 @@ function TestCard({
 
   // Languages
   const languagesRaw = test.languages || test.language || test.langs;
-  const parsedLangs = Array.isArray(languagesRaw)
-    ? languagesRaw.filter(Boolean)
-    : typeof languagesRaw === "string" && languagesRaw.trim()
-      ? languagesRaw
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean)
-      : [];
-  const languageList =
-    parsedLangs.length > 0 ? parsedLangs : ["English", "Hindi"];
+  const languageList = parseLanguageList(languagesRaw, ["English", "Hindi"]);
   const extraLangCount =
     test.extraLanguagesCount ||
     (languageList.length > 2 ? languageList.length - 2 : 0);

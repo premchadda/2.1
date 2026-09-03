@@ -17,11 +17,35 @@ const parseInteger = (value, fallback) => {
 };
 
 const redisTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 3000), 10000);
+  Math.min(parseInteger(process.env.REDIS_CONNECT_TIMEOUT_MS, 4000), 10000);
 const redisCommandTimeout = () =>
-  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 750), 5000);
+  Math.min(parseInteger(process.env.REDIS_COMMAND_TIMEOUT_MS, 2500), 10000);
 const redisRetries = () =>
   Math.min(parseInteger(process.env.REDIS_MAX_RETRIES_PER_REQUEST, 1), 3);
+
+let consecutiveTimeouts = 0;
+let circuitOpenUntil = 0;
+
+export const recordRedisFailure = () => {
+  consecutiveTimeouts++;
+  if (consecutiveTimeouts >= 3 && Date.now() > circuitOpenUntil) {
+    circuitOpenUntil = Date.now() + 30_000;
+    logger.warn(
+      "[Redis] Circuit breaker tripped: Redis is timing out. Pausing remote Redis calls for 30s to preserve fast response times.",
+    );
+  }
+};
+
+export const recordRedisSuccess = () => {
+  consecutiveTimeouts = 0;
+};
+
+export const isRedisReady = () => {
+  if (Date.now() < circuitOpenUntil) return false;
+  return Boolean(redisClient && redisClient.status === "ready");
+};
+
+export const isRedisHealthy = isRedisReady;
 
 const clientOptions = () => ({
   lazyConnect: true,
@@ -111,6 +135,7 @@ export const initRedis = async () => {
     redisClient = buildClient(config.connection);
 
     redisClient.on("error", (error) => {
+      recordRedisFailure();
       redisStatus = {
         ...redisStatus,
         connected: false,
@@ -121,6 +146,7 @@ export const initRedis = async () => {
     });
 
     redisClient.on("ready", () => {
+      recordRedisSuccess();
       redisStatus = {
         ...redisStatus,
         connected: true,
@@ -179,9 +205,6 @@ export const initRedis = async () => {
 };
 
 export const getRedisClient = () => redisClient;
-
-export const isRedisReady = () =>
-  Boolean(redisClient && redisClient.status === "ready");
 
 export const getRedisStatus = () => ({
   ...redisStatus,

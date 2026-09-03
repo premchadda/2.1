@@ -111,17 +111,14 @@ export const attemptService = {
     const totalMarks = Number(test.totalMarks ?? totalQuestions * 2);
     const fallbackMarksPerQ =
       totalQuestions > 0 ? totalMarks / totalQuestions : 2;
-    const testNegRaw = Number(
-      test.negativeMarking ?? test.negativeMarks ?? test.negative_marks ?? 0,
-    );
-    const testNegativeMarking =
-      testNegRaw > 0
-        ? testNegRaw
-        : fallbackMarksPerQ === 2
-          ? 0.5
-          : fallbackMarksPerQ === 1
-            ? 0.33
-            : fallbackMarksPerQ * 0.25;
+    const testNegRaw =
+      test.negativeMarking !== undefined && test.negativeMarking !== null
+        ? Number(test.negativeMarking)
+        : test.negativeMarks !== undefined && test.negativeMarks !== null
+          ? Number(test.negativeMarks)
+          : test.negative_marks !== undefined && test.negative_marks !== null
+            ? Number(test.negative_marks)
+            : undefined;
 
     let correct = 0,
       wrong = 0,
@@ -129,14 +126,31 @@ export const attemptService = {
       totalScore = 0;
     const evaluatedAnswers = [];
 
-    for (const question of questions) {
+    for (let qIdx = 0; qIdx < questions.length; qIdx++) {
+      const question = questions[qIdx];
       const answer = answers.find(
-        (a) => String(a.questionId) === String(question.id),
+        (a) =>
+          String(a.questionId) === String(question.id) ||
+          (a.questionIndex !== undefined && Number(a.questionIndex) === qIdx),
       );
-      const selectedOption =
-        answer?.selectedOption !== undefined && answer?.selectedOption !== null
-          ? Number(answer.selectedOption)
-          : null;
+      const rawSelected =
+        answer?.selectedOption !== undefined
+          ? answer.selectedOption
+          : answer?.answer;
+      let selectedOption = null;
+      if (
+        rawSelected !== undefined &&
+        rawSelected !== null &&
+        rawSelected !== ""
+      ) {
+        if (Number.isFinite(Number(rawSelected))) {
+          selectedOption = Number(rawSelected);
+        } else {
+          const s = String(rawSelected).trim();
+          const m = s.match(/^[A-Za-z]$/);
+          selectedOption = m ? s.toUpperCase().charCodeAt(0) - 65 : null;
+        }
+      }
       const rawCorrect =
         question.correct_option ??
         question.correctOption ??
@@ -163,7 +177,7 @@ export const attemptService = {
         question,
         {
           marksPerQuestion: fallbackMarksPerQ,
-          negativeMarking: testNegativeMarking,
+          negativeMarking: testNegRaw,
         },
       );
       const questionType = (
@@ -367,5 +381,180 @@ export const attemptService = {
 
   async getState(attemptId) {
     return repo.findById(attemptId);
+  },
+
+  async transitionAttempt(attemptId, targetState) {
+    const attempt = await repo.findById(attemptId);
+    if (!attempt) throw new Error("Attempt not found");
+
+    const { isValidAttemptTransition } =
+      await import("../../constants/lifecycle.constants.js");
+    const currentState = attempt.status || "created";
+
+    if (!isValidAttemptTransition(currentState, targetState)) {
+      throw new Error(
+        `Invalid attempt state transition from '${currentState}' to '${targetState}'`,
+      );
+    }
+
+    return repo.update(attemptId, {
+      status: targetState,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+
+  async createReattempt(userId, parentAttemptId, reattemptType = "full") {
+    if (!parentAttemptId) {
+      throw new Error("Parent attempt ID is required");
+    }
+
+    const normalizedType =
+      reattemptType === "smart_improvement"
+        ? "smart"
+        : reattemptType.toLowerCase();
+    const validTypes = ["full", "wrong", "unattempted", "slow", "smart"];
+    if (!validTypes.includes(normalizedType)) {
+      throw new Error(
+        `Invalid reattempt type: ${reattemptType}. Valid types: ${validTypes.join(", ")}`,
+      );
+    }
+
+    const { rows: parentRows } = await pool.query(
+      `SELECT * FROM attempts WHERE id = $1`,
+      [parentAttemptId],
+    );
+    const parent = parentRows[0];
+    if (!parent) {
+      throw new Error("Parent attempt not found");
+    }
+
+    if (String(parent.user_id) !== String(userId) && userId !== "admin") {
+      throw new Error("Not authorized to reattempt this attempt");
+    }
+
+    const allQuestions = await testRepo.getQuestions(parent.test_id);
+    const { rows: parentAnswers } = await pool.query(
+      `SELECT * FROM attempt_answers WHERE attempt_id = $1`,
+      [parentAttemptId],
+    );
+
+    let eligibleQuestions = [];
+    let titleSuffix = "Reattempt";
+
+    switch (normalizedType) {
+      case "full":
+        eligibleQuestions = allQuestions;
+        titleSuffix = "Full Reattempt";
+        break;
+
+      case "wrong": {
+        const wrongQIds = new Set(
+          parentAnswers
+            .filter((a) => a.is_correct === false)
+            .map((a) => String(a.question_id)),
+        );
+        eligibleQuestions = allQuestions.filter((q) =>
+          wrongQIds.has(String(q.id)),
+        );
+        titleSuffix = "Wrong Questions";
+        break;
+      }
+
+      case "unattempted": {
+        const answeredQIds = new Set(
+          parentAnswers
+            .filter(
+              (a) =>
+                a.selected_option !== null && a.selected_option !== undefined,
+            )
+            .map((a) => String(a.question_id)),
+        );
+        eligibleQuestions = allQuestions.filter(
+          (q) => !answeredQIds.has(String(q.id)),
+        );
+        titleSuffix = "Unattempted Questions";
+        break;
+      }
+
+      case "slow": {
+        const slowQIds = new Set(
+          parentAnswers
+            .filter((a) => Number(a.time_spent || 0) > 90)
+            .map((a) => String(a.question_id)),
+        );
+        eligibleQuestions = allQuestions.filter((q) =>
+          slowQIds.has(String(q.id)),
+        );
+        titleSuffix = "Slow Questions";
+        break;
+      }
+
+      case "smart": {
+        const wrongQIds = new Set(
+          parentAnswers
+            .filter((a) => a.is_correct === false)
+            .map((a) => String(a.question_id)),
+        );
+        const answeredQIds = new Set(
+          parentAnswers
+            .filter(
+              (a) =>
+                a.selected_option !== null && a.selected_option !== undefined,
+            )
+            .map((a) => String(a.question_id)),
+        );
+        const slowQIds = new Set(
+          parentAnswers
+            .filter((a) => Number(a.time_spent || 0) > 90)
+            .map((a) => String(a.question_id)),
+        );
+
+        eligibleQuestions = allQuestions.filter(
+          (q) =>
+            wrongQIds.has(String(q.id)) ||
+            !answeredQIds.has(String(q.id)) ||
+            slowQIds.has(String(q.id)),
+        );
+        titleSuffix = "Smart Improvement";
+        break;
+      }
+
+      default:
+        eligibleQuestions = allQuestions;
+    }
+
+    if (!eligibleQuestions || eligibleQuestions.length === 0) {
+      const err = new Error(
+        "No eligible questions available for this reattempt mode.",
+      );
+      err.code = "NO_QUESTIONS_FOR_REATTEMPT";
+      throw err;
+    }
+
+    const testTitle = `${parent.test_title || "Practice Test"} - ${titleSuffix}`;
+    const nextAttemptNo = (Number(parent.attempt_number) || 1) + 1;
+
+    // Single atomic INSERT
+    const { rows: newAttemptRows } = await pool.query(
+      `INSERT INTO attempts (
+        user_id, test_id, test_title, attempt_number, is_reattempt, reattempt_type,
+        parent_attempt_id, series_id, status, is_completed, started_at, created_at
+      ) VALUES ($1, $2, $3, $4, true, $5, $6, $7, 'in_progress', false, NOW(), NOW())
+      RETURNING *`,
+      [
+        parent.user_id,
+        parent.test_id,
+        testTitle,
+        nextAttemptNo,
+        normalizedType,
+        parent.id,
+        parent.series_id || null,
+      ],
+    );
+
+    return {
+      attempt: newAttemptRows[0],
+      questions: eligibleQuestions,
+    };
   },
 };

@@ -21,24 +21,44 @@ export async function runMigrations(pool, { afterMigrations } = {}) {
   // Other instances block here until the holder finishes, then see the
   // migrations as already applied.
   const lockClient = await pool.connect();
+  let acquired = false;
   try {
     console.log("[Migrations] Acquiring advisory lock...");
-    await lockClient.query("SELECT pg_advisory_lock($1)", [
-      MIGRATION_ADVISORY_LOCK_KEY,
-    ]);
-    console.log("[Migrations] Advisory lock acquired.");
+    for (let attempt = 1; attempt <= 10; attempt++) {
+      const res = await lockClient.query("SELECT pg_try_advisory_lock($1)", [
+        MIGRATION_ADVISORY_LOCK_KEY,
+      ]);
+      if (res.rows[0]?.pg_try_advisory_lock) {
+        acquired = true;
+        break;
+      }
+      console.log(
+        `[Migrations] Another process holds migration lock. Waiting 1s (attempt ${attempt}/10)...`,
+      );
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+
+    if (!acquired) {
+      console.warn(
+        "[Migrations] Could not acquire exclusive advisory lock after 10s. Checking migration status...",
+      );
+    } else {
+      console.log("[Migrations] Advisory lock acquired.");
+    }
 
     await runMigrationsLocked(pool, migrationsDir, { afterMigrations });
   } finally {
-    try {
-      await lockClient.query("SELECT pg_advisory_unlock($1)", [
-        MIGRATION_ADVISORY_LOCK_KEY,
-      ]);
-    } catch (unlockError) {
-      console.error(
-        "[Migrations] Failed to release advisory lock:",
-        unlockError.message,
-      );
+    if (acquired) {
+      try {
+        await lockClient.query("SELECT pg_advisory_unlock($1)", [
+          MIGRATION_ADVISORY_LOCK_KEY,
+        ]);
+      } catch (unlockError) {
+        console.error(
+          "[Migrations] Failed to release advisory lock:",
+          unlockError.message,
+        );
+      }
     }
     lockClient.release();
   }

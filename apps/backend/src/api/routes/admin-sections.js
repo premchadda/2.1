@@ -116,7 +116,7 @@ const ensureSchema = async () => {
 
         schemaEnsured = true;
       } catch (error) {
-        logger.error("[Sections] Schema ensure error:", error);
+        logger.warn("[Sections] Schema ensure deferred:", error.message);
       } finally {
         schemaEnsuringPromise = null;
       }
@@ -125,8 +125,10 @@ const ensureSchema = async () => {
   return schemaEnsuringPromise;
 };
 
-// Initialize schema in background without blocking incoming HTTP requests
-ensureSchema().catch(() => {});
+// Initialize schema in background after database pool warms up
+setTimeout(() => {
+  ensureSchema().catch(() => {});
+}, 3000);
 
 const VALID_DIFFICULTIES = ["easy", "medium", "hard"];
 
@@ -531,12 +533,10 @@ router.post("/preset", protect, admin, async (req, res) => {
         .json({ success: false, message: "sections array required" });
     }
     if (!testId && !(testSeriesId && stageId)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Either testId or (testSeriesId + stageId) is required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Either testId or (testSeriesId + stageId) is required",
+      });
     }
 
     const results = { linked: [], created: [], skipped: [] };
@@ -948,12 +948,10 @@ router.post("/aliases", protect, admin, async (req, res) => {
   try {
     const { canonical_name, alias_name } = req.body;
     if (!canonical_name?.trim() || !alias_name?.trim()) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "canonical_name and alias_name are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "canonical_name and alias_name are required",
+      });
     }
     const { rows } = await pool.query(
       "INSERT INTO section_aliases (canonical_name, alias_name) VALUES ($1, $2) RETURNING *",
@@ -978,12 +976,10 @@ router.put("/aliases/:id", protect, admin, async (req, res) => {
     const { id } = req.params;
     const { canonical_name, alias_name } = req.body;
     if (!canonical_name?.trim() || !alias_name?.trim()) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "canonical_name and alias_name are required",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "canonical_name and alias_name are required",
+      });
     }
     const { rows } = await pool.query(
       "UPDATE section_aliases SET canonical_name = $1, alias_name = $2 WHERE id = $3 RETURNING *",

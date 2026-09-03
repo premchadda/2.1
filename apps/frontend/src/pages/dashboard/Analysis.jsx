@@ -514,16 +514,24 @@ function Analysis() {
 
   // Comparison vs topper
   const topperComparison = useMemo(() => {
-    const topperScore = 100;
-    const userScore =
-      effectiveAnalytics.avgScore || effectiveAnalytics.avgAccuracy || 0;
+    const userScore = Math.round(
+      effectiveAnalytics.avgScore || effectiveAnalytics.avgAccuracy || 0,
+    );
+    const topperScore = Math.round(
+      effectiveAnalytics.topperScore ||
+        effectiveAnalytics.topScore ||
+        effectiveAnalytics.highestScore ||
+        (userScore > 100 ? 200 : 100),
+    );
     const gap = Math.max(0, topperScore - userScore);
     return {
       topperScore,
       userScore,
       gap,
       percent:
-        topperScore > 0 ? Math.round((userScore / topperScore) * 100) : 0,
+        topperScore > 0
+          ? Math.min(100, Math.round((userScore / topperScore) * 100))
+          : 0,
     };
   }, [effectiveAnalytics]);
 

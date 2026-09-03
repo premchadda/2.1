@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trstprep V2.1 — Repo Brain (Updated 27 Aug 2026)</title>
+<title>Trstprep V2.1 — Repo Brain (Updated 2 Sep 2026)</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a28;--border:rgba(255,255,255,0.08);--text:#e8e8f0;--text2:#a0a0b8;--text3:#606078;--accent:#6366f1;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;--blue:#3b82f6;--radius:8px}
@@ -129,6 +129,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <a href="#cicd">10. CI/CD & Infra</a>
 <a href="#testing">11. Testing</a>
 <a href="#status">12. Implementation Status</a>
+<a href="#autosync">Auto-sync (graphify)</a>
 </nav>
 
 <div class="main">
@@ -136,21 +137,21 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <!-- 1. OVERVIEW -->
 <div class="section" id="overview">
 <h2 class="section-title">1. Overview</h2>
-<p class="section-desc">Complete repository map, refreshed from the current worktree and knowledge graph on 27 Aug 2026. This document is the single source of truth for the Trstprep monorepo's architecture, route inventory, middleware stack, database schema, frontend routes, admin panel, CI/CD pipeline, and runtime health signals. Every claim is backed by filesystem evidence or graph-report citations — nothing is inferred without a source.</p>
+<p class="section-desc">Complete repository map, refreshed from the current worktree and knowledge graph on <span data-brain="refreshed">2 Sep 2026</span>. This document is the single source of truth for the Trstprep monorepo's architecture, route inventory, middleware stack, database schema, frontend routes, admin panel, CI/CD pipeline, and runtime health signals. Every claim is backed by filesystem evidence or graph-report citations — nothing is inferred without a source. Numbers marked with auto-sync spans are refreshed automatically after every commit (see the Auto-sync section at the bottom).</p>
 <div class="stat-grid">
 <div class="stat"><div class="stat-value">3+1</div><div class="stat-label">Apps + Worker</div></div>
 <div class="stat"><div class="stat-value">2</div><div class="stat-label">Packages</div></div>
-<div class="stat"><div class="stat-value">115</div><div class="stat-label">Migration Files</div></div>
-<div class="stat"><div class="stat-value">70</div><div class="stat-label">API Mount Entries</div></div>
-<div class="stat"><div class="stat-value">117</div><div class="stat-label">Frontend Page Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="migration_files">118</span></div><div class="stat-label">Migration Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="api_mounts">75</span></div><div class="stat-label">API Mount Entries</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="frontend_pages">98</span></div><div class="stat-label">Frontend Page Files</div></div>
 <div class="stat"><div class="stat-value">36</div><div class="stat-label">Admin Manager Files</div></div>
-<div class="stat"><div class="stat-value">51</div><div class="stat-label">Unit Test Files</div></div>
+<div class="stat"><div class="stat-value">53</div><div class="stat-label">Unit Test Files</div></div>
 <div class="stat"><div class="stat-value">4</div><div class="stat-label">CI Workflows</div></div>
-<div class="stat"><div class="stat-value">83</div><div class="stat-label">Route Files (api)</div></div>
-<div class="stat"><div class="stat-value">410</div><div class="stat-label">Backend Source Files</div></div>
-<div class="stat"><div class="stat-value">293</div><div class="stat-label">Frontend Source Files</div></div>
-<div class="stat"><div class="stat-value">166</div><div class="stat-label">Admin Source Files</div></div>
-<div class="stat"><div class="stat-value">32</div><div class="stat-label">Module Route Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="backend_route_files">83</span></div><div class="stat-label">Route Files (api)</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="backend_src_files">488</span></div><div class="stat-label">Backend Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="frontend_src_files">299</span></div><div class="stat-label">Frontend Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="admin_src_files">171</span></div><div class="stat-label">Admin Source Files</div></div>
+<div class="stat"><div class="stat-value"><span data-brain="backend_module_route_files">33</span></div><div class="stat-label">Module Route Files</div></div>
 <div class="stat"><div class="stat-value">10</div><div class="stat-label">Compose Services</div></div>
 </div>
 <div class="card">
@@ -160,7 +161,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <strong>Frontend (apps/frontend):</strong> React 18 SPA served on port 3000 via Vite dev server / static build. Styling: Tailwind CSS with utility-first classes. Routing: React Router 6 with <code>React.lazy()</code> code-splitting per route and <code>RouteErrorBoundary</code> for fault isolation. Data fetching: TanStack Query for server-state management with stale-time caching, optimistic updates, and background refetching. HTTP: Axios with interceptors for CSRF token injection, JWT refresh retry, and typed error handling. Animations: Framer Motion for page transitions and micro-interactions. Charts: Chart.js for analytics dashboards. Real-time: Socket.IO client for live test monitoring and notifications. SEO: react-helmet-async for dynamic meta tags. UX: react-hot-toast for notifications, react-easy-crop for image cropping, custom Calculator component for exam mode. Testing: Vitest with 9 test files covering smoke tests, auth persistence, API client refresh, telemetry, and shared hooks.<br>
 <strong>Admin Panel (apps/admin-panel):</strong> React 18 SPA on port 3002, built with Vite. Reorganized into 13 domain directories (dashboard, analytics, assessments, exams, study-materials, notifications, subscriptions, users, audit, moderation, system, auth). 44 routed components (43 managers + Login) across 59 .jsx files, all lazy-loaded for code splitting. Forms: Zod for schema validation with unit-tested schemas. Charts: Recharts for analytics dashboards. Icons: Heroicons + lucide-react. Data: TanStack Query with shared <code>dataService.js</code> API layer. UI: Custom component library (AdminTable, CommandPalette, VirtualTable, FormModal, etc.).<br>
 <strong>Monorepo Tooling:</strong> npm workspaces for package management, Turborepo 2.10.12 for task orchestration (build, lint, test pipelines with caching). Node ≥20 enforced via <code>.nvmrc</code> (set to 20). ESM module system throughout all packages (type: "module" in package.json). Package version: 2.1.0. Shared packages: <code>@trstprep/shared-config</code> (API client, CSRF store, error handling, logger) and <code>@trstprep/shared-hooks</code> (9 hooks + ThemeContext).<br>
-<strong>Infrastructure:</strong> Docker Compose with 10 services: nginx 1.27.3-alpine reverse proxy (SSL termination, load balancing), 2× backend Express instances (dual-node WebSocket broadcasting), frontend SPA, admin-panel SPA, certbot + certbot-init (Let's Encrypt automation), Prometheus (metrics scraping), Grafana (dashboards), Loki (centralized log aggregation). Security hardening: read-only rootfs, <code>cap_drop ALL</code>, <code>no-new-privileges</code>, memory limits (512M per backend), tmpfs for temp files. Deployment variants: <code>docker-compose.dev.yml</code> (source mounts, hot reload), <code>.prod.yml</code>, <code>.scale.yml</code> (horizontal scaling), <code>deploy/</code> directory with bootstrap.sh, rolling-deploy.sh, setup-ssl.sh, backup-db.sh.
+<strong>Infrastructure:</strong> Docker Compose with 12 services: nginx 1.27.3-alpine reverse proxy (SSL termination, load balancing), 2× backend Express instances (dual-node WebSocket broadcasting), frontend SPA, admin-panel SPA, redis 7-alpine (BullMQ queues, response cache, Socket.IO adapter, rate limiting — AOF persistence, 256MB noeviction cap), postgres 16-alpine backend-db (self-contained DB; override DATABASE_URL/REDIS_URL for managed services), certbot + certbot-init (Let's Encrypt automation), Prometheus (metrics scraping), Grafana (dashboards), Loki (centralized log aggregation). Security hardening: read-only rootfs, <code>cap_drop ALL</code>, <code>no-new-privileges</code>, memory limits (512M per backend), tmpfs for temp files. Deployment variants: <code>docker-compose.dev.yml</code> (source mounts, hot reload), <code>.prod.yml</code>, <code>.scale.yml</code> (horizontal scaling), <code>deploy/</code> directory with bootstrap.sh, rolling-deploy.sh, setup-ssl.sh, backup-db.sh.
 </div>
 </div>
 <div class="card">
@@ -177,29 +178,28 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 </div>
 </div>
 </div>
-</div>
 
 <!-- LIVE SNAPSHOT -->
 <div class="section" id="snapshot">
 <h2 class="section-title">Live Snapshot</h2>
 <p class="section-desc">Evidence-backed repository state. Counts below are from the current filesystem scan; graph metrics are from <a href="../graphify-out/GRAPH_REPORT.md">graphify-out/GRAPH_REPORT.md</a>. Every number can be verified by grepping the source tree — this section exists so you don't have to.</p>
 <div class="snapshot-grid">
-<div class="snapshot-item"><h3>Repository identity</h3><p><code>trstprep-monorepo</code> v2.1.0, npm workspaces, Turborepo 2.10.12, ESM, Node &gt;=20, npm 10.8.2. Current HEAD: <code>50d3907</code>. The monorepo root <code>package.json</code> defines workspace globs for <code>apps/*</code> and <code>packages/*</code>, with Turborepo task pipelines for <code>build</code>, <code>lint</code>, <code>test</code>, and <code>dev</code>. All packages use <code>"type": "module"</code> for native ESM imports.</p></div>
-<div class="snapshot-item"><h3>Graph coverage</h3><p>15,107 nodes, 26,583 edges, and 1,055 communities. 100% of the codebase is extracted — 49 inferred edges at average confidence 0.81. The graph identifies 7 god nodes (dbHelpers: 260 edges, pool: 206, protect(): 200, sanitizeErrorMessage(): 183, admin(): 144, responseCache(): 74, getRedisClient(): 62) and 3 hyperedges crossing domain boundaries. Query the graph at <code>graphify-out/</code> instead of grepping blindly.</p></div>
-<div class="snapshot-item"><h3>Application surface</h3><p><code>apps/backend/src</code>: 410 files (83 route files, 20 module directories, 24 middleware, 14 core services, 2 AI services, 4 import services); <code>apps/frontend/src</code>: 293 files (117 page components, 29 common components, 14 hooks, 32 lib files); <code>apps/admin-panel/src</code>: 166 files (44 routed managers, 25 common components, 14 hooks). Total: 869 source files across the three apps, plus 32 shared package files.</p></div>
-<div class="snapshot-item"><h3>Backend shape</h3><p>83 API route files in <code>api/routes/</code> + 32 module route files in <code>modules/*/</code>. The composition root (<code>app-port5001.js</code>) mounts 70 canonical <code>/api</code> route entries, plus the sessions router and extracted admin routes. Middleware stack: 24 middleware files handling auth, CSRF, rate limiting, audit, caching, compression, and error handling. Entry point starts 3 background jobs (scheduler, outbox poller, attempt cleaner) and 6 BullMQ queues at boot.</p></div>
-<div class="snapshot-item"><h3>Data evolution</h3><p>115 migration files present (numbered 000–126 with retired-number gaps), auto-run at boot via <code>migrationRunner.js</code>. Sequence currently reaches migration 126 (negative-marking defaults + performance indexes). PostgreSQL/Supabase is accessed through write (<code>DATABASE_URL</code>) and optional read (<code>DATABASE_READ_URL</code>) pools with <code>warmPools()</code> at startup. Redis supports BullMQ queues, Socket.IO adapter, session cache, rate limiting, and pub/sub messaging.</p></div>
-<div class="snapshot-item"><h3>Verification surface</h3><p>35 backend unit tests (Jest), 9 frontend tests (Vitest), 7 admin tests (Vitest), 4 GitHub Actions workflows (ci.yml, security.yml, no-env.yml, data-guard.yml), and k6 load-test assets (api.js, auth.js, realtime.js) under <code>tests/load/</code>. Pre-commit hooks via .husky + .lintstagedrc.json run linting on staged files.</p></div>
+<div class="snapshot-item"><h3>Repository identity</h3><p><code>trstprep-monorepo</code> v2.1.0, npm workspaces, Turborepo 2.10.12, ESM, Node &gt;=20, npm 10.8.2. Current HEAD: <code><span data-brain="head">10dcc966</span></code>. The monorepo root <code>package.json</code> defines workspace globs for <code>apps/*</code> and <code>packages/*</code>, with Turborepo task pipelines for <code>build</code>, <code>lint</code>, <code>test</code>, and <code>dev</code>. All packages use <code>"type": "module"</code> for native ESM imports.</p></div>
+<div class="snapshot-item"><h3>Graph coverage</h3><p><span data-brain="graph_nodes">9565</span> nodes, <span data-brain="graph_edges">14656</span> edges, and <span data-brain="graph_communities">738</span> communities (refreshed <span data-brain="refreshed">2 Sep 2026</span> after deduplication collapsed thousands of noisy duplicate labels — the earlier 15,828-node count included ~6.4k near-duplicate entity labels). The graph identifies the god nodes (dbHelpers 127 edges, PostgresHelpers 272, protect() 101, sanitizeErrorMessage() 94, admin() 72, responseCache() 47, getRedisClient() 43) and cross-domain hyperedges. Query the graph at <code>graphify-out/</code> instead of grepping blindly.</p></div>
+<div class="snapshot-item"><h3>Application surface</h3><p><code>apps/backend/src</code>: <span data-brain="backend_src_files">488</span> files (<span data-brain="backend_route_files">83</span> route files, module directories, <span data-brain="backend_middleware">26</span> middleware, 14 core services, AI services, import services); <code>apps/frontend/src</code>: <span data-brain="frontend_src_files">299</span> files (<span data-brain="frontend_pages">98</span> page components, common components, hooks, lib files); <code>apps/admin-panel/src</code>: <span data-brain="admin_src_files">171</span> files (36 manager files, common components, hooks). Counts exclude graphify-out artifact directories.</p></div>
+<div class="snapshot-item"><h3>Backend shape</h3><p><span data-brain="backend_route_files">83</span> API route files in <code>api/routes/</code> + <span data-brain="backend_module_route_files">33</span> module route files in <code>modules/*/</code>. The composition root (<code>app-port5001.js</code>, 1,256 lines) mounts <span data-brain="api_mounts">75</span> canonical <code>/api</code> route entries, plus the sessions router and extracted admin routes. Middleware stack: <span data-brain="backend_middleware">26</span> middleware files handling auth, CSRF, rate limiting, audit, caching, compression, and error handling. Entry point starts 3 background jobs (scheduler, outbox poller, attempt cleaner) and 6 BullMQ queues at boot.</p></div>
+<div class="snapshot-item"><h3>Data evolution</h3><p><span data-brain="migration_files">118</span> migration files present (numbered 000–129 with retired-number gaps), auto-run at boot via <code>migrationRunner.js</code>. Sequence currently reaches migration 129 (cascade taxonomy foreign keys); 126–129 add subject performance indexes, index backfill, tests consecutive-ID reindex, and taxonomy FK cascades. PostgreSQL/Supabase is accessed through write (<code>DATABASE_URL</code>) and optional read (<code>DATABASE_READ_URL</code>) pools with <code>warmPools()</code> at startup. Redis supports BullMQ queues, Socket.IO adapter, session cache, rate limiting, and pub/sub messaging.</p></div>
+<div class="snapshot-item"><h3>Verification surface</h3><p>35 backend unit tests (Jest), 11 frontend tests (Vitest), 7 admin tests (Vitest), 4 GitHub Actions workflows (ci.yml, security.yml, no-env.yml, data-guard.yml), and k6 load-test assets (api.js, auth.js, realtime.js) under <code>tests/load/</code>. Pre-commit hooks via .husky + .lintstagedrc.json run linting on staged files.</p></div>
 </div>
-<div class="callout"><strong>Freshness note:</strong> the graph report was built from the same HEAD shown above. The worktree is currently dirty with 32 tracked/untracked entries, so this page distinguishes committed architecture from changes that are still in flight. Always verify against the current filesystem state, not just the git log.</div>
+<div class="callout"><strong>Freshness note:</strong> the graph and the counts on this page are auto-refreshed after every commit (post-commit hook: graphify rebuild + <code>scripts/sync-repo-brain.mjs</code>), so committed architecture and this page stay in lockstep. Work-in-flight (uncommitted changes) is always ahead of both — verify against the live filesystem, not just git log or this page.</div>
 <div class="card">
 <div class="card-title">Architecture layers and ownership</div>
 <table><thead><tr><th>Layer</th><th>Primary source of truth</th><th>Responsibility</th><th>Current scale</th><th>Key files</th></tr></thead><tbody>
-<tr><td>Experience</td><td><code>apps/frontend/src</code></td><td>Learner-facing SPA: authentication, dashboard, test-taking, practice sessions, PYP browsing, study material consumption, community forums, payments, and profile management. Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. TanStack Query manages server-state with optimistic updates and background refetching.</td><td>293 source files / 117 page files</td><td><code>App.jsx</code> (routes + lazy imports), <code>pages/</code> (9 directories), <code>shared/lib/</code> (32 API/domain clients)</td></tr>
-<tr><td>Operations UI</td><td><code>apps/admin-panel/src/features/admin</code></td><td>Admin CRUD for all entities, content hierarchy management, bulk imports, analytics dashboards, moderation queues, system settings, audit trail viewing, and role-based access control. All route components are lazy-loaded. Zod schemas validate all form inputs.</td><td>166 source files / 36 manager files</td><td><code>features/admin/</code> (13 domain dirs), <code>shared/components/</code> (25 common), <code>shared/hooks/</code> (14)</td></tr>
-<tr><td>Application API</td><td><code>apps/backend/src/app-port5001.js</code></td><td>Express composition root: env validation, security middleware, route mounting, boot jobs (scheduler, outbox poller, attempt cleaner), database migrations, Redis/queue initialization, WebSocket setup, graceful shutdown. 70 canonical <code>/api</code> mount entries plus extracted admin routes.</td><td>1,162 lines / 70 API mount entries</td><td><code>app-port5001.js</code> (entry), <code>api/routes/</code> (83 files), <code>api/docs/</code> (Swagger)</td></tr>
-<tr><td>Domain services</td><td><code>apps/backend/src/modules</code> and <code>services</code></td><td>Business logic: auth (JWT, TOTP 2FA, phone OTP), test engine (attempt lifecycle, anti-cheat, scoring), practice sessions, Node Engine (learning graph, spaced repetition), AI (mentor, explanations, RAG), search (semantic + keyword), payments (Razorpay), live tests, community, analytics, and content moderation.</td><td>20 module directories / 32 module route files</td><td><code>modules/</code> (auth, ai, adaptive, live, etc.), <code>services/core/</code> (14 files), <code>services/ai/</code> (2), <code>services/import/</code> (4)</td></tr>
-<tr><td>Persistence &amp; events</td><td><code>infrastructure/database</code>, <code>infrastructure/queue</code>, <code>infrastructure/websocket</code></td><td>PostgreSQL dual-pool access, pgvector for semantic search, migration runner (auto-runs 115 files at boot), query builder, repository pattern, Redis/BullMQ (6 queues), outbox poller with <code>SELECT FOR UPDATE SKIP LOCKED</code>, Socket.IO with Redis adapter for multi-node broadcasting.</td><td>115 migration files / dual-pool configuration</td><td><code>infrastructure/database/postgres-helpers.js</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/websocket/websocketManager.js</code></td></tr>
+<tr><td>Experience</td><td><code>apps/frontend/src</code></td><td>Learner-facing SPA: authentication, dashboard, test-taking, practice sessions, PYP browsing, study material consumption, community forums, payments, and profile management. Route-level code splitting via <code>React.lazy()</code> with <code>RouteErrorBoundary</code> per route. TanStack Query manages server-state with optimistic updates and background refetching. Routes are declared in <code>src/app/routes.jsx</code> and rendered from <code>App.jsx</code> (332 lines).</td><td><span data-brain="frontend_src_files">299</span> source files / <span data-brain="frontend_pages">98</span> page files</td><td><code>App.jsx</code> + <code>app/routes.jsx</code>, <code>pages/</code>, <code>shared/lib/</code> (API/domain clients)</td></tr>
+<tr><td>Operations UI</td><td><code>apps/admin-panel/src/features/admin</code></td><td>Admin CRUD for all entities, content hierarchy management, bulk imports, analytics dashboards, moderation queues, system settings, audit trail viewing, and role-based access control. All route components are lazy-loaded. Zod schemas validate all form inputs.</td><td><span data-brain="admin_src_files">171</span> source files / 36 manager files</td><td><code>features/admin/</code> (12 domain dirs), <code>shared/components/</code>, <code>shared/hooks/</code></td></tr>
+<tr><td>Application API</td><td><code>apps/backend/src/app-port5001.js</code></td><td>Express composition root: env validation, security middleware, route mounting, boot jobs (scheduler, outbox poller, attempt cleaner), database migrations, Redis/queue initialization, WebSocket setup, graceful shutdown. <span data-brain="api_mounts">75</span> canonical <code>/api</code> mount entries plus extracted admin routes.</td><td>1,256 lines / <span data-brain="api_mounts">75</span> API mount entries</td><td><code>app-port5001.js</code> (entry), <code>api/routes/</code> (<span data-brain="backend_route_files">83</span> files), <code>api/docs/</code> (Swagger)</td></tr>
+<tr><td>Domain services</td><td><code>apps/backend/src/modules</code> and <code>services</code></td><td>Business logic: auth (JWT, TOTP 2FA, phone OTP), test engine (attempt lifecycle, anti-cheat, scoring), practice sessions, Node Engine (learning graph, spaced repetition), AI (mentor, explanations, RAG), search (semantic + keyword), payments (Razorpay), live tests, community, analytics, and content moderation.</td><td>module directories / <span data-brain="backend_module_route_files">33</span> module route files</td><td><code>modules/</code> (auth, ai, adaptive, live, etc.), <code>services/core/</code> (14 files), <code>services/ai/</code>, <code>services/import/</code></td></tr>
+<tr><td>Persistence &amp; events</td><td><code>infrastructure/database</code>, <code>infrastructure/queue</code>, <code>infrastructure/websocket</code></td><td>PostgreSQL dual-pool access, pgvector for semantic search, migration runner (auto-runs <span data-brain="migration_files">118</span> files at boot), query builder, repository pattern, Redis/BullMQ (6 queues), outbox poller with <code>SELECT FOR UPDATE SKIP LOCKED</code>, Socket.IO with Redis adapter for multi-node broadcasting.</td><td><span data-brain="migration_files">118</span> migration files / dual-pool configuration</td><td><code>infrastructure/database/postgres-helpers.js</code>, <code>infrastructure/queue/queueManager.js</code>, <code>infrastructure/websocket/websocketManager.js</code></td></tr>
 <tr><td>Shared contracts</td><td><code>packages/shared-config</code> and <code>packages/shared-hooks</code></td><td>API client with CSRF injection and JWT refresh retry, error class hierarchy, CSRF token store, logger (pino-based, stdout → Grafana Loki), 9 reusable hooks, ThemeContext for dark mode, and API client configuration.</td><td>32 package files</td><td><code>packages/shared-config/src/</code> (apiClient, errors, logger), <code>packages/shared-hooks/src/</code> (9 hooks + ThemeContext)</td></tr>
 </tbody></table>
 </div>
@@ -207,13 +207,15 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <div class="card-title">Graph-identified cross-cutting hubs</div>
 <p style="color:var(--text3);font-size:0.8rem;margin-bottom:0.75rem">These are the highest-connection nodes in the knowledge graph. Changes to them ripple across many modules — always trace the full edge list before editing.</p>
 <table><thead><tr><th>Hub</th><th>Graph edges</th><th>Why it matters</th><th>Risk if changed</th></tr></thead><tbody>
-<tr><td><code>dbHelpers</code></td><td>260</td><td>Most repository/data access paths converge here. Contains query execution helpers, transaction management, and common database operations used by all repositories and route handlers.</td><td>Breaking changes propagate to every database-touching module. Always run the full test suite and database audit after changes.</td></tr>
-<tr><td><code>pool</code></td><td>206</td><td>Database connection lifecycle: write pool (<code>DATABASE_URL</code>), read pool (<code>DATABASE_READ_URL</code> fallback), pool warming at boot, health checks, and connection recycling.</td><td>Pool configuration errors cause cascading failures across all DB-dependent services. Test with <code>run-database-audit.js</code> first.</td></tr>
-<tr><td><code>protect()</code></td><td>200</td><td>Authenticated route boundary: JWT verification, session check (Redis cached), isActive check, emailVerified check, sessionId embedding. Every authenticated endpoint depends on this.</td><td>Auth changes affect all protected routes (~80% of API surface). Test with full auth test suite + 2FA scenarios.</td></tr>
-<tr><td><code>sanitizeErrorMessage()</code></td><td>183</td><td>Shared error disclosure boundary: sanitizes error messages before sending to clients, preventing information leakage. Used across all API error responses.</td><td>Overly aggressive sanitization hides debugging info; too permissive leaks internals. Test with error handling test suite.</td></tr>
-<tr><td><code>admin()</code></td><td>144</td><td>Admin authorization boundary: checks <code>req.user.isAdmin</code>. Used with origin validation, API key, auth, RBAC, and audit middleware in a layered guard stack.</td><td>Admin auth bypass is a critical security vulnerability. Test with admin permission test suite + RBAC scenarios.</td></tr>
-<tr><td><code>responseCache()</code></td><td>74</td><td>Cache behavior is cross-cutting: in-memory TTL cache used across public and admin routes. Two implementations exist (plain + .middleware variant) — a known duplication risk.</td><td>Cache invalidation bugs cause stale data. Cache stampede on cold start. Monitor cache hit rates in production.</td></tr>
-<tr><td><code>getRedisClient()</code></td><td>62</td><td>Queue, cache, pub/sub, and realtime dependencies all share this infrastructure. Status-aware with automatic fallback to in-memory cache when Redis is unavailable.</td><td>Redis outages degrade but don't break the system (fail-soft design). Monitor Redis connection status in health checks.</td></tr>
+<tr><td><code>PostgresHelpers</code> / <code>dbHelpers</code></td><td><span data-brain="node_postgreshelpers">52</span> / <span data-brain="node_dbhelpers">130</span></td><td>Most repository/data access paths converge here. Contains query execution helpers, transaction management, and common database operations used by all repositories and route handlers. Both labels resolve to <code>postgres-helpers.js</code> in the graph.</td><td>Breaking changes propagate to every database-touching module. Always run the full test suite and database audit after changes.</td></tr>
+<tr><td><code>DataService</code></td><td><span data-brain="node_dataservice">23</span></td><td>Frontend API boundary: every admin-panel and frontend data fetch flows through <code>dataService.js</code> (CSRF injection, entity fetchers, adminAPI namespace). The client-side mirror of the backend's god nodes.</td><td>Breaking changes cascade to every page component and hook that fetches data. Test with frontend + admin suites together.</td></tr>
+<tr><td><code>app-port5001.js</code> (composition root)</td><td><span data-brain="node_app_port5001">190</span></td><td>Every route mount, middleware order, boot job, and shutdown hook is wired here. The graph's third-highest code node because nearly every module imports or is mounted from it.</td><td>Reordering middleware or mounts changes the security guard stack. Run <code>validate-routes.js</code> after edits.</td></tr>
+<tr><td><code>pool</code></td><td><span data-brain="node_pool">104</span></td><td>Database connection lifecycle: write pool (<code>DATABASE_URL</code>), read pool (<code>DATABASE_READ_URL</code> fallback), pool warming at boot, health checks, and connection recycling.</td><td>Pool configuration errors cause cascading failures across all DB-dependent services. Test with <code>run-database-audit.js</code> first.</td></tr>
+<tr><td><code>protect()</code></td><td><span data-brain="node_protect">103</span></td><td>Authenticated route boundary: JWT verification, session check (Redis cached), isActive check, emailVerified check, sessionId embedding. Every authenticated endpoint depends on this.</td><td>Auth changes affect all protected routes (~80% of API surface). Test with full auth test suite + 2FA scenarios.</td></tr>
+<tr><td><code>sanitizeErrorMessage()</code></td><td><span data-brain="node_sanitizeerrormessage">96</span></td><td>Shared error disclosure boundary: sanitizes error messages before sending to clients, preventing information leakage. Used across all API error responses.</td><td>Overly aggressive sanitization hides debugging info; too permissive leaks internals. Test with error handling test suite.</td></tr>
+<tr><td><code>admin()</code></td><td><span data-brain="node_admin">72</span></td><td>Admin authorization boundary: checks <code>req.user.isAdmin</code>. Used with origin validation, API key, auth, RBAC, and audit middleware in a layered guard stack.</td><td>Admin auth bypass is a critical security vulnerability. Test with admin permission test suite + RBAC scenarios.</td></tr>
+<tr><td><code>responseCache()</code></td><td><span data-brain="node_responsecache">37</span></td><td>Cache behavior is cross-cutting: in-memory TTL cache used across public and admin routes. Two implementations exist (plain + .middleware variant) — a known duplication risk.</td><td>Cache invalidation bugs cause stale data. Cache stampede on cold start. Monitor cache hit rates in production.</td></tr>
+<tr><td><code>getRedisClient()</code></td><td><span data-brain="node_getredisclient">47</span></td><td>Queue, cache, pub/sub, and realtime dependencies all share this infrastructure. Status-aware with automatic fallback to in-memory cache when Redis is unavailable.</td><td>Redis outages degrade but don't break the system (fail-soft design). Monitor Redis connection status in health checks.</td></tr>
 </tbody></table>
 <div class="source-list"><a href="../apps/backend/src/infrastructure/database/postgres-helpers.js">postgres-helpers.js</a><a href="../apps/backend/src/app-port5001.js">app-port5001.js</a><a href="../graphify-out/WORKFLOW_MAP.md">WORKFLOW_MAP.md</a><a href="../graphify-out/GRAPH_REPORT.md">GRAPH_REPORT.md</a></div>
 </div>
@@ -275,7 +277,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 │   │   │   │                      auth (JWT+2FA+OTP), tests (state machine), ai (OpenRouter),
 │   │   │   │                      adaptive (difficulty), live (real-time), nodeEngine (learning graph),
 │   │   │   │                      ranking, revision, search, embeddings, math, templates, builders</span>
-│   │   │   ├── middleware/        <span style="color:#606078">24 middleware — auth (protect/admin/optionalAuth), CSRF (DB-backed),
+│   │   │   ├── middleware/        <span style="color:#606078"><span data-brain="backend_middleware">26</span> middleware — auth (protect/admin/optionalAuth), CSRF (DB-backed),
 │   │   │   │                      rate limiting (factory pattern), audit, caching, compression,
 │   │   │   │                      error handling, image optimization, HTML sanitization</span>
 │   │   │   ├── services/
@@ -287,7 +289,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 │   │   │   │                      test content storage</span>
 │   │   │   ├── infrastructure/
 │   │   │   │   ├── cache/         <span style="color:#606078">Redis client (ioredis, status-aware) + in-memory fallback</span>
-│   │   │   │   ├── database/      <span style="color:#606078">postgres-helpers (dual pool), migrationRunner (115 files),
+│   │   │   │   ├── database/      <span style="color:#606078">postgres-helpers (dual pool), migrationRunner (<span data-brain="migration_files">118</span> files),
 │   │   │   │   │                  qb (query builder), db/ (constants, helpers, relationships),
 │   │   │   │   │                  auditTrailManager</span>
 │   │   │   │   ├── email/         <span style="color:#606078">Nodemailer SMTP — verification, reset, welcome emails</span>
@@ -364,7 +366,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 │   │                        csrf-token-store, logger (pino→Loki), coming-soon-config</span>
 │   └── <span class="tree-dir">shared-hooks/</span>     <span style="color:#606078">@trstprep/shared-hooks — 9 hooks + ThemeContext + apiClientConfig
 │                          Note: useProPass couples to frontend via relative import</span>
-├── <span class="tree-dir">scripts/</span>              <span style="color:#606078">52 utility scripts — DB audit, taxonomy, syllabus, k6, docs pipeline</span>
+├── <span class="tree-dir">scripts/</span>              <span style="color:#606078"><span data-brain="scripts_files">106</span> utility scripts — DB audit, taxonomy, syllabus, k6, docs pipeline, repo-brain sync</span>
 ├── <span class="tree-dir">tests/</span>                <span style="color:#606078">k6 load tests (api.js, auth.js, realtime.js) + config</span>
 ├── <span class="tree-dir">docs/</span>                 <span style="color:#606078">20+ docs — audits, readiness reports, schema diagrams, PRDs</span>
 ├── <span class="tree-dir">deploy/</span>               <span style="color:#606078">nginx configs, monitoring (Prometheus/Grafana), bootstrap.sh,
@@ -372,7 +374,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 ├── <span class="tree-dir">graphify-out/</span>         <span style="color:#606078">Knowledge graph artifacts — GRAPH_REPORT.md, graph.json,
 │                          WORKFLOW_MAP.md — query instead of grepping</span>
 ├── .github/workflows/     <span style="color:#606078">4 CI workflows (Node 20, pinned action SHAs)</span>
-├── docker-compose.yml     <span style="color:#606078">10 services (2×backend, frontend, admin, nginx, certbot,
+├── docker-compose.yml     <span style="color:#606078">12 services (2×backend, frontend, admin, redis, backend-db, nginx, certbot,
 │                          prometheus, grafana, loki) + security hardening</span>
 ├── docker-compose.dev.yml / .prod.yml / .scale.yml
 ├── .husky + .lintstagedrc.json    <span style="color:#606078">pre-commit hooks (lint staged files)</span>
@@ -385,7 +387,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <!-- 3. BACKEND -->
 <div class="section" id="backend">
 <h2 class="section-title">3. Backend (apps/backend)</h2>
-<p class="section-desc">Express 4 API server — port 5001. 83 route files in api/routes + 32 module route files. JWT auth + optional TOTP 2FA, PostgreSQL, Redis, Socket.IO, Sentry. The backend follows a composition-root pattern: <code>app-port5001.js</code> wires all middleware, routes, and infrastructure together. Individual route files and modules are self-contained but depend on the composition root for initialization order.</p>
+<p class="section-desc">Express 4 API server — port 5001. <span data-brain="backend_route_files">83</span> route files in api/routes + <span data-brain="backend_module_route_files">33</span> module route files. JWT auth + optional TOTP 2FA, PostgreSQL, Redis, Socket.IO, Sentry. The backend follows a composition-root pattern: <code>app-port5001.js</code> wires all middleware, routes, and infrastructure together. Individual route files and modules are self-contained but depend on the composition root for initialization order.</p>
 <input type="text" class="search-box" placeholder="Search backend routes, services..." oninput="filterTable(this,'backend')">
 <div class="tabs" id="backend-tabs">
 <button class="tab active" data-tab="backend-config">Config</button>
@@ -399,7 +401,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 </div>
 
 <div class="panel active" id="backend-config">
-<div class="card"><div class="card-title">Entry Point — src/app-port5001.js (1,162 lines)</div><div class="card-body">
+<div class="card"><div class="card-title">Entry Point — src/app-port5001.js (1,256 lines)</div><div class="card-body">
 <strong>Startup sequence (in order):</strong><br>
 1. <strong>dotenv</strong> — loads .env into process.env<br>
 2. <strong>validate env</strong> — checks DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, FRONTEND_URL exist<br>
@@ -424,7 +426,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 21. <strong>cacheControl</strong> — no-store for user data, max-age=300 for public<br>
 22. <strong>static mounts</strong> — /uploads, /assets/avatar (with auth guard), /storage (with image optimization)<br>
 23. <strong>adminIpAllowlist</strong> — optional IP restriction for /api/admin<br>
-24. <strong>route mounts</strong> — 70 canonical /api mount entries<br>
+24. <strong>route mounts</strong> — <span data-brain="api_mounts">75</span> canonical /api mount entries<br>
 25. <strong>/api/sessions router</strong> — inline session management routes<br>
 26. <strong>mountExtractedRoutes(app)</strong> — dynamically mounts remaining extracted routes<br>
 27. <strong>Swagger</strong> — API documentation at /api-docs<br>
@@ -432,7 +434,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 29. <strong>notFoundHandler</strong> — 404 for unmatched routes<br>
 30. <strong>errorHandler</strong> — centralized error response with sanitized messages<br>
 31. <strong>testConnection(5 retries)</strong> — verifies DB connectivity with exponential backoff<br>
-32. <strong>runMigrations</strong> — auto-runs 115 migration files in sequence<br>
+32. <strong>runMigrations</strong> — auto-runs <span data-brain="migration_files">118</span> migration files in sequence<br>
 33. <strong>warmPools</strong> — initializes read/write connection pools<br>
 34. <strong>initRedis</strong> — establishes Redis connection with status monitoring<br>
 35. <strong>initQueues</strong> — creates 6 BullMQ queues (analytics, leaderboard, notifications, recommendations, dead-letter, events)<br>
@@ -661,7 +663,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 </div>
 
 <div class="panel" id="backend-middleware">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">24 middleware files in <code>src/middleware/</code>. Middleware is the security boundary layer — every request passes through multiple middleware before reaching route handlers. The order is defined in <code>app-port5001.js</code> and must not be changed without reviewing the full guard stack.</p>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem"><span data-brain="backend_middleware">26</span> middleware files in <code>src/middleware/</code>. Middleware is the security boundary layer — every request passes through multiple middleware before reaching route handlers. The order is defined in <code>app-port5001.js</code> and must not be changed without reviewing the full guard stack.</p>
 <table><thead><tr><th>Middleware</th><th>File</th><th>Purpose</th><th>Configuration</th></tr></thead><tbody>
 <tr><td>protect</td><td>auth.middleware.js</td><td>JWT verify + session check (Redis cached) + isActive + emailVerified; sessionId embedded in JWT at login (2FA-aware). Returns 401 with specific error codes for expired/invalid/missing tokens.</td><td>Bearer token from httpOnly cookie or Authorization header. Session cached in Redis with TTL matching JWT expiry.</td></tr>
 <tr><td>admin</td><td>auth.middleware.js</td><td>Requires <code>req.user.isAdmin</code> — must run after protect(). Returns 403 if user is not an admin.</td><td>Depends on protect() having attached user to req.</td></tr>
@@ -737,7 +739,7 @@ tr:hover td{background:rgba(99,102,241,0.05)}
 <tr><td>Outbox Poller + Attempt Cleaner</td><td>infrastructure/queue/outboxPoller.js</td><td><span class="badge badge-green">STARTS AT BOOT</span></td><td>SELECT FOR UPDATE SKIP LOCKED over outbox_events, 5s polling, 60s backoff; startAttemptCleaner sweeps stale paused attempts. Both started at app-port5001.js:880-881, stopped gracefully.</td></tr>
 <tr><td>Storage</td><td>infrastructure/storage/</td><td><span class="badge badge-green">Implemented</span></td><td>storageProvider.js local/S3/Supabase with fallback + presigned URLs; upload.js multer instance used by admin-assets</td></tr>
 <tr><td>WebSocket</td><td>infrastructure/websocket/websocketManager.js</td><td><span class="badge badge-green">Implemented</span></td><td>Socket.IO + Redis adapter (@socket.io/redis-adapter), JWT auth, rooms (user/test/notifications/admin), rate limit, heartbeat, eviction tests</td></tr>
-<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js: pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs 115 migration files at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
+<tr><td>Database</td><td>infrastructure/database/</td><td><span class="badge badge-green">Implemented</span></td><td>postgres-helpers.js: pool (write DATABASE_URL + read DATABASE_READ_URL fallback), initTables() runtime DDL, reconcileRelationships(), warmPools(); migrationRunner.js auto-runs <span data-brain="migration_files">118</span> migration files at boot; qb.js query builder; db/ (constants, helpers, relationships); auditTrailManager.js</td></tr>
 <tr><td>Logger</td><td>infrastructure/logger/logger.js</td><td><span class="badge badge-green">Implemented</span></td><td>pino-based (stdout) → Grafana Loki via docker logging driver</td></tr>
 <tr><td>Repository</td><td>infrastructure/repository/base.repository.js</td><td><span class="badge badge-green">Implemented</span></td><td>Base repository pattern</td></tr>
 </tbody></table>
@@ -1001,11 +1003,11 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 <!-- 6. DATABASE -->
 <div class="section" id="database">
 <h2 class="section-title">6. Database</h2>
-<p class="section-desc">PostgreSQL/Supabase + pgvector — 115 migration files (000–126, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. Recent schema work includes certificates (094), two_factor_secrets (064), Node Engine V2 (106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088), response-time/index improvements (122, 124, 126), and negative-marking defaults (125). The database uses a dual-pool architecture: write pool via <code>DATABASE_URL</code> and read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary.</p>
+<p class="section-desc">PostgreSQL/Supabase + pgvector — <span data-brain="migration_files">118</span> migration files (000–129, auto-run on boot), 6 seeders, RLS auto-trigger, soft-delete trio, dual-ID system. Recent schema work includes certificates (094), two_factor_secrets (064), Node Engine V2 (106), Practice Lab v2 (107), embeddings/document_chunks/AI tables (075–076), dead_letter_jobs (075), PII-at-rest encryption (088), response-time/index improvements (122, 124, 126), negative-marking defaults (125), and subject performance indexes + taxonomy FK cascades (126–129). The database uses a dual-pool architecture: write pool via <code>DATABASE_URL</code> and read pool via <code>DATABASE_READ_URL</code> with automatic fallback to primary.</p>
 <input type="text" class="search-box" placeholder="Search tables..." oninput="filterTable(this,'database')">
 <div class="tabs" id="db-tabs">
 <button class="tab active" data-tab="db-tables">Tables</button>
-<button class="tab" data-tab="db-migrations">Migrations (115)</button>
+<button class="tab" data-tab="db-migrations">Migrations (<span data-brain="migration_files">118</span>)</button>
 <button class="tab" data-tab="db-seeders">Seeders</button>
 <button class="tab" data-tab="db-relations">Relationships</button>
 </div>
@@ -1076,7 +1078,7 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 </div>
 
 <div class="panel" id="db-migrations">
-<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem">115 .sql files are present in the backend migration directory (numbered 000–126 with retired-number gaps). They auto-run on boot through migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
+<p style="color:var(--text3);font-size:0.8rem;margin-bottom:1rem"><span data-brain="migration_files">118</span> .sql files are present in the backend migration directory (numbered 000–129 with retired-number gaps). They auto-run on boot through migrationRunner.js + runMigrations(); CI also runs run-migrations.js explicitly. Secondary migrations in docs/legacy-migrations are historical only.</p>
 <table><thead><tr><th>Migration</th><th>Purpose</th></tr></thead><tbody>
 <tr><td>000_baseline_functions / 000a_enable_rls_policies</td><td>Extensions, 13 baseline functions, RLS event trigger + baseline policies</td></tr>
 <tr><td>001–003</td><td>RBAC/audit/email nav tables, audit extension, user_sessions</td></tr>
@@ -1091,7 +1093,7 @@ Sidebar (collapsible) + mobile drawer + AdminBottomNav. Top bar: breadcrumbs, Cm
 <tr><td>109–117</td><td>Schema/function hardening: search paths, PII permissions, comprehensive RLS policies, helper-function search paths, and attempt flag/status corrections.</td></tr>
 <tr><td>118–121</td><td>Attempt flag columns, revoked-attempt status, webhook event persistence, and the test-category-series junction guarantee.</td></tr>
 <tr><td>122–124</td><td>Response-time improvements, correct-option default repair, and Practice Lab subject performance indexes.</td></tr>
-<tr><td>125–126 <span class="badge badge-purple">CURRENT</span></td><td>Negative-marking default and additional subject performance indexes. These files are currently present in the worktree and should be included in the deployment migration check.</td></tr>
+<tr><td>125–129 <span class="badge badge-purple">CURRENT</span></td><td>Negative-marking default (125), subject performance indexes (126), performance index backfill (127), tests consecutive-ID reindex (128), and cascade taxonomy foreign keys (129). These files are currently present in the worktree and are included in the boot migration run.</td></tr>
 </tbody></table>
 </div>
 
@@ -1191,7 +1193,7 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 
 <!-- 8. SCRIPTS -->
 <div class="section" id="scripts">
-<h2 class="section-title">8. Scripts (44 files)</h2>
+<h2 class="section-title">8. Scripts (<span data-brain="scripts_files">106</span> files)</h2>
 <p class="section-desc">Utility scripts organized by domain. DB audit scripts should be run before any migration. Taxonomy scripts help with content organization. Admin ops scripts are for production debugging. Load testing scripts use k6 for API performance testing.</p>
 <table><thead><tr><th>Group</th><th>Files</th><th>Purpose &amp; usage</th></tr></thead><tbody>
 <tr><td>DB Audit &amp; Reconciliation</td><td><strong>run-database-audit.js</strong> (run before any migration!), audit-cascade-nulls.js, fix-cascade-nulls.js, fix-deep-cascade-nulls(+pass3).js, reconcile-duplicates.js, list-db-duplicates.js, inspect-*.js (10 inspectors: hierarchy, ids, nulls, fks, unique constraints, physics node, etc.), query-stages.js, check-categories.js, check-standalone-qs.js, test-query.js</td><td><strong>run-database-audit.js</strong> is the primary audit tool — run before ANY migration to detect schema inconsistencies. inspect-*.js scripts provide deep inspection of specific schema aspects. fix-cascade-nulls scripts repair orphaned records. reconcile-duplicates.js merges duplicate entities.</td></tr>
@@ -1201,6 +1203,7 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <tr><td>Load Testing</td><td>load-test-telemetry.js + tests/load (k6: api.js, auth.js, realtime.js, k6.config.js)</td><td>k6 load tests: api.js tests general API performance, auth.js tests authentication flows, realtime.js tests WebSocket performance. load-test-telemetry.js collects and reports metrics. Run with <code>k6 run tests/load/api.js</code>.</td></tr>
 <tr><td>Docs Pipeline (LLM/graphify)</td><td>chunk_files.py, extract_ast.py, write_ast.py, get_noncode.py, test_docling.py, test_extract.py, test_marker.py</td><td>Documentation generation pipeline: chunk_files.py splits large files for LLM processing. extract_ast.py parses code ASTs. write_ast.py generates documentation from ASTs. Used by graphify skill for knowledge graph generation.</td></tr>
 <tr><td>Dev</td><td>dev-sequential.mjs, wait-for-backend.mjs, validate-routes.js, scale.sh (in deploy/)</td><td>Development utilities: dev-sequential.mjs starts apps in sequence (backend → frontend → admin). wait-for-backend.mjs polls /api/health until backend is ready. validate-routes.js checks route mount consistency. scale.sh scales backend instances.</td></tr>
+<tr><td>Repo Brain sync</td><td><strong>sync-repo-brain.mjs</strong></td><td>Auto-refreshes the Live Snapshot numbers in <code>docs/REPO_BRAIN.html</code> from the filesystem and graphify graph. Runs after every commit via <code>.husky/post-commit</code>; <code>--check</code> mode is a CI staleness guard. Only updates <code>data-brain</code>-marked spans — never prose.</td></tr>
 </tbody></table>
 </div>
 
@@ -1223,7 +1226,7 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <!-- 10. CI/CD -->
 <div class="section" id="cicd">
 <h2 class="section-title">10. CI/CD &amp; Deployment</h2>
-<p class="section-desc">GitHub Actions workflows with pinned action SHAs for security, Docker Compose with 10 services and security hardening, and deployment scripts for production operations. All workflows use Node 20 and run on ubuntu-latest.</p>
+<p class="section-desc">GitHub Actions workflows with pinned action SHAs for security, Docker Compose with 12 services and security hardening, and deployment scripts for production operations. All workflows use Node 20 and run on ubuntu-latest.</p>
 <h3 class="subsection-title">GitHub Workflows (Node 20, action SHAs pinned)</h3>
 <table><thead><tr><th>Workflow</th><th>Triggers</th><th>Jobs</th><th>Purpose</th></tr></thead><tbody>
 <tr><td>ci.yml</td><td>push/PR to main</td><td>3 install jobs (npm cache) → lint + test (backend jest, frontend/admin vitest) + build → <strong>runs run-migrations.js against test DB (line 174)</strong> → data-guard + build artifacts</td><td>Full CI pipeline: install → lint → test → build → migration validation → data integrity check → artifact upload. Three parallel install jobs for backend/frontend/admin.</td></tr>
@@ -1231,9 +1234,10 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <tr><td>no-env.yml</td><td>push/PR</td><td>Blocks tracked .env + scans hardcoded secrets (PEM, sk-*, AKIA, weak JWT)</td><td>Secret leak prevention: checks .env files are not tracked in git, scans for hardcoded secrets (AWS keys, Stripe keys, PEM files, weak JWT secrets). Critical for preventing credential leaks.</td></tr>
 <tr><td>data-guard.yml</td><td>push/PR</td><td>PII in JSON, migration sequences, fixture validation, duplicate prefixes</td><td>Data integrity: checks for PII in committed JSON files, validates migration sequence continuity, validates fixture data integrity, detects duplicate entity prefixes. Prevents accidental data leaks.</td></tr>
 </tbody></table>
-<h3 class="subsection-title">Docker Compose (docker-compose.yml — 10 services)</h3>
+<h3 class="subsection-title">Docker Compose (docker-compose.yml — 12 services)</h3>
 <table><thead><tr><th>Service</th><th>Notes</th><th>Security</th></tr></thead><tbody>
-<tr><td>backend-1 / backend-2</td><td>Dual Express instances behind nginx for load balancing and WebSocket broadcasting. Each instance has its own INSTANCE_ID for session routing. Health check: <code>/api/health</code>. Memory limit: 512M per instance.</td><td>read_only rootfs + cap_drop ALL + no-new-privileges; tmpfs /tmp; named volumes (uploads, email spool). Prevents container escape and privilege escalation.</td></tr>
+<tr><td>backend-1 / backend-2</td><td>Dual Express instances behind nginx for load balancing and WebSocket broadcasting. Each instance has its own INSTANCE_ID for session routing. Health check: <code>/api/health</code>. Memory limit: 512M per instance. Both wait for <code>backend-db</code> + <code>redis</code> (healthy) before starting.</td><td>read_only rootfs + cap_drop ALL + no-new-privileges; tmpfs /tmp; named volumes (uploads, email spool). Prevents container escape and privilege escalation.</td></tr>
+<tr><td>redis / backend-db</td><td>Redis 7-alpine (BullMQ queues, response cache, Socket.IO adapter, rate limiting, OTP store) + Postgres 16-alpine (self-contained DB). Redis: AOF persistence, 256MB <code>noeviction</code> cap (BullMQ requirement), <code>redis-cli ping</code> healthcheck. Postgres: <code>pg_isready</code> healthcheck. Both bound to 127.0.0.1 on the host, backend-net only. Override <code>REDIS_URL</code>/<code>DATABASE_URL</code> in .env for managed services.</td><td>read_only rootfs + cap_drop ALL + no-new-privileges; named volumes (redisdata AOF, pgdata). Internal bridge network, not publicly published.</td></tr>
 <tr><td>frontend / admin-panel</td><td>Vite builds served as static files. Admin Dockerfile now exists (was missing). Both apps are lazy-loaded for code splitting.</td><td>Static file serving only — no server-side code execution. Nginx handles security headers.</td></tr>
 <tr><td>nginx</td><td>1.27.3-alpine reverse proxy. SSL termination via certbot. Load balancing between backend instances. Rate limiting at edge. Security headers (CSP, HSTS, X-Frame-Options).</td><td>First line of defense: rate limiting, SSL termination, security headers, request size limits.</td></tr>
 <tr><td>certbot / certbot-init</td><td>Let's Encrypt automation: auto-renewal every 12 hours. certbot-init handles initial certificate generation.</td><td>Automated SSL certificate management — no manual renewal needed.</td></tr>
@@ -1272,9 +1276,9 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <tr><td>AI gateway</td><td>OpenRouter multi-provider aiClient + RAG + embeddings + PDF processor (extract_pdf.py) + per-user rate limits (50/500 hr via Redis sliding window). Generation logs + cost tracking.</td><td><code>modules/ai/aiClient.js</code>, <code>modules/ai/rag.service.js</code>, <code>modules/ai/embeddingService.js</code>, <code>middleware/aiRateLimiter.js</code></td></tr>
 <tr><td>Payments</td><td>Razorpay create/verify/webhook + coupons + subscription expiry sweeper (startup + hourly). Pro pass feature gating.</td><td><code>api/routes/payments.js</code>, <code>services/SubscriptionService.js</code>, <code>api/routes/subscriptions.js</code></td></tr>
 <tr><td>Security stack</td><td>Compromised-secret startup blocklist (SHA-256), admin IP allowlist + API key + origin guard + RBAC permissions, CSRF (DB-backed with 30s grace), progressive lockout, audit logs, PII-at-rest encryption (pgcrypto), Sentry, 30s request timeout, hardened helmet CSP.</td><td><code>app-port5001.js</code> (startup blocklist), <code>middleware/origin.middleware.js</code>, <code>middleware/adminIpAllowlist.middleware.js</code>, <code>middleware/audit.middleware.js</code>, migration 088</td></tr>
-<tr><td>Infra</td><td>10-service compose (dual backend, nginx, TLS, Prometheus/Grafana/Loki), readiness file, pino→Loki logging, pool warming, read replica URL, security hardening (read_only, cap_drop, no-new-privileges).</td><td><code>docker-compose.yml</code>, <code>deploy/</code> directory, <code>infrastructure/logger/logger.js</code>, <code>infrastructure/database/postgres-helpers.js</code></td></tr>
+<tr><td>Infra</td><td>12-service compose (dual backend, redis, postgres, nginx, TLS, Prometheus/Grafana/Loki), readiness file, pino→Loki logging, pool warming, read replica URL, security hardening (read_only, cap_drop, no-new-privileges).</td><td><code>docker-compose.yml</code>, <code>deploy/</code> directory, <code>infrastructure/logger/logger.js</code>, <code>infrastructure/database/postgres-helpers.js</code></td></tr>
 <tr><td>Frontend</td><td>Route-level code splitting (React.lazy), RouteErrorBoundary per route, lazy pages, SEO slug routes for tests/PYPs/videos, telemetry + offline queue, bilingual (Hindi/English) support.</td><td><code>App.jsx</code> (402 lines), <code>shared/lib/telemetry/</code>, <code>shared/lib/language.js</code>, route table in this document</td></tr>
-<tr><td>Database</td><td>115 migration files auto-run at boot, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector for semantic search, dual-pool architecture.</td><td><code>infrastructure/database/migrationRunner.js</code>, <code>infrastructure/database/postgres-helpers.js</code>, migration files 000-126</td></tr>
+<tr><td>Database</td><td><span data-brain="migration_files">118</span> migration files auto-run at boot, 6 seeders, RLS auto-trigger, initTables + FK reconciliation, pgvector for semantic search, dual-pool architecture.</td><td><code>infrastructure/database/migrationRunner.js</code>, <code>infrastructure/database/postgres-helpers.js</code>, migration files 000-129</td></tr>
 </tbody></table>
 </div>
 
@@ -1307,6 +1311,34 @@ subjects → subject_parts → units → chapters → topics → subtopics → v
 <tr><td>Decouple useProPass: accept AuthContext via parameter/DI instead of relative import</td><td><span class="badge badge-blue">Low</span></td><td>0.5 day</td><td>Refactor useProPass hook to accept AuthContext as parameter or via dependency injection. Update all consumers.</td></tr>
 </tbody></table>
 </div>
+</div>
+
+<!-- 13. AUTO-SYNC -->
+<div class="section" id="autosync">
+<h2 class="section-title">Auto-sync with graphify</h2>
+<p class="section-desc">This page stays fresh automatically. The knowledge graph (<code>graphify-out/</code>) and the Live Snapshot numbers above are refreshed after every commit through a post-commit hook chain — no manual doc edits needed for counts, HEAD, or graph metrics.</p>
+
+<div class="card"><div class="card-title">Sync pipeline (runs after every <code>git commit</code>)</div><div class="card-body">
+<strong>1. graphify rebuild</strong> — <code>.husky/graphify-sync.sh</code> (launched by <code>.husky/post-commit</code>) detects code files changed in the commit, re-runs AST extraction on just those files, and rebuilds <code>graphify-out/graph.json</code> + <code>GRAPH_REPORT.md</code> in the background (log: <code>~/.cache/graphify-rebuild.log</code>). Code-only changes cost zero LLM tokens. Doc/image changes are detected and flagged for a manual <code>/graphify --update</code> (LLM re-extraction required).<br><br>
+<strong>2. REPO_BRAIN refresh</strong> — <code>scripts/sync-repo-brain.mjs</code> then rewrites every <code>&lt;span data-brain="…"&gt;</code> marker in this file with fresh values: HEAD hash, refresh date, graph node/edge/community counts, god-node edge counts, file counts (backend/frontend/admin src, routes, module routes, middleware, migrations, pages, scripts), and API mount entries. Prose, tables, and issue lists are never touched — only the marked spans. It refuses to write if sanity checks fail (e.g. graph missing or implausibly small), so a broken graph can never corrupt this page.
+</div></div>
+
+<div class="card"><div class="card-title">Manual commands</div><div class="card-body">
+<strong>Force a refresh now:</strong><br>
+<code>node scripts/sync-repo-brain.mjs</code> — re-scans filesystem + graph and updates this page in place.<br><br>
+<strong>CI staleness guard:</strong><br>
+<code>node scripts/sync-repo-brain.mjs --check</code> — exits 1 if the page is stale; useful as a CI job to enforce that committed docs match the committed tree.<br><br>
+<strong>Full graph rebuild after doc changes:</strong><br>
+<code>/graphify --update</code> — semantic (LLM) re-extraction needed when docs/papers/images changed; code-only changes are handled automatically by the hook.<br><br>
+<strong>Hook management:</strong><br>
+The pipeline lives in user-level husky hooks: <code>.husky/post-commit</code> (entry point, survives <code>husky install</code> reinstalls) and <code>.husky/graphify-sync.sh</code> (the actual pipeline). <code>graphify hook status / install / uninstall</code> manages graphify's own legacy block if it reappears in <code>.husky/_/</code> — the user-level <code>.husky/post-commit</code> chain is authoritative here.
+</div></div>
+
+<div class="card"><div class="card-title">What syncs vs what doesn't</div><div class="card-body">
+<strong>Auto-synced (data-brain spans):</strong> HEAD, date, graph nodes/edges/communities, god-node edges, file counts, route/middleware/migration/page/script counts, API mounts, compose services.<br>
+<strong>Manual (human-written prose):</strong> architecture narratives, flow descriptions, route tables, database table docs, issue lists, recommendations. The sync script never invents prose — it only updates numbers that are mechanically derivable from the filesystem and graph.<br><br>
+<strong>Note on graph size:</strong> the 2 Sep 2026 rebuild deduplicated ~6.4k near-identical node labels (hundreds of <code>router</code>/<code>__dirname</code>-style nodes) that inflated the earlier 15,828-node count. 9,469 nodes is the deduplicated truth; both counts describe the same corpus.
+</div></div>
 </div>
 
 </div><!-- /main -->

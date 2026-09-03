@@ -1,13 +1,19 @@
 # ==============================================================================
 # FIX 2.4: Docker Network Isolation
 # - frontend-net:   nginx <-> frontend, admin-panel
-# - backend-net:    nginx <-> backend-1, backend-2 <-> backend-db
+# - backend-net:    nginx <-> backend-1, backend-2 <-> backend-db, redis
 # - monitoring-net: backend-1, backend-2 <-> prometheus <-> grafana (internal)
 #
 # FIX 2.16: Prometheus/Grafana secured
 # - Bound to 127.0.0.1 (host-only)
 # - Grafana admin password from env var / secrets
 # - Anonymous access disabled
+#
+# REDIS: first-class cache/queue broker for the backend stack (BullMQ job
+# queues, response cache, Socket.IO multi-node adapter, rate limiting,
+# phone-OTP store). The backends read REDIS_URL (default redis://redis:6379);
+# AOF persistence + 256mb LRU cap keep queued jobs durable and memory bounded.
+# For managed Redis, set REDIS_URL in .env instead.
 # ==============================================================================
 
 # H31: Centralized logging via Grafana Loki. All services ship stdout/stderr to
@@ -37,6 +43,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - FRONTEND_URL=${FRONTEND_URL:-https://${DOMAIN:-localhost}}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - INSTANCE_ID=backend-1
     command: node src/app-port5001.js
     restart: unless-stopped
@@ -69,6 +76,8 @@ services:
     depends_on:
       backend-db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - backend-net
       - monitoring-net
@@ -87,6 +96,7 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - FRONTEND_URL=${FRONTEND_URL:-https://${DOMAIN:-localhost}}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - INSTANCE_ID=backend-2
     command: node src/app-port5001.js
     restart: unless-stopped
@@ -116,6 +126,8 @@ services:
           cpus: '1.0'
     depends_on:
       backend-db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - backend-net
@@ -187,6 +199,68 @@ services:
           cpus: '1.0'
     networks:
       - frontend-net
+
+  # REDIS: BullMQ queues, response cache, Socket.IO adapter, rate limiting,
+  # phone-OTP store and distributed locks all converge on this instance.
+  # - AOF persistence (appendonly) so queued jobs survive container restarts.
+  # - maxmemory 256mb + noeviction (BullMQ's documented requirement — an LRU
+  #   policy can evict live job keys and corrupt queue state; the cache layer
+  #   is TTL-bounded and queues prune completed/failed jobs, so memory stays
+  #   bounded without eviction).
+  # - Bound to 127.0.0.1 on the host; plaintext is safe on the internal
+  #   backend-net bridge. For managed Redis (Upstash/ElastiCache), set REDIS_URL
+  #   in .env (the backends default to redis://redis:6379 only when unset).
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redisdata:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    networks:
+      - backend-net
+
+  # POSTGRES: self-contained database for the base stack (referenced by the
+  # backends' depends_on). For managed Postgres (Supabase/Neon), override
+  # DATABASE_URL in .env — the migration runner + dual-pool logic are unchanged.
+  backend-db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-testprep}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - backend-net
 
   nginx:
     image: nginx:1.27.3-alpine
@@ -356,6 +430,8 @@ volumes:
   loki-data:
   backend-uploads:
   backend-spool:
+  pgdata:
+  redisdata:
 
 # FIX 2.4: Explicit network definitions
 networks:

@@ -1,0 +1,21 @@
+# Auto-update knowledge graph + docs/REPO_BRAIN.html after every commit.
+#
+# Pipeline (see .husky/graphify-sync.sh):
+#   1. graphify rebuild  — AST re-extract of changed code files -> graphify-out/graph.json
+#                          + GRAPH_REPORT.md (no LLM needed for code-only changes)
+#   2. repo-brain sync   — scripts/sync-repo-brain.mjs refreshes <span data-brain="...">
+#                          markers in docs/REPO_BRAIN.html from the rebuilt graph + filesystem.
+#
+# This is the user-level husky hook: it survives `husky install` reinstalls
+# (.husky/_/ is regenerated on every npm install; .husky/ user scripts are not).
+# The whole pipeline runs detached (nohup) so commits return instantly;
+# output is appended to ~/.cache/graphify-rebuild.log. Failures never block a commit.
+
+_LOG="${HOME}/.cache/graphify-rebuild.log"
+mkdir -p "$(dirname "$_LOG")" 2>/dev/null || true
+echo "[hook] post-commit: launching graphify + repo-brain sync (log: $_LOG)"
+_HookDir="$(dirname "$0")"
+nohup sh "${_HookDir}/graphify-sync.sh" >> "$_LOG" 2>&1 < /dev/null &
+disown 2>/dev/null || true
+
+exit 0

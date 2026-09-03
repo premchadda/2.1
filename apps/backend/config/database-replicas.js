@@ -40,20 +40,29 @@ const readConnectionUrl = sanitizeDatabaseUrl(
   process.env.DATABASE_READ_URL || process.env.DATABASE_URL,
 );
 
+const defaultQueryTimeout = isDev ? 30000 : 15000;
+const defaultStatementTimeout = isDev ? 30000 : 15000;
+
 // Primary pool (read/write) - max 8 connections to stay within Supabase session pool limit (15)
 const writePool = new Pool({
   connectionString: writeConnectionUrl,
   ssl: sslConfig,
   connectionTimeoutMillis: parsePositiveInt(
     process.env.PG_CONNECTION_TIMEOUT_MS,
-    15000,
+    20000,
   ),
   idleTimeoutMillis: parsePositiveInt(process.env.PG_IDLE_TIMEOUT_MS, 60000),
-  query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 10000),
+  query_timeout: parsePositiveInt(
+    process.env.PG_QUERY_TIMEOUT_MS,
+    defaultQueryTimeout,
+  ),
   max: parsePositiveInt(process.env.PG_POOL_MAX, 12),
   keepAlive: true,
   application_name: "trstprep-backend-write",
-  statement_timeout: 10000,
+  statement_timeout: parsePositiveInt(
+    process.env.PG_STATEMENT_TIMEOUT_MS,
+    defaultStatementTimeout,
+  ),
 });
 
 // Read replica pool - separate connection for read-heavy operations
@@ -64,17 +73,23 @@ const readPool = process.env.DATABASE_READ_URL
       ssl: sslConfig,
       connectionTimeoutMillis: parsePositiveInt(
         process.env.PG_CONNECTION_TIMEOUT_MS,
-        15000,
+        20000,
       ),
       idleTimeoutMillis: parsePositiveInt(
         process.env.PG_IDLE_TIMEOUT_MS,
         60000,
       ),
-      query_timeout: parsePositiveInt(process.env.PG_QUERY_TIMEOUT_MS, 10000),
+      query_timeout: parsePositiveInt(
+        process.env.PG_QUERY_TIMEOUT_MS,
+        defaultQueryTimeout,
+      ),
       max: parsePositiveInt(process.env.PG_READ_POOL_MAX, 6),
       keepAlive: true,
       application_name: "trstprep-backend-read",
-      statement_timeout: 10000,
+      statement_timeout: parsePositiveInt(
+        process.env.PG_STATEMENT_TIMEOUT_MS,
+        defaultStatementTimeout,
+      ),
     })
   : writePool;
 

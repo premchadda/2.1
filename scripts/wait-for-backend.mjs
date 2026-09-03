@@ -6,24 +6,19 @@ const RETRY_INTERVAL_MS = 1000
 
 const parsedUrl = new URL(`${BACKEND_URL}/api/health`)
 
-function checkBackend() {
-  return new Promise((resolve) => {
-    const req = http.request(
-      {
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port,
-        path: parsedUrl.pathname,
-        method: 'GET',
-        timeout: 3000,
-      },
-      (res) => {
-        resolve(res.statusCode >= 200 && res.statusCode < 500)
-      }
-    )
-    req.on('error', () => resolve(false))
-    req.on('timeout', () => { req.destroy(); resolve(false) })
-    req.end()
-  })
+async function checkBackend() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(2000) })
+    return res.status >= 200 && res.status < 500
+  } catch {
+    try {
+      const fallbackUrl = BACKEND_URL.replace('localhost', '127.0.0.1')
+      const res = await fetch(`${fallbackUrl}/api/health`, { signal: AbortSignal.timeout(2000) })
+      return res.status >= 200 && res.status < 500
+    } catch {
+      return false
+    }
+  }
 }
 
 async function waitForBackend() {

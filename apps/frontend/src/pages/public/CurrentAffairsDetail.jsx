@@ -1,114 +1,139 @@
-import { useState, useEffect } from 'react'
-import { Helmet } from 'react-helmet-async'
-import { useParams, useNavigate } from 'react-router-dom'
-import { api } from '../../shared/lib/dataService'
-import sanitizeHtml from '../../shared/lib/sanitizeHtml'
-import MathRenderer from '../../shared/components/MathRenderer'
-import { toast } from 'react-hot-toast'
-import { useAuth } from '../../shared/providers/AuthContext'
-import './CurrentAffairsDetail.css'
-
+import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
+import { useParams, useNavigate } from "react-router-dom";
+import { api } from "../../shared/lib/dataService";
+import sanitizeHtml from "../../shared/lib/sanitizeHtml";
+import MathRenderer from "../../shared/components/MathRenderer";
+import { toast } from "react-hot-toast";
+import { useAuth } from "../../shared/providers/AuthContext";
+import { getLanguageDisplayName } from "../../shared/lib/language";
+import "./CurrentAffairsDetail.css";
 
 const CurrentAffairsDetail = () => {
-  const { caId } = useParams()
-  const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { caId } = useParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
-  const [article, setArticle] = useState(null)
-  const [quiz, setQuiz] = useState(null)
-  const [quizAnswers, setQuizAnswers] = useState({})
-  const [quizSubmitted, setQuizSubmitted] = useState(false)
-  const [quizResult, setQuizResult] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [showQuiz, setShowQuiz] = useState(false)
+  const [article, setArticle] = useState(null);
+  const [quiz, setQuiz] = useState(null);
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizResult, setQuizResult] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController()
+    const controller = new AbortController();
     const fetchArticle = async () => {
       try {
-        const response = await api.get(`/api/current-affairs/${caId}`, { signal: controller.signal })
-        setArticle(response.data?.data || null)
+        const response = await api.get(`/api/current-affairs/${caId}`, {
+          signal: controller.signal,
+        });
+        setArticle(response.data?.data || null);
       } catch (error) {
-        if (api.isCancel(error)) return
-        console.error('Error fetching article:', error)
+        if (api.isCancel(error)) return;
+        console.error("Error fetching article:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchArticle()
-    return () => controller.abort()
-  }, [caId])
+    fetchArticle();
+    return () => controller.abort();
+  }, [caId]);
 
   const fetchQuiz = async () => {
     if (!isAuthenticated) {
-      toast('Please login to take the quiz', { icon: '🔒' })
-      navigate('/login')
-      return
+      toast("Please login to take the quiz", { icon: "🔒" });
+      navigate("/login");
+      return;
     }
     try {
-      const response = await api.get(`/api/current-affairs/${caId}/quiz`)
-      setQuiz(response.data?.data || null)
-      setShowQuiz(true)
+      const response = await api.get(`/api/current-affairs/${caId}/quiz`);
+      setQuiz(response.data?.data || null);
+      setShowQuiz(true);
     } catch (error) {
-      console.error('Error fetching quiz:', error)
+      console.error("Error fetching quiz:", error);
     }
-  }
+  };
 
   const handleQuizAnswerChange = (questionIndex, answer) => {
     setQuizAnswers({
       ...quizAnswers,
-      [questionIndex]: answer
-    })
-  }
+      [questionIndex]: answer,
+    });
+  };
 
   const handleSubmitQuiz = async () => {
     try {
-      const response = await api.post(`/api/current-affairs/${caId}/quiz/attempt`, { answers: quizAnswers })
-      const result = response.data?.data || null
+      const response = await api.post(
+        `/api/current-affairs/${caId}/quiz/attempt`,
+        { answers: quizAnswers },
+      );
+      const result = response.data?.data || null;
 
       if (result) {
         setQuizResult({
           ...result,
           score: result.correctCount ?? result.score ?? 0,
-        })
-        setQuizSubmitted(true)
+        });
+        setQuizSubmitted(true);
       }
     } catch (error) {
-      console.error('Error submitting quiz:', error)
-      toast.error(error.response?.status === 401 ? 'Please login to submit the quiz.' : 'Error submitting quiz')
+      console.error("Error submitting quiz:", error);
+      toast.error(
+        error.response?.status === 401
+          ? "Please login to submit the quiz."
+          : "Error submitting quiz",
+      );
     }
-  }
+  };
 
   if (loading) {
-    return <div className="ca-detail-loading">Loading article...</div>
+    return <div className="ca-detail-loading">Loading article...</div>;
   }
 
   if (!article) {
-    return <div className="ca-detail-error">Article not found</div>
+    return <div className="ca-detail-error">Article not found</div>;
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <div className="ca-detail-container">
       <Helmet>
-        <title>{article?.title || 'Current Affairs'} | Trstprep</title>
-        <meta name="description" content={article?.summary || 'Read the latest current affairs on Trstprep.'} />
-        <meta property="og:title" content={`${article?.title || 'Current Affairs'} | Trstprep`} />
-        <meta property="og:description" content={article?.summary || 'Read the latest current affairs on Trstprep.'} />
+        <title>{article?.title || "Current Affairs"} | Trstprep</title>
+        <meta
+          name="description"
+          content={
+            article?.summary || "Read the latest current affairs on Trstprep."
+          }
+        />
+        <meta
+          property="og:title"
+          content={`${article?.title || "Current Affairs"} | Trstprep`}
+        />
+        <meta
+          property="og:description"
+          content={
+            article?.summary || "Read the latest current affairs on Trstprep."
+          }
+        />
         <meta property="og:type" content="article" />
         <meta property="og:image" content="/og-image.png" />
       </Helmet>
       {/* Header */}
       <div className="ca-detail-header">
-        <button className="ca-detail-back" onClick={() => navigate('/current-affairs')}>
+        <button
+          className="ca-detail-back"
+          onClick={() => navigate("/current-affairs")}
+        >
           ← Back to Current Affairs
         </button>
       </div>
@@ -120,8 +145,12 @@ const CurrentAffairsDetail = () => {
             <article className="ca-detail-article">
               <div className="ca-detail-meta">
                 <span className="ca-detail-category">{article.category}</span>
-                <span className="ca-detail-date">{formatDate(article.date)}</span>
-                <span className="ca-detail-language">{article.language}</span>
+                <span className="ca-detail-date">
+                  {formatDate(article.date)}
+                </span>
+                <span className="ca-detail-language">
+                  {getLanguageDisplayName(article.language) || article.language}
+                </span>
               </div>
 
               <h1 className="ca-detail-title">{article.title}</h1>
@@ -131,7 +160,11 @@ const CurrentAffairsDetail = () => {
               </div>
 
               <div className="ca-detail-body">
-                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(article.content) }} />
+                <div
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(article.content),
+                  }}
+                />
               </div>
 
               {/* Related Topics */}
@@ -164,7 +197,10 @@ const CurrentAffairsDetail = () => {
                 <h2>Quiz: {article.title}</h2>
                 {quizSubmitted && (
                   <div className="ca-quiz-score">
-                    Your Score: <span className="ca-quiz-score-value">{quizResult.score}/{quizResult.totalQuestions}</span>
+                    Your Score:{" "}
+                    <span className="ca-quiz-score-value">
+                      {quizResult.score}/{quizResult.totalQuestions}
+                    </span>
                   </div>
                 )}
               </div>
@@ -182,11 +218,17 @@ const CurrentAffairsDetail = () => {
                         <label
                           key={optIdx}
                           className={`ca-quiz-option ${
-                            quizAnswers[idx] === option ? 'selected' : ''
+                            quizAnswers[idx] === option ? "selected" : ""
                           } ${
-                            quizSubmitted && option === question.correct ? 'correct' : ''
+                            quizSubmitted && option === question.correct
+                              ? "correct"
+                              : ""
                           } ${
-                            quizSubmitted && quizAnswers[idx] === option && option !== question.correct ? 'incorrect' : ''
+                            quizSubmitted &&
+                            quizAnswers[idx] === option &&
+                            option !== question.correct
+                              ? "incorrect"
+                              : ""
                           }`}
                         >
                           <input
@@ -211,31 +253,47 @@ const CurrentAffairsDetail = () => {
                       <div className="ca-quiz-explanation">
                         <div className="flex items-start gap-1">
                           <strong>Explanation:</strong>
-                          <MathRenderer text={sanitizeHtml(question.explanation || 'No explanation provided.')} />
+                          <MathRenderer
+                            text={sanitizeHtml(
+                              question.explanation ||
+                                "No explanation provided.",
+                            )}
+                          />
                         </div>
                       </div>
                     )}
                   </div>
-
                 ))}
               </div>
 
               <div className="ca-quiz-actions">
                 {!quizSubmitted ? (
                   <>
-                    <button className="ca-quiz-btn secondary" onClick={() => setShowQuiz(false)}>
+                    <button
+                      className="ca-quiz-btn secondary"
+                      onClick={() => setShowQuiz(false)}
+                    >
                       ← Back to Article
                     </button>
-                    <button className="ca-quiz-btn primary" onClick={handleSubmitQuiz}>
+                    <button
+                      className="ca-quiz-btn primary"
+                      onClick={handleSubmitQuiz}
+                    >
                       Submit Quiz →
                     </button>
                   </>
                 ) : (
                   <>
-                    <button className="ca-quiz-btn secondary" onClick={() => setShowQuiz(false)}>
+                    <button
+                      className="ca-quiz-btn secondary"
+                      onClick={() => setShowQuiz(false)}
+                    >
                       ← Back to Article
                     </button>
-                    <button className="ca-quiz-btn primary" onClick={() => navigate('/current-affairs')}>
+                    <button
+                      className="ca-quiz-btn primary"
+                      onClick={() => navigate("/current-affairs")}
+                    >
                       Back to Current Affairs →
                     </button>
                   </>
@@ -246,7 +304,7 @@ const CurrentAffairsDetail = () => {
         )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default CurrentAffairsDetail
+export default CurrentAffairsDetail;

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight, Plus, Crown } from "lucide-react";
 import { useState } from "react";
 import { isSeriesEnrolled } from "../../lib/enrollment.js";
+import { parseLanguageList } from "../../lib/language.js";
 import { getCategoryEmoji } from "../../../assets/config/emoji.js";
 import Card from "../ui/Card.jsx";
 import Badge from "../ui/Badge.jsx";
@@ -33,8 +34,10 @@ function TestSeriesCard({
     testTypes = [],
     attemptedTests = 0,
     testCounts = {},
-    languages = ["Eng", "Hin"],
+    languages = ["English", "Hindi"],
   } = series;
+
+  const parsedLanguages = parseLanguageList(languages, ["English", "Hindi"]);
 
   const seriesId = slug || id || _id;
   const enrolledSeries = user?.enrolledSeries || [];
@@ -254,7 +257,7 @@ function TestSeriesCard({
               {freeTests || 0} Free
             </span>
             <span className="text-cyan-500 dark:text-cyan-400 font-medium">
-              {languages?.join(", ") || "Eng, Hin"}
+              {parsedLanguages.join(", ")}
             </span>
           </div>
 

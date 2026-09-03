@@ -10,6 +10,11 @@
  */
 
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
+import {
+  resolveQuestionMarks,
+  scoreMcqAnswer,
+} from "../../shared/utils/scoreAttempt.js";
+import { idsMatch } from "../../services/core/common.js";
 
 const liveMockService = {
   /**
@@ -321,6 +326,9 @@ const liveMockService = {
       if (data.questionId !== undefined) {
         currentAnswers[data.questionId] =
           data.selectedOption !== undefined ? data.selectedOption : data.answer;
+      } else if (data.questionIndex !== undefined) {
+        currentAnswers[data.questionIndex] =
+          data.selectedOption !== undefined ? data.selectedOption : data.answer;
       } else if (data.answers && typeof data.answers === "object") {
         Object.assign(currentAnswers, data.answers);
       }
@@ -406,36 +414,108 @@ const liveMockService = {
 
       // Get correct answers
       const questions = await client.query(
-        `SELECT q.id, q.correct_option, q.marks, q.negative_marks
+        `SELECT q.id, q.options, q.correct_option, q.marks, q.negative_marks
          FROM test_questions tq
          JOIN questions q ON q.id = tq.question_id
-         WHERE tq.test_id = $1`,
+         WHERE tq.test_id = $1
+         ORDER BY tq.order_index, q.id`,
         [session.test_id],
       );
+
+      // Fetch test level marks defaults if available
+      const testMetaRes = await client.query(
+        `SELECT marks_per_question, negative_marking, total_marks FROM tests WHERE id = $1`,
+        [session.test_id],
+      );
+      const testMeta = testMetaRes.rows[0] || {};
+      const testMarksPerQ =
+        Number(testMeta.marks_per_question) > 0
+          ? Number(testMeta.marks_per_question)
+          : 2;
+      const testNeg =
+        testMeta.negative_marking !== null &&
+        testMeta.negative_marking !== undefined
+          ? Number(testMeta.negative_marking)
+          : undefined;
 
       // Calculate score
       let score = 0;
       let correct = 0;
       let wrong = 0;
       let skipped = 0;
+      let calculatedTotalMarks = 0;
 
-      for (const question of questions.rows) {
-        const userAnswer = answers ? answers[question.id] : undefined;
-        if (userAnswer === undefined || userAnswer === null) {
-          skipped++;
-        } else if (Number(userAnswer) === Number(question.correct_option)) {
-          score += Number(question.marks || 1);
-          correct++;
-        } else {
-          score -= Number(question.negative_marks ?? 0.5);
-          wrong++;
+      for (let i = 0; i < questions.rows.length; i++) {
+        const question = questions.rows[i];
+        let rawAnswer = undefined;
+
+        if (Array.isArray(answers)) {
+          const found = answers.find(
+            (a) =>
+              idsMatch(a.questionId, question.id) ||
+              Number(a.questionIndex) === i,
+          );
+          rawAnswer = found?.selectedOption ?? found?.answer;
+        } else if (answers && typeof answers === "object") {
+          rawAnswer =
+            answers[question.id] ??
+            answers[String(question.id)] ??
+            answers[i] ??
+            answers[String(i)];
         }
+
+        // If rawAnswer is a string matching one of the options text, map to index
+        let resolvedSelected = rawAnswer;
+        let parsedOptions = question.options;
+        if (typeof parsedOptions === "string") {
+          try {
+            parsedOptions = JSON.parse(parsedOptions);
+          } catch {
+            parsedOptions = [];
+          }
+        }
+        if (
+          typeof rawAnswer === "string" &&
+          Array.isArray(parsedOptions) &&
+          parsedOptions.length > 0
+        ) {
+          const optIdx = parsedOptions.findIndex(
+            (o) =>
+              String(
+                typeof o === "object" && o !== null ? o.text || o.en || "" : o,
+              )
+                .trim()
+                .toLowerCase() === rawAnswer.trim().toLowerCase(),
+          );
+          if (optIdx !== -1) resolvedSelected = optIdx;
+        }
+
+        const { positive: qMarks, negative: qNegMarks } = resolveQuestionMarks(
+          question,
+          {
+            marksPerQuestion: testMarksPerQ,
+            negativeMarking: testNeg,
+          },
+        );
+        calculatedTotalMarks += qMarks;
+
+        const scored = scoreMcqAnswer({
+          selectedOption: resolvedSelected,
+          correctOption: question.correct_option,
+          positive: qMarks,
+          negative: qNegMarks,
+        });
+
+        score += scored.delta;
+        correct += scored.correct;
+        wrong += scored.wrong;
+        skipped += scored.unattempted;
       }
 
-      const totalMarks = questions.rows.reduce(
-        (sum, q) => sum + Number(q.marks || 1),
-        0,
-      );
+      const totalMarks =
+        Number(testMeta.total_marks) > 0
+          ? Number(testMeta.total_marks)
+          : calculatedTotalMarks;
 
       // Update attempt
       await client.query(

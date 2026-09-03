@@ -1,5 +1,9 @@
 import { pool } from "../../infrastructure/database/postgres-helpers.js";
 import { idsMatch } from "./common.js";
+import {
+  resolveQuestionMarks,
+  scoreMcqAnswer,
+} from "../../shared/utils/scoreAttempt.js";
 
 const VALID_ATTEMPT_STATUSES = [
   "not_started",
@@ -327,30 +331,27 @@ export class TestAttemptController {
         if (qRes.rows.length === 0) continue;
 
         const question = qRes.rows[0];
-        const rawCorrect =
+        const correctOption =
           question.correct_option ??
           question.correct_answer ??
           question.correctOption;
-        const isCorrect =
-          qState.selected_option !== null &&
-          Number(qState.selected_option) === Number(rawCorrect);
-        const qPos = Number(question.marks ?? 2);
-        const neg =
-          Number(question.negative_marks ?? 0) > 0
-            ? Number(question.negative_marks)
-            : qPos === 2
-              ? 0.5
-              : qPos * 0.25;
 
-        if (qState.selected_option === null) {
-          unattempted++;
-        } else if (isCorrect) {
-          correct++;
-          totalScore += qPos;
-        } else {
-          wrong++;
-          totalScore -= neg;
-        }
+        const { positive, negative } = resolveQuestionMarks(question, {
+          marksPerQuestion: Number(attempt.marks_per_question || 2),
+          negativeMarking: attempt.negative_marking,
+        });
+
+        const scored = scoreMcqAnswer({
+          selectedOption: qState.selected_option,
+          correctOption,
+          positive,
+          negative,
+        });
+
+        correct += scored.correct;
+        wrong += scored.wrong;
+        unattempted += scored.unattempted;
+        totalScore += scored.delta;
       }
 
       const totalAttempted = correct + wrong;

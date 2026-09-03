@@ -283,7 +283,7 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     networks:
       - backend-net
 

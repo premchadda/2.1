@@ -10,6 +10,7 @@ export function useProfileForm({ user, refreshUser, setPersonalInfo }) {
     location: "",
     education: "",
     bio: "",
+    category: "UR",
   });
   const [editErrors, setEditErrors] = useState({});
   const [editSuccess, setEditSuccess] = useState(false);
@@ -26,6 +27,7 @@ export function useProfileForm({ user, refreshUser, setPersonalInfo }) {
       location: source.location || "",
       education: source.education || "",
       bio: source.bio || "",
+      category: source.category || "UR",
     });
   }, []);
 
@@ -63,6 +65,7 @@ export function useProfileForm({ user, refreshUser, setPersonalInfo }) {
         location: editForm.location?.trim() || "",
         education: editForm.education?.trim() || "",
         bio: editForm.bio?.trim() || "",
+        category: editForm.category || "UR",
       });
       if (response.data?.success) {
         if (setPersonalInfo) {
@@ -74,6 +77,7 @@ export function useProfileForm({ user, refreshUser, setPersonalInfo }) {
             location: editForm.location,
             education: editForm.education,
             bio: editForm.bio,
+            category: editForm.category || "UR",
           });
         }
         if (refreshUser) await refreshUser();
