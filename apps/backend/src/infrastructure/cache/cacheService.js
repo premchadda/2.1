@@ -177,61 +177,62 @@ export const getCache = async (namespace, key) => {
 
   if (isFileCacheEnabled()) loadFileCache();
 
-  if (isRedisReady()) {
+  // 1. Check L1 in-memory cache first (0.001ms)
+  const cached = getMemoryCache(cacheKey);
+  if (cached !== null) {
+    return cached;
+  }
+
+  // 2. Check L2 Redis only if L1 missed and Redis is ready
+  if (typeof isRedisReady === "function" && isRedisReady()) {
     const redis = getRedisClient();
-    try {
-      const value = await withCacheTimeout(redis.get(cacheKey), null);
-      return parseCachedValue(value);
-    } catch {
-      return null;
+    if (redis) {
+      try {
+        const value = await withCacheTimeout(redis.get(cacheKey), null);
+        const parsed = parseCachedValue(value);
+        if (parsed !== null) {
+          setMemoryCache(cacheKey, parsed, 60 * 1000); // Warm L1 for 60s
+          return parsed;
+        }
+      } catch {
+        return null;
+      }
     }
   }
 
-  logMemoryFallbackWarningIfNeeded();
-  const cached = getMemoryCache(cacheKey);
-  if (cached === null) {
-    return null;
-  }
-
-  return cached;
+  return null;
 };
 
 export const setCache = async (namespace, key, value, ttlSeconds = 300) => {
   const cacheKey = toNamespacedKey(namespace, key);
 
-  if (isRedisReady()) {
+  // 1. Always store in L1 in-memory cache immediately
+  setMemoryCache(cacheKey, value, ttlSeconds * 1000);
+
+  // 2. Asynchronously update L2 Redis without blocking the caller
+  if (typeof isRedisReady === "function" && isRedisReady()) {
     const redis = getRedisClient();
-    try {
-      const result = await withCacheTimeout(
+    if (redis) {
+      withCacheTimeout(
         redis.set(cacheKey, serializeCachedValue(value), "EX", ttlSeconds),
         false,
-      );
-      return result !== false;
-    } catch {
-      return false;
+      ).catch(() => {});
     }
   }
 
-  logMemoryFallbackWarningIfNeeded();
-  setMemoryCache(cacheKey, value, ttlSeconds * 1000);
   return true;
 };
 
 export const deleteCache = async (namespace, key) => {
   const cacheKey = toNamespacedKey(namespace, key);
-
-  if (isRedisReady()) {
-    const redis = getRedisClient();
-    try {
-      await withCacheTimeout(redis.del(cacheKey), 0);
-    } catch {
-      // Cache invalidation is best effort.
-    }
-    return;
-  }
-
-  logMemoryFallbackWarningIfNeeded();
   localCache.delete(cacheKey);
+
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      redis.del(cacheKey).catch(() => {});
+    }
+  }
 };
 
 export const deleteCacheByPrefix = async (namespace, prefix = "") => {

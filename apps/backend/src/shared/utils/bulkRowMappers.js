@@ -131,8 +131,11 @@ const resolveCorrectOption = (value, options = []) => {
   if (letterMap[str] !== undefined) return letterMap[str];
   const num = Number(value);
   if (Number.isFinite(num)) {
-    if (num >= 1 && num <= options.length && options.length > 0) {
-      return num - 1;
+    if (options.length > 0) {
+      if (num >= 1 && num <= options.length) {
+        return num - 1;
+      }
+      return null;
     }
     return num >= 0 ? num : null;
   }

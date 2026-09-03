@@ -1,85 +1,102 @@
-import { Link } from 'react-router-dom'
-import { Radio, Crown, Download } from 'lucide-react'
-import Card from '../../../shared/components/ui/Card.jsx'
-import Badge from '../../../shared/components/ui/Badge.jsx'
-import { getCategoryEmoji } from '../../../assets/config/emoji.js'
-import { getTestEntitlement } from '../../../shared/utils/entitlement.js'
-
-function formatLanguages(langs) {
-  if (!langs) return null
-  if (Array.isArray(langs)) return langs.slice(0, 2).join('/')
-  if (typeof langs === 'string') {
-    try {
-      const parsed = JSON.parse(langs)
-      if (Array.isArray(parsed)) return parsed.slice(0, 2).join('/')
-    } catch {
-      return langs
-    }
-  }
-  return null
-}
-
-function getLangList(langs) {
-  const s = formatLanguages(langs)
-  if (!s) return []
-  return s.split('/').map((l) => l.trim()).filter(Boolean)
-}
+import { Link } from "react-router-dom";
+import { Radio, Crown, Download } from "lucide-react";
+import Card from "../../../shared/components/ui/Card.jsx";
+import Badge from "../../../shared/components/ui/Badge.jsx";
+import { getCategoryEmoji } from "../../../assets/config/emoji.js";
+import { getTestEntitlement } from "../../../shared/utils/entitlement.js";
+import { parseLanguageList } from "../../../shared/lib/language.js";
 
 const LANG_VARIANT = {
-  eng: 'primary',
-  english: 'primary',
-  hin: 'success',
-  hindi: 'success',
-  ben: 'warning',
-  bengali: 'warning',
-  tam: 'error',
-  tamil: 'error',
-  tel: 'pro',
-  telugu: 'pro',
-}
+  en: "primary",
+  eng: "primary",
+  english: "primary",
+  hi: "success",
+  hin: "success",
+  hindi: "success",
+  bn: "warning",
+  ben: "warning",
+  bengali: "warning",
+  ta: "error",
+  tam: "error",
+  tamil: "error",
+  te: "pro",
+  tel: "pro",
+  telugu: "pro",
+  mr: "primary",
+  mar: "primary",
+  marathi: "primary",
+  gu: "success",
+  guj: "success",
+  gujarati: "success",
+};
 
 // Solid status pills, mimicking TestCard's badgeConfig
 function getStatusPills({ isLive, isComingSoon, isNew, isFree }) {
-  const pills = []
-  if (isLive) pills.push({ key: 'live', label: 'LIVE TEST', cls: 'bg-red-500 text-white', Icon: Radio })
-  if (isFree) pills.push({ key: 'free', label: 'FREE', cls: 'bg-green-500 text-white' })
-  if (isNew && !isComingSoon) pills.push({ key: 'new', label: 'NEW', cls: 'bg-purple-500 text-white' })
-  if (isComingSoon) pills.push({ key: 'soon', label: 'COMING SOON', cls: 'bg-amber-100 text-amber-700' })
-  if (!isFree && !isLive) pills.push({ key: 'pro', label: 'PRO', cls: 'bg-gradient-to-r from-amber-400 to-orange-400 text-white', Icon: Crown })
-  return pills
+  const pills = [];
+  if (isLive)
+    pills.push({
+      key: "live",
+      label: "LIVE TEST",
+      cls: "bg-red-500 text-white",
+      Icon: Radio,
+    });
+  if (isFree)
+    pills.push({ key: "free", label: "FREE", cls: "bg-green-500 text-white" });
+  if (isNew && !isComingSoon)
+    pills.push({ key: "new", label: "NEW", cls: "bg-purple-500 text-white" });
+  if (isComingSoon)
+    pills.push({
+      key: "soon",
+      label: "COMING SOON",
+      cls: "bg-amber-100 text-amber-700",
+    });
+  if (!isFree && !isLive)
+    pills.push({
+      key: "pro",
+      label: "PRO",
+      cls: "bg-gradient-to-r from-amber-400 to-orange-400 text-white",
+      Icon: Crown,
+    });
+  return pills;
 }
 
 function PypPaperCard({ test, user, examSlug }) {
-  const entitlement = getTestEntitlement({ test, user })
-  const isTestPro = entitlement.accessType === 'PRO'
-  const isUserPro = entitlement.isUserPro
-  const isFree = entitlement.accessType === 'FREE'
-  const isLocked = entitlement.requiresPro
-  const isLive = test.isLive
-  const isComingSoon = test.isComingSoon
-  const isNew = test.isNew || (test.pyqYear && new Date().getFullYear() === test.pyqYear)
+  const entitlement = getTestEntitlement({ test, user });
+  const isTestPro = entitlement.accessType === "PRO";
+  const isUserPro = entitlement.isUserPro;
+  const isFree = entitlement.accessType === "FREE";
+  const isLocked = entitlement.requiresPro;
+  const isLive = test.isLive;
+  const isComingSoon = test.isComingSoon;
+  const isNew =
+    test.isNew || (test.pyqYear && new Date().getFullYear() === test.pyqYear);
 
-  const langList = getLangList(test.languages)
-  const stageLabel = test.stageName || ''
-  const yearLabel = test.pyqYear || test.subCategory || test.examDate || ''
-  const titleDisplay = test.shortTitle || test.title
+  const langList = parseLanguageList(test.languages, []);
+  const stageLabel = test.stageName || "";
+  const yearLabel = test.pyqYear || test.subCategory || test.examDate || "";
+  const titleDisplay = test.shortTitle || test.title;
 
-  const testId = test._id || test.id || test.publicId
+  const testId = test._id || test.id || test.publicId;
   const attemptHref = test.seriesId
     ? `/test/${test.seriesId}/${testId}/instructions`
-    : `/pyp/${testId}/test`
+    : `/pyp/${testId}/test`;
 
-  const statusPills = getStatusPills({ isLive, isComingSoon, isNew, isFree })
-  const subTitle = [stageLabel, yearLabel].filter(Boolean).join(' · ')
+  const statusPills = getStatusPills({ isLive, isComingSoon, isNew, isFree });
+  const subTitle = [stageLabel, yearLabel].filter(Boolean).join(" · ");
 
   return (
-    <Card variant="default" padding="p-0" hover className="overflow-hidden group">
+    <Card
+      variant="default"
+      padding="p-0"
+      hover
+      className="overflow-hidden group"
+    >
       <div className="px-3.5 py-2.5">
         {/* Badges + subtitle row (mirrors TestCard) */}
         {(statusPills.length > 0 || subTitle) && (
           <div className="flex flex-wrap items-center gap-2 mb-2">
             {statusPills.map((p) => {
-              const Icon = p.Icon
+              const Icon = p.Icon;
               return (
                 <span
                   key={p.key}
@@ -88,7 +105,7 @@ function PypPaperCard({ test, user, examSlug }) {
                   {Icon && <Icon className="w-3 h-3" />}
                   {p.label}
                 </span>
-              )
+              );
             })}
             {subTitle && (
               <span className="text-xs text-gray-500 font-medium truncate flex-1 min-w-[80px]">
@@ -101,7 +118,9 @@ function PypPaperCard({ test, user, examSlug }) {
         {/* Title + CTA row */}
         <div className="flex justify-between items-start gap-2.5">
           <div className="flex items-start gap-2 flex-1 min-w-0">
-            <span className="text-xl leading-none mt-0.5">{getCategoryEmoji(examSlug?.split('-')[0] || examSlug)}</span>
+            <span className="text-xl leading-none mt-0.5">
+              {getCategoryEmoji(examSlug?.split("-")[0] || examSlug)}
+            </span>
             <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2 flex-1">
               {titleDisplay}
             </h3>
@@ -165,7 +184,11 @@ function PypPaperCard({ test, user, examSlug }) {
             <span className="text-sm">🌐</span>
             {langList.length > 0 ? (
               langList.map((l) => (
-                <Badge key={l} variant={LANG_VARIANT[l.toLowerCase()] || 'default'} size="xs">
+                <Badge
+                  key={l}
+                  variant={LANG_VARIANT[l.toLowerCase()] || "default"}
+                  size="xs"
+                >
                   {l}
                 </Badge>
               ))
@@ -182,7 +205,7 @@ function PypPaperCard({ test, user, examSlug }) {
         </div>
       </div>
     </Card>
-  )
+  );
 }
 
-export default PypPaperCard
+export default PypPaperCard;

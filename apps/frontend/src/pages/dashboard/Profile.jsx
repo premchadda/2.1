@@ -135,6 +135,7 @@ function Profile({ initialTab = "personal" }) {
     location: "",
     education: "",
     bio: "",
+    category: "UR",
   });
 
   const {
@@ -297,6 +298,7 @@ function Profile({ initialTab = "personal" }) {
       location: initialSource.location || "",
       education: initialSource.education || "",
       bio: initialSource.bio || "",
+      category: initialSource.category || "UR",
     });
     syncFromUser(initialSource);
 
@@ -327,6 +329,7 @@ function Profile({ initialTab = "personal" }) {
             location: freshProfile.location || "",
             education: freshProfile.education || "",
             bio: freshProfile.bio || "",
+            category: freshProfile.category || "UR",
           });
           syncFromUser(freshProfile);
         }
@@ -726,6 +729,7 @@ function Profile({ initialTab = "personal" }) {
               setSelectedCity={setSelectedCity}
               setSelectedPincode={setSelectedPincode}
               logout={logout}
+              refreshUser={refreshUser}
             />
           )}
 

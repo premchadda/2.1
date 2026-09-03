@@ -532,6 +532,7 @@ function TestInterface() {
   const [questionTimers, setQuestionTimers] = useState({});
   const [sectionTimers, setSectionTimers] = useState({});
   const questionStartTimeRef = useRef(null);
+  const submitFrozenTimeSpentRef = useRef(null);
   const lastSaveRef = useRef(Date.now());
 
   const configuredSectionalTimer = Boolean(
@@ -655,126 +656,135 @@ function TestInterface() {
           }
 
           if (rawResultData?.questions?.length) {
-            const normalizedQuestions = rawResultData.questions.map(
-              (q, index) => {
-                const rawSection = q.section || q.subject || "General";
+            const mappedQuestions = rawResultData.questions.map((q, index) => {
+              const rawSection = q.section || q.subject || "General";
 
-                return {
-                  ...q,
-                  id: q.id || q._id || q.questionId || index,
-                  _id: q._id || q.id || q.questionId || index,
-                  text:
-                    typeof q.text === "object"
-                      ? {
-                          en: q.text?.en || q.questionText || q.question || "",
-                          hi:
-                            q.text?.hi ||
-                            q.questionTextHi ||
-                            q.question_text_hi ||
-                            "",
-                        }
-                      : {
-                          en: q.text || q.questionText || q.question || "",
-                          hi: q.questionTextHi || q.question_text_hi || "",
-                        },
-                  options:
-                    typeof q.options === "object" && !Array.isArray(q.options)
-                      ? {
-                          en: Array.isArray(q.options.en) ? q.options.en : [],
-                          hi:
-                            Array.isArray(q.options.hi) &&
-                            q.options.hi.length > 0
-                              ? q.options.hi
-                              : Array.isArray(q.optionsHi) &&
-                                  q.optionsHi.length > 0
-                                ? q.optionsHi
-                                : Array.isArray(q.options_hi) &&
-                                    q.options_hi.length > 0
-                                  ? q.options_hi
-                                  : [],
-                        }
-                      : {
-                          en: Array.isArray(q.options) ? q.options : [],
-                          hi:
-                            Array.isArray(q.optionsHi) && q.optionsHi.length > 0
+              return {
+                ...q,
+                id: q.id || q._id || q.questionId || index,
+                _id: q._id || q.id || q.questionId || index,
+                text:
+                  typeof q.text === "object"
+                    ? {
+                        en: q.text?.en || q.questionText || q.question || "",
+                        hi:
+                          q.text?.hi ||
+                          q.questionTextHi ||
+                          q.question_text_hi ||
+                          "",
+                      }
+                    : {
+                        en: q.text || q.questionText || q.question || "",
+                        hi: q.questionTextHi || q.question_text_hi || "",
+                      },
+                options:
+                  typeof q.options === "object" && !Array.isArray(q.options)
+                    ? {
+                        en: Array.isArray(q.options.en) ? q.options.en : [],
+                        hi:
+                          Array.isArray(q.options.hi) && q.options.hi.length > 0
+                            ? q.options.hi
+                            : Array.isArray(q.optionsHi) &&
+                                q.optionsHi.length > 0
                               ? q.optionsHi
                               : Array.isArray(q.options_hi) &&
                                   q.options_hi.length > 0
                                 ? q.options_hi
                                 : [],
-                        },
-                  section: rawSection,
-                  subject: q.subject || rawSection,
-                  correctOption:
-                    q.correctOption ??
-                    q.correct_option ??
-                    q.correct_option_id ??
-                    q.correctOptionId ??
-                    q.correctAnswer ??
-                    q.correct_answer ??
-                    q.correct ??
-                    q.answer,
-                  correctAnswer:
-                    q.correctOption ??
-                    q.correct_option ??
-                    q.correct_option_id ??
-                    q.correctOptionId ??
-                    q.correctAnswer ??
-                    q.correct_answer ??
-                    q.correct ??
-                    q.answer,
-                  explanation:
-                    typeof q.explanation === "object"
-                      ? q.explanation
-                      : {
-                          en: q.explanation || "",
-                          hi: q.explanationHi || q.explanation_hi || null,
-                        },
-                  // Normalize userAnswer from various API shapes
-                  userAnswer:
-                    q.userAnswer ??
-                    q.selectedOption ??
-                    q.user_answer ??
-                    q.userChoice,
-                };
-              },
+                      }
+                    : {
+                        en: Array.isArray(q.options) ? q.options : [],
+                        hi:
+                          Array.isArray(q.optionsHi) && q.optionsHi.length > 0
+                            ? q.optionsHi
+                            : Array.isArray(q.options_hi) &&
+                                q.options_hi.length > 0
+                              ? q.options_hi
+                              : [],
+                      },
+                section: rawSection,
+                subject: q.subject || rawSection,
+                correctOption:
+                  q.correctOption ??
+                  q.correct_option ??
+                  q.correct_option_id ??
+                  q.correctOptionId ??
+                  q.correctAnswer ??
+                  q.correct_answer ??
+                  q.correct ??
+                  q.answer,
+                correctAnswer:
+                  q.correctOption ??
+                  q.correct_option ??
+                  q.correct_option_id ??
+                  q.correctOptionId ??
+                  q.correctAnswer ??
+                  q.correct_answer ??
+                  q.correct ??
+                  q.answer,
+                explanation:
+                  typeof q.explanation === "object"
+                    ? q.explanation
+                    : {
+                        en: q.explanation || "",
+                        hi: q.explanationHi || q.explanation_hi || null,
+                      },
+                // Normalize userAnswer from various API shapes
+                userAnswer:
+                  q.userAnswer ??
+                  q.selectedOption ??
+                  q.user_answer ??
+                  q.userChoice,
+              };
+            });
+
+            const finalQuestions = normalizeTestQuestions(
+              mappedQuestions,
+              rawResultData,
             );
 
             setTest({
+              ...rawResultData,
               id: testId,
               _id: testId,
-              title: rawResultData.testTitle || "Test Review",
+              title:
+                rawResultData.testTitle || rawResultData.title || "Test Review",
+              sections:
+                rawResultData.sections ||
+                rawResultData.testSections ||
+                rawResultData.test?.sections ||
+                [],
               duration: Math.ceil(
                 (rawResultData.timeSpent || rawResultData.timeTaken || 0) / 60,
               ),
             });
-            setQuestions(normalizedQuestions);
-            setCurrentSection(normalizedQuestions[0]?.section || "General");
+            setQuestions(finalQuestions);
+            setCurrentSection(finalQuestions[0]?.section || "General");
             setVisitedQuestions(
-              new Set(normalizedQuestions.map((_, index) => index)),
+              new Set(finalQuestions.map((_, index) => index)),
             );
-            setAnswers(
-              normalizedQuestions.reduce((acc, question, index) => {
-                if (
-                  question.userAnswer !== undefined &&
-                  question.userAnswer !== null
-                ) {
-                  acc[index] = normalizeReviewAnswer(
-                    question,
-                    question.userAnswer,
-                  );
-                }
-                return acc;
-              }, {}),
-            );
-            setMarkedForReview(
-              new Set(
-                normalizedQuestions.reduce((acc, question, index) => {
-                  if (question.isMarked) acc.push(index);
-                  return acc;
-                }, []),
-              ),
-            );
+            const restoredAnswers = {};
+            finalQuestions.forEach((question, index) => {
+              if (
+                question.userAnswer !== undefined &&
+                question.userAnswer !== null &&
+                question.userAnswer !== "" &&
+                question.userAnswer !== -1
+              ) {
+                restoredAnswers[index] = normalizeReviewAnswer(
+                  question,
+                  question.userAnswer,
+                );
+              }
+            });
+            setAnswers(restoredAnswers);
+            const markedSet = new Set();
+            finalQuestions.forEach((question, index) => {
+              if (question.isMarked) {
+                markedSet.add(index);
+              }
+            });
+            setMarkedForReview(markedSet);
             setTimeLeft(0);
             questionStartTimeRef.current = null;
             return;
@@ -1981,6 +1991,11 @@ function TestInterface() {
       }));
       questionStartTimeRef.current = null;
     }
+    // Freeze the exact time spent when submit is initiated
+    submitFrozenTimeSpentRef.current = Math.max(
+      0,
+      (test?.duration || 60) * 60 - timeLeft,
+    );
     setShowSubmitSummary(true);
   };
 
@@ -2019,14 +2034,26 @@ function TestInterface() {
         }
       }
 
+      const sectionTimersData = computeSectionTimers();
+      const sumSectionTime = Object.values(sectionTimersData).reduce(
+        (sum, t) => sum + (Number(t) || 0),
+        0,
+      );
+      const calculatedTimeSpent =
+        sumSectionTime > 0
+          ? sumSectionTime
+          : submitFrozenTimeSpentRef.current !== null
+            ? submitFrozenTimeSpentRef.current
+            : Math.max(0, (test?.duration || 60) * 60 - timeLeft);
+
       const response = await apiClient.put(
         `/api/tests/${actualTestId}/submit`,
         {
           attemptId,
-          timeSpent: (test?.duration || 60) * 60 - timeLeft,
+          timeSpent: calculatedTimeSpent,
           answers: submittedAnswers,
           markedForReview: Array.from(markedForReview),
-          sectionTimers: computeSectionTimers(),
+          sectionTimers: sectionTimersData,
           currentSection,
           disableNegativeMarking,
         },
@@ -3136,6 +3163,7 @@ function TestInterface() {
       <SubmitSummaryModal
         isOpen={showSubmitSummary}
         onClose={() => {
+          submitFrozenTimeSpentRef.current = null;
           setShowSubmitSummary(false);
           questionStartTimeRef.current = Date.now();
         }}

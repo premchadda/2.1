@@ -26,6 +26,10 @@ import {
 } from "../../shared/utils/user-utils.js";
 import { EntitlementService } from "../../services/EntitlementService.js";
 import {
+  TestPolicyEngine,
+  POLICY_ERROR_CODES,
+} from "../../services/core/TestPolicyEngine.js";
+import {
   findTestByIdentifier,
   filterQuestionsByTestId,
 } from "../../shared/utils/test-utils.js";
@@ -80,6 +84,9 @@ const buildSectionTimeLimits = (sections) => {
     // Multiple sections may normalize to the same key; sum their allotted time so a
     // legitimate submission that spans several sections is never falsely rejected.
     limits[key] = (limits[key] || 0) + allotted;
+    if (key !== name) {
+      limits[name] = (limits[name] || 0) + allotted;
+    }
   }
   return limits;
 };
@@ -210,6 +217,116 @@ const fetchTestQuestions = async (test) => {
     return fetchQuestionsFromJsonFile(test);
   }
   return fetchQuestionsByTestId(getInternalId(test));
+};
+
+const fetchAttemptSnapshotQuestions = async (attemptId) => {
+  if (!attemptId) return [];
+  try {
+    const { rows } = await dbHelpers.pool.query(
+      `SELECT * FROM attempt_question_snapshots WHERE attempt_id = $1 ORDER BY order_index ASC, question_number ASC, id ASC`,
+      [attemptId],
+    );
+    if (rows && rows.length > 0) {
+      return rows.map((r) => ({
+        id: r.question_id || r.id,
+        _id: r.question_id || r.id,
+        question_id: r.question_id,
+        questionText: r.text,
+        question_text: r.text,
+        question: r.text,
+        options:
+          typeof r.options === "string"
+            ? JSON.parse(r.options)
+            : Array.isArray(r.options)
+              ? r.options
+              : [],
+        correctAnswer: r.correct_answer,
+        correct_answer: r.correct_answer,
+        correct_option: r.correct_answer,
+        explanation: r.explanation,
+        marks: Number(r.marks || 1),
+        negativeMarks: Number(r.negative_marks || 0),
+        negative_marks: Number(r.negative_marks || 0),
+        difficulty: r.difficulty,
+        questionType: r.question_type,
+        question_type: r.question_type,
+        section: r.section,
+        sectionId: r.section_id,
+        section_id: r.section_id,
+        orderIndex: r.order_index,
+        metadata: r.metadata || {},
+      }));
+    }
+  } catch (err) {
+    console.warn("[attempt-snapshot] Snapshot lookup skipped:", err.message);
+  }
+  return [];
+};
+
+const saveAttemptQuestionSnapshots = async (client, attemptId, questions) => {
+  if (!attemptId || !Array.isArray(questions) || questions.length === 0) return;
+  try {
+    const existing = await client.query(
+      `SELECT 1 FROM attempt_question_snapshots WHERE attempt_id = $1 LIMIT 1`,
+      [attemptId],
+    );
+    if (existing.rows && existing.rows.length > 0) return;
+
+    for (let i = 0; i < questions.length; i++) {
+      const q = questions[i];
+      const qId = typeof q.id === "number" ? q.id : parseInt(q.id, 10) || null;
+      const text =
+        q.questionText || q.question_text || q.text || q.question || "";
+      const options = q.options || q.options_json || [];
+      const correctOption = getCorrectOption(q);
+      const resolvedCorrectOption =
+        correctOption !== null && correctOption !== undefined
+          ? normalizeOptionIndex(correctOption)
+          : null;
+      const explanation = q.explanation || "";
+      const marks = q.marks ?? q.positiveMarks ?? q.positive_marks ?? 1;
+      const negativeMarks =
+        q.negativeMarks ?? q.negative_marks ?? q.negativeMarking ?? 0;
+      const difficulty = q.difficulty || "medium";
+      const questionType =
+        q.questionType || q.question_type || "single_correct";
+      const section = q.section || q.subject || q.section_name || null;
+      const sectionId =
+        typeof q.sectionId === "number"
+          ? q.sectionId
+          : typeof q.section_id === "number"
+            ? q.section_id
+            : null;
+      const orderIndex = q.orderIndex ?? q.order_index ?? i;
+
+      await client.query(
+        `INSERT INTO attempt_question_snapshots (
+          attempt_id, question_id, question_number, text, options, correct_answer, explanation, marks, negative_marks, difficulty, question_type, section, section_id, order_index, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          attemptId,
+          qId,
+          i + 1,
+          text,
+          JSON.stringify(options),
+          resolvedCorrectOption !== null && resolvedCorrectOption !== undefined
+            ? resolvedCorrectOption
+            : null,
+          explanation,
+          marks,
+          negativeMarks,
+          difficulty,
+          questionType,
+          section,
+          sectionId,
+          orderIndex,
+          JSON.stringify(q.metadata || {}),
+        ],
+      );
+    }
+  } catch (err) {
+    console.warn("[attempt-snapshot] Snapshot save skipped:", err.message);
+  }
 };
 
 const router = express.Router();
@@ -400,10 +517,17 @@ const sanitizeQuestionForAttempt = (question) => {
 const normalizeOptionIndex = (value) => {
   const cleanValue = nullIfEmpty(value);
   if (cleanValue === null) return null;
-  if (typeof cleanValue === "number" && Number.isFinite(cleanValue))
-    return cleanValue;
-  if (typeof cleanValue === "string" && /^-?[0-9]+$/.test(cleanValue.trim())) {
-    return Number(cleanValue);
+  if (typeof cleanValue === "number" && Number.isFinite(cleanValue)) {
+    return cleanValue === -1 ? null : cleanValue;
+  }
+  const str = String(cleanValue).trim();
+  if (str === "" || str === "-1") return null;
+  if (/^[A-Za-z]$/.test(str)) {
+    return str.toUpperCase().charCodeAt(0) - 65;
+  }
+  if (/^-?[0-9]+$/.test(str)) {
+    const num = Number(str);
+    return num === -1 ? null : num;
   }
   return cleanValue;
 };
@@ -442,17 +566,107 @@ const getUserAnswerForQuestion = (attempt, question, index) => {
   const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
   const questionId = getQuestionId(question);
 
-  const found = answers.find(
+  if (questionId !== null && questionId !== undefined) {
+    const foundById = answers.find((answer) =>
+      idsMatch(answer?.questionId, questionId),
+    );
+    if (foundById) {
+      return foundById.selectedOption ?? null;
+    }
+  }
+
+  const foundByIndex = answers.find(
     (answer) =>
-      idsMatch(answer?.questionId, questionId) ||
-      (answer?.questionIndex !== undefined &&
-        Number(answer.questionIndex) === index),
+      (answer?.questionId === undefined || answer?.questionId === null) &&
+      answer?.questionIndex !== undefined &&
+      Number(answer.questionIndex) === index,
   );
 
-  return found?.selectedOption ?? null;
+  return foundByIndex?.selectedOption ?? null;
 };
 
-const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
+/**
+ * Aggregates crowd/community statistics across all completed attempts for a test.
+ * Computes: attempts, correct count, accuracy % (correctPercentage), and avg time.
+ */
+const fetchTestCommunityQuestionStats = async (testId) => {
+  if (!testId) return {};
+  try {
+    const { pool } =
+      await import("../../infrastructure/database/postgres-helpers.js");
+    const { rows } = await pool.query(
+      `SELECT answers FROM attempts 
+       WHERE test_id = $1 AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted')) 
+         AND answers IS NOT NULL`,
+      [testId],
+    );
+
+    if (!rows || rows.length === 0) return {};
+
+    const statsMap = {};
+    for (const row of rows) {
+      const answers = Array.isArray(row.answers) ? row.answers : [];
+      for (const ans of answers) {
+        const qId =
+          ans.questionId ??
+          ans.question_id ??
+          (ans.questionIndex !== undefined ? `idx_${ans.questionIndex}` : null);
+        if (qId === null || qId === undefined) continue;
+        const key = String(qId);
+        if (!statsMap[key]) {
+          statsMap[key] = {
+            attempts: 0,
+            correct: 0,
+            totalTime: 0,
+            timeCount: 0,
+          };
+        }
+        const hasAttempted =
+          ans.selectedOption !== null &&
+          ans.selectedOption !== undefined &&
+          ans.selectedOption !== -1 &&
+          ans.selectedOption !== "";
+        if (hasAttempted) {
+          statsMap[key].attempts++;
+          if (ans.isCorrect === true || ans.is_correct === true) {
+            statsMap[key].correct++;
+          }
+          const t = Number(ans.timeSpent ?? ans.time_spent);
+          if (Number.isFinite(t) && t > 0) {
+            statsMap[key].totalTime += t;
+            statsMap[key].timeCount++;
+          }
+        }
+      }
+    }
+
+    const compiled = {};
+    for (const [key, s] of Object.entries(statsMap)) {
+      compiled[key] = {
+        attempts: s.attempts,
+        correct: s.correct,
+        correctPercentage:
+          s.attempts > 0 ? Math.round((s.correct / s.attempts) * 100) : 0,
+        averageTimeSeconds:
+          s.timeCount > 0 ? Math.round(s.totalTime / s.timeCount) : null,
+      };
+    }
+    return compiled;
+  } catch (err) {
+    console.warn(
+      "[community-stats] Failed to fetch question community stats:",
+      err.message,
+    );
+    return {};
+  }
+};
+
+const getRankAndPercentile = async (
+  testId,
+  attempt,
+  testMeta = {},
+  userCategory = "UR",
+) => {
   // Score 0 is valid (e.g. all wrong or zero). Only skip when attempt or score is missing/NaN.
   if (
     !attempt ||
@@ -476,10 +690,12 @@ const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
     const { pool } =
       await import("../../infrastructure/database/postgres-helpers.js");
     const { rows } = await pool.query(
-      `SELECT id, user_id, test_id, score, time_spent, time_spent_seconds, status, is_completed
-       FROM attempts
-       WHERE test_id = $1 AND (is_completed = true OR LOWER(status) IN ('completed', 'submitted'))
-       ORDER BY COALESCE(score, 0)::numeric DESC, COALESCE(time_spent, time_spent_seconds, 999999) ASC`,
+      `SELECT a.id, a.user_id, a.test_id, a.score, a.time_spent, a.time_spent_seconds, a.status, a.is_completed,
+              COALESCE(u.category, 'UR') as user_category
+       FROM attempts a
+       LEFT JOIN users u ON u.id = a.user_id
+       WHERE a.test_id = $1 AND (a.is_completed = true OR LOWER(a.status) IN ('completed', 'submitted'))
+       ORDER BY COALESCE(a.score, 0)::numeric DESC, COALESCE(a.time_spent, a.time_spent_seconds, 999999) ASC`,
       [testId],
     );
     testAttempts = rows.map((row) => ({
@@ -488,6 +704,7 @@ const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
       userId: row.user_id,
       testId: row.test_id,
       test_id: row.test_id,
+      category: row.user_category || "UR",
       score: Number(row.score || 0),
       timeSpent: row.time_spent || row.time_spent_seconds,
     }));
@@ -499,66 +716,97 @@ const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
     );
   }
 
-  // Get best attempt per user
+  // Get best attempt per user (using string keys to avoid number/string mismatch)
   const userBestMap = new Map();
   testAttempts.forEach((a) => {
     const userId = a.userId || a.user_id;
     if (!userId) return;
-    const current = userBestMap.get(userId);
+    const key = String(userId);
+    const current = userBestMap.get(key);
     if (!current) {
-      userBestMap.set(userId, a);
+      userBestMap.set(key, a);
     } else {
-      // higher score or same score with less time
-      if ((a.score || 0) > (current.score || 0)) {
-        userBestMap.set(userId, a);
-      } else if (
-        (a.score || 0) === (current.score || 0) &&
-        (a.timeSpent || 0) < (current.timeSpent || 0)
-      ) {
-        userBestMap.set(userId, a);
+      const curScore = Number(current.score ?? 0);
+      const newScore = Number(a.score ?? 0);
+      const curTime =
+        current.timeSpent != null && !isNaN(current.timeSpent)
+          ? Number(current.timeSpent)
+          : 999999;
+      const newTime =
+        a.timeSpent != null && !isNaN(a.timeSpent)
+          ? Number(a.timeSpent)
+          : 999999;
+      if (newScore > curScore || (newScore === curScore && newTime < curTime)) {
+        userBestMap.set(key, a);
       }
     }
   });
 
-  // include the current attempt in the calculation even if it's not the user's best
-  const bestAttempts = Array.from(userBestMap.values());
-  const hasCurrentAttempt = bestAttempts.some((a) =>
-    idsMatch(a._id || a.id, attempt._id || attempt.id),
-  );
-  if (!hasCurrentAttempt && attempt._id) {
-    bestAttempts.push(attempt);
-  }
+  // Include the current attempt in the calculation without double-counting the user
+  const currentUserId = attempt?.userId || attempt?.user_id;
+  const attemptKey = String(currentUserId || attempt?._id || attempt?.id);
+  const normalizedUserCategory = String(
+    userCategory || attempt?.category || "UR",
+  ).toUpperCase();
+  userBestMap.set(attemptKey, {
+    ...attempt,
+    category: normalizedUserCategory,
+  });
 
+  const bestAttempts = Array.from(userBestMap.values());
   bestAttempts.sort((a, b) => {
-    const scoreDiff = (b.score || 0) - (a.score || 0);
+    const scoreDiff = Number(b.score ?? 0) - Number(a.score ?? 0);
     if (scoreDiff !== 0) return scoreDiff;
-    return (a.timeSpent || 0) - (b.timeSpent || 0);
+    const timeA =
+      a.timeSpent != null && !isNaN(a.timeSpent) ? Number(a.timeSpent) : 999999;
+    const timeB =
+      b.timeSpent != null && !isNaN(b.timeSpent) ? Number(b.timeSpent) : 999999;
+    return timeA - timeB;
   });
 
   const totalParticipants = bestAttempts.length;
-  let rank = 0;
-  for (let i = 0; i < bestAttempts.length; i++) {
+  let rank = 1;
+  const targetScore = Number(attempt.score ?? 0);
+  const targetTime =
+    attempt.timeSpent != null && !isNaN(attempt.timeSpent)
+      ? Number(attempt.timeSpent)
+      : 999999;
+
+  // Standard competition ranking (1224 ranking)
+  for (const other of bestAttempts) {
+    if (idsMatch(other._id || other.id, attempt._id || attempt.id)) continue;
+    const otherScore = Number(other.score ?? 0);
+    const otherTime =
+      other.timeSpent != null && !isNaN(other.timeSpent)
+        ? Number(other.timeSpent)
+        : 999999;
     if (
-      idsMatch(
-        bestAttempts[i]._id || bestAttempts[i].id,
-        attempt._id || attempt.id,
-      )
+      otherScore > targetScore ||
+      (otherScore === targetScore && otherTime < targetTime)
     ) {
-      rank = i + 1;
-      break;
+      rank++;
     }
   }
 
-  // Guard: if the current attempt isn't found in the leaderboard, don't
-  // fabricate a 100th percentile for a non-participant.
-  if (rank === 0 && totalParticipants > 0) {
-    return {
-      rank: null,
-      totalParticipants,
-      percentile: null,
-      predictedRank: null,
-      isCalibrated: false,
-    };
+  // Category-wise ranking
+  const sameCategoryAttempts = bestAttempts.filter(
+    (a) => String(a.category || "UR").toUpperCase() === normalizedUserCategory,
+  );
+  const categoryParticipants = Math.max(1, sameCategoryAttempts.length);
+  let categoryRank = 1;
+  for (const other of sameCategoryAttempts) {
+    if (idsMatch(other._id || other.id, attempt._id || attempt.id)) continue;
+    const otherScore = Number(other.score ?? 0);
+    const otherTime =
+      other.timeSpent != null && !isNaN(other.timeSpent)
+        ? Number(other.timeSpent)
+        : 999999;
+    if (
+      otherScore > targetScore ||
+      (otherScore === targetScore && otherTime < targetTime)
+    ) {
+      categoryRank++;
+    }
   }
 
   const liveScores = bestAttempts.map((a) => Number(a.score || 0));
@@ -567,7 +815,10 @@ const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
       testMeta?.total_marks ||
       attempt?.totalMarks ||
       attempt?.total_marks ||
-      200,
+      (testMeta?.totalQuestions
+        ? Number(testMeta.totalQuestions) *
+          Number(testMeta?.marksPerQuestion || 2)
+        : 200),
   );
   const examCategory =
     testMeta?.category ||
@@ -582,12 +833,43 @@ const getRankAndPercentile = async (testId, attempt, testMeta = {}) => {
     examCategory,
   });
 
+  // Category Cutoff resolution
+  const baseCutoff =
+    Number(testMeta?.cutoff_marks ?? testMeta?.cutoffMarks ?? 0) ||
+    Math.round(totalMarks * 0.6);
+  const configuredCatCutoffs =
+    testMeta?.category_cutoffs || testMeta?.categoryCutoffs || {};
+  const cutoffs = {
+    UR: Number(configuredCatCutoffs.UR ?? baseCutoff),
+    OBC: Number(configuredCatCutoffs.OBC ?? Math.round(baseCutoff * 0.93)),
+    EWS: Number(configuredCatCutoffs.EWS ?? Math.round(baseCutoff * 0.91)),
+    SC: Number(configuredCatCutoffs.SC ?? Math.round(baseCutoff * 0.82)),
+    ST: Number(configuredCatCutoffs.ST ?? Math.round(baseCutoff * 0.75)),
+  };
+  const targetCategoryCutoff = cutoffs[normalizedUserCategory] ?? cutoffs.UR;
+  const userScore = Number(attempt.score ?? 0);
+  const isCutoffCleared = userScore >= targetCategoryCutoff;
+  const cutoffMargin = Number((userScore - targetCategoryCutoff).toFixed(2));
+
+  const cutoffData = {
+    userCategory: normalizedUserCategory,
+    categoryCutoff: targetCategoryCutoff,
+    overallCutoff: cutoffs.UR,
+    userScore,
+    isCleared: isCutoffCleared,
+    margin: cutoffMargin,
+    categoryRank,
+    categoryParticipants,
+    cutoffs,
+  };
+
   return {
-    rank: rank || 1,
+    rank,
     totalParticipants: Math.max(1, totalParticipants),
     percentile: calibrated.percentile,
     predictedRank: calibrated.predictedAllIndiaRank,
     isCalibrated: calibrated.isCalibrated,
+    cutoffData,
   };
 };
 
@@ -597,16 +879,23 @@ const buildResultPayload = (
   questions,
   testIdFallback,
   rankData,
+  communityStatsMap = {},
 ) => {
   const userAnswers = questions.map((q, idx) => {
     const answers = Array.isArray(attempt?.answers) ? attempt.answers : [];
-    const qid = q.id || q._id;
-    const found = answers.find(
-      (answer) =>
-        (answer?.questionId && String(answer.questionId) === String(qid)) ||
-        (answer?.questionIndex !== undefined &&
-          Number(answer.questionIndex) === idx),
-    );
+    const qid = getQuestionId(q);
+    let found = null;
+    if (qid !== null && qid !== undefined) {
+      found = answers.find((answer) => idsMatch(answer?.questionId, qid));
+    }
+    if (!found) {
+      found = answers.find(
+        (answer) =>
+          (answer?.questionId === undefined || answer?.questionId === null) &&
+          answer?.questionIndex !== undefined &&
+          Number(answer.questionIndex) === idx,
+      );
+    }
     return {
       selectedOption:
         found &&
@@ -629,9 +918,57 @@ const buildResultPayload = (
     ]),
   );
 
+  const defaultMarksPerQ = Number(
+    test?.marksPerQuestion ?? test?.positiveMarks ?? test?.positive_marks ?? 2,
+  );
+  const rawTestNegForPayload =
+    test?.negativeMarking ?? test?.negativeMarks ?? test?.negative_marks;
+  const defaultNegativeMarks =
+    rawTestNegForPayload !== undefined &&
+    rawTestNegForPayload !== null &&
+    rawTestNegForPayload !== ""
+      ? Number(rawTestNegForPayload)
+      : defaultMarksPerQ === 2
+        ? 0.5
+        : defaultMarksPerQ === 1
+          ? 0.33
+          : Number((defaultMarksPerQ * 0.25).toFixed(2));
+
   const questionsWithAnswers = questions.map((q, idx) => {
     const userAnswer = getUserAnswerForQuestion(attempt, q, idx);
     const resolvedCorrect = getCorrectOption(q);
+    const qMarks = Number(
+      q.marks ??
+        q.junctionMarks ??
+        q.junction_marks ??
+        q.positiveMarks ??
+        q.positive_marks ??
+        defaultMarksPerQ,
+    );
+    const qNeg = Number(
+      q.negativeMarks ??
+        q.negative_marks ??
+        q.junctionNegMarks ??
+        q.junction_neg_marks ??
+        (rawTestNegForPayload !== undefined &&
+        rawTestNegForPayload !== null &&
+        rawTestNegForPayload !== ""
+          ? rawTestNegForPayload
+          : qMarks === 2
+            ? 0.5
+            : qMarks === 1
+              ? 0.33
+              : Number((qMarks * 0.25).toFixed(2))),
+    );
+
+    const qIdKey = String(getQuestionId(q) ?? q.id ?? "");
+    const qAltKey = q.question_number ? `q_${q.question_number}` : null;
+    const communityStats =
+      communityStatsMap[qIdKey] ??
+      communityStatsMap[String(q.id)] ??
+      (qAltKey ? communityStatsMap[qAltKey] : null) ??
+      communityStatsMap[`idx_${idx}`] ??
+      null;
 
     return {
       id: getPublicResponseId(dbHelpers, "questions", q, getQuestionId(q)),
@@ -647,6 +984,9 @@ const buildResultPayload = (
       subject: q.subject || q.section || "General",
       difficulty: q.difficulty || "Medium",
       explanation: q.explanation || "",
+      marks: qMarks,
+      negativeMarks: qNeg,
+      communityStats,
       questionTextHi: q.questionTextHi || q.question_text_hi || null,
       optionsHi: q.optionsHi || q.options_hi || null,
       explanationHi: q.explanationHi || q.explanation_hi || null,
@@ -691,14 +1031,25 @@ const buildResultPayload = (
     seriesId: getTestSeriesId(attempt) || getTestSeriesId(test),
     testTitle: attempt?.testTitle || test?.title || null,
     score: Number(attempt?.score ?? 0),
-    totalMarks: Number(attempt?.totalMarks ?? test?.totalMarks ?? 0),
+    totalMarks: Number(
+      attempt?.totalMarks ??
+        test?.totalMarks ??
+        (questionsWithAnswers.reduce((s, q) => s + (Number(q.marks) || 0), 0) ||
+          totalQuestions * defaultMarksPerQ),
+    ),
+    marksPerQuestion: defaultMarksPerQ,
+    positiveMarks: defaultMarksPerQ,
+    negativeMarks: defaultNegativeMarks,
     totalQuestions,
     correct,
     wrong,
     unattempted,
     accuracy: Number.isFinite(accuracy) ? accuracy : 0,
     timeSpent: Number(attempt?.timeSpent ?? 0),
-    totalTime: Number(test?.duration ?? attempt?.duration ?? 60) * 60,
+    totalTime:
+      Number(test?.duration ?? attempt?.duration ?? 60) > 300
+        ? Number(test?.duration ?? attempt?.duration ?? 60)
+        : Number(test?.duration ?? attempt?.duration ?? 60) * 60,
     rank: rankData?.rank || attempt?.rank || null,
     totalParticipants: Number(
       rankData?.totalParticipants || attempt?.totalParticipants || 0,
@@ -706,6 +1057,9 @@ const buildResultPayload = (
     percentile: Number(rankData?.percentile || attempt?.percentile || 0),
     predictedRank: rankData?.predictedRank || null,
     isCalibrated: Boolean(rankData?.isCalibrated),
+    cutoffData: rankData?.cutoffData || null,
+    categoryRank: rankData?.cutoffData?.categoryRank || null,
+    categoryParticipants: rankData?.cutoffData?.categoryParticipants || null,
     sectionTimers: attempt?.sectionTimers || {},
     currentSection: attempt?.currentSection || null,
     questions: questionsWithAnswers,
@@ -978,7 +1332,10 @@ router.get(
 router.get("/tag/:tag", responseCache("tests-tag-v2", 60), async (req, res) => {
   try {
     const { tag } = req.params;
-    const conditions = ["is_active = true"];
+    const conditions = [
+      "is_active = true",
+      "(status = 'published' OR status = 'active' OR status IS NULL OR (is_live = true AND status = 'live'))",
+    ];
     const params = [];
     const addParam = (value) => {
       params.push(value);
@@ -1091,6 +1448,65 @@ router.get("/tag/:tag", responseCache("tests-tag-v2", 60), async (req, res) => {
   }
 });
 
+// @route   GET /api/tests/:testId/policy
+// @desc    Get resolved test access & reattempt policy
+// @access  Optional Auth
+router.get("/:testId/policy", optionalAuth, async (req, res) => {
+  try {
+    const test = await findTestByIdentifier(req.params.testId, dbHelpers);
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: "Test not found",
+        code: "TEST_UNAVAILABLE",
+      });
+    }
+
+    let activeAttempt = null;
+    let completedAttemptsCount = 0;
+
+    if (req.user) {
+      const userAttempts = await dbHelpers.find("attempts", {
+        userId: req.user.id,
+      });
+      const testAttempts = userAttempts.filter((a) =>
+        idsMatch(a.testId || a.test_id, test._id || test.id),
+      );
+      activeAttempt =
+        testAttempts.find(
+          (a) => !a.isCompleted && a.status === "in_progress",
+        ) || null;
+      completedAttemptsCount = testAttempts.filter(
+        (a) =>
+          a.isCompleted || a.status === "completed" || a.status === "submitted",
+      ).length;
+    }
+
+    const policy = TestPolicyEngine.resolveTestAccess(req.user, test, {
+      activeAttempt,
+      completedAttemptsCount,
+    });
+
+    res.json({
+      success: true,
+      data: {
+        testId: getPublicResponseId(
+          dbHelpers,
+          "tests",
+          test,
+          test._id || test.id,
+        ),
+        ...policy,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: sanitizeErrorMessage(error),
+    });
+  }
+});
+
 // @route   GET /api/tests/:testId
 // @desc    Get test details
 // @access  Public
@@ -1105,6 +1521,31 @@ router.get("/:testId", optionalAuth, async (req, res) => {
       });
     }
 
+    let activeAttempt = null;
+    let completedAttemptsCount = 0;
+
+    if (req.user) {
+      const userAttempts = await dbHelpers.find("attempts", {
+        userId: req.user.id,
+      });
+      const testAttempts = userAttempts.filter((a) =>
+        idsMatch(a.testId || a.test_id, test._id || test.id),
+      );
+      activeAttempt =
+        testAttempts.find(
+          (a) => !a.isCompleted && a.status === "in_progress",
+        ) || null;
+      completedAttemptsCount = testAttempts.filter(
+        (a) =>
+          a.isCompleted || a.status === "completed" || a.status === "submitted",
+      ).length;
+    }
+
+    const policy = TestPolicyEngine.resolveTestAccess(req.user, test, {
+      activeAttempt,
+      completedAttemptsCount,
+    });
+
     const series = await findSeriesByIdentifier(
       test.seriesId || test.series_id,
     );
@@ -1113,7 +1554,7 @@ router.get("/:testId", optionalAuth, async (req, res) => {
       test,
       series,
     );
-    const hasAccess = entitlement.canAttempt;
+    const hasAccess = policy.canStart;
     const [enrichedTest] = await enrichTestsWithBannerAssets([test]);
 
     let sections = enrichedTest?.sections;
@@ -1347,6 +1788,42 @@ router.post("/:testId/start", protect, async (req, res) => {
       });
     }
 
+    // Test Lifecycle state enforcement (server-side authority):
+    const testStatus = String(test.status || "").toLowerCase();
+    const isAdmin = req.user?.role === "admin";
+    if (!isAdmin) {
+      if (testStatus === "draft" || testStatus === "review") {
+        return res.status(403).json({
+          success: false,
+          code: "TEST_NOT_AVAILABLE",
+          message:
+            "This test is currently in draft or under review and cannot be started.",
+        });
+      }
+      if (
+        testStatus === "archived" ||
+        test.is_active === false ||
+        test.isActive === false
+      ) {
+        return res.status(404).json({
+          success: false,
+          code: "TEST_UNAVAILABLE",
+          message: "This test is no longer available.",
+        });
+      }
+      if (
+        testStatus === "scheduled" &&
+        test.scheduledAt &&
+        new Date() < new Date(test.scheduledAt)
+      ) {
+        return res.status(403).json({
+          success: false,
+          code: "LIVE_TEST_NOT_STARTED",
+          message: `This scheduled test will start at ${new Date(test.scheduledAt).toLocaleString("en-IN")}.`,
+        });
+      }
+    }
+
     const entitlement = EntitlementService.getTestEntitlement(req.user, test);
     if (!entitlement.canAttempt) {
       return res.status(403).json({
@@ -1439,6 +1916,8 @@ router.post("/:testId/start", protect, async (req, res) => {
       attempt = null;
     }
 
+    const wasResumed = Boolean(attempt);
+
     if (!attempt) {
       // Check attempt limits for non-pro users
       const allUserAttempts = await dbHelpers.find("attempts", {
@@ -1449,6 +1928,7 @@ router.post("/:testId/start", protect, async (req, res) => {
       if (limitCheck.hasReached) {
         return res.status(403).json({
           success: false,
+          code: "ATTEMPT_LIMIT_REACHED",
           message: limitCheck.message,
           limitReached: true,
         });
@@ -1521,6 +2001,8 @@ router.post("/:testId/start", protect, async (req, res) => {
 
     res.json({
       success: true,
+      action: wasResumed ? "resume" : "created",
+      isResumed: wasResumed,
       data: {
         attemptId: getPublicResponseId(
           dbHelpers,
@@ -1534,6 +2016,8 @@ router.post("/:testId/start", protect, async (req, res) => {
           test,
           test._id || test.id,
         ),
+        action: wasResumed ? "resume" : "created",
+        isResumed: wasResumed,
         attemptNo: currentAttemptNo,
         attemptNumber: currentAttemptNo,
         attempt_number: currentAttemptNo,
@@ -1699,7 +2183,9 @@ router.put("/:testId/submit", protect, async (req, res) => {
           for (const [sectionId, elapsed] of Object.entries(sectionTimers)) {
             const elapsedNum = Number(elapsed);
             if (!Number.isFinite(elapsedNum)) continue;
-            const allowed = sectionLimits[sectionId];
+            const normalizedKey = SUBJECT_TO_SECTION[sectionId] || sectionId;
+            const allowed =
+              sectionLimits[normalizedKey] ?? sectionLimits[sectionId];
             // Skip sections not present in the server config rather than erroring.
             if (allowed === undefined) continue;
             if (elapsedNum > allowed + SECTION_TIME_TOLERANCE) {
@@ -1749,25 +2235,28 @@ router.put("/:testId/submit", protect, async (req, res) => {
       Number(test.totalMarks ?? totalQuestions * marksPerQuestion) ||
       totalQuestions * 2;
 
-    // If a question is 2 marks, its negative marking is 0.5 per question (or 0.25 of positive mark)
-    const testNeg = Number(
-      test.negativeMarking ?? test.negativeMarks ?? test.negative_marks ?? 0,
-    );
-    const negativeMarks =
-      testNeg > 0
-        ? testNeg
-        : marksPerQuestion === 2
-          ? 0.5
-          : marksPerQuestion === 1
-            ? 0.33
-            : marksPerQuestion * 0.25;
+    const rawTestNeg =
+      test.negativeMarking ?? test.negativeMarks ?? test.negative_marks;
+    const testNeg =
+      rawTestNeg !== undefined && rawTestNeg !== null && rawTestNeg !== ""
+        ? Number(rawTestNeg)
+        : undefined;
 
     let calculatedTotalScore = 0;
 
-    questions.forEach((question) => {
-      const answer = submittedAnswers.find((entry) =>
-        idsMatch(entry?.questionId, getQuestionId(question)),
+    questions.forEach((question, idx) => {
+      const qId = getQuestionId(question);
+      let answer = submittedAnswers.find((entry) =>
+        idsMatch(entry?.questionId, qId),
       );
+      if (!answer) {
+        answer = submittedAnswers.find(
+          (entry) =>
+            (entry?.questionId === undefined || entry?.questionId === null) &&
+            entry?.questionIndex !== undefined &&
+            Number(entry.questionIndex) === idx,
+        );
+      }
       const selectedOption = normalizeOptionIndex(answer?.selectedOption);
       const correctOption = normalizeOptionIndex(getCorrectOption(question));
 
@@ -1885,8 +2374,8 @@ router.put("/:testId/submit", protect, async (req, res) => {
         ) {
           await client.query("ROLLBACK");
           client.release();
-          return res.status(409).json({
-            success: false,
+          return res.json({
+            success: true,
             message: "This attempt has already been submitted",
             data: {
               attemptId: existingAttempt.id,
@@ -1910,6 +2399,11 @@ router.put("/:testId/submit", protect, async (req, res) => {
         );
       } else {
         result = await dbHelpers.insertOne("attempts", attemptData, client);
+      }
+
+      const targetAttemptId = result?.id || existingAttempt?.id;
+      if (targetAttemptId) {
+        await saveAttemptQuestionSnapshots(client, targetAttemptId, questions);
       }
 
       await client.query("COMMIT");
@@ -2158,19 +2652,49 @@ router.get("/:testId/result/:attemptId", protect, async (req, res) => {
     const test =
       testFromUrl || (await findTestByIdentifier(attempt.testId, dbHelpers));
 
-    const questions = await fetchTestQuestions(test);
+    const snapshotQuestions = await fetchAttemptSnapshotQuestions(attempt.id);
+    const questions =
+      snapshotQuestions.length > 0
+        ? snapshotQuestions
+        : await fetchTestQuestions(test);
 
-    const rankData = await getRankAndPercentile(
-      resolvedTestId || test._id || test.id || req.params.testId,
-      attempt,
-      test,
+    const isLive = Boolean(
+      test.isLive ||
+      test.is_live ||
+      test.type === "live-tests" ||
+      test.type === "live" ||
+      test.testType === "live-tests" ||
+      test.testType === "live",
     );
+    const scheduledEnd =
+      test.scheduledEnd ||
+      test.scheduled_end ||
+      test.dateEnd ||
+      test.date_end ||
+      test.endTime ||
+      test.end_time;
+    const isLiveContestActive =
+      isLive && scheduledEnd && new Date() < new Date(scheduledEnd);
+    const isAdmin = req.user?.role === "admin";
+
+    const [rankData, communityStats] = await Promise.all([
+      getRankAndPercentile(
+        resolvedTestId || test._id || test.id || req.params.testId,
+        attempt,
+        test,
+        req.user?.category || "UR",
+      ),
+      fetchTestCommunityQuestionStats(
+        resolvedTestId || test._id || test.id || req.params.testId,
+      ),
+    ]);
     const result = buildResultPayload(
       test,
       attempt,
       questions,
       req.params.testId,
       rankData,
+      communityStats,
     );
     const series = await findSeriesByIdentifier(
       test.seriesId || test.series_id,
@@ -2181,6 +2705,23 @@ router.get("/:testId/result/:attemptId", protect, async (req, res) => {
       series,
       result.seriesId,
     );
+
+    if (isLiveContestActive && !isAdmin) {
+      result.isLiveLocked = true;
+      result.lockedReason = POLICY_ERROR_CODES.RESULT_LOCKED;
+      result.lockedMessage = `Detailed answer keys and solutions will unlock when the contest concludes at ${new Date(scheduledEnd).toLocaleString("en-IN")}.`;
+      if (Array.isArray(result.questions)) {
+        result.questions = result.questions.map((q) => ({
+          ...q,
+          correctOption: undefined,
+          correct_option: undefined,
+          correctAnswer: undefined,
+          correct_answer: undefined,
+          explanation: undefined,
+          solutions: undefined,
+        }));
+      }
+    }
 
     res.json({
       success: true,
@@ -2257,12 +2798,16 @@ router.get("/:testId/result", protect, async (req, res) => {
       });
     }
 
-    const [questions, rankData] = await Promise.all([
+    const [questions, rankData, communityStats] = await Promise.all([
       fetchTestQuestions(test),
       getRankAndPercentile(
         numericTestId || test._id || test.id || req.params.testId,
         attempt,
         test,
+        req.user?.category || "UR",
+      ),
+      fetchTestCommunityQuestionStats(
+        numericTestId || test._id || test.id || req.params.testId,
       ),
     ]);
     const result = buildResultPayload(
@@ -2271,6 +2816,7 @@ router.get("/:testId/result", protect, async (req, res) => {
       questions,
       req.params.testId,
       rankData,
+      communityStats,
     );
     const series = await findSeriesByIdentifier(
       test.seriesId || test.series_id,

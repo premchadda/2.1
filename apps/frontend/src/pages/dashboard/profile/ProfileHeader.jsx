@@ -6,6 +6,7 @@ import {
   Calendar,
   TrendingUp,
   Phone,
+  Award,
 } from "lucide-react";
 
 function ProfileHeader({
@@ -174,6 +175,12 @@ function ProfileHeader({
                       <span>{personalInfo.phone}</span>
                     </span>
                   )}
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-200 text-[11px] font-bold rounded-lg backdrop-blur-sm shrink-0 shadow-2xs">
+                    <Award className="w-3 h-3 text-blue-300" />
+                    <span>
+                      Category: {user.category || personalInfo.category || "UR"}
+                    </span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -313,6 +320,10 @@ function ProfileHeader({
                             year: "numeric",
                           })
                         : "N/A"}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-bold rounded-lg backdrop-blur-sm shadow-2xs">
+                      <Award className="w-3.5 h-3.5 text-blue-300" /> Category:{" "}
+                      {user.category || personalInfo.category || "UR"}
                     </span>
                   </div>
 

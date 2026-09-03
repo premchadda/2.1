@@ -3,9 +3,13 @@ export {
   useTestCategories,
   useProPass,
   useDraggableScroll,
-  useWebSocket
-} from '@trstprep/shared-hooks'
+  useWebSocket,
+} from "@trstprep/shared-hooks";
 
-export { useLiveTestMonitor } from './useLiveTestMonitor'
-export { usePublicSettings } from './usePublicSettings'
-export { useAdaptiveDifficulty, useAdaptiveDifficultyBatch } from './useAdaptiveDifficulty'
+export { useLiveTestMonitor } from "./useLiveTestMonitor";
+export { usePublicSettings } from "./usePublicSettings";
+export {
+  useAdaptiveDifficulty,
+  useAdaptiveDifficultyBatch,
+} from "./useAdaptiveDifficulty";
+export { useTestPolicy } from "./useTestPolicy";

@@ -5,6 +5,7 @@ import {
   cleanHtmlWrapper,
   extractBilingualContent,
 } from "../lib/htmlSanitizer.js";
+import { parseLanguageList } from "../lib/language.js";
 import { getAssetUrl } from "../config/assets-config.js";
 
 /**
@@ -261,7 +262,7 @@ export function mapTestSeriesToFrontend(backendSeries) {
       backendSeries.is_coming_soon || backendSeries.isComingSoon || false,
     stages: backendSeries.stages || [],
     // Added missing fields for card display and ordering
-    languages: backendSeries.languages || ["Eng", "Hin"],
+    languages: parseLanguageList(backendSeries.languages, ["English", "Hindi"]),
     order: backendSeries.order || 0,
     isPinned: backendSeries.is_pinned || backendSeries.isPinned || false,
     colourHex: backendSeries.colour_hex || backendSeries.colourHex || null,
@@ -371,7 +372,7 @@ export function mapTestToFrontend(backendTest) {
         ? backendTest.is_pyq
         : backendTest.isPyq || false,
     tags: backendTest.tags || [],
-    languages: backendTest.languages || [],
+    languages: parseLanguageList(backendTest.languages, []),
     isComingSoon:
       backendTest.is_coming_soon !== undefined
         ? backendTest.is_coming_soon
@@ -626,11 +627,22 @@ export function mapQuestionToFrontend(backendQuestion) {
       backendQuestion.question_image_url ||
       backendQuestion.image ||
       null,
-    marks: parseFloat(backendQuestion.marks) || 1,
-    negativeMarks:
-      parseFloat(backendQuestion.negativeMarks) ||
-      parseFloat(backendQuestion.negative_marks) ||
-      0,
+    marks: Number.isFinite(parseFloat(backendQuestion.marks))
+      ? parseFloat(backendQuestion.marks)
+      : Number.isFinite(
+            parseFloat(
+              backendQuestion.positiveMarks ?? backendQuestion.positive_marks,
+            ),
+          )
+        ? parseFloat(
+            backendQuestion.positiveMarks ?? backendQuestion.positive_marks,
+          )
+        : undefined,
+    negativeMarks: Number.isFinite(parseFloat(backendQuestion.negativeMarks))
+      ? parseFloat(backendQuestion.negativeMarks)
+      : Number.isFinite(parseFloat(backendQuestion.negative_marks))
+        ? parseFloat(backendQuestion.negative_marks)
+        : undefined,
     difficulty: backendQuestion.difficulty || "Medium",
     createdAt: backendQuestion.createdAt || backendQuestion.created_at,
     updatedAt: backendQuestion.updatedAt || backendQuestion.updated_at,

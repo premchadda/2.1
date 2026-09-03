@@ -25,6 +25,7 @@ jest.unstable_mockModule('../infrastructure/cache/redisClient.js', () => ({
     get: (...args) => mockRedisGet(...args),
     set: (...args) => mockRedisSet(...args),
   }),
+  isRedisReady: () => true,
 }))
 
 // Import after mocks

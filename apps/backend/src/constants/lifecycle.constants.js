@@ -1,0 +1,119 @@
+/**
+ * Canonical lifecycle constants and enums for Trstprep V2.1.
+ * Source of truth: docs/test-quiz-lifecycle.md
+ */
+
+export const USER_PLANS = Object.freeze({
+  GUEST: "GUEST",
+  FREE: "FREE",
+  TEST_SERIES: "TEST_SERIES",
+  PRO_MONTHLY: "PRO_MONTHLY",
+  PRO_YEARLY: "PRO_YEARLY",
+  ADMIN: "ADMIN",
+  SUSPENDED: "SUSPENDED",
+});
+
+export const TEST_STATES = Object.freeze({
+  DRAFT: "draft",
+  REVIEW: "review",
+  SCHEDULED: "scheduled",
+  PUBLISHED: "published",
+  LIVE: "live",
+  EXPIRED: "expired",
+  ARCHIVED: "archived",
+});
+
+export const ATTEMPT_STATES = Object.freeze({
+  CREATED: "created",
+  IN_PROGRESS: "in_progress",
+  PAUSED: "paused",
+  SUBMITTING: "submitting",
+  COMPLETED: "completed",
+  AUTO_SUBMITTED: "auto_submitted",
+  EXPIRED: "expired",
+  REVOKED: "revoked",
+  CANCELLED: "cancelled",
+  ABANDONED: "abandoned",
+});
+
+export const REATTEMPT_TYPES = Object.freeze({
+  FULL: "full",
+  WRONG: "wrong",
+  UNATTEMPTED: "unattempted",
+  SLOW: "slow",
+  SMART: "smart",
+});
+
+export const POLICY_ERROR_CODES = Object.freeze({
+  AUTH_REQUIRED: "AUTH_REQUIRED",
+  ACCOUNT_RESTRICTED: "ACCOUNT_RESTRICTED",
+
+  TEST_NOT_FOUND: "TEST_NOT_FOUND",
+  TEST_NOT_AVAILABLE: "TEST_NOT_AVAILABLE",
+  TEST_NOT_PUBLISHED: "TEST_NOT_PUBLISHED",
+  TEST_UNAVAILABLE: "TEST_UNAVAILABLE",
+  LIVE_TEST_NOT_STARTED: "LIVE_TEST_NOT_STARTED",
+  LIVE_TEST_ENDED: "LIVE_TEST_ENDED",
+  LIVE_TEST_EXPIRED: "LIVE_TEST_EXPIRED",
+
+  PRO_REQUIRED: "PRO_REQUIRED",
+  PASS_REQUIRED: "PASS_REQUIRED",
+  ATTEMPT_LIMIT_REACHED: "ATTEMPT_LIMIT_REACHED",
+
+  ATTEMPT_NOT_FOUND: "ATTEMPT_NOT_FOUND",
+  ATTEMPT_NOT_OWNED: "ATTEMPT_NOT_OWNED",
+  ATTEMPT_ALREADY_COMPLETED: "ATTEMPT_ALREADY_COMPLETED",
+  NO_ACTIVE_ATTEMPT: "NO_ACTIVE_ATTEMPT",
+  NO_QUESTIONS_FOR_REATTEMPT: "NO_QUESTIONS_FOR_REATTEMPT",
+
+  RESULT_LOCKED: "RESULT_LOCKED",
+  REVIEW_LOCKED: "REVIEW_LOCKED",
+});
+
+export const ATTEMPT_STATE_TRANSITIONS = Object.freeze({
+  [ATTEMPT_STATES.CREATED]: [
+    ATTEMPT_STATES.IN_PROGRESS,
+    ATTEMPT_STATES.CANCELLED,
+  ],
+  [ATTEMPT_STATES.IN_PROGRESS]: [
+    ATTEMPT_STATES.PAUSED,
+    ATTEMPT_STATES.SUBMITTING,
+    ATTEMPT_STATES.COMPLETED,
+    ATTEMPT_STATES.AUTO_SUBMITTED,
+    ATTEMPT_STATES.EXPIRED,
+    ATTEMPT_STATES.REVOKED,
+    ATTEMPT_STATES.ABANDONED,
+  ],
+  [ATTEMPT_STATES.PAUSED]: [
+    ATTEMPT_STATES.IN_PROGRESS,
+    ATTEMPT_STATES.SUBMITTING,
+    ATTEMPT_STATES.COMPLETED,
+    ATTEMPT_STATES.AUTO_SUBMITTED,
+    ATTEMPT_STATES.EXPIRED,
+    ATTEMPT_STATES.REVOKED,
+    ATTEMPT_STATES.ABANDONED,
+  ],
+  [ATTEMPT_STATES.SUBMITTING]: [
+    ATTEMPT_STATES.COMPLETED,
+    ATTEMPT_STATES.AUTO_SUBMITTED,
+    ATTEMPT_STATES.IN_PROGRESS, // Fallback on submit retry
+  ],
+  [ATTEMPT_STATES.COMPLETED]: [],
+  [ATTEMPT_STATES.AUTO_SUBMITTED]: [],
+  [ATTEMPT_STATES.EXPIRED]: [],
+  [ATTEMPT_STATES.REVOKED]: [],
+  [ATTEMPT_STATES.CANCELLED]: [],
+  [ATTEMPT_STATES.ABANDONED]: [],
+});
+
+/**
+ * Validates if an attempt state transition is allowed.
+ * @param {string} fromState
+ * @param {string} toState
+ * @returns {boolean}
+ */
+export function isValidAttemptTransition(fromState, toState) {
+  const allowed = ATTEMPT_STATE_TRANSITIONS[fromState];
+  if (!allowed) return false;
+  return allowed.includes(toState);
+}

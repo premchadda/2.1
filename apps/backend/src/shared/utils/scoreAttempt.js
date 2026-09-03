@@ -4,10 +4,29 @@
  * Negative marks default: 0.5 when positive === 2, else 25% of positive.
  */
 
+export function normalizeScorerOption(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value === -1 ? null : value;
+  }
+  const str = String(value).trim();
+  if (str === "" || str === "-1") return null;
+  if (/^[A-Za-z]$/.test(str)) {
+    return str.toUpperCase().charCodeAt(0) - 65;
+  }
+  if (/^-?[0-9]+$/.test(str)) {
+    const num = Number(str);
+    return num === -1 ? null : num;
+  }
+  return null;
+}
+
 export function resolveQuestionMarks(question, testDefaults = {}) {
   const positive = Number(
-    question?.marks ??
+    question?.junctionMarks ??
       question?.junction_marks ??
+      question?.marks ??
+      question?.positiveMarks ??
       question?.positive_marks ??
       testDefaults.marksPerQuestion ??
       testDefaults.marks ??
@@ -20,13 +39,16 @@ export function resolveQuestionMarks(question, testDefaults = {}) {
   const configuredNegative =
     question?.negativeMarks ??
     question?.negative_marks ??
+    question?.junctionNegMarks ??
     question?.junction_neg_marks ??
     testDefaults.negativeMarking ??
     testDefaults.negativeMarks ??
     testDefaults.negative_marks;
 
   const negative =
-    configuredNegative !== undefined && configuredNegative !== null && configuredNegative !== ""
+    configuredNegative !== undefined &&
+    configuredNegative !== null &&
+    configuredNegative !== ""
       ? Math.max(0, Number(configuredNegative))
       : positive === 2
         ? 0.5
@@ -43,12 +65,10 @@ export function scoreMcqAnswer({
   positive = 2,
   negative = 0.5,
 }) {
-  if (
-    selectedOption === null ||
-    selectedOption === undefined ||
-    selectedOption === -1 ||
-    selectedOption === ""
-  ) {
+  const normSelected = normalizeScorerOption(selectedOption);
+  const normCorrect = normalizeScorerOption(correctOption);
+
+  if (normSelected === null) {
     return {
       delta: 0,
       correct: 0,
@@ -59,7 +79,7 @@ export function scoreMcqAnswer({
     };
   }
 
-  if (Number(selectedOption) === Number(correctOption)) {
+  if (normCorrect !== null && normSelected === normCorrect) {
     return {
       delta: positive,
       correct: 1,

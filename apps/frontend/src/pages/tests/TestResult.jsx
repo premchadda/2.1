@@ -36,6 +36,7 @@ import {
 import Confetti from "react-confetti";
 import { ReattemptOptions } from "../../shared/components/ReattemptOptions";
 import { mapQuestionToFrontend } from "../../shared/types/index.js";
+import { normalizeTestQuestions } from "../../shared/utils/testClassification";
 
 function TestResult() {
   const routeParams = useParams();
@@ -162,18 +163,18 @@ function TestResult() {
         if (resultData) {
           const answersMap = new Map();
           if (Array.isArray(resultData.answers)) {
-            resultData.answers.forEach((ans, idx) => {
-              if (ans?.questionId) answersMap.set(String(ans.questionId), ans);
-              answersMap.set(String(idx), ans);
+            resultData.answers.forEach((ans) => {
+              if (ans?.questionId !== undefined && ans?.questionId !== null) {
+                answersMap.set(String(ans.questionId), ans);
+              }
             });
           }
 
           if (Array.isArray(resultData.questions)) {
-            resultData.questions = resultData.questions.map((q, index) => {
+            const mappedQuestions = resultData.questions.map((q, index) => {
               const mapped = mapQuestionToFrontend(q);
               const qid = String(q.id || q._id || mapped.id || mapped._id);
-              const ansFromList =
-                answersMap.get(qid) || answersMap.get(String(index)) || null;
+              const ansFromList = answersMap.get(qid) || null;
 
               const rawTime =
                 q.timeTaken ??
@@ -209,12 +210,12 @@ function TestResult() {
                 q.negativeMarks !== undefined &&
                   q.negativeMarks !== null &&
                   !isNaN(q.negativeMarks) &&
-                  Number(q.negativeMarks) > 0
+                  Number(q.negativeMarks) >= 0
                   ? q.negativeMarks
                   : resultData.negativeMarks !== undefined &&
                       resultData.negativeMarks !== null &&
                       !isNaN(resultData.negativeMarks) &&
-                      Number(resultData.negativeMarks) > 0
+                      Number(resultData.negativeMarks) >= 0
                     ? resultData.negativeMarks
                     : rawMarks > 0
                       ? rawMarks === 2
@@ -243,6 +244,15 @@ function TestResult() {
               };
             });
 
+            const normalizedQuestions = normalizeTestQuestions(
+              mappedQuestions,
+              resultData,
+            );
+            resultData.questions = normalizedQuestions.map((q, idx) => ({
+              ...q,
+              originalIndex: idx + 1,
+            }));
+
             // Recalculate score from evaluated questions to handle any historical 0-clamped backend data
             let computedScore = 0;
             let hasEvaluatedQuestions = false;
@@ -270,7 +280,7 @@ function TestResult() {
               hasEvaluatedQuestions &&
               (resultData.score === undefined ||
                 resultData.score === null ||
-                resultData.score === 0)
+                Number.isNaN(Number(resultData.score)))
             ) {
               resultData.score = Number(computedScore.toFixed(2));
             }
@@ -402,9 +412,10 @@ function TestResult() {
     return "text-red-600 dark:text-red-400";
   };
 
-  const getAccuracyColor = () => {
-    if (result.accuracy >= 80) return "text-green-600 dark:text-green-400";
-    if (result.accuracy >= 60) return "text-yellow-600 dark:text-yellow-400";
+  const getAccuracyColor = (accValue) => {
+    const val = accValue ?? (result.accuracy || 0);
+    if (val >= 80) return "text-green-600 dark:text-green-400";
+    if (val >= 60) return "text-yellow-600 dark:text-yellow-400";
     return "text-red-600 dark:text-red-400";
   };
 
@@ -511,9 +522,12 @@ function TestResult() {
         q.negativeMarks !== undefined &&
           q.negativeMarks !== null &&
           !isNaN(q.negativeMarks) &&
-          Number(q.negativeMarks) > 0
+          Number(q.negativeMarks) >= 0
           ? q.negativeMarks
-          : defaultNeg > 0
+          : defaultNeg !== undefined &&
+              defaultNeg !== null &&
+              !isNaN(defaultNeg) &&
+              Number(defaultNeg) >= 0
             ? defaultNeg
             : qMarks === 2
               ? 0.5
@@ -592,7 +606,15 @@ function TestResult() {
       Hard: { correct: 0, total: 0 },
     };
     result.questions.forEach((q) => {
-      const difficulty = q.difficulty || "Medium";
+      const raw = String(q.difficulty || "medium")
+        .trim()
+        .toLowerCase();
+      const difficulty =
+        raw === "easy"
+          ? "Easy"
+          : raw === "hard" || raw === "very_hard"
+            ? "Hard"
+            : "Medium";
       if (breakdown[difficulty]) {
         breakdown[difficulty].total++;
         if (isCorrectQuestion(q)) breakdown[difficulty].correct++;
@@ -677,24 +699,38 @@ function TestResult() {
     ? backendUnattempted
     : calculatedSkipped;
   const totalQuestions = result.totalQuestions || questions.length || 0;
+  const overallAccuracy =
+    result.accuracy !== undefined &&
+    result.accuracy !== null &&
+    !isNaN(result.accuracy)
+      ? Number(result.accuracy)
+      : correctCount + wrongCount > 0
+        ? (correctCount / (correctCount + wrongCount)) * 100
+        : 0;
   const attemptRate =
     totalQuestions > 0
       ? ((correctCount + wrongCount) / totalQuestions) * 100
       : 0;
 
   const strongestSubject = Object.entries(subjectBreakdown)
-    .map(([subject, data]) => ({
-      subject,
-      accuracy:
-        data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-    }))
+    .map(([subject, data]) => {
+      const attempted = data.correct + data.wrong;
+      return {
+        subject,
+        accuracy:
+          attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0,
+      };
+    })
     .sort((a, b) => b.accuracy - a.accuracy)[0];
   const weakestSubject = Object.entries(subjectBreakdown)
-    .map(([subject, data]) => ({
-      subject,
-      accuracy:
-        data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0,
-    }))
+    .map(([subject, data]) => {
+      const attempted = data.correct + data.wrong;
+      return {
+        subject,
+        accuracy:
+          attempted > 0 ? Math.round((data.correct / attempted) * 100) : 0,
+      };
+    })
     .sort((a, b) => a.accuracy - b.accuracy)[0];
 
   const _handleReviewMode = () => {
@@ -828,6 +864,7 @@ function TestResult() {
   // Sidebar sections
   const sections = [
     { id: "score", label: "Score", icon: Trophy },
+    { id: "cutoff", label: "Cutoff Matrix", icon: Award },
     { id: "subjects", label: "Subjects", icon: Layers },
     { id: "difficulty", label: "Difficulty", icon: Zap },
     { id: "time", label: "Time", icon: Timer },
@@ -863,7 +900,7 @@ function TestResult() {
     index: i + 1,
     time: q.timeTaken || q.timeSpent || 0,
     section: q.section || q.subject || "General",
-    correct: Number(q.userAnswer) === Number(q.correctAnswer ?? q.correct),
+    correct: isCorrectQuestion(q),
     skipped: isSkippedQuestion(q),
   }));
 
@@ -1199,13 +1236,49 @@ function TestResult() {
                     </div>
 
                     {/* Rank Pill/Card */}
-                    {(result.rank || result.predictedRank) && (
-                      <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs">
+                    {result.rank !== undefined && result.rank !== null && (
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-amber-100 dark:bg-amber-400/20 text-amber-900 dark:text-amber-300 border border-amber-200 dark:border-amber-400/30 shadow-2xs"
+                        title={
+                          result.totalParticipants
+                            ? `Rank ${result.rank || 1} out of ${result.totalParticipants} test participants`
+                            : `Rank ${result.rank || 1}`
+                        }
+                      >
                         <Trophy className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />{" "}
-                        Rank #
-                        {result.predictedRank
-                          ? result.predictedRank.toLocaleString()
-                          : result.rank || 1}
+                        Rank #{result.rank || 1}
+                        {result.totalParticipants &&
+                        result.totalParticipants > 1
+                          ? ` / ${result.totalParticipants.toLocaleString()}`
+                          : ""}
+                      </span>
+                    )}
+
+                    {/* Predicted All-India Rank (AIR) Pill */}
+                    {result.predictedRank &&
+                      result.predictedRank !== result.rank && (
+                        <span
+                          className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-purple-100 dark:bg-purple-400/20 text-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-400/30 shadow-2xs"
+                          title="Estimated All-India Rank based on exam cohort psychometric modeling"
+                        >
+                          <Target className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />{" "}
+                          Est. AIR #{result.predictedRank.toLocaleString()}
+                        </span>
+                      )}
+
+                    {/* Category Rank Pill */}
+                    {result.categoryRank && (
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-black bg-blue-100 dark:bg-blue-400/20 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-400/30 shadow-2xs"
+                        title={`Category Rank among ${result.cutoffData?.userCategory || "UR"} candidates`}
+                      >
+                        <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
+                        {result.cutoffData?.userCategory || "UR"} Rank #
+                        {result.categoryRank}
+                        {result.categoryParticipants &&
+                        result.categoryParticipants > 1
+                          ? ` / ${result.categoryParticipants.toLocaleString()}`
+                          : ""}
                       </span>
                     )}
 
@@ -1272,7 +1345,7 @@ function TestResult() {
                     Accuracy
                   </p>
                   <p className="text-sm sm:text-lg md:text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
-                    {(result.accuracy || 0).toFixed(1)}%
+                    {overallAccuracy.toFixed(1)}%
                   </p>
                 </div>
                 <div className="bg-white/85 dark:bg-slate-800/85 backdrop-blur-md rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 border border-indigo-100 dark:border-slate-700/70 shadow-2xs text-center sm:text-left">
@@ -1348,6 +1421,138 @@ function TestResult() {
                 >
                   Reattempt Full Test
                 </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Section 2: Category Cutoff & Benchmarks ── */}
+          <div className="flex items-center gap-3 pt-4">
+            <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
+            <span className="px-3.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200 border border-blue-200 dark:border-blue-800 rounded-full text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-xs">
+              <Award className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />{" "}
+              Category Cutoff & Clearance Matrix
+            </span>
+            <div className="flex-1 border-t-2 border-dashed border-blue-200 dark:border-blue-800" />
+          </div>
+
+          <section
+            ref={(el) => (sectionRefs.current["cutoff"] = el)}
+            data-section-id="cutoff"
+            className="scroll-mt-24 space-y-4"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-200 dark:border-gray-700 p-5 sm:p-6">
+              {/* Top Banner: Status + User Category */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-xl shadow-sm shrink-0 ${
+                      result.cutoffData?.isCleared
+                        ? "bg-emerald-500 text-white"
+                        : "bg-rose-500 text-white"
+                    }`}
+                  >
+                    {result.cutoffData?.isCleared ? (
+                      <CheckCircle className="w-7 h-7" />
+                    ) : (
+                      <XCircle className="w-7 h-7" />
+                    )}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        Category: {result.cutoffData?.userCategory || "UR"}
+                      </span>
+                      <Link
+                        to="/dashboard?tab=personal"
+                        className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                        title="Change reservation category in profile"
+                      >
+                        (Change Category)
+                      </Link>
+                    </div>
+                    <h3 className="text-lg font-black text-gray-900 dark:text-white mt-1">
+                      {result.cutoffData?.isCleared
+                        ? `Cleared ${result.cutoffData?.userCategory || "UR"} Cutoff!`
+                        : `Missed ${result.cutoffData?.userCategory || "UR"} Cutoff`}
+                    </h3>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {result.cutoffData?.isCleared
+                        ? `You scored ${result.score} marks, qualifying with a margin of +${result.cutoffData?.margin} marks.`
+                        : `You scored ${result.score} marks, falling short by ${Math.abs(result.cutoffData?.margin ?? 0)} marks.`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Category Rank Badge */}
+                <div className="flex flex-col sm:items-end bg-slate-50 dark:bg-gray-700/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-700 shrink-0">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    Category Cohort Standing
+                  </span>
+                  <div className="text-base font-black text-gray-900 dark:text-white mt-0.5 flex items-center gap-1.5">
+                    <Award className="w-4 h-4 text-blue-500" />
+                    <span>Cat. Rank #{result.categoryRank || 1}</span>
+                    <span className="text-xs text-gray-400 font-normal">
+                      / {result.categoryParticipants || 1} candidates
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category Matrix Grid */}
+              <div className="pt-5">
+                <h4 className="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">
+                  All Categories Official Cutoff Benchmarks
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                  {Object.entries(
+                    result.cutoffData?.cutoffs || {
+                      UR: 120,
+                      OBC: 112,
+                      EWS: 109,
+                      SC: 98,
+                      ST: 90,
+                    },
+                  ).map(([cat, cutoffVal]) => {
+                    const isUserCat =
+                      (result.cutoffData?.userCategory || "UR") === cat;
+                    const clearedThis = (result.score ?? 0) >= cutoffVal;
+                    return (
+                      <div
+                        key={cat}
+                        className={`p-3 rounded-xl border text-center transition-all ${
+                          isUserCat
+                            ? "ring-2 ring-blue-500 bg-blue-50/70 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
+                            : "bg-gray-50 dark:bg-gray-700/30 border-gray-200 dark:border-gray-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span className="text-xs font-black text-gray-700 dark:text-gray-300">
+                            {cat}
+                          </span>
+                          {isUserCat && (
+                            <span className="text-[9px] font-black uppercase px-1 py-0.2 bg-blue-600 text-white rounded">
+                              YOU
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-base font-black text-gray-900 dark:text-white mt-1">
+                          {cutoffVal}
+                        </div>
+                        <div className="mt-1">
+                          <span
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              clearedThis
+                                ? "bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300"
+                                : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
+                            }`}
+                          >
+                            {clearedThis ? "Cleared" : "Below"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </section>
@@ -1508,22 +1713,25 @@ function TestResult() {
                           </td>
                           <td className="py-3 px-3 sm:px-4 text-center">
                             <span className="bg-indigo-100 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded-md font-black">
-                              {(
-                                result.accuracy ||
-                                (correctCount + wrongCount > 0
-                                  ? (correctCount /
-                                      (correctCount + wrongCount)) *
-                                    100
-                                  : 0)
-                              ).toFixed(1)}
-                              %
+                              {overallAccuracy.toFixed(1)}%
                             </span>
                           </td>
                           <td className="py-3 px-2 sm:px-3 text-center font-black text-indigo-700 dark:text-indigo-300">
                             {formatScoreValue(result.score || 0)}
                           </td>
                           <td className="py-3 px-3 sm:px-4 text-right tabular-nums">
-                            {formatTime(result.timeSpent || result.timeTaken)}
+                            {formatTime(
+                              subjectAccuracies.reduce(
+                                (sum, s) => sum + (Number(s.timeSpent) || 0),
+                                0,
+                              ) > 0
+                                ? subjectAccuracies.reduce(
+                                    (sum, s) =>
+                                      sum + (Number(s.timeSpent) || 0),
+                                    0,
+                                  )
+                                : result.timeSpent || result.timeTaken || 0,
+                            )}
                           </td>
                         </tr>
                       </tfoot>

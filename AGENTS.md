@@ -5,6 +5,7 @@ Turborepo monorepo: `apps/frontend` (React/Vite), `apps/backend` (Express/Node),
 Backend → PostgreSQL (Supabase) + Redis (BullMQ, Socket.IO adapter).
 
 ## START HERE — use the knowledge graph, do NOT search from scratch
+
 A knowledge graph of this repo lives in `graphify-out/`. Before exploring the
 codebase, consult it first — it is the accumulated map of architecture, secrets,
 and cross-cutting connections.
@@ -21,7 +22,24 @@ and cross-cutting connections.
 - Benchmark: the graph answers "how does X work?" in ~16k tokens vs ~1.6M for
   reading the whole 907-file / 1.2M-word corpus (~103x cheaper).
 
+## AUTO-SYNC — graph + REPO_BRAIN refresh themselves after every commit
+
+- `.husky/post-commit` → `.husky/graphify-sync.sh` (background, log:
+  `~/.cache/graphify-rebuild.log`): rebuilds `graphify-out/graph.json` +
+  `GRAPH_REPORT.md` from changed code files (no LLM), then runs
+  `scripts/sync-repo-brain.mjs` which refreshes every
+  `<span data-brain="…">` marker in `docs/REPO_BRAIN.html` (HEAD, counts,
+  graph metrics, god-node edges). Prose is never touched.
+- After doc/image changes only, the hook logs a reminder: run
+  `/graphify --update` (LLM re-extraction) — the hook handles code only.
+- Manual refresh anytime: `node scripts/sync-repo-brain.mjs` (in-place) or
+  `--check` (CI staleness guard, exit 1 when stale).
+- After changing architecture prose (new routes/tables/sections) in
+  REPO_BRAIN.html, edit the prose directly — the sync only updates
+  `data-brain` spans, so human-written sections stay authoritative.
+
 ## PRE-FLIGHT AUDIT — verify BEFORE writing code or running migrations
+
 These are real, graph-surfaced landmines. Check them every session:
 
 1. **Active credential / PII leaks in git history**
@@ -58,14 +76,16 @@ These are real, graph-surfaced landmines. Check them every session:
    Respect `aiRateLimiter`, publish to `MessageBroker` (Redis Pub/Sub +
    BullMQ), and write `audit_trail` entries. The admin router enforces
    `normalizeFields → restrictAdminOrigin → validateAdminApiKey → protect →
-   admin → auditMiddleware` — do not bypass.
+admin → auditMiddleware` — do not bypass.
 
 ## Multi-agent deployment (global rule)
+
 Before fanning out work to multiple agents, follow
 `.agents/rules/MULTI_AGENT_DEPLOYMENT_RULE.md` — one orchestrator, exclusive
 write territories, pre-flight checks, dispatch protocol, and verify gates.
 
 ## AI features (read before touching AI code)
+
 - AI gateway: OpenRouter (multi-provider) via `admin-ai.js` router.
 - Semantic search: pgvector (`vector(1536)` + ivfflat cosine indexes).
 - "Node Engine" evolves V1 (flat `nodes` table) → V2 (learning graph +

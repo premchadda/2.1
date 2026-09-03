@@ -1,7 +1,10 @@
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { dbHelpers } from "../infrastructure/database/postgres-helpers.js";
-import { getRedisClient } from "../infrastructure/cache/redisClient.js";
+import {
+  getRedisClient,
+  isRedisReady,
+} from "../infrastructure/cache/redisClient.js";
 import { isTransientDbError } from "../shared/utils/db-errors.js";
 import { getRuntimeSecuritySettings } from "../services/SettingsService.js";
 import { decryptUserPii } from "../shared/utils/user-utils.js";
@@ -23,38 +26,39 @@ const SESSION_CACHE_TTL = 300_000;
 const SESSION_CACHE_MAX = 2000;
 
 async function getCachedSession(sessionId) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      const cached = await redis.get(`session:${sessionId}`);
-      if (cached) return JSON.parse(cached);
-    } catch (err) {
-      console.warn("[Auth] Redis getCachedSession error:", err.message);
+  // 1. Check L1 in-memory cache first (0.001ms)
+  const entry = localSessionCache.get(String(sessionId));
+  if (entry) {
+    if (Date.now() <= entry.expiresAt) {
+      return entry.session;
+    }
+    localSessionCache.delete(String(sessionId));
+  }
+
+  // 2. Check L2 Redis only if L1 missed and Redis is ready
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const cached = await redis.get(`session:${sessionId}`);
+        if (cached) {
+          const session = JSON.parse(cached);
+          localSessionCache.set(String(sessionId), {
+            session,
+            expiresAt: Date.now() + SESSION_CACHE_TTL,
+          });
+          return session;
+        }
+      } catch (err) {
+        console.warn("[Auth] Redis getCachedSession error:", err.message);
+      }
     }
   }
-  const entry = localSessionCache.get(String(sessionId));
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    localSessionCache.delete(String(sessionId));
-    return null;
-  }
-  return entry.session;
+  return null;
 }
 
 async function setCachedSession(sessionId, session) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      await redis.set(
-        `session:${sessionId}`,
-        JSON.stringify(session),
-        "EX",
-        300,
-      );
-    } catch (err) {
-      console.warn("[Auth] Redis setCachedSession error:", err.message);
-    }
-  }
+  // 1. Immediately store in L1 in-memory cache
   if (localSessionCache.size >= SESSION_CACHE_MAX) {
     const firstKey = localSessionCache.keys().next().value;
     localSessionCache.delete(firstKey);
@@ -63,65 +67,95 @@ async function setCachedSession(sessionId, session) {
     session,
     expiresAt: Date.now() + SESSION_CACHE_TTL,
   });
+
+  // 2. Asynchronously update L2 Redis without blocking HTTP response
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      redis
+        .set(`session:${sessionId}`, JSON.stringify(session), "EX", 300)
+        .catch((err) => {
+          console.warn("[Auth] Redis setCachedSession error:", err.message);
+        });
+    }
+  }
 }
 
 export async function invalidateSessionCache(sessionId) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      await redis.del(`session:${sessionId}`);
-    } catch (err) {
-      console.warn("[Auth] Redis invalidateSessionCache error:", err.message);
+  localSessionCache.delete(String(sessionId));
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      redis.del(`session:${sessionId}`).catch((err) => {
+        console.warn("[Auth] Redis invalidateSessionCache error:", err.message);
+      });
     }
   }
-  localSessionCache.delete(String(sessionId));
 }
 
 async function getCachedUser(id) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      const cached = await redis.get(`user:cache:${id}`);
-      if (cached) return JSON.parse(cached);
-    } catch (err) {
-      console.warn("[Auth] Redis getCachedUser error:", err.message);
+  // 1. Check L1 in-memory cache first (0.001ms)
+  const entry = localUserCache.get(id);
+  if (entry) {
+    if (Date.now() <= entry.expiresAt) {
+      return entry.user;
+    }
+    localUserCache.delete(id);
+  }
+
+  // 2. Check L2 Redis only if L1 missed and Redis is ready
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      try {
+        const cached = await redis.get(`user:cache:${id}`);
+        if (cached) {
+          const user = JSON.parse(cached);
+          localUserCache.set(id, {
+            user,
+            expiresAt: Date.now() + USER_CACHE_TTL,
+          });
+          return user;
+        }
+      } catch (err) {
+        console.warn("[Auth] Redis getCachedUser error:", err.message);
+      }
     }
   }
-  const entry = localUserCache.get(id);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    localUserCache.delete(id);
-    return null;
-  }
-  return entry.user;
+  return null;
 }
 
 async function setCachedUser(id, user) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      await redis.set(`user:cache:${id}`, JSON.stringify(user), "EX", 60);
-    } catch (err) {
-      console.warn("[Auth] Redis setCachedUser error:", err.message);
-    }
-  }
+  // 1. Immediately store in L1 in-memory cache
   if (localUserCache.size >= USER_CACHE_MAX) {
     const firstKey = localUserCache.keys().next().value;
     localUserCache.delete(firstKey);
   }
   localUserCache.set(id, { user, expiresAt: Date.now() + USER_CACHE_TTL });
+
+  // 2. Asynchronously update L2 Redis without blocking HTTP response
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      redis
+        .set(`user:cache:${id}`, JSON.stringify(user), "EX", 60)
+        .catch((err) => {
+          console.warn("[Auth] Redis setCachedUser error:", err.message);
+        });
+    }
+  }
 }
 
 export async function invalidateUserCache(id) {
-  const redis = getRedisClient();
-  if (redis) {
-    try {
-      await redis.del(`user:cache:${id}`);
-    } catch (err) {
-      console.warn("[Auth] Redis invalidateUserCache error:", err.message);
+  localUserCache.delete(id);
+  if (typeof isRedisReady === "function" && isRedisReady()) {
+    const redis = getRedisClient();
+    if (redis) {
+      redis.del(`user:cache:${id}`).catch((err) => {
+        console.warn("[Auth] Redis invalidateUserCache error:", err.message);
+      });
     }
   }
-  localUserCache.delete(id);
 }
 
 /**

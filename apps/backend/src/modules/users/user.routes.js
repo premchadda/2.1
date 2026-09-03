@@ -123,7 +123,12 @@ const profileUpdateSchema = createSchema()
   .field("dateOfBirth", { type: "string", required: false, maxLength: 20 })
   .field("location", { type: "string", required: false, maxLength: 200 })
   .field("education", { type: "string", required: false, maxLength: 200 })
-  .field("bio", { type: "string", required: false, maxLength: 500 });
+  .field("bio", { type: "string", required: false, maxLength: 500 })
+  .field("category", {
+    type: "string",
+    required: false,
+    enum: ["UR", "OBC", "EWS", "SC", "ST", "General"],
+  });
 
 /**
  * Delete old profile asset file from disk
@@ -361,6 +366,7 @@ router.put(
         location,
         education,
         bio,
+        category,
         notificationPreferences,
         privacy,
         isActive,
@@ -368,6 +374,16 @@ router.put(
 
       // Sanitize inputs (Issue #33)
       const sanitizedData = {};
+      if (category !== undefined) {
+        const cleanCategory = String(category).trim().toUpperCase();
+        sanitizedData.category = ["UR", "OBC", "EWS", "SC", "ST"].includes(
+          cleanCategory === "GENERAL" ? "UR" : cleanCategory,
+        )
+          ? cleanCategory === "GENERAL"
+            ? "UR"
+            : cleanCategory
+          : "UR";
+      }
       if (name !== undefined)
         sanitizedData.name = String(name).trim().substring(0, 100);
       // Handle both 'mobile' and 'phone' fields (frontend sends 'phone')

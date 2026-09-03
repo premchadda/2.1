@@ -128,10 +128,219 @@ export const pickDefaultLanguage = (question) => {
   return hiScore > enScore ? "hi" : "en";
 };
 
+export const LANGUAGE_DISPLAY_NAMES = {
+  en: "English",
+  eng: "English",
+  english: "English",
+  hi: "Hindi",
+  hin: "Hindi",
+  hindi: "Hindi",
+  bn: "Bengali",
+  ben: "Bengali",
+  bengali: "Bengali",
+  bangla: "Bengali",
+  ta: "Tamil",
+  tam: "Tamil",
+  tamil: "Tamil",
+  te: "Telugu",
+  tel: "Telugu",
+  telugu: "Telugu",
+  mr: "Marathi",
+  mar: "Marathi",
+  marathi: "Marathi",
+  gu: "Gujarati",
+  guj: "Gujarati",
+  gujarati: "Gujarati",
+  kn: "Kannada",
+  kan: "Kannada",
+  kannada: "Kannada",
+  ml: "Malayalam",
+  mal: "Malayalam",
+  malayalam: "Malayalam",
+  pa: "Punjabi",
+  pan: "Punjabi",
+  pun: "Punjabi",
+  punjabi: "Punjabi",
+  or: "Odia",
+  od: "Odia",
+  ori: "Odia",
+  odi: "Odia",
+  odia: "Odia",
+  oriya: "Odia",
+  ur: "Urdu",
+  urd: "Urdu",
+  urdu: "Urdu",
+  as: "Assamese",
+  asm: "Assamese",
+  assamese: "Assamese",
+  sa: "Sanskrit",
+  san: "Sanskrit",
+  sanskrit: "Sanskrit",
+  ne: "Nepali",
+  nep: "Nepali",
+  nepali: "Nepali",
+  ks: "Kashmiri",
+  kas: "Kashmiri",
+  kashmiri: "Kashmiri",
+  sd: "Sindhi",
+  snd: "Sindhi",
+  sindhi: "Sindhi",
+  mai: "Maithili",
+  maithili: "Maithili",
+  bho: "Bhojpuri",
+  bhojpuri: "Bhojpuri",
+  doi: "Dogri",
+  dogri: "Dogri",
+  kok: "Konkani",
+  konkani: "Konkani",
+  mni: "Manipuri",
+  manipuri: "Manipuri",
+  brx: "Bodo",
+  bodo: "Bodo",
+  sat: "Santali",
+  santali: "Santali",
+  lus: "Mizo",
+  mizo: "Mizo",
+  fr: "French",
+  fre: "French",
+  fra: "French",
+  french: "French",
+  de: "German",
+  ger: "German",
+  deu: "German",
+  german: "German",
+  es: "Spanish",
+  spa: "Spanish",
+  spanish: "Spanish",
+  ru: "Russian",
+  rus: "Russian",
+  russian: "Russian",
+  zh: "Chinese",
+  chi: "Chinese",
+  zho: "Chinese",
+  chinese: "Chinese",
+  ja: "Japanese",
+  jpn: "Japanese",
+  japanese: "Japanese",
+  ar: "Arabic",
+  ara: "Arabic",
+  arabic: "Arabic",
+};
+
+/**
+ * Convert a language code, abbreviation, or string to its full proper display name.
+ * e.g. "en" -> "English", "hi" -> "Hindi", "bn" -> "Bengali"
+ * @param {string} code
+ * @returns {string}
+ */
+export const getLanguageDisplayName = (code) => {
+  if (!code || typeof code !== "string") return "";
+  const trimmed = code.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  if (LANGUAGE_DISPLAY_NAMES[lower]) {
+    return LANGUAGE_DISPLAY_NAMES[lower];
+  }
+  // If not in map, capitalize first letter if all lowercase, or preserve casing
+  if (trimmed === lower) {
+    return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+  }
+  return trimmed;
+};
+
+/**
+ * Parse any raw languages representation (array, JSON string, comma-separated string, single code)
+ * into an array of full proper language names.
+ * e.g. ["en", "hi"] -> ["English", "Hindi"]
+ *      "en, hi" -> ["English", "Hindi"]
+ *      '["en","hi"]' -> ["English", "Hindi"]
+ * @param {any} raw
+ * @param {string[]} [defaultLanguages=["English", "Hindi"]]
+ * @returns {string[]}
+ */
+export const parseLanguageList = (
+  raw,
+  defaultLanguages = ["English", "Hindi"],
+) => {
+  if (!raw) return defaultLanguages ? [...defaultLanguages] : [];
+
+  let list = [];
+  if (Array.isArray(raw)) {
+    list = raw;
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return defaultLanguages ? [...defaultLanguages] : [];
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          list = parsed;
+        }
+      } catch {
+        list = trimmed
+          .slice(1, -1)
+          .split(",")
+          .map((s) => s.trim().replace(/^['"]|['"]$/g, ""));
+      }
+    }
+    if (list.length === 0) {
+      if (trimmed.includes(",")) {
+        list = trimmed.split(",").map((s) => s.trim());
+      } else if (trimmed.includes("/")) {
+        list = trimmed.split("/").map((s) => s.trim());
+      } else {
+        list = [trimmed];
+      }
+    }
+  }
+
+  const result = list
+    .filter(Boolean)
+    .map((item) => getLanguageDisplayName(String(item)))
+    .filter(Boolean);
+
+  // Remove duplicates while preserving order
+  const unique = [...new Set(result)];
+  if (unique.length > 0) return unique;
+  return defaultLanguages ? [...defaultLanguages] : [];
+};
+
+/**
+ * Format language list with optional overflow truncation.
+ * e.g. (["en", "hi"], 2) -> "English, Hindi"
+ *      (["en", "hi", "te"], 2) -> "English, Hindi +1"
+ * @param {any} raw
+ * @param {number} [maxDisplay=2]
+ * @param {number} [extraCountOverride]
+ * @returns {string}
+ */
+export const formatLanguagesDisplay = (
+  raw,
+  maxDisplay = 2,
+  extraCountOverride,
+) => {
+  const languages = parseLanguageList(raw);
+  const extraCount =
+    typeof extraCountOverride === "number"
+      ? extraCountOverride
+      : languages.length > maxDisplay
+        ? languages.length - maxDisplay
+        : 0;
+  const displayLangs = languages.slice(0, maxDisplay);
+  if (extraCount > 0) {
+    return `${displayLangs.join(", ")} +${extraCount}`;
+  }
+  return languages.join(", ");
+};
+
 export default {
   hasDevanagari,
   hasLatin,
   detectScript,
   getLocalizedField,
   pickDefaultLanguage,
+  LANGUAGE_DISPLAY_NAMES,
+  getLanguageDisplayName,
+  parseLanguageList,
+  formatLanguagesDisplay,
 };
