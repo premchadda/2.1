@@ -33,7 +33,91 @@ export const invalidateResponseCache = async (namespace) => {
 // exhaust the connection pool and cause 504s on endpoints like /api/study).
 const inFlight = new Map();
 
-export const responseCache = (namespace, ttlSeconds = 30, options = {}) => {
+export const responseCache = (
+  namespaceOrOptions,
+  ttlSeconds = 30,
+  options = {},
+) => {
+  if (typeof namespaceOrOptions === "object" && namespaceOrOptions !== null) {
+    const {
+      ttl = 300,
+      prefix = "res:",
+      excludePaths = ["/api/auth", "/api/users", "/api/me", "/api/sessions"],
+      includePaths = [],
+      userScoped = true,
+    } = namespaceOrOptions;
+
+    return async (req, res, next) => {
+      if (req.method !== "GET") return next();
+      const requestPath = req.originalUrl || req.url || req.path;
+      const pathWithoutQuery = requestPath.split("?")[0];
+      const matchesPath = (candidate) =>
+        pathWithoutQuery.startsWith(candidate) ||
+        req.path.startsWith(candidate);
+      if (excludePaths.some(matchesPath)) return next();
+      if (includePaths.length > 0 && !includePaths.some(matchesPath))
+        return next();
+
+      const userScope = userScoped
+        ? req.user?.id
+          ? `u:${req.user.id}`
+          : "anon"
+        : "global";
+      const key = `${prefix}:${userScope}:${requestPath}`;
+
+      try {
+        const cached = await getCache(prefix, key);
+        if (cached !== null) {
+          res.set("X-Cache", "HIT");
+          return res.json(cached);
+        }
+      } catch {
+        // Cache read failure must never block the real request.
+      }
+
+      const barrier = inFlight.get(key);
+      if (barrier) {
+        try {
+          await barrier.promise;
+          const cached = await getCache(prefix, key).catch(() => null);
+          if (cached !== null) {
+            res.set("X-Cache", "HIT");
+            return res.json(cached);
+          }
+        } catch {
+          // fall through to run handler
+        }
+      }
+
+      let release = null;
+      const myBarrier = {
+        promise: new Promise((resolve) => {
+          release = resolve;
+        }),
+      };
+      inFlight.set(key, myBarrier);
+
+      const finish = () => {
+        inFlight.delete(key);
+        if (release) release();
+      };
+
+      const originalJson = res.json.bind(res);
+      res.json = (body) => {
+        res.json = originalJson;
+        finish();
+        if (res.statusCode < 400 && body && body.success !== false) {
+          setCache(prefix, key, body, ttl).catch(() => {});
+        }
+        res.set("X-Cache", "MISS");
+        return originalJson(body);
+      };
+
+      return next();
+    };
+  }
+
+  const namespace = namespaceOrOptions;
   const userScoped = options.userScoped !== false;
   return async (req, res, next) => {
     if (req.method !== "GET") {

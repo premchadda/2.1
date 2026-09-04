@@ -31,6 +31,7 @@ import adminRealtimeRoutes from "./admin-realtime.js";
 import adminRecycleBinRoutes from "./admin-recycle-bin.js";
 import adminRolesRoutes from "./admin-roles.js";
 import adminSectionsRoutes from "./admin-sections.js";
+import adminSessionsRoutes from "./admin-sessions.js";
 import adminSettingsRoutes from "./admin-settings.js";
 import adminStagesRoutes from "./admin-stages.js";
 import adminStatsRoutes from "./admin-stats.js";
@@ -107,6 +108,7 @@ export function mountAdminRoutes(app, adminLimiter) {
   app.use("/api/admin", adminLimiter, adminQuestionsRoutes);
   app.use("/api/admin", adminLimiter, adminRealtimeRoutes);
   app.use("/api/admin", adminLimiter, adminRolesRoutes);
+  app.use("/api/admin", adminLimiter, adminSessionsRoutes);
   app.use("/api/admin", adminLimiter, adminSettingsRoutes);
   app.use("/api/admin", adminLimiter, adminStagesRoutes);
   app.use("/api/admin", adminLimiter, adminStatsRoutes);

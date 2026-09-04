@@ -3,6 +3,7 @@
 .test-results-container {
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 40px 24px;
 }
 
@@ -12,6 +13,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   font-size: 18px;
   color: #94a3b8;
 }

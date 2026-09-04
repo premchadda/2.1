@@ -96,6 +96,7 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  min-height: 100dvh;
   font-size: 18px;
   color: #94a3b8;
 }
