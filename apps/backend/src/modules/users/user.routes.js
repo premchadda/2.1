@@ -273,10 +273,13 @@ router.get("/profile", protect, async (req, res) => {
       dbHelpers,
       req.user.id,
     );
-    const allSeries = await dbHelpers.find("testSeries");
-    const populatedSeries = allSeries.filter((s) =>
-      enrolledSeriesIds.some((id) => String(id) === String(s.id || s._id)),
-    );
+    const populatedSeries =
+      enrolledSeriesIds.length > 0
+        ? await dbHelpers.find("testSeries", {
+            id: { $in: enrolledSeriesIds },
+            isActive: true,
+          })
+        : [];
 
     // Fetch user's completed test attempts to calculate progress and provide attempted tests info
     const userAttempts = await getUserAttempts(req.user.id, dbHelpers, {
@@ -907,10 +910,13 @@ router.get("/enrolled-series", protect, async (req, res) => {
     );
 
     // Populate series details
-    const allSeries = await dbHelpers.find("testSeries", { isActive: true });
-    const populatedSeries = allSeries.filter((s) =>
-      enrolledSeriesIds.some((id) => String(id) === String(s.id || s._id)),
-    );
+    const populatedSeries =
+      enrolledSeriesIds.length > 0
+        ? await dbHelpers.find("testSeries", {
+            id: { $in: enrolledSeriesIds },
+            isActive: true,
+          })
+        : [];
 
     res.json({
       success: true,
@@ -1321,8 +1327,27 @@ router.get("/attempts/incomplete", protect, async (req, res) => {
         new Date(a.lastActivityAt || a.updatedAt || a.createdAt || 0),
     );
 
-    const tests = await dbHelpers.find("tests");
-    const series = await dbHelpers.find("testSeries");
+    const testIds = [
+      ...new Set(
+        incompleteAttempts.map((a) => a.testId || a.test_id).filter(Boolean),
+      ),
+    ];
+    const seriesIds = [
+      ...new Set(
+        incompleteAttempts
+          .map((a) => a.seriesId || a.series_id)
+          .filter(Boolean),
+      ),
+    ];
+
+    const [tests, series] = await Promise.all([
+      testIds.length > 0
+        ? dbHelpers.find("tests", { id: { $in: testIds } })
+        : Promise.resolve([]),
+      seriesIds.length > 0
+        ? dbHelpers.find("testSeries", { id: { $in: seriesIds } })
+        : Promise.resolve([]),
+    ]);
 
     const testMap = {};
     tests.forEach((test) =>

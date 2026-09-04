@@ -18,14 +18,14 @@ export const populateEnrolledSeries = async (user, dbHelpers) => {
     return [];
   }
 
-  // Fetch all series matching IDs
-  const allSeries = await dbHelpers.find("testSeries");
-  return allSeries.filter((series) =>
-    user.enrolledSeries.some(
-      (enrolledId) =>
-        idsMatch(enrolledId, series._id) || idsMatch(enrolledId, series.id),
-    ),
-  );
+  // Fetch only series matching enrolled IDs
+  const seriesIds = user.enrolledSeries
+    .map((id) => (typeof id === "object" && id ? id.id || id._id : id))
+    .filter(Boolean);
+
+  if (seriesIds.length === 0) return [];
+
+  return dbHelpers.find("testSeries", { id: { $in: seriesIds } });
 };
 
 // Credentials, hashes, salts, reset tokens, and internal secrets that must NEVER be returned in any API response.
