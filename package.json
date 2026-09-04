@@ -4,6 +4,10 @@
   "description": "Trstprep - India's #1 Platform for SSC & Railway Exam Preparation",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "node scripts/dev-sequential.mjs",
     "dev:seq": "node scripts/dev-sequential.mjs",
