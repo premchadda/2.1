@@ -108,7 +108,11 @@ async function enrichSeriesWithTestCounts(seriesList) {
   let categoriesResult = { rows: [] };
   let examsResult = { rows: [] };
 
-  if (seriesIds.length > 0) {
+  const numericSeriesIds = seriesIds
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+
+  if (numericSeriesIds.length > 0) {
     try {
       const [testsRes, enrollmentsRes, stagesRes, categoriesRes, examsRes] =
         await Promise.all([
@@ -117,16 +121,16 @@ async function enrichSeriesWithTestCounts(seriesList) {
                   SUM(CASE WHEN is_pro = false OR type ILIKE 'free' THEN 1 ELSE 0 END) as free_count,
                   json_agg(json_build_object('category', category, 'sub_category', sub_category, 'type', type, 'is_live', is_live)) as raw_tests
            FROM tests 
-           WHERE is_active = true AND series_id::text = ANY($1::text[])
+           WHERE is_active = true AND series_id = ANY($1::int[])
            GROUP BY series_id`,
-            [seriesIds.map(String)],
+            [numericSeriesIds],
           ),
           dbHelpers.pool.query(
             `SELECT series_id, COUNT(*) as count 
            FROM enrollments 
-           WHERE series_id::text = ANY($1::text[])
+           WHERE series_id = ANY($1::int[])
            GROUP BY series_id`,
-            [seriesIds.map(String)],
+            [numericSeriesIds],
           ),
           dbHelpers.pool.query(
             `SELECT id, name FROM stages WHERE is_active = true`,
@@ -151,8 +155,12 @@ async function enrichSeriesWithTestCounts(seriesList) {
   return seriesList.map((series) => {
     const sId = String(getInternalId(series));
     const testRow = testsResult.rows.find((r) => String(r.series_id) === sId);
-    const actualTestCount = testRow ? parseInt(testRow.actual_count) : 0;
-    const freeTestCount = testRow ? parseInt(testRow.free_count) : 0;
+    const storedTotal = parseInt(series.total_tests ?? series.totalTests) || 0;
+    const storedFree = parseInt(series.free_tests ?? series.freeTests) || 0;
+    const actualTestCount = testRow
+      ? parseInt(testRow.actual_count)
+      : storedTotal;
+    const freeTestCount = testRow ? parseInt(testRow.free_count) : storedFree;
     const rawTests = testRow ? testRow.raw_tests || [] : [];
     const testTypesMap = categorizeTests(rawTests);
 
