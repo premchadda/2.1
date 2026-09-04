@@ -29,7 +29,9 @@
     "load-test": "k6 run tests/load/api.js",
     "load-test:auth": "k6 run tests/load/auth.js",
     "load-test:api": "k6 run tests/load/api.js",
-    "load-test:realtime": "k6 run tests/load/realtime.js"
+    "load-test:realtime": "k6 run tests/load/realtime.js",
+    "ai:extract": "uv run python apps/backend/src/modules/ai/extract_pdf.py",
+    "py:setup": "uv venv .venv && uv pip install -e ."
   },
   "dependencies": {
     "turbo": "^2.10.12"

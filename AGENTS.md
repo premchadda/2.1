@@ -1,7 +1,8 @@
 # Trstprep — Agent Operating Rules
 
-Turborepo monorepo: `apps/frontend` (React/Vite), `apps/backend` (Express/Node),
+Turborepo monorepo with `pnpm` workspaces: `apps/frontend` (React/Vite), `apps/backend` (Express/Node),
 `apps/admin-panel` (React), `packages/*` (shared-config, shared-hooks).
+Python AI & document parsing tooling managed via `uv` (`.venv`).
 Backend → PostgreSQL (Supabase) + Redis (BullMQ, Socket.IO adapter).
 
 ## START HERE — use the knowledge graph, do NOT search from scratch
