@@ -291,6 +291,11 @@ export default defineConfig(({ mode }) => {
           __dirname,
           "../../packages/shared-config",
         ),
+        dompurify: path.resolve(__dirname, "node_modules/dompurify"),
+        "react-hot-toast": path.resolve(
+          __dirname,
+          "node_modules/react-hot-toast",
+        ),
       },
       dedupe: ["react", "react-dom", "react-router-dom", "react-router"],
       extensions: [".js", ".jsx", ".json"],

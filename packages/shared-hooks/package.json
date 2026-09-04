@@ -34,7 +34,8 @@
     "./ThemeContext.jsx": "./ThemeContext.jsx"
   },
   "dependencies": {
-    "react-hot-toast": "^2.6.0"
+    "react-hot-toast": "^2.6.0",
+    "socket.io-client": "^4.8.3"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

@@ -464,6 +464,9 @@ importers:
       axios:
         specifier: ^1.18.0
         version: 1.19.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
+      dompurify:
+        specifier: ^3.4.14
+        version: 3.4.14
       react:
         specifier: '>=18.0.0'
         version: 18.3.1
@@ -477,7 +480,7 @@ importers:
         specifier: ^2.6.0
         version: 2.6.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       socket.io-client:
-        specifier: '>=4.0.0'
+        specifier: ^4.8.3
         version: 4.8.3(supports-color@8.1.1)
 
 packages:
