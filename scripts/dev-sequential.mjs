@@ -67,23 +67,25 @@ function spawnProcess(name, command, args) {
   return child
 }
 
+const pkgMgr = (process.env.npm_config_user_agent?.includes('pnpm') || process.env.npm_execpath?.includes('pnpm')) ? 'pnpm' : 'npm'
+
 async function main() {
   // Step 1: Start backend
-  spawnProcess('trstprep-backend', 'npm', ['run', 'dev:backend'])
+  spawnProcess('trstprep-backend', pkgMgr, ['run', 'dev:backend'])
 
   // Step 2: Wait for backend health check
   await waitForBackendReady()
 
   // Step 3: Start frontend
   console.log(`[dev:seq] ⏳ Step 2/3: Launching frontend...`)
-  spawnProcess('trstprep-frontend', 'npm', ['run', 'dev:frontend'])
+  spawnProcess('trstprep-frontend', pkgMgr, ['run', 'dev:frontend'])
   
   // Wait 3 seconds before launching admin panel
   await new Promise((r) => setTimeout(r, 3000))
 
   // Step 4: Start admin panel
   console.log(`[dev:seq] ⏳ Step 3/3: Launching admin panel...`)
-  spawnProcess('trstprep-admin', 'npm', ['run', 'dev:admin'])
+  spawnProcess('trstprep-admin', pkgMgr, ['run', 'dev:admin'])
 }
 
 function cleanup() {
