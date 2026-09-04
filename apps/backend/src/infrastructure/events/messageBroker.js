@@ -140,7 +140,8 @@ class MessageBroker {
 
     try {
       await addJob(QUEUE_NAMES.EVENTS || "events", eventName, envelope, {
-        jobId: `event:${eventName}:${payload.userId || "system"}:${Date.now()}`,
+        // BullMQ custom job IDs cannot contain ":" - use "-" separators
+        jobId: `event-${eventName}-${payload.userId || "system"}-${Date.now()}`,
       });
     } catch (err) {
       logger.error(

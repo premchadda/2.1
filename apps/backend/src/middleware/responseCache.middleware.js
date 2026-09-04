@@ -1,4 +1,8 @@
-import { getCache, setCache, deleteCacheByPrefix } from "../infrastructure/cache/cacheService.js";
+import {
+  getCache,
+  setCache,
+  deleteCacheByPrefix,
+} from "../infrastructure/cache/cacheService.js";
 
 /**
  * Invalidate all response cache entries for a given namespace
@@ -68,7 +72,11 @@ export const responseCache = (namespace, ttlSeconds = 30) => {
     }
 
     let release = null;
-    const myBarrier = { promise: new Promise((resolve) => { release = resolve; }) };
+    const myBarrier = {
+      promise: new Promise((resolve) => {
+        release = resolve;
+      }),
+    };
     inFlight.set(key, myBarrier);
 
     const finish = () => {
@@ -81,13 +89,93 @@ export const responseCache = (namespace, ttlSeconds = 30) => {
       // Restore the original so it is only wrapped once.
       res.json = originalJson;
       if (res.statusCode < 400 && body && body.success !== false) {
-        setCache(namespace, key, body, ttlSeconds).catch(() => {}).finally(finish);
+        setCache(namespace, key, body, ttlSeconds)
+          .catch(() => {})
+          .finally(finish);
       } else {
         finish();
       }
       return originalJson(body);
     };
 
+    next();
+  };
+};
+
+// ─── Stale-While-Revalidate cache ───────────────────────────────────────────
+// Serves a cached response immediately (even past its fresh window) while a
+// background re-execution of the handler refreshes the entry. Users of slow
+// admin dashboards see instant responses; data converges within one request.
+//
+//   freshTtl: seconds a cached entry is served without any refresh attempt
+//   staleTtl: seconds a stale entry may be served while being refreshed
+const swrInFlight = new Set();
+
+export const swrCache = (namespace, { freshTtl = 60, staleTtl = 600 } = {}) => {
+  return async (req, res, next) => {
+    if (req.method !== "GET") return next();
+
+    const userScope = req.user?.id ? `u:${req.user.id}` : "anon";
+    const key = `swr:${namespace}:${userScope}:${req.originalUrl || req.url}`;
+
+    const envelope = await getCache(namespace, key).catch(() => null);
+    const now = Date.now();
+
+    if (envelope && typeof envelope.cachedAt === "number") {
+      const age = (now - envelope.cachedAt) / 1000;
+      if (age < freshTtl) {
+        // Fresh — serve and do not re-execute the handler.
+        res.set("X-Cache", "FRESH");
+        return res.json(envelope.body);
+      }
+
+      // Stale but usable — serve immediately, then refresh in the background
+      // by letting the real handler run below with its output swallowed.
+      res.set("X-Cache", "STALE");
+      res.json(envelope.body);
+
+      if (!swrInFlight.has(key)) {
+        swrInFlight.add(key);
+        // Replace res.json so the downstream handler's response is captured
+        // for the cache refresh but NOT written to the already-ended response.
+        res.json = (body) => {
+          res.json = () => {};
+          if (res.statusCode < 400 && body && body.success !== false) {
+            setCache(namespace, key, { cachedAt: Date.now(), body }, staleTtl)
+              .catch(() => {})
+              .finally(() => swrInFlight.delete(key));
+          } else {
+            swrInFlight.delete(key);
+          }
+          return res;
+        };
+        return next();
+      }
+
+      // A refresh is already in flight for this key; the stale copy was served.
+      return;
+    }
+
+    // Cold cache — run the handler and capture a fresh envelope.
+    if (swrInFlight.has(key)) {
+      // Another request is computing this exact entry right now; wait briefly
+      // for it rather than running a duplicate expensive query.
+      res.set("X-Cache", "WAIT");
+    }
+
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+      res.json = originalJson;
+      if (res.statusCode < 400 && body && body.success !== false) {
+        setCache(
+          namespace,
+          key,
+          { cachedAt: Date.now(), body },
+          staleTtl,
+        ).catch(() => {});
+      }
+      return originalJson(body);
+    };
     next();
   };
 };

@@ -57,6 +57,33 @@ const EVENT_TYPES = {
 const findAttemptByIdentifier = (attemptId) =>
   findEntityByIdentifier(dbHelpers, "attempts", attemptId);
 
+// PERF: lastActivityAt/heartbeat writes are only used for coarse liveness
+// tracking (session cleaners poll at 60s intervals), so writing on every
+// event/heartbeat is redundant. Throttle to one write per attempt per window.
+const ACTIVITY_WRITE_THROTTLE_MS = 30_000;
+const lastActivityWrites = new Map();
+
+const shouldWriteActivity = (attemptId) => {
+  const now = Date.now();
+  const last = lastActivityWrites.get(attemptId) || 0;
+  if (now - last < ACTIVITY_WRITE_THROTTLE_MS) return false;
+  lastActivityWrites.set(attemptId, now);
+  return true;
+};
+
+// Periodic cleanup so the throttle map cannot grow unbounded across attempts
+let lastThrottleSweep = Date.now();
+const sweepThrottleMap = () => {
+  const now = Date.now();
+  if (now - lastThrottleSweep < 10 * 60_000) return false;
+  lastThrottleSweep = now;
+  for (const [id, ts] of lastActivityWrites) {
+    if (now - ts > 60 * 60_000) lastActivityWrites.delete(id);
+  }
+  return true;
+};
+setInterval(sweepThrottleMap, 10 * 60_000).unref?.();
+
 const findQuestionByIdentifier = (questionId) =>
   findEntityByIdentifier(dbHelpers, "questions", questionId);
 
@@ -338,12 +365,10 @@ router.post("/resume", protect, async (req, res) => {
       attempt.status !== ATTEMPT_STATUS.PAUSED &&
       attempt.status !== ATTEMPT_STATUS.IN_PROGRESS
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: `Attempt cannot be resumed (status: ${attempt.status})`,
-        });
+      return res.status(400).json({
+        success: false,
+        message: `Attempt cannot be resumed (status: ${attempt.status})`,
+      });
     }
 
     // Calculate additional time spent during pause
@@ -746,10 +771,12 @@ router.post("/:attemptId/event", protect, async (req, res) => {
       eventData,
     );
 
-    // Update last activity
-    await dbHelpers.updateById("attempts", internalAttemptId, {
-      lastActivityAt: new Date().toISOString(),
-    });
+    // Update last activity (throttled: autosave already touches this column)
+    if (shouldWriteActivity(internalAttemptId)) {
+      await dbHelpers.updateById("attempts", internalAttemptId, {
+        lastActivityAt: new Date().toISOString(),
+      });
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -948,9 +975,12 @@ router.post("/:attemptId/events", protect, async (req, res) => {
     } else {
       // Update last activity only when we did not just revoke (the revoke
       // UPDATE already touched last_activity_at inside the transaction).
-      await dbHelpers.updateById("attempts", internalAttemptId, {
-        lastActivityAt: new Date().toISOString(),
-      });
+      // Throttled: autosave also updates this column every cycle.
+      if (shouldWriteActivity(internalAttemptId)) {
+        await dbHelpers.updateById("attempts", internalAttemptId, {
+          lastActivityAt: new Date().toISOString(),
+        });
+      }
     }
 
     res.json({ success: true });
@@ -1000,7 +1030,8 @@ router.post("/:attemptId/heartbeat", protect, async (req, res) => {
     }
 
     // Update last activity and heartbeat if attempt is still active
-    if (attemptStatus === "active") {
+    // (throttled: the heartbeat fires every few seconds per client)
+    if (attemptStatus === "active" && shouldWriteActivity(internalAttemptId)) {
       const nowIso = new Date().toISOString();
       await dbHelpers.updateById("attempts", internalAttemptId, {
         lastActivityAt: nowIso,

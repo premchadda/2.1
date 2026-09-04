@@ -472,6 +472,21 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    // PERF: kick off the user lookup immediately so it runs concurrently with
+    // session validation below. On a cold cache these were two sequential DB
+    // round trips to Postgres; on hosted DBs (Supabase) that doubles auth latency.
+    let userLookupError = null;
+    const userPromise = (async () => {
+      let u = await getCachedUser(decoded.id);
+      if (!u) {
+        u = await dbHelpers.findById("users", decoded.id);
+      }
+      return u;
+    })().catch((err) => {
+      userLookupError = err;
+      return null;
+    });
+
     // SESSION-SEC: Verify session is still active if token contains sessionId
     // (sessionId is embedded in JWT at login via auth.controller.js)
     if (decoded.sessionId) {
@@ -534,35 +549,32 @@ export const protect = async (req, res, next) => {
       }
     }
 
-    let user = await getCachedUser(decoded.id);
-    if (!user) {
-      try {
-        user = await dbHelpers.findById("users", decoded.id);
-      } catch (dbErr) {
-        if (isTransientDbError(dbErr)) {
-          // Transient infra failure — keep the session alive, ask client to retry.
-          console.warn(
-            "[Auth] User lookup temporarily unavailable during protect check:",
-            dbErr.message,
-          );
-          return res.status(503).json({
-            success: false,
-            code: "SERVICE_UNAVAILABLE",
-            message: "Service temporarily unavailable. Please try again.",
-          });
-        }
-        throw dbErr;
-      }
-
-      if (!user) {
-        return res.status(401).json({
+    let user = await userPromise;
+    if (userLookupError) {
+      if (isTransientDbError(userLookupError)) {
+        // Transient infra failure — keep the session alive, ask client to retry.
+        console.warn(
+          "[Auth] User lookup temporarily unavailable during protect check:",
+          userLookupError.message,
+        );
+        return res.status(503).json({
           success: false,
-          message: "Not authorized, user no longer exists",
+          code: "SERVICE_UNAVAILABLE",
+          message: "Service temporarily unavailable. Please try again.",
         });
       }
-
-      await setCachedUser(decoded.id, user);
+      throw userLookupError;
     }
+
+    if (!user) {
+      // Cache was empty on this path (userPromise already tried cache + DB).
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, user no longer exists",
+      });
+    }
+
+    await setCachedUser(decoded.id, user);
 
     if (user.isActive === false) {
       return res.status(403).json({

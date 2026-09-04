@@ -8,7 +8,7 @@ import {
   admin,
   superAdmin,
 } from "../../middleware/auth.middleware.js";
-import { responseCache } from "../../middleware/responseCache.middleware.js";
+import { swrCache } from "../../middleware/responseCache.middleware.js";
 import { sanitizeErrorMessage } from "../../utils/sanitizeError.js";
 
 const router = express.Router();
@@ -17,41 +17,44 @@ router.use(protect);
 router.use(admin);
 
 // ===== DASHBOARD STATS =====
-// PERF: cache the expensive aggregate for 30s (keyed by ?range=) so the
-// dashboard does not re-run multi-second DB queries on every navigation/refresh.
-router.get("/stats", responseCache("admin-stats", 30), async (req, res) => {
-  try {
-    const timeRange = req.query.range || "7d";
-    const now = new Date();
-    let startDate;
+// PERF: stale-while-revalidate — serve cached stats instantly and refresh in
+// the background. Admins previously waited 1-2s every 30s cache expiry.
+router.get(
+  "/stats",
+  swrCache("admin-stats", { freshTtl: 30, staleTtl: 600 }),
+  async (req, res) => {
+    try {
+      const timeRange = req.query.range || "7d";
+      const now = new Date();
+      let startDate;
 
-    switch (timeRange) {
-      case "24h":
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        break;
-      case "7d":
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case "30d":
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-        break;
-      case "90d":
-        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-        break;
-      case "ytd":
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    }
+      switch (timeRange) {
+        case "24h":
+          startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+          break;
+        case "7d":
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case "30d":
+          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          break;
+        case "90d":
+          startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+          break;
+        case "ytd":
+          startDate = new Date(now.getFullYear(), 0, 1);
+          break;
+        default:
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }
 
-    const isoStart = startDate.toISOString();
+      const isoStart = startDate.toISOString();
 
-    // PERF: Single consolidated query replaces separate COUNT(*) queries.
-    // Uses cross-table aggregation to get all counts in one round-trip.
-    const statsResult = await dbHelpers.pool
-      .query({
-        text: `
+      // PERF: Single consolidated query replaces separate COUNT(*) queries.
+      // Uses cross-table aggregation to get all counts in one round-trip.
+      const statsResult = await dbHelpers.pool
+        .query({
+          text: `
         SELECT
           (SELECT COUNT(*)::int FROM users) as total_users,
           (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
@@ -76,17 +79,17 @@ router.get("/stats", responseCache("admin-stats", 30), async (req, res) => {
           (SELECT COUNT(*)::int FROM subject_videos WHERE created_at >= $1) as new_videos,
           (SELECT COUNT(*)::int FROM subject_pdfs WHERE created_at >= $1) as new_pdfs
       `,
-        values: [isoStart],
-        query_timeout: 10000,
-      })
-      .catch(async (err) => {
-        // Fallback query if attempts or audit_logs schema differs
-        logger.warn(
-          "[ADMIN-STATS] Extended query failed, using baseline query:",
-          err.message,
-        );
-        return dbHelpers.pool.query({
-          text: `
+          values: [isoStart],
+          query_timeout: 10000,
+        })
+        .catch(async (err) => {
+          // Fallback query if attempts or audit_logs schema differs
+          logger.warn(
+            "[ADMIN-STATS] Extended query failed, using baseline query:",
+            err.message,
+          );
+          return dbHelpers.pool.query({
+            text: `
           SELECT
             (SELECT COUNT(*)::int FROM users) as total_users,
             (SELECT COUNT(*)::int FROM users WHERE is_active = true) as active_users,
@@ -111,80 +114,81 @@ router.get("/stats", responseCache("admin-stats", 30), async (req, res) => {
             (SELECT COUNT(*)::int FROM subject_videos WHERE created_at >= $1) as new_videos,
             (SELECT COUNT(*)::int FROM subject_pdfs WHERE created_at >= $1) as new_pdfs
         `,
-          values: [isoStart],
-          query_timeout: 10000,
+            values: [isoStart],
+            query_timeout: 10000,
+          });
         });
-      });
 
-    const s = statsResult.rows[0];
-    const proPassPrice = await getProPassPrice().catch(() => 499);
-    const calculatedRevenue = (s.pro_users || 0) * proPassPrice;
-    const pageViewsCount =
-      (s.total_users || 0) * 14 +
-      (s.test_attempts || 0) * 3 +
-      (s.tests || 0) * 2;
-    const avgTimeStr = s.test_attempts > 0 ? "16m" : "12m";
+      const s = statsResult.rows[0];
+      const proPassPrice = await getProPassPrice().catch(() => 499);
+      const calculatedRevenue = (s.pro_users || 0) * proPassPrice;
+      const pageViewsCount =
+        (s.total_users || 0) * 14 +
+        (s.test_attempts || 0) * 3 +
+        (s.tests || 0) * 2;
+      const avgTimeStr = s.test_attempts > 0 ? "16m" : "12m";
 
-    const userGrowthTrend =
-      s.total_users > 0
-        ? `+${Math.min(25, Math.max(1, Math.round(((s.new_users || 1) / Math.max(1, s.total_users)) * 100)))}%`
-        : "+5%";
-    const activeTrend =
-      s.active_users > 0
-        ? `+${Math.min(20, Math.max(1, Math.round(((s.new_users || 1) / Math.max(1, s.active_users)) * 80)))}%`
-        : "+4%";
-    const testTrend = s.new_tests > 0 ? `+${s.new_tests}` : "+2";
-    const pdfTrend = s.new_pdfs > 0 ? `+${s.new_pdfs}` : "+3";
-    const subTrend =
-      s.test_attempts > 0
-        ? `+${Math.min(30, Math.max(1, Math.round((s.test_attempts / Math.max(1, s.total_users)) * 10)))}%`
-        : "+8%";
-    const revTrend = calculatedRevenue > 0 ? "+12%" : "0%";
+      const userGrowthTrend =
+        s.total_users > 0
+          ? `+${Math.min(25, Math.max(1, Math.round(((s.new_users || 1) / Math.max(1, s.total_users)) * 100)))}%`
+          : "+5%";
+      const activeTrend =
+        s.active_users > 0
+          ? `+${Math.min(20, Math.max(1, Math.round(((s.new_users || 1) / Math.max(1, s.active_users)) * 80)))}%`
+          : "+4%";
+      const testTrend = s.new_tests > 0 ? `+${s.new_tests}` : "+2";
+      const pdfTrend = s.new_pdfs > 0 ? `+${s.new_pdfs}` : "+3";
+      const subTrend =
+        s.test_attempts > 0
+          ? `+${Math.min(30, Math.max(1, Math.round((s.test_attempts / Math.max(1, s.total_users)) * 10)))}%`
+          : "+8%";
+      const revTrend = calculatedRevenue > 0 ? "+12%" : "0%";
 
-    const stats = {
-      users: s.total_users,
-      activeUsers: s.active_users,
-      proUsers: s.pro_users,
-      admins: s.admin_users,
-      testSeries: s.test_series,
-      tests: s.tests,
-      questions: s.questions,
-      topics: s.topics,
-      videos: s.videos,
-      pdfs: s.pdfs,
-      studyMaterials: s.study_materials,
-      exams: s.exams,
-      media: s.media,
-      testAttempts: s.test_attempts || 0,
-      submissions: s.test_attempts || 0,
-      newUserCount: s.new_users,
-      newTestCount: s.new_tests,
-      newQuestionCount: s.new_questions,
-      newMediaCount: s.new_media,
-      newTopicCount: s.new_topics,
-      newVideoCount: s.new_videos,
-      newPdfCount: s.new_pdfs,
-      pageViews: pageViewsCount,
-      avgTimeOnSite: avgTimeStr,
-      errors: s.error_count || 0,
-      revenue: calculatedRevenue,
-      trends: {
-        users: userGrowthTrend,
-        activeUsers: activeTrend,
-        tests: testTrend,
-        pdfs: pdfTrend,
-        submissions: subTrend,
-        revenue: revTrend,
-      },
-    };
+      const stats = {
+        users: s.total_users,
+        activeUsers: s.active_users,
+        proUsers: s.pro_users,
+        admins: s.admin_users,
+        testSeries: s.test_series,
+        tests: s.tests,
+        questions: s.questions,
+        topics: s.topics,
+        videos: s.videos,
+        pdfs: s.pdfs,
+        studyMaterials: s.study_materials,
+        exams: s.exams,
+        media: s.media,
+        testAttempts: s.test_attempts || 0,
+        submissions: s.test_attempts || 0,
+        newUserCount: s.new_users,
+        newTestCount: s.new_tests,
+        newQuestionCount: s.new_questions,
+        newMediaCount: s.new_media,
+        newTopicCount: s.new_topics,
+        newVideoCount: s.new_videos,
+        newPdfCount: s.new_pdfs,
+        pageViews: pageViewsCount,
+        avgTimeOnSite: avgTimeStr,
+        errors: s.error_count || 0,
+        revenue: calculatedRevenue,
+        trends: {
+          users: userGrowthTrend,
+          activeUsers: activeTrend,
+          tests: testTrend,
+          pdfs: pdfTrend,
+          submissions: subTrend,
+          revenue: revTrend,
+        },
+      };
 
-    res.json({ success: true, data: stats });
-  } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: sanitizeErrorMessage(error) });
-  }
-});
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, message: sanitizeErrorMessage(error) });
+    }
+  },
+);
 
 // ===== ANALYTICS EXPORT =====
 router.get("/analytics/export", async (req, res) => {
@@ -245,10 +249,11 @@ router.get("/analytics/export", async (req, res) => {
 });
 
 // ===== ANALYTICS DATA =====
-// PERF: cache the expensive aggregate for 30s (keyed by ?range=).
+// PERF: stale-while-revalidate — serve cached analytics instantly and refresh
+// in the background.
 router.get(
   "/analytics",
-  responseCache("admin-analytics", 30),
+  swrCache("admin-analytics", { freshTtl: 30, staleTtl: 600 }),
   async (req, res) => {
     try {
       const timeRange = req.query.range || "7d";
