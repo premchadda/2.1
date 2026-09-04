@@ -1724,9 +1724,16 @@ function TestDetails() {
     );
   }
 
-  // Show Coming Soon banner if series exists but has no tests yet
+  // Show Coming Soon banner only when the series is explicitly flagged OR when
+  // both the live tests array AND the server-stored totalTests count are zero.
+  // Guarding against totalTests prevents a slow/failed API response from
+  // falsely triggering Coming Soon on a series that already has tests.
+  const storedTotalTests = Number(
+    series?.total_tests ?? series?.totalTests ?? 0,
+  );
   const showComingSoonBanner =
-    series && (series.isComingSoon || tests.length === 0);
+    series &&
+    (series.isComingSoon || (tests.length === 0 && storedTotalTests === 0));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">

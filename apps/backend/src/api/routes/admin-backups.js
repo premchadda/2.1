@@ -1,13 +1,17 @@
 import express from "express";
 import { dbHelpers } from "../../infrastructure/database/postgres-helpers.js";
 import logger from "../../infrastructure/logger/logger.js";
-import { protect, admin, superAdmin } from '../../middleware/auth.middleware.js';
-import { responseCache } from '../../middleware/responseCache.middleware.js';
+import {
+  protect,
+  admin,
+  superAdmin,
+} from "../../middleware/auth.middleware.js";
+import { responseCache } from "../../middleware/responseCache.middleware.js";
 
 const router = express.Router();
 
-router.use(protect)
-router.use(admin)
+router.use(protect);
+router.use(admin);
 
 const IS_SERVERLESS = !!(
   process.env.VERCEL ||
@@ -21,7 +25,7 @@ const rejectOnServerless = (req, res, next) => {
     return res.status(501).json({
       success: false,
       message: "Backups are not supported on serverless platforms",
-      code: "BACKUPS_UNSUPPORTED"
+      code: "BACKUPS_UNSUPPORTED",
     });
   }
   next();
@@ -39,23 +43,36 @@ const resolveBackupFilePath = (fileName) => {
   const filePath = pathNode.join(backupDir, safeFileName);
   const resolvedBackupDir = pathNode.resolve(backupDir);
   const resolvedFilePath = pathNode.resolve(filePath);
-  if (!resolvedFilePath.startsWith(resolvedBackupDir + pathNode.sep)) return null;
+  if (!resolvedFilePath.startsWith(resolvedBackupDir + pathNode.sep))
+    return null;
   return filePath;
 };
 
 // ===== BACKUPS =====
 // NOTE: This router is mounted at /backups in admin.js, so routes here are
 // relative to /api/admin/backups. Do NOT prefix routes with "/backups".
-router.get("/", rejectOnServerless, responseCache('admin-backups', 60), async (req, res) => {
-  try {
-    // For now, return empty list - in production this would query actual backup files
-    const backups = await dbHelpers.find("backups", {});
-    res.json({ success: true, data: backups });
-  } catch (error) {
-    logger.error("List backups error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
+router.get(
+  "/",
+  rejectOnServerless,
+  responseCache("admin-backups", 60),
+  async (req, res) => {
+    try {
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 100, 1),
+        500,
+      );
+      const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+      // For now, return empty list - in production this would query actual backup files
+      const backups = await dbHelpers.find("backups", {}, limit, offset);
+      res.json({ success: true, data: backups });
+    } catch (error) {
+      logger.error("List backups error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  },
+);
 
 router.post("/", rejectOnServerless, async (req, res) => {
   try {
@@ -65,7 +82,13 @@ router.post("/", rejectOnServerless, async (req, res) => {
       name || `Backup_${new Date().toISOString().split("T")[0]}`;
     const backupName = backupNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_");
     if (!/^[a-zA-Z0-9_-]+$/.test(backupName)) {
-      return res.status(400).json({ success: false, message: "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
+        });
     }
     const timestamp = Date.now();
     const backupFile = `${backupName}_${timestamp}`;
@@ -74,7 +97,8 @@ router.post("/", rejectOnServerless, async (req, res) => {
     const fs = await import("fs");
     const path = await import("path");
     const backupDir = path.default.join(process.cwd(), "backups");
-    if (!fs.default.existsSync(backupDir)) fs.default.mkdirSync(backupDir, { recursive: true });
+    if (!fs.default.existsSync(backupDir))
+      fs.default.mkdirSync(backupDir, { recursive: true });
 
     let backupRecord = null;
 
@@ -257,7 +281,7 @@ router.post("/", rejectOnServerless, async (req, res) => {
     } catch (sqlError) {
       logger.error(`[Backups] SQL export also failed: ${sqlError.message}`);
       throw new Error(
-        `Backup failed: pg_dump error (${global.pgDumpError?.message || 'unknown'}), SQL export error (${sqlError.message})`,
+        `Backup failed: pg_dump error (${global.pgDumpError?.message || "unknown"}), SQL export error (${sqlError.message})`,
       );
     }
   } catch (error) {
@@ -282,7 +306,9 @@ router.delete("/:id", rejectOnServerless, superAdmin, async (req, res) => {
       const fs = await import("fs");
       const filePath = resolveBackupFilePath(backup.fileName);
       if (!filePath) {
-        logger.warn(`[Backups] Delete rejected: fileName "${backup.fileName}" contains path components`);
+        logger.warn(
+          `[Backups] Delete rejected: fileName "${backup.fileName}" contains path components`,
+        );
       } else if (fs.default.existsSync(filePath)) {
         fs.default.unlinkSync(filePath);
         logger.info(`[Backups] Deleted file: ${backup.fileName}`);
@@ -310,97 +336,116 @@ router.delete("/:id", rejectOnServerless, superAdmin, async (req, res) => {
 });
 
 // FIX: Restore backup - execute SQL or pg_restore
-router.post("/:id/restore", rejectOnServerless, superAdmin, async (req, res) => {
-  try {
-    const backup = await dbHelpers.findById("backups", req.params.id);
-    if (!backup || backup.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-    if (backup.status !== "completed") {
-      return res
-        .status(400)
-        .json({ success: false, message: "Backup is not completed" });
-    }
+router.post(
+  "/:id/restore",
+  rejectOnServerless,
+  superAdmin,
+  async (req, res) => {
+    try {
+      const backup = await dbHelpers.findById("backups", req.params.id);
+      if (!backup || backup.isActive === false) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Backup not found" });
+      }
+      if (backup.status !== "completed") {
+        return res
+          .status(400)
+          .json({ success: false, message: "Backup is not completed" });
+      }
 
-    const pathNode = await import("path");
-    const fs = await import("fs");
-    const { execFile } = await import("child_process");
+      const pathNode = await import("path");
+      const fs = await import("fs");
+      const { execFile } = await import("child_process");
 
-    // Security: guard against path traversal via a poisoned backup.fileName.
-    const filePath = resolveBackupFilePath(backup.fileName);
-    if (!filePath) {
-      logger.warn(`[Backups] Restore rejected: fileName "${backup.fileName}" contains path components`);
-      return res.status(400).json({ success: false, message: "Invalid backup file name" });
-    }
-
-    if (!fs.default.existsSync(filePath)) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup file not found on disk" });
-    }
-
-    const dbUrl = process.env.DATABASE_URL || "";
-
-    if (backup.format === "pg_dump_binary") {
-      // Use pg_restore for binary dumps
-      await new Promise((resolve, reject) => {
-        execFile(
-          "pg_restore",
-          ["--clean", "--if-exists", "--no-owner", "--no-privileges", "--dbname", dbUrl, filePath],
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
-          (error, stdout, stderr) => {
-            if (error)
-              reject(
-                new Error(`pg_restore failed: ${stderr || error.message}`),
-              );
-            else resolve();
-          },
+      // Security: guard against path traversal via a poisoned backup.fileName.
+      const filePath = resolveBackupFilePath(backup.fileName);
+      if (!filePath) {
+        logger.warn(
+          `[Backups] Restore rejected: fileName "${backup.fileName}" contains path components`,
         );
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid backup file name" });
+      }
+
+      if (!fs.default.existsSync(filePath)) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Backup file not found on disk" });
+      }
+
+      const dbUrl = process.env.DATABASE_URL || "";
+
+      if (backup.format === "pg_dump_binary") {
+        // Use pg_restore for binary dumps
+        await new Promise((resolve, reject) => {
+          execFile(
+            "pg_restore",
+            [
+              "--clean",
+              "--if-exists",
+              "--no-owner",
+              "--no-privileges",
+              "--dbname",
+              dbUrl,
+              filePath,
+            ],
+            { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
+            (error, stdout, stderr) => {
+              if (error)
+                reject(
+                  new Error(`pg_restore failed: ${stderr || error.message}`),
+                );
+              else resolve();
+            },
+          );
+        });
+      } else {
+        // Execute SQL file using psql
+        await new Promise((resolve, reject) => {
+          execFile(
+            "psql",
+            ["--dbname", dbUrl, "-f", filePath],
+            { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
+            (error, stdout, stderr) => {
+              if (error)
+                reject(
+                  new Error(`psql restore failed: ${stderr || error.message}`),
+                );
+              else resolve();
+            },
+          );
+        });
+      }
+
+      // Log restore action
+      await dbHelpers.insertOne("activityLogs", {
+        action: "backup_restored",
+        tableName: "backups",
+        recordId: backup.id,
+        userId: req.user?.id,
+        userName: req.user?.name || req.user?.email || "Admin",
+        userEmail: req.user?.email || "",
+        ipAddress: req.ip || req.connection?.remoteAddress || "",
+        userAgent: req.headers["user-agent"] || "",
+        oldData: null,
+        newData: { backupName: backup.name, format: backup.format },
+        timestamp: new Date().toISOString(),
       });
-    } else {
-      // Execute SQL file using psql
-      await new Promise((resolve, reject) => {
-        execFile(
-          "psql",
-          ["--dbname", dbUrl, "-f", filePath],
-          { timeout: 600000, maxBuffer: 20 * 1024 * 1024 },
-          (error, stdout, stderr) => {
-            if (error)
-              reject(
-                new Error(`psql restore failed: ${stderr || error.message}`),
-              );
-            else resolve();
-          },
-        );
+
+      res.json({
+        success: true,
+        message: `Database restored from backup: ${backup.name}`,
       });
+    } catch (error) {
+      logger.error("[Backups] Restore failed:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
-
-    // Log restore action
-    await dbHelpers.insertOne("activityLogs", {
-      action: "backup_restored",
-      tableName: "backups",
-      recordId: backup.id,
-      userId: req.user?.id,
-      userName: req.user?.name || req.user?.email || "Admin",
-      userEmail: req.user?.email || "",
-      ipAddress: req.ip || req.connection?.remoteAddress || "",
-      userAgent: req.headers["user-agent"] || "",
-      oldData: null,
-      newData: { backupName: backup.name, format: backup.format },
-      timestamp: new Date().toISOString(),
-    });
-
-    res.json({
-      success: true,
-      message: `Database restored from backup: ${backup.name}`,
-    });
-  } catch (error) {
-    logger.error("[Backups] Restore failed:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
+  },
+);
 
 // FIX: Trigger actual database backup (POST /api/admin/backups/trigger)
 router.post("/trigger", rejectOnServerless, superAdmin, async (req, res) => {
@@ -410,7 +455,13 @@ router.post("/trigger", rejectOnServerless, superAdmin, async (req, res) => {
       name || `Auto_Backup_${new Date().toISOString().split("T")[0]}`;
     const backupName = backupNameRaw.replace(/[^a-zA-Z0-9_-]/g, "_");
     if (!/^[a-zA-Z0-9_-]+$/.test(backupName)) {
-      return res.status(400).json({ success: false, message: "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message:
+            "Invalid backup name: only alphanumeric, underscore, and hyphen characters allowed",
+        });
     }
     const timestamp = Date.now();
     const backupFile = `${backupName}_${timestamp}`;
@@ -470,37 +521,48 @@ router.post("/trigger", rejectOnServerless, superAdmin, async (req, res) => {
 });
 
 // Download backup file
-router.get("/:id/download", rejectOnServerless, superAdmin, async (req, res) => {
-  try {
-    const backup = await dbHelpers.findById("backups", req.params.id);
-    if (!backup || backup.isActive === false) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup not found" });
-    }
-    if (backup.status === "completed" && backup.fileName) {
-      const fs = await import("fs");
-      const filePath = resolveBackupFilePath(backup.fileName);
-      if (!filePath) {
-        logger.warn(`[Backups] Download rejected: fileName "${backup.fileName}" contains path components`);
-        return res.status(400).json({ success: false, message: "Invalid backup file name" });
+router.get(
+  "/:id/download",
+  rejectOnServerless,
+  superAdmin,
+  async (req, res) => {
+    try {
+      const backup = await dbHelpers.findById("backups", req.params.id);
+      if (!backup || backup.isActive === false) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Backup not found" });
       }
-      if (fs.default.existsSync(filePath)) {
-        res.download(filePath, backup.fileName);
-        return;
+      if (backup.status === "completed" && backup.fileName) {
+        const fs = await import("fs");
+        const filePath = resolveBackupFilePath(backup.fileName);
+        if (!filePath) {
+          logger.warn(
+            `[Backups] Download rejected: fileName "${backup.fileName}" contains path components`,
+          );
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid backup file name" });
+        }
+        if (fs.default.existsSync(filePath)) {
+          res.download(filePath, backup.fileName);
+          return;
+        }
+        return res
+          .status(404)
+          .json({ success: false, message: "Backup file not found on disk" });
       }
-      return res
-        .status(404)
-        .json({ success: false, message: "Backup file not found on disk" });
+      res.status(400).json({
+        success: false,
+        message: "Backup is not available for download",
+      });
+    } catch (error) {
+      logger.error("Download backup error:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
     }
-    res.status(400).json({
-      success: false,
-      message: "Backup is not available for download",
-    });
-  } catch (error) {
-    logger.error("Download backup error:", error);
-    res.status(500).json({ success: false, message: "Internal server error" });
-  }
-});
+  },
+);
 
 export default router;
