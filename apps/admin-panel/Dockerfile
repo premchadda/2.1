@@ -4,11 +4,13 @@ WORKDIR /app
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
 
-COPY package*.json ./
-RUN npm ci
+RUN npm install -g pnpm
+
+COPY package*.json pnpm-lock.yaml* ./
+RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else npm ci; fi
 
 COPY . .
-RUN npm run build
+RUN if [ -f pnpm-lock.yaml ]; then pnpm run build; else npm run build; fi
 
 # FIX 2.17: Run as non-root user in production
 FROM nginx:alpine

@@ -15,12 +15,14 @@ ENV VITE_GOOGLE_CLIENT_ID=${VITE_GOOGLE_CLIENT_ID}
 ENV VITE_SUPPORT_EMAIL=${VITE_SUPPORT_EMAIL}
 ENV VITE_SITE_URL=${VITE_SITE_URL}
 
-COPY package*.json ./
+RUN npm install -g pnpm
+
+COPY package*.json pnpm-lock.yaml* ./
 # --ignore-scripts avoids running `prepare: husky install` which fails without .git/
-RUN npm ci --ignore-scripts
+RUN if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile; else npm ci --ignore-scripts; fi
 
 COPY . .
-RUN npm run build
+RUN if [ -f pnpm-lock.yaml ]; then pnpm run build; else npm run build; fi
 
 # Pin nginx to a specific minor + digest for reproducible builds
 FROM nginx:1.27-alpine

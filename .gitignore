@@ -179,3 +179,10 @@ agent-skills/
 *.key
 *.pem
 deploy/nginx/certs/
+
+# Python virtual environments & caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+

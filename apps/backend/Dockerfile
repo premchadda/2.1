@@ -1,8 +1,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install -g pnpm
+
+COPY package*.json pnpm-lock.yaml* ./
+RUN if [ -f pnpm-lock.yaml ]; then pnpm install --prod --frozen-lockfile; else npm ci --omit=dev; fi
 
 FROM node:20-alpine
 WORKDIR /app

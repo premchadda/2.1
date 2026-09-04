@@ -47,23 +47,28 @@ echo ""
 echo "📦 Deploying Frontend..."
 cd apps/frontend
 
-# Install dependencies (skip if node_modules and package-lock are in sync)
-if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
-    echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+# Install dependencies (detect pnpm or npm)
+if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then
+    echo "  → Installing dependencies with pnpm..."
+    pnpm install
 else
-    echo "  → Installing dependencies..."
-    npm ci
+    if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
+        echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+    else
+        echo "  → Installing dependencies with npm..."
+        npm ci
+    fi
 fi
 
 # Build for production (skip if build exists and is newer than source)
 if [ -d "dist" ] && find src -newer dist -print -quit | grep -q .; then
     echo "  → Building for production..."
-    npm run build
+    if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then pnpm run build; else npm run build; fi
 elif [ -d "dist" ]; then
-    echo "  ⏭️  Build is up-to-date (skipping npm run build)"
+    echo "  ⏭️  Build is up-to-date (skipping build)"
 else
     echo "  → Building for production (no dist found)..."
-    npm run build
+    if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then pnpm run build; else npm run build; fi
 fi
 
 # Check if Vercel CLI is installed
@@ -82,12 +87,17 @@ echo ""
 echo "📦 Deploying Backend..."
 cd apps/backend
 
-# Install dependencies (skip if up-to-date)
-if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
-    echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+# Install dependencies (detect pnpm or npm)
+if command -v pnpm &> /dev/null && [ -f "../../pnpm-lock.yaml" -o -f "pnpm-lock.yaml" ]; then
+    echo "  → Installing backend dependencies with pnpm..."
+    pnpm install --prod
 else
-    echo "  → Installing dependencies..."
-    npm ci
+    if [ -d "node_modules" ] && [ -f "package-lock.json" ] && [ "node_modules/package-lock.json" -nt "package-lock.json" ] 2>/dev/null; then
+        echo "  ⏭️  Dependencies already installed (skipping npm ci)"
+    else
+        echo "  → Installing dependencies with npm..."
+        npm ci
+    fi
 fi
 
 # Run migrations before deploy
