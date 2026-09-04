@@ -36,17 +36,19 @@ Historical `dev-tools/` references removed — canonical scripts live in `script
 
 ## Apps And Ports
 
-| App         | Path               | Default Port | Health / Entry |
-| ----------- | ------------------ | ------------ | -------------- |
+| App         | Path               | Default Port | Health / Entry                     |
+| ----------- | ------------------ | ------------ | ---------------------------------- |
 | Backend API | `apps/backend`     | `5001`       | `http://localhost:5001/api/health` |
-| Frontend    | `apps/frontend`    | `3000`       | Vite dev server, proxy → backend |
-| Admin panel | `apps/admin-panel` | `3002`       | Separate Vercel project |
+| Frontend    | `apps/frontend`    | `3000`       | Vite dev server, proxy → backend   |
+| Admin panel | `apps/admin-panel` | `3002`       | Separate Vercel project            |
 
 Backend is single entry `apps/backend/src/app-port5001.js` (1022 route defs, admin chain `restrictAdminOrigin → validateAdminApiKey → protect → admin → auditMiddleware`).
 
 ## Prerequisites
 
-- Node.js 20+ (see `.nvmrc`), npm 10.8+
+- Node.js 20+ (see `.nvmrc`)
+- **Package Manager**: `pnpm` 10+ / 11+ (recommended for workspaces & Turborepo) or `npm` 10.8+
+- **Python Tooling**: Python 3.11+ and `uv` (for AI PDF parsing, AST analysis, and document ingestion)
 - PostgreSQL (Supabase) + `DATABASE_URL`; optional `DATABASE_READ_URL` (read replica, falls back to primary)
 - Redis (Upstash / local) — optional for API dev, required for worker/queues/Socket.IO adapter
 - Docker (optional) for `docker-compose.yml` / `deploy/` flows
@@ -54,8 +56,15 @@ Backend is single entry `apps/backend/src/app-port5001.js` (1022 route defs, adm
 ## Installation
 
 ```bash
-npm install
-# installs all workspaces (apps/*, packages/*)
+# Node monorepo (recommended)
+pnpm install
+
+# (Optional fallback if using npm)
+# npm install
+
+# Python AI environment (instant setup with uv)
+uv venv
+uv pip install -e .
 ```
 
 Verify graph after install:
@@ -130,34 +139,40 @@ VITE_ADMIN_API_KEY=same-as-backend-ADMIN_API_KEY
 Start everything through Turborepo:
 
 ```bash
-npm run dev              # turbo dev — all apps in parallel
-npm run dev:seq           # sequential start (scripts/dev-sequential.mjs)
-npm run dev:ordered       # alias of dev:seq
+pnpm dev              # turbo dev — all apps in parallel (or: npm run dev)
+pnpm run dev:seq      # sequential start (scripts/dev-sequential.mjs)
+pnpm run dev:ordered  # alias of dev:seq
 ```
 
 Or run individual apps:
 
 ```bash
-npm run dev:backend  # turbo dev --filter=trstprep-backend
-npm run dev:frontend # turbo dev --filter=trstprep-frontend
-npm run dev:admin    # turbo dev --filter=trstprep-admin
+pnpm run dev:backend  # turbo dev --filter=trstprep-backend
+pnpm run dev:frontend # turbo dev --filter=trstprep-frontend
+pnpm run dev:admin    # turbo dev --filter=trstprep-admin
 ```
 
 Backend-only worker process:
 
 ```bash
-cd apps/backend
-npm run worker:dev
+pnpm --filter trstprep-backend run worker:dev
+```
+
+Python AI extraction & document tools:
+
+```bash
+# Run PDF extraction via uv
+uv run python apps/backend/src/modules/ai/extract_pdf.py <path-to-pdf>
 ```
 
 ## Build Commands
 
 ```bash
-npm run build          # echo 'Build completed' (root placeholder)
-npm run build:all      # turbo build -- all apps
-npm run build:backend  # turbo build --filter=trstprep-backend
-npm run build:frontend # turbo build --filter=trstprep-frontend
-npm run build:admin    # turbo build --filter=trstprep-admin
+pnpm run build          # production builds
+pnpm run build:all      # turbo build -- all apps
+pnpm run build:backend  # turbo build --filter=trstprep-backend
+pnpm run build:frontend # turbo build --filter=trstprep-frontend
+pnpm run build:admin    # turbo build --filter=trstprep-admin
 ```
 
 ## Testing And Linting
@@ -165,12 +180,12 @@ npm run build:admin    # turbo build --filter=trstprep-admin
 Root commands:
 
 ```bash
-npm run test       # turbo test
-npm run lint       # turbo lint
-npm run format     # prettier --write "**/*.{js,jsx,ts,tsx,json,md}"
-npm run load-test         # k6 run tests/load/api.js
-npm run load-test:auth    # k6 auth load
-npm run load-test:realtime # k6 realtime
+pnpm test       # turbo test
+pnpm lint       # turbo lint
+pnpm format     # prettier --write "**/*.{js,jsx,ts,tsx,json,md}"
+pnpm load-test         # k6 run tests/load/api.js
+pnpm load-test:auth    # k6 auth load
+pnpm load-test:realtime # k6 realtime
 ```
 
 Current state (verified Aug 23, 2026):
@@ -189,6 +204,7 @@ npm run watch-docs
 ```
 
 The `scripts/` directory (and `apps/backend/scripts/`, `apps/backend/src/infrastructure/database/scripts/`) contains one-off audit and repair scripts for data maintenance. Key scripts:
+
 - `scripts/run-database-audit.js` — schema audit (run before any migration)
 - `scripts/dev-sequential.mjs` — ordered dev start
 - `deploy/logging.md` — logging setup
@@ -222,4 +238,4 @@ The `scripts/` directory (and `apps/backend/scripts/`, `apps/backend/src/infrast
 
 ---
 
-*Last Updated: August 23, 2026 — content audited against commit `29cc9ed2` + live file counts*
+_Last Updated: August 23, 2026 — content audited against commit `29cc9ed2` + live file counts_

@@ -52,17 +52,21 @@ dev-tools/     # Development scripts
 ## Running the Project
 
 ```bash
-# Install dependencies
-npm install
+# Install Node dependencies (recommended: pnpm)
+pnpm install
+
+# Setup Python AI environment
+uv venv
+uv pip install -e .
 
 # Start development servers
-npm run dev
+pnpm dev
 
 # Build for production
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ## Pull Request Checklist
